@@ -294,8 +294,16 @@ export const TUNING = {
     maxSpeed: 80,
     /** Rotational damping about each body axis, N·m·s (linear), on top of
      * what the probes' drag produces: the water's added-mass damping that
-     * a dozen point drags under-count. Pitch, yaw, roll. */
-    rotDamp: { x: 300, y: 650, z: 400 },
+     * a dozen point drags under-count. Pitch, yaw, roll.
+     *
+     * YAW IS THE SMALLEST OF THE THREE, and the geometry is why: the water
+     * a rotating hull has to shift is the area it sweeps normal to the
+     * motion. Pitching and rolling sweep the BOTTOM — length × beam, a few
+     * square metres; yawing sweeps only the hull's LATERAL profile, length
+     * × immersion, which on the plane is a strip a couple of tenths of a
+     * metre deep. That is roughly a fifth of the bottom's area on the same
+     * lever, so yaw damping belongs well under pitch's, not over it. */
+    rotDamp: { x: 300, y: 150, z: 400 },
     /** The share of the total slam that may decelerate the hull, g — the
      * von Kármán pressure on a whole bottom at once is a load the real hull
      * spreads over the pile-up and the flex of the rider's legs; the cap
@@ -318,8 +326,20 @@ export const TUNING = {
      * once the thrust, and so the nozzle's authority, has fallen away at
      * speed — and nothing at all inside `carveDead` rad of roll, where
      * both chines are dry: the couple of degrees a crosswind heels a hull
-     * or chop rocks it are not a rudder. */
-    carve: 12,
+     * or chop rocks it are not a rudder.
+     *
+     * An ARCADE DIAL, and the one that decides how hard the game can be
+     * turned: the nozzle's moment falls away with speed (thrust is
+     * ρQ(V_j − V_in), and V_in is the hull's own pace), so past the hump it
+     * is the immersed chine that turns a personal watercraft, not the
+     * pump. Sized toward the band a ridden ski actually holds — about a g
+     * in a committed carve — which puts the skiff near nine tenths of one,
+     * a forty-metre circle and a seven-second 180 at speed, the roster
+     * spread either side of it. The ceiling on going the rest of the way
+     * is `sim/bot.ts`, not the water: past here the bot's steering loop
+     * saturates and weaves rather than holding a line, and no pair of its
+     * gains fixes that (see its lessons). Raise the two together. */
+    carve: 16,
     carveDead: 0.09,
     /** How quickly `planing` (the state readout) follows the lift share,
      * per second. */

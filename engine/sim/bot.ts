@@ -16,10 +16,15 @@ import type { CraftInput, GameState } from "../game/state.ts";
 import type { Gate } from "../mapgen/types.ts";
 
 export type BotProfile = {
-  /** Steering gain on the bearing error, per radian, and the damping on
-   * the yaw rate, per rad/s. */
+  /** Steering gain on the bearing error, per radian, and how far AHEAD the
+   * bot reads its own yaw rate, s: the correction is judged against the
+   * heading the hull will have carried itself to, not the one it has. A
+   * rider looks at the buoy and at the rate the nose is already swinging;
+   * a constant damping cannot tell a gate two seconds away from one two
+   * hundred metres away, so the lead is capped by the time to the aim
+   * point. */
   steerGain: number;
-  yawDamp: number;
+  yawLead: number;
   /** How far ahead of the ramp's hinge the approach point stands, m, so
    * the craft is lined up along the ramp's axis before it reaches it. */
   rampApproach: number;
@@ -70,7 +75,7 @@ export type BotProfile = {
 
 export const RIDER_BOT: BotProfile = {
   steerGain: 2.2,
-  yawDamp: 0.4,
+  yawLead: 0.7,
   rampApproach: 110,
   rampCommit: 15,
   axisAhead: 14,
@@ -257,14 +262,18 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // In the air the bars roll the hull, not the course: hold it level for
   // the landing. Right side down is positive roll and positive steer
   // rolls right, so the correction is the roll's opposite.
-  // Afloat, the bearing error is damped by the yaw rate the hull already
-  // has: a hull coming round at speed is steered less, not more, or it
-  // weaves down the straight the way a rider who only looks at the buoy
-  // does.
+  // Afloat, the bearing error is read against the yaw rate the hull
+  // already has, over the time it has left to run: a hull coming round at
+  // speed is steered less, not more, or it weaves down the straight the
+  // way a rider who only looks at the buoy does. The lead is the shorter
+  // of the profile's own and the time to the aim point, so a correction
+  // begun far out is anticipated in full and the last one before a buoy
+  // is committed to.
   // On the deck the bars are held straight: a hull steered up a ramp
   // leaves it rolled.
   // In the air the same bars hold the nose too: a yaw rate carried off
   // the lip would otherwise turn the whole flight.
+  const eta = Math.hypot(ax - c.x, az - c.z) / Math.max(c.speed, 4);
   let steer = c.airborne
     ? clamp(
         -c.roll * profile.airRollGain + c.wz * profile.airRollDamp - c.wy * profile.airYawDamp,
@@ -273,7 +282,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
       )
     : c.onRamp
       ? 0
-      : clamp(error * profile.steerGain - c.wy * profile.yawDamp, -1, 1);
+      : clamp(error * profile.steerGain - c.wy * Math.min(profile.yawLead, eta), -1, 1);
   // READING THE WATER. Shallows ahead — the bed within `shoalDepth` of the
   // surface at the point the hull will be in `shoalAhead` seconds — turn
   // the bow toward deeper water, gate or no gate: a rider sees the beach
