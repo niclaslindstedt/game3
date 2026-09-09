@@ -9,9 +9,11 @@ Three things the screenshots caught that the numbers could not, all specific
 to a game whose horizon is water for 360°:
 
 **The sea reflects the sky, so a fixed water tint reads as a pasted-on sky.**
-`seaMirror(preset)` is what a grazing wave face reflects and `water-mesh.ts`
-takes it through `retone`; a sunset over the palette's teal is the single
-loudest way a good sky can look wrong.
+`seaReflection(preset)` is the sky as a gradient the water's shader reflects
+per wave face (and `seaMirror(preset)` the one grazing colour the horizon
+disc takes); `water-mesh.ts` is handed the preset through `retone` and picks
+nothing of its own. A sunset over the palette's teal is the single loudest
+way a good sky can look wrong.
 
 **Anything hung under a cloud ceiling must read the ceiling's own SAG at its
 own distance,** not a share of the height overhead. The deck's base falls away

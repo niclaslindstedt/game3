@@ -19,11 +19,28 @@
 // because those are the claims the model actually makes.
 import { describe, expect, it } from "vitest";
 
-import { LEVEL_RULES as R, WEATHER_IDS, biomeOf, createRng, pickWeather, skyCover } from "@engine";
+import {
+  LEVEL_RULES as R,
+  WEATHER_IDS,
+  biomeOf,
+  createGame,
+  createRng,
+  pickWeather,
+  skyCover,
+} from "@engine";
 
 import { luminance } from "../pwa/src/lib/colour.ts";
 import { DAY_ABOVE, NIGHT_BELOW, daylightOf, litAt, sunAt } from "../pwa/src/game/daylight.ts";
-import { dayLight, deckToneAt, seaMirror, skyAt, sunHardness } from "../pwa/src/game/sky.ts";
+import {
+  dayLight,
+  deckToneAt,
+  seaMirror,
+  seaReflection,
+  skyAt,
+  skyToneAt,
+  sunHardness,
+} from "../pwa/src/game/sky.ts";
+import { syntheticLevel } from "./support/synthetic.ts";
 
 const TAIGA = biomeOf("taiga");
 const LAT = TAIGA.latitude;
@@ -264,5 +281,80 @@ describe("the weather over it", () => {
     if (!noon || !night) throw new Error("a squall has a deck");
     expect(luminance(night.overhead)).toBeLessThan(luminance(noon.overhead));
     expect(luminance(night.rim)).toBeLessThan(luminance(noon.rim));
+  });
+});
+
+describe("what a wave face reflects", () => {
+  const clear = skyAt(12, LAT, "clear", 0);
+  const sunset = skyAt(21, LAT, "clear", 0);
+  const squall = skyAt(12, LAT, "squall", 1);
+  const red = (hex: number): number => (hex >> 16) & 0xff;
+  const blue = (hex: number): number => hex & 0xff;
+
+  it("is the horizon at the skyline and the zenith overhead", () => {
+    expect(skyToneAt(clear, 0, 0)).toBe(clear.horizon);
+    expect(skyToneAt(clear, 1, 0)).toBe(clear.zenith);
+    // Most of the change is in the first twenty degrees: a third of the
+    // way up in sine is past halfway in tone.
+    const third = skyToneAt(clear, 0.33, 0);
+    const mid = luminance(clear.horizon) + (luminance(clear.zenith) - luminance(clear.horizon)) / 2;
+    expect(luminance(third) - mid).toBeLessThan(0);
+    expect(luminance(clear.horizon) - luminance(third)).toBeGreaterThan(mid - luminance(third));
+  });
+
+  it("warms toward the sun's bearing at a sunset and not away from it", () => {
+    const toward = skyToneAt(sunset, 0.05, 1);
+    const away = skyToneAt(sunset, 0.05, 0);
+    expect(red(toward) - blue(toward)).toBeGreaterThan(red(away) - blue(away));
+    // …and the glow is gone by the zenith, whichever way one looks.
+    expect(skyToneAt(sunset, 1, 1)).toBe(skyToneAt(sunset, 1, 0));
+  });
+
+  it("hands the water the open gradient under a clear sky and the ceiling under a lid", () => {
+    const open = seaReflection(clear);
+    expect(open.horizon).toBe(clear.horizon);
+    expect(open.zenith).toBe(clear.zenith);
+    expect(open.glowStrength).toBe(clear.glowStrength);
+    const lid = seaReflection(squall);
+    if (!squall.deck) throw new Error("a squall has a deck");
+    expect(lid.horizon).toBe(squall.deck.rim);
+    expect(lid.zenith).toBe(squall.deck.overhead);
+    expect(lid.glowStrength).toBe(0);
+    // The ceiling's gradient is a few degrees tall; the open sky's is the
+    // whole dome.
+    expect(lid.band).toBeLessThan(open.band);
+  });
+
+  it("gives the glint the beam's share, so a ceiling glints nothing", () => {
+    expect(seaReflection(clear).glint).toBe(1);
+    expect(seaReflection(squall).glint).toBe(0);
+    // A high sheet keeps some of it: a patch of light, no hard sparkle.
+    const sheet = seaReflection(skyAt(12, LAT, "high", 1)).glint;
+    expect(sheet).toBeGreaterThan(0);
+    expect(sheet).toBeLessThan(1);
+  });
+});
+
+describe("riding a level under another hour and another sky", () => {
+  const level = syntheticLevel({ windSpeed: 4, noSolids: true });
+
+  it("leaves the level alone when nothing is asked", () => {
+    expect(createGame({ seed: 3, level, quiet: true }).level).toBe(level);
+  });
+
+  it("stands the level at the hour asked for, on the clock", () => {
+    const evening = createGame({ seed: 3, level, hour: 20.5, quiet: true }).level;
+    expect(evening.hour).toBe(20.5);
+    expect(evening.weather).toBe(level.weather);
+    expect(createGame({ seed: 3, level, hour: 25, quiet: true }).level.hour).toBe(1);
+    expect(createGame({ seed: 3, level, hour: -1, quiet: true }).level.hour).toBe(23);
+  });
+
+  it("puts the sky asked for over it and keeps the sea the wind's", () => {
+    const stormy = createGame({ seed: 3, level, weather: "squall", quiet: true });
+    expect(stormy.level.weather).toBe("squall");
+    expect(stormy.level.hour).toBe(level.hour);
+    const fair = createGame({ seed: 3, level, quiet: true });
+    expect(stormy.sea.hsRef).toBe(fair.sea.hsRef);
   });
 });

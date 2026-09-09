@@ -9,6 +9,13 @@
 import * as THREE from "three";
 import { valueNoise } from "@engine";
 
+/** Anisotropic samples for a tile seen ALONG the water — the foam under the
+ * wake, the water's ripples. Isotropic mip selection at a grazing angle
+ * blurs a tile across the view as hard as along it, and what is left is
+ * streaks radiating from the lens. Eight is what a phone GPU has; three
+ * takes the hardware's maximum where that is less. */
+export const TEXTURE_ANISOTROPY = 8;
+
 const FOAM_SIZE = 128;
 const SPRITE_SIZE = 64;
 
@@ -47,6 +54,7 @@ export function foamTexture(): THREE.DataTexture {
   foam.minFilter = THREE.LinearMipmapLinearFilter;
   foam.magFilter = THREE.LinearFilter;
   foam.generateMipmaps = true;
+  foam.anisotropy = TEXTURE_ANISOTROPY;
   foam.needsUpdate = true;
   return foam;
 }

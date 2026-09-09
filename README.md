@@ -66,7 +66,7 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 | `make waves`       | The waves lab: the sea on its own to `previews/waves-<seed>.png` — a transect from the shore out at several moments, Hs against offshore distance, the spectrum; a table of Hs, Tp, wavelength and breaking depth                                              |
 | `make ride`        | The ride lab: `SCENARIO=launch` — the craft in profile every sixth of a second over the water it crossed, to `previews/ride-<scenario>.png`, with speed, pitch, wetted share, rpm and air time beside each cell                                                |
 | `make crafts`      | The craft sheet: every craft from the app's own builder in side, bow, stern, plan and chase views, the rest waterline and the buoyancy probes over it, to `previews/crafts.png`; a table of draft, freeboard, bar height and triangle count — `CRAFT=` for one |
-| `make screenshots` | Drive the built app headlessly and screenshot the staged scenes at desktop landscape and phone portrait, to `previews/`                                                                                                                                        |
+| `make screenshots` | Drive the built app headlessly and screenshot the staged scenes at desktop landscape and phone portrait, to `previews/` (`HOUR=20.5 WEATHER=clear` rides the seed under another light)                                                                         |
 | `make profile`     | Meter what one frame costs the renderer — draw calls, triangles and binds per scene                                                                                                                                                                            |
 | `make icons`       | Regenerate PWA icons, favicon and the OG image from the app mark                                                                                                                                                                                               |
 | `make check-seo`   | Build + structural SEO/PWA/bundle-budget assertions                                                                                                                                                                                                            |
@@ -86,7 +86,7 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 
 All configuration is a URL parameter or build-time:
 
-- `?seed=`, `?craft=`, `?scene=`, `?t=`, `?shot=` — which level, which craft, and the staged moment the screenshot tool stands at.
+- `?seed=`, `?craft=`, `?scene=`, `?t=`, `?shot=` — which level, which craft, and the staged moment the screenshot tool stands at; `?wind=`, `?hs=`, `?hour=`, `?weather=` ride it in another sea, at another hour, under another sky.
 - `VITE_BASE` — deploy base path (`/`, `/preview/`, `/branch/`); set by the Pages workflow, defaults to `/`.
 - `VITE_PWA_IGNORE_PATHS` — sibling deploy slots the root service worker must not claim; set by the Pages workflow.
 

@@ -15,6 +15,8 @@ The running game reads its whole situation off the URL, which is what makes a le
 | `shot`    | `1` freezes the frame for the screenshot tool and sets `window.__SH_READY__` when it is drawn.                                                                                                   |
 | `wind`    | A wind speed, m/s, in place of the level's own (from the same quarter) — the sea is grown from it too.                                                                                           |
 | `hs`      | A sea quoted by its significant height, m, in place of the one the wind grows: `hs=20` is the storm the model is sized to carry.                                                                 |
+| `hour`    | An hour on the clock (solar time, 0–24) in place of the level's own, so any seed can be ridden at sunrise or sunset. The sun, the sky and what the water reflects follow it; the sea does not.   |
+| `weather` | A sky (`clear`, `high`, `overcast`, `rain`, `squall`) in place of the one the level was dealt. The sea stays the wind's, so a squall asked for this way is a squall's light over a fair sea.     |
 | `update`  | `1` shows the new-build button as if a newer build were waiting — the only way to look at it before a deploy has landed on a device that already had the app. The second press reloads the page. |
 
 The debug switch the spec asks for (§19.3) is the dev build: `npm run dev` lifts the engine's `debug`-level output onto the console through `pwa/src/output-bridge.ts`, and the same lines are kept in an in-memory ring buffer every build can read back.

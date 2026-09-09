@@ -10,7 +10,8 @@
 //              twilight, which is exactly when a bare gradient looks most
 //              like a bare gradient.
 //   THE DISC   the sun (or the moon), a hard circle billboarded at the
-//              key light's place.
+//              key light's place, with a tight GLARE round it that is the
+//              core too bright to look at.
 //   THE HALO   the soft bloom around it, which is what actually sells a
 //              low sun: the disc is small and the halo is a third of the
 //              sky at sunset.
@@ -28,12 +29,17 @@
 import * as THREE from "three";
 
 import { SKY_ORDER, drawAsBackdrop } from "./sky-depth.ts";
-import { DOME_RADIUS, sunVector, type Preset } from "./sky.ts";
+import { DOME_RADIUS, skyToneAt, sunVector, type Preset } from "./sky.ts";
 
 /** How many stars, and how far out they stand as a share of the dome — just
  * inside it, so the dome's own gradient is behind them. */
 const STARS = 420;
 const STAR_SHELL = 0.985;
+
+/** The glare round the disc: its width as a multiple of the disc's, and
+ * its strength in full beam. */
+const GLARE_SPREAD = 5;
+const GLARE_OPACITY = 0.85;
 
 /** The glow sprite the halo is drawn with: a radial falloff baked once into
  * a small texture. `pow` rather than a linear ramp because a linear one
@@ -88,16 +94,10 @@ export function createSkyDome(): SkyDome {
   dome.frustumCulled = false;
   group.add(dome);
 
-  const zenith = new THREE.Color();
-  const horizon = new THREE.Color();
-  const glow = new THREE.Color();
   const tone = new THREE.Color();
 
   const paintDome = (p: Preset): void => {
     const pos = domeGeo.getAttribute("position");
-    zenith.set(p.zenith);
-    horizon.set(p.horizon);
-    glow.set(p.glow);
     const azX = Math.sin(p.sunBearing);
     const azZ = Math.cos(p.sunBearing);
     for (let i = 0; i < pos.count; i++) {
@@ -105,17 +105,11 @@ export function createSkyDome(): SkyDome {
       const y = pos.getY(i);
       const z = pos.getZ(i);
       const up = Math.max(0, y / DOME_RADIUS);
-      // The gradient is steep low down and slack overhead, which is what a
-      // real sky does: nearly all of the colour change happens in the first
-      // twenty degrees, and a linear ramp puts it in the wrong half.
-      tone.copy(horizon).lerp(zenith, Math.pow(up, 0.62));
-      // The bleed round the sun's own bearing, strongest at the horizon and
-      // gone by halfway up — Valheim's trick, and the reason a low sun
-      // lights a quarter of the sky rather than a disc.
+      // The gradient and the bleed round the sun's bearing are the sky's
+      // own (`skyToneAt`), so the water reflects this same dome.
       const len = Math.hypot(x, z) || 1;
       const toward = Math.max(0, (x / len) * azX + (z / len) * azZ);
-      const w = Math.pow(toward, 3) * Math.pow(1 - up, 2.2) * p.glowStrength;
-      tone.lerp(glow, Math.min(1, w));
+      tone.set(skyToneAt(p, up, toward));
       // Under the horizon the dome is what a rider sees past the far edge of
       // the water on a steep camera. A shade darker than the rim so the
       // waterline still reads as a line.
@@ -187,12 +181,27 @@ export function createSkyDome(): SkyDome {
   const halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), haloMat);
   halo.renderOrder = SKY_ORDER - 1;
   halo.frustumCulled = false;
+  // THE GLARE: the same glow, tight round the disc and nearly opaque — the
+  // hot core the eye cannot look at. The halo is a third of the sky and
+  // pale; without something between it and the disc the sun is a coin
+  // pasted on a gradient, and a coin does not light a sea.
+  const glareMat = new THREE.MeshBasicMaterial({
+    map: glowMap,
+    transparent: true,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+    fog: false,
+  });
+  drawAsBackdrop(glareMat);
+  const glare = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glareMat);
+  glare.renderOrder = SKY_ORDER - 1;
+  glare.frustumCulled = false;
   const discMat = new THREE.MeshBasicMaterial({ fog: false, transparent: true });
   drawAsBackdrop(discMat);
   const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 24), discMat);
   disc.renderOrder = SKY_ORDER;
   disc.frustumCulled = false;
-  group.add(halo, disc);
+  group.add(halo, glare, disc);
 
   const at = new THREE.Vector3();
 
@@ -208,7 +217,7 @@ export function createSkyDome(): SkyDome {
     const v = sunVector(p.sunElevation, p.sunAzimuth);
     const r = DOME_RADIUS * 0.97;
     at.set(v.x * r, v.y * r, v.z * r);
-    for (const mesh of [disc, halo]) {
+    for (const mesh of [disc, glare, halo]) {
       mesh.position.copy(at);
       // Billboarded by facing the origin, which is the eye: the group rides
       // the camera, so the origin IS the lens.
@@ -217,6 +226,13 @@ export function createSkyDome(): SkyDome {
     disc.scale.setScalar(Math.max(0.001, p.discSize));
     disc.visible = p.discSize > 0;
     discMat.color.set(p.disc);
+    // The glare goes with the disc: four times its width, in its colour,
+    // and as strong as the beam — a sun behind a sheet has a patch of
+    // light in its place and no core.
+    glare.scale.setScalar(Math.max(0.001, p.discSize * GLARE_SPREAD));
+    glare.visible = disc.visible && p.beam > 0.01;
+    glareMat.color.set(p.disc);
+    glareMat.opacity = GLARE_OPACITY * p.beam;
     halo.scale.setScalar(Math.max(0.001, p.haloSize));
     halo.visible = p.haloOpacity > 0.01;
     haloMat.color.set(p.halo);
@@ -236,6 +252,8 @@ export function createSkyDome(): SkyDome {
     discMat.dispose();
     halo.geometry.dispose();
     haloMat.dispose();
+    glare.geometry.dispose();
+    glareMat.dispose();
     glowMap.dispose();
   };
 

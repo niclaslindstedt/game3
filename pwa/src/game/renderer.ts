@@ -121,7 +121,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       // weather it was generated under. The water answers to the same sky,
       // which is what keeps a sunset from floating over a teal sea.
       sky.load(level);
-      water.retone(sky.mirror());
+      water.retone(sky.preset(), sky.hemi, sky.key);
     }
     const id = state.craft.spec.id;
     if (id !== craftId) {
@@ -172,7 +172,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     // THE CAMERA, applied. The pose is the rig's; the lens is widened for a
     // narrow viewport so a phone held upright sees the same field across.
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
-    cost.waterMs = water.update(state, c.x, c.z, pose.x, pose.y, pose.z);
+    cost.waterMs = water.update(state, c.x, c.z);
     gates?.update(state);
     wake.update(state);
     spray.update(state);
