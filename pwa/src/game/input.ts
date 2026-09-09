@@ -7,11 +7,13 @@
 // steps and handed to the step it arrives in, so a tap inside one step is
 // still seen by that step.
 //
-// KEYS (fixed; a rebinding page is future work in settings.ts):
+// KEYS (fixed; a rebinding page is future work — `settings.ts` carries
+// everything else the player chooses):
 //   W / ↑        throttle           S / ↓    lean back
 //   A / ←  D / → steer              Shift    lean forward
 //   R            reset to the last gate (edge)
 //   Enter        restart the run     C       next camera
+//   Escape       leave for the main menu
 //
 // THERE IS NO BRAKE, NO HANDBRAKE AND NO GEARBOX. The throttle is the
 // control, and letting go of it is the only way to slow down — which is
@@ -28,7 +30,7 @@ import {
 } from "./input-model.ts";
 
 /** The presses the app reacts to rather than the craft. */
-export type InputAction = "restart" | "camera";
+export type InputAction = "restart" | "camera" | "menu";
 
 export type InputManager = {
   /** Produce this step's input; advances the ramps by `dt`. */
@@ -64,6 +66,10 @@ const EDGE_CODES: Record<string, "reset" | InputAction> = {
   KeyR: "reset",
   Enter: "restart",
   KeyC: "camera",
+  // The way out of a run. It is a key the browser and the OS both have
+  // opinions about (full screen, pointer lock), which is exactly why it is
+  // the one everybody already tries first.
+  Escape: "menu",
 };
 
 export function createInputManager(target: Window = window): InputManager {
