@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // The engine's state and event types. The renderer, the HUD and the bot all
 // read this shape; only craft.ts, collision.ts, course.ts and step.ts write
-// it. Sign conventions: heading 0 points along +z and grows clockwise seen
+// it during a run, and place.ts stands one at a moment before it starts. Sign conventions: heading 0 points along +z and grows clockwise seen
 // from above (positive steer turns the nose clockwise in map view); pitch
 // is nose-up positive; roll is right-side-down positive; body-frame angular
 // velocities are right-handed about the craft's right, up and forward axes

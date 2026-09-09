@@ -10,7 +10,7 @@
 //   npm run sim                            # four seeds × four crafts
 //   npm run sim -- --seeds 38,39,40        # specific seeds
 //   npm run sim -- --craft skiff           # one craft (or a,b list)
-//   npm run sim -- --max 180               # give a run longer to finish
+//   npm run sim -- --max 400               # give a run longer to finish
 //   npm run sim -- --json examples/sim-report.json
 //
 // CI's `make sim` job: exits non-zero when a craft finishes NO seed at all

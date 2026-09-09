@@ -140,8 +140,8 @@ export const TUNING = {
     /** The DECK probes: the sealed volume ABOVE the bottom the spec's
      * displacement describes, as a share of it — the seat and the deck —
      * so an inverted hull still floats (a PWC does not self-right from
-     * all the way over; the rider flips it, which is what `reset` is
-     * for). It never fills upright. */
+     * all the way over; the rider flips it, which is what `capsize`
+     * below stands in for). It never fills upright. */
     deckShare: 0.55,
     /** Past this immersion, as a fraction of the hull depth, a probe's
      * section counts as BURIED and drags as a bluff body (`diveCd`): a

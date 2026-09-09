@@ -142,7 +142,7 @@ And the pieces that belong to no skill in particular:
 | Kind of change                                     | Where it goes                                                                                              |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Run orchestration (create, step, phase, events)    | `engine/game/step.ts`                                                                                      |
-| The state shape and the events                     | `engine/game/state.ts` — only `craft.ts`, `collision.ts`, `course.ts` and `step.ts` write it              |
+| The state shape and the events                     | `engine/game/state.ts` — only `craft.ts`, `collision.ts`, `course.ts` and `step.ts` write it during a run (`place.ts` stands one at a moment)              |
 | A number that shapes the FEEL, shared by every craft | `engine/game/defs/tuning.ts` — every number carries its unit; the model it feeds cites its source          |
 | Level geometry / compilation                       | `engine/mapgen/compile.ts` (bakes the two heightfields ONCE; nothing downstream regenerates any of it)      |
 | A generic grid, a quaternion, noise, the PRNG      | `engine/lib/` — the generic pool, nothing of THIS game in it (§23.7 rule 5)                                |
