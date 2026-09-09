@@ -239,9 +239,11 @@ const BAND_FROM = 0.45;
  * anything in the catalog holds at, so the deepest animals are ghosts
  * rather than gone. */
 const HAZE_DEPTH = 16;
-/** How far toward the water's colour the haze goes at that depth — short of
- * the whole way, so even the deepest shape keeps an edge. */
-const HAZE_MAX = 0.92;
+/** How far toward the water's colour the haze goes at that depth — well
+ * short of the whole way, so even the deepest shape keeps its own tone and
+ * an edge. The per-pixel water is brighter than a flat tint would be, and a
+ * body hazed most of the way into it loses the paint that names it. */
+const HAZE_MAX = 0.72;
 /** The water's colour as an animal seen through it takes it: the SHALLOW
  * tone, not the deep one, lifted toward whatever the surface is reflecting
  * today. The shallow tone because the haze is light SCATTERED BACK out of
