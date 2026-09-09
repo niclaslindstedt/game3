@@ -1,0 +1,407 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// Global tuning — the numbers that shape the FEEL, shared by every craft
+// (per-craft numbers live in craft.ts). Grouped by subject: the clock, the
+// two fluids, the sea, the wind, the hull in the water, the planing
+// surface, the pump, the flight, the contacts, the course. Every number
+// carries its unit; every model it feeds names its source at the function
+// that implements it. Tweak here, verify with `npm run sim` and the
+// craft/flight/buoyancy tests; the render layer never reads these directly.
+
+/** The clock the whole engine runs on — see `TUNING.physicsHz`. Named out
+ * here so the timestep can be derived from it rather than restated. */
+const PHYSICS_HZ = 120;
+
+export const TUNING = {
+  /** HOW OFTEN THE WORLD IS SOLVED, steps a second. It stays at 120 for the
+   * stiff contacts: a ramp and a grounding are penalty springs, and a
+   * penalty spring stiff enough to hold three hundred kilos on a plank with
+   * millimetres of sink has a natural frequency that 60 Hz cannot follow.
+   * The bot decides on every step too: there is no decision hold. */
+  physicsHz: PHYSICS_HZ,
+  /** ...and the same number as the timestep every rate in here is spent in,
+   * seconds. Derived, never authored. */
+  dt: 1 / PHYSICS_HZ,
+
+  /** Standard gravity, m/s². */
+  g: 9.81,
+
+  /** THE AIR the hull and the rider push through. */
+  air: {
+    /** Density at sea level, 15 °C, kg/m³ (ISA). */
+    density: 1.225,
+  },
+
+  /** THE WATER, beyond what the level says about it (`WaterBody.density`). */
+  water: {
+    /** Kinematic viscosity, m²/s — fresh water at ~15 °C (ITTC 1.139e-6 at
+     * 15 °C; the taiga's 8–18 °C brackish water sits within 15% of it, and
+     * the friction line is logarithmic in it, so one value serves). */
+    viscosity: 1.14e-6,
+  },
+
+  /** THE SEA — the wave field built from the wind (`water.ts`). */
+  sea: {
+    /** How many Gerstner components the field is summed from. Eight is
+     * enough to lose the visible periodicity of a single sine and few enough
+     * that the renderer can displace a two-hundred-metre mesh with it. */
+    components: 8,
+    /** The frequency band the components are laid over, as multiples of the
+     * spectrum's peak: JONSWAP's energy sits between ~0.7 and ~2 f_p, and
+     * the tail past 2.5 f_p is too short to feel through a hull. */
+    bandLow: 0.7,
+    bandHigh: 2.4,
+    /** Directional spread half-width about the wind, radians (~35°) — a
+     * cos² spread (Longuet-Higgins 1963) truncated there. */
+    spread: 0.6,
+    /** THE FETCH the level's shore is stood in front of. A level is a
+     * kilometre of coast, but the fetch-limited growth laws work in tens of
+     * kilometres: a hundred metres of real fetch grows a four-centimetre
+     * ripple. So the game's fiction is that the shore is a piece of a
+     * longer coast and the whole level is nearer the open sea than its
+     * bounds say: the wave model reads fetch as `baseFetch + fetchScale ×
+     * offshore` (m), which is what makes the chop visibly build riding out
+     * over the hundred metres the course spans. The growth SHAPE is still
+     * Hasselmann's; only the metre is stretched. */
+    baseFetch: 4000,
+    fetchScale: 40,
+    /** The smallest depth the wave model reads, m: keeps the dispersion
+     * relation and the shoaling coefficient finite where the bed comes up
+     * to the surface, and is where the breaking cap has already clipped
+     * every wave to nothing worth drawing. */
+    minDepth: 0.15,
+    /** McCowan (1894): a solitary wave breaks when its height passes 0.78
+     * of the depth. Applied to the summed height at a point. */
+    breakingRatio: 0.78,
+    /** Depth table pitch, m, and reach, m, for the per-component shoaling
+     * lookup (`buildTable` in water.ts). The bed never goes below the compiler's −25 m
+     * and a tenth of a metre resolves the shallows where the coefficient
+     * actually moves. */
+    tableStep: 0.1,
+    tableDepth: 40,
+  },
+
+  /** THE WIND (`wind.ts`). */
+  wind: {
+    /** Aerodynamic roughness length of a sea surface, m — the log-law's
+     * z0, ~2e-4 m for open water (Charnock 1955 at moderate winds). */
+    roughness: 2e-4,
+    /** The height the level's mean wind is quoted at, m (the meteorological
+     * standard). */
+    referenceHeight: 10,
+    /** Lowest height the profile is read at, m: the law is singular at z0
+     * and a probe under a wave trough would otherwise read a wind blowing
+     * backwards. */
+    minHeight: 0.3,
+    /** Turbulence intensity σ_u/U over water, ~0.1 at 10 m (IEC 61400-3
+     * offshore class); drives the gust factor's stationary variance. */
+    intensity: 0.11,
+    /** Gust integral time scale, s — how long a gust lasts. Over the sea
+     * ~10–20 s for the energy-containing eddies at 10 m. */
+    gustTime: 12,
+    /** How far the gust direction wanders, radians (σ), and its own time
+     * scale, s. */
+    veer: 0.12,
+    veerTime: 25,
+    /** The gust factor's floor and ceiling, as multiples of the mean, so a
+     * three-sigma draw is a strong gust and never a calm or a hurricane. */
+    gustMin: 0.55,
+    gustMax: 1.6,
+  },
+
+  /** THE HULL IN THE WATER (`hull.ts`): buoyancy and the drags. */
+  hull: {
+    /** Stations along the hull the probes are laid at, as fractions of the
+     * length from the transom (0) to the bow (1). Six, because the trim a
+     * planing hull settles to is set by where the lift's resultant stands
+     * against the centre of gravity, and with fewer the resultant can only
+     * jump between stations. */
+    stations: [0.06, 0.22, 0.4, 0.58, 0.76, 0.92],
+    /** How much of the hull's volume each station owns, transom first —
+     * a planing hull carries its volume aft. Normalised at build. */
+    stationShare: [0.19, 0.2, 0.19, 0.17, 0.14, 0.11],
+    /** ...and how much of the hull's LATERAL area each station carries —
+     * aft-heavy, because the sponsons are at the stern and the bow is out
+     * of the water at speed. The lateral centre lands a little behind the
+     * centre of gravity, which is what makes a yawed hull straighten
+     * (weathervane) rather than spin. */
+    lateralStationShare: [0.35, 0.28, 0.17, 0.1, 0.06, 0.04],
+    /** How far the keel has risen toward the bow at each station, as a
+     * fraction of the hull depth: flat aft, then the bow's rise. */
+    stationRise: [0, 0, 0, 0, 0.12, 0.42],
+    /** How far in toward the keel each station's chines are drawn, as a
+     * fraction of the half-beam: the bow's taper. */
+    stationTaper: [1, 1, 1, 0.95, 0.75, 0.45],
+    /** Of a station's share, how much sits on the keel probe against the
+     * two chine probes. */
+    keelShare: 0.4,
+    /** Where the chine probes sit across the beam, as a fraction of the
+     * half-beam. */
+    chineOut: 0.8,
+    /** The DECK probes: the sealed volume ABOVE the bottom the spec's
+     * displacement describes, as a share of it — the seat and the deck —
+     * so an inverted hull still floats (a PWC does not self-right from
+     * all the way over; the rider flips it, which is what `capsize`
+     * below stands in for). It never fills upright. */
+    deckShare: 0.55,
+    /** Past this immersion, as a fraction of the hull depth, a probe's
+     * section counts as BURIED and drags as a bluff body (`diveCd`): a
+     * hull on the plane runs shallower, one at rest sits just short of
+     * it, and a bow driven in runs well past it. */
+    diveDepth: 0.75,
+    diveCd: 0.7,
+    /** Vertical (heave) drag coefficient of the bottom as a flat plate
+     * moving normal to itself (Hoerner 1965 ~1.17). */
+    heaveCd: 1.15,
+    /** Residuary (wave-making) drag coefficient on the submerged frontal
+     * section in displacement mode, sized so the hump costs ~15% of the
+     * weight at C_v ≈ 1 as Savitsky's hump data has it. */
+    formCd: 0.14,
+    /** Scale on the Newtonian pressure coefficient of the bow's rising
+     * bottom (2·sin²σ); 1 is the theory. */
+    bowCp: 1,
+    /** How much higher a hull at speed rides than at rest, m — what
+     * `placeRun` stands a moving craft at so it is not dropped into the
+     * water at seventy an hour; the physics settles the rest. */
+    planingRise: 0.3,
+    /** How much of the deadrise angle the lateral flow on the V bottom
+     * turns into vertical force at the outer chine — the panel geometry
+     * says tan(deadrise), and 1 is that. */
+    chineBank: 1,
+    /** THE SPONSONS' BANK-IN, as a lever in units of the keel's own depth
+     * below the centre of gravity (`cog.y`): the outside sponson planes on
+     * the water it is being pushed across, and the lift it makes rolls the
+     * hull INTO the turn in proportion to the sideways force. A PWC leans
+     * in where a keel-level side force alone would lean it out (the force
+     * acts below the centre of gravity), and the sponsons — plus the rider
+     * hanging off (`rider.leanIn`) and the V bottom's own bank
+     * (`chineBank`) — are what turn that round. At 1 the sponsons exactly
+     * cancel the keel's lever and the lean-in is the rider's and the
+     * chines'. */
+    sponsonLever: 1.05,
+    /** How far under the surface a probe's PATCH counts as fully wet, as a
+     * fraction of the hull depth — the friction's measure, where the
+     * volume fill is the buoyancy's. */
+    patchWet: 0.3,
+    /** The fastest the body may spin about any axis, rad/s, and the fastest
+     * it may move, m/s — ceilings the integrator clamps to after every step.
+     * Nothing in the game reaches either honestly (four turns a second, three
+     * times the top speed); they are the wall between a contact that goes
+     * wrong and a NaN. */
+    maxSpin: 25,
+    maxSpeed: 80,
+    /** Rotational damping about each body axis, N·m·s (linear), on top of
+     * what the probes' drag produces: the water's added-mass damping that
+     * a dozen point drags under-count. Pitch, yaw, roll. */
+    rotDamp: { x: 300, y: 650, z: 400 },
+    /** The share of the total slam that may decelerate the hull, g — the
+     * von Kármán pressure on a whole bottom at once is a load the real hull
+     * spreads over the pile-up and the flex of the rider's legs; the cap
+     * keeps a flat landing a hard event rather than a wall. */
+    slamCapG: 7,
+    /** Slam pressure fraction: von Kármán's average is for a wedge landing
+     * flat; a hull landing at speed meets the water progressively, and
+     * this scales the whole force. Dimensionless. */
+    slamShare: 0.35,
+    /** How much lift a probe at the transom carries against one at the
+     * bow, 0..1: the pressure on a planing bottom is a stagnation peak
+     * forward tapering to nothing at the transom, and this is the taper's
+     * floor (0 would be a clean Kutta transom; a little is kept because
+     * the probes stand for whole stations). */
+    liftAft: 0.15,
+    /** THE CARVE: a banked V bottom is a rudder — the immersed outer chine
+     * turns the hull toward the bank. Yaw moment per radian of bank past
+     * the dead band per (m/s)² of speed through the water, N·m, read
+     * through sin(2·bank) so it peaks at 45°. What lets a leaned hull turn
+     * once the thrust, and so the nozzle's authority, has fallen away at
+     * speed — and nothing at all inside `carveDead` rad of roll, where
+     * both chines are dry: the couple of degrees a crosswind heels a hull
+     * or chop rocks it are not a rudder. */
+    carve: 12,
+    carveDead: 0.09,
+    /** How quickly `planing` (the state readout) follows the lift share,
+     * per second. */
+    planingFollow: 6,
+  },
+
+  /** THE PLANING SURFACE (Savitsky, `hydro.ts`). */
+  planing: {
+    /** Below this speed coefficient C_v = V/√(gB) the method is invalid and
+     * the hull is in displacement mode; the lift fades in over the band to
+     * `fadeHigh`. Savitsky's data starts at C_v ≈ 0.6. */
+    fadeLow: 0.5,
+    fadeHigh: 1.4,
+    /** Trim angle band the formula is evaluated over, degrees. Savitsky's
+     * data covers 2–15°; below the floor the lift is scaled linearly to
+     * zero so a level hull still lifts a little. */
+    trimMin: 1.5,
+    trimMax: 14,
+    /** Wetted length-to-beam ratio band λ. */
+    lambdaMin: 0.4,
+    lambdaMax: 4,
+    /** The lift coefficient's ceiling — the formula runs away at high trim
+     * and low speed, where the hull would in truth be porpoising. */
+    clMax: 0.35,
+    /** The lift's pressure centre sits `cpAft` of the wetted length ahead
+     * of the transom when Savitsky's own formula would read past the hull. */
+    cpAft: 0.33,
+  },
+
+  /** THE PUMP and the engine (`propulsion.ts`). */
+  pump: {
+    /** Overall thrust efficiency against the ideal momentum-theory jet —
+     * intake duct loss, nozzle loss, impeller slip. Marine waterjets run
+     * 0.6–0.75 overall (Bulten 2006); the lower half because a PWC's short
+     * flush intake is the poorer of them. Dimensionless. */
+    thrustEfficiency: 0.66,
+    /** Hydraulic efficiency of the pump, engine shaft → jet kinetic power.
+     * Sets the shaft load the engine sees at a given rpm. */
+    pumpEfficiency: 0.86,
+    /** How much of the hull's forward speed arrives at the intake as inflow
+     * velocity: the boundary layer under the hull slows it (wake fraction
+     * ~0.1 for a flush intake). */
+    inflowFactor: 0.9,
+    /** Engine plus impeller shaft inertia, kg·m² — a small marine two- or
+     * four-stroke with a light impeller. */
+    inertia: 0.06,
+    /** Throttle-to-torque lag time constant, s (throttle body, ECU, intake
+     * fill). */
+    throttleLag: 0.12,
+    /** Engine friction torque at redline as a share of peak torque — the
+     * over-run drag with the throttle shut. */
+    friction: 0.12,
+    /** How fast the nozzle swings, rad/s at full input (a cable and a
+     * hand). */
+    nozzleRate: 6,
+    /** Intake depth below the keel probe at the transom, m: the intake is
+     * fed while the transom station is wet to this. */
+    intakeDepth: 0.05,
+    /** The pump's air load as a share of its water load, when the intake is
+     * dry — the impeller spins in spray and the engine runs up to the
+     * limiter. */
+    airLoad: 0.08,
+    /** Hull-keel yaw authority with the throttle closed, N·m per rad of
+     * nozzle per (m/s)² — the sponsons and the hull's turned attitude turn
+     * it a little without thrust, the way a real one barely answers. */
+    keelYaw: 0.6,
+  },
+
+  /** THE RIDER as a point mass the inputs move (`craft.ts`). */
+  rider: {
+    /** How far the rider's mass moves aft at full lean back (and forward at
+     * full lean forward), m — a rider sliding right back on the seat and
+     * hanging off the bars. */
+    leanReach: 0.55,
+    /** How far the rider's mass moves into a turn at full steer, m, and
+     * how much of the steer input becomes lean (a rider hangs off into a
+     * hard turn, not into a twitch). */
+    leanIn: 0.28,
+    /** Rider mass shift lag, s: a body moves slower than a thumb. */
+    leanLag: 0.18,
+  },
+
+  /** FLIGHT (`flight.ts`): the air over the water. */
+  flight: {
+    /** The rider's pitch authority in the air, N·m at full lean — the HOLD,
+     * sized for attitude: a lean held forward through a 0.7 s hang puts
+     * the nose 20–30° down, not on the water's floor. */
+    leanTorque: 450,
+    /** THE PULL: the angular impulse, N·m·s, a lean held back through the
+     * first `pullWindow` seconds off the lip is worth — the rider yanking
+     * the bars up. Together with the hold it is what a backflip is made
+     * of: with the lean held back, a 1.5 s hang completes one and not much
+     * more (`flight_test`), and a lean let go inside the window is no pull
+     * at all. Nose-up only: a rider stood on the hull has nothing to push
+     * the nose down against. */
+    pull: 620,
+    pullWindow: 0.25,
+    /** Where the windage stands: this high above the centre of gravity, m,
+     * and this share of the length AFT of it — the rider's body, over
+     * the water's lateral centre. */
+    windageY: 0.3,
+    windageZ: -0.12,
+    /** The rider's roll authority in the air, N·m at full steer, and the
+     * yaw the same input buys. */
+    steerRoll: 140,
+    steerYaw: 60,
+    /** Aerodynamic pitch-moment reference: the hull as a flat plate of
+     * area `length × beam × plateShare` with its centre of pressure
+     * `cpLead` of the length ahead of the centre of gravity. Nose-up in a
+     * headwind lifts the nose further (the plate is statically unstable). */
+    plateShare: 0.55,
+    cpLead: 0.08,
+    /** Rotational aero damping, N·m·s per (m/s)... quoted as N·m·s at the
+     * reference speed of 20 m/s; scales with airspeed. Keeps a flight
+     * that nobody is steering from tumbling. */
+    rotDamp: 35,
+    rotDampSpeed: 20,
+    /** Vertical speed the hull has to LEAVE the water with for it to count
+     * as a launch, m/s — a chop hop is not a jump — and how long it has to
+     * stay clear, s, before a launch or a landing is reported at all. */
+    launchVy: 1.2,
+    minAir: 0.2,
+    /** A landing whose bow buries deeper than this, m, with the nose this
+     * far down, rad, is a DIVE. */
+    diveDepth: 0.55,
+    divePitch: -0.12,
+  },
+
+  /** CONTACTS with what is not water (`collision.ts`). */
+  contact: {
+    /** Penalty spring stiffness and damping for a probe pressed into the
+     * ground or a ramp, N/m and N·s/m per probe. Stiff enough that a hull
+     * riding a ramp sinks millimetres, damped near critical. */
+    stiffness: 90_000,
+    damping: 3_200,
+    /** Coulomb friction on ground (rock, sand — a keel dragging) and on a
+     * ramp's wet deck. */
+    groundFriction: 0.45,
+    rampFriction: 0.08,
+    /** A probe further under a ramp's deck than this, m, and within
+     * `rampFlankBand` m of the deck's edge, did not sink through the deck
+     * — it came in through the flank, and is pushed back out sideways. A
+     * deep probe in the MIDDLE of the deck is a hull slammed onto it, and
+     * the deck pushes back, up to `rampDeckCap` N a probe. */
+    rampFlankBelow: 0.3,
+    rampFlankBand: 0.6,
+    rampDeckCap: 20_000,
+    /** Restitution against a solid rock, and how much of the tangential
+     * speed a glancing hit keeps. */
+    restitution: 0.25,
+    tangentKeep: 0.85,
+    /** The hull's plan radius for solid contact, as a fraction of the
+     * half-beam (the probes do the shaping; this is the round-off). */
+    hullRadius: 0.9,
+    /** The closing speed a `hit` is worth reporting from, m/s, and the
+     * cooldown between reports, s. */
+    hitSpeed: 1,
+    hitCooldown: 0.35,
+    /** How far past the bounds a craft may go before the push, m, and the
+     * spring that returns it, m/s² per m. */
+    boundsMargin: 5,
+    boundsSpring: 4,
+    /** Cooldown between `ground` events, s. */
+    groundCooldown: 0.5,
+  },
+
+  /** CAPSIZE (`craft.ts`): a PWC does not self-right, the rider does. */
+  capsize: {
+    /** How long the hull may lie on its back, s, before the rider has
+     * climbed back on and rights it. */
+    after: 1.5,
+    /** How long the righting takes, s, turning the hull back upright the
+     * shortest way with the engine idling. */
+    righting: 0.5,
+    /** Time constant, s, the way is scrubbed off with meanwhile. */
+    slow: 0.15,
+  },
+
+  /** THE COURSE (`course.ts`). */
+  course: {
+    /** Seconds added to the run for a gate passed over, so a missed gate
+     * still counts as reached at a price. */
+    missedPenalty: 5,
+    /** Where a reset stands the craft: this far behind the gate it goes
+     * back to, m, so the line is crossed by a MOVE. */
+    resetBack: 6,
+  },
+} as const;

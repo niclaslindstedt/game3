@@ -1,0 +1,27 @@
+<!-- SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- The app mark: a hull meeting a wave. A crest rises from the left, tips
+       over and curls — two parallel lines, the foam along the lip and the
+       darker face under it, each two tangent arcs — with a small hull held
+       nose-up beside it, on deep teal water. The raster icons (pwa-*.png,
+       apple-touch, favicon, og.png) are generated from this same geometry by
+       scripts/generate-icons.mjs, and pwa/src/game/app-mark.ts carries the
+       two wave paths as data — keep all three in lockstep. -->
+  <defs>
+    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#0b3d4f"/>
+      <stop offset="1" stop-color="#1b6f8a"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#sea)"/>
+  <g fill="none" stroke-width="26" stroke-linecap="round">
+    <path stroke="#f2f7f8" d="M 86 330 A 170 170 0 0 1 341 182.78 A 70 70 0 0 1 341 304.02"/>
+    <path stroke="#3fa7b8" d="M 122 330 A 134 134 0 0 1 323 213.95 A 34 34 0 0 1 323 272.84"/>
+  </g>
+  <g transform="translate(390,400) rotate(-14)">
+    <rect x="-80" y="-22" width="160" height="44" rx="14" fill="#082a38"/>
+    <rect x="-72" y="-14" width="144" height="28" rx="8" fill="#f28c28"/>
+    <rect x="-50" y="-36" width="72" height="24" rx="8" fill="#082a38"/>
+    <rect x="39" y="-44" width="10" height="28" rx="3" fill="#082a38"/>
+  </g>
+</svg>

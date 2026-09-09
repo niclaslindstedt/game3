@@ -1,0 +1,43 @@
+# Common
+.DS_Store
+*.log
+*.tmp
+.env
+.env.local
+
+# Editors
+.vscode/
+.idea/
+.codex/
+*.swp
+
+# Coverage
+.coverage/
+coverage/
+
+# Node
+node_modules/
+pwa/dist/
+
+# Generated previews (level maps, wave transects, ride strips, gameplay
+# screenshots) — tooling output, regenerated on demand with `make level` /
+# `make waves` / `make ride` / `make screenshots`.
+#
+# ANCHORED to the root on purpose. Unanchored, this pattern matches a
+# directory called `previews` at any depth — including a pwa/public/previews/
+# the campaign menu will one day ship its banners from.
+/previews/
+
+# Recorded runs (`make record`, once it exists) — a ride is somebody's own
+# measurement, not repository content.
+runs/
+
+# Release scratch
+.release-notes.md
+
+# THE PLATFORM SHELLS. `tauri/` (the desktop app) and `native/` (the store
+# app) are placeholders today, each a README and nothing else. When either
+# arrives it brings its own build output, its own dependency tree, its
+# generated store metadata and its signing material — every one of which is
+# ignored HERE, at the root, the way the sibling rally repo does it, and none
+# of which may be a personal identifier or a credential in a committed file.

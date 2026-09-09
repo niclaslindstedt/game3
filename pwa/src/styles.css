@@ -1,0 +1,581 @@
+/* SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+/* App stylesheet.
+
+     1. Tailwind v4 base + utilities.
+     2. The game shell: a full-viewport, non-scrolling canvas with the
+        arcade HUD painted over it, and the prerendered landing copy the
+        crawlers read underneath it.
+
+   Every surface a player sees, the new-build button included, is the app's
+   own and wears the chrome below: there is no third-party component
+   stylesheet here, and nothing outside this tree is scanned for utility
+   classes. The HUD's own classes arrive with the HUD; this file is the base
+   it stands on. */
+
+@import "tailwindcss";
+
+:root {
+  /* PALETTE from identity.ts, restated because a stylesheet cannot import a
+     TypeScript module. There is no third copy: this is a leaf. */
+  --sea: #1b6f8a;
+  --sea-deep: #0b3d4f;
+  --sea-shallow: #3fa7b8;
+  --sky: #d7e9f0;
+  --foam: #f2f7f8;
+  --buoy: #f28c28;
+  --hud-ink: #ffffff;
+  --hud-shadow: #082a38;
+  --hud-good: #f28c28;
+  --hud-bad: #ff5a4e;
+  --hud-info: #9cc6d8;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--sea);
+  color: var(--hud-ink);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+}
+
+/* NO TEXT INTERACTION ANYWHERE — the loupe, the callout, the word select.
+   iOS reads a double tap (and a press-and-hold) as the start of "put the
+   caret somewhere" and answers it with a magnifying lens over the page. On a
+   document that is the point; on a game it is a lens over the water because
+   a thumb bounced on the screen. Stated on EVERY element rather than
+   inherited, because iOS decides from the element under the touch, and a
+   UA-styled element never sees what the shell passed down. A surface that
+   MEANS to take typed text names a class and wins on specificity. */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* THE GAME, over everything: the canvas and the HUD fill the viewport, and
+   the landing copy below sits in the document flow underneath — real HTML
+   a crawler reads, never on screen once the app has mounted. */
+#root {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The prerendered copy in index.html (OSS_GAME_SPEC §11.3.1). Laid out as a
+   readable page for the one reader who ever sees it — a browser with scripts
+   off — and otherwise covered by #root. */
+.landing {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  line-height: 1.5;
+  font-size: 17px;
+}
+.landing h1 {
+  font-size: 2.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.25em;
+}
+.landing h2 {
+  font-size: 1.1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hud-info);
+  margin: 1.6em 0 0.4em;
+}
+.landing a {
+  color: var(--foam);
+}
+
+/* The boot card: the name over the water while the game loads. */
+.boot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: linear-gradient(180deg, var(--sea-deep) 0%, var(--sea) 100%);
+  text-shadow: 0 2px 0 var(--hud-shadow);
+}
+.boot-name {
+  font-size: clamp(2.4rem, 9vw, 5rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.boot-note {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hud-info);
+}
+
+/* THE HUD's ground: a layer over the canvas that never takes the touch the
+   handlebar and the lever are reading, except where a control says it does.
+   Padded by the safe-area insets so nothing hides under a notch. */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  text-shadow: 0 1px 0 var(--hud-shadow);
+}
+.hud button,
+.hud [data-touch] {
+  pointer-events: auto;
+}
+
+/* ── THE HUD ─────────────────────────────────────────────────────────────
+   Chunky arcade chrome: condensed capitals with a hard shadow, nothing
+   boxed unless it is a button. Sizes are `vmin`-clamped so the same layout
+   reads on a phone held either way and on a desktop. */
+
+.hud-top {
+  position: absolute;
+  top: max(0.6rem, env(safe-area-inset-top));
+  left: max(0.8rem, env(safe-area-inset-left));
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+}
+
+.hud-clock {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  line-height: 1;
+  white-space: nowrap;
+}
+
+.hud-clock-time {
+  font-size: clamp(1.5rem, 5.5vmin, 2.6rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.02em;
+}
+
+/* The top bar's readouts never wrap: a tighter row beats a broken one. */
+.hud-chip {
+  font-size: clamp(0.9rem, 2.5vmin, 1.3rem);
+  letter-spacing: 0.04em;
+  display: flex;
+  flex-direction: column;
+  line-height: 1.05;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.hud-chip-sub {
+  font-size: 0.62em;
+  opacity: 0.85;
+  letter-spacing: 0.08em;
+}
+
+.hud-topright {
+  position: absolute;
+  top: max(0.6rem, env(safe-area-inset-top));
+  right: max(0.8rem, env(safe-area-inset-right));
+  display: flex;
+  align-items: flex-start;
+  gap: 0.8rem;
+}
+
+.hud-wind {
+  align-items: flex-end;
+  text-align: right;
+}
+
+.hud-wind-row {
+  display: flex;
+  align-items: center;
+  gap: 0.3rem;
+}
+
+/* The vane: an arrow turned by the pointer handler's angle; it points
+   where the wind is GOING, relative to the nose, so an arrow up the screen
+   is a tailwind. */
+.hud-vane {
+  width: clamp(1.1rem, 3.2vmin, 1.5rem);
+  height: clamp(1.1rem, 3.2vmin, 1.5rem);
+  color: var(--hud-info);
+  filter: drop-shadow(0 1px 0 var(--hud-shadow));
+}
+
+.hud-vane g {
+  transform-origin: 12px 12px;
+  transition: transform 90ms linear;
+}
+
+.hud-mini {
+  font: inherit;
+  font-size: clamp(0.65rem, 2vmin, 0.9rem);
+  letter-spacing: 0.08em;
+  color: var(--hud-ink);
+  background: rgb(8 42 56 / 70%);
+  border: 2px solid rgb(255 255 255 / 65%);
+  border-radius: 0.4rem;
+  padding: 0.3rem 0.6rem;
+  cursor: pointer;
+  text-shadow: none;
+  flex: none;
+}
+
+/* The bottom-left corner is the instrument panel: revs over speed. */
+.hud-speed {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.25rem;
+}
+
+.hud-revs-row {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.hud-revs {
+  width: clamp(7rem, 26vmin, 13rem);
+  height: clamp(0.55rem, 1.8vmin, 0.85rem);
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 40%));
+}
+
+.hud-revs-track {
+  fill: rgb(8 42 56 / 55%);
+  stroke: rgb(255 255 255 / 70%);
+  stroke-width: 1.2;
+}
+
+.hud-revs-red {
+  fill: rgb(255 90 78 / 45%);
+}
+
+.hud-revs-fill {
+  fill: var(--hud-ink);
+  transform-origin: 0 50%;
+  /* Tweened between the HUD's 12 Hz snapshots so the bar sweeps. */
+  transition: transform 90ms linear;
+}
+
+.hud-revs-hot .hud-revs-fill {
+  fill: var(--hud-bad);
+}
+
+.hud-revs-tick {
+  stroke: rgb(8 42 56 / 70%);
+  stroke-width: 1;
+}
+
+.hud-cluster {
+  display: flex;
+  align-items: baseline;
+  gap: 0.4rem;
+}
+
+.hud-speed-num {
+  font-size: clamp(2.4rem, 10vmin, 4.8rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.hud-speed-unit {
+  font-size: clamp(0.8rem, 2.6vmin, 1.2rem);
+  letter-spacing: 0.06em;
+}
+
+/* The bottom-right corner: the air time while the hull is up, and the
+   news column under it. */
+.hud-right {
+  position: absolute;
+  right: max(1rem, env(safe-area-inset-right));
+  bottom: max(1rem, env(safe-area-inset-bottom));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.4rem;
+  text-align: right;
+}
+
+.hud-air {
+  align-items: flex-end;
+  color: var(--hud-good);
+}
+
+.hud-air-num {
+  font-size: clamp(1.6rem, 6vmin, 3rem);
+  font-weight: 700;
+  line-height: 1;
+}
+
+.hud-flashes {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.12rem;
+}
+
+.hud-flash {
+  font-size: clamp(0.72rem, 2.3vmin, 1.05rem);
+  letter-spacing: 0.06em;
+  line-height: 1.25;
+  font-variant-numeric: tabular-nums;
+  animation:
+    hud-flash-pop 180ms ease-out,
+    hud-flash-fade 500ms ease-in 2.6s forwards;
+}
+
+.hud-flash-good {
+  color: var(--hud-good);
+}
+
+.hud-flash-bad {
+  color: var(--hud-bad);
+}
+
+.hud-flash-info {
+  color: var(--hud-info);
+}
+
+@keyframes hud-flash-pop {
+  from {
+    opacity: 0;
+    transform: translateY(0.4em);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes hud-flash-fade {
+  to {
+    opacity: 0;
+  }
+}
+
+/* §38.3 — the build corner: which build, which stage, which craft. Small,
+   under the instrument panel's line of sight, never in the way. */
+.hud-build {
+  position: absolute;
+  left: max(1rem, env(safe-area-inset-left));
+  bottom: max(0.2rem, calc(env(safe-area-inset-bottom) - 0.4rem));
+  display: flex;
+  gap: 0.6rem;
+  font-size: clamp(0.5rem, 1.5vmin, 0.7rem);
+  letter-spacing: 0.06em;
+  color: var(--hud-info);
+  opacity: 0.85;
+}
+
+.hud-build a {
+  color: inherit;
+  text-decoration: none;
+  pointer-events: auto;
+}
+
+/* The centre: the pause card. */
+.hud-center {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.hud-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 1rem 1.6rem;
+  background: rgb(8 42 56 / 75%);
+  border: 2px solid rgb(255 255 255 / 65%);
+  border-radius: 0.6rem;
+}
+
+.hud-card-title {
+  font-size: clamp(1.4rem, 6vmin, 2.4rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.hud-card-note {
+  font-size: clamp(0.7rem, 2vmin, 1rem);
+  color: var(--hud-info);
+}
+
+/* ── THE TOUCH CONTROLS ──────────────────────────────────────────────────
+   The two thumb zones: the screen's halves below the top bar. The bar or
+   the lever anchors wherever the thumb lands inside its zone. */
+.hud-touch {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.hud-zone {
+  position: absolute;
+  top: 22%;
+  bottom: 0;
+  width: 50%;
+  pointer-events: auto;
+  touch-action: none;
+}
+
+.hud-zone-left {
+  left: 0;
+}
+
+.hud-zone-right {
+  right: 0;
+}
+
+/* The handlebar, anchored at the touch point. It turns via the pointer
+   handler writing the SVG transform — never React — so it answers at
+   pointer rate rather than the HUD's 12 Hz. Hidden until a thumb is down:
+   this is glass the player is meant to be able to ignore. */
+.hud-bar {
+  position: absolute;
+  display: none;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  animation: hud-anchor-in 100ms steps(2);
+}
+
+.hud-bar-svg {
+  position: absolute;
+  left: -100px;
+  top: -100px;
+  width: 200px;
+  height: 200px;
+  color: var(--hud-ink);
+  opacity: 0.85;
+  filter: drop-shadow(2px 2px 0 rgb(8 42 56 / 60%));
+}
+
+.hud-bar-reach {
+  fill: none;
+  stroke: rgb(255 255 255 / 30%);
+  stroke-width: 1;
+  stroke-dasharray: 3 3;
+}
+
+.hud-bar-tube {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 4.5;
+  stroke-linecap: round;
+}
+
+.hud-bar-grip {
+  fill: var(--hud-good);
+}
+
+/* The throttle lever: a track from the anchor DOWN the glass, the knob on
+   the thumb, the fill how open the pump is. */
+.hud-lever {
+  position: absolute;
+  display: none;
+  width: 0;
+  height: 0;
+  pointer-events: none;
+  animation: hud-anchor-in 100ms steps(2);
+}
+
+.hud-lever-svg {
+  position: absolute;
+  left: -22px;
+  top: -22px;
+  filter: drop-shadow(2px 2px 0 rgb(8 42 56 / 60%));
+}
+
+.hud-lever-track {
+  fill: rgb(8 42 56 / 45%);
+  stroke: rgb(255 255 255 / 70%);
+  stroke-width: 2;
+}
+
+.hud-lever-fill {
+  fill: var(--hud-good);
+}
+
+.hud-lever-knob {
+  fill: var(--hud-ink);
+  stroke: rgb(8 42 56 / 70%);
+  stroke-width: 2;
+}
+
+@keyframes hud-anchor-in {
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
+}
+
+/* PORTRAIT: the corners close in on a narrow screen. The instrument panel
+   and the news column share the bottom, so both shrink, and the top bar's
+   two clusters keep clear of each other. */
+@media (orientation: portrait) {
+  .hud-top {
+    gap: 0.7rem;
+  }
+
+  .hud-speed-num {
+    font-size: clamp(2rem, 12vw, 3.6rem);
+  }
+
+  .hud-revs {
+    width: clamp(6rem, 34vw, 10rem);
+  }
+
+  .hud-right {
+    max-width: 46vw;
+  }
+
+  .hud-flash {
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 46vw;
+  }
+}
+
+/* A short landscape (a phone on its side) has no height to spare: the
+   panel tightens vertically. */
+@media (orientation: landscape) and (max-height: 30rem) {
+  .hud-speed {
+    gap: 0.1rem;
+  }
+
+  .hud-build {
+    display: none;
+  }
+}
