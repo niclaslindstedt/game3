@@ -2,11 +2,15 @@
 
 ## Playing
 
-Open [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/). The game boots straight onto the water: a generated stretch of taiga shore, the sea beside it, a course of buoy gates laid along the coast, and your craft idling behind the first gate. There are no menus yet — this is the vertical slice — so the run starts when you open the throttle, and the clock with it.
+Open [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/). The house's name comes up while the first shore is built, then the title and an invitation; press anything and you are on the front door — **START** and **OPTIONS**, over a sea that is already running, ridden by the bot. START stands a run up behind a loading card and hands it to you: a generated stretch of taiga shore, the sea beside it, a course of buoy gates laid along the coast, and your craft behind the first gate. The run starts when you open the throttle, and the clock with it. **Escape** leaves a run for the front door again.
+
+**Options.** The craft you ride, the camera a run opens on, and whether the HUD is drawn — remembered between visits. There is no volume yet because there is no sound yet, and no key bindings because the keys below are fixed; each arrives as a row on that page the day the thing behind it does.
+
+**The developer page.** Hold **START** for seven seconds and it appears under OPTIONS. Behind it are the seed, a wind and a sea to override the level's own, the staged moments, and a COPY REPRO LINK that writes the lot back out as a URL — which is the point of it: a frame you found is a frame you can hand to somebody else.
 
 **What a run is.** The course is a line of gates, in order. A **water gate** is two buoys; cross the line between them, the right way round, and it counts. An **air gate** is a ring hanging over the water with a floating **ramp** moored before it: hit the ramp with pace, lean back, and fly through the ring. Skip a gate by passing the one after it and the missed one is still counted as reached, with a penalty on the clock. The last gate is the finish. **R** puts you back at the last gate you passed, facing the next one; **Enter** restarts the whole run on the same shore.
 
-**Choosing a level.** Every level is generated from a seed, so a URL is a level: `?seed=38` opens seed 38, and `?craft=marlin` picks the craft (`skiff`, `marlin`, `otter`, `dart`). The seed is in the HUD corner, beside the build label — send both with a bug report and whoever reads it stands on the same water.
+**Choosing a level.** Every level is generated from a seed, so a URL is a level: `?seed=38` opens seed 38, and `?craft=marlin` picks the craft (`skiff`, `marlin`, `otter`, `dart`); add `?start=1` to skip the cards and ride it. The seed is in the HUD corner, beside the build label — send both with a bug report and whoever reads it stands on the same water. The whole set of parameters is in [configuration.md](configuration.md).
 
 **The craft.** Four ship, and what separates them is real physics off a data card rather than a badge: the **skiff** (a light runabout — quick, nimble, skittish in chop), the **marlin** (heavy performance — the fastest, and it needs room), the **otter** (stable touring — the heaviest, the softest over waves, slow to turn) and the **dart** (a stand-up — the lightest, the most agile, the least stable). The rider on the saddle is drawn from the engine's own readings: the lean you input moves a point mass in the physics, and the figure slides and leans where that mass went, tucks into the wind as the pump opens, hangs into a turn, and takes a landing in his knees and back.
 
@@ -23,6 +27,9 @@ Open [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/). The game boo
 | R         | Reset to the last gate passed                               |
 | Enter     | Restart the run                                             |
 | C         | Camera: next view                                           |
+| Escape    | Leave the run for the main menu                             |
+
+On a menu card the arrow keys (or WASD) walk the rows, Enter or Space presses one, and Escape goes back a page.
 
 There is no brake, no handbrake and no gear: a jet ski has a throttle and a nozzle, and that is the whole of it. Which means the one thing to learn early — **no throttle, almost no steering**. The nozzle turns the thrust; with no thrust there is nothing to turn. Off the throttle the hull keeps going where it was pointed, with only the keel's small say in the matter. To turn, stay on the gas.
 

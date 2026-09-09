@@ -974,3 +974,969 @@ canvas {
     display: none;
   }
 }
+
+/* ── THE MENU SYSTEM ───────────────────────────────────────────────────────
+   Three cards, in the order the player meets them: the attract card the app
+   opens on, the front door under it, and the loading card over a run being
+   stood up. All three sit over the SAME LIVE CANVAS — the sea is being
+   stepped and drawn the whole time any of them is up — so each one is a
+   cover rather than a screen, and the chrome below is the same chrome the
+   HUD wears so that lifting a card reads as the game arriving. */
+
+/* ── THE APP MARK, BUILDING ────────────────────────────────────────────────
+   The crest off the icon, filled left to right (`mark-wave.tsx`).
+
+   IT IS A WIPE, NOT A STROKE. `stroke-dashoffset` is the obvious way to draw
+   a line on and it is the wrong one: it animates on the MAIN THREAD, which is
+   the thread the loading card exists to cover for. Standing a shore up blocks
+   that thread for seconds at a time, and a mark that froze for them would
+   read as a hung game rather than a loading one. A transform does not —
+   browsers run it on the compositor, so the fill keeps travelling through a
+   block that would stop a stroke animation dead. */
+.mark-wave {
+  position: relative;
+  display: block;
+  /* The drawing's own ratio — MARK_WAVE_RATIO in mark-wave.tsx, restated
+     here because a stylesheet cannot import a TypeScript module. It is the
+     ICON's framing widened to contain the curl (CURL_OVERHANG), so a mark
+     mounted anywhere needs only a width. Change one, change both. */
+  aspect-ratio: 322 / 205;
+}
+
+.mark-wave svg {
+  display: block;
+  width: 100%;
+  height: auto;
+  overflow: visible;
+  fill: none;
+  stroke: var(--foam);
+  stroke-linecap: round;
+}
+
+/* The finished shape, faint, under everything. It holds the space the fill is
+   about to take — so nothing beside the mark shifts as it runs, and the card
+   never shows a half-drawn wave adrift of its own box. */
+.mark-wave-ghost {
+  opacity: 0.22;
+}
+
+/* THE WINDOW, and the drawing inside it. The window slides RIGHT over the
+   shape while the shape slides LEFT by the same amount, so what is on screen
+   stays put and only the window into it moves: at `translateX(-100%)` the
+   window sits entirely left of the mark and nothing shows, and at `0` it
+   covers all of it. Both halves are transforms, which is the whole point. */
+.mark-wave-wipe {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  /* Its own layer, so the fill is composited rather than repainted. */
+  will-change: transform;
+}
+
+.mark-wave-slide {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+/* Filled once, and left there: a flourish beside a title that has just come
+   up. `both` is what keeps it — the mark holds the finished state rather than
+   snapping back to empty at the end of the run. */
+.mark-wave-once .mark-wave-wipe {
+  animation: mark-wipe 900ms cubic-bezier(0.33, 0, 0.2, 1) both;
+}
+
+.mark-wave-once .mark-wave-slide {
+  animation: mark-slide 900ms cubic-bezier(0.33, 0, 0.2, 1) both;
+}
+
+/* ...and over and over, for a load in progress. */
+.mark-wave-loop .mark-wave-wipe {
+  animation: mark-wipe-loop 1700ms cubic-bezier(0.4, 0, 0.25, 1) infinite;
+}
+
+.mark-wave-loop .mark-wave-slide {
+  animation: mark-slide-loop 1700ms cubic-bezier(0.4, 0, 0.25, 1) infinite;
+}
+
+@keyframes mark-wipe {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+@keyframes mark-slide {
+  from {
+    transform: translateX(100%);
+  }
+  to {
+    transform: translateX(0);
+  }
+}
+
+/* Filled, held long enough to be read as a shape rather than a sweep, then
+   faded off so the next one starts from nothing. The fade is opacity, which
+   is composited like the transform beside it; at the moment the loop wraps
+   the window is back left of the mark and there is nothing on screen to
+   pop. */
+@keyframes mark-wipe-loop {
+  0% {
+    transform: translateX(-100%);
+    opacity: 1;
+  }
+  55%,
+  78% {
+    transform: translateX(0);
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(0);
+    opacity: 0;
+  }
+}
+
+@keyframes mark-slide-loop {
+  0% {
+    transform: translateX(100%);
+  }
+  55%,
+  100% {
+    transform: translateX(0);
+  }
+}
+
+/* ── THE ATTRACT CARD ──────────────────────────────────────────────────────
+   The house's name while the sea is built, then the title and an invitation
+   (`splash-screen.tsx`). Painted in the same water the game is painted in, so
+   the card lifting reads as the menu arriving rather than as a screen
+   change. */
+.splash {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: clamp(0.9rem, 3.6vmin, 2rem);
+  padding: 1.5rem;
+  background: linear-gradient(180deg, var(--sea-deep) 0%, var(--sea) 62%, var(--sea-shallow) 100%);
+  color: var(--hud-ink);
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  opacity: 1;
+  transition: opacity 340ms ease-out;
+}
+
+/* Cleared — fade out of the way. The duration must match FADE_MS in
+   splash-screen.tsx, which is what times the unmount behind it.
+
+   NO `pointer-events: none` here, and that is not an omission: a tap is three
+   events and only the FIRST dismisses the card, so letting the fading card
+   stop taking presses hands the `click` that follows its own `pointerdown`
+   straight to the menu coming up underneath. */
+.splash.leaving {
+  opacity: 0;
+}
+
+.splash-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.35rem;
+  animation: splash-in 460ms ease-out both;
+}
+
+.splash-publisher {
+  font-size: clamp(1.1rem, 5vmin, 2rem);
+  letter-spacing: 0.1em;
+  line-height: 1;
+  text-shadow: 0 2px 0 var(--hud-shadow);
+}
+
+.splash-presents {
+  font-size: clamp(0.58rem, 2.1vmin, 0.9rem);
+  font-weight: 600;
+  letter-spacing: 0.5em;
+  /* The tracking is applied to the RIGHT of every glyph, the last one
+     included, so without this the word sits visibly left of centre. */
+  text-indent: 0.5em;
+  opacity: 0.85;
+}
+
+/* Beat two: the crest and the game's name, mounted the moment the game behind
+   the card is standing. */
+.splash-title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: clamp(0.4rem, 1.8vmin, 1rem);
+  animation: splash-crest 620ms ease-out both;
+}
+
+/* The crest's box. The ratio is the SVG's own viewBox, restated here so the
+   space is reserved before the wave has been drawn in it — and the height cap
+   is what keeps the crest off the title on a phone held sideways, the
+   tightest surface in the app. */
+.splash-mark {
+  width: min(64vw, 34vh, 22rem);
+}
+
+.splash-game {
+  max-width: 14ch;
+  font-size: clamp(1.8rem, 8vmin, 3.2rem);
+  letter-spacing: 0.05em;
+  line-height: 0.94;
+  text-align: center;
+  text-wrap: balance;
+  color: var(--buoy);
+  text-shadow: 0 3px 0 var(--hud-shadow);
+}
+
+/* The name rises into place a beat after the crest, so the two read as one
+   move rather than one appearance. */
+.splash-title .splash-game {
+  animation: splash-name 520ms 220ms ease-out both;
+}
+
+/* What the card is doing, and then what it wants. One slot, so the invitation
+   lands exactly where the player was already looking. */
+.splash-prompt {
+  font-size: clamp(0.68rem, 2.5vmin, 1rem);
+  letter-spacing: 0.32em;
+  text-indent: 0.32em;
+  text-align: center;
+  color: var(--hud-ink);
+  text-shadow: 0 2px 0 var(--hud-shadow);
+  animation: splash-loading 1.5s ease-in-out infinite;
+}
+
+/* The arcade blink: a hard on/off. A fade would read as a notification. */
+.splash-prompt.ready {
+  color: var(--buoy);
+  animation: splash-blink 1.05s linear 520ms infinite both;
+}
+
+@keyframes splash-in {
+  from {
+    opacity: 0;
+    transform: translateY(-0.6rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes splash-crest {
+  from {
+    opacity: 0;
+    transform: scale(0.94);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes splash-name {
+  from {
+    opacity: 0;
+    transform: translateY(0.8rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes splash-loading {
+  0%,
+  100% {
+    opacity: 0.3;
+  }
+  50% {
+    opacity: 0.75;
+  }
+}
+
+@keyframes splash-blink {
+  0%,
+  56% {
+    opacity: 1;
+  }
+  57%,
+  100% {
+    opacity: 0;
+  }
+}
+
+/* ── THE FRONT DOOR AND ITS PAGES ──────────────────────────────────────────
+   A card over the live sea (`menu-main.tsx`). It is a COVER, not a scrim over
+   a stopped game: the water behind it is being stepped and drawn at full
+   rate, so the card is dimmed against it rather than the sea dimmed under the
+   card. */
+.menu {
+  position: absolute;
+  inset: 0;
+  z-index: 1500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: max(1rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right))
+    max(1rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  /* Just enough wash to hold contrast over a bright sea without hiding it. */
+  background: rgb(8 42 56 / 42%);
+}
+
+.menu-card {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  width: min(30rem, 100%);
+  max-height: 100%;
+  /* THE CARD IS THE SCROLLER, not the rows inside it. A scrolling body
+     within a fixed head reserves a gutter its head does not, and every row
+     then sits a scrollbar's width left of the rule above them — a card that
+     looks broken on the one page long enough to need the scroll. */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: clamp(1rem, 3.5vmin, 1.6rem);
+  border-radius: 0.9rem;
+  background: rgb(11 61 79 / 88%);
+  border: 2px solid rgb(242 247 248 / 22%);
+  box-shadow: 0 10px 0 rgb(8 42 56 / 45%);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* The front door is the one card that centres on its own wordmark rather than
+   opening with a head, so it gets its air from the brand block above. */
+.menu-card-root {
+  align-items: stretch;
+  text-align: center;
+}
+
+.menu-brand {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.2rem;
+  margin-bottom: 0.4rem;
+}
+
+/* The mark rides with the NAME, not with the name and its billing: paired
+   with the whole block it sits visibly low, because the tagline under it
+   drags the centre it is aligned to down a line. */
+.menu-brand-line {
+  display: flex;
+  align-items: center;
+  gap: 0.7rem;
+}
+
+.menu-brand-mark {
+  width: clamp(2.6rem, 11vmin, 4rem);
+  flex: none;
+}
+
+.menu-brand-name {
+  font-size: clamp(1.6rem, 7vmin, 2.6rem);
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  line-height: 1;
+  text-shadow: 0 3px 0 var(--hud-shadow);
+}
+
+.menu-brand-tag {
+  font-size: 0.72rem;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  color: var(--hud-info);
+}
+
+.menu-items {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+/* A row on the front door. `position: relative` so START's fill has something
+   to be clipped by, and `overflow: hidden` so the fill wears the row's own
+   rounded corners rather than squaring them off. */
+.menu-item {
+  position: relative;
+  overflow: hidden;
+  display: block;
+  width: 100%;
+  padding: 0.85rem 1rem;
+  border: 2px solid rgb(242 247 248 / 26%);
+  border-radius: 0.55rem;
+  background: rgb(27 111 138 / 55%);
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 1.05rem;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.menu-item:hover,
+.menu-item:focus-visible,
+.menu-item.nav-cursor {
+  border-color: var(--buoy);
+  background: rgb(27 111 138 / 78%);
+  outline: none;
+}
+
+.menu-item:active {
+  transform: translateY(1px);
+}
+
+/* The way ON, given the weight the eye should land on first. */
+.menu-item-start {
+  background: rgb(242 140 40 / 78%);
+  border-color: rgb(242 247 248 / 42%);
+}
+
+.menu-item-start:hover,
+.menu-item-start:focus-visible,
+.menu-item-start.nav-cursor {
+  background: var(--buoy);
+}
+
+/* The developer row, once it has been let out: present, and visibly not part
+   of the game. */
+.menu-item-dev {
+  background: rgb(8 42 56 / 70%);
+  border-style: dashed;
+  color: var(--hud-info);
+  font-size: 0.85rem;
+}
+
+/* THE HOLD, drawn as the row filling (`menu-hold.ts`). Scaled from the left
+   rather than sized, so the fraction the component computes is the fraction
+   on screen with no layout in between. Under the label, which is why the
+   label needs a stacking context of its own below. */
+.menu-item-hold {
+  position: absolute;
+  inset: 0;
+  transform-origin: left center;
+  background: rgb(242 247 248 / 30%);
+  pointer-events: none;
+}
+
+.menu-item-name {
+  position: relative;
+}
+
+/* Being held past the point where the row says so. The label has already
+   changed by now (STRINGS.menuHolding); this is the row agreeing with it. */
+.menu-item-holding {
+  border-color: var(--foam);
+}
+
+/* The receipt for a hold that landed, said once on the visit it landed. */
+.menu-said {
+  margin: 0.2rem 0 0;
+  font-size: 0.72rem;
+  letter-spacing: 0.18em;
+  color: var(--buoy);
+}
+
+/* The build, bottom right of the front door, linking to its own commit. */
+.menu-version {
+  align-self: flex-end;
+  margin-top: 0.3rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.12em;
+  /* A commit sha is a sha. The card upper-cases everything on it, and a
+     hexadecimal one shouted back is a string nobody can match against
+     `git log`. */
+  text-transform: none;
+  color: var(--hud-info);
+  opacity: 0.75;
+  text-decoration: none;
+}
+
+.menu-version-dev {
+  opacity: 0.5;
+}
+
+/* ── A PAGE UNDER THE FRONT DOOR ───────────────────────────────────────────
+   A head with the way out in it, then the rows. The developer page is a dozen
+   rows and a phone in portrait is not, so the CARD scrolls — see
+   `.menu-card`. */
+.menu-head {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  align-items: start;
+  gap: 0.7rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 2px solid rgb(242 247 248 / 16%);
+}
+
+/* A head that is only a title is one row, and the button centres on it; a
+   head carrying a subtitle is two rows tall and the way out stands level with
+   the TITLE rather than floating between them. */
+.menu-head-solo {
+  align-items: center;
+}
+
+.menu-back {
+  padding: 0.3rem 0.5rem;
+  border: 2px solid rgb(242 247 248 / 24%);
+  border-radius: 0.4rem;
+  background: transparent;
+  color: var(--hud-info);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.menu-back:hover,
+.menu-back:focus-visible,
+.menu-back.nav-cursor {
+  border-color: var(--buoy);
+  color: var(--hud-ink);
+  outline: none;
+}
+
+.menu-head-text {
+  min-width: 0;
+}
+
+.menu-title {
+  font-size: 1.15rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.menu-sub {
+  margin-top: 0.15rem;
+  font-size: 0.66rem;
+  letter-spacing: 0.08em;
+  text-transform: none;
+  color: var(--hud-info);
+}
+
+.menu-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.55rem;
+}
+
+/* ── THE ROWS (menu.tsx) ───────────────────────────────────────────────────
+   A label and its control, side by side where there is width for it and
+   stacked where there is not — which on a phone is every row. */
+.menu-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.35rem 0.7rem;
+}
+
+.menu-label {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--hud-info);
+}
+
+.menu-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+}
+
+.menu-opt {
+  padding: 0.36rem 0.6rem;
+  border: 2px solid rgb(242 247 248 / 22%);
+  border-radius: 0.4rem;
+  background: rgb(8 42 56 / 45%);
+  color: var(--hud-info);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.menu-opt:hover,
+.menu-opt:focus-visible,
+.menu-opt.nav-cursor {
+  border-color: var(--buoy);
+  color: var(--hud-ink);
+  outline: none;
+}
+
+.menu-opt-active {
+  background: var(--buoy);
+  border-color: var(--foam);
+  color: var(--hud-shadow);
+}
+
+/* A continuous setting: the fader, and the figure that doubles as the way
+   back to AUTO. */
+.menu-slide {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.menu-slider {
+  width: min(11rem, 46vw);
+  accent-color: var(--buoy);
+}
+
+.menu-slide-read {
+  min-width: 4.5rem;
+  padding: 0.3rem 0.4rem;
+  border: 2px solid rgb(242 247 248 / 18%);
+  border-radius: 0.4rem;
+  background: rgb(8 42 56 / 45%);
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  font-variant-numeric: tabular-nums;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.menu-slide-auto {
+  color: var(--hud-info);
+}
+
+.menu-slide-read:hover,
+.menu-slide-read:focus-visible,
+.menu-slide-read.nav-cursor {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+/* A value stepped in place. The ring goes round the WHOLE group rather than
+   one arrow (menu-nav.ts): what is selected is the value between them. */
+.menu-step {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  border: 2px solid transparent;
+  border-radius: 0.45rem;
+}
+
+.menu-step.nav-cursor {
+  border-color: var(--buoy);
+}
+
+.menu-step-arrow {
+  width: 2rem;
+  padding: 0.3rem 0;
+  border: 2px solid rgb(242 247 248 / 22%);
+  border-radius: 0.4rem;
+  background: rgb(8 42 56 / 45%);
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 0.95rem;
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.menu-step-arrow:hover,
+.menu-step-arrow:focus-visible {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+.menu-step-read {
+  min-width: 4rem;
+  padding: 0.3rem 0.4rem;
+  border: none;
+  background: none;
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 0.85rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  text-align: center;
+  cursor: pointer;
+}
+
+/* A switch with its cost written under it. */
+.opt-toggles {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.opt-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border: 2px solid rgb(242 247 248 / 18%);
+  border-radius: 0.5rem;
+  background: rgb(8 42 56 / 40%);
+  color: var(--hud-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.opt-toggle:hover,
+.opt-toggle:focus-visible,
+.opt-toggle.nav-cursor {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+.opt-toggle-on {
+  background: rgb(27 111 138 / 60%);
+}
+
+.opt-toggle-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.opt-toggle-text b {
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+}
+
+.opt-toggle-hint {
+  font-size: 0.64rem;
+  letter-spacing: 0.02em;
+  line-height: 1.35;
+  text-transform: none;
+  color: var(--hud-info);
+}
+
+.opt-switch {
+  flex: none;
+  width: 2.4rem;
+  height: 1.25rem;
+  padding: 0.15rem;
+  border-radius: 999px;
+  background: rgb(8 42 56 / 70%);
+  border: 2px solid rgb(242 247 248 / 22%);
+}
+
+.opt-toggle-on .opt-switch {
+  background: var(--buoy);
+  border-color: var(--foam);
+}
+
+.opt-switch-knob {
+  display: block;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 999px;
+  background: var(--foam);
+  transition: transform 120ms ease-out;
+}
+
+.opt-toggle-on .opt-switch-knob {
+  transform: translateX(1.1rem);
+}
+
+/* The page's one blunt press — RESTORE DEFAULTS, COPY REPRO LINK, LOCK. */
+.opt-reset {
+  margin-top: 0.2rem;
+  padding: 0.55rem 0.7rem;
+  border: 2px dashed rgb(242 247 248 / 26%);
+  border-radius: 0.5rem;
+  background: transparent;
+  color: var(--hud-info);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.opt-reset:hover,
+.opt-reset:focus-visible,
+.opt-reset.nav-cursor {
+  border-color: var(--buoy);
+  color: var(--hud-ink);
+  outline: none;
+}
+
+.opt-reset-quiet {
+  opacity: 0.65;
+  font-size: 0.66rem;
+}
+
+/* THE CURSOR'S RING (menu-nav.ts). A class this module owns rather than
+   `:focus-visible`: browsers decide that one from how the last press ARRIVED,
+   and a controller arrives as nothing at all — the ring would come and go by
+   heuristic on the one input that has nowhere else to look. */
+.nav-cursor {
+  outline: none;
+  box-shadow: 0 0 0 3px rgb(242 140 40 / 55%);
+}
+
+/* ── THE LOADING CARD ──────────────────────────────────────────────────────
+   Over a run being stood up (`loading-screen.tsx`, `run-loader.ts`): the level
+   searched and compiled, two heightfields baked, the scene built off them and
+   every shader in it compiled — all of which would otherwise be paid for with
+   a frozen page and then a stuttering first minute.
+
+   The same water as the attract card, for the same reason: this is the app's
+   own cover coming down over the game, not a screen change. */
+.loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1800;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(180deg, var(--sea-deep) 0%, var(--sea) 100%);
+  opacity: 1;
+  transition: opacity 260ms ease-out;
+}
+
+.loading.leaving {
+  opacity: 0;
+}
+
+.loading-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  width: min(22rem, 76vw);
+  text-align: center;
+  text-transform: uppercase;
+}
+
+.loading-mark {
+  width: 100%;
+}
+
+.loading-word {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.34em;
+  text-indent: 0.34em;
+  text-shadow: 0 2px 0 var(--hud-shadow);
+}
+
+/* Held open whether or not there is a phase to name: a line arriving on the
+   second frame would shift the mark above it. */
+.loading-step {
+  margin: 0;
+  min-height: 1.1em;
+  font-size: 0.68rem;
+  letter-spacing: 0.1em;
+  color: var(--hud-info);
+}
+
+.loading-bar {
+  width: 100%;
+  height: 0.5rem;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgb(8 42 56 / 60%);
+}
+
+/* EVERY FILL IS A TRANSFORM. The phases that need a bar most are single
+   indivisible calls that hold the main thread for seconds, and a width or a
+   stroke animated on that thread freezes for exactly as long as the player
+   most needs to see something moving. */
+.loading-bar-fill {
+  width: 100%;
+  height: 100%;
+  border-radius: 999px;
+  background: var(--buoy);
+  transform-origin: left center;
+  will-change: transform;
+}
+
+/* MEASURED — the work counts itself, so the fill sits at exactly that. Eased
+   so a step that lands in one frame does not snap. */
+.loading-bar-measured .loading-bar-fill {
+  transform: scaleX(0);
+  transition: transform 160ms linear;
+}
+
+/* ESTIMATED — nothing inside the phase can count, but the same phase took a
+   known time on this machine last time, so the fill runs against that clock.
+   Held short of full (`--load-fill`) until the phase really ends: a bar that
+   reached the end and stopped reads as a hung game. */
+.loading-bar-estimated .loading-bar-fill {
+  animation: load-estimate linear both;
+}
+
+@keyframes load-estimate {
+  from {
+    transform: scaleX(0);
+  }
+  to {
+    transform: scaleX(var(--load-fill));
+  }
+}
+
+/* SWEEPING — a machine that has never stood a run up has neither a count nor
+   a clock. A band travels the bar and claims nothing at all. */
+.loading-bar-sweeping .loading-bar-fill {
+  transform-origin: center;
+  animation: load-sweep 1200ms ease-in-out infinite;
+}
+
+@keyframes load-sweep {
+  0% {
+    transform: translateX(-100%) scaleX(0.35);
+  }
+  100% {
+    transform: translateX(100%) scaleX(0.35);
+  }
+}
+
+/* REDUCED MOTION: every card still shows and still does its job — what goes
+   is the travelling, not the information. The wipe lands filled, the sweep
+   holds still, and the prompt stops blinking but stays lit, because a prompt
+   that has stopped asking is a card nobody knows how to leave. */
+@media (prefers-reduced-motion: reduce) {
+  .mark-wave-wipe,
+  .mark-wave-slide,
+  .splash-card,
+  .splash-title,
+  .splash-title .splash-game,
+  .loading-bar-fill {
+    animation: none;
+    transform: none;
+  }
+
+  .splash-prompt,
+  .splash-prompt.ready {
+    animation: none;
+    opacity: 1;
+  }
+
+  .loading-bar-sweeping .loading-bar-fill {
+    transform: scaleX(0.35);
+  }
+}

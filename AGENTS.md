@@ -6,7 +6,7 @@ This file is the canonical source of truth for AI coding agents working in this 
 
 This repository conforms to [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) — the committed copy IS the spec, self-contained, with no upstream document to fetch and no validator to call; it is a verbatim copy of the sibling rally game's, one spec for both games, and amending it is a reviewed PR that propagates the new mandate into the tree. When in doubt about layout, naming, or workflow conventions, the spec is the tie-breaker. Where the repo knowingly falls short of it, [`docs/spec-conformance.md`](docs/spec-conformance.md) is the ledger — one row per chapter, with the verdict, the evidence and what closing the gap would take; the `sync-game-spec` skill walks it.
 
-**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft with its rider on the saddle, a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
+**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft with its rider on the saddle, a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch, and the shell around all of it — an attract card, a front door with START and OPTIONS over a bot-ridden sea, a developer page behind a seven-second hold, and a loading card over a run being stood up. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
 
 ## Build and test commands
 
@@ -41,7 +41,8 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
 | The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife` | `nature`, `game-feel`                   |
-| The HUD, the controls, a menu                           | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
+| The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
+| A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
 | The sky, the light, the weather                         | `screenshots`, `level`         | `game-feel`                                    |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
@@ -123,6 +124,9 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | The sky as DRAWN: the dome, the stars, the clouds     | `pwa/src/game/environment.ts`, `sky-dome.ts`, `clouds.ts`     | `game-feel`          |
 | Which sky a seed is ridden under (R19)                | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`          | `mapgen-improvement` |
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
+| The splash, the main menu, options, the developer page | `pwa/src/game/menu*.ts*`, `splash*.ts*`, `loading-screen.tsx` | `menu-system`       |
+| What the game REMEMBERS between visits                | `pwa/src/game/settings.ts`                                    | `menu-system`        |
+| Standing a run up behind a card                       | `pwa/src/game/run-loader.ts` + the steps in `App.tsx`          | `menu-system`        |
 | The minimap: the coast it cuts, what stands on it     | `pwa/src/game/minimap-scene.ts`, `minimap-view.ts`, `minimap.tsx` | `hud-and-menus`   |
 | The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
 | The water as LIT: the glint, the reflected sky, the ripples, the foam's texture | `pwa/src/game/water-shader.ts`                       | `game-feel`, `water-feel` |
@@ -141,7 +145,6 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Every sound and every note (synthesized, no files) | `pwa/src/game/audio/index.ts`                                |
 | Damage: what a hit costs the machinery        | `engine/game/damage.ts`, `pwa/src/game/damage-fx.ts`             |
 | Trick scoring (the backflip is reachable, unscored) | `engine/game/tricks.ts`                                    |
-| Menus, settings                               | `pwa/src/game/menu-main.tsx`, `settings.ts`                      |
 | The campaign, its modes, which seeds          | `pwa/src/game/campaign.ts`, `engine/rating/index.ts`             |
 | A run recorded and watched again              | `engine/sim/tape.ts`, `pwa/src/game/replay.ts`                   |
 | The desktop app, the store app                | `tauri/README.md`, `native/README.md`                            |
@@ -180,6 +183,8 @@ Each of these is the one place an answer is written down. Anything that needs it
 - **What sky a level is under** — `Level.weather` (R19) and `Level.hour`, with `skyCover(wind.speed)` the one measure of how heavy that sky is. `pwa/src/game/sky.ts`'s `skyAt` turns the three into a `Preset`, and everything that answers to the sky — the two lights, the fog, the dome, the clouds, what the water reflects — reads that ONE preset. Nothing anywhere else decides how dark it is.
 - **What the water reflects** — `seaReflection(preset)` (the sky as a gradient a wave face can point into, and how much sun there is to glint) and `seaMirror(preset)` (the same at the one grazing angle the horizon ring has); `water-mesh.ts` is handed the preset and the scene's two lights (`retone`) and never picks a sky colour or a light of its own, and `fauna.ts` is handed the same preset for the colour a depth hazes an animal toward. The open sky's gradient itself is `skyToneAt` in `sky.ts`, which the dome paints with and the water's GLSL restates from the same three constants (`SKY_CURVE`, `GLOW_FOCUS`, `GLOW_REACH`).
 - **How far a rider can see INTO the water** — `SEE_THROUGH` in `pwa/src/game/water-mesh.ts`: inside it the near grid is semi-transparent and the horizon ring has its hole; outside it the far water is opaque. Anything drawn under the surface is drawn only inside it.
+- **WHAT THE GAME REMEMBERS** — `pwa/src/game/settings.ts`, and `mergeSettings` is the one place a stored blob is turned into settings this build offers. Nothing else reads storage, and no surface keeps a preference of its own beside it.
+- **WHICH SURFACE IS UP** — `Shell` in `pwa/src/App.tsx` (`splash | menu | loading | run`), and ONE engine state carries through all four: the shell only decides who rides it (`botInput` under a card, the input manager under a run) and what is drawn over it. Nothing anywhere else decides whether the game is running — it always is.
 - **The ONE clock** — `state.t` advances by `TUNING.dt` per step and is the only time the engine knows; the sea is a function of it. Nothing in `engine/` reads a wall clock (`analyzeLevel`'s report timer is the recorded exception, dev-time only).
 
 ## Test conventions
@@ -204,6 +209,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 | The layers, the step order, the state shape  | `docs/architecture.md`                                                                                |
 | Commands / npm scripts / Make targets        | README Usage table + this file's labs table                                                           |
 | The URL parameters, the deploy slots         | `docs/configuration.md`; `App.tsx`'s URL readers and `scripts/screenshot.mjs` move together           |
+| A menu surface, a setting, the shell's flow  | `docs/getting-started.md`, `docs/configuration.md` (the `?menu=` and `?start=` readers)               |
 | App identity, domain, deploy slots           | `identity.ts`, README, `docs/configuration.md`, `pwa/public/*`, `pwa/index.html`                      |
 | The craft, the controls, install flow        | README (What/Controls) + `docs/getting-started.md`                                                    |
 | Shell/platform plans                         | `docs/platforms.md`, `tauri/README.md`, `native/README.md`                                            |
@@ -249,7 +255,8 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 - **`engine-system`** — adding or changing a gameplay system, engine-first.
 - **`mapgen-improvement`** — the shore generator (rules / search / geometry, the R-rules), the analyze → fix → `make level` loop.
 - **`nature`** — the shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, and the sea life under the water (R20: the catalog and its rarity, the placer, the swim model, the look); later the flora.
-- **`hud-and-menus`** — the HUD's readouts, the handlebar and the throttle lever, the keys; menus are placeholders.
+- **`hud-and-menus`** — the HUD's readouts, the handlebar and the throttle lever, the keys — what is drawn over a RUN.
+- **`menu-system`** — the shell around a run: the attract card, the front door, options, the developer page behind the seven-second hold, the loading card, and the settings they read and write.
 - **`ui-review`** — the fit-and-finish sweep at the reference viewports (1280×720, 390×844).
 - **`playtest`** — staged moments photographed in the built app: `make screenshots SCENE=`.
 - **`test-scenario`** — exact situations: the synthetic level, `placeRun`, scripted inputs, `scenarios.ts` read three ways.

@@ -43,7 +43,8 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `engine-system` | Adding or changing a gameplay system, engine-first |
 | `mapgen-improvement` | The shore generator: rules / search / geometry, the R-rules, the analyze → fix → `make level` loop |
 | `nature` | The shore's materials as biome-as-data, what `terrain.ts` paints, the rocks; later the flora |
-| `hud-and-menus` | The HUD's readouts, the handlebar and the throttle lever, the keys; menus are placeholders |
+| `hud-and-menus` | The HUD's readouts, the handlebar and the throttle lever, the keys — what is drawn over a RUN |
+| `menu-system` | The shell around a run: the attract card, the front door, options, the developer page behind the seven-second hold, the loading card, the settings |
 | `ui-review` | The fit-and-finish sweep at the reference viewports |
 | `playtest` | Staged moments photographed in the built app: `make screenshots SCENE=` |
 | `test-scenario` | Exact situations: synthetic levels, `placeRun`, scripted inputs, `scenarios.ts` read three ways |
@@ -71,7 +72,7 @@ row and the `.lessons/` directory land where the next session expects them.
 | `built-shore` | What people put on the shore: harbours, jetties, a lighthouse, moored boats, the crowd — the sibling game's `built-world` |
 | `fauna` | The sea life is BUILT (R20: `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `game/fauna.ts`, `pwa/src/game/fauna.ts`) and routed to `nature` for now. This skill is still reserved for what is not there yet — the animals REACTING to the craft, birds over the headlands, seals hauled out on the skerries, and every coast but the taiga's roster |
 | `level-rating` | `engine/rating/`: whether a generated level is any GOOD as a race, the trait bands, the campaign ladder; `make rate` |
-| `campaign` | `pwa/src/game/campaign.ts`: which seeds become the campaign's levels, the modes (Time Trial, Heads Up, Roam), the menus behind them |
+| `campaign` | `pwa/src/game/campaign.ts`: which seeds become the campaign's levels and the modes (Time Trial, Heads Up, Roam) — the rows they hang off the front door are `menu-system`'s |
 | `replay` | `pwa/src/game/replay.ts` + `engine/sim/tape.ts`: a run recorded and watched again |
 | `debug-tools` | The in-game developer overlay, the REPRO line, `make debug-shot` — when a bug arrives as a picture |
 | `platform-shells` | `tauri/` and `native/`: the desktop and store apps around the built site |

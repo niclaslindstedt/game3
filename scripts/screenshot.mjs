@@ -69,6 +69,24 @@ const SCENES = [
   "wildlife",
 ];
 
+/** THE MENU SURFACES, and how to photograph each one.
+ *
+ * A card is not a staged frame, so these do not wait on `window.__SH_READY__`
+ * — that flag is set when a RUN's frame is drawn, and a menu is a card over a
+ * sea that is still moving. What says a card is up is the card being in the
+ * DOM, so each row names the element to wait for. `settle` is the beat after
+ * it that the card's own arrival animation needs before it is worth a
+ * picture.
+ *
+ * The URLs are the app's own (`?splash=`, `?menu=` in App.tsx) — a surface
+ * the lab can reach is a surface a bug report can link to. */
+const SURFACES = {
+  splash: { params: { splash: "1" }, wait: ".splash-title", settle: 900 },
+  menu: { params: { menu: "root" }, wait: ".menu-card-root", settle: 1000 },
+  options: { params: { menu: "options" }, wait: ".menu-card", settle: 400 },
+  developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
+};
+
 /** The two reference viewports (§35.2). */
 const VIEWPORTS = {
   desktop: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 },
@@ -80,6 +98,10 @@ const args = parseArgs(
   {
     scene: { kind: "string", default: "cruise", help: `which (${SCENES.join(", ")})` },
     all: { kind: "flag", help: "every scene" },
+    surface: {
+      kind: "string",
+      help: `a menu surface instead of a scene (${Object.keys(SURFACES).join(", ")}, all)`,
+    },
     seed: { kind: "number", default: 38, help: "level seed" },
     craft: { kind: "string", default: "skiff", help: "craft id" },
     t: {
@@ -104,7 +126,9 @@ const args = parseArgs(
     viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
-  "usage: node scripts/screenshot.mjs [--scene name | --all | --drive W:4] [--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] [--viewport v] [--timeout s]",
+  "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
+    "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] " +
+    "[--viewport v] [--timeout s]",
 );
 const viewports =
   args.viewport === "all" ? Object.keys(VIEWPORTS) : String(args.viewport).split(",");
@@ -147,7 +171,7 @@ let failures = 0;
  * wait for the app's ready flag, the file. Console errors and page errors
  * are printed under the file name: a screenshot of a frame the app threw
  * on is a screenshot of the wrong thing. */
-async function capture(name, params, viewportName, script) {
+async function capture(name, params, viewportName, script, surface) {
   const { viewport, deviceScaleFactor } = VIEWPORTS[viewportName];
   const page = await browser.newPage({ viewport, deviceScaleFactor });
   const problems = [];
@@ -161,19 +185,33 @@ async function capture(name, params, viewportName, script) {
   try {
     await page.goto(url, { waitUntil: "load" });
     if (script) await script(page);
-    await page.waitForFunction("window.__SH_READY__ === true", null, {
-      timeout: args.timeout * 1000,
-    });
+    if (surface) {
+      // A CARD, not a staged frame: what says it is up is the card being in
+      // the DOM. See SURFACES for why the ready flag is the wrong question.
+      await page.waitForSelector(surface.wait, { timeout: args.timeout * 1000 });
+      await page.waitForTimeout(surface.settle);
+    } else {
+      await page.waitForFunction("window.__SH_READY__ === true", null, {
+        timeout: args.timeout * 1000,
+      });
+    }
     await page.screenshot({ path: file });
     console.log(`previews/shot-${name}-${viewportName}.png  ← ${url}`);
   } catch (err) {
     failures += 1;
-    const ready = await page.evaluate("window.__SH_READY__").catch(() => undefined);
-    console.error(
-      `!! ${name} (${viewportName}): ${err.message.split("\n")[0]}` +
-        ` — window.__SH_READY__ is ${String(ready)} after ${args.timeout} s; ` +
-        `the app has to set it true once the staged frame is drawn (${url})`,
-    );
+    if (surface) {
+      console.error(
+        `!! ${name} (${viewportName}): ${err.message.split("\n")[0]}` +
+          ` — no "${surface.wait}" after ${args.timeout} s (${url})`,
+      );
+    } else {
+      const ready = await page.evaluate("window.__SH_READY__").catch(() => undefined);
+      console.error(
+        `!! ${name} (${viewportName}): ${err.message.split("\n")[0]}` +
+          ` — window.__SH_READY__ is ${String(ready)} after ${args.timeout} s; ` +
+          `the app has to set it true once the staged frame is drawn (${url})`,
+      );
+    }
   }
   for (const p of problems) console.log(`   ${p}`);
   await page.close();
@@ -185,7 +223,19 @@ if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
 if (args.hour !== undefined) base.hour = String(args.hour);
 if (args.weather !== undefined) base.weather = String(args.weather);
-if (args.drive) {
+if (args.surface) {
+  const names = args.surface === "all" ? Object.keys(SURFACES) : String(args.surface).split(",");
+  for (const name of names) {
+    const surface = SURFACES[name];
+    if (!surface) {
+      console.error(`unknown surface "${name}" (${Object.keys(SURFACES).join(", ")}, all)`);
+      failures += 1;
+      continue;
+    }
+    const params = { seed: String(args.seed), craft: args.craft, ...surface.params };
+    for (const v of viewports) await capture(name, params, v, undefined, surface);
+  }
+} else if (args.drive) {
   // A plain run, a key held: `--drive W:4` is four seconds of throttle
   // from the start line, and whatever the sea did in those seconds.
   const [key, secs] = String(args.drive).split(":");

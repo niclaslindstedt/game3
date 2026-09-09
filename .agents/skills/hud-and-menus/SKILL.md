@@ -1,11 +1,12 @@
 ---
 name: hud-and-menus
-description: "Use when changing WHAT THE PLAYER READS AND PRESSES — a HUD readout (the speed, the rpm bar, the run clock and gate count, the last split, the wind vane, the air time, the build label), the touch controls (the handlebar overlay on the left, the analogue throttle lever you drag DOWN on the right) and their bindings, the keyboard map, or — once they exist — a menu page, a setting, the minimap. Owns the DOM-free-payload split every one of these is built on, the thumb-guard discipline, and where each surface lives. Load `ui-review` beside it for the screenshot-audit sweep that judges the result."
+description: "Use when changing WHAT THE PLAYER READS AND PRESSES DURING A RUN — a HUD readout (the speed, the rpm bar, the run clock and gate count, the last split, the wind vane, the air time, the build label), the touch controls (the handlebar overlay on the left, the analogue throttle lever you drag DOWN on the right) and their bindings, the keyboard map, or — once it exists — the minimap. Owns the DOM-free-payload split every one of these is built on, the thumb-guard discipline, and where each surface lives. The CARDS around a run — the attract screen, the front door, options, the developer page, the loading card, the settings they read and write — are `menu-system`. Load `ui-review` beside either for the screenshot-audit sweep that judges the result."
 ---
 
 # The HUD and the controls: what the player reads and presses
 
-Everything on screen that is not the world. Two surfaces, one rule: the
+Everything on screen during a RUN that is not the world. Two surfaces, one
+rule: the
 **decision is DOM-free, the DOM only renders it**. A payload module works out
 what to show — the numbers, the framing, what a drag MEANS — and a `.tsx`
 component draws it. That split is why the root vitest suite can test the
@@ -18,6 +19,14 @@ beside this one, and **`ui-review`** for the fit-and-finish sweep at the
 reference viewports. For what a readout MEANS (the wind vane's promise, the
 air time as a moment) load `game-feel`.
 
+**The CARDS are next door.** The attract screen, the front door and its
+START / OPTIONS / DEVELOPER rows, the loading card, and everything the game
+remembers between visits (`settings.ts`) are **`menu-system`** — load that
+one instead. The split is what is up: this skill owns what is drawn over a
+run in progress, that one owns the shell around it. They share the payload
+rule above, and `input.ts` sits on the seam — the keys that ride a craft are
+here, the keys that walk a card are there.
+
 ## The HUD
 
 | Surface | Where |
@@ -29,13 +38,14 @@ air time as a moment) load `game-feel`.
 | The split against the last gate | `Progress.splits` / `lastGatePassedAt` in `engine/game/course.ts` — the HUD shows it, never computes it |
 | The `__SH_READY__` flag the screenshot harness waits on | `App.tsx`, set once the first frame has drawn — a HUD change that delays it is a harness that times out |
 | The minimap | `pwa/src/game/minimap-scene.ts` (the coast cut into paths around an ANCHOR, translated to the craft every frame), `minimap-view.ts` (the gates, the chevron, the gauge, the readout), `minimap.tsx` (the glyphs and the DOM) — the split above, and `tests/minimap_test.ts` reads the two payload halves without a browser |
+| The way OUT of a run | Escape, an `InputAction` in `input.ts` that `App.tsx` turns into the front door coming up (`menu-system`) |
 
 ## The controls
 
 | Surface | Where |
 | --- | --- |
 | What a key or a touch MEANS, as maths | `pwa/src/game/input-model.ts` — DOM-free: the throttle ramp, the steer ramp, the lever's drag → throttle curve, the handlebar's travel → steer/lean; `tests/input_model_test.ts` reads it |
-| Listening to the DOM | `pwa/src/game/input.ts` — keyboard (W/↑ throttle, S/↓ lean back, A/D ←/→ steer, Shift lean forward, R reset to the last gate, Enter restart, C camera) and the touch zones; nothing here decides, it only feeds the model |
+| Listening to the DOM | `pwa/src/game/input.ts` — keyboard (W/↑ throttle, S/↓ lean back, A/D ←/→ steer, Shift lean forward, R reset to the last gate, Enter restart, C camera, Escape out to the menu) and the touch zones; nothing here decides, it only feeds the model |
 | Touch: the HANDLEBAR overlay | `pwa/src/game/hud-touch.tsx`, LEFT half — thumb travel → steer, vertical travel → lean; drawn as a bar that tilts with the thumb |
 | Touch: the THROTTLE LEVER | `hud-touch.tsx`, RIGHT half — the touch anchors at 0, dragging DOWN opens the throttle (full at ~90 px), analogue, held while the finger is down, released on lift; drawn as a lever that follows the thumb |
 | A zone's grip on a finger | the thumb-guard discipline in `hud-touch.tsx`: a touch belongs to the zone it STARTED in until it lifts, whatever it wanders over; a second finger on the same half is ignored, not merged |
@@ -69,10 +79,10 @@ air time as a moment) load `game-feel`.
   chase camera, and not a bug to be tidied.
 - **The build label is §38's "the running build says what it is".** It reads
   `engine/version.ts` and the build's short hash; do not drop it for room.
-- **A menu is not a saving.** When menus come (`menu-main.tsx` is a
-  placeholder), the sibling game's rule applies: the menu's backdrop is the
-  real game, ridden by the bot under a drone camera. A menu that stops the
-  sea is a bug.
+- **A menu is not a saving.** The menu's backdrop is the real game, ridden by
+  the bot — a menu that stops the sea is a bug. That rule and the cards it
+  governs are `menu-system`'s; it is restated here because a HUD change that
+  reaches into `App.tsx`'s loop can break it from this side.
 
 ## The loop
 
@@ -95,7 +105,8 @@ watched mid-turn goes under either.
 ## What the change obliges elsewhere
 
 - A key or a gesture → `docs/getting-started.md` and the README's Quick
-  start; `tests/input_model_test.ts` for the maths.
+  start; `tests/input_model_test.ts` for the maths. A key that means
+  something to a CARD as well goes past `menu-system` too.
 - A readout → a scene that photographs it, if none does (`scenarios.ts` +
   `scripts/screenshot.mjs`), and `docs/getting-started.md`.
 - Anything the player sees → a `.changes/unreleased/` fragment.
