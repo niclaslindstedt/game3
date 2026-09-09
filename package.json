@@ -1,0 +1,48 @@
+{
+  "name": "game3",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Sea Haven — a personal-watercraft racing game for the browser: generated shores, physically grounded water, playable on phone and desktop as an installable PWA.",
+  "license": "PolyForm-Noncommercial-1.0.0",
+  "author": "Niclas Lindstedt <niclas@agilator.se>",
+  "type": "module",
+  "workspaces": [
+    "pwa"
+  ],
+  "scripts": {
+    "dev": "npm run dev --workspace pwa",
+    "build": "npm run typecheck:only && npm run build --workspace pwa",
+    "preview": "npm run preview --workspace pwa",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "npm run typecheck:only",
+    "typecheck:only": "tsc --noEmit && npm run typecheck --workspace pwa",
+    "lint": "eslint . && npm run typecheck:only",
+    "fmt": "prettier --write .",
+    "fmt:check": "prettier --check .",
+    "icons": "node scripts/generate-icons.mjs",
+    "check:seo": "node scripts/check-seo.mjs",
+    "sim": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/simulate-run.mjs",
+    "level": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/level-map.mjs",
+    "analyze": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/analyze-level.mjs",
+    "waves": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/waves-lab.mjs",
+    "ride": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/ride-lab.mjs",
+    "screenshots": "node scripts/screenshot.mjs",
+    "profile": "node scripts/profile-render.mjs"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/node": "^25.9.3",
+    "@typescript-eslint/eslint-plugin": "^8.61.1",
+    "@typescript-eslint/parser": "^8.61.1",
+    "eslint": "^10.5.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "globals": "^17.6.0",
+    "prettier": "^3.4.2",
+    "typescript": "^6.0.3",
+    "vitest": "^4.1.9"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
