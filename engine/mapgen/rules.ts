@@ -37,9 +37,13 @@
 //       gate's buoys stand `gate.width` metres apart.
 //   R5  DEEP WATER UNDER THE LINE. The sea is at least `course.minDepth`
 //       (1.5 m) deep under every point of the path, start to finish.
-//   R6  CLEAR OF THE ROCKS. Every solid — skerry, boulder or reef — keeps
-//       at least `course.solidMargin` (6 m) of open water between its edge
-//       and the path, and between its edge and every buoy.
+//   R6  CLEAR OF THE ROCKS. Every solid keeps `course.solidMargin` (6 m)
+//       of open water between its edge and the path, and between its edge
+//       and every buoy — plus `course.solidBerth` of its OWN radius, so the
+//       berth a rock is given grows with it: a boulder beside the line is
+//       drama, and a sea stack the same distance off it is a wall, because
+//       going round one is a metre of steering and going round the other is
+//       a corner.
 //   R7  SOME GATES ARE IN THE AIR. A course carries `air.count.min` to
 //       `air.count.max` air gates: rings `air.width` metres across whose
 //       centres float `air.height.min` to `air.height.max` metres above the
@@ -82,12 +86,18 @@
 //       course's own extent padded `bounds.sea` metres on the seaward sides
 //       and `bounds.land` metres on the landward ones, and the level's
 //       bounds ARE the grid's.
-//   R15 THE SHORE WANDERS, SMOOTHLY. The coast runs south-west to
-//       north-east — a base heading inside `shore.heading` — with the open
-//       sea on the RIGHT of that direction, and bays and headlands drawn
-//       from the seeded noise at `shore.wander`'s amplitudes; it never
-//       doubles back on itself (its offset per metre along the base line
-//       stays under `shore.maxSlope`).
+//   R15 THE SHORE WANDERS, AND THE WATER CUTS INTO IT. The coast runs
+//       south-west to north-east — a base heading inside `shore.heading` —
+//       with the open sea on the RIGHT of that direction. Bays and
+//       headlands are drawn from the seeded noise at `shore.wander`'s
+//       amplitudes, and on top of them `shore.inlet.count` INLETS cut in:
+//       rounded notches `shore.inlet.depth` metres deep that the sea runs
+//       up and a course runs into and back out of, each drawn at the mouth
+//       width its own depth needs so the cap below never has to flatten
+//       it. The line never doubles back on itself (its offset per metre
+//       along the base line stays under `shore.maxSlope`) and it carries no
+//       corner: the cap is applied, the line smoothed, and the cap applied
+//       again.
 //   R16 WHAT THE SHORE IS MADE OF, by rule and in this order: below sea
 //       level it is WATER; ground steeper than `surface.bedrockSlope` is
 //       BEDROCK; low ground at the waterline of a stretch softer than
@@ -156,6 +166,22 @@
 //       front of it. No one material may have the whole coast: the longest
 //       unbroken stretch of a single material along the waterline stays
 //       under `shore.character.run` metres.
+//   R22 THE COURSE IS NOT A STRAIGHT LINE. A race down a straight coast is
+//       a throttle held open, so a course has to be STEERED: the path's own
+//       length is at least `course.wind` times the straight line from the
+//       start to the finish, and the heading swings by at least
+//       `course.sweep` radians in total over it. Both come from the coast
+//       rather than from the line — the path follows the shore into every
+//       inlet and out round every headland (R15) — so a coast that cannot
+//       carry a winding course is a coast the search rerolls.
+//   R23 EVERY CORNER IS RIDEABLE. No turn on the path is tighter than
+//       `course.radius` metres of radius — the tightest circle a planing
+//       hull holds at a pace worth riding, and under it a corner stops
+//       being a corner and becomes a beach. It is a rule about the SHORE
+//       as much as about the line, because the line follows the shore: the
+//       head of an inlet is a U the course turns round the INSIDE of, so
+//       an inlet's mouth is drawn wide enough (R15) that the radius its
+//       head leaves the line is this one.
 //
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
@@ -166,6 +192,12 @@ import type { BiomeId, Solid } from "./types.ts";
 const DEG = TAU / 360;
 
 export type Band = { readonly min: number; readonly max: number };
+
+/** R23's floor, m — the tightest radius the course's line may turn at.
+ * Named before the table because two of the table's own entries are stated
+ * in terms of it: the rule the finished line is held to, and the mouth
+ * width an inlet has to be drawn at for its head not to break it. */
+const R_COURSE_RADIUS = 55;
 
 export const LEVEL_RULES = {
   /** R14 — the heightfield grid. Cell pitch, m: 4 m is under the hull's
@@ -189,12 +221,40 @@ export const LEVEL_RULES = {
      * (m). The broad period is long against the air gates' straight window
      * (R9 + R8 + R7 ≈ 150 m) so a chord across it does not cut the shore. */
     wander: {
-      broad: { amplitude: 40, scale: 600 },
-      fine: { amplitude: 8, scale: 150 },
+      broad: { amplitude: 150, scale: 480 },
+      fine: { amplitude: 16, scale: 170 },
     },
-    /** Cap on |d(offset)/ds|, m per m — a shore that runs at more than this
-     * to its base line is a fjord, not a Bothnian coast. */
-    maxSlope: 0.6,
+    /** THE INLETS (R15): how many the coast carries, how far the water
+     * reaches in (m) and how wide the mouth is drawn (m, half-width).
+     *
+     * This is the feature that makes a level a PLACE rather than a
+     * straight run down a beach — the course follows the shore, so an
+     * inlet is a corner the rider has to steer round twice. The mouth is
+     * never narrower than the depth needs: a cosine notch `depth` deep
+     * over `half` runs at `depth·π/(2·half)` at its steepest, and cutting
+     * it steeper than `steep` of the slope cap only means the cap flattens
+     * it back into a shapeless bay. */
+    inlet: {
+      count: { min: 2, max: 3 },
+      depth: { min: 80, max: 200 },
+      half: { min: 90, max: 170 },
+      steep: 0.75,
+      /** The radius the course gets round the HEAD of one, m. The head is
+       * a U and the line turns round the INSIDE of it, so what the line
+       * gets is the shore's own radius LESS the distance it keeps off the
+       * shore — which is why a notch drawn as deep and narrow as the slope
+       * cap allows is a hairpin nothing can ride, however legal its sides
+       * are. A cosine's curvature at its head is `depth·π²/2half²`, so the
+       * mouth is widened until the head's radius leaves the line this
+       * much: R23's floor, the two stated as one number. */
+      turn: R_COURSE_RADIUS,
+    },
+    /** Cap on |d(offset)/ds|, m per m. High enough that an inlet can have
+     * SIDES rather than a slope — 2.8 is 70° off the base line, and it is
+     * what decides how narrow the water can be where it cuts in, because a
+     * notch is drawn at the mouth width its depth needs. The wander itself
+     * runs at under a third of it; only the inlets ever come near. */
+    maxSlope: 2.8,
     /** How far past the course's ends the polyline is drawn, m, so a cell
      * near an end still finds its true nearest shore. */
     margin: 400,
@@ -217,19 +277,19 @@ export const LEVEL_RULES = {
       bias: 0.54,
       /** How far the noise swings it either way. */
       grain: 0.46,
-      /** …and how far the coast's own LIE does: a bay collects the
+      /** …and how far the coast's own BROAD lie does: a bay collects the
        * sediment the headlands are stripped of, so a recession softens the
-       * shore and a headland hardens it, over `swing` m of offset. */
+       * shore and a headland hardens it, over `swing` m of that swing. */
       shelter: 0.25,
-      swing: 40,
+      swing: 90,
       /** R21's quilt: the longest one material may run unbroken along the
-       * waterline, m. MEASURED: over the first forty seeds the longest
-       * such run is 608 m and the mean 239 m, so a level's coast changes
-       * every few gates on its own. Seven hundred is clear of that — it
-       * rejects nothing the character noise actually draws — and still
-       * refuses the fault it is here for, a level whose whole two-and-a-
-       * half kilometres of waterline is one material. */
-      run: 700,
+       * waterline, m. MEASURED: over forty seeds the longest such run is
+       * about 660 m and the mean 300, so a level's coast changes every few
+       * gates on its own. Eight hundred is clear enough of that to reroll
+       * one attempt in ten rather than one in six, and still refuses the
+       * fault it is here for: a level whose whole two-and-a-half
+       * kilometres of waterline is one material. */
+      run: 800,
     },
   },
 
@@ -336,6 +396,17 @@ export const LEVEL_RULES = {
       r: { min: 2.5, max: 8 },
       top: { min: -1.4, max: -0.3 },
     },
+    /** The SEA STACKS: the big rock tops standing out of open water, the
+     * things a course goes ROUND rather than past. Rare — a couple a
+     * kilometre — because a stack is a landmark and a coast strewn with
+     * landmarks has none, and big: `r` and `top` are what make one a rock
+     * the rider steers around rather than a skerry to be missed. */
+    stack: {
+      perKm: 2.5,
+      offshore: { min: 30, max: 170 },
+      r: { min: 6, max: 15 },
+      top: { min: 7, max: 22 },
+    },
     /** The glacial ERRATICS: the big blocks the ice dropped on the shore
      * itself. Their band straddles the waterline — inland onto the beach
      * and a little way into the shallows — and their size is stated as a
@@ -368,8 +439,12 @@ export const LEVEL_RULES = {
     aimScale: 320,
     /** Water under every point of the path, m. */
     minDepth: 1.5,
-    /** Open water between a solid's edge and the path or a buoy, m. */
+    /** Open water between a solid's edge and the path or a buoy: this
+     * much, m, plus `solidBerth` of the rock's own radius. The share is
+     * what makes the rule read the same to a rider whatever the rock is —
+     * a 15 m sea stack is given three hull-lengths and a boulder a hull. */
     solidMargin: 6,
+    solidBerth: 0.8,
     /** Start-to-finish length band, m. */
     length: { min: 1200, max: 2000 },
     /** Where the search aims the finish inside that band, m: the last gate
@@ -378,6 +453,19 @@ export const LEVEL_RULES = {
     target: { min: 1350, max: 1950 },
     /** Station spacing along the shore the path is drawn at, m. */
     station: 10,
+    /** R22 — how much the path must WIND: its length as a multiple of the
+     * straight line from the start to the finish, and the total heading
+     * change along it, rad. MEASURED against what the coast actually
+     * draws, so they refuse the straight runs rather than most of the
+     * population. */
+    wind: 1.06,
+    sweep: 3.5,
+    /** R23 — the tightest turn the line may ask for, m of radius. A hull
+     * doing 15 m/s round a 60 m radius is pulling 0.38 g sideways, which a
+     * planing hull holds on its keel; under about forty the line asks for
+     * a corner nothing in the catalog can hold at a pace worth riding, and
+     * a rider meets it as a beach rather than as a corner. */
+    radius: R_COURSE_RADIUS,
   },
 
   /** R4 — the gates. */
@@ -556,6 +644,15 @@ export type GenerateOptions = {
    * `LEVEL_RULES.search.attempts`. */
   attempts?: number;
 };
+
+/** R6 — the open water a rock of radius `r` keeps between its edge and the
+ * course's line and buoys, m. Stated here, once, because the placer builds
+ * to it, the analysis holds the finished level to it and the tests assert
+ * against it — and because "six metres" was true only while every rock was
+ * the size of a hull. */
+export function solidBerth(r: number): number {
+  return LEVEL_RULES.course.solidMargin + r * LEVEL_RULES.course.solidBerth;
+}
 
 /** Draw a uniform value inside a band from the seeded stream. */
 export function inBand(rng: { range(min: number, max: number): number }, band: Band): number {

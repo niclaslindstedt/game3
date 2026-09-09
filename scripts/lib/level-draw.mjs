@@ -59,6 +59,7 @@ const SOLID = {
   boulder: { fill: [86, 82, 78], edge: [40, 38, 36] },
   reef: { fill: [230, 90, 70, 90], edge: [200, 60, 50] },
   erratic: { fill: [64, 58, 52], edge: [24, 22, 20] },
+  stack: { fill: [148, 140, 128], edge: [40, 38, 34] },
 };
 
 export const MARK = {

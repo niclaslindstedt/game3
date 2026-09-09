@@ -89,6 +89,7 @@ export const RIDER_BOT: BotProfile = {
   airYawDamp: 1.2,
   lookAhead: 40,
   dodge: 9,
+  // Two seconds of water, and never less than half a gate's spacing: far
   easeAngle: 0.9,
   easeTo: 1,
   giveUpPast: 6,
@@ -204,6 +205,29 @@ function pastGate(gate: Gate, x: number, z: number): number {
   return (x - gate.x) * Math.sin(gate.heading) + (z - gate.z) * Math.cos(gate.heading);
 }
 
+/**
+ * WHICH GATE TO RIDE FOR: the first one ahead, and never one behind.
+ *
+ * A gate already past — a ring sailed over, a buoy passed on the wrong
+ * side — is a gate to pay for, not to turn back for: the engine counts it
+ * missed and the next one becomes the target, so the rider carries on. The
+ * walk goes FORWARD until it finds one the craft is not past, and when
+ * every gate left is past it takes the last, because a rider with nothing
+ * ahead rides to the finish rather than round in circles.
+ *
+ * Going back for the nearer of two gates it had passed is what put the bot
+ * into a widening spiral out to sea on a course with corners in it (R22):
+ * a gate's plane is infinite, so a craft well before a corner is already
+ * "past" the plane of the gate after it, and turning back for the first of
+ * them means turning back for ever.
+ */
+function rideFor(gates: readonly Gate[], from: number, x: number, z: number, past: number): Gate {
+  for (let i = from; i < gates.length; i++) {
+    if (pastGate(gates[i], x, z) <= past) return gates[i];
+  }
+  return gates[gates.length - 1];
+}
+
 export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): CraftInput {
   const c = state.craft;
   const gates = state.level.course.gates;
@@ -211,17 +235,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   if (state.phase !== "running" || n >= gates.length) {
     return { steer: 0, throttle: 0, lean: 0, reset: false };
   }
-  // A gate already BEHIND the craft — a ring sailed over, a buoy passed
-  // on the wrong side — is a gate to pay for, not to turn back for: the
-  // next one counts it as reached (`course.ts`), so aim there. What no
-  // rider does is loop back at speed through a field of skerries. But a
-  // craft that has run past BOTH has nothing ahead that counts, and goes
-  // back for the nearer one.
-  let gate = gates[n];
-  const pastNext = pastGate(gate, c.x, c.z) > profile.giveUpPast;
-  if (pastNext && n + 1 < gates.length && pastGate(gates[n + 1], c.x, c.z) <= profile.giveUpPast) {
-    gate = gates[n + 1];
-  }
+  const gate = rideFor(gates, n, c.x, c.z, profile.giveUpPast);
   const aim = aimFor(gate, c.x, c.z, c.vx, c.vz, c.spec.cog.y, topSpeedOf(c.spec), profile);
   let ax = aim.ax;
   let az = aim.az;

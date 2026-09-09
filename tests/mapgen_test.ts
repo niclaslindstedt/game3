@@ -13,6 +13,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ANALYSIS,
   CRAFT,
   LEVEL_RULES as R,
   airCorridor,
@@ -28,6 +29,7 @@ import {
   ringPlacement,
   sampleField,
   segmentDistance,
+  solidBerth,
   solidRule,
   sunAt,
   walkPolyline,
@@ -150,7 +152,7 @@ describe("level generator", () => {
       }
       expect(highest).toBeLessThanOrEqual(R.land.maxHeight);
       expect(farLand).toBeGreaterThan(0);
-      expect(steepest).toBeLessThan(0.05);
+      expect(steepest).toBeLessThan(ANALYSIS.land.rise);
     }
   });
 
@@ -230,13 +232,12 @@ describe("level generator", () => {
       const level = levelFor(seed);
       const buoys = level.course.gates.flatMap(gateBuoys);
       for (const s of level.solids) {
-        expect(polylineDistance(level.course.path, s.x, s.z) - s.r).toBeGreaterThanOrEqual(
-          R.course.solidMargin,
-        );
+        // The berth grows with the rock (R6): a sea stack is given room to
+        // be gone round, a boulder room to be missed.
+        const berth = solidBerth(s.r);
+        expect(polylineDistance(level.course.path, s.x, s.z) - s.r).toBeGreaterThanOrEqual(berth);
         for (const b of buoys) {
-          expect(Math.hypot(b.x - s.x, b.z - s.z) - s.r).toBeGreaterThanOrEqual(
-            R.course.solidMargin,
-          );
+          expect(Math.hypot(b.x - s.x, b.z - s.z) - s.r).toBeGreaterThanOrEqual(berth);
         }
       }
     }
@@ -383,13 +384,21 @@ describe("level generator", () => {
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
       expect(withinBand(level.wind.speed, R.wind.speed)).toBe(true);
-      // Blowing off the sea means a point upwind of the shore's middle is
-      // further out to sea than a point downwind of it.
-      const mid = level.shore[Math.floor(level.shore.length / 2)];
+      // Blowing off the sea means that, taken over the whole coast, a
+      // point upwind of the shore is further out to sea than a point
+      // downwind of it. Over the WHOLE coast rather than at its middle
+      // vertex: an inlet (R15) turns the shore round on itself, so the one
+      // point the middle happens to land on says nothing about which way
+      // the open water lies.
       const ux = Math.sin(level.wind.from);
       const uz = Math.cos(level.wind.from);
-      const upwind = sampleField(level.offshore, mid.x + ux * 40, mid.z + uz * 40);
-      const downwind = sampleField(level.offshore, mid.x - ux * 40, mid.z - uz * 40);
+      let upwind = 0;
+      let downwind = 0;
+      for (let i = 0; i < level.shore.length; i += 5) {
+        const p = level.shore[i];
+        upwind += sampleField(level.offshore, p.x + ux * 60, p.z + uz * 60);
+        downwind += sampleField(level.offshore, p.x - ux * 60, p.z - uz * 60);
+      }
       expect(upwind).toBeGreaterThan(downwind);
     }
   });
@@ -525,7 +534,7 @@ describe("level generator", () => {
           );
         }
       }
-      expect([...kinds].sort()).toEqual(["boulder", "erratic", "reef", "skerry"]);
+      expect([...kinds].sort()).toEqual(["boulder", "erratic", "reef", "skerry", "stack"]);
     }
   });
 

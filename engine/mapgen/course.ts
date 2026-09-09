@@ -43,7 +43,7 @@ import { clamp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import type { Geology } from "./geology.ts";
-import { LEVEL_RULES as R, inBand } from "./rules.ts";
+import { LEVEL_RULES as R, inBand, solidBerth } from "./rules.ts";
 import type { Shore } from "./shore.ts";
 import type { Gate, Ramp, Vec2 } from "./types.ts";
 
@@ -380,11 +380,50 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
     from: gateD[draw.index] - draw.lead - R.ramp.runUp,
     to: gateD[draw.index] + R.air.landing,
   });
+  /**
+   * The stretch of path actually cut straight for a corridor: the window,
+   * with its FAR end pushed out until the chord is at least as long as the
+   * corridor is.
+   *
+   * A chord is shorter than the arc it replaces. Straightening exactly the
+   * window leaves a straight run shorter than the corridor that has to sit
+   * in it, so the landing — and, once the compression is a few metres, the
+   * run-up too — starts in the bend beyond the straight's end. On a gently
+   * curved coast that is centimetres and invisible; on one with inlets in
+   * it (R15) it is several metres over a 135 m window.
+   *
+   * Only the far end moves. The near end is where the run-up begins, and
+   * the run-up is measured back from the hinge, so pushing it out would
+   * spend straight water nobody rides.
+   */
+  const straightSpan = (draw: AirDraw, pts: Vec2[]): { from: number; to: number } => {
+    const w = windowOf(draw);
+    const cum = cumulative(pts);
+    const need = w.to - w.from;
+    const a = pointAlong(pts, cum, w.from);
+    let to = w.to;
+    // Extending the far end by the shortfall only closes the part of it
+    // the bend does not eat again, so the step overshoots and the walk
+    // runs until it has actually converged rather than a fixed few times.
+    // Where the bend is sharp enough that it never does, `chordOk` refuses
+    // the candidate outright.
+    for (let pass = 0; pass < 10; pass++) {
+      const b = pointAlong(pts, cum, to);
+      const short = need - Math.hypot(b.x - a.x, b.z - a.z);
+      if (short <= 0.05) break;
+      to += short * 1.6 + 0.2;
+    }
+    return { from: w.from, to };
+  };
   const chordOk = (draw: AirDraw, pts: Vec2[]): boolean => {
     const cum = cumulative(pts);
-    const w = windowOf(draw);
+    const w = straightSpan(draw, pts);
     const a = pointAlong(pts, cum, w.from);
     const b = pointAlong(pts, cum, w.to);
+    // The straight this leaves has to be at least as long as the corridor
+    // that sits in it: a bend too sharp for the span to widen its way out
+    // of is a place with no room for a jump, not a jump to be squeezed in.
+    if (Math.hypot(b.x - a.x, b.z - a.z) < windowOf(draw).to - w.from - 0.05) return false;
     // The run-up and the deck want R9's depth; the landing wants R5's.
     const ringD = gateD[draw.index] - w.from;
     return chordLegal(a.x, a.z, b.x, b.z, (x, z, d) =>
@@ -395,7 +434,7 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
     if (chosen.length >= airCount) break;
     const draw = drawAir(index);
     if (!draw) continue;
-    const w = windowOf(draw);
+    const w = straightSpan(draw, points);
     if (w.from < startStraight || w.to > finishD) continue;
     if (chosen.some((c) => windowOf(c).from < w.to && w.from < windowOf(c).to)) continue;
     if (!chordOk(draw, points)) continue;
@@ -407,7 +446,7 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
     // Re-verified on the path as it stands now — upstream chords shorten
     // the line a little, and the window is a promise about distances.
     if (!chordOk(draw, points)) return null;
-    const w = windowOf(draw);
+    const w = straightSpan(draw, points);
     points = straighten(points, w.from, w.to);
   }
 
@@ -470,10 +509,10 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
  * Kept `search.marginSlack` clear beyond the rule, so the finished level
  * holds the rule with room. */
 export function courseKeepOut(plan: CoursePlan): (x: number, z: number, r: number) => boolean {
-  const margin = R.course.solidMargin + R.search.marginSlack;
   const buoys = plan.gates.flatMap(gateBuoys);
   const corridors = plan.gates.filter((g) => g.kind === "air").map(airCorridor);
   return (x, z, r) => {
+    const margin = solidBerth(r) + R.search.marginSlack;
     if (polylineDistance(plan.path, x, z) < r + margin) return false;
     for (const b of buoys) if (Math.hypot(b.x - x, b.z - z) < r + margin) return false;
     for (const c of corridors) {

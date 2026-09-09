@@ -135,7 +135,9 @@ And the scoreboard, which is NOT in `mapgen/` on purpose:
 
 | File | Job |
 | --- | --- |
-| `engine/analysis/index.ts` | `analyzeLevel(level) → { findings, ok }`. It reads `mapgen` AND `game`, so it sits above both — a check about the craft's clearance imports the real hull margin rather than keeping a copy. |
+| `engine/analysis/index.ts` | `analyzeLevel(level) → { findings, ok }`, and the checks about the COURSE. It reads `mapgen` AND `game`, so it sits above both — a check about the craft's clearance imports the real hull margin rather than keeping a copy. |
+| `engine/analysis/coast.ts` | The other half: the checks about the SHORE and what stands on it (R15, R16, R17, R21). Split by subject, not by size — none of them knows a gate exists. |
+| `engine/analysis/report.ts` | The `Finding`, the `Report` both halves push onto, and the two formatters. |
 | `engine/analysis/budgets.ts` | **Every threshold, as data.** `rules.ts`'s opposite number: that one says what may be BUILT, this one says what the result has to COME OUT like. |
 
 Keep the splits. A placement decision in `compile.ts`, a geometric fudge in

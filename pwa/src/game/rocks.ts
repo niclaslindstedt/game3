@@ -25,10 +25,16 @@ const REEF = new THREE.Color(0x2c3d32);
  * somewhere else — which is the whole point of an erratic, and what makes
  * one read as an object on the shore rather than as part of it. */
 const ERRATIC = new THREE.Color(0x9a8b78);
+/** The sea stacks: paler than the shore, because a rock standing in open
+ * water is lit from every side by the sky and washed by the salt. */
+const STACK = new THREE.Color(0xa8a49b);
 
 /** How far below the sea the solids' shapes continue, m, so a rock is
  * rooted in the bed rather than floating at the surface. */
 const ROOT = 6;
+/** …and how far a STACK's column continues under it, m: deeper, because a
+ * stack stands in open water where the bed is well down. */
+const STACK_ROOT = 26;
 
 const m = new THREE.Matrix4();
 const pos = new THREE.Vector3();
@@ -82,6 +88,23 @@ export function createRocks(level: Level): THREE.Group {
   const by = (kind: Solid["kind"]) => level.solids.filter((s) => s.kind === kind);
   // A skerry: a seven-sided cone-topped drum, unit radius, from -1 to +1.
   const dome = new THREE.CylinderGeometry(0.55, 1, 2, 7, 1);
+  // A stack: a tall tapered column, wider at the waterline than at its top,
+  // rooted far enough under the sea that the bed never shows through its
+  // foot. Nine-sided, so it reads as a rock face from any angle.
+  group.add(
+    instanced(
+      new THREE.CylinderGeometry(0.62, 1, 2, 9, 1),
+      by("stack"),
+      (s) => {
+        const h = s.top + STACK_ROOT;
+        pos.y = s.top - h / 2;
+        scale.set(s.r, h / 2, s.r * 0.82);
+      },
+      STACK,
+      level.seed,
+      0.05,
+    ),
+  );
   group.add(
     instanced(
       dome,

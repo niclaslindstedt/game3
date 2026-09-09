@@ -68,9 +68,13 @@ and `determinism_test.ts` assert this). Keep it that way:
 
 ## The current riding model (so you don't re-derive it)
 
-1. **Aim** — the next gate's centre for a water gate; for an air gate, a
-   point on the RAMP's axis behind the ramp, so the craft arrives square to
-   it. Steering is proportional to the heading error, clamped to ±1.
+1. **Aim** — the FIRST gate ahead: the walk starts at the course's next gate
+   and goes forward past every one the craft is already past, never
+   backwards (a gate's plane is infinite, and on a course with corners a
+   craft can be "past" one it has never been near). Then the gate's centre
+   for a water gate; for an air gate, a point on the RAMP's axis behind the
+   ramp, so the craft arrives square to it. Steering is proportional to the
+   heading error, clamped to ±1.
 2. **Throttle** — full, always, because the nozzle only steers with flow;
    eased only when the bow is buried (`submergedDepth` past a bar) so a
    dive does not become a second one.

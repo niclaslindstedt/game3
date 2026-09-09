@@ -45,6 +45,7 @@ export type Biome = {
     readonly boulder: number;
     readonly reef: number;
     readonly erratic: number;
+    readonly stack: number;
   };
   /** Multiplier on `LEVEL_RULES.surface.boulder.threshold`'s complement:
    * above 1 the boulder fields are wider, below 1 sparser. */
@@ -81,7 +82,7 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // sunrise three hours after midnight.
     latitude: 62,
     relief: 1,
-    rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1 },
+    rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },
     boulderField: 1,
     beaches: true,
     // R19 — the Bothnian summer, which is every sky there is. A northern

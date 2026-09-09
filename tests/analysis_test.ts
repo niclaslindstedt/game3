@@ -7,7 +7,15 @@
 // is only as honest as the findings it rejects on.
 import { describe, expect, it } from "vitest";
 
-import { LEVEL_RULES as R, analyzeLevel, type Gate, type Level, type Solid } from "@engine";
+import {
+  LEVEL_RULES as R,
+  analyzeLevel,
+  polylineDistance,
+  solidBerth,
+  type Gate,
+  type Level,
+  type Solid,
+} from "@engine";
 
 import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
 
@@ -40,6 +48,12 @@ describe("level analysis", () => {
       expect(a.stats.airGates).toBeGreaterThanOrEqual(R.air.count.min);
       expect(a.stats.minDepth).toBeGreaterThanOrEqual(R.course.minDepth);
       expect(a.stats.minClearance).toBeGreaterThanOrEqual(R.course.solidMargin);
+      // …and the biggest rock on it keeps the berth its own size earns.
+      for (const s of levelFor(seed).solids) {
+        expect(polylineDistance(levelFor(seed).course.path, s.x, s.z) - s.r).toBeGreaterThanOrEqual(
+          solidBerth(s.r),
+        );
+      }
       expect(a.stats.length).toBe(levelFor(seed).course.length);
       expect(a.ms).toBeLessThan(1000);
     }

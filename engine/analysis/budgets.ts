@@ -38,14 +38,19 @@ export const ANALYSIS = {
      * so a cell straddling it blends the step's last rise into the flat. */
     margin: 12,
     /** How steeply the land may still be climbing inland past the reach,
-     * m per m. Not float noise: the hills vary ALONG the coast (R21) and
-     * the inland direction the check walks is the shore's own normal,
-     * which on a wandering coast runs a little along the base line as well
-     * as across it — so a step inland reads a slightly different stretch
-     * of coast, and its hills a slightly different height. A twentieth of
-     * a metre per metre is several times the worst that costs and far
-     * under any slope a rider would call a rise. */
-    rise: 0.05,
+     * m per m.
+     *
+     * Not float noise. The hills vary ALONG the coast (R21) and the inland
+     * direction this walks is the shore's own normal, which beside an
+     * inlet runs almost entirely along the base line — so a step "inland"
+     * there reads a different stretch of coast, and its hills a different
+     * height. The character changes by about 0.003 per metre of coast at
+     * its fastest and the hill by `land.plateau · land.hill` times that,
+     * which is a tenth of a metre per metre of apparent climb in the worst
+     * place on the worst seed. A fifth is clear of it and still three
+     * times under the 0.6 m/m the land's own step (R2) climbs at, which is
+     * the failure this is here to catch. */
+    rise: 0.2,
   },
   sea: {
     /** How far under `sea.depth` the bed may go, m — the detail's
@@ -84,6 +89,14 @@ export const ANALYSIS = {
      * is a few degrees loose, and a wind drawn at the band's edge must
      * not fail on the estimate's error. */
     direction: 0.09,
+  },
+  course: {
+    /** R23 — how far apart the three points the corner's circle is drawn
+     * through stand, m. The path is a polyline of 10 m stations and its
+     * vertices carry the search's own rounding, so a circle through three
+     * neighbours measures that rounding rather than the corner; three
+     * stations apart is a stencil the size of a hull's turn. */
+    stencil: 30,
   },
   shore: {
     /** How sharply the shore polyline may turn at a vertex, rad — R15's

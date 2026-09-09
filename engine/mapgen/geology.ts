@@ -108,8 +108,17 @@ export function createGeology(rng: Rng, biome: Biome, shore: Shore): Geology {
   const bedSeed = rng.int(1, 0x7fffffff);
   const boulderSeed = rng.int(1, 0x7fffffff);
 
+  // Past this the shelf's blend is complete and the bed is the open
+  // coast's whatever the shore is like there — so the character, which
+  // costs two noise lookups, is never asked for out here. Most of a
+  // level's cells are open sea, and this is the bake's inner loop.
+  const shelfEnd = R.sea.shelf.reach + R.sea.shelf.blend;
   const sample = (x: number, z: number): { ground: number; offshore: number } => {
     const offshore = shore.distanceAt(x, z);
+    if (offshore >= shelfEnd) {
+      const grain = (valueNoise(x, z, R.sea.detail.scale, bedSeed) - 0.5) * 2;
+      return { ground: -bedDepth(offshore) + grain * R.sea.detail.amplitude, offshore };
+    }
     const { s } = shore.toLocal(x, z);
     const rugged = shore.ruggedAt(s);
     if (offshore >= 0) {
@@ -150,6 +159,7 @@ const KIND_PREFIX: Record<SolidKind, string> = {
   boulder: "B",
   reef: "F",
   erratic: "E",
+  stack: "S",
 };
 
 /** R17 — lay the rocks along the coast between two distances along its
@@ -166,7 +176,9 @@ export function laySolids(
 ): Solid[] {
   const solids: Solid[] = [];
   const km = (sTo - sFrom) / 1000;
-  const kinds: SolidKind[] = ["skerry", "boulder", "reef", "erratic"];
+  // Biggest first: a stack is a landmark and wants the open water, and
+  // `apart` gives whatever is placed first its pick of the coast.
+  const kinds: SolidKind[] = ["stack", "skerry", "boulder", "reef", "erratic"];
   for (const kind of kinds) {
     const rule = solidRule(kind);
     const count = Math.round(rule.perKm * biome.rocks[kind] * km * rng.range(0.8, 1.2));

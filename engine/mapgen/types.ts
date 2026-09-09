@@ -48,7 +48,7 @@ export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
  * sitting up a beach), `r` its plan radius. */
 export type Solid = {
   readonly id: string;
-  readonly kind: "skerry" | "boulder" | "reef" | "erratic";
+  readonly kind: "skerry" | "boulder" | "reef" | "erratic" | "stack";
   readonly x: number;
   readonly z: number;
   readonly r: number;

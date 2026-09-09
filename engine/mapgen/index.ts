@@ -4,6 +4,7 @@
 export {
   LEVEL_RULES,
   inBand,
+  solidBerth,
   solidRule,
   withinBand,
   type Band,
