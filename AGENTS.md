@@ -40,6 +40,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The generator, its rules, the analyzer                  | `level`, `analyze`             | `mapgen-improvement`                           |
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
+| The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife` | `nature`, `game-feel`                   |
 | The HUD, the controls, a menu                           | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | The sky, the light, the weather                         | `screenshots`, `level`         | `game-feel`                                    |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
@@ -127,6 +128,9 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | The water as LIT: the glint, the reflected sky, the ripples, the foam's texture | `pwa/src/game/water-shader.ts`                       | `game-feel`, `water-feel` |
 | The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `fx-textures.ts`          | `game-feel`            |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
+| What swims here: the catalog, its rarity (R20)        | `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `biomes.ts`'s `fauna` | `nature`     |
+| Where an animal IS at a moment                        | `engine/game/fauna.ts` (`faunaPose`)                          | `nature`             |
+| The sea life as DRAWN, seen through the water         | `pwa/src/game/fauna.ts`, `water-mesh.ts`'s alpha              | `nature`, `game-feel` |
 | The buoys, the rings, the ramps as drawn              | `pwa/src/game/gates.ts`                                       | `collision`          |
 | A staged moment                                       | `pwa/src/game/scenarios.ts`, `engine/game/place.ts`           | `test-scenario`      |
 
@@ -137,7 +141,6 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Every sound and every note (synthesized, no files) | `pwa/src/game/audio/index.ts`                                |
 | Damage: what a hit costs the machinery        | `engine/game/damage.ts`, `pwa/src/game/damage-fx.ts`             |
 | Trick scoring (the backflip is reachable, unscored) | `engine/game/tricks.ts`                                    |
-| The fish and animals, by biome                | `engine/game/defs/fauna.ts`, `engine/mapgen/fauna.ts`, `pwa/src/game/fauna.ts` |
 | Menus, settings                               | `pwa/src/game/menu-main.tsx`, `settings.ts`                      |
 | The campaign, its modes, which seeds          | `pwa/src/game/campaign.ts`, `engine/rating/index.ts`             |
 | A run recorded and watched again              | `engine/sim/tape.ts`, `pwa/src/game/replay.ts`                   |
@@ -166,6 +169,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 
 - **What a craft CAN do** — `engine/game/limits.ts` (`maxRpm`, `maxNozzle`, `MAX_LEAN`, `jetCeiling`, `airPitchTorque`, `topSpeedOf`), read by the physics AND `sim/bot.ts`. Never restate a ceiling.
 - **What the speedo reads** — `CraftState.speed`: `|v|`, vertical included, written once at the end of `stepCraft`. The HUD, the bot and the sim all read it and none restates it.
+- **Where an animal is** — `faunaPose(pod, i, t, out)` in `engine/game/fauna.ts`: the sea life's `surfaceAt`, a pure function of the pod's loop and the clock. Nothing about the fauna is stepped, stored per frame or replayed, and `pwa/src/game/fauna.ts` reads this and nothing else.
 - **The wave surface** — `surfaceAt(sea, level, x, z, t)` in `engine/game/water.ts`: the height, the normal and the orbital velocity. The hull probes call it at 120 Hz and the renderer's `water-mesh.ts` calls the SAME function to displace its vertices. There is no second wave function anywhere.
 - **What the shore is made of** — `Level.materialAt(x, z)`; the sea's `surfaceAt` is the WAVE surface, which is why the level's classifier is not called that.
 - **The ramp's anchor** — `rampSurface` in `engine/mapgen/course.ts`: `(x, z)` is the HINGE at the waterline, `length` is the plan footprint, the lip stands `length · tan(angle)` up. The collision engine's `rampDeckY` is the same line, and the search, the analysis and the tests all place a ring off it (`ringPlacement`).
@@ -174,7 +178,8 @@ Each of these is the one place an answer is written down. Anything that needs it
 - **How far down the course a run has got** — `gatesReached` in `engine/game/course.ts`: gates taken plus gates charged for. The HUD's `n / N` counter and the minimap's gauge are the same reading in two forms, and neither restates the sum.
 - **The sign conventions** — heading 0 = +z, clockwise from above; pitch NOSE-UP positive; roll RIGHT-SIDE-DOWN positive; body angular rates right-handed. `engine/lib/quat.ts`'s `fromEuler`/`toEuler` own the flip between the rider's reading and the algebra's. The one place the SCREEN's axes (thumb toward you, drag down for throttle) are turned into the engine's signs is `pwa/src/game/input-model.ts`, DOM-free so the tests can read it; `input.ts` only feeds it events.
 - **What sky a level is under** — `Level.weather` (R19) and `Level.hour`, with `skyCover(wind.speed)` the one measure of how heavy that sky is. `pwa/src/game/sky.ts`'s `skyAt` turns the three into a `Preset`, and everything that answers to the sky — the two lights, the fog, the dome, the clouds, what the water reflects — reads that ONE preset. Nothing anywhere else decides how dark it is.
-- **What the water reflects** — `seaReflection(preset)` (the sky as a gradient a wave face can point into, and how much sun there is to glint) and `seaMirror(preset)` (the same at the one grazing angle the horizon disc has); `water-mesh.ts` is handed the preset and the scene's two lights (`retone`) and never picks a sky colour or a light of its own. The open sky's gradient itself is `skyToneAt` in `sky.ts`, which the dome paints with and the water's GLSL restates from the same three constants (`SKY_CURVE`, `GLOW_FOCUS`, `GLOW_REACH`).
+- **What the water reflects** — `seaReflection(preset)` (the sky as a gradient a wave face can point into, and how much sun there is to glint) and `seaMirror(preset)` (the same at the one grazing angle the horizon ring has); `water-mesh.ts` is handed the preset and the scene's two lights (`retone`) and never picks a sky colour or a light of its own, and `fauna.ts` is handed the same preset for the colour a depth hazes an animal toward. The open sky's gradient itself is `skyToneAt` in `sky.ts`, which the dome paints with and the water's GLSL restates from the same three constants (`SKY_CURVE`, `GLOW_FOCUS`, `GLOW_REACH`).
+- **How far a rider can see INTO the water** — `SEE_THROUGH` in `pwa/src/game/water-mesh.ts`: inside it the near grid is semi-transparent and the horizon ring has its hole; outside it the far water is opaque. Anything drawn under the surface is drawn only inside it.
 - **The ONE clock** — `state.t` advances by `TUNING.dt` per step and is the only time the engine knows; the sea is a function of it. Nothing in `engine/` reads a wall clock (`analyzeLevel`'s report timer is the recorded exception, dev-time only).
 
 ## Test conventions
@@ -213,6 +218,7 @@ Places where one idea is deliberately written in two files that cannot import ea
 - `pwa/index.html` restates the name, the URLs, the description and `PALETTE.sea` (a static head cannot import); `pwa/public/{CNAME,robots.txt,sitemap.xml,llms.txt}` restate the domain. `tests/identity_test.ts` holds every one of them.
 - The service worker contract (the cache id, the emitted files) is shared between `pwa/pwa-plugin.ts` and `pwa/src/app-pwa.ts` (`cacheIdForBase`) — keep them agreeing.
 - **The rule book has a mirror.** `engine/mapgen/rules.ts` states every R-rule once in its header; `docs/level-generator.md` carries the same prose VERBATIM. `tests/docs_rules_test.ts` reads the ids off the code, so a new rule fails the test until its mirror lands.
+- **The fauna is named twice.** `engine/game/defs/fauna.ts` carries what an animal IS (its length, its speed, how rare it is) and `pwa/src/game/fauna.ts`'s `STYLES` carries what it LOOKS like (its paint, its fins, its markings) — the craft's `defs/craft.ts` / `craft-styles.ts` split, and the same trap: a species added to one and not the other does not compile, but a species whose proportions disagree between them draws wrong and nothing says so.
 - **The staged moments are named twice.** `pwa/src/game/scenarios.ts` (the app, `?scene=`, the screenshot tool) and the ride lab's list in `scripts/lib/ride-scenarios.mjs` both name them; a scenario added to one and not the other is a lab that cannot draw what the app can stand in, or the reverse. Change one, change both — or fold the lab onto the app's list through `aliasEngine`.
 - **The sky is authored in linear light and drawn in three.js.** `pwa/src/game/sky.ts` is deliberately three-free so the tests can read the whole colour model, and every mix in it goes through `pwa/src/lib/colour.ts`, which converts sRGB→linear→sRGB exactly the way `THREE.Color.lerp` does with colour management on. A mix added in the sky against a different curve drifts from every material the same preset lights.
 - **The ramp is one line in two engines.** `rampSurface` (`mapgen/course.ts`) and `rampDeckY` (`game/collision.ts`) compute the same deck height from the same hinge; `tests/collision_test.ts` rides one and `tests/mapgen_test.ts` places rings off the other.
@@ -242,7 +248,7 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 - **`collision`** — the hull meeting what is not water: solids, grounding, ramps, gates and misses, the bounds; what each event means.
 - **`engine-system`** — adding or changing a gameplay system, engine-first.
 - **`mapgen-improvement`** — the shore generator (rules / search / geometry, the R-rules), the analyze → fix → `make level` loop.
-- **`nature`** — the shore's materials as biome-as-data, what `terrain.ts` paints, the rocks; later the flora.
+- **`nature`** — the shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, and the sea life under the water (R20: the catalog and its rarity, the placer, the swim model, the look); later the flora.
 - **`hud-and-menus`** — the HUD's readouts, the handlebar and the throttle lever, the keys; menus are placeholders.
 - **`ui-review`** — the fit-and-finish sweep at the reference viewports (1280×720, 390×844).
 - **`playtest`** — staged moments photographed in the built app: `make screenshots SCENE=`.

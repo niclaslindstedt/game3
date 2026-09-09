@@ -85,6 +85,8 @@ console.log(
     pad("land", 5),
     pad("deep", 5),
     pad("rocks", 6),
+    pad("pods", 5),
+    pad("life", 5),
     pad("wind", 5),
     pad("hour", 5),
     pad("sky", 9),
@@ -125,6 +127,8 @@ for (const seed of seeds) {
       pad(s.maxLand.toFixed(0), 5),
       pad(s.maxDepth.toFixed(0), 5),
       pad(s.solids, 6),
+      pad(s.pods, 5),
+      pad(s.animals, 5),
       pad(s.windSpeed.toFixed(1), 5),
       pad(s.hour.toFixed(1), 5),
       pad(s.weather, 9),
@@ -158,6 +162,7 @@ if (reports.length > 1) {
       `${(mean((s) => s.length) / 1000).toFixed(2)} km (${range((s) => s.length / 1000, 2)}), ` +
       `min depth ${range((s) => s.minDepth, 1)} m, offshore ${range((s) => s.minOffshore)}…${range((s) => s.maxOffshore)} m, ` +
       `clearance ${range((s) => s.minClearance, 1)} m, ${mean((s) => s.solids).toFixed(0)} rocks, ` +
+      `${mean((s) => s.pods).toFixed(1)} pods of ${mean((s) => s.animals).toFixed(0)} animals, ` +
       `wind ${range((s) => s.windSpeed, 1)} m/s, ${(good.reduce((a, r) => a + r.ms, 0) / good.length).toFixed(0)} ms each`,
   );
   const tally = new Map();

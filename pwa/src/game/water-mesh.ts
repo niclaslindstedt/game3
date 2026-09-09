@@ -74,10 +74,28 @@ const FAR_CELL_WAVES = 3;
  * of its own centre are not drawn (the near grid is over them) — inside
  * the near grid by more than the two grids' snapping can differ. */
 const FAR_HOLE = 0.82;
-/** The horizon: a flat disc under both grids out to the far plane, in the
- * deep colour. `FAR_SINK` is how far under the near grid's edge the far
- * grid lies, m, plus `SHORT_SINK` times the summed amplitude of the
- * components it does not carry — the chop whose troughs it would
+/** HOW FAR THE RIDER CAN SEE INTO THE WATER, m from the craft. Inside this
+ * radius the only water is the near grid, which is see-through, and what
+ * lies under it — the sea bed, a rock's foot, a school of fish — is drawn
+ * and visible. Outside it the far grid and the horizon ring are opaque
+ * water at a grazing angle, which is what water actually looks like at that
+ * range, and nothing beneath them shows. Anything that lives under the
+ * surface is drawn only inside this radius; `fauna.ts` reads it. */
+export const SEE_THROUGH = HALF * FAR_HOLE;
+/** THE SEE-THROUGH ITSELF: the water's opacity looking straight down into
+ * the shallows, the opacity it has reached by `CLARITY` metres of water
+ * under it, and that depth in m. The shader takes it from there. */
+const CLEAR_WINDOW = 0.22;
+const DEEP_WINDOW = 0.62;
+const CLARITY = 18;
+/** The horizon: a flat RING under both grids out to the far plane, in the
+ * deep colour. A ring rather than a disc because the near water is
+ * see-through: a disc would stand a metre under the surface right where the
+ * rider is looking down through it and hide the sea bed, the rocks and
+ * everything that swims. Its hole is `SEE_THROUGH`, the far grid's own, so
+ * the far grid covers the gap. `FAR_SINK` is how far under the near grid's
+ * edge the far grid lies, m, plus `SHORT_SINK` times the summed amplitude
+ * of the components it does not carry — the chop whose troughs it would
  * otherwise stand up through. */
 const FAR_RADIUS = 4000;
 const FAR_SINK = 0.35;
@@ -164,6 +182,9 @@ export function createWaterMesh(): WaterMesh {
   const normals = new Float32Array(count * 3);
   // The colour and, in its fourth channel, the foam share.
   const colors = new Float32Array(count * 4);
+  // How opaque the water is straight down at each vertex — the window the
+  // shader turns into an alpha once it knows the angle.
+  const windows = new Float32Array(count);
   for (let j = 0; j < GRID; j++) {
     for (let i = 0; i < GRID; i++) {
       const k = (j * GRID + i) * 3;
@@ -190,6 +211,8 @@ export function createWaterMesh(): WaterMesh {
   geometry.setAttribute("position", posAttr);
   geometry.setAttribute("normal", normAttr);
   geometry.setAttribute("color", colAttr);
+  const winAttr = new THREE.BufferAttribute(windows, 1).setUsage(THREE.DynamicDrawUsage);
+  geometry.setAttribute("aWindow", winAttr);
   geometry.setIndex(index);
   // The bounding sphere is the grid's own box, once: recomputing it per
   // frame would walk every vertex again for a number that never changes.
@@ -211,6 +234,8 @@ export function createWaterMesh(): WaterMesh {
   const farPositions = new Float32Array(farCount * 3);
   const farNormals = new Float32Array(farCount * 3);
   const farColors = new Float32Array(farCount * 4);
+  // The far water is opaque: at that range every face is grazing.
+  const farWindows = new Float32Array(farCount).fill(1);
   for (let j = 0; j < FAR_GRID; j++) {
     for (let i = 0; i < FAR_GRID; i++) {
       const k = (j * FAR_GRID + i) * 3;
@@ -239,6 +264,7 @@ export function createWaterMesh(): WaterMesh {
   farGeometry.setAttribute("position", farPosAttr);
   farGeometry.setAttribute("normal", farNormAttr);
   farGeometry.setAttribute("color", new THREE.BufferAttribute(farColors, 4));
+  farGeometry.setAttribute("aWindow", new THREE.BufferAttribute(farWindows, 1));
   farGeometry.setIndex(farIndex);
   farGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FAR_HALF * Math.SQRT2 + 50);
   const farMesh = new THREE.Mesh(farGeometry, material);
@@ -246,7 +272,7 @@ export function createWaterMesh(): WaterMesh {
   // The horizon disc under both, unlit, in the colour the far water
   // reaches at the fog: mostly sky.
   const horizon = new THREE.Mesh(
-    new THREE.CircleGeometry(FAR_RADIUS, 48),
+    new THREE.RingGeometry(SEE_THROUGH, FAR_RADIUS, 48, 1),
     new THREE.MeshBasicMaterial({ color: DEEP.clone().lerp(MIRROR, 0.62) }),
   );
   horizon.rotation.x = -Math.PI / 2;
@@ -415,11 +441,14 @@ export function createWaterMesh(): WaterMesh {
         colors[q + 1] = g;
         colors[q + 2] = bl;
         colors[q + 3] = foam;
+        windows[j * GRID + i] =
+          CLEAR_WINDOW + (DEEP_WINDOW - CLEAR_WINDOW) * clamp(depth / CLARITY, 0, 1);
       }
     }
     posAttr.needsUpdate = true;
     normAttr.needsUpdate = true;
     colAttr.needsUpdate = true;
+    winAttr.needsUpdate = true;
     return performance.now() - t0;
   };
 

@@ -15,7 +15,10 @@
 
 import {
   NEUTRAL_INPUT,
+  faunaById,
+  faunaPose,
   fieldGradient,
+  freshPose,
   launchSpeedFor,
   placeRun,
   topSpeedOf,
@@ -23,6 +26,7 @@ import {
   type Gate,
   type GameState,
   type Level,
+  type Pod,
   type RunMoment,
 } from "@engine";
 
@@ -38,7 +42,8 @@ export type ScenarioName =
   | "dive"
   | "offshore"
   | "storm"
-  | "backflip";
+  | "backflip"
+  | "wildlife";
 
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "rest",
@@ -53,6 +58,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "offshore",
   "storm",
   "backflip",
+  "wildlife",
 ];
 
 export function isScenarioName(name: string): name is ScenarioName {
@@ -123,6 +129,30 @@ function midGate(level: Level): Gate {
   const gates = level.course.gates;
   return gates[Math.floor(gates.length / 2)];
 }
+
+/** The RAREST pod on a level — the one the `wildlife` scenario is about.
+ * Rarity is the catalog's `perKm` and nothing else, so the shot is of
+ * whatever that seed was lucky enough to carry: a minke if it has one, a
+ * school of herring if that is all there is. */
+export function rarestPod(level: Level): Pod | null {
+  let best: Pod | null = null;
+  let rarest = Infinity;
+  for (const pod of level.fauna) {
+    const perKm = faunaById(pod.species).perKm;
+    if (perKm < rarest) {
+      rarest = perKm;
+      best = pod;
+    }
+  }
+  return best;
+}
+
+/** How far ahead of the pod's leader the wildlife shot stands, m. Close,
+ * and for a reason a wider shot hides: the chase camera looks along the
+ * water rather than down at it, so an animal at eight metres of depth
+ * leaves the bottom of the frame by about twenty metres out. What can be
+ * seen under the surface is what is nearly under the hull. */
+const WILDLIFE_STANDOFF = 12;
 
 /** How far before the ramp the launch stands: the run-up the rules
  * guarantee straight and clear (R9), so the craft is at speed and settled
@@ -278,6 +308,28 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         },
         script: () => input(0, 0.5, 0),
         seconds: 8,
+      };
+    }
+    case "wildlife": {
+      // Stopped in the water AHEAD of the rarest thing on the coast and
+      // turned to face it, so the pod comes on toward the bow. Ahead
+      // rather than behind because a pod trails: the rest of a formation
+      // lies back of its leader, and standing behind the leader is
+      // standing on top of the second animal.
+      const pod = rarestPod(level);
+      if (!pod) return scenarioFor(state, "swell");
+      const lead = faunaPose(pod, 0, 0, freshPose());
+      return {
+        moment: {
+          x: lead.x + Math.sin(lead.heading) * WILDLIFE_STANDOFF,
+          z: lead.z + Math.cos(lead.heading) * WILDLIFE_STANDOFF,
+          heading: lead.heading + Math.PI,
+          nextGate: mid.index,
+        },
+        // Stopped, and held there: a pod swims a curve and the craft can
+        // only go straight, so any pace at all is a pace that loses it.
+        script: () => NEUTRAL,
+        seconds: 2,
       };
     }
     case "backflip": {

@@ -9,7 +9,8 @@ Levels are built by a rules engine (`engine/mapgen/`), not authored by hand. A l
 - **`course.ts` — the search.** The path drawn station by station along the shore, pushed seaward until the water under it is deep enough, the gates measured out along it, the straights the air gates need, and the keep-out the placer reads. It also states, once, what a `Ramp`'s anchor means.
 - **`generate.ts` — the outer loop.** `generateLevel(seed, opts?)` draws an attempt from a sub-seed, compiles it, analyzes it, and keeps it if it is clean — otherwise rejects it, logs why through the engine's output module, and tries the next sub-seed. Bounded, deterministic, and it throws with the findings when every attempt fails.
 - **`compile.ts` — the geometry, once.** Bakes the two heightfields over the course's extent, closes the material classifier (`level.materialAt`) over them, and assembles the read-only `Level` (OSS_GAME_SPEC §24.5: the compile step runs once and nothing downstream regenerates any of it).
-- **`fauna.ts`, `weather.ts`** — placeholders for what will live there.
+- **`fauna.ts` — what swims here.** The pods (R20) laid along the coast after the course and the rocks are settled: a species drawn from the biome's chart at its own `perKm`, a loop for it to swim, and a bounded search for a spot with the water depth it needs and no rock in the way. What is stored is the LOOP, not a position — where any one animal is at a moment is `engine/game/fauna.ts`'s `faunaPose`, a pure function of the pod and the clock, so nothing about the sea life is ever stepped or replayed.
+- **`weather.ts` — the sky (R19).** Which of the biome's skies a seed is ridden under, weighted by the level's own wind.
 
 `engine/analysis/` is the generator's scoreboard: `analyzeLevel(level)` re-checks a finished level against every rule in the book, reading only what the level publishes, and returns findings that name the rule they broke. `budgets.ts` beside it holds how closely the checks read — the stride along the path, the tolerance on a stated distance — and never the bands themselves.
 
@@ -36,6 +37,30 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 - **R17** THE ROCKS STAND IN THE WATER. Skerries (islets above the sea), boulders (at the waterline) and reefs (tops under the surface) are laid at their kind's density per kilometre of coast, inside their kind's offshore band, with their kind's radius and top, at least `solids.spacing` apart edge to edge — and a reef's top stands proud of the bed under it, or it is not a reef.
 - **R18** THE RING IS REACHABLE. A ring stands where a hull that leaves the lip at the DESIGN LIP SPEED passes — never where a hull would have to be faster than it can be. The design speed is a band, `air.lipSpeed` (50–60 km/h): the arc is drawn from the lip (`length · tan(angle)` up, plus the hull's centre of gravity) at the ramp's angle under `g`, and the ring's centre is set on the SLOW arc — the catalog's lowest-riding hull at the band's floor — at `air.pastApex` times the apex distance past the lip, on its way down, with the FAST arc (the highest-riding hull at the band's ceiling) passing inside the ring's radius less `air.thread`. So the slowest craft threads the ring at a pace it can hold and a faster one still goes through it. The analysis re-derives the speed every catalog craft needs at the hinge (`launchSpeedFor`) and holds it under `air.reach` of the SLOWEST craft's top speed, and inside the design band.
 - **R19** THE SKY OVER THE COAST. The run is ridden under one of the skies the biome offers (`Biome.weathers`) — clear, high cloud, overcast, rain or a squall — drawn per seed with the level's OWN WIND weighting the draw: each sky stands at a heaviness on the same 0–1 scale R12's wind band is read on, and how far a sky may stand from the wind's place on it and still be likely is `sky.spread`. So the darkest skies stand over the biggest seas, and a calm day is a clear one.
+- **R20** WHAT SWIMS HERE. The water carries PODS — a school of herring, a pair of porpoises, one pike lying alone — drawn from the animals the coast offers (`Biome.fauna`), each at its own `perKm` of coast, which is what makes a whale a whale: three orders of magnitude separate the commonest school from the rarest visitor. A pod stands only where its species belongs — inside its offshore band, in water at least its `water` deep the whole way round the loop it swims, at a depth inside its own band, `fauna.clear` clear of every rock — and only when the level's water temperature (R13) falls inside the species' band. Nothing about a pod is ever stepped: it swims that loop as a pure function of the clock, so a run replays the sea life it was ridden through exactly.
+
+## What swims here
+
+R20's roster is the one piece of level content that is drawn from a CATALOG rather than from the rule book: `engine/game/defs/fauna.ts` states each animal — how long it is, how fast, how deep it holds, how many travel together, how often it must breathe, and the water temperature it is met in — and, above all, `perKm`, how many pods of it a kilometre of coast carries. That last number spans three orders of magnitude, and it is the whole design: a coast where every animal turned up every ride would have no animals on it, only scenery.
+
+`rarityOf(perKm)` turns the number into the word, so the two can never disagree. On the taiga coast, over a couple of kilometres of shore:
+
+| Animal               | Pods per km | Rarity    | Travels in | Roughly            |
+| -------------------- | ----------- | --------- | ---------- | ------------------ |
+| Baltic herring       | 3.4         | common    | 14–30      | six schools a ride |
+| Roach                | 2.2         | common    | 8–20       | four schools       |
+| Perch                | 1.7         | common    | 5–12       | three schools      |
+| Pike                 | 0.55        | uncommon  | 1          | one most rides     |
+| Sea trout            | 0.42        | uncommon  | 2–5        | one most rides     |
+| Harbour porpoise     | 0.16        | scarce    | 1–3        | one ride in three  |
+| White-beaked dolphin | 0.075       | rare      | 3–8        | one ride in seven  |
+| Porbeagle            | 0.04        | rare      | 1–2        | one ride in twelve |
+| Killer whale         | 0.02        | legendary | 2–5        | one ride in forty  |
+| Minke whale          | 0.011       | legendary | 1–2        | one ride in sixty  |
+
+The five fish and the porpoise are the Bothnian Sea's own. The dolphin, the porbeagle, the orca and the minke are Atlantic animals that stray into the Baltic a handful of times a century; they are in the catalog because the game wants them, and they are as rare as it can make them and still be reachable.
+
+`make level SEED=n` prints the roster a seed drew, and `make analyze` counts the pods and the animals per level.
 
 ## The numbers
 
@@ -74,6 +99,9 @@ Every band above is a row of `LEVEL_RULES`; these are the ones a tuner reaches f
 | `day`    | `hour`                       | 0–24              | h     | R13  |
 | `sky`    | `spread`                     | 0.32              | —     | R19  |
 | `solids` | `<kind>.perKm`               | 5 / 14 / 7        | /km   | R17  |
+| `fauna`  | `clear` / `floor`            | 6 / 0.8           | m     | R20  |
+|          | `loop` / `ovality`           | 12–40 / 0.25–0.8  | m, —  | R20  |
+|          | `<species>.perKm`            | 3.4 … 0.011       | /km   | R20  |
 | `search` | `attempts`                   | 24                | —     |      |
 |          | `depthSlack` / `marginSlack` | 0.4 / 1.5         | m     |      |
 

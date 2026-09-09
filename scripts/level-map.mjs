@@ -30,8 +30,18 @@ import { parseArgs } from "./lib/cli.mjs";
 import { renderLevelMap } from "./lib/level-draw.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { generateLevel, sampleField, cumulative, craftById, topSpeedOf, CRAFT_IDS, LEVEL_RULES } =
-  await import(join(root, "engine/index.ts"));
+const {
+  generateLevel,
+  sampleField,
+  cumulative,
+  craftById,
+  topSpeedOf,
+  faunaById,
+  faunaCount,
+  rarityOf,
+  CRAFT_IDS,
+  LEVEL_RULES,
+} = await import(join(root, "engine/index.ts"));
 // The hinge speed a ring asks for is the bot's arithmetic (engine/sim/
 // bot.ts); it is not on the engine's public surface yet, so it is read
 // from the module that owns it.
@@ -144,6 +154,25 @@ const rows = gates.map((g) => {
 
 const solidsByKind = {};
 for (const s of level.solids) solidsByKind[s.kind] = (solidsByKind[s.kind] ?? 0) + 1;
+// R20 — the roster: what swims here, commonest first, with the word for how
+// often a coast carries it. A pod is a group, so both counts are printed.
+const roster = new Map();
+for (const p of level.fauna) {
+  const row = roster.get(p.species) ?? { pods: 0, animals: 0 };
+  row.pods += 1;
+  row.animals += p.count;
+  roster.set(p.species, row);
+}
+const rosterLine =
+  roster.size === 0
+    ? "nothing swims here"
+    : [...roster.entries()]
+        .sort((a, b) => faunaById(b[0]).perKm - faunaById(a[0]).perKm)
+        .map(
+          ([id, row]) =>
+            `${row.animals} ${faunaById(id).name.toLowerCase()} in ${row.pods} pod${row.pods > 1 ? "s" : ""} (${rarityOf(faunaById(id).perKm)})`,
+        )
+        .join(", ");
 const airCount = gates.filter((g) => g.kind === "air").length;
 const hour = `${String(Math.floor(level.hour)).padStart(2, "0")}:${String(
   Math.floor((level.hour % 1) * 60),
@@ -165,6 +194,7 @@ const statLine =
 const lines = [
   heading,
   statLine,
+  `sea life: ${rosterLine}`,
   "",
   "  #   ID   KIND   AT (X, Z)        HDG  STATION  FROM PREV  OFFSHORE  DEPTH",
 ];
@@ -226,7 +256,7 @@ const canvas = renderLevelMap({
   title: `SEED ${args.seed}  ${level.biome.toUpperCase()}  ${level.weather.toUpperCase()}  WIND ${w.speed.toFixed(1)} M/S FROM ${deg(w.from).toFixed(0)}°  ${hour}`,
   lines: [
     `${(level.course.length / 1000).toFixed(2)} KM, ${gates.length} GATES, ${airCount} IN THE AIR`,
-    `${level.solids.length} ROCKS`,
+    `${level.solids.length} ROCKS, ${faunaCount(level.fauna)} ANIMALS`,
     `WATER ${level.water.temperature.toFixed(0)}°C`,
     `${args.scale} PX/M`,
   ],

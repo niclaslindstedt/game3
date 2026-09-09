@@ -20,6 +20,7 @@ import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from
 import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
+import { createFauna, type Fauna } from "./fauna.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createPines } from "./pines.ts";
 import { createRider, type Rider } from "./rider.ts";
@@ -91,6 +92,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
+  let fauna: Fauna | null = null;
   let gates: Gates | null = null;
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
@@ -112,18 +114,25 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       if (world) {
         scene.remove(world);
         if (terrain) disposeTerrain(terrain);
+        fauna?.dispose();
       }
       level = state.level;
       terrain = createTerrain(level);
       gates = createGates(level);
+      // The sea life is under the water rather than in it: an opaque thing
+      // at a place, drawn before the transparent surface blends over it,
+      // which is what makes a school look like it is being seen THROUGH
+      // the water instead of painted on it.
+      fauna = createFauna(level);
       world = new THREE.Group();
-      world.add(terrain, createRocks(level), createPines(level), gates.group);
+      world.add(terrain, createRocks(level), createPines(level), gates.group, fauna.group);
       scene.add(world);
       // The sky is the level's: its hour, its coast's latitude and the
       // weather it was generated under. The water answers to the same sky,
       // which is what keeps a sunset from floating over a teal sea.
       sky.load(level);
       water.retone(sky.preset(), sky.hemi, sky.key);
+      fauna.retone(sky.preset());
     }
     const id = state.craft.spec.id;
     if (id !== craftId) {
@@ -182,6 +191,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
     cost.waterMs = water.update(state, c.x, c.z);
     gates?.update(state);
+    fauna?.update(state, c.x, c.z);
     wake.update(state);
     spray.update(state);
 
@@ -249,6 +259,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       window.removeEventListener("resize", resize);
       sky.dispose();
       water.dispose();
+      fauna?.dispose();
       wake.dispose();
       spray.dispose();
       rider?.dispose();

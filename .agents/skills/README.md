@@ -69,7 +69,7 @@ row and the `.lessons/` directory land where the next session expects them.
 | `tricks` | `engine/game/tricks.ts`: the aerial vocabulary and its scoring — the backflip is reachable today and scored then |
 | `craft-creation` | A craft remade after photographs of a real one — the ruled crop, the overlay — the sibling game's `car-creation` |
 | `built-shore` | What people put on the shore: harbours, jetties, a lighthouse, moored boats, the crowd — the sibling game's `built-world` |
-| `fauna` | `engine/mapgen/fauna.ts` + `pwa/src/game/fauna.ts`: the fish and animals in the sea, placed by the biome, seeded |
+| `fauna` | The sea life is BUILT (R20: `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `game/fauna.ts`, `pwa/src/game/fauna.ts`) and routed to `nature` for now. This skill is still reserved for what is not there yet — the animals REACTING to the craft, birds over the headlands, seals hauled out on the skerries, and every coast but the taiga's roster |
 | `level-rating` | `engine/rating/`: whether a generated level is any GOOD as a race, the trait bands, the campaign ladder; `make rate` |
 | `campaign` | `pwa/src/game/campaign.ts`: which seeds become the campaign's levels, the modes (Time Trial, Heads Up, Roam), the menus behind them |
 | `replay` | `pwa/src/game/replay.ts` + `engine/sim/tape.ts`: a run recorded and watched again |

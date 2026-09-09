@@ -118,6 +118,18 @@
 //       the wind's place on it and still be likely is `sky.spread`. So the
 //       darkest skies stand over the biggest seas, and a calm day is a
 //       clear one.
+//   R20 WHAT SWIMS HERE. The water carries PODS — a school of herring, a
+//       pair of porpoises, one pike lying alone — drawn from the animals
+//       the coast offers (`Biome.fauna`), each at its own `perKm` of coast,
+//       which is what makes a whale a whale: three orders of magnitude
+//       separate the commonest school from the rarest visitor. A pod stands
+//       only where its species belongs — inside its offshore band, in water
+//       at least its `water` deep the whole way round the loop it swims, at
+//       a depth inside its own band, `fauna.clear` clear of every rock —
+//       and only when the level's water temperature (R13) falls inside the
+//       species' band. Nothing about a pod is ever stepped: it swims that
+//       loop as a pure function of the clock, so a run replays the sea life
+//       it was ridden through exactly.
 //
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
@@ -362,6 +374,36 @@ export const LEVEL_RULES = {
      * the bottom of it a clear day, which is the certainty those two days
      * have to carry or the sea and the sky stop agreeing. */
     spread: 0.32,
+  },
+
+  /** R20 — the sea life. The catalog says what each animal is and how
+   * often it is met; these are the numbers about the PLACING that are the
+   * coast's rather than the animal's. */
+  fauna: {
+    /** Open water a pod's loop keeps between itself and any rock, m. Half a
+     * gate's width: enough that a school reads as swimming beside a skerry
+     * rather than through it. */
+    clear: 6,
+    /** Water under an animal's belly, m — on top of its own body height, so
+     * the least water a pod may swim its loop over is its depth plus its
+     * girth plus this. What keeps a school from being drawn inside the sea
+     * bed on the shallow side of a loop. */
+    floor: 0.8,
+    /** The loop a pod swims, m — its long semi-axis, drawn per pod. Big
+     * enough that a school crosses a rider's view rather than circling in
+     * one spot, small enough to stay inside the water its species needs. */
+    loop: { min: 12, max: 40 },
+    /** How squashed the loop is across its long axis, 0..1: 1 is a circle
+     * and the floor is a long thin beat up and down the coast. */
+    ovality: { min: 0.25, max: 0.8 },
+    /** How far round the loop the pod is checked for water and rocks —
+     * more samples is a stricter placement and a slower generator; eight is
+     * a sample every 45°, which no loop in the band can hide a rock in. */
+    samples: 8,
+    /** Placement tries per pod before the placer gives up on it, as R17's
+     * rocks are given up on: a coast a little emptier is what a coast is
+     * allowed to be. */
+    tries: 10,
   },
 
   /** The search's own dials: how many sub-seeds to try before giving up,
