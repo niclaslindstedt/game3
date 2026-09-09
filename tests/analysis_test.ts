@@ -101,6 +101,24 @@ describe("level analysis", () => {
     expect(found).toContain("R8.axis");
   });
 
+  it("R18 — flags a ring carried out of the slowest craft's reach", () => {
+    const seed = LEVEL_SEEDS[2];
+    const level = withGates(seed, (gates) => {
+      const i = gates.findIndex((g) => g.kind === "air");
+      const g = gates[i];
+      // Twice as far from the hinge along the axis, at the same height:
+      // an arc only a much faster hull draws.
+      const fx = Math.sin(g.heading);
+      const fz = Math.cos(g.heading);
+      const lead = Math.hypot(g.x - g.ramp!.x, g.z - g.ramp!.z);
+      gates[i] = { ...g, x: g.ramp!.x + fx * lead * 2, z: g.ramp!.z + fz * lead * 2 };
+      return gates;
+    });
+    const found = errors(level);
+    expect(found).toContain("R18.arc");
+    expect(found.some((c) => c === "R18.reach" || c === "R18.design")).toBe(true);
+  });
+
   it("R6 — flags a rock dropped on the line", () => {
     const seed = LEVEL_SEEDS[4];
     const level = levelFor(seed);

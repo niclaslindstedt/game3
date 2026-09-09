@@ -13,14 +13,17 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  CRAFT,
   LEVEL_RULES as R,
   airCorridor,
+  arcHeight,
   biomeOf,
   cumulative,
   gateBuoys,
   generateLevel,
   polylineDistance,
   rampSurface,
+  ringPlacement,
   sampleField,
   segmentDistance,
   walkPolyline,
@@ -34,10 +37,10 @@ import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
 const DEG = Math.PI / 180;
 
 /** The level minus its classifier closure, for deep equality. */
-function structural(level: Level): Omit<Level, "surfaceAt"> {
-  const copy: { surfaceAt?: Level["surfaceAt"] } = { ...level };
-  delete copy.surfaceAt;
-  return copy as Omit<Level, "surfaceAt">;
+function structural(level: Level): Omit<Level, "materialAt"> {
+  const copy: { materialAt?: Level["materialAt"] } = { ...level };
+  delete copy.materialAt;
+  return copy as Omit<Level, "materialAt">;
 }
 
 /** Distance along the path of the nearest point to (x, z), m. */
@@ -74,7 +77,7 @@ describe("level generator", () => {
       for (let i = 0; i <= 20; i++) {
         const x = bounds.minX + ((bounds.maxX - bounds.minX) * i) / 20;
         const z = bounds.minZ + ((bounds.maxZ - bounds.minZ) * ((i * 7) % 21)) / 20;
-        expect(a.surfaceAt(x, z)).toBe(b.surfaceAt(x, z));
+        expect(a.materialAt(x, z)).toBe(b.materialAt(x, z));
       }
     }
   });
@@ -255,10 +258,11 @@ describe("level generator", () => {
         // The hinge convention: level at the rear edge, rising to the
         // front, nothing beside it.
         expect(rampSurface(ramp, ramp.x, ramp.z)).toBeCloseTo(0, 9);
-        // Just inside the front edge: the edge itself is a float coin-toss.
-        const footprint = ramp.length * Math.cos(ramp.angle) * 0.999;
+        // Just inside the lip: the edge itself is a float coin-toss. The
+        // deck's `length` is its plan footprint, so the lip is length·tan.
+        const footprint = ramp.length * 0.999;
         const front = rampSurface(ramp, ramp.x + fx * footprint, ramp.z + fz * footprint);
-        expect(front).toBeCloseTo(0.999 * ramp.length * Math.sin(ramp.angle), 6);
+        expect(front).toBeCloseTo(footprint * Math.tan(ramp.angle), 6);
         expect(rampSurface(ramp, ramp.x - fx, ramp.z - fz)).toBeNull();
         expect(
           rampSurface(
@@ -267,6 +271,39 @@ describe("level generator", () => {
             ramp.z - fx * (ramp.width / 2 + 0.1),
           ),
         ).toBeNull();
+      }
+    }
+  });
+
+  it("R18 — every ring sits on the design arc, and the slowest craft can bring the speed", () => {
+    const g = 9.81;
+    const slowest = Math.min(...CRAFT.map((c) => c.topSpeed)) / 3.6;
+    for (const seed of LEVEL_SEEDS) {
+      for (const gate of levelFor(seed).course.gates) {
+        if (gate.kind !== "air") continue;
+        const ramp = gate.ramp!;
+        const ring = ringPlacement(ramp.length, ramp.angle);
+        const lead = Math.hypot(gate.x - ramp.x, gate.z - ramp.z);
+        expect(lead).toBeCloseTo(ring.lead, 1);
+        expect(gate.y).toBeCloseTo(ring.y, 6);
+        expect(withinBand(lead, R.ramp.lead)).toBe(true);
+        expect(withinBand(gate.y, R.air.height)).toBe(true);
+        // The slow design arc from the lowest-riding hull passes within
+        // the ring, the fast one from the highest-riding hull too, and
+        // the ring is past the apex on the slow arc.
+        const lip = ramp.length * Math.tan(ramp.angle);
+        const d = lead - ramp.length;
+        const cogs = CRAFT.map((c) => c.cog.y);
+        const ySlow = arcHeight(lip + Math.min(...cogs), R.air.lipSpeed.min, ramp.angle, d);
+        const yFast = arcHeight(lip + Math.max(...cogs), R.air.lipSpeed.max, ramp.angle, d);
+        expect(Math.abs(ySlow - gate.y)).toBeLessThan(R.air.width / 2 - R.air.thread);
+        expect(Math.abs(yFast - gate.y)).toBeLessThan(R.air.width / 2 - R.air.thread);
+        const apex = (R.air.lipSpeed.min ** 2 * Math.sin(ramp.angle) * Math.cos(ramp.angle)) / g;
+        expect(d).toBeGreaterThan(apex);
+        // ...and the hinge speed the slow arc implies is one the slowest
+        // craft has in hand.
+        const hinge = Math.sqrt(R.air.lipSpeed.max ** 2 + 2 * g * lip);
+        expect(hinge).toBeLessThan(slowest * R.air.reach);
       }
     }
   });
@@ -414,7 +451,7 @@ describe("level generator", () => {
         for (let j = 0; j <= n; j++) {
           const x = bounds.minX + ((bounds.maxX - bounds.minX) * i) / n;
           const z = bounds.minZ + ((bounds.maxZ - bounds.minZ) * j) / n;
-          const kind = level.surfaceAt(x, z);
+          const kind = level.materialAt(x, z);
           seen.add(kind);
           const h = sampleField(level.ground, x, z);
           if ((kind === "water") !== h < 0) wrongSide++;

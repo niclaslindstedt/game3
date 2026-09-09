@@ -21,10 +21,10 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | File | Owns |
 | --- | --- |
 | `engine/mapgen/biomes.ts` | Biomes AS DATA, engine side: one row per `BiomeId` — the shore's material mix, the relief (how high the slabs, how dense the boulders, how big the sand pockets), the skerry field offshore, the water's density and temperature band, the wind band. `taiga` is the only built row; `archipelago`, `fjord`, `atoll`, `delta`, `arctic` are reserved ids with no row yet |
-| `engine/mapgen/shore.ts` | The shoreline for the biome and the surface classifier behind `level.surfaceAt(x, z) → Surface` (`bedrock`, `rock`, `sand`, `water`) — the vocabulary every painter reads |
+| `engine/mapgen/shore.ts` | The shoreline for the biome and the surface classifier behind `level.materialAt(x, z) → Surface` (`bedrock`, `rock`, `sand`, `water`) — the vocabulary every painter reads |
 | `engine/mapgen/geology.ts` | The ground's SHAPE: the sea bed's slope, the land's low rise and its plateau, the noise (`engine/lib/noise.ts`) that makes bedrock read as slabs rather than a ramp |
 | `engine/mapgen/compile.ts` | Bakes the ground heightfield and the solids — where every skerry, boulder and reef STANDS, because the craft can hit them (the `collision` skill owns the contact) |
-| `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.surfaceAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
+| `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.materialAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
 | `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground`, so a bed that changes shape changes what the water looks like over it (`water-feel`) |
 | `pwa/src/game/fauna.ts`, `engine/mapgen/fauna.ts` | Placeholders: the fish and animals in the sea. Not this session's |

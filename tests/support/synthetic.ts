@@ -118,7 +118,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
       { x: bounds.minX, z: 0 },
       { x: bounds.maxX, z: 0 },
     ],
-    surfaceAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
+    materialAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
     solids,
     course: { gates, path, length: 680 },
     start: { x: 20, z: 40, heading: east },

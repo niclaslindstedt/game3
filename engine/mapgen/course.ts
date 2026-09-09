@@ -27,11 +27,18 @@
 //
 // THE RAMP'S ANCHOR — stated once, here, for everything that reads a
 // `Ramp`: (x, z) is the HINGE, the centre of the rear edge, floating at the
-// waterline. The deck runs `length` metres along `heading` from it, rising
-// at `angle`, so its plan footprint is `length · cos(angle)` long and its
-// front edge stands `length · sin(angle)` above the sea. `rampSurface` is
-// the one function that turns that into a height.
+// waterline. The deck runs `length` metres ALONG THE WATER from it in the
+// direction `heading` — `length` is the plan footprint — rising at `angle`,
+// so the lip stands `length · tan(angle)` above the sea. `rampSurface` is
+// the one function here that turns that into a height, and the collision
+// engine's `rampDeckY` is the same line.
+//
+// THE RING'S PLACE (R18) is derived, not drawn: `ringPlacement` puts it on
+// the ballistic arc a hull draws off the lip at the design lip speed, so
+// the slowest craft in the catalog threads it at a pace it can hold.
 
+import { CRAFT } from "../game/defs/craft.ts";
+import { TUNING } from "../game/defs/tuning.ts";
 import { clamp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
@@ -56,9 +63,46 @@ export function rampSurface(ramp: Ramp, x: number, z: number): number | null {
   const pz = z - ramp.z;
   const along = px * fx + pz * fz;
   const across = px * fz - pz * fx;
-  const footprint = ramp.length * Math.cos(ramp.angle);
-  if (along < 0 || along > footprint || Math.abs(across) > ramp.width / 2) return null;
+  if (along < 0 || along > ramp.length || Math.abs(across) > ramp.width / 2) return null;
   return along * Math.tan(ramp.angle);
+}
+
+/** The height of a ballistic arc `d` metres past its launch point, m:
+ * launched at `v` m/s and `angle` rad from `y0`, under the engine's g. */
+export function arcHeight(y0: number, v: number, angle: number, d: number): number {
+  const cos = Math.cos(angle);
+  return y0 + d * Math.tan(angle) - (TUNING.g * d * d) / (2 * v * v * cos * cos);
+}
+
+/** R18 — where the ring goes for a ramp of `length` (plan, m) and `angle`
+ * (rad): the hinge-to-ring distance and the ring's height, and the spread
+ * between the slow and the fast design arcs at that distance.
+ *
+ * The lip is `length · tan(angle)` up; a hull's centre of gravity rides
+ * `cog.y` above the deck. The SLOW arc is the lowest-riding hull in the
+ * catalog at the band's floor, the FAST arc the highest-riding at the
+ * ceiling; the ring's centre sits at their mean, `pastApex` apex-distances
+ * past the lip along the slow arc. Read by the search, the analysis and
+ * the tests alike, so the three can never disagree about where a ring
+ * belongs. */
+export function ringPlacement(
+  length: number,
+  angle: number,
+): { lead: number; y: number; spread: number } {
+  const lip = length * Math.tan(angle);
+  let cogLow = Infinity;
+  let cogHigh = -Infinity;
+  for (const spec of CRAFT) {
+    cogLow = Math.min(cogLow, spec.cog.y);
+    cogHigh = Math.max(cogHigh, spec.cog.y);
+  }
+  const slow = R.air.lipSpeed.min;
+  const fast = R.air.lipSpeed.max;
+  const apex = (slow * slow * Math.sin(angle) * Math.cos(angle)) / TUNING.g;
+  const d = apex * R.air.pastApex;
+  const ySlow = arcHeight(lip + cogLow, slow, angle, d);
+  const yFast = arcHeight(lip + cogHigh, fast, angle, d);
+  return { lead: length + d, y: (ySlow + yFast) / 2, spread: yFast - ySlow };
 }
 
 /** The straight corridor an air gate owns, from the start of its run-up to
@@ -312,6 +356,15 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
 
   // ── The air gates (R7, R8, R9) ──────────────────────────────────────
   type AirDraw = { index: number; lead: number; length: number; angle: number; height: number };
+  // R18 — the ring's place follows from the ramp; a ramp whose two design
+  // arcs spread wider than the ring can take is no ramp to build.
+  const drawAir = (index: number): AirDraw | null => {
+    const length = inBand(rng, R.ramp.length);
+    const angle = inBand(rng, R.ramp.angle);
+    const ring = ringPlacement(length, angle);
+    if (ring.spread / 2 + R.air.thread > R.air.width / 2) return null;
+    return { index, lead: ring.lead, length, angle, height: ring.y };
+  };
   const candidates: number[] = [];
   for (let i = 1; i + 1 < gateD.length; i++) candidates.push(i);
   // A seeded shuffle, so which gates fly is the seed's choice and the
@@ -340,13 +393,8 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
   };
   for (const index of candidates) {
     if (chosen.length >= airCount) break;
-    const draw: AirDraw = {
-      index,
-      lead: inBand(rng, R.ramp.lead),
-      length: inBand(rng, R.ramp.length),
-      angle: inBand(rng, R.ramp.angle),
-      height: inBand(rng, R.air.height),
-    };
+    const draw = drawAir(index);
+    if (!draw) continue;
     const w = windowOf(draw);
     if (w.from < startStraight || w.to > finishD) continue;
     if (chosen.some((c) => windowOf(c).from < w.to && w.from < windowOf(c).to)) continue;

@@ -89,7 +89,7 @@ export function compileLevel(plan: LevelPlan): Level {
   const { shore, biome } = plan;
   const boulderThreshold = 1 - (1 - R.surface.boulder.threshold) * biome.boulderField;
   // R16 — the classifier, in the rule's order.
-  const surfaceAt = (x: number, z: number): Surface => {
+  const materialAt = (x: number, z: number): Surface => {
     const h = sampleField(ground, x, z);
     if (h < 0) return "water";
     const { gx, gz } = fieldGradient(ground, x, z);
@@ -128,7 +128,7 @@ export function compileLevel(plan: LevelPlan): Level {
     ground,
     offshore,
     shore: shorePoints,
-    surfaceAt,
+    materialAt,
     solids: plan.solids.map((s) => ({ ...s })),
     course: {
       gates: plan.course.gates.map((g) => (g.ramp ? { ...g, ramp: { ...g.ramp } } : { ...g })),

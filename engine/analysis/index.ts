@@ -28,15 +28,20 @@
 
 import { sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
+import { CRAFT } from "../game/defs/craft.ts";
+import { topSpeedOf } from "../game/limits.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
 import {
   airCorridor,
   cumulative,
   gateBuoys,
   polylineDistance,
+  ringPlacement,
   segmentDistance,
   walkPolyline,
 } from "../mapgen/course.ts";
+import { TUNING } from "../game/defs/tuning.ts";
+import { launchSpeedFor } from "../sim/bot.ts";
 import { LEVEL_RULES as R, withinBand, type Band } from "../mapgen/rules.ts";
 import type { Gate, Level, Solid } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
@@ -350,6 +355,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     rep.fail("R7", "finish", `${gates[gates.length - 1].id} is the finish and in the air`);
   }
   for (const gate of air) analyzeAirGate(level, gate, path, cum, depthAt, rep);
+  analyzeRunUp(rep);
   for (const gate of gates) {
     if (gate.kind === "water" && gate.ramp)
       rep.fail("R8", "stray", `${gate.id} is a water gate with a ramp`);
@@ -535,6 +541,43 @@ function analyzeAirGate(
       },
     );
   }
+  // R18 — the ring's place is the arc's, and every craft can bring the
+  // speed it asks for.
+  const ring = ringPlacement(ramp.length, ramp.angle);
+  if (Math.abs(lead - ring.lead) > A.ring.place || Math.abs(gate.y - ring.y) > A.ring.place) {
+    rep.fail(
+      "R18",
+      "arc",
+      `${gate.id}'s ring is ${fmt(lead)} m out and ${fmt(gate.y)} m up; the design arc puts it ${fmt(ring.lead)} m out and ${fmt(ring.y)} m up`,
+      { at: gate, value: Math.max(Math.abs(lead - ring.lead), Math.abs(gate.y - ring.y)) },
+    );
+  }
+  let slowest = Infinity;
+  for (const spec of CRAFT) slowest = Math.min(slowest, topSpeedOf(spec));
+  const lip = ramp.length * Math.tan(ramp.angle);
+  // The hinge speed the design band's ends imply, by the bot's own
+  // account of the climb up the deck.
+  const hingeOf = (v: number): number => Math.sqrt(v * v + 2 * TUNING.g * lip);
+  const floor = hingeOf(R.air.lipSpeed.min) * (1 - A.ring.speed);
+  const ceiling = hingeOf(R.air.lipSpeed.max) * (1 + A.ring.speed);
+  for (const spec of CRAFT) {
+    const need = launchSpeedFor(gate, spec.cog.y, topSpeedOf(spec));
+    if (need > slowest * R.air.reach) {
+      rep.fail(
+        "R18",
+        "reach",
+        `${gate.id} asks the ${spec.id} for ${fmt(need * 3.6)} km/h at the hinge; the slowest craft tops out at ${fmt(slowest * 3.6)} km/h`,
+        { at: gate, value: need },
+      );
+    } else if (need < floor || need > ceiling) {
+      rep.fail(
+        "R18",
+        "design",
+        `${gate.id} asks the ${spec.id} for ${fmt(need * 3.6)} km/h at the hinge (design ${fmt(floor * 3.6)}–${fmt(ceiling * 3.6)} km/h)`,
+        { at: gate, value: need },
+      );
+    }
+  }
   // R9 — the straight: every path vertex inside the corridor's window lies
   // on its chord, and the water under the run-up and the deck is deep.
   const c = airCorridor(gate);
@@ -573,6 +616,28 @@ function analyzeAirGate(
         at: s,
         value: clear,
       });
+    }
+  }
+}
+
+/** R9 — the run-up is long enough for the slowest craft to reach R18's
+ * design speed from a standing start: the catalog's own 0–50 km/h
+ * expectation, scaled to the band's ceiling, integrated as a straight
+ * ramp of speed. Nothing about a level is in this; it holds the rule
+ * book to the catalog, and it is here so that a catalog change that
+ * makes a ring unreachable fails the generator rather than the player. */
+function analyzeRunUp(rep: Report): void {
+  const v = R.air.lipSpeed.max;
+  for (const spec of CRAFT) {
+    const t = spec.accel0to50 * (v / (50 / 3.6));
+    const dist = 0.5 * v * t;
+    if (dist > R.ramp.runUp) {
+      rep.fail(
+        "R9",
+        "reach",
+        `the ${spec.id} needs ${fmt(dist)} m to reach ${fmt(v * 3.6)} km/h; the run-up is ${R.ramp.runUp} m`,
+        { value: dist },
+      );
     }
   }
 }
@@ -691,7 +756,7 @@ function analyzeSurface(level: Level, rep: Report): void {
       const x = bounds.minX + ((bounds.maxX - bounds.minX) * i) / n;
       const z = bounds.minZ + ((bounds.maxZ - bounds.minZ) * j) / n;
       const h = sampleField(level.ground, x, z);
-      const kind = level.surfaceAt(x, z);
+      const kind = level.materialAt(x, z);
       if ((kind === "water") !== h < 0) {
         wrong++;
         at ??= { x, z };

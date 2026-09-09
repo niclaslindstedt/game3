@@ -54,6 +54,16 @@ export const ANALYSIS = {
      * through cells that straddle the line. */
     waterline: 8,
   },
+  ring: {
+    /** Tolerance on a ring's derived lead and height against
+     * `ringPlacement`, m — the geometry is interpolated along a polyline
+     * of stations. */
+    place: 0.3,
+    /** Tolerance on the hinge speed a ring asks for against the design
+     * band's ends, as a share: the bot's own formula carries a few percent
+     * for the deck's friction. */
+    speed: 0.08,
+  },
   wind: {
     /** Tolerance on R12's swing off the sea, rad (about five degrees).
      * The analyzer has no base line to read the sea's direction from —

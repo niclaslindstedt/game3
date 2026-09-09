@@ -24,6 +24,7 @@ export {
 } from "./geology.ts";
 export {
   airCorridor,
+  arcHeight,
   courseKeepOut,
   cumulative,
   gateBuoys,
@@ -31,6 +32,7 @@ export {
   pointAlong,
   polylineDistance,
   rampSurface,
+  ringPlacement,
   segmentDistance,
   walkPolyline,
   type CoursePlan,

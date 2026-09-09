@@ -39,15 +39,20 @@
 //       centres float `air.height.min` to `air.height.max` metres above the
 //       sea. Neither the first gate nor the finish is one, and a ring is
 //       followed by `air.landing` metres of clear water to come down in.
-//   R8  A RAMP BEFORE EVERY AIR GATE. Each ring has a floating ramp
-//       `ramp.lead.min` to `ramp.lead.max` metres before it, ALIGNED with
-//       the approach — the ramp's heading is the ring's, and the ring sits
-//       on the ramp's axis — of `ramp.length` metres, `ramp.width` wide,
-//       rising `ramp.angle` from the water at its hinge.
+//   R8  A RAMP BEFORE EVERY AIR GATE. Each ring has a floating ramp before
+//       it, ALIGNED with the approach — the ramp's heading is the ring's,
+//       and the ring sits on the ramp's axis — of `ramp.length` metres
+//       along the water, `ramp.width` wide, rising `ramp.angle` from the
+//       water at its hinge to a lip `length · tan(angle)` high. How far
+//       before the ring the hinge stands is not drawn: R18 derives it from
+//       the arc, and `ramp.lead` is only the band that result must land in.
 //   R9  A RUN-UP. The `ramp.runUp` (60 m) of water before a ramp's hinge is
 //       STRAIGHT, at least `ramp.runUpDepth` deep, and clear of every solid
 //       across the ramp's width plus R6's margin — a rider lines a jump up
-//       on the run-up and must not be asked to steer on it.
+//       on the run-up and must not be asked to steer on it. It is long
+//       enough for the SLOWEST craft in the catalog to reach R18's design
+//       speed from a standing start, so a ring is never out of reach for
+//       want of road.
 //   R10 THE COURSE IS A SPRINT. Its length — the path from the start to the
 //       finish gate — lands inside `course.length` (1.2–2.0 km).
 //   R11 THE START IS BEHIND THE FIRST GATE. The run begins `start.behind`
@@ -84,6 +89,21 @@
 //       kind's offshore band, with their kind's radius and top, at least
 //       `solids.spacing` apart edge to edge — and a reef's top stands proud
 //       of the bed under it, or it is not a reef.
+//   R18 THE RING IS REACHABLE. A ring stands where a hull that leaves the
+//       lip at the DESIGN LIP SPEED passes — never where a hull would have
+//       to be faster than it can be. The design speed is a band,
+//       `air.lipSpeed` (50–60 km/h): the arc is drawn from the lip
+//       (`length · tan(angle)` up, plus the hull's centre of gravity) at
+//       the ramp's angle under `g`, and the ring's centre is set on the
+//       SLOW arc — the catalog's lowest-riding hull at the band's floor —
+//       at `air.pastApex` times the apex distance past the lip, on its
+//       way down, with the FAST arc (the highest-riding hull at the band's
+//       ceiling) passing inside the ring's radius less `air.thread`. So the
+//       slowest craft threads the ring at a pace it can hold and a faster
+//       one still goes through it. The analysis re-derives the speed every
+//       catalog craft needs at the hinge (`launchSpeedFor`) and holds it
+//       under `air.reach` of the SLOWEST craft's top speed, and inside the
+//       design band.
 //
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
@@ -230,21 +250,45 @@ export const LEVEL_RULES = {
     width: 12,
   },
 
-  /** R7 — the air gates. */
+  /** R7, R18 — the air gates. */
   air: {
     count: { min: 2, max: 3 },
-    /** Ring centre above the sea, m. */
-    height: { min: 3, max: 5 },
+    /** The band a ring's DERIVED height (R18) must land in, m above the
+     * sea. Not drawn: the arc decides, and this is what it may decide. */
+    height: { min: 2.5, max: 5.5 },
     /** Ring diameter, m. */
     width: 6,
     /** Clear water past the ring, m. */
     landing: 50,
+    /** R18 — the design lip speed band, m/s (50–60 km/h). A pace every
+     * craft in the catalog can hold on a 60 m run-up, and one a rider can
+     * feel for: the throttle three-quarters in, not flat out. */
+    lipSpeed: { min: 50 / 3.6, max: 60 / 3.6 },
+    /** R18 — where on the slow arc the ring sits, as a multiple of the
+     * apex distance past the lip: 1 is the apex, 2 is back at lip height.
+     * On the way down, so the hull is through the ring before it is
+     * looking at the water. */
+    pastApex: 1.7,
+    /** R18 — how far inside the ring's radius the fast arc must pass, m:
+     * half a hull and rider, so a ring "passed" is a ring gone through. */
+    thread: 0.8,
+    /** R18 — the ceiling on the hinge speed a ring may ask of any craft,
+     * as a share of the SLOWEST craft's top speed. MEASURED, not chosen:
+     * the band's ceiling on the tallest lip in the vocabulary (10 m at
+     * 22°, 4 m up) costs 2·g·lip on top of 60 km/h and comes to 71 km/h
+     * at the hinge by the bot's own account, which is 0.93 of the dart's
+     * 76; a share under that rejects every steep ramp the ramp band
+     * allows, and the search rerolls coasts to find flat ones. */
+    reach: 0.95,
   },
 
   /** R8, R9 — the ramps. */
   ramp: {
-    /** Hinge to ring, m. */
-    lead: { min: 25, max: 40 },
+    /** The band the DERIVED hinge-to-ring distance (R18) must land in,
+     * m. */
+    lead: { min: 12, max: 32 },
+    /** Deck length along the water, m — the plan footprint; the lip is
+     * `length · tan(angle)` up. */
     length: { min: 8, max: 10 },
     width: 4,
     /** Rise from the water, rad. */

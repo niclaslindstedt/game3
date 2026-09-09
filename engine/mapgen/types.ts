@@ -108,8 +108,9 @@ export type Level = {
   readonly offshore: Heightfield;
   /** The main coast as a polyline, south-west to north-east in course order. */
   readonly shore: readonly Vec2[];
-  /** What the shore is made of at a plan point. */
-  readonly surfaceAt: (x: number, z: number) => Surface;
+  /** What the shore is made of at a plan point. (`materialAt`, not
+   * `surfaceAt`: the sea's `surfaceAt` is the wave surface.) */
+  readonly materialAt: (x: number, z: number) => Surface;
   readonly solids: readonly Solid[];
   readonly course: Course;
   /** Where the run starts: behind the first gate, pointing at it. */
