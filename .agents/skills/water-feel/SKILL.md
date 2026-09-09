@@ -1,0 +1,203 @@
+---
+name: water-feel
+description: "Use when working on THE SEA — the wave field the hull rides (the Gerstner sum, its components, their steepness), the sea state a level's wind and fetch build (the JONSWAP / Pierson–Moskowitz spectrum, the fetch-limited growth), how a wave changes coming ashore (dispersion, shoaling, breaking), the orbital velocity the craft feels, the gusts, and how the renderer's water mesh follows all of it. Owns `engine/game/water.ts` and `wind.ts`, `TUNING.sea`, `pwa/src/game/water-mesh.ts`'s displacement, and `make waves` — the lab that must run before and after any change here. Not the hull's answer to the water (`craft-physics`)."
+---
+
+# The water's feel
+
+This skill owns **one question**: what is the surface doing at `(x, z, t)`,
+and why?
+
+Everything about the answer lives in **`engine/game/water.ts`**, a DOM-free
+module of pure functions: a `SeaState` built ONCE from the level's wind and
+seed, and `surfaceAt(sea, level, x, z, t)` evaluated wherever anything needs
+the surface — twelve times a step under the hull, a few thousand times a
+frame under the water mesh, once per transect sample in the lab. Nothing in
+it advances; `t` is the only clock. That is what makes the sea deterministic,
+what lets the renderer and the engine agree exactly, and what this skill
+protects above all else.
+
+**Read this skill's lessons first** —
+`node scripts/skill-lessons.mjs water-feel --list`.
+
+| Load beside this one | For |
+| --- | --- |
+| `craft-physics` | how the hull ANSWERS the surface — buoyancy, slamming, the orbital velocity in the drag |
+| `game-feel` | whether the sea reads as drama — the sensation the numbers are in service of |
+| `mapgen-improvement` | the `offshore` field the fetch reads, the depth the shoaling reads |
+| `nature` | what the bed and the shore are made of under the water the mesh colours |
+
+## The models, and where each is written down
+
+Every term here is a published model, named in the comment above it, so a
+session can look it up rather than re-derive it. Change a term and the
+comment's claim has to stay true.
+
+| Term | Model | Where |
+| --- | --- | --- |
+| The surface: a sum of N (8) trochoidal components, each displacing a point horizontally toward its crest as well as vertically | Gerstner waves — Tessendorf, _Simulating Ocean Water_ (2001); Finch, _GPU Gems_ 1 ch. 1 | `surfaceAt`, the component loop |
+| Each component's amplitude, from the wind and the fetch | A fetch-limited JONSWAP spectrum (Hasselmann et al. 1973), falling back to Pierson–Moskowitz (1964) for the fully developed sea | `createSea` — the spectrum sampled at N frequencies |
+| The directions, spread about the wind | A cos²ⁿ spreading function about the mean wind direction | `createSea` |
+| Frequency from wavenumber, given the depth | Linear dispersion, ω² = g k tanh(k d), `d` from `level.ground` | `dispersion(k, d)` |
+| Amplitude growth coming ashore | The linear-theory shoaling coefficient K_s = √(c_g,deep / c_g), with Green's law (H ∝ d^−¼) as the shallow limit | `shoal(a, k, d)` |
+| The ceiling on height in shallow water | McCowan's breaking criterion, H/d = 0.78 | the clip inside `surfaceAt` |
+| How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is `level.offshore` | `fetchScale(offshore, U)` |
+| What the water under the surface is doing | The orbital velocity of the same components (the Gerstner circle's tangent) | `surfaceAt`'s `vx, vy, vz` |
+| The mean wind, and the gusts on it | A log-law height profile, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y)` |
+| The summary a level or a lab quotes | Hs = 4√m₀ over the sampled spectrum, Tp at the peak | `seaSummary(sea, offshore) → { Hs, Tp }` |
+
+The knobs are `TUNING.sea` (`engine/game/defs/tuning.ts`): the component
+count, the spectrum's peak-enhancement γ (3.3 is JONSWAP's), the spreading
+exponent, the steepness cap per component, the fully developed cap, the
+breaking ratio (0.78), and the gust's time constant and amplitude. Every one
+carries a unit and says whether it is a MEASUREMENT (γ, 0.78, the fetch law's
+constant — change one and you are claiming the ocean is wrong) or an ARCADE
+DIAL (the steepness cap, the fully developed cap — the two places the sea is
+allowed to be more or less than the Baltic would give a 2–12 m/s wind).
+
+## The instrument: `make waves`
+
+A sea is a spectrum, a set of components, and a surface that changes with
+depth and fetch — none of which a screenshot can show you. So do not: draw it
+on the bench and read it.
+
+```sh
+make waves SEED=7                     # one seed's sea
+make waves SEED=7 ARGS="--wind 12"    # …at the biome's strongest wind
+npm run waves -- --seed 7 --t 0,2,4   # the transect at several instants
+```
+
+It writes `previews/waves-<seed>.png` and prints a table. Three panels:
+
+| Panel | The question it answers |
+| --- | --- |
+| **TRANSECT** | The surface from the shore out to sea, at several `t`, over the bed — does it build with fetch, shoal coming in, break where the bed says, and stay under the cap? |
+| **Hs vs OFFSHORE** | The significant height along the same line — the fetch law as a curve; the plateau is the fully developed sea |
+| **SPECTRUM** | The N components as bars over the JONSWAP curve they sampled — is the energy where the peak says, and is the spread sane? |
+
+And the table: `Hs`, `Tp`, the peak wavelength, the breaking depth, the
+steepest component's `Q·k·A`, and the max and min height over the transect.
+
+**Run it BEFORE the first edit and AFTER the last**, and put both tables in
+the PR. It drives the engine directly — no build, no browser, a second or two.
+
+## The rules
+
+- **THE SURFACE IS ONE FUNCTION, AND EVERYBODY CALLS IT.** The hull's probes,
+  the water mesh's vertices, the lab's transect and the analyzer's depth
+  check all call `surfaceAt`. A renderer-side "improvement" — a shader that
+  displaces on its own, a mesh that samples at last frame's `t`, a
+  vertex that adds a ripple — is a hull drawn floating above or buried in
+  the picture, and it is the single most visible way this game can break.
+  Bigger waves are a `TUNING.sea` change, seen by everyone at once.
+- **A wave has a CEILING, and it is stated twice.** Per component, the
+  steepness `Q·k·A` stays under 1 or the trochoid loops over itself (a
+  Gerstner wave past that is a curl the hull falls through); across
+  components, McCowan clips the total against the local depth. A sea that
+  grows without a cap — a fetch law with no fully developed limit, a
+  shoaling coefficient that runs to infinity at zero depth (K_s does; that
+  is what Green's law and the breaking clip are FOR), a gust factor that
+  compounds — is a sea that eventually throws the craft into orbit, on a
+  seed nobody rendered. `tests/waves_test.ts`'s bounded-heights case
+  sweeps for it.
+- **THE SPECTRUM READS THE FETCH.** `Hs ∝ U √F` is the whole reason a level
+  gets rougher riding out and calmer riding in, and the reason the wind is
+  drawn with a seaward bias. A spectrum that reads the wind alone gives the
+  same sea at the shore and at the seaward bound, and every course reads
+  as flat or as violent with nothing in between. `offshore` is the fetch;
+  it is negative inland, where the sea is nothing.
+- **Dispersion reads the DEPTH AT THE POINT, from `level.ground`.** ω² =
+  g k tanh(k d): in deep water a wave's period fixes its length; coming in,
+  the same period gets shorter and slower, and the crest steepens. A
+  component whose ω was fixed at creation from deep water and never re-read
+  gives the same wavelength on the beach as offshore, and the shoaling
+  reads wrong on top of it. Read `d` at the sample; clamp it above a small
+  positive floor so the tanh never sees zero.
+- **THE SEA IS BUILT FROM THE MEAN WIND, NEVER THE GUSTS.** `createSea`
+  reads `level.wind`; `stepWind` varies `state.wind` with the gusts. A sea
+  rebuilt from the gusted wind is a sea that changes shape every step (and
+  a `SeaState` that is no longer a pure function of the seed). The gusts
+  reach the craft through the AERO term and the flight, not through the
+  water.
+- **Zero wind is zero sea — and a spectrum that divides by U says so
+  loudly.** JONSWAP's peak frequency is ∝ g/U; at U = 0 it is infinite, and
+  a `createSea` that does not short-circuit returns NaN into every probe.
+  Every physics test stages a calm sea with `wind: { from: 0, speed: 0 }`,
+  so this is the first thing a test suite finds.
+- **The orbital velocity is real and the hull feels it.** `surfaceAt`
+  returns `vx, vy, vz` — the water's own motion at the point — and the hull's
+  drag is against the RELATIVE velocity. That is what makes a wave push the
+  craft up its face and pull it back over the crest; a drag against the
+  absolute velocity makes the sea a bumpy floor. Sign it against the
+  crest's direction of travel (water moves forward at the crest, backward
+  in the trough), and prove the sign in `tests/waves_test.ts`.
+- **Determinism: no state advances.** Phases are seeded in `createSea`;
+  `t` is `state.t`; nothing in `water.ts` reads `state.rng` after creation
+  or keeps a counter. Two calls with the same arguments return the same
+  surface, and `tests/determinism_test.ts` digests the whole run on it.
+- **The renderer displaces on the CPU, calling the same function.** The
+  water mesh (`pwa/src/game/water-mesh.ts`) is a grid ~200 m across that
+  follows the craft, its vertices displaced each frame by `surfaceAt` at
+  the frame's interpolated `t`, coloured by depth from `level.ground`, with
+  a simple specular. It allocates nothing per frame — the positions buffer
+  is written in place and flagged. A GPU displacement is a second
+  implementation of the surface, and the rule above says why not.
+
+## Workflow
+
+1. **Take the baseline first.** `make waves` at two or three seeds (a calm
+   one, the windiest) before the first edit — it is seconds.
+2. **State the sea you want in the lab's terms** — "Hs at the seaward bound
+   should be about 0.8 m at 8 m/s, breaking on the bar at 1 m depth" — so the
+   after-table has something to be checked against.
+3. **Move a `TUNING.sea` number or a term in `water.ts`.** If the change is
+   a measurement's constant, say in the PR why the world is wrong.
+4. **Re-run the lab, then the tests** — `npx vitest run tests/waves_test.ts
+   tests/wind_test.ts`: dispersion (deep-water ω² = gk, shallow ω = k√(gd)),
+   shoaling (a wave grows coming in), fetch growth (Hs grows with
+   `offshore`, plateaus), the breaking cap (H/d ≤ 0.78 everywhere), bounded
+   heights (a sweep over seeds, winds and points never exceeds the cap),
+   and the wind's gust statistics.
+5. **Then the hull** — `make ride SCENARIO=chop` and `SCENARIO=swell`,
+   because a sea change is a hull change: taller water is more slams, more
+   launches, more dives. And `make sim`: the `Hs`, `air`, `dive` and `avg`
+   columns are where a sea change shows.
+6. **LOOK.** `make build`, `make screenshots SCENE=swell` (and `chop`,
+   `offshore`) — the surface, the specular, the hull sitting IN the water.
+7. Docs: `docs/water.md` — the models, the constants, the lab.
+
+## The traps
+
+- **A wave that grows without a cap** (above). Every term that multiplies
+  an amplitude — shoaling, fetch, gust — has a ceiling beside it.
+- **A spectrum that ignores fetch** (above). The sea at the shore is not the
+  sea at the bound.
+- **A renderer that displaces differently from the engine** (above). Same
+  function, same `t`.
+- **Interpolating `t` past the last step.** The renderer draws between
+  steps; the water it draws is at the FRAME's `t`, not the last step's, or
+  the hull (at the step's `t`) sits a few centimetres off the drawn surface
+  at every frame boundary and shimmers. The accumulator's alpha decides
+  the frame's `t`; `run-loop.ts` owns it.
+- **Reading the surface outside the level.** The heightfield's sampler
+  clamps to its edge; a probe or a mesh vertex beyond the bounds reads the
+  edge cell's depth, which is usually the deep bound — fine — but a
+  transect that starts inland reads negative fetch and must be treated as
+  flat, not extrapolated.
+- **Per-call allocation in `surfaceAt`.** It is called tens of thousands of
+  times a frame. Return into a caller-supplied object; keep the components
+  in flat typed arrays.
+
+## What the change obliges elsewhere
+
+- `docs/water.md` for any model or constant; the README's Why if the claim
+  about the water changed.
+- `make waves` before/after and `make sim` before/after in the PR.
+- A `.changes/unreleased/` fragment — the sea is what the player rides.
+
+## Skill self-improvement
+
+Record lessons under `.agents/skills/water-feel/.lessons/` via the
+**`skill-reflection`** skill. What belongs here: a constant that turned out to
+be the whole feel, a term whose ceiling was missing, a place the renderer and
+the engine disagreed and why.

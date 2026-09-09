@@ -174,9 +174,24 @@ export const LEVEL_RULES = {
   /** R17 — the rocks. Each kind: count per km of coast, offshore band (m),
    * plan radius band (m), top band (m against sea level). */
   solids: {
-    skerry: { perKm: 5, offshore: { min: 35, max: 220 }, r: { min: 3, max: 12 }, top: { min: 0.4, max: 3 } },
-    boulder: { perKm: 14, offshore: { min: 4, max: 70 }, r: { min: 0.8, max: 2.5 }, top: { min: -0.4, max: 1 } },
-    reef: { perKm: 7, offshore: { min: 20, max: 160 }, r: { min: 2.5, max: 8 }, top: { min: -1.4, max: -0.3 } },
+    skerry: {
+      perKm: 5,
+      offshore: { min: 35, max: 220 },
+      r: { min: 3, max: 12 },
+      top: { min: 0.4, max: 3 },
+    },
+    boulder: {
+      perKm: 14,
+      offshore: { min: 4, max: 70 },
+      r: { min: 0.8, max: 2.5 },
+      top: { min: -0.4, max: 1 },
+    },
+    reef: {
+      perKm: 7,
+      offshore: { min: 20, max: 160 },
+      r: { min: 2.5, max: 8 },
+      top: { min: -1.4, max: -0.3 },
+    },
     /** Minimum open water between two rocks, edge to edge, m. */
     spacing: 6,
     /** A reef's top stands at least this far above the bed under it, m. */

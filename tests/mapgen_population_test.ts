@@ -19,7 +19,9 @@ function population(): Sample[] {
   if (cache) return cache;
   const samples: Sample[] = [];
   let rerolls = 0;
-  const previous = setOutputSink((level) => {
+  // The generator reports every rejected sub-seed through the output
+  // module; counting those is how the reroll rate is read.
+  setOutputSink((level) => {
     if (level === "warn") rerolls++;
   });
   try {
@@ -30,7 +32,7 @@ function population(): Sample[] {
       samples.push({ level, ms: performance.now() - started, rerolls });
     }
   } finally {
-    setOutputSink(previous ?? null);
+    setOutputSink(null);
   }
   cache = samples;
   return samples;
@@ -55,7 +57,9 @@ describe("level population", () => {
   });
 
   it("air gates are two or three, and both counts occur", () => {
-    const counts = population().map((s) => s.level.course.gates.filter((g) => g.kind === "air").length);
+    const counts = population().map(
+      (s) => s.level.course.gates.filter((g) => g.kind === "air").length,
+    );
     for (const c of counts) expect(withinBand(c, R.air.count)).toBe(true);
     expect(counts).toContain(R.air.count.min);
     expect(counts).toContain(R.air.count.max);

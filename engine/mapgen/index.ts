@@ -35,7 +35,22 @@ export {
   walkPolyline,
   type CoursePlan,
 } from "./course.ts";
-export { analyzeLevel, ANALYSIS, type Finding, type LevelAnalysis, type Severity } from "../analysis/index.ts";
+export {
+  analyzeLevel,
+  ANALYSIS,
+  type Finding,
+  type LevelAnalysis,
+  type Severity,
+} from "../analysis/index.ts";
+// The fields a level publishes are read through these; they are part of
+// the level's contract, so they travel with it.
+export {
+  createHeightfield,
+  fieldGradient,
+  fillField,
+  sampleField,
+  type Heightfield,
+} from "../lib/heightfield.ts";
 export type {
   BiomeId,
   Bounds,

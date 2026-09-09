@@ -50,12 +50,15 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // by up to `wind.seaward` either way.
     const seaward = shore.heading + Math.PI / 2;
     const wind = {
-      from: ((seaward + rng.range(-R.wind.seaward, R.wind.seaward)) % TAU + TAU) % TAU,
+      from: (((seaward + rng.range(-R.wind.seaward, R.wind.seaward)) % TAU) + TAU) % TAU,
       speed: inBand(rng, R.wind.speed),
     };
     // R13 — the day and the water.
     const hour = inBand(rng, R.day.hour);
-    const water = { density: biome.water.density, temperature: inBand(rng, biome.water.temperature) };
+    const water = {
+      density: biome.water.density,
+      temperature: inBand(rng, biome.water.temperature),
+    };
     const course = layCourse(rng, shore, geology);
     if (!course) {
       lastReason = "the coast cannot carry a course";
@@ -65,7 +68,10 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // R17 — the rocks, over the coast the course runs along and a little
     // past it, and only those the level's box actually holds.
     const bounds = courseBounds(course);
-    const finishS = shore.toLocal(course.path[course.path.length - 1].x, course.path[course.path.length - 1].z).s;
+    const finishS = shore.toLocal(
+      course.path[course.path.length - 1].x,
+      course.path[course.path.length - 1].z,
+    ).s;
     const solids = laySolids(
       rng,
       biome,
@@ -84,5 +90,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       .join("; ");
     warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
   }
-  throw new Error(`level generation failed for seed ${seed} after ${attempts} attempts: ${lastReason}`);
+  throw new Error(
+    `level generation failed for seed ${seed} after ${attempts} attempts: ${lastReason}`,
+  );
 }

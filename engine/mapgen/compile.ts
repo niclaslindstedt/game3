@@ -100,7 +100,10 @@ export function compileLevel(plan: LevelPlan): Level {
     }
     if (biome.sandPockets && slope < R.surface.sand.slope) {
       const inland = -sampleField(offshore, x, z);
-      if (inland <= R.surface.sand.reach && shore.bayAt(shore.toLocal(x, z).s) >= R.surface.sand.bay) {
+      if (
+        inland <= R.surface.sand.reach &&
+        shore.bayAt(shore.toLocal(x, z).s) >= R.surface.sand.bay
+      ) {
         return "sand";
       }
     }

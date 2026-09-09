@@ -150,7 +150,7 @@ read a metre away, and on a big swell that is a shot that pumps.
   off-throttle steering flattens the game. The small hull-keel authority in
   `craft.ts` is the ceiling.
 - **The body rolls into the turn; it does not slide.** A PWC carves — the
-  lateral keel drag is large, the rider leans in, and the hull banks. It is
+  lateral keel drag is large, the rider leans in, and the hull banks. It is not
   a car that drifts; a craft that slides sideways flat reads as a hovercraft.
 - **The landing is charged for what the flight put in.** Slamming reads the
   probe's own vertical closing speed against the surface; a landing that is

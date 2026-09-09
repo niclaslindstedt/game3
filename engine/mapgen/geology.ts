@@ -95,8 +95,7 @@ export function createGeology(rng: Rng, biome: Biome, shore: Shore): Geology {
     // window is what keeps R2's plateau flat and the shoreline where the
     // polyline put it.
     const window =
-      Math.min(1, inland / R.land.slab.fade) *
-      (1 - smooth(clamp(inland / R.land.reach, 0, 1)));
+      Math.min(1, inland / R.land.slab.fade) * (1 - smooth(clamp(inland / R.land.reach, 0, 1)));
     const slab = (valueNoise(x, z, R.land.slab.scale, slabSeed) - 0.5) * 2;
     return { ground: step + slab * R.land.slab.amplitude * window, offshore };
   };

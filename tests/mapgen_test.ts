@@ -35,8 +35,9 @@ const DEG = Math.PI / 180;
 
 /** The level minus its classifier closure, for deep equality. */
 function structural(level: Level): Omit<Level, "surfaceAt"> {
-  const { surfaceAt: _drop, ...rest } = level;
-  return rest;
+  const copy: { surfaceAt?: Level["surfaceAt"] } = { ...level };
+  delete copy.surfaceAt;
+  return copy as Omit<Level, "surfaceAt">;
 }
 
 /** Distance along the path of the nearest point to (x, z), m. */
@@ -80,8 +81,10 @@ describe("level generator", () => {
 
   it("produces different levels for different seeds", () => {
     expect(structural(levelFor(1))).not.toEqual(structural(levelFor(38)));
-    expect(levelFor(1).course.gates.length === levelFor(38).course.gates.length &&
-      levelFor(1).course.length === levelFor(38).course.length).toBe(false);
+    expect(
+      levelFor(1).course.gates.length === levelFor(38).course.gates.length &&
+        levelFor(1).course.length === levelFor(38).course.length,
+    ).toBe(false);
   });
 
   it("records the seed it was asked for, and the biome", () => {
@@ -114,14 +117,20 @@ describe("level generator", () => {
   it("R2 — land stays under the cap and is a flat plateau past the reach", () => {
     for (const seed of LEVEL_SEEDS) {
       const { ground, offshore } = levelFor(seed);
+      // Accumulated, not asserted per cell: a grid is a hundred thousand
+      // cells and an `expect` is microseconds, which is minutes a file.
       let plateau: number | undefined;
+      let highest = -Infinity;
+      let spread = 0;
       for (let i = 0; i < ground.data.length; i++) {
-        expect(ground.data[i]).toBeLessThanOrEqual(R.land.maxHeight);
+        highest = Math.max(highest, ground.data[i]);
         if (offshore.data[i] <= -(R.land.reach + 12)) {
           plateau ??= ground.data[i];
-          expect(Math.abs(ground.data[i] - plateau)).toBeLessThan(0.05);
+          spread = Math.max(spread, Math.abs(ground.data[i] - plateau));
         }
       }
+      expect(highest).toBeLessThanOrEqual(R.land.maxHeight);
+      expect(spread).toBeLessThan(0.05);
       expect(plateau).toBeDefined();
       expect(withinBand(plateau!, R.land.plateau, 0.5)).toBe(true);
     }
@@ -131,15 +140,21 @@ describe("level generator", () => {
     for (const seed of LEVEL_SEEDS) {
       const { ground, offshore } = levelFor(seed);
       let far = 0;
+      let deepest = 0;
+      let shallowestFar = Infinity;
+      let dry = 0;
       for (let i = 0; i < ground.data.length; i++) {
-        expect(-ground.data[i]).toBeLessThanOrEqual(R.sea.depth + 1);
+        deepest = Math.max(deepest, -ground.data[i]);
         if (offshore.data[i] >= R.sea.reach + 20) {
           far++;
-          expect(-ground.data[i]).toBeGreaterThanOrEqual(R.sea.depth - 1);
+          shallowestFar = Math.min(shallowestFar, -ground.data[i]);
         }
-        if (offshore.data[i] >= 8) expect(ground.data[i]).toBeLessThan(0);
+        if (offshore.data[i] >= 8 && ground.data[i] >= 0) dry++;
       }
+      expect(deepest).toBeLessThanOrEqual(R.sea.depth + 1);
       expect(far).toBeGreaterThan(0);
+      expect(shallowestFar).toBeGreaterThanOrEqual(R.sea.depth - 1);
+      expect(dry).toBe(0);
     }
   });
 
@@ -195,9 +210,13 @@ describe("level generator", () => {
       const level = levelFor(seed);
       const buoys = level.course.gates.flatMap(gateBuoys);
       for (const s of level.solids) {
-        expect(polylineDistance(level.course.path, s.x, s.z) - s.r).toBeGreaterThanOrEqual(R.course.solidMargin);
+        expect(polylineDistance(level.course.path, s.x, s.z) - s.r).toBeGreaterThanOrEqual(
+          R.course.solidMargin,
+        );
         for (const b of buoys) {
-          expect(Math.hypot(b.x - s.x, b.z - s.z) - s.r).toBeGreaterThanOrEqual(R.course.solidMargin);
+          expect(Math.hypot(b.x - s.x, b.z - s.z) - s.r).toBeGreaterThanOrEqual(
+            R.course.solidMargin,
+          );
         }
       }
     }
@@ -236,11 +255,18 @@ describe("level generator", () => {
         // The hinge convention: level at the rear edge, rising to the
         // front, nothing beside it.
         expect(rampSurface(ramp, ramp.x, ramp.z)).toBeCloseTo(0, 9);
-        const footprint = ramp.length * Math.cos(ramp.angle);
+        // Just inside the front edge: the edge itself is a float coin-toss.
+        const footprint = ramp.length * Math.cos(ramp.angle) * 0.999;
         const front = rampSurface(ramp, ramp.x + fx * footprint, ramp.z + fz * footprint);
-        expect(front).toBeCloseTo(ramp.length * Math.sin(ramp.angle), 6);
+        expect(front).toBeCloseTo(0.999 * ramp.length * Math.sin(ramp.angle), 6);
         expect(rampSurface(ramp, ramp.x - fx, ramp.z - fz)).toBeNull();
-        expect(rampSurface(ramp, ramp.x + fz * (ramp.width / 2 + 0.1), ramp.z - fx * (ramp.width / 2 + 0.1))).toBeNull();
+        expect(
+          rampSurface(
+            ramp,
+            ramp.x + fz * (ramp.width / 2 + 0.1),
+            ramp.z - fx * (ramp.width / 2 + 0.1),
+          ),
+        ).toBeNull();
       }
     }
   });
@@ -268,7 +294,9 @@ describe("level generator", () => {
           expect(-sampleField(level.ground, x, z)).toBeGreaterThanOrEqual(R.ramp.runUpDepth);
         }
         for (const s of level.solids) {
-          expect(segmentDistance(s.x, s.z, c.x0, c.z0, c.x1, c.z1) - s.r).toBeGreaterThanOrEqual(c.halfWidth);
+          expect(segmentDistance(s.x, s.z, c.x0, c.z0, c.x1, c.z1) - s.r).toBeGreaterThanOrEqual(
+            c.halfWidth,
+          );
         }
       }
     }
@@ -380,6 +408,8 @@ describe("level generator", () => {
       const level = levelFor(seed);
       const { bounds } = level;
       const n = 60;
+      let wrongSide = 0;
+      let highSand = 0;
       for (let i = 0; i <= n; i++) {
         for (let j = 0; j <= n; j++) {
           const x = bounds.minX + ((bounds.maxX - bounds.minX) * i) / n;
@@ -387,12 +417,13 @@ describe("level generator", () => {
           const kind = level.surfaceAt(x, z);
           seen.add(kind);
           const h = sampleField(level.ground, x, z);
-          expect(kind === "water").toBe(h < 0);
-          if (kind === "sand") {
-            expect(-sampleField(level.offshore, x, z)).toBeLessThanOrEqual(R.surface.sand.reach);
-          }
+          if ((kind === "water") !== h < 0) wrongSide++;
+          if (kind === "sand" && -sampleField(level.offshore, x, z) > R.surface.sand.reach)
+            highSand++;
         }
       }
+      expect(wrongSide).toBe(0);
+      expect(highSand).toBe(0);
     }
     expect([...seen].sort()).toEqual(["bedrock", "rock", "sand", "water"]);
   });
@@ -407,7 +438,9 @@ describe("level generator", () => {
         ids.add(s.id);
         kinds.add(s.kind);
         const rule = R.solids[s.kind];
-        expect(withinBand(sampleField(level.offshore, s.x, s.z), rule.offshore, R.grid.cell)).toBe(true);
+        expect(withinBand(sampleField(level.offshore, s.x, s.z), rule.offshore, R.grid.cell)).toBe(
+          true,
+        );
         expect(withinBand(s.r, rule.r)).toBe(true);
         expect(withinBand(s.top, rule.top)).toBe(true);
         expect(s.top).toBeGreaterThan(sampleField(level.ground, s.x, s.z) + R.solids.proud - 1);
@@ -415,7 +448,9 @@ describe("level generator", () => {
         if (s.kind === "skerry") expect(s.top).toBeGreaterThan(0);
         for (const o of level.solids) {
           if (o === s) continue;
-          expect(Math.hypot(o.x - s.x, o.z - s.z) - o.r - s.r).toBeGreaterThanOrEqual(R.solids.spacing - 1e-9);
+          expect(Math.hypot(o.x - s.x, o.z - s.z) - o.r - s.r).toBeGreaterThanOrEqual(
+            R.solids.spacing - 1e-9,
+          );
         }
       }
       expect([...kinds].sort()).toEqual(["boulder", "reef", "skerry"]);

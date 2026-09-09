@@ -21,7 +21,7 @@
 //   overshoot, so the edge of the world is a slope and never a wall.
 
 import { fieldGradient, sampleField } from "../lib/heightfield.ts";
-import { rotate, unrotate, type Quat } from "../lib/quat.ts";
+import { rotate, unrotate } from "../lib/quat.ts";
 import { clamp } from "../lib/math.ts";
 import type { Level, Ramp, Solid } from "../mapgen/types.ts";
 import type { CraftSpec } from "./defs/craft.ts";
@@ -253,4 +253,3 @@ export function solidNear(level: Level, x: number, z: number, margin: number): S
   return null;
 }
 
-export type { Quat };

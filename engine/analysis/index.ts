@@ -85,15 +85,27 @@ export type LevelAnalysis = {
 
 type Report = {
   findings: Finding[];
-  fail(rule: string, check: string, message: string, extra?: { at?: { x: number; z: number }; value?: number }): void;
-  smell(rule: string, check: string, message: string, extra?: { at?: { x: number; z: number }; value?: number }): void;
+  fail(
+    rule: string,
+    check: string,
+    message: string,
+    extra?: { at?: { x: number; z: number }; value?: number },
+  ): void;
+  smell(
+    rule: string,
+    check: string,
+    message: string,
+    extra?: { at?: { x: number; z: number }; value?: number },
+  ): void;
 };
 
 function createReport(): Report {
   const findings: Finding[] = [];
-  const push = (severity: Severity) => (rule: string, check: string, message: string, extra = {}) => {
-    findings.push({ rule, code: `${rule}.${check}`, severity, message, ...extra });
-  };
+  const push =
+    (severity: Severity) =>
+    (rule: string, check: string, message: string, extra = {}) => {
+      findings.push({ rule, code: `${rule}.${check}`, severity, message, ...extra });
+    };
   return { findings, fail: push("error"), smell: push("warn") };
 }
 
@@ -129,29 +141,47 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     if (off < minOffshore) minOffshore = off;
     if (off > maxOffshore) maxOffshore = off;
     // The worst offender is the one furthest from the band's middle.
-    if (!withinBand(off, R.course.offshore) && (!worstOff || Math.abs(off - bandMid) > Math.abs(worstOff.off - bandMid))) {
+    if (
+      !withinBand(off, R.course.offshore) &&
+      (!worstOff || Math.abs(off - bandMid) > Math.abs(worstOff.off - bandMid))
+    ) {
       worstOff = { x, z, off };
     }
   });
   if (minDepth < R.course.minDepth) {
-    rep.fail("R5", "path", `only ${fmt(minDepth)} m of water under the path (rule ${R.course.minDepth} m)`, {
-      at: worstDepth,
-      value: minDepth,
-    });
+    rep.fail(
+      "R5",
+      "path",
+      `only ${fmt(minDepth)} m of water under the path (rule ${R.course.minDepth} m)`,
+      {
+        at: worstDepth,
+        value: minDepth,
+      },
+    );
   }
   if (worstOff) {
-    rep.fail("R1", "path", `the path runs ${fmt(worstOff.off)} m from the shore (band ${bandText(R.course.offshore)} m)`, {
-      at: worstOff,
-      value: worstOff.off,
-    });
+    rep.fail(
+      "R1",
+      "path",
+      `the path runs ${fmt(worstOff.off)} m from the shore (band ${bandText(R.course.offshore)} m)`,
+      {
+        at: worstOff,
+        value: worstOff.off,
+      },
+    );
   }
   for (const g of gates) {
     const off = offshoreAt(g.x, g.z);
     if (!withinBand(off, R.course.offshore)) {
-      rep.fail("R1", "gate", `${g.id} stands ${fmt(off)} m from the shore (band ${bandText(R.course.offshore)} m)`, {
-        at: g,
-        value: off,
-      });
+      rep.fail(
+        "R1",
+        "gate",
+        `${g.id} stands ${fmt(off)} m from the shore (band ${bandText(R.course.offshore)} m)`,
+        {
+          at: g,
+          value: off,
+        },
+      );
     }
   }
 
@@ -177,23 +207,39 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     if (off >= A.sea.waterline && h >= 0) dryAtSea++;
   }
   if (maxLand > R.land.maxHeight + A.land.tolerance) {
-    rep.fail("R2", "height", `land stands ${fmt(maxLand)} m high (rule ${R.land.maxHeight} m)`, { value: maxLand });
+    rep.fail("R2", "height", `land stands ${fmt(maxLand)} m high (rule ${R.land.maxHeight} m)`, {
+      value: maxLand,
+    });
   }
   if (plateauSpread > A.land.flatness) {
-    rep.fail("R2", "plateau", `the plateau varies by ${fmt(plateauSpread)} m past the reach`, { value: plateauSpread });
+    rep.fail("R2", "plateau", `the plateau varies by ${fmt(plateauSpread)} m past the reach`, {
+      value: plateauSpread,
+    });
   }
   if (plateauRef !== undefined && !withinBand(plateauRef, R.land.plateau, A.land.tolerance)) {
-    rep.smell("R2", "plateau-height", `the plateau stands at ${fmt(plateauRef)} m (band ${bandText(R.land.plateau)} m)`, {
-      value: plateauRef,
-    });
+    rep.smell(
+      "R2",
+      "plateau-height",
+      `the plateau stands at ${fmt(plateauRef)} m (band ${bandText(R.land.plateau)} m)`,
+      {
+        value: plateauRef,
+      },
+    );
   }
   if (maxDepth > R.sea.depth + A.sea.tolerance) {
-    rep.fail("R3", "depth", `the bed reaches ${fmt(maxDepth)} m (rule ${R.sea.depth} m)`, { value: maxDepth });
+    rep.fail("R3", "depth", `the bed reaches ${fmt(maxDepth)} m (rule ${R.sea.depth} m)`, {
+      value: maxDepth,
+    });
   }
   if (shallowFar > 0) {
-    rep.fail("R3", "reach", `${shallowFar} cells past the reach are shallower than ${R.sea.depth - A.sea.tolerance} m`, {
-      value: shallowFar,
-    });
+    rep.fail(
+      "R3",
+      "reach",
+      `${shallowFar} cells past the reach are shallower than ${R.sea.depth - A.sea.tolerance} m`,
+      {
+        value: shallowFar,
+      },
+    );
   }
   if (dryAtSea > 0) {
     rep.fail("R3", "dry", `${dryAtSea} sea cells stand above the surface`, { value: dryAtSea });
@@ -206,33 +252,58 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   for (let i = 1; i < gates.length; i++) {
     const spacing = gateD[i] - gateD[i - 1];
     if (!withinBand(spacing, R.gate.spacing, A.distance)) {
-      rep.fail("R4", "spacing", `${gates[i - 1].id}→${gates[i].id} are ${fmt(spacing)} m apart (band ${bandText(R.gate.spacing)} m)`, {
-        at: gates[i],
-        value: spacing,
-      });
+      rep.fail(
+        "R4",
+        "spacing",
+        `${gates[i - 1].id}→${gates[i].id} are ${fmt(spacing)} m apart (band ${bandText(R.gate.spacing)} m)`,
+        {
+          at: gates[i],
+          value: spacing,
+        },
+      );
     }
   }
   for (const gate of gates) {
     if (gate.kind === "water" && Math.abs(gate.width - R.gate.width) > A.distance) {
-      rep.fail("R4", "width", `${gate.id} is ${fmt(gate.width)} m wide (rule ${R.gate.width} m)`, { at: gate });
+      rep.fail("R4", "width", `${gate.id} is ${fmt(gate.width)} m wide (rule ${R.gate.width} m)`, {
+        at: gate,
+      });
     }
   }
   if (!withinBand(level.course.length, R.course.length)) {
-    rep.fail("R10", "length", `the course is ${fmt(level.course.length)} m long (band ${bandText(R.course.length)} m)`, {
-      value: level.course.length,
-    });
+    rep.fail(
+      "R10",
+      "length",
+      `the course is ${fmt(level.course.length)} m long (band ${bandText(R.course.length)} m)`,
+      {
+        value: level.course.length,
+      },
+    );
   }
   if (Math.abs(level.course.length - total) > A.distance) {
-    rep.fail("R10", "path", `the course says ${fmt(level.course.length)} m but its path measures ${fmt(total)} m`);
+    rep.fail(
+      "R10",
+      "path",
+      `the course says ${fmt(level.course.length)} m but its path measures ${fmt(total)} m`,
+    );
   }
   if (gates.length > 0 && Math.abs(total - gateD[gates.length - 1]) > A.distance) {
-    rep.fail("R10", "finish", `the path runs ${fmt(total - gateD[gates.length - 1])} m past the finish gate`);
+    rep.fail(
+      "R10",
+      "finish",
+      `the path runs ${fmt(total - gateD[gates.length - 1])} m past the finish gate`,
+    );
   }
   if (gates.length > 0) {
     const first = gates[0];
     const setback = Math.hypot(first.x - level.start.x, first.z - level.start.z);
     if (Math.abs(setback - R.start.behind) > A.distance) {
-      rep.fail("R11", "behind", `the start is ${fmt(setback)} m from ${first.id} (rule ${R.start.behind} m)`, { value: setback });
+      rep.fail(
+        "R11",
+        "behind",
+        `the start is ${fmt(setback)} m from ${first.id} (rule ${R.start.behind} m)`,
+        { value: setback },
+      );
     }
     const facing = Math.atan2(first.x - level.start.x, first.z - level.start.z);
     if (Math.abs(angleDiff(facing, level.start.heading)) > A.heading) {
@@ -254,50 +325,77 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     for (const b of buoys) clear = Math.min(clear, Math.hypot(b.x - s.x, b.z - s.z) - s.r);
     if (clear < minClearance) minClearance = clear;
     if (clear < R.course.solidMargin) {
-      rep.fail("R6", "clear", `${s.id} (${s.kind}) is ${fmt(clear)} m from the line (rule ${R.course.solidMargin} m)`, {
-        at: s,
-        value: clear,
-      });
+      rep.fail(
+        "R6",
+        "clear",
+        `${s.id} (${s.kind}) is ${fmt(clear)} m from the line (rule ${R.course.solidMargin} m)`,
+        {
+          at: s,
+          value: clear,
+        },
+      );
     }
   }
 
   // ── R7, R8, R9 — the air ────────────────────────────────────────────
   const air = gates.filter((gate) => gate.kind === "air");
   if (!withinBand(air.length, R.air.count)) {
-    rep.fail("R7", "count", `${air.length} air gates (band ${bandText(R.air.count)})`, { value: air.length });
+    rep.fail("R7", "count", `${air.length} air gates (band ${bandText(R.air.count)})`, {
+      value: air.length,
+    });
   }
-  if (gates.length > 0 && gates[0].kind === "air") rep.fail("R7", "first", `${gates[0].id} is the first gate and in the air`);
+  if (gates.length > 0 && gates[0].kind === "air")
+    rep.fail("R7", "first", `${gates[0].id} is the first gate and in the air`);
   if (gates.length > 0 && gates[gates.length - 1].kind === "air") {
     rep.fail("R7", "finish", `${gates[gates.length - 1].id} is the finish and in the air`);
   }
   for (const gate of air) analyzeAirGate(level, gate, path, cum, depthAt, rep);
   for (const gate of gates) {
-    if (gate.kind === "water" && gate.ramp) rep.fail("R8", "stray", `${gate.id} is a water gate with a ramp`);
-    if (gate.kind === "water" && gate.y !== 0) rep.fail("R4", "afloat", `${gate.id} is a water gate at ${fmt(gate.y)} m`);
+    if (gate.kind === "water" && gate.ramp)
+      rep.fail("R8", "stray", `${gate.id} is a water gate with a ramp`);
+    if (gate.kind === "water" && gate.y !== 0)
+      rep.fail("R4", "afloat", `${gate.id} is a water gate at ${fmt(gate.y)} m`);
   }
 
   // ── R12, R13 — the conditions ───────────────────────────────────────
   if (!withinBand(level.wind.speed, R.wind.speed)) {
-    rep.fail("R12", "speed", `wind ${fmt(level.wind.speed)} m/s (band ${bandText(R.wind.speed)})`, { value: level.wind.speed });
+    rep.fail("R12", "speed", `wind ${fmt(level.wind.speed)} m/s (band ${bandText(R.wind.speed)})`, {
+      value: level.wind.speed,
+    });
   }
   const seaward = shoreSeaward(level);
   if (seaward !== undefined) {
     const swing = Math.abs(angleDiff(seaward, level.wind.from));
     if (swing > R.wind.seaward + A.wind.direction) {
-      rep.fail("R12", "direction", `the wind blows ${fmt((swing * 180) / Math.PI)}° off the sea (rule ${fmt((R.wind.seaward * 180) / Math.PI)}°)`, {
-        value: swing,
-      });
+      rep.fail(
+        "R12",
+        "direction",
+        `the wind blows ${fmt((swing * 180) / Math.PI)}° off the sea (rule ${fmt((R.wind.seaward * 180) / Math.PI)}°)`,
+        {
+          value: swing,
+        },
+      );
     }
   }
   if (!withinBand(level.hour, R.day.hour)) {
-    rep.fail("R13", "hour", `hour ${fmt(level.hour)} (band ${bandText(R.day.hour)})`, { value: level.hour });
+    rep.fail("R13", "hour", `hour ${fmt(level.hour)} (band ${bandText(R.day.hour)})`, {
+      value: level.hour,
+    });
   }
   const biome = biomeOf(level.biome);
   if (level.water.density !== biome.water.density) {
-    rep.fail("R13", "density", `water density ${level.water.density} (biome ${biome.water.density})`);
+    rep.fail(
+      "R13",
+      "density",
+      `water density ${level.water.density} (biome ${biome.water.density})`,
+    );
   }
   if (!withinBand(level.water.temperature, biome.water.temperature)) {
-    rep.fail("R13", "temperature", `water ${fmt(level.water.temperature)} °C (band ${bandText(biome.water.temperature)})`);
+    rep.fail(
+      "R13",
+      "temperature",
+      `water ${fmt(level.water.temperature)} °C (band ${bandText(biome.water.temperature)})`,
+    );
   }
 
   // ── R14 — the grid ──────────────────────────────────────────────────
@@ -312,7 +410,9 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R17 — the rocks themselves ──────────────────────────────────────
   for (const s of level.solids) analyzeSolid(level, s, offshoreAt, depthAt, rep);
 
-  const findings = [...rep.findings].sort((a, b) => (a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1));
+  const findings = [...rep.findings].sort((a, b) =>
+    a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1,
+  );
   return {
     seed: level.seed,
     ok: !findings.some((f) => f.severity === "error"),
@@ -336,7 +436,12 @@ export function analyzeLevel(level: Level): LevelAnalysis {
 }
 
 /** Distance along a polyline of the point nearest to (x, z), m. */
-function distanceAlong(path: readonly { x: number; z: number }[], cum: Float64Array, x: number, z: number): number {
+function distanceAlong(
+  path: readonly { x: number; z: number }[],
+  cum: Float64Array,
+  x: number,
+  z: number,
+): number {
   let best = Infinity;
   let at = 0;
   for (let i = 0; i + 1 < path.length; i++) {
@@ -364,10 +469,20 @@ function analyzeAirGate(
   rep: Report,
 ): void {
   if (!withinBand(gate.y, R.air.height)) {
-    rep.fail("R7", "height", `${gate.id}'s ring floats at ${fmt(gate.y)} m (band ${bandText(R.air.height)} m)`, { at: gate, value: gate.y });
+    rep.fail(
+      "R7",
+      "height",
+      `${gate.id}'s ring floats at ${fmt(gate.y)} m (band ${bandText(R.air.height)} m)`,
+      { at: gate, value: gate.y },
+    );
   }
   if (Math.abs(gate.width - R.air.width) > A.distance) {
-    rep.fail("R7", "width", `${gate.id}'s ring is ${fmt(gate.width)} m across (rule ${R.air.width} m)`, { at: gate });
+    rep.fail(
+      "R7",
+      "width",
+      `${gate.id}'s ring is ${fmt(gate.width)} m across (rule ${R.air.width} m)`,
+      { at: gate },
+    );
   }
   const ramp = gate.ramp;
   if (!ramp) {
@@ -381,24 +496,44 @@ function analyzeAirGate(
   const lead = px * fx + pz * fz;
   const across = px * fz - pz * fx;
   if (!withinBand(lead, R.ramp.lead, A.distance)) {
-    rep.fail("R8", "lead", `${ramp.id} is ${fmt(lead)} m before ${gate.id} (band ${bandText(R.ramp.lead)} m)`, { at: ramp, value: lead });
+    rep.fail(
+      "R8",
+      "lead",
+      `${ramp.id} is ${fmt(lead)} m before ${gate.id} (band ${bandText(R.ramp.lead)} m)`,
+      { at: ramp, value: lead },
+    );
   }
   if (Math.abs(across) > A.distance) {
-    rep.fail("R8", "axis", `${gate.id}'s ring sits ${fmt(across)} m off ${ramp.id}'s axis`, { at: gate, value: across });
+    rep.fail("R8", "axis", `${gate.id}'s ring sits ${fmt(across)} m off ${ramp.id}'s axis`, {
+      at: gate,
+      value: across,
+    });
   }
   if (Math.abs(angleDiff(ramp.heading, gate.heading)) > A.heading) {
     rep.fail("R8", "aligned", `${ramp.id} is not aligned with ${gate.id}`, { at: ramp });
   }
   if (!withinBand(ramp.length, R.ramp.length)) {
-    rep.fail("R8", "length", `${ramp.id} is ${fmt(ramp.length)} m long (band ${bandText(R.ramp.length)} m)`, { at: ramp });
+    rep.fail(
+      "R8",
+      "length",
+      `${ramp.id} is ${fmt(ramp.length)} m long (band ${bandText(R.ramp.length)} m)`,
+      { at: ramp },
+    );
   }
   if (Math.abs(ramp.width - R.ramp.width) > A.distance) {
-    rep.fail("R8", "width", `${ramp.id} is ${fmt(ramp.width)} m wide (rule ${R.ramp.width} m)`, { at: ramp });
-  }
-  if (!withinBand(ramp.angle, R.ramp.angle)) {
-    rep.fail("R8", "angle", `${ramp.id} rises at ${fmt((ramp.angle * 180) / Math.PI)}° (band ${fmt((R.ramp.angle.min * 180) / Math.PI)}–${fmt((R.ramp.angle.max * 180) / Math.PI)}°)`, {
+    rep.fail("R8", "width", `${ramp.id} is ${fmt(ramp.width)} m wide (rule ${R.ramp.width} m)`, {
       at: ramp,
     });
+  }
+  if (!withinBand(ramp.angle, R.ramp.angle)) {
+    rep.fail(
+      "R8",
+      "angle",
+      `${ramp.id} rises at ${fmt((ramp.angle * 180) / Math.PI)}° (band ${fmt((R.ramp.angle.min * 180) / Math.PI)}–${fmt((R.ramp.angle.max * 180) / Math.PI)}°)`,
+      {
+        at: ramp,
+      },
+    );
   }
   // R9 — the straight: every path vertex inside the corridor's window lies
   // on its chord, and the water under the run-up and the deck is deep.
@@ -411,7 +546,10 @@ function analyzeAirGate(
     bent = Math.max(bent, segmentDistance(path[i].x, path[i].z, c.x0, c.z0, c.x1, c.z1));
   }
   if (bent > A.straight) {
-    rep.fail("R9", "straight", `the path bends ${fmt(bent)} m inside ${gate.id}'s run-up`, { at: ramp, value: bent });
+    rep.fail("R9", "straight", `the path bends ${fmt(bent)} m inside ${gate.id}'s run-up`, {
+      at: ramp,
+      value: bent,
+    });
   }
   const runUp = Math.hypot(ramp.x - c.x0, ramp.z - c.z0);
   const n = Math.ceil(runUp / A.stride);
@@ -421,12 +559,20 @@ function analyzeAirGate(
     shallow = Math.min(shallow, depthAt(c.x0 + (ramp.x - c.x0) * t, c.z0 + (ramp.z - c.z0) * t));
   }
   if (shallow < R.ramp.runUpDepth) {
-    rep.fail("R9", "depth", `only ${fmt(shallow)} m of water on ${gate.id}'s run-up (rule ${R.ramp.runUpDepth} m)`, { at: ramp, value: shallow });
+    rep.fail(
+      "R9",
+      "depth",
+      `only ${fmt(shallow)} m of water on ${gate.id}'s run-up (rule ${R.ramp.runUpDepth} m)`,
+      { at: ramp, value: shallow },
+    );
   }
   for (const s of level.solids) {
     const clear = segmentDistance(s.x, s.z, c.x0, c.z0, c.x1, c.z1) - s.r - c.halfWidth;
     if (clear < 0) {
-      rep.fail("R9", "clear", `${s.id} stands in ${gate.id}'s corridor by ${fmt(-clear)} m`, { at: s, value: clear });
+      rep.fail("R9", "clear", `${s.id} stands in ${gate.id}'s corridor by ${fmt(-clear)} m`, {
+        at: s,
+        value: clear,
+      });
     }
   }
 }
@@ -466,7 +612,11 @@ function analyzeGrid(level: Level, rep: Report): void {
     bounds.minX > minX - R.bounds.land + cell ||
     bounds.maxZ < maxZ + R.bounds.land - cell
   ) {
-    rep.fail("R14", "padding", `the bounds do not pad the course by ${R.bounds.sea} m seaward and ${R.bounds.land} m inland`);
+    rep.fail(
+      "R14",
+      "padding",
+      `the bounds do not pad the course by ${R.bounds.sea} m seaward and ${R.bounds.land} m inland`,
+    );
   }
   for (const s of level.solids) {
     if (s.x < bounds.minX || s.x > bounds.maxX || s.z < bounds.minZ || s.z > bounds.maxZ) {
@@ -485,7 +635,11 @@ function shoreSeaward(level: Level): number | undefined {
   return Math.atan2(b.x - a.x, b.z - a.z) + Math.PI / 2;
 }
 
-function analyzeShore(level: Level, rep: Report, offshoreAt: (x: number, z: number) => number): void {
+function analyzeShore(
+  level: Level,
+  rep: Report,
+  offshoreAt: (x: number, z: number) => number,
+): void {
   const pts = level.shore;
   if (pts.length < 3) {
     rep.fail("R15", "line", `the shore has ${pts.length} vertices`);
@@ -493,9 +647,14 @@ function analyzeShore(level: Level, rep: Report, offshoreAt: (x: number, z: numb
   }
   const base = Math.atan2(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].z - pts[0].z);
   if (!withinBand(base, R.shore.heading, A.shore.turn)) {
-    rep.fail("R15", "heading", `the shore runs at ${fmt((base * 180) / Math.PI)}° (band ${fmt((R.shore.heading.min * 180) / Math.PI)}–${fmt((R.shore.heading.max * 180) / Math.PI)}°)`, {
-      value: base,
-    });
+    rep.fail(
+      "R15",
+      "heading",
+      `the shore runs at ${fmt((base * 180) / Math.PI)}° (band ${fmt((R.shore.heading.min * 180) / Math.PI)}–${fmt((R.shore.heading.max * 180) / Math.PI)}°)`,
+      {
+        value: base,
+      },
+    );
   }
   let worst = 0;
   for (let i = 1; i + 1 < pts.length; i++) {
@@ -504,7 +663,9 @@ function analyzeShore(level: Level, rep: Report, offshoreAt: (x: number, z: numb
     worst = Math.max(worst, Math.abs(angleDiff(h0, h1)));
   }
   if (worst > A.shore.turn) {
-    rep.fail("R15", "smooth", `the shore turns ${fmt((worst * 180) / Math.PI)}° at a vertex`, { value: worst });
+    rep.fail("R15", "smooth", `the shore turns ${fmt((worst * 180) / Math.PI)}° at a vertex`, {
+      value: worst,
+    });
   }
   // The sea is on the RIGHT: a point a little right of the line's middle
   // reads as offshore, a point left of it as land.
@@ -512,7 +673,10 @@ function analyzeShore(level: Level, rep: Report, offshoreAt: (x: number, z: numb
   const rx = Math.cos(base);
   const rz = -Math.sin(base);
   const probe = 3 * R.grid.cell;
-  if (offshoreAt(mid.x + rx * probe, mid.z + rz * probe) <= 0 || offshoreAt(mid.x - rx * probe, mid.z - rz * probe) >= 0) {
+  if (
+    offshoreAt(mid.x + rx * probe, mid.z + rz * probe) <= 0 ||
+    offshoreAt(mid.x - rx * probe, mid.z - rz * probe) >= 0
+  ) {
     rep.fail("R15", "side", `the sea is not on the right of the shore`, { at: mid });
   }
 }
@@ -534,7 +698,11 @@ function analyzeSurface(level: Level, rep: Report): void {
       }
     }
   }
-  if (wrong > 0) rep.fail("R16", "water", `${wrong} samples call the wrong side of the waterline water`, { at, value: wrong });
+  if (wrong > 0)
+    rep.fail("R16", "water", `${wrong} samples call the wrong side of the waterline water`, {
+      at,
+      value: wrong,
+    });
 }
 
 function analyzeSolid(
@@ -547,10 +715,21 @@ function analyzeSolid(
   const rule = R.solids[s.kind];
   const off = offshoreAt(s.x, s.z);
   if (!withinBand(off, rule.offshore, R.grid.cell)) {
-    rep.fail("R17", "offshore", `${s.id} (${s.kind}) stands ${fmt(off)} m from the shore (band ${bandText(rule.offshore)} m)`, { at: s, value: off });
+    rep.fail(
+      "R17",
+      "offshore",
+      `${s.id} (${s.kind}) stands ${fmt(off)} m from the shore (band ${bandText(rule.offshore)} m)`,
+      { at: s, value: off },
+    );
   }
-  if (!withinBand(s.r, rule.r)) rep.fail("R17", "radius", `${s.id} has radius ${fmt(s.r)} m (band ${bandText(rule.r)} m)`, { at: s });
-  if (!withinBand(s.top, rule.top)) rep.fail("R17", "top", `${s.id}'s top is at ${fmt(s.top)} m (band ${bandText(rule.top)} m)`, { at: s });
+  if (!withinBand(s.r, rule.r))
+    rep.fail("R17", "radius", `${s.id} has radius ${fmt(s.r)} m (band ${bandText(rule.r)} m)`, {
+      at: s,
+    });
+  if (!withinBand(s.top, rule.top))
+    rep.fail("R17", "top", `${s.id}'s top is at ${fmt(s.top)} m (band ${bandText(rule.top)} m)`, {
+      at: s,
+    });
   const bed = -depthAt(s.x, s.z);
   if (s.top < bed + R.solids.proud - A.sea.tolerance) {
     rep.fail("R17", "proud", `${s.id}'s top is under the bed`, { at: s, value: s.top - bed });
@@ -559,7 +738,12 @@ function analyzeSolid(
     if (other.id <= s.id) continue;
     const gap = Math.hypot(other.x - s.x, other.z - s.z) - other.r - s.r;
     if (gap < R.solids.spacing - A.distance) {
-      rep.fail("R17", "spacing", `${s.id} and ${other.id} are ${fmt(gap)} m apart (rule ${R.solids.spacing} m)`, { at: s, value: gap });
+      rep.fail(
+        "R17",
+        "spacing",
+        `${s.id} and ${other.id} are ${fmt(gap)} m apart (rule ${R.solids.spacing} m)`,
+        { at: s, value: gap },
+      );
     }
   }
 }

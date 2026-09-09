@@ -208,7 +208,10 @@ function chordLegal(
  * one under the rules. */
 export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan | null {
   const S = R.search;
-  const band = { min: R.course.offshore.min + S.offshoreSlack, max: R.course.offshore.max - S.offshoreSlack };
+  const band = {
+    min: R.course.offshore.min + S.offshoreSlack,
+    max: R.course.offshore.max - S.offshoreSlack,
+  };
   const needDepth = R.course.minDepth + S.depthSlack;
   const runUpDepth = R.ramp.runUpDepth + S.depthSlack;
 
@@ -217,11 +220,14 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
   const airCount = rng.int(R.air.count.min, R.air.count.max);
 
   // ── The stations ────────────────────────────────────────────────────
-  const stationCount = Math.ceil((R.course.length.max + R.start.behind + R.course.station) / R.course.station) + 1;
+  const stationCount =
+    Math.ceil((R.course.length.max + R.start.behind + R.course.station) / R.course.station) + 1;
   const offs = new Float64Array(stationCount);
   for (let i = 0; i < stationCount; i++) {
     const s = i * R.course.station;
-    offs[i] = R.course.aim.min + (R.course.aim.max - R.course.aim.min) * valueNoise(s, 0, R.course.aimScale, aimSeed);
+    offs[i] =
+      R.course.aim.min +
+      (R.course.aim.max - R.course.aim.min) * valueNoise(s, 0, R.course.aimScale, aimSeed);
   }
   const legalAt = (x: number, z: number, depth: number): boolean => {
     const { ground, offshore } = geology.sample(x, z);

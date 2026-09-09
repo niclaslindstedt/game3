@@ -94,7 +94,7 @@ export type SurfaceSample = {
 export function fetchHeight(u: number, fetch: number): number {
   if (u <= 0) return 0;
   const dimless = (G * Math.max(fetch, 0)) / (u * u);
-  const limited = ((1.6e-3 * Math.sqrt(dimless) * u * u) / G) as number;
+  const limited = (1.6e-3 * Math.sqrt(dimless) * u * u) / G;
   const developed = (0.21 * u * u) / G;
   return Math.min(limited, developed);
 }
