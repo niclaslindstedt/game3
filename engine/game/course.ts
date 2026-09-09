@@ -152,8 +152,15 @@ export function stepCourse(
   }
 }
 
-/** Where a reset stands the craft: behind the last gate taken, or the
- * start, facing the next gate. */
+/** Where a reset stands the craft: behind the last gate it is DONE with —
+ * passed or paid for — or at the start, facing the next gate.
+ *
+ * "Done with" is `nextGate - 1` rather than the last gate in `passed`,
+ * because a missed gate is charged and counted as reached without being
+ * passed. Reading `passed` sends a rider who went by three gates in a row
+ * back to the last one they actually threaded, which on a course with
+ * corners can be half a kilometre astern — and then the idle timer resets
+ * them there again before they can ride back, for ever. */
 export function resetPose(state: GameState): {
   x: number;
   z: number;
@@ -162,7 +169,7 @@ export function resetPose(state: GameState): {
 } {
   const gates = state.level.course.gates;
   const p = state.progress;
-  const last = p.passed.length > 0 ? p.passed[p.passed.length - 1] : -1;
+  const last = p.nextGate - 1;
   const next = gates[Math.min(p.nextGate, gates.length - 1)];
   if (last < 0) {
     const s = state.level.start;
