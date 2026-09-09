@@ -26,7 +26,7 @@ skill for any code change.
 | `engine/game/defs/craft.ts` | NOT this skill's file — the physics row. The builder READS `length`, `beam`, `height`, `deadrise` and `cog` from it, and the station tables from `TUNING.hull`; a style never restates them |
 | `scripts/craft-preview.mjs` | `make crafts` — the elevation sheet: every craft from the real builder in side, bow, stern, plan and chase views, the rest waterline (`restY`) and every probe (`hullProbes`) over it, and a table of draft, freeboard, bar height and triangle count. Pure Node through `aliasEngine`, no build |
 | `pwa/src/game/renderer.ts` | Places the body from `CraftState` (`x, y, z`, the quaternion) — the mesh's origin is the CoG, so it pitches and rolls about the point the physics does |
-| `pwa/src/game/rider.ts` | PLACEHOLDER: the rider model. Not this session's — the craft ships with no rider, and the seat and bars are sized for one |
+| `pwa/src/game/rider.ts`, `rider-pose.ts` | The rider — the `rider` skill's. It is stood on this builder's deck through `cockpitOf` (the saddle's bucket, the grips, the footwells as they are drawn), so a change to the seat, the bars or the wells moves him, and the sheet shows whether he can still reach |
 | `pwa/src/game/scenarios.ts` | `rest` is the contact sheet for now: the craft afloat, still, beside the shore |
 | `scripts/screenshot.mjs` | `make screenshots SCENE=rest CRAFT=<id>` photographs it, both viewports |
 | `pwa/src/identity.ts` | The PALETTE the colours are drawn from — a style names a palette entry, never a hex |
@@ -113,9 +113,14 @@ skill for any code change.
 - **The mesh's origin is the CoG.** The physics pitches and rolls about the
   CoG; a mesh whose origin is the keel or the transom swings its bow
   through the water on every wave for nothing the physics did.
-- **No rider yet, but room for one.** The seat is sized for the catalog's
-  `riderHeight`, the bars stand where hands would be; when `rider.ts` is
-  built it sits on this deck without the deck moving.
+- **The rider reaches what is drawn.** `cockpitOf` reports the saddle's
+  bucket, the grips and the footwells from the same `layout` the loft
+  reads, and the rider's hands are solved onto those grips. Keep the bars
+  where a man sat in the bucket can reach them — a runabout stands about
+  1.15 m keel to bar-top, a touring hull up to 1.25 — and read the sheet's
+  `helmet` column and his arms after any change to the hood, the column,
+  the saddle or the pod: arms at full stretch at rest mean the grips have
+  moved out of reach.
 
 ## Adding a craft
 

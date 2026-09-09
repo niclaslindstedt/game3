@@ -2,21 +2,23 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE CRAFT SHEET — every craft, from the builder the app draws with, in
 // elevation: side, bow, stern, plan and the chase view's three-quarter,
-// with the physics laid over the picture — the waterline the hull floats
-// at on the level's water and every buoyancy probe as a dot. A chase-camera
+// with the rider on the saddle and the physics laid over the picture —
+// the waterline the hull floats at on the level's water and every buoyancy
+// probe as a dot. A chase-camera
 // screenshot judges a craft at sixty pixels tall from one angle and needs a
 // build and a browser first; this is the contact sheet for the sculpture
 // itself, in a second, pure Node: `craft-body.ts` is imported through the
-// `@engine` alias and its triangles are painted here, so what is on the
-// sheet is exactly what the renderer would draw.
+// `@engine` alias (and rider.ts, stood on it at rest through the same
+// `cockpitOf` the app uses) and their triangles are painted here, so what
+// is on the sheet is exactly what the renderer would draw.
 //
 //   make crafts                     every craft, previews/crafts.png
 //   make crafts CRAFT=marlin        one craft, previews/crafts-marlin.png
 //   node scripts/craft-preview.mjs --scale 120
 //
 // Beside the picture it prints the numbers a proportion is argued about:
-// the draft, the freeboard, the saddle and the bars over the waterline,
-// and the triangle count — the render budget a craft spends.
+// the draft, the freeboard, the bars and the rider's helmet over the
+// waterline, and the triangle counts — the render budget a craft spends.
 
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -32,7 +34,8 @@ aliasEngine(root);
 const { CRAFT, CRAFT_IDS, craftById, hullProbes, restY } = await import(
   join(root, "engine/index.ts")
 );
-const { buildCraft } = await import(join(root, "pwa/src/game/craft-body.ts"));
+const { buildCraft, cockpitOf } = await import(join(root, "pwa/src/game/craft-body.ts"));
+const { createRider } = await import(join(root, "pwa/src/game/rider.ts"));
 const { CRAFT_STYLES } = await import(join(root, "pwa/src/game/craft-styles.ts"));
 const { biomeOf } = await import(join(root, "engine/mapgen/biomes.ts"));
 
@@ -62,7 +65,7 @@ const VIEWS = [
 /** A cell is the longest craft's footprint times these, so every craft is
  * drawn to the same scale and a longer hull reads longer. */
 const LONGEST = Math.max(...CRAFT.map((c) => c.length));
-const TALLEST = Math.max(...CRAFT.map((c) => c.height)) + 1.25;
+const TALLEST = Math.max(...CRAFT.map((c) => c.height)) + 1.9;
 
 const norm = (v) => {
   const l = Math.hypot(v[0], v[1], v[2]) || 1;
@@ -84,21 +87,25 @@ function basis(view) {
   return { look, right, up };
 }
 
-/** The triangles the builder made, body frame, with their vertex colour. */
-function triangles(spec, style) {
-  const group = buildCraft(spec, style);
+/** The triangles of a mesh, body frame, with their vertex colour. */
+function trianglesOf(mesh) {
   const out = [];
-  for (const mesh of group.children) {
-    const pos = mesh.geometry.getAttribute("position").array;
-    const col = mesh.geometry.getAttribute("color").array;
-    for (let i = 0; i + 8 < pos.length; i += 9) {
-      const a = [pos[i], pos[i + 1], pos[i + 2]];
-      const b = [pos[i + 3], pos[i + 4], pos[i + 5]];
-      const c = [pos[i + 6], pos[i + 7], pos[i + 8]];
-      out.push({ a, b, c, color: [col[i], col[i + 1], col[i + 2]] });
-    }
+  const pos = mesh.geometry.getAttribute("position").array;
+  const col = mesh.geometry.getAttribute("color").array;
+  for (let i = 0; i + 8 < pos.length; i += 9) {
+    const a = [pos[i], pos[i + 1], pos[i + 2]];
+    const b = [pos[i + 3], pos[i + 4], pos[i + 5]];
+    const c = [pos[i + 6], pos[i + 7], pos[i + 8]];
+    out.push({ a, b, c, color: [col[i], col[i + 1], col[i + 2]] });
   }
   return out;
+}
+
+/** The craft the builder made and the rider sat on it at rest. */
+function triangles(spec, style) {
+  const craft = buildCraft(spec, style).children.flatMap(trianglesOf);
+  const rider = trianglesOf(createRider(cockpitOf(spec, style)).mesh);
+  return { craft, rider };
 }
 
 /** A sun over the viewer's shoulder, so every view shades the same way. */
@@ -152,13 +159,14 @@ VIEWS.forEach((v, i) => {
 const rows = [];
 specs.forEach((spec, row) => {
   const style = CRAFT_STYLES[spec.id];
-  const tris = triangles(spec, style);
+  const { craft, rider } = triangles(spec, style);
+  const tris = [...craft, ...rider];
   const float = restY(spec, density);
   const top = 22 + row * cellH;
   canvas.line(0, top, width, top, INK.grid);
   canvas.text(spec.name, 10, top + 10, INK.label, 2);
   canvas.text(`${spec.length.toFixed(2)} X ${spec.beam.toFixed(2)} M`, 10, top + 32, INK.label, 1);
-  canvas.text(`${tris.length} TRIS`, 10, top + 44, INK.label, 1);
+  canvas.text(`${craft.length} + ${rider.length} TRIS`, 10, top + 44, INK.label, 1);
 
   let cx = labelW;
   VIEWS.forEach((view, i) => {
@@ -185,19 +193,25 @@ specs.forEach((spec, row) => {
   let keel = Infinity;
   let bars = -Infinity;
   let beamDrawn = 0;
-  for (const t of tris) {
+  for (const t of craft) {
     for (const p of [t.a, t.b, t.c]) {
       if (p[1] < keel) keel = p[1];
       if (p[1] > bars) bars = p[1];
       if (Math.abs(p[0]) > beamDrawn) beamDrawn = Math.abs(p[0]);
     }
   }
+  let helmet = -Infinity;
+  for (const t of rider) {
+    for (const p of [t.a, t.b, t.c]) if (p[1] > helmet) helmet = p[1];
+  }
   rows.push({
     craft: spec.id,
-    tris: tris.length,
+    tris: craft.length,
+    riderTris: rider.length,
     draft: (-keel - float).toFixed(2),
     freeboard: (spec.height - spec.cog.y + float).toFixed(2),
     bars: (bars + float).toFixed(2),
+    helmet: (helmet + float).toFixed(2),
     beam: (2 * beamDrawn).toFixed(2),
   });
 });
@@ -211,11 +225,11 @@ console.log(
   `crafts — ${specs.map((s) => s.id).join(", ")} at ${scale} px/m, water ${density} kg/m³`,
 );
 console.log(
-  "  craft      tris   draft  freeboard  bars   beam   (m, over the rest waterline; beam as drawn, sponsons in)",
+  "  craft      tris  rider   draft  freeboard  bars  helmet   beam   (m, over the rest waterline; beam as drawn, sponsons in)",
 );
 for (const r of rows) {
   console.log(
-    `  ${r.craft.padEnd(8)} ${String(r.tris).padStart(6)}   ${r.draft}   ${r.freeboard.padStart(6)}    ${r.bars}   ${r.beam}`,
+    `  ${r.craft.padEnd(8)} ${String(r.tris).padStart(6)} ${String(r.riderTris).padStart(6)}   ${r.draft}   ${r.freeboard.padStart(6)}    ${r.bars}   ${r.helmet}   ${r.beam}`,
   );
 }
 console.log(`  → ${out.replace(root + "/", "")}`);

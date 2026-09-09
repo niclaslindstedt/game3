@@ -8,7 +8,7 @@ Open [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/). The game boo
 
 **Choosing a level.** Every level is generated from a seed, so a URL is a level: `?seed=38` opens seed 38, and `?craft=marlin` picks the craft (`skiff`, `marlin`, `otter`, `dart`). The seed is in the HUD corner, beside the build label — send both with a bug report and whoever reads it stands on the same water.
 
-**The craft.** Four ship, and what separates them is real physics off a data card rather than a badge: the **skiff** (a light runabout — quick, nimble, skittish in chop), the **marlin** (heavy performance — the fastest, and it needs room), the **otter** (stable touring — the heaviest, the softest over waves, slow to turn) and the **dart** (a stand-up — the lightest, the most agile, the least stable). There is no rider drawn yet; the rider is a point mass in the spec, and the lean you input is that mass moving.
+**The craft.** Four ship, and what separates them is real physics off a data card rather than a badge: the **skiff** (a light runabout — quick, nimble, skittish in chop), the **marlin** (heavy performance — the fastest, and it needs room), the **otter** (stable touring — the heaviest, the softest over waves, slow to turn) and the **dart** (a stand-up — the lightest, the most agile, the least stable). The rider on the saddle is drawn from the engine's own readings: the lean you input moves a point mass in the physics, and the figure slides and leans where that mass went, tucks into the wind as the pump opens, hangs into a turn, and takes a landing in his knees and back.
 
 ### Controls
 

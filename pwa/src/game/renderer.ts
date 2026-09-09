@@ -17,11 +17,12 @@ import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
-import { buildCraft } from "./craft-body.ts";
+import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createPines } from "./pines.ts";
+import { createRider, type Rider } from "./rider.ts";
 import { createRocks } from "./rocks.ts";
 import { createSpray } from "./spray.ts";
 import { createWake } from "./wake.ts";
@@ -92,6 +93,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let terrain: THREE.Group | null = null;
   let gates: Gates | null = null;
   let craft: THREE.Group | null = null;
+  let rider: Rider | null = null;
   let craftId: CraftId | null = null;
   let level: Level | null = null;
 
@@ -128,10 +130,15 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       if (craft) scene.remove(craft);
       craftId = id;
       craft = buildCraft(state.craft.spec, CRAFT_STYLES[id]);
+      // The rider is a child of the craft: the hull's pose is his.
+      rider?.dispose();
+      rider = createRider(cockpitOf(state.craft.spec, CRAFT_STYLES[id]));
+      craft.add(rider.mesh);
       scene.add(craft);
     }
     wake.reset();
     spray.reset();
+    rider?.reset();
     rig.restand();
   };
 
@@ -169,6 +176,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       craft.position.set(c.x, c.y, c.z);
       craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
     }
+    rider?.update(state);
     // THE CAMERA, applied. The pose is the rig's; the lens is widened for a
     // narrow viewport so a phone held upright sees the same field across.
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
@@ -232,6 +240,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     observe: (state) => {
       wake.observe(state);
       spray.observe(state);
+      rider?.observe(state);
     },
     camera: rig,
     cost: () => cost,
@@ -242,6 +251,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       water.dispose();
       wake.dispose();
       spray.dispose();
+      rider?.dispose();
       if (terrain) disposeTerrain(terrain);
       renderer.dispose();
     },

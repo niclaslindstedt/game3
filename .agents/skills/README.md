@@ -38,6 +38,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `craft-physics` | The hull's answer: probes, buoyancy, planing (Savitsky), slamming, the waterjet, nozzle steering, lean, flight; `make ride` |
 | `craft-tuning` | What separates the skiff, the marlin, the otter and the dart; the catalog; the roster read off `make sim` |
 | `craft-design` | How a craft LOOKS: the parametric builder, the styles, the `SCENE=rest` contact sheet |
+| `rider` | The man on the saddle: the pose from `cockpitOf` and the engine's readings, the body on springs, the figure re-emitted each frame; judged from behind |
 | `collision` | The hull meeting what is not water: solids, grounding, ramps, gates and misses, bounds; what the events mean |
 | `engine-system` | Adding or changing a gameplay system, engine-first |
 | `mapgen-improvement` | The shore generator: rules / search / geometry, the R-rules, the analyze → fix → `make level` loop |
@@ -66,7 +67,6 @@ row and the `.lessons/` directory land where the next session expects them.
 | `wipeout` | The craft past saving: the capsize, the rider thrown, the recovery — the sibling game's `crash`, for water |
 | `damage` | `engine/game/damage.ts` + `pwa/src/game/damage-fx.ts`: what a hit costs the machinery and how it reads; the sibling game's damage half of `collision` |
 | `tricks` | `engine/game/tricks.ts`: the aerial vocabulary and its scoring — the backflip is reachable today and scored then |
-| `rider` | `pwa/src/game/rider.ts`: the parametric rider on the seat, the lean drawn, the stand-up's stance |
 | `craft-creation` | A craft remade after photographs of a real one — the ruled crop, the overlay — the sibling game's `car-creation` |
 | `built-shore` | What people put on the shore: harbours, jetties, a lighthouse, moored boats, the crowd — the sibling game's `built-world` |
 | `fauna` | `engine/mapgen/fauna.ts` + `pwa/src/game/fauna.ts`: the fish and animals in the sea, placed by the biome, seeded |

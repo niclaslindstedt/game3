@@ -6,7 +6,7 @@ This file is the canonical source of truth for AI coding agents working in this 
 
 This repository conforms to [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) — the committed copy IS the spec, self-contained, with no upstream document to fetch and no validator to call; it is a verbatim copy of the sibling rally game's, one spec for both games, and amending it is a reviewed PR that propagates the new mandate into the tree. When in doubt about layout, naming, or workflow conventions, the spec is the tie-breaker. Where the repo knowingly falls short of it, [`docs/spec-conformance.md`](docs/spec-conformance.md) is the ledger — one row per chapter, with the verdict, the evidence and what closing the gap would take; the `sync-game-spec` skill walks it.
 
-**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft (no rider drawn), a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
+**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft with its rider on the saddle, a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
 
 ## Build and test commands
 
@@ -39,6 +39,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The bot rider                                           | `sim`                          | `bot-improvement`                              |
 | The generator, its rules, the analyzer                  | `level`, `analyze`             | `mapgen-improvement`                           |
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
+| The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
 | The HUD, the controls, a menu                           | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | The sky, the light, the weather                         | `screenshots`, `level`         | `game-feel`                                    |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
@@ -115,6 +116,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Measuring balance                                     | `engine/sim/simulate.ts`, `scripts/simulate-run.mjs`          | `simulate-run`       |
 | A whole new gameplay system                           | engine first, then `pwa/`                                     | `engine-system`      |
 | How a craft looks                                     | `pwa/src/game/craft-body.ts`, `craft-styles.ts`               | `craft-design`       |
+| The rider on the saddle: the pose, the figure         | `pwa/src/game/rider-pose.ts`, `rider.ts`                      | `rider`              |
 | The camera                                            | `pwa/src/game/camera.ts`                                      | `game-feel`          |
 | The sky: the sun's place, the ladder of looks, the lid | `pwa/src/game/sky.ts`, `sky-rungs.ts`, `sky-looks.ts`, `daylight.ts` | `game-feel`   |
 | The sky as DRAWN: the dome, the stars, the clouds     | `pwa/src/game/environment.ts`, `sky-dome.ts`, `clouds.ts`     | `game-feel`          |
@@ -136,7 +138,6 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Damage: what a hit costs the machinery        | `engine/game/damage.ts`, `pwa/src/game/damage-fx.ts`             |
 | Trick scoring (the backflip is reachable, unscored) | `engine/game/tricks.ts`                                    |
 | The fish and animals, by biome                | `engine/game/defs/fauna.ts`, `engine/mapgen/fauna.ts`, `pwa/src/game/fauna.ts` |
-| The rider on the seat                         | `pwa/src/game/rider.ts` (the physics already carries `riderMass`) |
 | Menus, settings                               | `pwa/src/game/menu-main.tsx`, `settings.ts`                      |
 | The campaign, its modes, which seeds          | `pwa/src/game/campaign.ts`, `engine/rating/index.ts`             |
 | A run recorded and watched again              | `engine/sim/tape.ts`, `pwa/src/game/replay.ts`                   |
@@ -237,6 +238,7 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 - **`craft-physics`** — the hull's answer to the water: the probes and the draft, the drags, Savitsky's planing lift, the slam and the dive, the waterjet and the nozzle, the lean, flight; `make ride`.
 - **`craft-tuning`** — what separates the skiff, the marlin, the otter and the dart; the catalog and its derived expectations; the roster read off `make sim`.
 - **`craft-design`** — how a craft LOOKS: the parametric builder, the styles, the `SCENE=rest` contact sheet.
+- **`rider`** — the man on the saddle: the pose from the cockpit and the engine's readings, the body on springs, the figure; judged from behind on the sheet and at chase range.
 - **`collision`** — the hull meeting what is not water: solids, grounding, ramps, gates and misses, the bounds; what each event means.
 - **`engine-system`** — adding or changing a gameplay system, engine-first.
 - **`mapgen-improvement`** — the shore generator (rules / search / geometry, the R-rules), the analyze → fix → `make level` loop.
@@ -257,4 +259,4 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 
 Run the specific skill when you know what drifted; run `maintenance` when you don't.
 
-**Reserved, not written** (see `.agents/skills/README.md`): sound-effects, soundtrack, atmosphere, visual-effects, wipeout, damage, tricks, rider, craft-creation, built-shore, fauna, level-rating, campaign, replay, debug-tools, platform-shells, store-listing, store-shots. A lesson about one of those subjects waits, scoped, in the nearest existing skill until its subject is built.
+**Reserved, not written** (see `.agents/skills/README.md`): sound-effects, soundtrack, atmosphere, visual-effects, wipeout, damage, tricks, craft-creation, built-shore, fauna, level-rating, campaign, replay, debug-tools, platform-shells, store-listing, store-shots. A lesson about one of those subjects waits, scoped, in the nearest existing skill until its subject is built.

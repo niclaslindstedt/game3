@@ -18,7 +18,10 @@ export type CraftShape = {
   /** How far the deck's bow overhangs the keel's tip, as a share of the
    * length — the raked stem that says "PWC" from the side. */
   bowRake: number;
-  /** The hood's peak over the coaming, as a share of the hull depth. */
+  /** The hood's peak over the coaming, as a share of the hull depth.
+   * With the column it sets where the bars stand: a runabout is about
+   * 1.15 m tall keel to bar-top (a Sea-Doo GTI is 1.14, a Yamaha VX
+   * 1.15), a touring hull up to 1.25. */
   hood: number;
   /** The saddle: its length as a share of the hull length, its height
    * over the pedestal as a share of the hull depth. A stand-up carries a
@@ -55,10 +58,10 @@ export type CraftStyle = {
 /** The runabout proportions the three sit-downs share. */
 const RUNABOUT: CraftShape = {
   bowRake: 0.07,
-  hood: 0.42,
+  hood: 0.26,
   seatLength: 0.5,
   seatHeight: 0.36,
-  column: 0.24,
+  column: 0.18,
   sponson: 0.05,
 };
 
@@ -87,7 +90,7 @@ export const CRAFT_STYLES: Record<CraftId, CraftStyle> = {
     tray: 0x363c42,
     bar: 0xc4c8cc,
     grip: 0x121415,
-    shape: { ...RUNABOUT, hood: 0.34, seatLength: 0.54, seatHeight: 0.3, column: 0.2 },
+    shape: { ...RUNABOUT, hood: 0.22, seatLength: 0.54, seatHeight: 0.3, column: 0.16 },
   },
   // Cream and navy, a touring hull's colours, and a touring hull's tall
   // saddle and high hood.
@@ -101,7 +104,7 @@ export const CRAFT_STYLES: Record<CraftId, CraftStyle> = {
     tray: 0x444a50,
     bar: 0xb5babf,
     grip: 0x1a1c1e,
-    shape: { ...RUNABOUT, hood: 0.5, seatLength: 0.56, seatHeight: 0.42, column: 0.26 },
+    shape: { ...RUNABOUT, hood: 0.3, seatLength: 0.56, seatHeight: 0.42, column: 0.22 },
   },
   // Yellow on white, meant to be seen from the beach: the stand-up, with a
   // tray where the saddle would be and the bars on a pole.
