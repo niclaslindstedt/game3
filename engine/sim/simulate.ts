@@ -45,6 +45,7 @@ export type RunReport = {
   hits: number;
   groundings: number;
   resets: number;
+  capsizes: number;
   /** The biggest significant wave height met, m, by the fetch at the
    * craft's position. */
   maxHs: number;
@@ -80,6 +81,7 @@ export function simulateStage(options: SimOptions): RunReport {
   let hits = 0;
   let groundings = 0;
   let resets = 0;
+  let capsizes = 0;
   let maxHs = 0;
   const maxSteps = Math.ceil(maxSeconds / TUNING.dt);
   let steps = 0;
@@ -95,6 +97,7 @@ export function simulateStage(options: SimOptions): RunReport {
       else if (e.kind === "hit") hits += 1;
       else if (e.kind === "ground") groundings += 1;
       else if (e.kind === "reset") resets += 1;
+      else if (e.kind === "capsize") capsizes += 1;
     }
     const c = state.craft;
     if (c.speed > topSpeed) topSpeed = c.speed;
@@ -130,6 +133,7 @@ export function simulateStage(options: SimOptions): RunReport {
     hits,
     groundings,
     resets,
+    capsizes,
     maxHs,
     events,
     digest: hash.toString(16).padStart(8, "0"),

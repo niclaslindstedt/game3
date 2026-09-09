@@ -75,9 +75,10 @@ function penalty(
   nz: number,
   pen: number,
   friction: number,
+  cap = Infinity,
 ): number {
   const vn = s.vx * nx + s.vy * ny + s.vz * nz;
-  const normal = Math.max(0, C.stiffness * pen - C.damping * vn);
+  const normal = Math.min(cap, Math.max(0, C.stiffness * pen - C.damping * vn));
   if (normal <= 0) return 0;
   // Tangential slide, damped toward rest over the last 0.3 m/s so a
   // resting hull does not chatter.
@@ -170,18 +171,20 @@ export function contactForces(
       const sa = Math.sin(ramp.angle);
       const ca = Math.cos(ramp.angle);
       const pen = (deck - s.py) * ca;
-      if (pen > C.rampFlankBelow) {
+      const overlap = ramp.width / 2 - Math.abs(at.across);
+      if (pen > C.rampFlankBelow && overlap < C.rampFlankBand) {
         const side = at.across >= 0 ? 1 : -1;
         const nx = side * Math.cos(ramp.heading);
         const nz = -side * Math.sin(ramp.heading);
-        const overlap = ramp.width / 2 - Math.abs(at.across);
         penalty(out, s, cx, cy, cz, nx, 0, nz, overlap, C.groundFriction);
         continue;
       }
       const nx = -sa * Math.sin(ramp.heading);
       const ny = ca;
       const nz = -sa * Math.cos(ramp.heading);
-      if (penalty(out, s, cx, cy, cz, nx, ny, nz, pen, C.rampFriction) > 0) out.onRamp = true;
+      if (penalty(out, s, cx, cy, cz, nx, ny, nz, pen, C.rampFriction, C.rampDeckCap) > 0) {
+        out.onRamp = true;
+      }
     }
   }
 }

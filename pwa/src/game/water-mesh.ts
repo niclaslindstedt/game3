@@ -60,6 +60,15 @@ const SHALLOW = c(PALETTE.seaShallow);
 const SEA = c(PALETTE.sea);
 const DEEP = c(PALETTE.seaDeep);
 const FOAM = c(PALETTE.foam);
+/** What the water reflects at a grazing angle: the sky. */
+const SKY = c(PALETTE.skyHigh);
+/** A crest catches the light and a trough hides from it: the height, m,
+ * at which the crest tint is full, and how far it goes toward the shallow
+ * colour; the trough goes the same way toward the deep. */
+const CREST_HEIGHT = 0.3;
+const CREST_TINT = 0.45;
+/** How much of the sky the surface reflects at a full grazing angle. */
+const FRESNEL = 0.75;
 
 function smoothstep(a: number, b: number, x: number): number {
   const t = clamp((x - a) / (b - a), 0, 1);
@@ -70,8 +79,16 @@ export type WaterMesh = {
   mesh: THREE.Mesh;
   far: THREE.Mesh;
   /** Re-lay the grid under the craft and displace it for the state's
-   * clock. Returns the milliseconds it took — the profile's number. */
-  update: (state: GameState, cx: number, cz: number) => number;
+   * clock; `eye` is where the lens is, for the reflection's angle.
+   * Returns the milliseconds it took — the profile's number. */
+  update: (
+    state: GameState,
+    cx: number,
+    cz: number,
+    eyeX: number,
+    eyeY: number,
+    eyeZ: number,
+  ) => number;
   dispose: () => void;
 };
 
@@ -119,24 +136,36 @@ export function createWaterMesh(): WaterMesh {
   // frame would walk every vertex again for a number that never changes.
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), HALF * Math.SQRT2 + 5);
 
+  // A tight glint rather than a wash: with the sun low over a nearly flat
+  // sea, a broad highlight lights half the frame white.
   const material = new THREE.MeshPhongMaterial({
     vertexColors: true,
-    specular: new THREE.Color(0x9fb8c4),
-    shininess: 70,
+    specular: new THREE.Color(0x2c3a42),
+    shininess: 200,
   });
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
 
+  // Unlit, in the colour the grid's own edge has arrived at — the deep
+  // mostly given over to the sky at that grazing angle — so the hand-over
+  // from the grid is a change of detail, not of colour.
   const far = new THREE.Mesh(
     new THREE.CircleGeometry(FAR_RADIUS, 48),
-    new THREE.MeshLambertMaterial({ color: DEEP }),
+    new THREE.MeshBasicMaterial({ color: DEEP.clone().lerp(SKY, 0.62) }),
   );
   far.rotation.x = -Math.PI / 2;
   far.position.y = -FAR_SINK;
 
   const sample: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
-  const update = (state: GameState, cx: number, cz: number): number => {
+  const update = (
+    state: GameState,
+    cx: number,
+    cz: number,
+    eyeX: number,
+    eyeY: number,
+    eyeZ: number,
+  ): number => {
     const t0 = performance.now();
     const sx = Math.round(cx / CENTRE_CELL) * CENTRE_CELL;
     const sz = Math.round(cz / CENTRE_CELL) * CENTRE_CELL;
@@ -174,9 +203,35 @@ export function createWaterMesh(): WaterMesh {
         r += (DEEP.r - r) * deep;
         g += (DEEP.g - g) * deep;
         bl += (DEEP.b - bl) * deep;
+        // A crest lifts toward the shallow tint, a trough sinks toward the
+        // deep: the wave's shape read as colour, which is most of how a
+        // low sun over a small sea shows one at all.
+        const crest = clamp(sample.height / CREST_HEIGHT, -1, 1) * CREST_TINT;
+        if (crest > 0) {
+          r += (SHALLOW.r - r) * crest;
+          g += (SHALLOW.g - g) * crest;
+          bl += (SHALLOW.b - bl) * crest;
+        } else {
+          r += (DEEP.r - r) * -crest;
+          g += (DEEP.g - g) * -crest;
+          bl += (DEEP.b - bl) * -crest;
+        }
+        // The sky, reflected at a grazing angle (Schlick's Fresnel on the
+        // vertex): the water goes pale toward the horizon and stays its
+        // own colour under the lens, and a wave face turned toward the
+        // lens goes darker than the back turned away.
+        const dx = eyeX - wx;
+        const dy = eyeY - positions[k + 1];
+        const dz = eyeZ - wz;
+        const dl = 1 / Math.max(1e-3, Math.hypot(dx, dy, dz));
+        const cosV = Math.max(0, (dx * normals[k] + dy * normals[k + 1] + dz * normals[k + 2]) * dl);
+        const grazing = (1 - cosV) ** 4 * FRESNEL;
+        r += (SKY.r - r) * grazing;
+        g += (SKY.g - g) * grazing;
+        bl += (SKY.b - bl) * grazing;
         const tilt = 1 - sample.ny;
         const foam = clamp(
-          smoothstep(0.045, 0.1, tilt) + smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt),
+          smoothstep(0.04, 0.09, tilt) + smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt),
           0,
           1,
         );

@@ -20,7 +20,7 @@
 // step is made of, and the events say so after the fact.
 
 import { clamp } from "../lib/math.ts";
-import { integrate, rotate, toEuler, unrotate } from "../lib/quat.ts";
+import { fromEuler, integrate, rotate, toEuler, unrotate } from "../lib/quat.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { aeroForces, type AeroResult } from "./flight.ts";
@@ -30,6 +30,7 @@ import {
   inertia,
   placeProbes,
   probeSamples,
+  restY,
   totalMass,
   type HullProbe,
   type HullResult,
@@ -88,6 +89,11 @@ function workFor(craft: CraftState): Work {
         waterVz: 0,
         planingLift: 0,
         wettedLength: 0,
+        buoyancy: 0,
+        bank: 0,
+        bowLift: 0,
+        heave: 0,
+        slam: 0,
       },
       contact: {
         fx: 0,
@@ -118,6 +124,39 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   const I = inertia(spec);
   const w = workFor(c);
   const { probes, samples, hull, contact, aero } = w;
+
+  // THE RIDER CLIMBING BACK ON. A hull left on its back is righted by the
+  // rider over `capsize.righting` seconds: the orientation is turned back
+  // upright along the shortest way, the way is scrubbed off, and the
+  // engine idles. Nothing else acts on the hull meanwhile — the rider is
+  // standing on it.
+  if (c.righting > 0) {
+    const before = c.righting;
+    c.righting = Math.max(0, c.righting - dt);
+    const share = c.righting / before;
+    const e = toEuler(c.q);
+    c.q = fromEuler(e.heading, e.pitch * share, e.roll * share);
+    c.wx = c.wy = c.wz = 0;
+    const keep = Math.exp(-dt / T.capsize.slow);
+    c.vx *= keep;
+    c.vz *= keep;
+    c.vy = 0;
+    const rest = restY(spec, density) + surfaceAt(state.sea, level, c.x, c.z, state.t).height;
+    c.y = c.righting > 0 ? c.y + (rest - c.y) * Math.min(1, dt / before) : rest;
+    c.x += c.vx * dt;
+    c.z += c.vz * dt;
+    c.rpm = spec.idleRpm;
+    c.throttleEff = 0;
+    const r = toEuler(c.q);
+    c.heading = r.heading;
+    c.pitch = r.pitch;
+    c.roll = r.roll;
+    c.speed = Math.hypot(c.vx, c.vy, c.vz);
+    c.airborne = false;
+    c.airTime = 0;
+    c.capsizedFor = 0;
+    return;
+  }
   // THE RIDER moves first: a body on a seat, slower than a thumb. Back is
   // aft; a turn is leaned INTO.
   {
@@ -213,16 +252,14 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // and the keel answering the nozzle's attitude, not its thrust.
   const wetShare = clamp(hull.wetted * 2, 0, 1);
   tby += T.pump.keelYaw * c.nozzle * throughWater * throughWater * wetShare;
-  // THE CARVE: a banked bottom turns toward its bank (roll right, right
-  // side down, is positive and a clockwise yaw is +y).
-  tby +=
-    T.hull.carve *
-    0.5 *
-    Math.sin(2 * clamp(c.roll, -0.8, 0.8)) *
-    throughWater *
-    throughWater *
-    wetShare *
-    c.planing;
+  // THE CARVE: a banked bottom turns toward its bank. Read off where the
+  // wet bottom's centre actually sits across the hull (`liftX`, body
+  // right positive) rather than off the roll angle: a hull leaned far
+  // enough to put a chine in the water carves on that chine, and one
+  // wobbling two degrees in chop with both chines dry does not. Positive
+  // liftX is the right chine in, and a clockwise yaw is +y.
+  const dig = Math.max(0, Math.abs(hull.liftX) - T.hull.carveDead) * Math.sign(hull.liftX);
+  tby += T.hull.carve * dig * throughWater * throughWater * wetShare * c.planing;
 
   // THE WATER'S ROTATIONAL DAMPING beyond the probes'.
   {
@@ -337,6 +374,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.launchVy = c.vy;
     c.launchPending = true;
     c.dived = false;
+    c.pull = 0;
   } else if (!airborne && c.airborne) {
     if (c.airTime >= T.flight.minAir) {
       events.push({
@@ -354,6 +392,22 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.airborne = airborne;
   if (airborne) {
     c.airTime += dt;
+    // THE PULL. A lean held back from the lip through `flight.pullWindow`
+    // is the rider yanking the bars up, delivered once as an angular
+    // impulse (nose-up is −wx) — the rotation a backflip is made of, on
+    // top of the hold. Let go before the window is out and there is no
+    // pull this flight: a touch of lean off the lip is not a flip.
+    if (c.pull >= 0) {
+      if (input.lean > 0.5) {
+        c.pull += dt;
+        if (c.pull >= T.flight.pullWindow) {
+          c.wx -= T.flight.pull / I.x;
+          c.pull = -1;
+        }
+      } else {
+        c.pull = -1;
+      }
+    }
     if (c.launchPending && c.airTime >= T.flight.minAir) {
       c.launchPending = false;
       if (c.launchVy >= T.flight.launchVy) {
@@ -373,6 +427,19 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   ) {
     c.dived = true;
     events.push({ kind: "dive", t: state.t, depth: hull.bowDepth, speed: c.speed });
+  }
+  // CAPSIZE: a hull on its back (its up pointing down) with the water
+  // under it for `capsize.after` seconds is over for good — a PWC does
+  // not self-right — and the rider climbs back on and rights it.
+  if (up.y < 0 && !airborne) {
+    c.capsizedFor += dt;
+    if (c.capsizedFor >= T.capsize.after) {
+      events.push({ kind: "capsize", t: state.t, speed: c.speed });
+      c.righting = T.capsize.righting;
+      c.capsizedFor = 0;
+    }
+  } else {
+    c.capsizedFor = 0;
   }
   if (contact.onGround && contact.groundSpeed > 0.4 && c.groundCooldown <= 0) {
     events.push({ kind: "ground", t: state.t, speed: c.speed });

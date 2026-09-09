@@ -84,8 +84,9 @@ describe("the static head and the prerendered copy (pwa/index.html)", () => {
   });
 
   it("says the same thing in JSON-LD", () => {
-    const blocks = [...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g)]
-      .map((m) => JSON.parse(m[1]) as Record<string, unknown>);
+    const blocks = [
+      ...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g),
+    ].map((m) => JSON.parse(m[1]) as Record<string, unknown>);
     expect(blocks.length).toBeGreaterThanOrEqual(2);
     for (const block of blocks) {
       expect(block.name).toBe(APP_NAME);

@@ -22,9 +22,9 @@ import { CRAFT_STYLES } from "./craft-styles.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createPines } from "./pines.ts";
 import { createRocks } from "./rocks.ts";
-import { createWake, type Wake } from "./spray.ts";
+import { createWake } from "./spray.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
-import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
+import { createWaterMesh } from "./water-mesh.ts";
 
 /** Near and far planes, m. The far is past the fog's end, so nothing pops;
  * the near is under the nose camera's own deck. */
@@ -66,7 +66,10 @@ export type GameRenderer = {
 function sunDirection(hour: number): THREE.Vector3 {
   const day = ((hour - 6) / 12) * Math.PI;
   const azimuth = Math.PI / 2 + day;
-  const elevation = Math.max(0.12, Math.sin(day) * 0.95);
+  // Never lower than a morning sun a few hours up: a grazing sun under
+  // a stand-in sky with no sky light of its own leaves every near face
+  // black.
+  const elevation = Math.max(0.4, Math.sin(day) * 0.95);
   return new THREE.Vector3(
     Math.sin(azimuth) * Math.cos(elevation),
     Math.sin(elevation),
@@ -87,8 +90,11 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
 
   // THE STAND-IN SKY (sky.ts): a hemisphere for the ambient — pale sky over
   // teal water — and one sun.
-  const hemi = new THREE.HemisphereLight(new THREE.Color(PALETTE.sky), new THREE.Color(PALETTE.sea), 0.95);
-  const sun = new THREE.DirectionalLight(0xfff2dc, 1.9);
+  // Generous ambient: with a sun this low, everything's near side is in
+  // its own shadow, and a Lambert face lit by the hemisphere alone has to
+  // still read — the buoys, the hull, the skerries all face the lens.
+  const hemi = new THREE.HemisphereLight(new THREE.Color(PALETTE.sky), new THREE.Color(0x7f9aa3), 2.3);
+  const sun = new THREE.DirectionalLight(0xfff2dc, 1.3);
   scene.add(hemi, sun);
 
   const water = createWaterMesh();
@@ -151,13 +157,13 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       craft.position.set(c.x, c.y, c.z);
       craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
     }
-    cost.waterMs = water.update(state, c.x, c.z);
-    gates?.update(state);
-    wake.update(state);
-
     // THE CAMERA, applied. The pose is the rig's; the lens is widened for a
     // narrow viewport so a phone held upright sees the same field across.
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
+    cost.waterMs = water.update(state, c.x, c.z, pose.x, pose.y, pose.z);
+    gates?.update(state);
+    wake.update(state);
+
     camera.position.set(pose.x, pose.y, pose.z);
     aim.set(pose.aimX, pose.aimY, pose.aimZ);
     if (pose.roll !== 0) {

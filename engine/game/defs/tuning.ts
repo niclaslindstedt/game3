@@ -211,12 +211,16 @@ export const TUNING = {
      * the probes stand for whole stations). */
     liftAft: 0.15,
     /** THE CARVE: a banked V bottom is a rudder — the immersed outer chine
-     * and keel turn the hull toward the bank. Yaw moment per radian of
-     * roll per (m/s)² of speed through the water, N·m. What lets a leaned
-     * hull turn once the thrust, and so the nozzle's authority, has fallen
-     * away at speed. Read through sin(2·roll), so it peaks at 45° of bank
-     * and a hull rolled further is not a hull turning faster. */
-    carve: 7,
+     * turns the hull toward the bank. Yaw moment per metre the wet
+     * bottom's centre sits off the keel (`liftX`) per (m/s)² of speed
+     * through the water, N·m. What lets a leaned hull turn once the
+     * thrust, and so the nozzle's authority, has fallen away at speed —
+     * and nothing at all while both chines are dry, however the hull
+     * wobbles: the wet centre has to sit `carveDead` m off the keel before
+     * the chine counts as dug in — a centimetre of heel in a crosswind or
+     * chop is not a rudder. */
+    carve: 34,
+    carveDead: 0.06,
     /** How quickly `planing` (the state readout) follows the lift share,
      * per second. */
     planingFollow: 6,
@@ -300,12 +304,24 @@ export const TUNING = {
 
   /** FLIGHT (`flight.ts`): the air over the water. */
   flight: {
-    /** The rider's pitch authority in the air, N·m at full lean — the
-     * arcade number the whole air game hangs on. Sized so a full backflip is
-     * REACHABLE from a big ramp with the lean held back and nothing else
-     * (the flight tests hold it there), and no more: a normal jump levels
-     * with a touch, not a fight. */
-    leanTorque: 950,
+    /** The rider's pitch authority in the air, N·m at full lean — the HOLD,
+     * sized for attitude: a lean held forward through a 0.7 s hang puts
+     * the nose 20–30° down, not on the water's floor. */
+    leanTorque: 450,
+    /** THE PULL: the angular impulse, N·m·s, a lean held back through the
+     * first `pullWindow` seconds off the lip is worth — the rider yanking
+     * the bars up. Together with the hold it is what a backflip is made
+     * of: with the lean held back, a 1.5 s hang completes one and not much
+     * more (`flight_test`), and a lean let go inside the window is no pull
+     * at all. Nose-up only: a rider stood on the hull has nothing to push
+     * the nose down against. */
+    pull: 620,
+    pullWindow: 0.25,
+    /** Where the windage stands: this high above the centre of gravity, m,
+     * and this share of the length AFT of it — the rider's body, over
+     * the water's lateral centre. */
+    windageY: 0.5,
+    windageZ: -0.12,
     /** The rider's roll authority in the air, N·m at full steer, and the
      * yaw the same input buys. */
     steerRoll: 140,
@@ -346,10 +362,14 @@ export const TUNING = {
      * ramp's wet deck. */
     groundFriction: 0.45,
     rampFriction: 0.08,
-    /** A probe further under a ramp's deck than this, m, did not sink
-     * through it — it came in through the flank, and is pushed back out
-     * sideways. */
+    /** A probe further under a ramp's deck than this, m, and within
+     * `rampFlankBand` m of the deck's edge, did not sink through the deck
+     * — it came in through the flank, and is pushed back out sideways. A
+     * deep probe in the MIDDLE of the deck is a hull slammed onto it, and
+     * the deck pushes back, up to `rampDeckCap` N a probe. */
     rampFlankBelow: 0.3,
+    rampFlankBand: 0.6,
+    rampDeckCap: 20_000,
     /** Restitution against a solid rock, and how much of the tangential
      * speed a glancing hit keeps. */
     restitution: 0.25,
@@ -367,6 +387,18 @@ export const TUNING = {
     boundsSpring: 4,
     /** Cooldown between `ground` events, s. */
     groundCooldown: 0.5,
+  },
+
+  /** CAPSIZE (`craft.ts`): a PWC does not self-right, the rider does. */
+  capsize: {
+    /** How long the hull may lie on its back, s, before the rider has
+     * climbed back on and rights it. */
+    after: 1.5,
+    /** How long the righting takes, s, turning the hull back upright the
+     * shortest way with the engine idling. */
+    righting: 0.5,
+    /** Time constant, s, the way is scrubbed off with meanwhile. */
+    slow: 0.15,
   },
 
   /** THE COURSE (`course.ts`). */

@@ -21,9 +21,9 @@ const CAP_DONE = new THREE.Color(0x8a8f92);
 const RING = new THREE.Color(PALETTE.buoy);
 const RING_NEXT = new THREE.Color(0xffc266);
 const RING_DONE = new THREE.Color(0x6a5a4c);
-const DECK = new THREE.Color(0x2a3a4c);
+const DECK = new THREE.Color(0x5b6b7c);
 const RAIL = new THREE.Color(PALETTE.buoy);
-const LIP = new THREE.Color(0x1d2a38);
+const LIP = new THREE.Color(0x3a4756);
 const FLOAT = new THREE.Color(0xd9dde0);
 
 /** A buoy's body: a taper from a wide waterline to a narrow shoulder, and

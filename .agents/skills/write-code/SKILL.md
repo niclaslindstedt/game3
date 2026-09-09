@@ -190,7 +190,7 @@ Make targets are the definition of green CI enforces).
 ## File size
 
 - Non-test source files stay under **1000 physical lines** (§20.5 of
-  `OSS_GAME_SPEC.md`); `tests/file_sizes_test.ts` holds the cap. Past it, split
+  `OSS_GAME_SPEC.md`); `tests/file_size_test.ts` holds the cap. Past it, split
   by concern — sibling modules, extracted helpers — rather than relaxing it.
   A file that big is nearly always doing more than one thing (the craft's
   forces are already three files: `craft.ts` the body, `hull.ts` the probes,

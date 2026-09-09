@@ -21,7 +21,6 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  NEUTRAL_INPUT,
   TUNING,
   createGame,
   isCraftId,
@@ -112,6 +111,13 @@ export function App() {
   const [paused, setPaused] = useState(false);
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
   const [touch] = useState(hasTouch);
+  /** Whether the HUD has committed to the DOM — what the ready flag waits
+   * on, so a screenshot never captures the boot card over the first frame. */
+  const hudUp = useRef(false);
+  const pausedRef = useRef(false);
+  useEffect(() => {
+    if (snap) hudUp.current = true;
+  }, [snap]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -197,10 +203,11 @@ export function App() {
       }
       renderer.render(state, clock.paused() ? 0 : dtFrame);
       window.__SH_COST__ = renderer.cost();
-      if (!ready) {
+      if (!ready && hudUp.current) {
         ready = true;
         // The frame above is presented on the NEXT animation frame; the
-        // flag waits for it so a screenshot never captures the boot card.
+        // flag waits for it, and for the HUD to be up (`hudUp`), so a
+        // screenshot never captures the boot card.
         requestAnimationFrame(() => {
           window.__SH_READY__ = true;
         });
@@ -212,7 +219,10 @@ export function App() {
         const kept = live.filter((f) => f.until > wall);
         if (kept.length !== live.length) live.splice(0, live.length, ...kept);
         setFlashes(live.map(({ id, text, tone }) => ({ id, text, tone })));
-        if (clock.paused() !== paused) setPaused(clock.paused());
+        if (clock.paused() !== pausedRef.current) {
+          pausedRef.current = clock.paused();
+          setPaused(pausedRef.current);
+        }
       }
     };
     raf = requestAnimationFrame(frame);
@@ -226,7 +236,8 @@ export function App() {
         clock.resume();
         last = performance.now();
       }
-      setPaused(clock.paused());
+      pausedRef.current = clock.paused();
+      setPaused(pausedRef.current);
     };
     document.addEventListener("visibilitychange", onVisibility);
     const onResize = (): void => renderer.resize();

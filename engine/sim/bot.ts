@@ -299,12 +299,11 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // Stuck — on the ground with no way on, or wedged against a rock it
   // has just hit and cannot get off: go back to the last gate.
   const wedged = c.hitCooldown > 0 && c.speed < 0.8 && !c.airborne;
-  // ...or over on its back, which a rider rights by hand — or, whatever
-  // it is doing, no gate for `giveUpAfter` seconds: a rider that lost
-  // does not ride on into the next county.
-  const capsized = Math.abs(c.roll) > Math.PI / 2 && c.speed < 1.5 && !c.airborne;
+  // ...or, whatever it is doing, no gate for `giveUpAfter` seconds: a
+  // rider that lost does not ride on into the next county. A capsize is
+  // not a reset: the engine rights the hull where it lies.
   const p = state.progress;
   const idle = p.time - Math.max(p.lastGatePassedAt, p.lastResetAt) > profile.giveUpAfter;
-  const reset = state.t > 2 && ((c.onGround && c.speed < 0.5) || wedged || capsized || idle);
+  const reset = state.t > 2 && ((c.onGround && c.speed < 0.5) || wedged || idle);
   return { steer, throttle, lean, reset };
 }

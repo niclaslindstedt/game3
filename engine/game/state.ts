@@ -91,6 +91,13 @@ export type CraftState = {
    * enough to count. */
   dived: boolean;
   launchPending: boolean;
+  /** Seconds the hull has lain on its back, and seconds of righting left
+   * once the rider is climbing back on (0 when not). */
+  capsizedFor: number;
+  righting: number;
+  /** Seconds the lean has been held back since the lip, while the pull
+   * is still on offer; −1 once it has been taken or let go this flight. */
+  pull: number;
 };
 
 export type Progress = {
@@ -130,6 +137,8 @@ export type GameEvent =
   | { kind: "hit"; t: number; solid: string; speed: number }
   /** The keel on the ground — a beach, a reef. */
   | { kind: "ground"; t: number; speed: number }
+  /** The hull has lain on its back long enough: the rider is righting it. */
+  | { kind: "capsize"; t: number; speed: number }
   | { kind: "reset"; t: number; gate: number }
   | { kind: "finish"; t: number; time: number };
 

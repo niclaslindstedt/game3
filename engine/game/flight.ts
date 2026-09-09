@@ -63,12 +63,19 @@ export function aeroForces(
   const ry = vy;
   const rz = vz - windZ;
   const speed = Math.hypot(rx, ry, rz);
-  // Drag on the whole, at the centre of gravity.
+  // Drag on the whole, at the WINDAGE's centre: where the rider sits,
+  // above the hull and a little aft — over the water's lateral centre,
+  // so a crosswind pushes the hull sideways where the water resists it
+  // and does not weathervane the bow downwind on every straight.
   const drag = 0.5 * RHO * spec.cdA * speed;
   out.fx = -drag * rx;
   out.fy = -drag * ry;
   out.fz = -drag * rz;
-  out.tx = out.ty = out.tz = 0;
+  const at = { x: 0, y: F.windageY, z: F.windageZ * spec.length };
+  const fb = unrotate(q, { x: out.fx, y: out.fy, z: out.fz });
+  out.tx = at.y * fb.z - at.z * fb.y;
+  out.ty = at.z * fb.x - at.x * fb.z;
+  out.tz = at.x * fb.y - at.y * fb.x;
   if (airShare <= 0) return;
 
   // The plate: airflow in the body frame, angle of attack in the pitch
@@ -86,8 +93,9 @@ export function aeroForces(
   // the nose UP, which in right-handed body axes is a negative x torque.
   out.tx -= normal * F.cpLead * spec.length;
 
-  // The rider's authority. Nose-up is −x; a right roll (right side down)
-  // is −z; a clockwise yaw is +y.
+  // The rider's authority — the HOLD; the PULL that starts a flip is an
+  // impulse `craft.ts` delivers. Nose-up is −x; a right roll (right side
+  // down) is −z; a clockwise yaw is +y.
   out.tx -= clamp(lean, -1, 1) * F.leanTorque * airShare;
   out.tz -= clamp(steer, -1, 1) * F.steerRoll * airShare;
   out.ty += clamp(steer, -1, 1) * F.steerYaw * airShare;

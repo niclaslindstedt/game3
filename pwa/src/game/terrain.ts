@@ -14,7 +14,7 @@
 // cliff a couple of hundred metres from the course.
 
 import * as THREE from "three";
-import { hash2, sampleField, type Level, type Surface } from "@engine";
+import { fieldGradient, hash2, sampleField, type Level, type Surface } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
@@ -60,9 +60,11 @@ function paint(level: Level, x: number, z: number, h: number, kind: Surface, out
       out.lerp(FLOOR, clamp((inland - 22) / 40, 0, 0.75) * clamp((h - 1.2) / 3, 0, 1));
     }
   }
-  // A little speckle so a flat slab is not one flat colour.
+  // A little speckle so a flat slab is not one flat colour, and the
+  // steeper the face the darker: a slab's break is in its own shadow.
   const n = hash2(Math.round(x * 0.25), Math.round(z * 0.25), level.seed) - 0.5;
-  out.offsetHSL(0, 0, n * 0.06);
+  const { gx, gz } = fieldGradient(level.ground, x, z);
+  out.offsetHSL(0, 0, n * 0.09 - clamp(Math.hypot(gx, gz) * 0.25, 0, 0.14));
 }
 
 function buildChunk(level: Level, x0: number, z0: number, x1: number, z1: number, cell: number): THREE.Mesh {

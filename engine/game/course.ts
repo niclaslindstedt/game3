@@ -175,6 +175,8 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.dived = false;
   c.launchPending = false;
   c.landing = 1e6;
+  c.capsizedFor = 0;
+  c.righting = 0;
 }
 
 /** `reset`: back to the last gate. Emits the event. */

@@ -114,15 +114,56 @@ describe("stability", () => {
     });
   }
 
-  it("an inverted hull floats rather than sinking to the bed", () => {
+  it("an inverted hull floats, and the rider rights it after a moment", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: STILL, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: 0, roll: Math.PI - 0.05 });
-    settle(state, 10);
-    // Upside down, but afloat: the centre of gravity within half a metre
-    // of the surface, not eight metres down.
+    // Before the rider has climbed back on: upside down, but afloat — the
+    // centre of gravity within half a metre of the surface, not eight
+    // metres down.
+    const events: string[] = [];
+    for (let i = 0; i < 1.2 * TUNING.physicsHz; i++) {
+      step(state, NEUTRAL_INPUT);
+      for (const e of state.events) events.push(e.kind);
+    }
     expect(state.craft.y).toBeGreaterThan(-0.6);
     expect(Math.abs(state.craft.roll)).toBeGreaterThan(2.5);
+    expect(events).not.toContain("capsize");
+    // Then the rule (`TUNING.capsize`): a `capsize` event, and the hull
+    // back upright at its draft with the engine idling and no way on —
+    // the throttle is held through it to show the engine cut.
+    for (let i = 0; i < 1.5 * TUNING.physicsHz; i++) {
+      step(state, { steer: 0, throttle: 1, lean: 0, reset: false });
+      for (const e of state.events) events.push(e.kind);
+    }
     expect(state.craft.rpm).toBe(state.craft.spec.idleRpm);
+    for (let i = 0; i < 1.5 * TUNING.physicsHz; i++) {
+      step(state, NEUTRAL_INPUT);
+      for (const e of state.events) events.push(e.kind);
+    }
+    expect(events.filter((k) => k === "capsize").length).toBe(1);
+    expect(Math.abs(state.craft.roll)).toBeLessThan(0.15);
+    expect(Math.abs(state.craft.pitch)).toBeLessThan(0.15);
+    expect(state.craft.righting).toBe(0);
+    expect(Math.abs(state.craft.y - restY(state.craft.spec, STILL.water.density))).toBeLessThan(
+      0.1,
+    );
+    expect(state.craft.speed).toBeLessThan(6);
+  });
+
+  it("a capsize is deterministic and rights the same way twice", () => {
+    const runs = [0, 1].map(() => {
+      const state = createGame({
+        seed: 3,
+        craft: "dart",
+        level: syntheticLevel({ windSpeed: 6 }),
+        quiet: true,
+      });
+      placeRun(state, { x: 150, z: 200, heading: 1, roll: 3, speed: 4 });
+      for (let i = 0; i < 4 * TUNING.physicsHz; i++) step(state, NEUTRAL_INPUT);
+      return [state.craft.x, state.craft.z, state.craft.roll, state.craft.heading];
+    });
+    expect(runs[0]).toEqual(runs[1]);
+    expect(Math.abs(runs[0][2])).toBeLessThan(0.15);
   });
 
   it("at rest the engine idles and the pump only creeps", () => {

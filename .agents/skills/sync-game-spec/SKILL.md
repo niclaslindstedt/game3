@@ -70,7 +70,7 @@ because the game half leans on the baseline half:
 | §13.2 | `prompts/` versioning format (overlap with `update-prompts`) |
 | §19.4 | The central output module — engine code prints through `engine/output.ts`, never bare `console.*` |
 | §19.5 | Nothing logs per entity per frame; diagnostics never change the simulation; the in-build developer surface |
-| §20 | Test layout: root `tests/`, `_test.ts` suffix, no inline tests; §20.3's rule/content split; §20.5's cap (`tests/file_sizes_test.ts`) |
+| §20 | Test layout: root `tests/`, `_test.ts` suffix, no inline tests; §20.3's rule/content split; §20.5's cap (`tests/file_size_test.ts`) |
 | §21 | Every `update-*` in the `maintenance` registry, each with `SKILL.md` + `.last-updated`; `.claude/skills` and `.gemini/skills` symlinks; §21.9 craft skills with a loop, a bar, traps and obligations each |
 
 ### The game shape (§23–§40)

@@ -110,9 +110,10 @@ describe("the dependency direction (§23.7)", () => {
   it("the core imports nothing from a shell, a tool, the suite, or any package", () => {
     for (const file of ENGINE) {
       for (const e of edgesOf(file)) {
-        expect(e.bare, `${e.from} imports the package "${e.spec}" — the engine is framework-free`).toBe(
-          false,
-        );
+        expect(
+          e.bare,
+          `${e.from} imports the package "${e.spec}" — the engine is framework-free`,
+        ).toBe(false);
         const role = roleOf(e.to ?? "");
         expect(role, `${e.from} imports ${e.spec}, which is ${role}`).toBe("engine");
       }
@@ -123,9 +124,10 @@ describe("the dependency direction (§23.7)", () => {
     for (const file of PWA) {
       for (const e of edgesOf(file)) {
         if (e.bare) {
-          expect(e.spec, `${e.from} imports "${e.spec}" — a browser bundle has no Node`).not.toMatch(
-            /^node:|^(fs|path|url|os|child_process)$/,
-          );
+          expect(
+            e.spec,
+            `${e.from} imports "${e.spec}" — a browser bundle has no Node`,
+          ).not.toMatch(/^node:|^(fs|path|url|os|child_process)$/);
           continue;
         }
         const role = roleOf(e.to ?? "");

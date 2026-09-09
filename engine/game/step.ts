@@ -67,6 +67,9 @@ export function freshCraft(spec: CraftSpec): CraftState {
     launchVy: 0,
     dived: false,
     launchPending: false,
+    capsizedFor: 0,
+    righting: 0,
+    pull: -1,
   };
 }
 

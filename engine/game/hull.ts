@@ -245,6 +245,14 @@ export type HullResult = {
   /** Total planing lift applied, N, and the wetted keel length, m. */
   planingLift: number;
   wettedLength: number;
+  /** The rest of the vertical budget, N along the hull's up: buoyancy,
+   * the chines' bank lift, the bow's own lift, the heave drag and the
+   * slam — what the ride lab reads to say what carried the hull. */
+  buoyancy: number;
+  bank: number;
+  bowLift: number;
+  heave: number;
+  slam: number;
 };
 
 export type ProbeSample = {
@@ -368,6 +376,7 @@ export function hullForces(
   out.waterVx = out.waterVy = out.waterVz = 0;
   out.planingLift = 0;
   out.wettedLength = 0;
+  out.buoyancy = out.bank = out.bowLift = out.heave = out.slam = 0;
   const right = rotate(q, { x: 1, y: 0, z: 0 });
   const up = rotate(q, { x: 0, y: 1, z: 0 });
   const fwd = rotate(q, { x: 0, y: 0, z: 1 });
@@ -379,6 +388,7 @@ export function hullForces(
   let bottomArea = 0;
   let wetArea = 0;
   let liftWeight = 0;
+  let liftWet = 0;
   let liftX = 0;
   let flowCount = 0;
   let slamTotal = 0;
@@ -402,24 +412,26 @@ export function hullForces(
       if (s.depth > 0) wetArea += p.area * Math.min(1, s.depth / (p.height * H.patchWet));
       if (p.kind === "keel" && p.station === 0) out.transomDepth = s.depth;
       if (p.kind === "keel" && p.station === H.stations.length - 1) out.bowDepth = s.depth;
+      // The pressure on a planing bottom peaks at the stagnation line at
+      // the forward end of the wetted length and falls to nothing at the
+      // transom (the flow leaves it cleanly — the Kutta condition
+      // Savitsky's 0.75·λ·B centre of pressure comes from), so a probe's
+      // share of the lift rises toward the bow. Every bottom probe is
+      // counted here, wet or not: a strip lifts only while it is in the
+      // water, and a hull with half its bottom clear carries half the
+      // lift, not all of it on whatever is left wet.
+      const w = p.area * (H.liftAft + (1 - H.liftAft) * stations[p.station]);
+      liftWeight += w;
       if (s.depth > 0) {
-        // The pressure on a planing bottom peaks at the stagnation line
-        // at the forward end of the wetted length and falls to nothing at
-        // the transom (the flow leaves it cleanly — the Kutta condition
-        // Savitsky's 0.75·λ·B centre of pressure comes from), so a
-        // probe's share of the lift rises toward the bow of the wet part.
-        const w =
-          p.area *
-          Math.min(s.depth, p.height) *
-          (H.liftAft + (1 - H.liftAft) * stations[p.station]);
-        liftWeight += w;
-        liftX += w * p.x;
+        const wetness = Math.min(1, s.depth / (p.height * H.patchWet));
+        liftX += w * wetness * p.x;
+        liftWet += w * wetness;
       }
     }
     if (s.depth > out.submerged) out.submerged = s.depth;
   }
   out.wetted = bottomArea > 0 ? wetArea / bottomArea : 0;
-  out.liftX = liftWeight > 0 ? liftX / liftWeight : 0;
+  out.liftX = liftWet > 0 ? liftX / liftWet : 0;
   const wetLen = wettedLength(spec, out.transomDepth, out.bowDepth);
   out.wettedLength = wetLen;
   // An inverted hull's bottom is in the air: no planing lift.
@@ -466,6 +478,7 @@ export function hullForces(
 
     // Archimedes: F = ρ·g·V_submerged, straight up.
     const buoy = density * G * p.volume * s.fill;
+    out.buoyancy += buoy;
     apply(out, rx, ry, rz, 0, buoy, 0);
 
     // Body-frame relative flow at this probe.
@@ -552,14 +565,15 @@ export function hullForces(
     let lift = 0;
     if (canPlane && p.kind !== "deck" && uFwd > 0) {
       const trim = Math.atan2(-uUp, uFwd);
+      const wetness = Math.min(1, s.depth / (p.height * H.patchWet));
       const share =
-        (p.area *
-          Math.min(s.depth, p.height) *
-          (H.liftAft + (1 - H.liftAft) * stations[p.station])) /
-        liftWeight;
+        (p.area * (H.liftAft + (1 - H.liftAft) * stations[p.station]) * wetness) / liftWeight;
       lift = planingLift(spec, density, uFwd, trim, wetLen).lift * share;
       out.planingLift += lift;
     }
+    out.bank += bank;
+    out.bowLift += bowUp;
+    out.heave += fUp;
     const upTotal = fUp + bank + bowUp + lift;
     apply(
       out,
@@ -587,6 +601,7 @@ export function hullForces(
   // The slam cap: scale the whole hull's slam back, force and torque
   // alike, when the sum passes what the rider can take.
   const scale = slamTotal > slamCap ? slamCap / slamTotal : 1;
+  out.slam = slamTotal * scale;
   out.fx += sfx * scale;
   out.fy += sfy * scale;
   out.fz += sfz * scale;

@@ -23,10 +23,10 @@ const SPACING = 1.6;
 const LIFE = 2.2;
 /** How far the ribbon sits over the surface, m, so it is not swallowed by
  * the water it lies on. */
-const LIFT = 0.06;
+const LIFT = 0.14;
 /** The wake's width at the transom, m, and how much it spreads per second. */
-const WIDTH = 0.9;
-const SPREAD = 0.9;
+const WIDTH = 1.3;
+const SPREAD = 1.1;
 
 const FOAM = new THREE.Color(PALETTE.foam);
 
@@ -84,8 +84,10 @@ export function createWake(): Wake {
       if (filled < SAMPLES) filled++;
     }
     // Lay the ribbon oldest to newest, each edge on this frame's surface.
+    // The buffer is a ring: once full, `head` is the oldest sample, and
+    // before that the first `SAMPLES - filled` slots are simply unused.
     for (let n = 0; n < SAMPLES; n++) {
-      const i = (head - filled + n + SAMPLES) % SAMPLES;
+      const i = (head + n) % SAMPLES;
       const k3 = n * 6;
       const k4 = n * 8;
       if (n >= SAMPLES - filled) {

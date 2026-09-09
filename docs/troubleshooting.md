@@ -44,3 +44,54 @@ Install the driver (`npm i --no-save playwright-core`) and point at a Chromium: 
 
 **Pre-commit hook rejects CHANGELOG.md.**
 Intended — the file is machine-written. Put your note in a `.changes/unreleased/` fragment instead (CONTRIBUTING.md shows the format).
+
+## The governance tests
+
+The suite holds the repository's shape as well as its physics. When one of these goes red, the message names the file; this is what each one means.
+
+**`tests/imports_test.ts` — "imports the package … the engine is framework-free".**
+Something under `engine/` imported `three`, `preact`, a `node:` module or anything else external. The engine imports nothing but itself, so it can run in the browser, in the sim CLI and in the test runner unchanged. Move the code to `pwa/` or `scripts/`, or do without the package.
+
+**`tests/imports_test.ts` — "reaches into the engine at …; use @engine".**
+An app module or a test imported `engine/game/…` directly. `engine/index.ts` is the one public surface; if the symbol is not exported there, export it there — that is a review-visible change to the engine's API, which is the point.
+
+**`tests/imports_test.ts` — "imports … from scripts/".**
+Nothing imports tooling. A helper two files want to share goes in `engine/lib/` (if it is generic) or `pwa/src/lib/`, never in `scripts/lib/`.
+
+**`tests/imports_test.ts` — "a wall clock" / "Math.random" / "console".**
+A run has to replay from its seed, so nothing in `engine/` reads the clock or a global random source; draw from `state.rng`, and print through `engine/output.ts`. The analyzer's report timer is the one recorded exception.
+
+**`tests/file_size_test.ts` — "is N lines".**
+A source file passed a thousand physical lines. Split it by concern; if it is genuinely dense (a rule catalogue, a lookup table), put `game-spec:allow-large-file: <reason>` in a comment in its first twenty lines — with a real reason, and only while it is actually over the cap.
+
+**`tests/symlinks_test.ts` — "is a regular file, not a symlink".**
+A checkout without symlink support (Windows without developer mode) or an editor that dereferenced `CLAUDE.md` into a copy. `git config --global core.symlinks true` and re-checkout; never edit the alias, edit `AGENTS.md`.
+
+**`tests/identity_test.ts` after a rename or a domain move.**
+The failure lists every file restating the old name or URL: `pwa/index.html`, the files under `pwa/public/`, both `package.json`s, the README, the icon generator's palette. Change them all in the same commit, then `make icons`.
+
+**`tests/skills_test.ts` — "routes to … which is not a skill" / "names every skill on disk".**
+`AGENTS.md`'s Skills section, the labs table and the routing table must name exactly the directories under `.agents/skills/`. Renaming a skill is four edits: the directory, its front-matter `name`, `AGENTS.md`, and `.agents/skills/README.md` (plus the `maintenance` registry for an `update-*`).
+
+**`tests/docs_rules_test.ts` — "is not in the doc" / "word for word".**
+A rule in `engine/mapgen/rules.ts`'s header has no mirror, or a different one, in `docs/level-generator.md`. The doc carries the R-rules verbatim; copy the prose across (one bullet per rule, one line each) and keep the numbers table beside it honest.
+
+**`tests/changeset_test.ts` — "has type …" / "hand-written Unreleased content".**
+A fragment's `type:` is outside `Added | Changed | Fixed | Removed | Security | Deprecated` (case-sensitive), or CHANGELOG.md was edited by hand. Fix the word; move the note into a fragment.
+
+## The labs and the tools
+
+**"level generation failed for seed N after 24 attempts".**
+Every sub-seed the search tried produced a coast that could not carry a legal course, or one the analysis rejected — the message ends with the last rejection's rule codes. `make analyze SEED=N` prints the findings; `make level SEED=N` draws what it was trying to build. A rules change that makes many seeds fail is a rules change that moved a band past what the coast can give (`mapgen-improvement` owns the loop).
+
+**A lab exits 2 with "unknown flag".**
+Every tool in `scripts/` parses its flags through `scripts/lib/cli.mjs` and refuses one it does not know — a measurement tool that ignored a typo would report a confident wrong number. `--help` prints the flags with their defaults.
+
+**`ERR_INVALID_MODULE_SPECIFIER: Invalid module "@engine"` from a Node script.**
+Plain Node knows nothing of the `@engine` alias the app and the tests use. A script that imports an app module (`pwa/src/game/scenarios.ts`, a style table) registers `aliasEngine(root)` from `scripts/lib/engine-alias.mjs` BEFORE the dynamic `import()` that needs it. The engine itself needs nothing — import `engine/index.ts` by path.
+
+**`make sim` exits 1 with "finished no seed at all".**
+A craft could not get round any of the default seeds inside the cap. That is CI's `simulate` job failing on purpose: read the table's `rst`, `miss` and `dive` columns to see whether the hull, the bot or the level is at fault ([simulation.md](simulation.md) says which movement means what), and `make ride SCENARIO=` to look at it.
+
+**`make screenshots` / `make profile` measure the wrong build.**
+Both serve `pwa/dist`; `make build` first, every time. A stale dist photographs the last change rather than this one, and the picture reads as a bug in the code.
