@@ -38,13 +38,13 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The catalog, roster balance                             | `sim`                          | `craft-tuning`, `simulate-run`                 |
 | The bot rider                                           | `sim`                          | `bot-improvement`                              |
 | The generator, its rules, the analyzer                  | `level`, `analyze`             | `mapgen-improvement`                           |
-| A craft's look                                          | `screenshots SCENE=rest`       | `craft-design`                                 |
+| A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The HUD, the controls, a menu                           | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots` and `profile` drive the built site in headless Chromium, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots` and `profile` drive the built site in headless Chromium, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
 Three of these are worth knowing about even when they are not your subject:
 
