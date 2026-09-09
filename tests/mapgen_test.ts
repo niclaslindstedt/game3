@@ -39,7 +39,6 @@ import {
 
 import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
 
-
 /** The level minus its classifier closure, for deep equality. */
 function structural(level: Level): Omit<Level, "materialAt"> {
   const copy: { materialAt?: Level["materialAt"] } = { ...level };

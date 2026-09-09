@@ -251,7 +251,7 @@ export const LEVEL_RULES = {
      * offshore, so the narrowest channel still stands the course inside the
      * rule by construction; its ceiling is R1's maximum, so the widest bay
      * never puts the line further out than the rule allows. */
-    corridor: { min: 22, max: 95 },
+    corridor: { min: 34, max: 95 },
     corridorScale: 340,
     /** R24 — how near the line may come back to itself, m, and how far
      * apart along the line two points have to be for their closeness to
@@ -387,7 +387,7 @@ export const LEVEL_RULES = {
      * patches tens of metres across with meandering edges, and a period
      * near the grid's own cell paints leopard spots instead — visible on
      * `make level` as static over the whole shore rather than as places. */
-    boulder: { scale: 34, threshold: 0.6, rugged: { low: 0.25, high: 1.9 } },
+    boulder: { scale: 58, threshold: 0.6, rugged: { low: 0.25, high: 1.9 } },
     /** A BEACH: the ruggedness (R21) at or under which a stretch carries
      * sand at all, how far up from the waterline the sand reaches on the
      * softest stretch (m) — times `floor` where it only just qualifies, so
@@ -410,9 +410,12 @@ export const LEVEL_RULES = {
    * (0..1 of the radius) and over what share of it. */
   island: {
     count: { min: 1, max: 4 },
-    r: { min: 25, max: 110 },
+    r: { min: 25, max: 95 },
     clear: 18,
-    spread: 90,
+    /** How much further out than the clearance one may be pushed, m. Kept
+     * short: an island a rider passes at two hundred metres is scenery,
+     * and the point of one is the rock the line has to go round. */
+    spread: 35,
     apart: 40,
     warp: 0.28,
     warpScale: 1.1,
