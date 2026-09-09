@@ -155,7 +155,10 @@ describe("level analysis", () => {
   it("R4 — flags a water gate lifted off the water and a gate moved along the path", () => {
     const seed = LEVEL_SEEDS[6];
     const lifted = withGates(seed, (gates) => {
-      gates[2] = { ...gates[2], y: 2 };
+      // A WATER gate lifted off the water: which index that is moves with
+      // the generator, so it is found rather than counted to.
+      const i = gates.findIndex((g) => g.kind === "water" && g.index > 0);
+      gates[i] = { ...gates[i], y: 2 };
       return gates;
     });
     expect(errors(lifted)).toContain("R4.afloat");

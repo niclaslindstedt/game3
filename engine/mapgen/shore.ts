@@ -13,6 +13,14 @@
 // is seaward; the frame's `right` vector is the engine's own right-of-
 // heading (cos h, -sin h).
 //
+// R21 — the coast also carries a CHARACTER along the same s: `ruggedAt` is
+// a second, much slower noise saying how hard this stretch of shore is, and
+// the ground, the classifier and the placer all read it. It lives here
+// because it is a property of the LINE rather than of a point in the world:
+// everything on one stretch — the hill behind it, the beach on it, the
+// blocks strewn over it — has to agree, and the only way it can is by
+// asking one function of one coordinate.
+//
 // `distanceAt` is the signed distance from a world point to the polyline —
 // what `Level.offshore` is baked from, and what the search reads
 // analytically before there is a grid. Positive at sea, negative on land,
@@ -50,6 +58,9 @@ export type Shore = {
   offsetAt(s: number): number;
   /** How far the shore has receded inland at an s, m, 0 on a headland. */
   bayAt(s: number): number;
+  /** R21 — how RUGGED the coast is at an s, 0..1: 0 a soft bay behind a
+   * beach, 1 a bare rock headland. */
+  ruggedAt(s: number): number;
   /** Signed distance to the polyline, m, positive seaward. */
   distanceAt(x: number, z: number): number;
 };
@@ -71,6 +82,8 @@ export function createShore(rng: Rng): Shore {
   const nz = -Math.sin(heading);
   const broadSeed = rng.int(1, 0x7fffffff);
   const fineSeed = rng.int(1, 0x7fffffff);
+  const characterSeed = rng.int(1, 0x7fffffff);
+  const detailSeed = rng.int(1, 0x7fffffff);
   // A coast that is not always the same size of bay: the amplitudes are
   // drawn as a share of the rule's, never above it, so the slope cap the
   // rule promises holds by construction and a strong seed is a bold coast.
@@ -113,6 +126,17 @@ export function createShore(rng: Rng): Shore {
     return offsets[i] + (offsets[i + 1] - offsets[i]) * t;
   };
   const bayAt = (s: number): number => Math.max(0, -offsetAt(s));
+  // R21 — the noise says what this stretch would be on a straight coast;
+  // the coast's own LIE then softens a bay and hardens a headland, because
+  // the sediment a headland is stripped of is the sediment a bay collects.
+  const character = R.shore.character;
+  const ruggedAt = (s: number): number => {
+    const broad = (valueNoise(s, 0, character.scale, characterSeed) - 0.5) * 2;
+    const fine = (valueNoise(s, 0, character.detail.scale, detailSeed) - 0.5) * 2;
+    const grain = broad * (1 - character.detail.share) + fine * character.detail.share;
+    const lie = clamp(offsetAt(s) / character.swing, -1, 1);
+    return clamp(character.bias + character.grain * grain + character.shelter * lie, 0, 1);
+  };
 
   // The nearest point on the line lies within D·sin(φ) along s of the
   // query's own s, where D is the query's distance from the line and φ the
@@ -168,6 +192,7 @@ export function createShore(rng: Rng): Shore {
     toWorld,
     offsetAt,
     bayAt,
+    ruggedAt,
     distanceAt,
   };
 }

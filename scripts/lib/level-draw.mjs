@@ -58,6 +58,7 @@ const SOLID = {
   skerry: { fill: [122, 128, 116], edge: [60, 64, 58] },
   boulder: { fill: [86, 82, 78], edge: [40, 38, 36] },
   reef: { fill: [230, 90, 70, 90], edge: [200, 60, 50] },
+  erratic: { fill: [64, 58, 52], edge: [24, 22, 20] },
 };
 
 export const MARK = {

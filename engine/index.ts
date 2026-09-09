@@ -128,6 +128,14 @@ export { type RunTape, type TapeSample } from "./sim/tape.ts";
 // Deterministic utilities shared with tooling.
 export { createRng, type Rng } from "./lib/prng.ts";
 export { hash2, smooth, valueNoise } from "./lib/noise.ts";
+export {
+  SOUTH,
+  SUMMER_DECLINATION,
+  daylightWindow,
+  hourOfElevation,
+  sunAt,
+  type SunPlace,
+} from "./lib/solar.ts";
 export { angleDiff, clamp, lerp, TAU } from "./lib/math.ts";
 export {
   fromEuler,

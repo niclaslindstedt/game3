@@ -1,17 +1,13 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE SKY, AS GEOMETRY — the four camera-locked pieces that between them
+// THE SKY, AS GEOMETRY — the three camera-locked pieces that between them
 // are everything above the horizon that is not cloud:
 //
 //   THE DOME   a vertex-coloured sphere seen from inside: horizon at the
 //              rim, zenith overhead, and a warm bleed round the sun's
 //              bearing. Repainted whenever the preset moves.
-//   THE STARS  a fixed field of points, faded in by `Preset.stars`. They
-//              only ever show on this coast in the last of a midsummer
-//              twilight, which is exactly when a bare gradient looks most
-//              like a bare gradient.
-//   THE DISC   the sun (or the moon), a hard circle billboarded at the
-//              key light's place, with a tight GLARE round it that is the
-//              core too bright to look at.
+//   THE DISC   the sun, a hard circle billboarded at the key light's
+//              place, with a tight GLARE round it that is the core too
+//              bright to look at.
 //   THE HALO   the soft bloom around it, which is what actually sells a
 //              low sun: the disc is small and the halo is a third of the
 //              sky at sunset.
@@ -21,7 +17,7 @@
 // four metres up off a ramp the horizon band must still be at the eye's
 // height, not four metres under it.
 //
-// All four are BACKDROP (sky-depth.ts) — drawn last in the opaque pass, at
+// All three are BACKDROP (sky-depth.ts) — drawn last in the opaque pass, at
 // the far plane, writing no depth — so a skerry between the rider and the
 // sun occludes it, and the fragments the world already covered are never
 // shaded.
@@ -30,11 +26,6 @@ import * as THREE from "three";
 
 import { SKY_ORDER, drawAsBackdrop } from "./sky-depth.ts";
 import { DOME_RADIUS, skyToneAt, sunVector, type Preset } from "./sky.ts";
-
-/** How many stars, and how far out they stand as a share of the dome — just
- * inside it, so the dome's own gradient is behind them. */
-const STARS = 420;
-const STAR_SHELL = 0.985;
 
 /** The glare round the disc: its width as a multiple of the disc's, and
  * its strength in full beam. */
@@ -67,7 +58,7 @@ function glowTexture(): THREE.Texture {
 export type SkyDome = {
   /** Everything that rides the camera. Added to the scene by the caller. */
   group: THREE.Group;
-  /** Repaint for a preset — the gradient, the disc, the halo, the stars.
+  /** Repaint for a preset — the gradient, the disc, its glare, the halo.
    * Costs one pass over the dome's ~600 vertices, so it is cheap enough to
    * call on a change of sky and far too expensive to call per frame. */
   apply: (p: Preset) => void;
@@ -121,53 +112,6 @@ export function createSkyDome(): SkyDome {
     domeGeo.getAttribute("color").needsUpdate = true;
   };
 
-  // ── The stars ────────────────────────────────────────────────────────────
-  // A fixed field: no rotation of the celestial sphere, because a run is
-  // ninety seconds and the sky turns a quarter of a degree in that time.
-  // Sizes and brightnesses spread so the field reads as stars rather than
-  // as noise — a handful bright, most of them barely there.
-  const starPos = new Float32Array(STARS * 3);
-  const starTone = new Float32Array(STARS * 3);
-  for (let i = 0; i < STARS; i++) {
-    // Uniform on the upper hemisphere: a naive (azimuth, elevation) pair
-    // bunches them at the zenith, which reads as a lid of glitter.
-    const u = Math.random();
-    const az = Math.random() * Math.PI * 2;
-    const el = Math.asin(u);
-    const r = DOME_RADIUS * STAR_SHELL;
-    starPos[i * 3] = Math.sin(az) * Math.cos(el) * r;
-    starPos[i * 3 + 1] = Math.sin(el) * r;
-    starPos[i * 3 + 2] = Math.cos(az) * Math.cos(el) * r;
-    // Magnitude, and a colour with it: most stars read white, the brightest
-    // few blue-white or amber, and the difference is most of what stops a
-    // field looking printed on.
-    const mag = 0.25 + Math.random() ** 3 * 0.75;
-    const warm = Math.random() < 0.2;
-    starTone[i * 3] = mag * (warm ? 1 : 0.86);
-    starTone[i * 3 + 1] = mag * 0.92;
-    starTone[i * 3 + 2] = mag * (warm ? 0.82 : 1);
-  }
-  const starGeo = new THREE.BufferGeometry();
-  starGeo.setAttribute("position", new THREE.BufferAttribute(starPos, 3));
-  starGeo.setAttribute("color", new THREE.BufferAttribute(starTone, 3));
-  // Additive, because a star ADDS light to the sky behind it — which is also
-  // why they simply vanish into a bright twilight without being faded out
-  // by hand.
-  const starMat = new THREE.PointsMaterial({
-    size: DOME_RADIUS * 0.0035,
-    vertexColors: true,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    fog: false,
-    sizeAttenuation: true,
-  });
-  drawAsBackdrop(starMat);
-  const stars = new THREE.Points(starGeo, starMat);
-  stars.renderOrder = SKY_ORDER - 2;
-  stars.frustumCulled = false;
-  group.add(stars);
-
   // ── The disc and its halo ────────────────────────────────────────────────
   const glowMap = glowTexture();
   const haloMat = new THREE.MeshBasicMaterial({
@@ -207,13 +151,9 @@ export function createSkyDome(): SkyDome {
 
   const apply = (p: Preset): void => {
     paintDome(p);
-    starMat.opacity = p.stars;
-    stars.visible = p.stars > 0.01;
-
-    // The disc and the halo stand at the KEY's place — the sun, or the moon
-    // once it has taken the key over — just inside the dome so the dome's
-    // own gradient is behind them rather than fighting them at the same
-    // depth.
+    // The disc and the halo stand at the KEY's place, just inside the dome
+    // so the dome's own gradient is behind them rather than fighting them
+    // at the same depth.
     const v = sunVector(p.sunElevation, p.sunAzimuth);
     const r = DOME_RADIUS * 0.97;
     at.set(v.x * r, v.y * r, v.z * r);
@@ -246,8 +186,6 @@ export function createSkyDome(): SkyDome {
   const dispose = (): void => {
     domeGeo.dispose();
     domeMat.dispose();
-    starGeo.dispose();
-    starMat.dispose();
     disc.geometry.dispose();
     discMat.dispose();
     halo.geometry.dispose();

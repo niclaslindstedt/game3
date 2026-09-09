@@ -4,10 +4,12 @@
 export {
   LEVEL_RULES,
   inBand,
+  solidRule,
   withinBand,
   type Band,
   type GenerateOptions,
   type LevelRules,
+  type SolidRule,
 } from "./rules.ts";
 export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";

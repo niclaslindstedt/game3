@@ -42,12 +42,13 @@ export type Surface = "bedrock" | "rock" | "sand" | "water";
  * is comes from the level's wind (`weather.ts`). */
 export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
 
-/** A rock standing in (or just out of) the water: a vertical-axis solid the
- * craft can hit. `top` is the rock's height above sea level (negative for a
- * reef the hull can still touch), `r` its plan radius. */
+/** A rock standing in the water or on the shore beside it: a vertical-axis
+ * solid the craft can hit. `top` is the rock's height above SEA level
+ * (negative for a reef the hull can still touch, and high for an erratic
+ * sitting up a beach), `r` its plan radius. */
 export type Solid = {
   readonly id: string;
-  readonly kind: "skerry" | "boulder" | "reef";
+  readonly kind: "skerry" | "boulder" | "reef" | "erratic";
   readonly x: number;
   readonly z: number;
   readonly r: number;

@@ -69,8 +69,8 @@ export type Environment = {
 
 export function createEnvironment(scene: THREE.Scene): Environment {
   // ── The shells ───────────────────────────────────────────────────────────
-  // THE EYE'S OWN SKY: the dome, the stars, the disc and the halo follow the
-  // camera in all three axes. The clouds follow it in x and z only, because
+  // THE EYE'S OWN SKY: the dome, the disc and the halo follow the camera in
+  // all three axes. The clouds follow it in x and z only, because
   // a cloud is a thing at an ALTITUDE — a hull thrown four metres up should
   // rise a little toward the ceiling, and under a squall whose base is at
   // 110 m that is a difference the rider can see.

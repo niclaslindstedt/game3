@@ -37,9 +37,15 @@ export const ANALYSIS = {
      * is bilinear over 4 m cells and the reach falls between two of them,
      * so a cell straddling it blends the step's last rise into the flat. */
     margin: 12,
-    /** How much the plateau may vary once it is judged, m. Flat means
-     * flat; this is float noise. */
-    flatness: 0.05,
+    /** How steeply the land may still be climbing inland past the reach,
+     * m per m. Not float noise: the hills vary ALONG the coast (R21) and
+     * the inland direction the check walks is the shore's own normal,
+     * which on a wandering coast runs a little along the base line as well
+     * as across it — so a step inland reads a slightly different stretch
+     * of coast, and its hills a slightly different height. A twentieth of
+     * a metre per metre is several times the worst that costs and far
+     * under any slope a rider would call a rise. */
+    rise: 0.05,
   },
   sea: {
     /** How far under `sea.depth` the bed may go, m — the detail's
@@ -64,6 +70,12 @@ export const ANALYSIS = {
      * for the deck's friction. */
     speed: 0.08,
   },
+  day: {
+    /** Tolerance on R13's daylight window, h. The window is found by
+     * stepping the sun's arc in three-minute samples and interpolating
+     * between the last two, so its ends are worth a minute either way. */
+    hour: 0.05,
+  },
   wind: {
     /** Tolerance on R12's swing off the sea, rad (about five degrees).
      * The analyzer has no base line to read the sea's direction from —
@@ -77,6 +89,16 @@ export const ANALYSIS = {
     /** How sharply the shore polyline may turn at a vertex, rad — R15's
      * slope cap read as an angle, with a little room. */
     turn: 0.6,
+    /** R21 — how far apart the walk along the waterline samples the
+     * material, m. Under a hull's length, so a patch a rider would ride
+     * past is a patch the walk sees. */
+    walk: 8,
+    /** …and how far in from the line it stands to read it, m. The zero
+     * contour wanders a few metres either side of the polyline where the
+     * slabs ride over it, so a probe closer in reads water on a third of a
+     * low coast; ten metres is past that and still on the beach rather
+     * than behind it. */
+    probe: 10,
   },
   /** How many cells across the grid the classifier is sampled at for
    * R16 — enough to see every kind of ground, cheap enough to run on every

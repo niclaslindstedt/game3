@@ -23,6 +23,7 @@ import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createPines } from "./pines.ts";
+import { createFootprints } from "./footprints.ts";
 import { createRider, type Rider } from "./rider.ts";
 import { createRocks } from "./rocks.ts";
 import { createSpray } from "./spray.ts";
@@ -125,7 +126,14 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       // the water instead of painted on it.
       fauna = createFauna(level);
       world = new THREE.Group();
-      world.add(terrain, createRocks(level), createPines(level), gates.group, fauna.group);
+      world.add(
+        terrain,
+        createRocks(level),
+        createPines(level),
+        createFootprints(level),
+        gates.group,
+        fauna.group,
+      );
       scene.add(world);
       // The sky is the level's: its hour, its coast's latitude and the
       // weather it was generated under. The water answers to the same sky,

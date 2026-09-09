@@ -19,6 +19,8 @@ import {
   arcHeight,
   biomeOf,
   cumulative,
+  daylightWindow,
+  fieldGradient,
   gateBuoys,
   generateLevel,
   polylineDistance,
@@ -26,6 +28,8 @@ import {
   ringPlacement,
   sampleField,
   segmentDistance,
+  solidRule,
+  sunAt,
   walkPolyline,
   withinBand,
   type Level,
@@ -117,25 +121,36 @@ describe("level generator", () => {
     }
   });
 
-  it("R2 — land stays under the cap and is a flat plateau past the reach", () => {
+  it("R2 — land stays under the cap and stops climbing past the reach", () => {
     for (const seed of LEVEL_SEEDS) {
-      const { ground, offshore } = levelFor(seed);
+      const level = levelFor(seed);
+      const { ground, offshore } = level;
       // Accumulated, not asserted per cell: a grid is a hundred thousand
       // cells and an `expect` is microseconds, which is minutes a file.
-      let plateau: number | undefined;
       let highest = -Infinity;
-      let spread = 0;
-      for (let i = 0; i < ground.data.length; i++) {
-        highest = Math.max(highest, ground.data[i]);
-        if (offshore.data[i] <= -(R.land.reach + 12)) {
-          plateau ??= ground.data[i];
-          spread = Math.max(spread, Math.abs(ground.data[i] - plateau));
+      let steepest = 0;
+      let farLand = 0;
+      for (let r = 1; r + 1 < ground.rows; r++) {
+        for (let c = 1; c + 1 < ground.cols; c++) {
+          const i = r * ground.cols + c;
+          highest = Math.max(highest, ground.data[i]);
+          if (offshore.data[i] > -(R.land.reach + 12)) continue;
+          farLand++;
+          // Past the reach the land holds the height it climbed to: the
+          // hills VARY along the coast (R21), so what has to be flat is
+          // the way INLAND, which is where the offshore field falls.
+          const x = ground.originX + c * ground.cell;
+          const z = ground.originZ + r * ground.cell;
+          const sea = fieldGradient(offshore, x, z);
+          const len = Math.hypot(sea.gx, sea.gz);
+          if (len < 1e-6) continue;
+          const land = fieldGradient(ground, x, z);
+          steepest = Math.max(steepest, -(land.gx * sea.gx + land.gz * sea.gz) / len);
         }
       }
       expect(highest).toBeLessThanOrEqual(R.land.maxHeight);
-      expect(spread).toBeLessThan(0.05);
-      expect(plateau).toBeDefined();
-      expect(withinBand(plateau!, R.land.plateau, 0.5)).toBe(true);
+      expect(farLand).toBeGreaterThan(0);
+      expect(steepest).toBeLessThan(0.05);
     }
   });
 
@@ -379,11 +394,15 @@ describe("level generator", () => {
     }
   });
 
-  it("R13 — the hour and the water are the day's and the biome's", () => {
+  it("R13 — every level is ridden in daylight, in the biome's own water", () => {
     const taiga = biomeOf("taiga");
+    const daylight = daylightWindow(taiga.latitude, R.day.minSun);
+    if (!daylight) throw new Error("the taiga coast has daylight");
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
-      expect(withinBand(level.hour, R.day.hour)).toBe(true);
+      expect(withinBand(level.hour, daylight, 0.05)).toBe(true);
+      // The point of the rule, stated as the rider sees it: the sun is up.
+      expect(sunAt(level.hour, taiga.latitude).elevation).toBeGreaterThanOrEqual(-1e-6);
       expect(level.water.density).toBe(taiga.water.density);
       expect(withinBand(level.water.temperature, taiga.water.temperature)).toBe(true);
     }
@@ -448,7 +467,7 @@ describe("level generator", () => {
     }
   });
 
-  it("R16 — the classifier calls water under the surface, sand only low in a bay, and every kind appears", () => {
+  it("R16 — the classifier calls water under the surface, sand only near the waterline, and every kind appears", () => {
     const seen = new Set<Surface>();
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
@@ -483,15 +502,22 @@ describe("level generator", () => {
         expect(ids.has(s.id)).toBe(false);
         ids.add(s.id);
         kinds.add(s.kind);
-        const rule = R.solids[s.kind];
+        const rule = solidRule(s.kind);
         expect(withinBand(sampleField(level.offshore, s.x, s.z), rule.offshore, R.grid.cell)).toBe(
           true,
         );
         expect(withinBand(s.r, rule.r)).toBe(true);
-        expect(withinBand(s.top, rule.top)).toBe(true);
-        expect(s.top).toBeGreaterThan(sampleField(level.ground, s.x, s.z) + R.solids.proud - 1);
+        const ground = sampleField(level.ground, s.x, s.z);
+        // A kind states its size against the sea or against the ground it
+        // sits on, and it is held to the one it was placed by (R17).
+        if (rule.height) expect(withinBand(s.top - ground, rule.height, 1)).toBe(true);
+        else if (rule.top) expect(withinBand(s.top, rule.top)).toBe(true);
+        expect(s.top).toBeGreaterThan(ground + R.solids.proud - 1);
         if (s.kind === "reef") expect(s.top).toBeLessThan(0);
         if (s.kind === "skerry") expect(s.top).toBeGreaterThan(0);
+        // An erratic is a block on the SHORE: it breaks the surface,
+        // whichever side of the waterline it came down on.
+        if (s.kind === "erratic") expect(s.top).toBeGreaterThanOrEqual(R.solids.proud);
         for (const o of level.solids) {
           if (o === s) continue;
           expect(Math.hypot(o.x - s.x, o.z - s.z) - o.r - s.r).toBeGreaterThanOrEqual(
@@ -499,7 +525,7 @@ describe("level generator", () => {
           );
         }
       }
-      expect([...kinds].sort()).toEqual(["boulder", "reef", "skerry"]);
+      expect([...kinds].sort()).toEqual(["boulder", "erratic", "reef", "skerry"]);
     }
   });
 

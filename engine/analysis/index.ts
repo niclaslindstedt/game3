@@ -26,8 +26,9 @@
 // `rules.ts`. `ok` is "no errors": a warn is a smell the loop reads and
 // nobody has to fix.
 
-import { sampleField } from "../lib/heightfield.ts";
+import { fieldGradient, sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
+import { daylightWindow } from "../lib/solar.ts";
 import { CRAFT } from "../game/defs/craft.ts";
 import { topSpeedOf } from "../game/limits.ts";
 import { faunaById } from "../game/defs/fauna.ts";
@@ -44,7 +45,7 @@ import {
 } from "../mapgen/course.ts";
 import { TUNING } from "../game/defs/tuning.ts";
 import { launchSpeedFor } from "../sim/bot.ts";
-import { LEVEL_RULES as R, withinBand, type Band } from "../mapgen/rules.ts";
+import { LEVEL_RULES as R, solidRule, withinBand, type Band } from "../mapgen/rules.ts";
 import { insideBounds } from "../mapgen/compile.ts";
 import type { Gate, Level, Pod, Solid, Weather } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
@@ -56,7 +57,7 @@ export { ANALYSIS } from "./budgets.ts";
 export type Severity = "error" | "warn";
 
 export type Finding = {
-  /** The rule it is about, `R1`…`R20`. */
+  /** The rule it is about, `R1`…`R21`. */
   rule: string;
   /** `<rule>.<check>` — stable, so a fix can be pointed at one string. */
   code: string;
@@ -87,6 +88,8 @@ export type LevelAnalysis = {
     /** Pods placed, and the animals in them (R20). */
     pods: number;
     animals: number;
+    /** R21 — the share of the waterline that is sand, 0..1. */
+    sandShare: number;
     windSpeed: number;
     hour: number;
     weather: Weather;
@@ -200,42 +203,60 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R2, R3 — the ground ─────────────────────────────────────────────
   let maxLand = -Infinity;
   let maxDepth = -Infinity;
-  let plateauRef: number | undefined;
-  let plateauSpread = 0;
+  let stillClimbing = 0;
+  let climbAt: { x: number; z: number } | undefined;
   let shallowFar = 0;
   let dryAtSea = 0;
   const g = level.ground;
   const o = level.offshore;
-  for (let i = 0; i < g.data.length; i++) {
-    const h = g.data[i];
-    const off = o.data[i];
-    if (h > maxLand) maxLand = h;
-    if (-h > maxDepth) maxDepth = -h;
-    if (off <= -(R.land.reach + A.land.margin)) {
-      if (plateauRef === undefined) plateauRef = h;
-      else plateauSpread = Math.max(plateauSpread, Math.abs(h - plateauRef));
+  for (let r = 0; r < g.rows; r++) {
+    const z = g.originZ + r * g.cell;
+    for (let c = 0; c < g.cols; c++) {
+      const i = r * g.cols + c;
+      const h = g.data[i];
+      const off = o.data[i];
+      if (h > maxLand) maxLand = h;
+      if (-h > maxDepth) maxDepth = -h;
+      // R2 — past the reach the land STOPS RISING. It does not stand at one
+      // height: the hills behind the coast are the coast's own (R21), so
+      // what is asked of the ground out there is that it has stopped
+      // climbing INLAND, which is the direction the offshore field's own
+      // gradient names. A cell on the grid's rim has a one-sided gradient
+      // and is left out of it.
+      if (
+        off <= -(R.land.reach + A.land.margin) &&
+        r > 0 &&
+        c > 0 &&
+        r + 1 < g.rows &&
+        c + 1 < g.cols
+      ) {
+        const x = g.originX + c * g.cell;
+        const sea = fieldGradient(o, x, z);
+        const len = Math.hypot(sea.gx, sea.gz);
+        if (len > 1e-6) {
+          const land = fieldGradient(g, x, z);
+          const rise = -(land.gx * sea.gx + land.gz * sea.gz) / len;
+          if (rise > A.land.rise) {
+            stillClimbing++;
+            climbAt ??= { x, z };
+          }
+        }
+      }
+      if (off >= R.sea.reach + A.sea.margin && -h < R.sea.depth - A.sea.tolerance) shallowFar++;
+      if (off >= A.sea.waterline && h >= 0) dryAtSea++;
     }
-    if (off >= R.sea.reach + A.sea.margin && -h < R.sea.depth - A.sea.tolerance) shallowFar++;
-    if (off >= A.sea.waterline && h >= 0) dryAtSea++;
   }
   if (maxLand > R.land.maxHeight + A.land.tolerance) {
     rep.fail("R2", "height", `land stands ${fmt(maxLand)} m high (rule ${R.land.maxHeight} m)`, {
       value: maxLand,
     });
   }
-  if (plateauSpread > A.land.flatness) {
-    rep.fail("R2", "plateau", `the plateau varies by ${fmt(plateauSpread)} m past the reach`, {
-      value: plateauSpread,
-    });
-  }
-  if (plateauRef !== undefined && !withinBand(plateauRef, R.land.plateau, A.land.tolerance)) {
-    rep.smell(
+  if (stillClimbing > 0) {
+    rep.fail(
       "R2",
-      "plateau-height",
-      `the plateau stands at ${fmt(plateauRef)} m (band ${bandText(R.land.plateau)} m)`,
-      {
-        value: plateauRef,
-      },
+      "climb",
+      `${stillClimbing} cells past the reach are still climbing inland (over ${A.land.rise} m/m)`,
+      { at: climbAt, value: stillClimbing },
     );
   }
   if (maxDepth > R.sea.openDepth + A.sea.tolerance) {
@@ -390,12 +411,22 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       );
     }
   }
-  if (!withinBand(level.hour, R.day.hour)) {
-    rep.fail("R13", "hour", `hour ${fmt(level.hour)} (band ${bandText(R.day.hour)})`, {
-      value: level.hour,
-    });
-  }
   const biome = biomeOf(level.biome);
+  // R13 — the hour is one of this coast's DAYLIGHT hours. Re-derived from
+  // the latitude rather than compared against a band somebody wrote down:
+  // the rule is about where the sun stands, and the window is what that
+  // works out to on this coast.
+  const daylight = daylightWindow(biome.latitude, R.day.minSun);
+  if (!daylight) {
+    rep.fail("R13", "sun", `the sun never rises on the ${biome.name}`);
+  } else if (!withinBand(level.hour, daylight, A.day.hour)) {
+    rep.fail(
+      "R13",
+      "hour",
+      `hour ${fmt(level.hour)} is not daylight here (${bandText(daylight)})`,
+      { value: level.hour },
+    );
+  }
   // R19 — the sky is one the coast offers. A level under a sky the biome
   // has no row for is a level nothing can draw, so it is an error rather
   // than a note.
@@ -430,6 +461,9 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R16 — the surface ───────────────────────────────────────────────
   analyzeSurface(level, rep);
 
+  // ── R21 — the coast's character, along the waterline ────────────────
+  const sandShare = analyzeCharacter(level, rep);
+
   // ── R17 — the rocks themselves ──────────────────────────────────────
   for (const s of level.solids) analyzeSolid(level, s, offshoreAt, depthAt, rep);
 
@@ -460,6 +494,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       solids: level.solids.length,
       pods: level.fauna.length,
       animals,
+      sandShare,
       windSpeed: level.wind.speed,
       hour: level.hour,
       weather: level.weather,
@@ -797,6 +832,74 @@ function analyzeSurface(level: Level, rep: Report): void {
     });
 }
 
+/**
+ * R21 — THE COAST IS A QUILT: walk the waterline and see how it changes.
+ *
+ * The material a few metres in from the line is what the rider actually
+ * looks at all run — the bare rock of a headland, the boulder field behind
+ * it, the sand of a bay — and the fault this is here to catch is a coast
+ * that is one of them from the start gate to the finish. Measured along the
+ * SHORE rather than over the box, because most of a level's ground is
+ * plateau nobody is ever near.
+ */
+function analyzeCharacter(level: Level, rep: Report): number {
+  const pts = level.shore;
+  const runs = new Map<string, number>();
+  let longest = 0;
+  let longestKind = "";
+  let walked = 0;
+  let sand = 0;
+  let current = "";
+  let run = 0;
+  let at: { x: number; z: number } | undefined;
+  for (let i = 0; i + 1 < pts.length; i++) {
+    const a = pts[i];
+    const b = pts[i + 1];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const len = Math.hypot(dx, dz);
+    if (len < 1e-6) continue;
+    // The sea is on the RIGHT of the line (R15), so the shore itself is to
+    // the LEFT; the probe stands far enough in to be past the cells the
+    // zero contour is drawn through.
+    const ix = (-dz / len) * A.shore.probe;
+    const iz = (dx / len) * A.shore.probe;
+    for (let d = 0; d < len; d += A.shore.walk) {
+      const t = d / len;
+      const x = a.x + dx * t + ix;
+      const z = a.z + dz * t + iz;
+      const kind = level.materialAt(x, z);
+      if (kind === "water") continue;
+      walked += A.shore.walk;
+      if (kind === "sand") sand += A.shore.walk;
+      runs.set(kind, (runs.get(kind) ?? 0) + A.shore.walk);
+      if (kind === current) run += A.shore.walk;
+      else {
+        current = kind;
+        run = A.shore.walk;
+      }
+      if (run > longest) {
+        longest = run;
+        longestKind = kind;
+        at = { x, z };
+      }
+    }
+  }
+  if (walked <= 0) return 0;
+  if (longest > R.shore.character.run) {
+    rep.fail(
+      "R21",
+      "quilt",
+      `${fmt(longest)} m of the waterline is unbroken ${longestKind} (rule ${R.shore.character.run} m)`,
+      { at, value: longest },
+    );
+  }
+  if (runs.size < 2) {
+    rep.smell("R21", "plain", `the whole waterline is ${[...runs.keys()][0]}`, { value: 1 });
+  }
+  return sand / walked;
+}
+
 function analyzeSolid(
   level: Level,
   s: Solid,
@@ -804,7 +907,7 @@ function analyzeSolid(
   depthAt: (x: number, z: number) => number,
   rep: Report,
 ): void {
-  const rule = R.solids[s.kind];
+  const rule = solidRule(s.kind);
   const off = offshoreAt(s.x, s.z);
   if (!withinBand(off, rule.offshore, R.grid.cell)) {
     rep.fail(
@@ -818,11 +921,23 @@ function analyzeSolid(
     rep.fail("R17", "radius", `${s.id} has radius ${fmt(s.r)} m (band ${bandText(rule.r)} m)`, {
       at: s,
     });
-  if (!withinBand(s.top, rule.top))
+  const bed = -depthAt(s.x, s.z);
+  // A kind states its size against the sea or against the ground it sits
+  // on, and the check is the one the kind was placed by (R17).
+  if (rule.height) {
+    if (!withinBand(s.top - bed, rule.height, A.sea.tolerance)) {
+      rep.fail(
+        "R17",
+        "height",
+        `${s.id} stands ${fmt(s.top - bed)} m over the ground (band ${bandText(rule.height)} m)`,
+        { at: s, value: s.top - bed },
+      );
+    }
+  } else if (rule.top && !withinBand(s.top, rule.top)) {
     rep.fail("R17", "top", `${s.id}'s top is at ${fmt(s.top)} m (band ${bandText(rule.top)} m)`, {
       at: s,
     });
-  const bed = -depthAt(s.x, s.z);
+  }
   if (s.top < bed + R.solids.proud - A.sea.tolerance) {
     rep.fail("R17", "proud", `${s.id}'s top is under the bed`, { at: s, value: s.top - bed });
   }

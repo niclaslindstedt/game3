@@ -10,6 +10,7 @@
 // The level is read-only from here on. Nothing regenerates any of it.
 
 import { createHeightfield, fieldGradient, sampleField } from "../lib/heightfield.ts";
+import { lerp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Biome } from "./biomes.ts";
 import { airCorridor, gateBuoys, type CoursePlan } from "./course.ts";
@@ -99,26 +100,32 @@ export function compileLevel(plan: LevelPlan): Level {
   }
 
   const { shore, biome } = plan;
-  const boulderThreshold = 1 - (1 - R.surface.boulder.threshold) * biome.boulderField;
-  // R16 — the classifier, in the rule's order.
+  const { boulder, sand } = R.surface;
+  // R16, R21 — the classifier, in the rule's order. Everything but the
+  // slope is a question about the STRETCH of coast a point belongs to, so
+  // the one thing it works out first is which stretch that is.
   const materialAt = (x: number, z: number): Surface => {
     const h = sampleField(ground, x, z);
     if (h < 0) return "water";
     const { gx, gz } = fieldGradient(ground, x, z);
     const slope = Math.hypot(gx, gz);
     if (slope >= R.surface.bedrockSlope) return "bedrock";
-    if (valueNoise(x, z, R.surface.boulder.scale, plan.geology.boulderSeed) >= boulderThreshold) {
-      return "rock";
-    }
-    if (biome.sandPockets && slope < R.surface.sand.slope) {
+    const rugged = shore.ruggedAt(shore.toLocal(x, z).s);
+    // THE BEACH, before the boulder field rather than after it: a beach is
+    // a CONTINUOUS run of sand at the waterline, and a field allowed to
+    // speckle it is a beach nobody would walk on. It reaches furthest up
+    // the softest stretches and narrows away rather than ending at a line,
+    // so a coast does not step from sand to slab in one cell.
+    if (biome.beaches && rugged <= sand.rugged && slope < sand.slope) {
+      const soft = 1 - rugged / sand.rugged;
       const inland = -sampleField(offshore, x, z);
-      if (
-        inland <= R.surface.sand.reach &&
-        shore.bayAt(shore.toLocal(x, z).s) >= R.surface.sand.bay
-      ) {
-        return "sand";
-      }
+      if (inland <= sand.reach * (sand.floor + (1 - sand.floor) * soft)) return "sand";
     }
+    // The field thickens with the coast: a moraine headland is mostly
+    // boulder, the ground behind a beach carries none.
+    const spread = biome.boulderField * lerp(boulder.rugged.low, boulder.rugged.high, rugged);
+    const threshold = Math.max(0, 1 - (1 - boulder.threshold) * spread);
+    if (valueNoise(x, z, boulder.scale, plan.geology.boulderSeed) >= threshold) return "rock";
     return "bedrock";
   };
 

@@ -65,8 +65,8 @@ export type WeatherLook = {
   relief: [number, number];
   /** How much of the sun's BEAM comes through, thin → thick: a lit patch
    * behind a high sheet, nothing at all behind a squall's ceiling. It is
-   * also what is left of the disc, of the halo and of the stars, and — the
-   * one that shows on the water — of the SHADOW anything throws. */
+   * also what is left of the disc and of the halo, and — the one that shows
+   * on the water — of the SHADOW anything throws. */
   through: [number, number];
 };
 

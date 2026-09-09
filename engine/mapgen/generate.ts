@@ -20,6 +20,7 @@
 
 import { createRng } from "../lib/prng.ts";
 import { TAU } from "../lib/math.ts";
+import { daylightWindow } from "../lib/solar.ts";
 import { analyzeLevel } from "../analysis/index.ts";
 import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
@@ -43,6 +44,11 @@ export function subSeed(seed: number, attempt: number): number {
 export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   const biome = biomeOf(opts.biome ?? "taiga");
   const attempts = opts.attempts ?? R.search.attempts;
+  // R13 — the hours this coast is in daylight, off its own latitude. A
+  // fact about the place rather than about the attempt, so it is worked out
+  // once, outside the loop and outside the seeded stream.
+  const daylight = daylightWindow(biome.latitude, R.day.minSun);
+  if (!daylight) throw new Error(`the sun never rises on the ${biome.id} coast`);
   let lastReason = "no attempt made";
   for (let attempt = 0; attempt < attempts; attempt++) {
     const rng = createRng(subSeed(seed, attempt));
@@ -55,8 +61,9 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       from: (((seaward + rng.range(-R.wind.seaward, R.wind.seaward)) % TAU) + TAU) % TAU,
       speed: inBand(rng, R.wind.speed),
     };
-    // R13 — the day and the water.
-    const hour = inBand(rng, R.day.hour);
+    // R13 — the day and the water. The hour comes out of the daylight
+    // window, so no seed is ridden in the dark.
+    const hour = inBand(rng, daylight);
     const water = {
       density: biome.water.density,
       temperature: inBand(rng, biome.water.temperature),

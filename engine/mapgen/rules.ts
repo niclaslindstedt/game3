@@ -17,11 +17,14 @@
 //       stands between `course.offshore.min` (15 m) and `course.offshore.max`
 //       (100 m) from the nearest shoreline.
 //   R2  LAND ENDS AT 100 m. Only the strip of country the rider can see
-//       matters: the ground rises from the waterline to a plateau of
-//       `land.plateau` metres inside `land.reach` (100 m) of the shore and
-//       is FLAT past it, and nothing on land stands higher than
-//       `land.maxHeight` (25 m). No cliffs — this is a glacially planed
-//       coast, low bedrock slabs sloping into the water.
+//       matters: the ground rises from the waterline to hills of
+//       `land.plateau` metres — taken times `land.hill` by how rugged the
+//       coast is there (R21), so a headland stands as a bare rock hill and
+//       a bay lies low behind its beach — inside `land.reach` (100 m) of
+//       the shore, and past that it STOPS RISING and runs on inland at the
+//       height it reached. Nothing on land stands higher than
+//       `land.maxHeight` (45 m): rounded glacially planed rock, however
+//       high it climbs, and never a cliff.
 //   R3  THE SEA BED FALLS AWAY. Depth grows from nothing at the waterline
 //       to `sea.depth` (25 m) at `sea.reach` (250 m) out, and keeps falling
 //       past it to `sea.openDepth` (60 m) by `sea.openReach` (700 m) — the
@@ -65,11 +68,14 @@
 //       a compass direction within `wind.seaward` of the direction the
 //       open sea lies in — so the fetch grows riding out from the shore and
 //       the waves with it.
-//   R13 THE DAY AND THE WATER. The run is ridden at an hour inside
-//       `day.hour` — SOLAR time, read against the coast's own latitude
+//   R13 THE DAY AND THE WATER. The run is ridden in DAYLIGHT: the hour is
+//       SOLAR time drawn from the window in which the sun stands at least
+//       `day.minSun` over the horizon at the coast's own latitude
 //       (`Biome.latitude`, 62°N on the taiga coast), which is what decides
 //       where the sun actually stands at it and therefore what sky the run
-//       is under; the water's temperature comes from the biome's band and
+//       is under. So a seed can be a sunrise on the water, a noon, or a sun
+//       going down into the sea, and never a night nobody can read the
+//       waves in. The water's temperature comes from the biome's band and
 //       its density is the biome's (brackish 1005 kg/m³ on the taiga
 //       coast).
 //   R14 THE GRID. Both heightfields sit on `grid.cell` (4 m) cells over the
@@ -84,17 +90,26 @@
 //       stays under `shore.maxSlope`).
 //   R16 WHAT THE SHORE IS MADE OF, by rule and in this order: below sea
 //       level it is WATER; ground steeper than `surface.bedrockSlope` is
-//       BEDROCK; where the boulder noise runs over `surface.boulder`'s
-//       threshold it is ROCK (a boulder field); the low ground at the head
-//       of a bay deeper than `surface.sand.bay` is SAND, within
-//       `surface.sand.reach` of the waterline; everything else is the
+//       BEDROCK; low ground at the waterline of a stretch softer than
+//       `surface.sand.rugged` (R21) is SAND — a BEACH, reaching
+//       `surface.sand.reach` up the shore where the stretch is softest and
+//       a fraction of that where it barely qualifies; where the boulder
+//       noise runs over `surface.boulder`'s threshold it is ROCK, a boulder
+//       field, and ruggedness moves that threshold so the fields are thick
+//       on a rock coast and absent behind a beach; everything else is the
 //       smoothed BEDROCK slab.
-//   R17 THE ROCKS STAND IN THE WATER. Skerries (islets above the sea),
-//       boulders (at the waterline) and reefs (tops under the surface) are
-//       laid at their kind's density per kilometre of coast, inside their
-//       kind's offshore band, with their kind's radius and top, at least
-//       `solids.spacing` apart edge to edge — and a reef's top stands proud
-//       of the bed under it, or it is not a reef.
+//   R17 THE ROCKS STAND ON THE COAST. Skerries (islets above the sea),
+//       boulders (at the waterline), reefs (tops under the surface) and
+//       ERRATICS — the big glacial blocks left sitting on the shore itself,
+//       straddling the waterline — are laid at their kind's density per
+//       kilometre of coast, inside their kind's offshore band, with their
+//       kind's radius, at least `solids.spacing` apart edge to edge. A kind
+//       with a `top` band stands at that height against the SEA; a kind
+//       with a `height` band stands that far above the GROUND it sits on,
+//       which is the only way to put a rock up a beach, and it must break
+//       the surface — a block whose top is under the water is a reef, and
+//       there is a kind for that. A reef's own top stands proud of the bed
+//       under it, or it is not a reef.
 //   R18 THE RING IS REACHABLE. A ring stands where a hull that leaves the
 //       lip at the DESIGN LIP SPEED passes — never where a hull would have
 //       to be faster than it can be. The design speed is a band,
@@ -130,12 +145,23 @@
 //       species' band. Nothing about a pod is ever stepped: it swims that
 //       loop as a pure function of the clock, so a run replays the sea life
 //       it was ridden through exactly.
+//   R21 THE COAST HAS CHARACTER, AND IT CHANGES ALONG THE COAST. Every
+//       point of the base line carries a RUGGEDNESS in 0..1, drawn from
+//       `shore.character` — high on the headlands, low in the bays — and it
+//       is what makes one stretch of a level a different place from the
+//       next. A rugged stretch stands as bare rock: its hills climb
+//       `land.hill` higher, its slabs break `land.slab.relief` deeper, its
+//       boulder fields are thick and its waterline is stone. A soft one
+//       lies low behind a sand beach, with a shallow sandy foreshore in
+//       front of it. No one material may have the whole coast: the longest
+//       unbroken stretch of a single material along the waterline stays
+//       under `shore.character.run` metres.
 //
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
 
 import { TAU } from "../lib/math.ts";
-import type { BiomeId } from "./types.ts";
+import type { BiomeId, Solid } from "./types.ts";
 
 const DEG = TAU / 360;
 
@@ -172,21 +198,65 @@ export const LEVEL_RULES = {
     /** How far past the course's ends the polyline is drawn, m, so a cell
      * near an end still finds its true nearest shore. */
     margin: 400,
+    /** R21 — the coast's CHARACTER along the base line, 0..1: 0 a soft
+     * bay lying behind a beach, 1 a bare rock headland. */
+    character: {
+      /** Periods of the ruggedness noise, m, and the share of the swing
+       * the second one carries. The broad one is long against a gate's
+       * spacing (R4, 80–150 m) so a rider crosses two or three characters
+       * in a run rather than a new one at every buoy; the finer one is a
+       * cove's worth, and it is there because a single 700 m octave gives
+       * a 2 km coast only three draws — three highs in a row is a whole
+       * level with no beach on it, and half the seeds came out that way. */
+      scale: 700,
+      detail: { scale: 260, share: 0.36 },
+      /** What the coast is on average. Over half, because this is a rock
+       * coast with beaches in it and not the other way round: the sand
+       * only gets the stretches the noise and the bays push under
+       * `surface.sand.rugged`. */
+      bias: 0.54,
+      /** How far the noise swings it either way. */
+      grain: 0.46,
+      /** …and how far the coast's own LIE does: a bay collects the
+       * sediment the headlands are stripped of, so a recession softens the
+       * shore and a headland hardens it, over `swing` m of offset. */
+      shelter: 0.25,
+      swing: 40,
+      /** R21's quilt: the longest one material may run unbroken along the
+       * waterline, m. MEASURED: over the first forty seeds the longest
+       * such run is 608 m and the mean 239 m, so a level's coast changes
+       * every few gates on its own. Seven hundred is clear of that — it
+       * rejects nothing the character noise actually draws — and still
+       * refuses the fault it is here for, a level whose whole two-and-a-
+       * half kilometres of waterline is one material. */
+      run: 700,
+    },
   },
 
   /** R2 — the land. */
   land: {
-    /** Nothing on land stands higher than this, m above sea level. */
-    maxHeight: 25,
-    /** The plateau begins this far inland, m. */
+    /** Nothing on land stands higher than this, m above sea level. A rock
+     * hill on a headland at 62°N, not an alp: the High Coast's own hills
+     * come off the water at about this and the rider sees them the whole
+     * run. */
+    maxHeight: 45,
+    /** The land stops rising this far inland, m. */
     reach: 100,
-    /** Plateau height band, m: drawn per level. */
+    /** Height band the land climbs to, m: drawn per level, before the
+     * coast's own character has its say. */
     plateau: { min: 8, max: 20 },
+    /** R21 — what ruggedness does to that height: a soft stretch keeps
+     * `low` of it and lies behind its beach, a rugged one stands `high`
+     * times as tall. The product with `plateau`'s ceiling is held under
+     * `maxHeight` whatever the draw. */
+    hill: { low: 0.45, high: 2 },
     /** The slabs: rounded whalebacks of planed bedrock between the water
-     * and the plateau — amplitude m, period m, and the distance from the
+     * and the hilltop — amplitude m, period m, and the distance from the
      * waterline over which they fade in (m), so the zero contour stays on
-     * the shoreline the polyline says. */
-    slab: { amplitude: 1.6, scale: 28, fade: 15 },
+     * the shoreline the polyline says. `relief` is R21's multiplier on the
+     * amplitude: smooth sand-backed ground at `low`, broken rock at
+     * `high`. */
+    slab: { amplitude: 1.6, scale: 28, fade: 15, relief: { low: 0.45, high: 2.2 } },
   },
 
   /** R3 — the sea bed. */
@@ -208,10 +278,15 @@ export const LEVEL_RULES = {
      * moves. */
     openDepth: 60,
     openReach: 700,
-    /** A bay's shelf: the bed's depth multiplier at the head of a full bay
-     * (`bay`, m of recession, is where the shelf is complete), out to
-     * `reach` metres, blending back to the open profile over `blend`. */
-    shelf: { factor: 0.55, bay: 40, reach: 80, blend: 70 },
+    /** The shelf: the bed's depth multiplier where the sediment collects,
+     * out to `reach` metres and blending back to the open profile over
+     * `blend`. Two things fill it, and the fuller of the two wins — a BAY
+     * (`bay`, m of recession, is where the shelf is complete) and a SOFT
+     * stretch of coast (R21: at ruggedness 0 the shelf is full, at
+     * `rugged` there is none of it), because a sand beach without a
+     * shallow foreshore in front of it is a beach that starts in ten
+     * metres of water. */
+    shelf: { factor: 0.55, bay: 40, rugged: 0.45, reach: 90, blend: 70 },
     /** Bed detail: amplitude m, period m, and the fade-in distance from
      * the waterline (m) that keeps the shallows the profile's own. */
     detail: { amplitude: 0.6, scale: 35, fade: 40 },
@@ -220,14 +295,24 @@ export const LEVEL_RULES = {
   /** R16 — the surface classifier. */
   surface: {
     /** Slope at or past which the ground is bare bedrock, m per m. */
-    bedrockSlope: 0.12,
-    /** The boulder field: value-noise period m and the threshold (0..1)
-     * above which the ground is strewn. */
-    boulder: { scale: 9, threshold: 0.64 },
-    /** A sand pocket: how deep a bay must recede (m) to collect one, how
-     * far up from the waterline it reaches (m), and the slope (m per m) it
-     * will lie at — sand does not stand on a slab. */
-    sand: { bay: 18, reach: 30, slope: 0.08 },
+    bedrockSlope: 0.22,
+    /** The boulder field: value-noise period m, the threshold (0..1) above
+     * which the ground is strewn, and R21's multiplier on how much of the
+     * noise clears it — `low` on the softest coast (a beach has no boulder
+     * field behind it), `high` on the most rugged (a moraine shore is
+     * mostly boulder).
+     *
+     * The period is what makes a field a FIELD: the moraine was dumped in
+     * patches tens of metres across with meandering edges, and a period
+     * near the grid's own cell paints leopard spots instead — visible on
+     * `make level` as static over the whole shore rather than as places. */
+    boulder: { scale: 34, threshold: 0.6, rugged: { low: 0.25, high: 1.9 } },
+    /** A BEACH: the ruggedness (R21) at or under which a stretch carries
+     * sand at all, how far up from the waterline the sand reaches on the
+     * softest stretch (m) — times `floor` where it only just qualifies, so
+     * the beach narrows away rather than ending at a line — and the slope
+     * (m per m) sand will lie at, because sand does not stand on a slab. */
+    sand: { rugged: 0.34, reach: 45, floor: 0.35, slope: 0.14 },
   },
 
   /** R17 — the rocks. Each kind: count per km of coast, offshore band (m),
@@ -242,14 +327,27 @@ export const LEVEL_RULES = {
     boulder: {
       perKm: 14,
       offshore: { min: 4, max: 70 },
-      r: { min: 0.8, max: 2.5 },
-      top: { min: -0.4, max: 1 },
+      r: { min: 1, max: 3.5 },
+      top: { min: -0.4, max: 1.6 },
     },
     reef: {
       perKm: 7,
       offshore: { min: 20, max: 160 },
       r: { min: 2.5, max: 8 },
       top: { min: -1.4, max: -0.3 },
+    },
+    /** The glacial ERRATICS: the big blocks the ice dropped on the shore
+     * itself. Their band straddles the waterline — inland onto the beach
+     * and a little way into the shallows — and their size is stated as a
+     * `height` above the GROUND they sit on rather than a `top` against
+     * the sea, because a two-metre block halfway up a beach has its foot
+     * two metres up as well. They are the biggest rocks on the coast and
+     * the ones the rider is closest to. */
+    erratic: {
+      perKm: 12,
+      offshore: { min: -16, max: 14 },
+      r: { min: 1.6, max: 4.5 },
+      height: { min: 1.2, max: 4 },
     },
     /** Minimum open water between two rocks, edge to edge, m. */
     spacing: 6,
@@ -349,18 +447,20 @@ export const LEVEL_RULES = {
     seaward: 60 * DEG,
   },
 
-  /** R13 — the day: any hour on the clock.
+  /** R13 — the day: DAYLIGHT, and all of it.
    *
-   * The whole clock rather than a working day, because at the latitude
-   * this coast sits at there is no hour of a northern summer that cannot
-   * be ridden. The sun is up from about 02:40 to 21:20 and never falls
-   * more than five degrees under the horizon between them, so the darkest
-   * ride a seed can draw is a midnight civil twilight with the northern
-   * horizon still burning — which is the most striking sky the coast has,
-   * not the one to rule out. A band that stopped at eight in the evening
-   * would spend every seed between mid-morning and late afternoon and
-   * throw away the two ends of the day the sky is worth looking at. */
-  day: { hour: { min: 0, max: 24 } },
+   * The window is not stated as hours because it is not a fact about the
+   * clock — it is a fact about the coast. `daylightWindow` reads it off the
+   * biome's own latitude, so the same rule gives a taiga seed the 02:22 to
+   * 21:38 of a High Coast midsummer and would give a southern one its own
+   * shorter day.
+   *
+   * The floor is the horizon itself: a sun sitting ON the water is the best
+   * light this game has and the rider can still read every wave under it,
+   * where the civil twilight half an hour later is a grey sea nobody can
+   * see a rock in. So sunrise and sunset are in and the night is out —
+   * which is the whole of the rule. */
+  day: { minSun: 0 },
 
   /** R19 — the sky. */
   sky: {
@@ -376,7 +476,7 @@ export const LEVEL_RULES = {
     spread: 0.32,
   },
 
-  /** R20 — the sea life. The catalog says what each animal is and how
+  /** R21 — the sea life. The catalog says what each animal is and how
    * often it is met; these are the numbers about the PLACING that are the
    * coast's rather than the animal's. */
   fauna: {
@@ -428,6 +528,25 @@ export const LEVEL_RULES = {
 /** A shape-only view for callers that want to write a band without
  * naming the deep type of the rule table. */
 export type LevelRules = typeof LEVEL_RULES;
+
+/** R17 — how one kind of rock is placed. A kind states its size EITHER as
+ * a `top` against sea level (the kinds that stand in the water) OR as a
+ * `height` above the ground it sits on (the kinds that stand on the
+ * shore); everything that places or checks a rock branches on which. */
+export type SolidRule = {
+  readonly perKm: number;
+  readonly offshore: Band;
+  readonly r: Band;
+  readonly top?: Band;
+  readonly height?: Band;
+};
+
+/** The rule row for a kind of rock, as the shared shape rather than as its
+ * own literal type — so a placer or a check can read `top` and `height`
+ * without knowing which kind it was handed. */
+export function solidRule(kind: Solid["kind"]): SolidRule {
+  return LEVEL_RULES.solids[kind];
+}
 
 /** Which biome to build and how hard to try. */
 export type GenerateOptions = {

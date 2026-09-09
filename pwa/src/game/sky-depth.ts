@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE SKY IS DRAWN LAST, AT THE BACK OF THE DEPTH BUFFER.
 //
-// Everything camera-locked — the dome, the stars, the sun's disc and its
-// halo, the weather's ceiling — is a BACKDROP: it stands at infinity, it is
+// Everything camera-locked — the dome, the sun's disc and its halo, the
+// weather's ceiling — is a BACKDROP: it stands at infinity, it is
 // behind every solid thing on the coast, and it occludes nothing. There are
 // two ways to draw that, and which one is chosen is the biggest single
 // number in a frame's fill cost.
