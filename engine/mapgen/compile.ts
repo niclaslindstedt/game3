@@ -16,7 +16,7 @@ import { airCorridor, gateBuoys, type CoursePlan } from "./course.ts";
 import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { Shore } from "./shore.ts";
-import type { Bounds, Level, Solid, Surface, Vec2, WaterBody, Wind } from "./types.ts";
+import type { Bounds, Level, Solid, Surface, Vec2, WaterBody, Weather, Wind } from "./types.ts";
 
 export type LevelPlan = {
   readonly seed: number;
@@ -28,6 +28,7 @@ export type LevelPlan = {
   readonly wind: Wind;
   readonly water: WaterBody;
   readonly hour: number;
+  readonly weather: Weather;
 };
 
 /** R14 — the box a course needs: everything it places, padded seaward
@@ -139,5 +140,6 @@ export function compileLevel(plan: LevelPlan): Level {
     wind: { ...plan.wind },
     water: { ...plan.water },
     hour: plan.hour,
+    weather: plan.weather,
   };
 }

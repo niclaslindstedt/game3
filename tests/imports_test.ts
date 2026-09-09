@@ -60,15 +60,24 @@ function code(text: string): string {
 }
 
 /** Every module specifier a file names: static imports and re-exports,
- * side-effect imports, and dynamic imports of a literal string. */
+ * side-effect imports, and dynamic imports of a literal string.
+ *
+ * A specifier never contains a NEWLINE, and saying so is what keeps this
+ * from reading prose as an import: an `export function` whose body holds a
+ * string ending in the word "from" otherwise opens a match that runs to
+ * whatever quote comes next, and the file is reported as importing a
+ * package made of the two statements in between. */
 function specifiers(text: string): string[] {
   const src = code(text);
   const out: string[] = [];
-  for (const m of src.matchAll(/(?:^|\n)\s*(?:import|export)\s[^;]*?\sfrom\s*["']([^"']+)["']/g)) {
+  const spec = `["']([^"'\\n]+)["']`;
+  for (const m of src.matchAll(
+    new RegExp(`(?:^|\\n)\\s*(?:import|export)\\s[^;]*?\\sfrom\\s*${spec}`, "g"),
+  )) {
     out.push(m[1]);
   }
-  for (const m of src.matchAll(/(?:^|\n)\s*import\s*["']([^"']+)["']/g)) out.push(m[1]);
-  for (const m of src.matchAll(/import\(\s*["']([^"']+)["']\s*\)/g)) out.push(m[1]);
+  for (const m of src.matchAll(new RegExp(`(?:^|\\n)\\s*import\\s*${spec}`, "g"))) out.push(m[1]);
+  for (const m of src.matchAll(new RegExp(`import\\(\\s*${spec}\\s*\\)`, "g"))) out.push(m[1]);
   return out;
 }
 

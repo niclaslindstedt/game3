@@ -8,7 +8,14 @@
 // with its ramp, and two skerries off the line. Anything that needs a
 // GENERATED level calls the generator itself.
 
-import { createHeightfield, fillField, type Level, type Gate, type Solid } from "@engine";
+import {
+  createHeightfield,
+  fillField,
+  type Level,
+  type Gate,
+  type Solid,
+  type Weather,
+} from "@engine";
 
 const CELL = 4;
 
@@ -30,6 +37,8 @@ export type SyntheticOptions = {
    * (default 8). The ring moves up with the ramp's lip. */
   rampAngle?: number;
   rampLength?: number;
+  /** The sky over it (default clear). */
+  weather?: Weather;
 };
 
 /** The sea bed: −`depth` m out at sea, rising over the last 40 m to the
@@ -129,5 +138,8 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     wind: { from: opts.windFrom ?? Math.PI, speed: opts.windSpeed ?? 4 },
     water: { density: opts.density ?? 1005, temperature: 14 },
     hour: 11,
+    // A clear late morning: nothing a physics test stages should be
+    // standing under weather it did not ask for.
+    weather: opts.weather ?? "clear",
   };
 }

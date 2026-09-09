@@ -63,8 +63,11 @@
 //       open sea lies in — so the fetch grows riding out from the shore and
 //       the waves with it.
 //   R13 THE DAY AND THE WATER. The run is ridden at an hour inside
-//       `day.hour`; the water's temperature comes from the biome's band
-//       and its density is the biome's (brackish 1005 kg/m³ on the taiga
+//       `day.hour` — SOLAR time, read against the coast's own latitude
+//       (`Biome.latitude`, 62°N on the taiga coast), which is what decides
+//       where the sun actually stands at it and therefore what sky the run
+//       is under; the water's temperature comes from the biome's band and
+//       its density is the biome's (brackish 1005 kg/m³ on the taiga
 //       coast).
 //   R14 THE GRID. Both heightfields sit on `grid.cell` (4 m) cells over the
 //       course's own extent padded `bounds.sea` metres on the seaward sides
@@ -104,6 +107,14 @@
 //       catalog craft needs at the hinge (`launchSpeedFor`) and holds it
 //       under `air.reach` of the SLOWEST craft's top speed, and inside the
 //       design band.
+//   R19 THE SKY OVER THE COAST. The run is ridden under one of the skies
+//       the biome offers (`Biome.weathers`) — clear, high cloud, overcast,
+//       rain or a squall — drawn per seed with the level's OWN WIND
+//       weighting the draw: each sky stands at a heaviness on the same 0–1
+//       scale R12's wind band is read on, and how far a sky may stand from
+//       the wind's place on it and still be likely is `sky.spread`. So the
+//       darkest skies stand over the biggest seas, and a calm day is a
+//       clear one.
 //
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
@@ -310,8 +321,32 @@ export const LEVEL_RULES = {
     seaward: 60 * DEG,
   },
 
-  /** R13 — the day. */
-  day: { hour: { min: 6, max: 20 } },
+  /** R13 — the day: any hour on the clock.
+   *
+   * The whole clock rather than a working day, because at the latitude
+   * this coast sits at there is no hour of a northern summer that cannot
+   * be ridden. The sun is up from about 02:40 to 21:20 and never falls
+   * more than five degrees under the horizon between them, so the darkest
+   * ride a seed can draw is a midnight civil twilight with the northern
+   * horizon still burning — which is the most striking sky the coast has,
+   * not the one to rule out. A band that stopped at eight in the evening
+   * would spend every seed between mid-morning and late afternoon and
+   * throw away the two ends of the day the sky is worth looking at. */
+  day: { hour: { min: 0, max: 24 } },
+
+  /** R19 — the sky. */
+  sky: {
+    /** How far a sky's own heaviness may stand from the wind's place in
+     * R12's band and still be a likely draw, 0..1 of that scale (a
+     * Gaussian falloff, so this is its width rather than a cut-off).
+     *
+     * A third of the scale is the width at which a middling wind can
+     * plausibly bring any of the three middle skies while the ends of the
+     * band stay nearly settled — the top of `wind.speed` is a squall and
+     * the bottom of it a clear day, which is the certainty those two days
+     * have to carry or the sea and the sky stop agreeing. */
+    spread: 0.32,
+  },
 
   /** The search's own dials: how many sub-seeds to try before giving up,
    * and the SLACK it builds in over the rules so that the analysis — which

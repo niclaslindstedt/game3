@@ -28,6 +28,7 @@ import { courseKeepOut, layCourse } from "./course.ts";
 import { createGeology, laySolids } from "./geology.ts";
 import { LEVEL_RULES as R, inBand, type GenerateOptions } from "./rules.ts";
 import { createShore } from "./shore.ts";
+import { pickWeather, skyCover } from "./weather.ts";
 import type { Level } from "./types.ts";
 
 /** The sub-seed of an attempt: the golden-ratio stride keeps successive
@@ -81,7 +82,25 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       finishS + R.bounds.sea,
       courseKeepOut(course),
     ).filter((s) => insideBounds(bounds, s.x, s.z));
-    const level = compileLevel({ seed, biome, shore, geology, course, solids, wind, water, hour });
+    // R19 — the sky, drawn LAST. It is the one thing about a level the
+    // search never judges: no sky makes a coast unrideable, so a rule about
+    // the weather has no business moving the shore, the course or the rocks
+    // that the draws before it made. Taking it off the end of the stream is
+    // what keeps that true — the geometry a seed produces is the geometry it
+    // produced before the sky existed.
+    const weather = pickWeather(rng, biome.weathers, skyCover(wind.speed));
+    const level = compileLevel({
+      seed,
+      biome,
+      shore,
+      geology,
+      course,
+      solids,
+      wind,
+      water,
+      hour,
+      weather,
+    });
     const analysis = analyzeLevel(level);
     if (analysis.ok) return level;
     lastReason = analysis.findings
