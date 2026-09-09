@@ -36,15 +36,18 @@ export type BotProfile = {
   airPitch: number;
   airGainP: number;
   airGainD: number;
-  /** ...and on the roll, held level with the bars. */
+  /** ...and on the roll, held level with the bars, and on the yaw rate. */
   airRollGain: number;
   airRollDamp: number;
+  airYawDamp: number;
   /** How far ahead the bot looks for a rock, m, and how far off the line it
    * moves its aim to miss one, m. */
   lookAhead: number;
   dodge: number;
-  /** Bearing error past which the throttle comes off a little, rad, and
-   * how far off it comes. */
+  /** Bearing error past which the throttle comes off, rad, and how far
+   * it comes off. On a jet the thrust IS the steering, so easing for a
+   * big correction only makes the correction slower: the knob ships at
+   * 1 (no easing) and is here for a craft that would rather scrub speed. */
   easeAngle: number;
   easeTo: number;
   /** How far past a gate's plane, m, the bot stops trying for it and
@@ -73,10 +76,11 @@ export const RIDER_BOT: BotProfile = {
   airGainD: 0.9,
   airRollGain: 3,
   airRollDamp: 0.6,
+  airYawDamp: 1.2,
   lookAhead: 40,
   dodge: 9,
   easeAngle: 0.9,
-  easeTo: 0.55,
+  easeTo: 1,
   giveUpPast: 6,
   giveUpAfter: 40,
   paceGain: 0.35,
@@ -252,8 +256,14 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // does.
   // On the deck the bars are held straight: a hull steered up a ramp
   // leaves it rolled.
+  // In the air the same bars hold the nose too: a yaw rate carried off
+  // the lip would otherwise turn the whole flight.
   const steer = c.airborne
-    ? clamp(-c.roll * profile.airRollGain + c.wz * profile.airRollDamp, -1, 1)
+    ? clamp(
+        -c.roll * profile.airRollGain + c.wz * profile.airRollDamp - c.wy * profile.airYawDamp,
+        -1,
+        1,
+      )
     : c.onRamp
       ? 0
       : clamp(error * profile.steerGain - c.wy * profile.yawDamp, -1, 1);

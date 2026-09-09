@@ -309,7 +309,7 @@ export const TUNING = {
     /** The rider's roll authority in the air, N·m at full steer, and the
      * yaw the same input buys. */
     steerRoll: 140,
-    steerYaw: 30,
+    steerYaw: 60,
     /** Aerodynamic pitch-moment reference: the hull as a flat plate of
      * area `length × beam × plateShare` with its centre of pressure
      * `cpLead` of the length ahead of the centre of gravity. Nose-up in a
