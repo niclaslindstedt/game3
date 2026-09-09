@@ -64,7 +64,9 @@ export type CraftSpec = {
    * sponsons; what makes the hull carve rather than skate. */
   lateralCd: number;
   /** The rider as a point mass, kg, this high above the centre of gravity,
-   * m. Nothing draws the rider yet; the physics still carries them. */
+   * m. The physics carries the point; the app draws a figure on the saddle
+   * from its own anthropometrics (`pwa/src/game/rider-pose.ts`) and leans
+   * it where this mass went. */
   riderMass: number;
   riderHeight: number;
   /** Expected flat-water top speed, km/h, and 0–50 km/h time, s. */
