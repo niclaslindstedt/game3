@@ -11,8 +11,13 @@
 // THE CONTRACT WITH THE APP (pwa/src/App.tsx):
 //   ?seed=<n>&craft=<id>&scene=<name>&t=<s>&shot=1
 //     stands the run at the named scenario (pwa/src/game/scenarios.ts),
-//     `t` seconds into it; `shot=1` asks for a still — no HUD animation
-//     waiting on a clock, no update toast.
+//     `t` seconds into it; `shot=1` asks for a still — the frame is frozen
+//     once it is drawn, so nothing moves under the shutter.
+//   ?update=1 (--update)
+//     draws the new-build button as if a newer build were waiting. A real
+//     one only ever appears on a device that already had the app, which a
+//     fresh browser profile can never be, so this flag is the only way that
+//     surface is ever photographed.
 //   window.__SH_READY__ === true
 //     set by the app once the world is built and the staged frame has
 //     been drawn. This tool waits for it (30 s, then a clear error).
@@ -20,6 +25,8 @@
 //   node scripts/screenshot.mjs --scene launch             # one scene
 //   node scripts/screenshot.mjs --all                      # every scene
 //   node scripts/screenshot.mjs --scene dive --seed 7 --craft otter
+//   node scripts/screenshot.mjs --scene rest --update            # the
+//        new-build button, which has no other way to be looked at
 //   node scripts/screenshot.mjs --drive W:4                # no scene: a
 //        plain run from the start with the W key held four seconds, then shot
 //
@@ -81,12 +88,16 @@ const args = parseArgs(
       kind: "string",
       help: "KEY:SECONDS — a plain run with a key held that long, then shot",
     },
+    update: {
+      kind: "flag",
+      help: "draw the new-build button (?update=1); the shot is named <scene>-update",
+    },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
     viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
-  "usage: node scripts/screenshot.mjs [--scene name | --all | --drive W:4] [--seed n] [--craft id] [--t s] [--wind m/s] [--hs m] [--viewport v] [--timeout s]",
+  "usage: node scripts/screenshot.mjs [--scene name | --all | --drive W:4] [--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--viewport v] [--timeout s]",
 );
 const viewports =
   args.viewport === "all" ? Object.keys(VIEWPORTS) : String(args.viewport).split(",");
@@ -162,6 +173,7 @@ async function capture(name, params, viewportName, script) {
 }
 
 const base = { seed: String(args.seed), craft: args.craft, shot: "1" };
+if (args.update) base.update = "1";
 if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
 if (args.drive) {
@@ -169,8 +181,9 @@ if (args.drive) {
   // from the start line, and whatever the sea did in those seconds.
   const [key, secs] = String(args.drive).split(":");
   const hold = Number(secs ?? 3) * 1000;
+  const name = `drive-${key.toLowerCase()}${secs ?? 3}${args.update ? "-update" : ""}`;
   for (const v of viewports) {
-    await capture(`drive-${key.toLowerCase()}${secs ?? 3}`, base, v, async (page) => {
+    await capture(name, base, v, async (page) => {
       await page.waitForFunction("window.__SH_READY__ === true", null, {
         timeout: args.timeout * 1000,
       });
@@ -189,7 +202,10 @@ if (args.drive) {
   for (const scene of scenes) {
     const params = { ...base, scene };
     if (args.t !== undefined) params.t = String(args.t);
-    for (const v of viewports) await capture(scene, params, v);
+    // Named apart so a forced button never overwrites the plain shot of
+    // the same moment — the pair is what a review compares.
+    const name = `${scene}${args.update ? "-update" : ""}`;
+    for (const v of viewports) await capture(name, params, v);
   }
 }
 

@@ -239,6 +239,104 @@ canvas {
   flex: none;
 }
 
+/* ── The new-build button ────────────────────────────────────────────────
+
+   A mark at the end of the top bar, and nothing more: an update is never
+   urgent, so it is offered rather than announced. It stands there because
+   every other edge of this screen is spoken for — the instrument panel and
+   the build stamp bottom-left, the air time and the news column
+   bottom-right, and on a phone the whole lower half is the two thumb zones.
+
+   It wears the RESET button's chrome (`.hud-mini`) so the row reads as one
+   row, and is a circle until the first press turns it into a word. Small
+   enough that it takes no room from the vane beside it. */
+.update-nudge {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* The gap belongs to the ARMED state only. A collapsed word is still a
+     flex item, and a gap in front of it is real width — it pushes the mark
+     off the circle's centre by half of itself, which is exactly the amount
+     a round button makes obvious. */
+  gap: 0;
+  /* A circle at rest: the mark's own width plus the padding is under this,
+     so the minimum is what shapes it, and arming widens the same button
+     from here rather than standing a new shape up under the finger. */
+  min-width: 2rem;
+  height: 2rem;
+  padding: 0 0.55rem;
+  font: inherit;
+  font-size: clamp(0.62rem, 1.9vmin, 0.85rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--hud-ink);
+  background: rgb(8 42 56 / 70%);
+  border: 2px solid rgb(255 255 255 / 65%);
+  border-radius: 1rem;
+  cursor: pointer;
+  text-shadow: none;
+  flex: none;
+  opacity: 0.7;
+  transition:
+    opacity 140ms ease,
+    background 140ms ease,
+    gap 160ms ease;
+}
+
+.update-nudge:hover,
+.update-nudge:focus-visible {
+  opacity: 1;
+}
+
+.update-nudge:active {
+  transform: translateY(1px);
+}
+
+/* The mark: an arrow coming down onto a line, sized to be read at a glance
+   and no larger. */
+.update-nudge-mark {
+  flex-shrink: 0;
+  width: 0.85rem;
+  height: 0.85rem;
+  color: var(--hud-good);
+}
+
+.update-nudge-mark path {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+
+.update-nudge-mark polygon {
+  fill: currentcolor;
+}
+
+/* ARMED: the second press is the one that reloads, so the button says so.
+   Collapsed rather than absent, so arming widens the same button in place
+   instead of standing a new one up under the finger. */
+.update-nudge-word {
+  max-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  opacity: 0;
+  transition:
+    max-width 160ms ease,
+    opacity 160ms ease;
+}
+
+.update-nudge[data-armed] {
+  gap: 0.35rem;
+  opacity: 1;
+  background: rgb(8 42 56 / 92%);
+  border-color: var(--hud-good);
+}
+
+.update-nudge[data-armed] .update-nudge-word {
+  max-width: 6rem;
+  opacity: 1;
+}
+
 /* The bottom-left corner is the instrument panel: revs over speed. */
 .hud-speed {
   position: absolute;
@@ -558,6 +656,19 @@ canvas {
 
   .hud-right {
     max-width: 46vw;
+  }
+
+  /* The new-build button drops out of the top row and hangs UNDER it: 390 px
+     has no width for a fourth thing up here — the mark alone pushes the wind
+     vane into the gate count, and the word it becomes when armed needs sixty
+     more. Anchored to the cluster it left (which is itself absolute), so it
+     follows the vane's height instead of restating it, and arming widens it
+     leftward into empty sky. */
+  .hud-topright .update-nudge {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    margin-top: 0.35rem;
   }
 
   .hud-flash {

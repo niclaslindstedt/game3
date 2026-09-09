@@ -37,6 +37,15 @@ export const STRINGS = {
   hit: "HIT",
   grounded: "AGROUND",
   landed: (airSeconds: number): string => `AIR ${airSeconds.toFixed(1)}s`,
+  /** The new-build button: the word the armed mark shows, and the two
+   * labels a pointer and a screen reader get — one for the mark, one for
+   * the armed button, whose press throws the run away. */
+  updateWord: "RELOAD",
+  updateReady: (version: string | null): string =>
+    version
+      ? `New build v${version} ready — reload to install`
+      : "New build ready — reload to install",
+  updateArmed: "Press again to reload onto the new build",
   /** The pause card while the tab is away. */
   paused: "PAUSED",
   pausedNote: "The run waits until you come back",
