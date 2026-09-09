@@ -25,6 +25,7 @@ import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
 import { compileLevel, courseBounds, insideBounds } from "./compile.ts";
 import { courseKeepOut, layCourse } from "./course.ts";
+import { layFauna } from "./fauna.ts";
 import { createGeology, laySolids } from "./geology.ts";
 import { LEVEL_RULES as R, inBand, type GenerateOptions } from "./rules.ts";
 import { createShore } from "./shore.ts";
@@ -89,6 +90,21 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // what keeps that true — the geometry a seed produces is the geometry it
     // produced before the sky existed.
     const weather = pickWeather(rng, biome.weathers, skyCover(wind.speed));
+    // R20 — the sea life, drawn after it for the same reason: no animal
+    // moves a gate, so nothing the search judged may depend on how many
+    // there turned out to be. The rocks are already placed, because a pod
+    // is kept clear of them.
+    const fauna = layFauna(
+      rng,
+      biome,
+      shore,
+      geology,
+      solids,
+      bounds,
+      water.temperature,
+      -R.bounds.land,
+      finishS + R.bounds.sea,
+    );
     const level = compileLevel({
       seed,
       biome,
@@ -96,6 +112,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       geology,
       course,
       solids,
+      fauna,
       wind,
       water,
       hour,

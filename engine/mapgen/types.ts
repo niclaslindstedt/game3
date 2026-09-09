@@ -13,6 +13,7 @@
 // CLOCKWISE seen from above (toward +x), so forward = (sin h, cos h) in the
 // (x, z) plan. Metres, seconds, radians, kilograms.
 
+import type { FaunaId } from "../game/defs/fauna.ts";
 import type { Heightfield } from "../lib/heightfield.ts";
 
 /** The countries the shore can belong to. Only `taiga` is built; the rest are
@@ -51,6 +52,40 @@ export type Solid = {
   readonly z: number;
   readonly r: number;
   readonly top: number;
+};
+
+/** A GROUP OF ANIMALS placed in the water (R20): a school of herring, a
+ * pair of porpoises, one pike lying over a weed bed. A pod is a PLACE and a
+ * BEAT rather than a position — it swims a closed loop, and where any one
+ * animal in it is at a moment is `faunaPose` in `engine/game/fauna.ts`, a
+ * pure function of the pod and the clock exactly as the sea's surface is a
+ * pure function of the point and the clock. Nothing about a pod changes
+ * during a run, so nothing has to be stepped or replayed. */
+export type Pod = {
+  readonly id: string;
+  /** Which animal — a row in `engine/game/defs/fauna.ts`. */
+  readonly species: FaunaId;
+  /** How many are in it. */
+  readonly count: number;
+  /** The centre of the loop it swims, world m. */
+  readonly x: number;
+  readonly z: number;
+  /** The loop: its long semi-axis (m), how squashed it is across that
+   * (0..1), the compass heading of the long axis, and the seconds to go
+   * once round. */
+  readonly radius: number;
+  readonly ovality: number;
+  readonly heading: number;
+  readonly period: number;
+  /** Which way round (+1 clockwise from above) and where on the loop the
+   * pod stands at t = 0, rad. */
+  readonly sense: 1 | -1;
+  readonly phase: number;
+  /** How deep the pod's centreline holds, m below the surface. */
+  readonly depth: number;
+  /** The seed the formation and every animal's own weave are hashed off, so
+   * a pod's scatter is the level's and not a draw at render time. */
+  readonly scatter: number;
 };
 
 /** A floating ramp before an air gate: a flat plane the hull rides up,
@@ -102,7 +137,8 @@ export type Wind = {
 
 /** The water itself. Density is kg/m³ (fresh 1000, brackish ~1005, sea
  * ~1025 — the Baltic taiga coast is brackish); temperature °C is what the
- * fauna and the spray will read later. */
+ * fauna is drawn against (R20) — a species is met only in water inside its
+ * own band — and what the spray will read later. */
 export type WaterBody = {
   readonly density: number;
   readonly temperature: number;
@@ -131,6 +167,9 @@ export type Level = {
    * `surfaceAt`: the sea's `surfaceAt` is the wave surface.) */
   readonly materialAt: (x: number, z: number) => Surface;
   readonly solids: readonly Solid[];
+  /** What swims here (R20), in the order it was placed. Read by the
+   * renderer through `faunaPose`; nothing in the physics touches it. */
+  readonly fauna: readonly Pod[];
   readonly course: Course;
   /** Where the run starts: behind the first gate, pointing at it. */
   readonly start: { readonly x: number; readonly z: number; readonly heading: number };

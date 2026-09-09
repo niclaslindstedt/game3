@@ -30,6 +30,18 @@
 //   THE FOAM     the vertex's foam SHARE (the colour attribute's alpha),
 //                broken up by the foam tile the wake is drawn with, so a
 //                whitecap is streaks and holes rather than a white vertex.
+//   THE WINDOW   what is LEFT after the mirror has taken its share is what
+//                went through, and the water is drawn transparent by
+//                exactly that much: `alpha = mix(aWindow, 1, F) + foam`.
+//                The same Schlick term that decides how much sky a face
+//                shows decides how much of what is under it shows, which
+//                is the one place the two can never disagree — the sea is
+//                a window under the rider and a mirror out toward the
+//                horizon, for one reason rather than two. `aWindow` is the
+//                grid's own per-vertex opacity looking STRAIGHT DOWN (the
+//                water column's, so the shallows are clear and the deep is
+//                not); the far grid sets it to 1 and is opaque whatever
+//                the angle. Foam is opaque because foam is air in water.
 //
 // Everything is mixed in linear light and converted once at the end, the
 // way three's own materials do it, so the sea and the hull beside it are
@@ -146,10 +158,12 @@ function rippleTexture(): THREE.DataTexture {
 }
 
 const VERTEX = `
+  attribute float aWindow;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec4 vColor;
   varying float vHeight;
+  varying float vWindow;
   #include <fog_pars_vertex>
   void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
@@ -158,6 +172,7 @@ const VERTEX = `
     vNormal = normal;
     vColor = color;
     vHeight = position.y;
+    vWindow = aWindow;
     vec4 mvPosition = viewMatrix * world;
     gl_Position = projectionMatrix * mvPosition;
     #include <fog_vertex>
@@ -190,6 +205,7 @@ const FRAGMENT = `
   varying vec3 vNormal;
   varying vec4 vColor;
   varying float vHeight;
+  varying float vWindow;
   #include <fog_pars_fragment>
 
   // The sky in direction R — sky.ts's skyToneAt, in GLSL: the gradient on
@@ -259,7 +275,10 @@ const FRAGMENT = `
     vec3 foamCol = uFoamColor * irradiance * RECIPROCAL_PI;
     col = mix(col + glint, foamCol, foam);
 
-    gl_FragColor = vec4(col, 1.0);
+    // THE WINDOW: opaque by the share the mirror took, by the column's own
+    // opacity straight down, and wherever there is foam.
+    float alpha = clamp(mix(vWindow, 1.0, F) + foam, 0.0, 1.0);
+    gl_FragColor = vec4(col, alpha);
     #include <fog_fragment>
     #include <colorspace_fragment>
   }`;
@@ -298,6 +317,13 @@ export function createWaterMaterial(): WaterMaterial {
     fragmentShader: FRAGMENT,
     vertexColors: true,
     fog: true,
+    // Transparent, and still writing depth. The wake and the spray sit ON
+    // the water and depth-test against it, and they are drawn after it
+    // because their `renderOrder` is higher than this material's default;
+    // the far grid is sunk under the near one and the same depth test is
+    // what keeps it from painting over it.
+    transparent: true,
+    depthWrite: true,
   });
 }
 

@@ -133,6 +133,10 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     ],
     materialAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
     solids,
+    // Empty water: the synthetic level stages the PHYSICS, and nothing in
+    // the physics touches the fauna. A test about the sea life stands its
+    // own pods (tests/fauna_test.ts).
+    fauna: [],
     course: { gates, path, length: 680 },
     start: { x: 20, z: 40, heading: east },
     wind: { from: opts.windFrom ?? Math.PI, speed: opts.windSpeed ?? 4 },

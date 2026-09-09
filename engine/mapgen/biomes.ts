@@ -4,7 +4,7 @@
 // A biome is everything about a shore that is not the course: what the
 // land is made of and how it stands, what the water is (brackish or salt,
 // warm or cold), how thickly the rocks stand offshore, what the sky over it
-// can be (R19), and — later — what swims in it. The difference between
+// can be (R19), and what swims in its water (R20). The difference between
 // the coasts is stated here, once, as rows the rest of the generator reads
 // through `biomeOf`. Nothing else in `mapgen/` names a country: the
 // geology asks the row how high the land stands and how much of a bay is
@@ -19,6 +19,7 @@
 // skerries and reefs a stone's throw out. Asking for an unbuilt biome
 // throws, by design: a level on a coast nobody has drawn is not a level.
 
+import type { FaunaId } from "../game/defs/fauna.ts";
 import type { Band } from "./rules.ts";
 import type { BiomeId, Weather } from "./types.ts";
 
@@ -50,6 +51,11 @@ export type Biome = {
    * will not get a Baltic squall — so the chart is the biome's rather than
    * the rule book's. */
   readonly weathers: readonly Weather[];
+  /** What SWIMS on this coast (R20) — ids from `engine/game/defs/fauna.ts`.
+   * How often each is met is the catalog's `perKm`, not the biome's: a
+   * coast says which animals are possible, the animal says how rare it is.
+   * A coast that offers none simply has no life in its water. */
+  readonly fauna: readonly FaunaId[];
 };
 
 /** Every biome that is BUILT, in the order they are offered. */
@@ -76,6 +82,22 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // coming in off the open sea in an afternoon, and the whole point of
     // hanging the draw on the wind is that both are on the same chart.
     weathers: ["clear", "high", "overcast", "rain", "squall"],
+    // R20 — the Bothnian Sea's own fish and its one cetacean, and the four
+    // Atlantic strays a northern shore sees once in a generation. Listing
+    // the strays is what makes them possible at all; the catalog's `perKm`
+    // is what keeps them worth seeing.
+    fauna: [
+      "herring",
+      "roach",
+      "perch",
+      "pike",
+      "salmon",
+      "porpoise",
+      "dolphin",
+      "shark",
+      "orca",
+      "minke",
+    ],
   },
 };
 

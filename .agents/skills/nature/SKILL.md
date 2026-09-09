@@ -27,7 +27,10 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.materialAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
 | `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground`, so a bed that changes shape changes what the water looks like over it (`water-feel`) |
-| `pwa/src/game/fauna.ts`, `engine/mapgen/fauna.ts` | Placeholders: the fish and animals in the sea. Not this session's |
+| `engine/game/defs/fauna.ts` | THE CATALOG (R20): the ten animals, and for each what it is — length, beam, cruising speed, the depth it holds at, the water it needs, its offshore band, its school size, its breathing interval, its temperature band — and `perKm`, how rare it is. `rarityOf` turns that one number into the word; nothing states the word |
+| `engine/mapgen/fauna.ts` | THE PLACER (R20): pods laid along the coast after the rocks, each tried a bounded number of times for a spot with the water its species needs the whole way round the loop it swims, clear of the solids. Its draws come off the END of the seed's stream, after R19's sky, so adding or retuning an animal moves no geometry |
+| `engine/game/fauna.ts` | THE SWIM MODEL: `faunaPose(pod, i, t, out)` — the loop, the formation, the weave, the breath — a pure function of the placement and the clock, the fauna's own `surfaceAt`. Nothing about the sea life is ever stepped |
+| `pwa/src/game/fauna.ts` | THE LOOK: `STYLES` (paint, fin proportions, markings) and the parametric body, one instanced draw call a species, with the tail beat and the depth haze grafted into the vertex shader |
 
 Biome → material ids are strings on purpose: `biomes.ts` imports nothing from
 the renderer, and the terrain painter throws on an unknown `Surface`, so a new
@@ -35,6 +38,31 @@ material fails loudly on the first level build. Shared value noise lives in
 `engine/lib/noise.ts` (and `pwa/src/lib/noise.ts` for paint-only detail) —
 the shore's shaping and the terrain's paint must keep drawing from the same
 helpers or their patches stop lining up.
+
+## The sea life, and why it is drawn the way it is
+
+The game only ever sees an animal from a CHASE CAMERA looking ALONG the
+water, and that one fact decides everything about the fauna's look:
+
+- **A silhouette from above is all there is.** The dorsal, the pectorals and
+  the tail span are what separate one species from another; a marking that
+  only shows in profile shows nowhere. The markings that survive are the
+  ones on a back — an orca's saddle, a minke's flipper bands, a perch's bars.
+- **Depth is the enemy of visibility, and the depth cue at the same time.**
+  The water's own alpha (`water-mesh.ts`) is one number for a patch of sea
+  and cannot know how far under it a thing is; the ANIMAL carries its own
+  depth, hazed toward the water's bright shallow tone, so a deep one is a
+  pale ghost and a surfacing one is crisp and dark. That is why every animal
+  in the catalog holds far shallower than the water it needs: `depth` and
+  `water` say different things and neither is the other's slack.
+- **A breath is the sighting.** A cetacean rolling its back through the
+  surface is the only moment it reads at range, which is why the catalog's
+  breathing intervals are the short end of the real ones.
+- **Rarity is the feature.** Retuning `perKm` is retuning the whole thing:
+  run a sweep of seeds and COUNT before and after (`make level SEED=n`
+  prints a seed's roster, `make analyze` the pods and animals per level),
+  and check the ladder still reads — commonest several times a ride,
+  legendary once in dozens.
 
 ## The biome model
 

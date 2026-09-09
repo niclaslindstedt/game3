@@ -30,7 +30,9 @@ import { sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
 import { CRAFT } from "../game/defs/craft.ts";
 import { topSpeedOf } from "../game/limits.ts";
+import { faunaById } from "../game/defs/fauna.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
+import { podClearance, walkPod } from "../mapgen/fauna.ts";
 import {
   airCorridor,
   cumulative,
@@ -43,7 +45,8 @@ import {
 import { TUNING } from "../game/defs/tuning.ts";
 import { launchSpeedFor } from "../sim/bot.ts";
 import { LEVEL_RULES as R, withinBand, type Band } from "../mapgen/rules.ts";
-import type { Gate, Level, Solid, Weather } from "../mapgen/types.ts";
+import { insideBounds } from "../mapgen/compile.ts";
+import type { Gate, Level, Pod, Solid, Weather } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 
 export { ANALYSIS } from "./budgets.ts";
@@ -53,7 +56,7 @@ export { ANALYSIS } from "./budgets.ts";
 export type Severity = "error" | "warn";
 
 export type Finding = {
-  /** The rule it is about, `R1`…`R17`. */
+  /** The rule it is about, `R1`…`R20`. */
   rule: string;
   /** `<rule>.<check>` — stable, so a fix can be pointed at one string. */
   code: string;
@@ -81,6 +84,9 @@ export type LevelAnalysis = {
     maxLand: number;
     maxDepth: number;
     solids: number;
+    /** Pods placed, and the animals in them (R20). */
+    pods: number;
+    animals: number;
     windSpeed: number;
     hour: number;
     weather: Weather;
@@ -427,6 +433,13 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R17 — the rocks themselves ──────────────────────────────────────
   for (const s of level.solids) analyzeSolid(level, s, offshoreAt, depthAt, rep);
 
+  // ── R20 — the sea life ──────────────────────────────────────────────
+  let animals = 0;
+  for (const pod of level.fauna) {
+    animals += pod.count;
+    analyzePod(level, pod, offshoreAt, depthAt, rep);
+  }
+
   const findings = [...rep.findings].sort((a, b) =>
     a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1,
   );
@@ -445,6 +458,8 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       maxLand,
       maxDepth,
       solids: level.solids.length,
+      pods: level.fauna.length,
+      animals,
       windSpeed: level.wind.speed,
       hour: level.hour,
       weather: level.weather,
@@ -823,4 +838,87 @@ function analyzeSolid(
       );
     }
   }
+}
+
+/** R20 — one pod, re-checked on the finished level: the animal is one the
+ * coast offers and the water is warm enough for it, its centre is inside
+ * its offshore band, and the whole loop it swims is inside the level, over
+ * water deep enough for it, and clear of the rocks. The clearance is
+ * `podClearance`'s, not a second opinion about it. */
+function analyzePod(
+  level: Level,
+  pod: Pod,
+  offshoreAt: (x: number, z: number) => number,
+  depthAt: (x: number, z: number) => number,
+  rep: Report,
+): void {
+  const biome = biomeOf(level.biome);
+  const spec = faunaById(pod.species);
+  const at = { x: pod.x, z: pod.z };
+  if (!biome.fauna.includes(pod.species)) {
+    rep.fail("R20", "species", `${pod.id} is a ${spec.name}, which ${biome.name} has no row for`, {
+      at,
+    });
+    return;
+  }
+  if (!withinBand(level.water.temperature, spec.temperature)) {
+    rep.fail(
+      "R20",
+      "temperature",
+      `${pod.id} (${spec.name}) is in ${fmt(level.water.temperature)} °C water (band ${bandText(spec.temperature)} °C)`,
+      { at, value: level.water.temperature },
+    );
+  }
+  if (!withinBand(pod.count, spec.school)) {
+    rep.fail(
+      "R20",
+      "school",
+      `${pod.id} holds ${pod.count} ${spec.name} (band ${bandText(spec.school)})`,
+      { at, value: pod.count },
+    );
+  }
+  if (!withinBand(pod.depth, spec.depth)) {
+    rep.fail(
+      "R20",
+      "depth",
+      `${pod.id} holds at ${fmt(pod.depth)} m (band ${bandText(spec.depth)} m)`,
+      { at, value: pod.depth },
+    );
+  }
+  const off = offshoreAt(pod.x, pod.z);
+  if (!withinBand(off, spec.offshore, R.grid.cell)) {
+    rep.fail(
+      "R20",
+      "offshore",
+      `${pod.id} (${spec.name}) swims ${fmt(off)} m from the shore (band ${bandText(spec.offshore)} m)`,
+      { at, value: off },
+    );
+  }
+  const need = podClearance(spec, pod.depth);
+  walkPod(pod, (x, z) => {
+    if (!insideBounds(level.bounds, x, z)) {
+      rep.fail("R20", "bounds", `${pod.id}'s loop leaves the level`, { at: { x, z } });
+      return;
+    }
+    const water = depthAt(x, z);
+    if (water < need - A.sea.tolerance) {
+      rep.fail(
+        "R20",
+        "water",
+        `${pod.id} (${spec.name}) swims over ${fmt(water)} m of water and needs ${fmt(need)} m`,
+        { at: { x, z }, value: water },
+      );
+    }
+    for (const s of level.solids) {
+      const gap = Math.hypot(s.x - x, s.z - z) - s.r;
+      if (gap < R.fauna.clear - A.distance) {
+        rep.fail(
+          "R20",
+          "clear",
+          `${pod.id}'s loop passes ${fmt(gap)} m from ${s.id} (rule ${R.fauna.clear} m)`,
+          { at: { x, z }, value: gap },
+        );
+      }
+    }
+  });
 }
