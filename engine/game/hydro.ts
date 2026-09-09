@@ -49,7 +49,8 @@ function smooth(v: number, lo: number, hi: number): number {
  * transom and the bow stations (negative when clear): the keel crosses
  * the surface between them where the depth interpolates to zero. */
 export function wettedLength(spec: CraftSpec, transomDepth: number, bowDepth: number): number {
-  const span = spec.length * (TUNING.hull.stations[TUNING.hull.stations.length - 1] - TUNING.hull.stations[0]);
+  const span =
+    spec.length * (TUNING.hull.stations[TUNING.hull.stations.length - 1] - TUNING.hull.stations[0]);
   if (transomDepth <= 0) return 0;
   if (bowDepth >= 0) return spec.length;
   const f = transomDepth / (transomDepth - bowDepth);
@@ -75,11 +76,16 @@ export function planingLift(
   }
   // Below Savitsky's trim floor the lift is scaled linearly to zero rather
   // than evaluated: τ^1.1 is fine there but the data is not.
-  const under = trimDeg < P.trimMin ? trimDeg / P.trimMin : 1;
+  // ...and so is the wetted length below the λ floor: a bottom with a
+  // hand's breadth of keel in the water is not carrying the lift of one
+  // with a beam's worth, whatever the clamp on λ says.
+  const under =
+    (trimDeg < P.trimMin ? trimDeg / P.trimMin : 1) * clamp(wetted / (P.lambdaMin * beam), 0, 1);
   const tau = clamp(trimDeg, P.trimMin, P.trimMax);
   const lambda = clamp(wetted / beam, P.lambdaMin, P.lambdaMax);
   const cv2 = Math.max(cv * cv, 0.25);
-  const cl0 = Math.pow(tau, 1.1) * (0.012 * Math.sqrt(lambda) + (0.0055 * Math.pow(lambda, 2.5)) / cv2);
+  const cl0 =
+    Math.pow(tau, 1.1) * (0.012 * Math.sqrt(lambda) + (0.0055 * Math.pow(lambda, 2.5)) / cv2);
   const clBeta = cl0 - 0.0065 * spec.deadrise * Math.pow(cl0, 0.6);
   const cl = clamp(clBeta, 0, P.clMax);
   const lift = 0.5 * density * speed * speed * beam * beam * cl * fade * under;

@@ -116,7 +116,12 @@ export function stepCourse(
 
 /** Where a reset stands the craft: behind the last gate taken, or the
  * start, facing the next gate. */
-export function resetPose(state: GameState): { x: number; z: number; heading: number; gate: number } {
+export function resetPose(state: GameState): {
+  x: number;
+  z: number;
+  heading: number;
+  gate: number;
+} {
   const gates = state.level.course.gates;
   const p = state.progress;
   const last = p.passed.length > 0 ? p.passed[p.passed.length - 1] : -1;
@@ -127,9 +132,7 @@ export function resetPose(state: GameState): { x: number; z: number; heading: nu
   }
   const gate = gates[last];
   const heading =
-    p.nextGate < gates.length
-      ? Math.atan2(next.x - gate.x, next.z - gate.z)
-      : gate.heading;
+    p.nextGate < gates.length ? Math.atan2(next.x - gate.x, next.z - gate.z) : gate.heading;
   // Stand a little behind the line, along the gate's own facing, so the
   // line is crossed by a MOVE the next time and not by the reset itself.
   const x = gate.x - Math.sin(gate.heading) * K.resetBack;
@@ -174,12 +177,18 @@ export function resetCraft(state: GameState, events: GameEvent[]): void {
 
 /** The heading from the craft to the next gate's centre, and how far off
  * the craft's own heading that is, for the HUD's arrow and the bot. */
-export function bearingToNext(state: GameState): { bearing: number; error: number; distance: number } | null {
+export function bearingToNext(
+  state: GameState,
+): { bearing: number; error: number; distance: number } | null {
   const gates = state.level.course.gates;
   const n = state.progress.nextGate;
   if (n >= gates.length) return null;
   const g = gates[n];
   const c = state.craft;
   const bearing = Math.atan2(g.x - c.x, g.z - c.z);
-  return { bearing, error: angleDiff(c.heading, bearing), distance: Math.hypot(g.x - c.x, g.z - c.z) };
+  return {
+    bearing,
+    error: angleDiff(c.heading, bearing),
+    distance: Math.hypot(g.x - c.x, g.z - c.z),
+  };
 }

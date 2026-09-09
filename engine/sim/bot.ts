@@ -9,23 +9,36 @@
 
 import { angleDiff, clamp } from "../lib/math.ts";
 import { onRampDeck, solidNear } from "../game/collision.ts";
+import { TUNING } from "../game/defs/tuning.ts";
+import { topSpeedOf } from "../game/limits.ts";
 import type { CraftInput, GameState } from "../game/state.ts";
 import type { Gate } from "../mapgen/types.ts";
 
 export type BotProfile = {
-  /** Steering gain on the bearing error, per radian. */
+  /** Steering gain on the bearing error, per radian, and the damping on
+   * the yaw rate, per rad/s. */
   steerGain: number;
+  yawDamp: number;
   /** How far ahead of the ramp's hinge the approach point stands, m, so
    * the craft is lined up along the ramp's axis before it reaches it. */
   rampApproach: number;
   /** Within this distance of the approach point, m, the bot aims along
-   * the ramp's heading instead of at a point. */
+   * the ramp's heading instead of at a point, and how far ahead of its own
+   * station on the axis it then aims, m. */
   rampCommit: number;
+  axisAhead: number;
+  axisAheadTime: number;
+  /** How far short of the axis the pursuit aims per m/s the hull is
+   * already closing on it, s — the damping on the line-up. */
+  axisSettle: number;
   /** Pitch the bot levels toward in the air, rad (a touch nose-up lands
    * flatter through the slam), and the gains on the error and the rate. */
   airPitch: number;
   airGainP: number;
   airGainD: number;
+  /** ...and on the roll, held level with the bars. */
+  airRollGain: number;
+  airRollDamp: number;
   /** How far ahead the bot looks for a rock, m, and how far off the line it
    * moves its aim to miss one, m. */
   lookAhead: number;
@@ -34,35 +47,116 @@ export type BotProfile = {
    * how far off it comes. */
   easeAngle: number;
   easeTo: number;
+  /** How far past a gate's plane, m, the bot stops trying for it and
+   * aims at the next. */
+  giveUpPast: number;
+  /** The pace governor on a ramp run: throttle per m/s of shortfall, and
+   * the least throttle it ever holds there. */
+  paceGain: number;
+  paceFloor: number;
+  /** The bearing error, rad, within which the run at a ramp counts as
+   * lined up and the pace governor is allowed the throttle. */
+  alignedWithin: number;
 };
 
 export const RIDER_BOT: BotProfile = {
   steerGain: 2.2,
-  rampApproach: 45,
-  rampCommit: 12,
+  yawDamp: 0.4,
+  rampApproach: 85,
+  rampCommit: 15,
+  axisAhead: 14,
+  axisAheadTime: 0.9,
+  axisSettle: 0.7,
   airPitch: 0.08,
   airGainP: 2.5,
   airGainD: 0.9,
+  airRollGain: 3,
+  airRollDamp: 0.6,
   lookAhead: 40,
   dodge: 9,
   easeAngle: 0.9,
   easeTo: 0.55,
+  giveUpPast: 6,
+  paceGain: 0.35,
+  paceFloor: 0.3,
+  alignedWithin: 0.12,
 };
+
+/** The speed to arrive at the ramp's hinge with, m/s, so that the centre
+ * of gravity leaves the lip on a ballistic arc through the ring: from the
+ * lip at height `lipY + cog.y`, the arc at the ramp's angle has to be at
+ * the ring's height `d` metres past the lip, v_lip² = g·d² / (2·cos²a·
+ * (lipY + cog.y + d·tan a − ringY)), and the hinge speed pays for the
+ * climb up the deck, v² = v_lip² + 2·g·lipY, with a little over for the
+ * deck's friction. A ring higher than any arc reaches reads as flat out.
+ * A rider judges this by eye; the bot judges it by the same geometry. */
+export function launchSpeedFor(gate: Gate, cogY: number, topSpeed: number): number {
+  const r = gate.ramp;
+  if (!r) return topSpeed;
+  const sh = Math.sin(r.heading);
+  const ch = Math.cos(r.heading);
+  const alongGate = (gate.x - r.x) * sh + (gate.z - r.z) * ch;
+  const d = alongGate - r.length;
+  if (d <= 0) return topSpeed;
+  const lipY = r.length * Math.tan(r.angle);
+  const drop = lipY + cogY + d * Math.tan(r.angle) - gate.y;
+  if (drop <= 0.05) return topSpeed;
+  const cos = Math.cos(r.angle);
+  const lip2 = (TUNING.g * d * d) / (2 * cos * cos * drop);
+  const v = Math.sqrt(lip2 + 2 * TUNING.g * lipY) * 1.04;
+  return clamp(v, 4, topSpeed);
+}
 
 /** The point the bot aims at for the next gate: the gate's centre for a
  * water gate; for an air gate, the ramp's approach point until the craft
- * is nearly on it, then straight along the ramp. */
-function aimFor(gate: Gate, x: number, z: number, profile: BotProfile): { ax: number; az: number; along: boolean } {
-  if (gate.kind !== "air" || !gate.ramp) return { ax: gate.x, az: gate.z, along: false };
+ * is nearly on it, then a point on the ramp's AXIS a little ahead of the
+ * craft's own projection onto it — a pure pursuit that pulls the hull onto
+ * the line, where aiming at the far end of the axis would only ever
+ * parallel it. `speed` is the pace to hold on the way, m/s, or null for
+ * flat out. */
+function aimFor(
+  gate: Gate,
+  x: number,
+  z: number,
+  vx: number,
+  vz: number,
+  cogY: number,
+  topSpeed: number,
+  profile: BotProfile,
+): { ax: number; az: number; along: boolean; speed: number | null } {
+  if (gate.kind !== "air" || !gate.ramp)
+    return { ax: gate.x, az: gate.z, along: false, speed: null };
   const r = gate.ramp;
   const sh = Math.sin(r.heading);
   const ch = Math.cos(r.heading);
   const ax = r.x - sh * profile.rampApproach;
   const az = r.z - ch * profile.rampApproach;
-  // Past the approach point (or within reach of it), commit to the axis.
   const along = (x - ax) * sh + (z - az) * ch;
-  if (along > -profile.rampCommit) return { ax: r.x + sh * 200, az: r.z + ch * 200, along: true };
-  return { ax, az, along: false };
+  if (along > -profile.rampCommit) {
+    // The craft's own station along the axis, then the pursuit point
+    // ahead of it — further ahead the faster it is going, so the pull
+    // onto the line is a turn the hull can make at that speed.
+    const speed = Math.hypot(vx, vz);
+    const ahead = Math.max(profile.axisAhead, speed * profile.axisAheadTime);
+    const station = (x - r.x) * sh + (z - r.z) * ch + ahead;
+    // ...and a little short of the line in the direction the hull is
+    // already closing on it, so a nimble hull arrives on the axis rather
+    // than swinging through it. The right vector is (cos h, −sin h).
+    const closing = vx * ch - vz * sh;
+    const offset = -closing * profile.axisSettle;
+    return {
+      ax: r.x + sh * station + ch * offset,
+      az: r.z + ch * station - sh * offset,
+      along: true,
+      speed: launchSpeedFor(gate, cogY, topSpeed),
+    };
+  }
+  return { ax, az, along: false, speed: null };
+}
+
+/** How far past a gate's plane a point is, m (negative before it). */
+function pastGate(gate: Gate, x: number, z: number): number {
+  return (x - gate.x) * Math.sin(gate.heading) + (z - gate.z) * Math.cos(gate.heading);
 }
 
 export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): CraftInput {
@@ -72,8 +166,13 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   if (state.phase !== "running" || n >= gates.length) {
     return { steer: 0, throttle: 0, lean: 0, reset: false };
   }
-  const gate = gates[n];
-  const aim = aimFor(gate, c.x, c.z, profile);
+  // A gate already BEHIND the craft — a ring sailed over, a buoy passed
+  // on the wrong side — is a gate to pay for, not to turn back for: the
+  // next one counts it as reached (`course.ts`), so aim there. What no
+  // rider does is loop back at speed through a field of skerries.
+  let gate = gates[n];
+  if (n + 1 < gates.length && pastGate(gate, c.x, c.z) > profile.giveUpPast) gate = gates[n + 1];
+  const aim = aimFor(gate, c.x, c.z, c.vx, c.vz, c.spec.cog.y, topSpeedOf(c.spec), profile);
   let ax = aim.ax;
   let az = aim.az;
 
@@ -102,9 +201,29 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
 
   const bearing = Math.atan2(ax - c.x, az - c.z);
   const error = angleDiff(c.heading, bearing);
-  const steer = clamp(error * profile.steerGain, -1, 1);
+  // In the air the bars roll the hull, not the course: hold it level for
+  // the landing. Right side down is positive roll and positive steer
+  // rolls right, so the correction is the roll's opposite.
+  // Afloat, the bearing error is damped by the yaw rate the hull already
+  // has: a hull coming round at speed is steered less, not more, or it
+  // weaves down the straight the way a rider who only looks at the buoy
+  // does.
+  const steer = c.airborne
+    ? clamp(-c.roll * profile.airRollGain + c.wz * profile.airRollDamp, -1, 1)
+    : clamp(error * profile.steerGain - c.wy * profile.yawDamp, -1, 1);
   let throttle = 1;
   if (Math.abs(error) > profile.easeAngle) throttle = profile.easeTo;
+  // On the run at a ramp, hold the pace the ring asks for — never below
+  // what keeps the nozzle steering, since a shut throttle is a hull that
+  // will not turn onto the axis.
+  // ...and only once lined up: a hull still turning onto the axis needs
+  // its thrust more than its pace.
+  if (aim.speed !== null && !c.airborne && Math.abs(error) < profile.alignedWithin) {
+    throttle = Math.min(
+      throttle,
+      clamp(profile.paceFloor + (aim.speed - c.speed) * profile.paceGain, profile.paceFloor, 1),
+    );
+  }
 
   let lean = 0;
   if (c.airborne) {
@@ -121,7 +240,11 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
     lean = 1;
   }
 
-  // Stuck on the ground with no way on: go back to the last gate.
-  const reset = c.onGround && c.speed < 0.5 && state.t > 2;
+  // Stuck — on the ground with no way on, or wedged against a rock it
+  // has just hit and cannot get off: go back to the last gate.
+  const wedged = c.hitCooldown > 0 && c.speed < 0.8 && !c.airborne;
+  // ...or over on its back, which a rider rights by hand.
+  const capsized = Math.abs(c.roll) > Math.PI / 2 && c.speed < 1.5 && !c.airborne;
+  const reset = state.t > 2 && ((c.onGround && c.speed < 0.5) || wedged || capsized);
   return { steer, throttle, lean, reset };
 }

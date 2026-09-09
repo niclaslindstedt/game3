@@ -33,7 +33,14 @@ export {
   type GameState,
   type Progress,
 } from "./game/state.ts";
-export { CRAFT, CRAFT_IDS, craftById, isCraftId, type CraftId, type CraftSpec } from "./game/defs/craft.ts";
+export {
+  CRAFT,
+  CRAFT_IDS,
+  craftById,
+  isCraftId,
+  type CraftId,
+  type CraftSpec,
+} from "./game/defs/craft.ts";
 export { TUNING } from "./game/defs/tuning.ts";
 export { FAUNA, type FaunaId } from "./game/defs/fauna.ts";
 export { freshDamage, type CraftDamage } from "./game/damage.ts";
@@ -82,7 +89,14 @@ export {
   thrust,
 } from "./game/propulsion.ts";
 // What a craft CAN do, stated once (limits.ts).
-export { MAX_LEAN, airPitchTorque, jetCeiling, maxNozzle, maxRpm, topSpeedOf } from "./game/limits.ts";
+export {
+  MAX_LEAN,
+  airPitchTorque,
+  jetCeiling,
+  maxNozzle,
+  maxRpm,
+  topSpeedOf,
+} from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).
 export { boundsPush, onRampDeck, rampDeckY, solidNear } from "./game/collision.ts";
 export { bearingToNext, crossedGate, resetPose } from "./game/course.ts";

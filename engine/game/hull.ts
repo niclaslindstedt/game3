@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE HULL IN THE WATER. The hull is a set of PROBES laid out from the
-// spec's length, beam, depth and deadrise: four stations along the keel,
-// each a keel point and two chine points, plus two deck points so an
-// inverted hull still floats. Each probe owns a share of the hull's volume
+// spec's length, beam, depth and deadrise: six stations along the keel,
+// each a keel point and two chine points, plus four deck points at the
+// gunwales so a heeled hull rights and an inverted one still floats. Each probe owns a share of the hull's volume
 // and of its bottom area, and every water force is summed probe by probe
 // off the wave surface at that probe — its height AND its orbital
 // velocity, so a wave face lifts the bow and its crest carries the hull
@@ -13,13 +13,21 @@
 // form drag for the displacement-mode hump; a lateral plate drag for the
 // keel and sponsons with the V bottom's bank-in; a flat-plate heave drag;
 // von Kármán's (1929) wedge impact for the slam on re-entry. Savitsky's
-// planing lift is `hydro.ts`'s and is DISTRIBUTED here over the wet
-// probes. Numbers live in `defs/`, not here.
+// planing lift (`hydro.ts`) is applied here as a STRIP model: each wet
+// bottom probe lifts by the coefficient its OWN local flow angle earns,
+// weighted by its share of the wetted bottom — so a probe moving down into
+// the water meets it at a steeper angle and lifts harder, which is the
+// planing surface's heave and pitch damping falling out of the geometry
+// rather than being added, and what keeps the hull from porpoising. The
+// resultant stands at the wetted bottom's centroid rather than at
+// Savitsky's 0.75·λ·B; the tests hold the trim it settles to. Numbers live
+// in `defs/`, not here.
 
 import { rotate, unrotate, type Quat, type Vec3 } from "../lib/quat.ts";
 import { clamp } from "../lib/math.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
+import { planingLift, wettedLength } from "./hydro.ts";
 import type { SurfaceSample } from "./water.ts";
 
 const H = TUNING.hull;
@@ -43,6 +51,13 @@ export type HullProbe = {
   /** −1 port, 0 keel, +1 starboard. */
   readonly side: number;
   readonly station: number;
+  /** The bottom's rise toward the bow at this station, rad — the keel's
+   * angle to the body's forward axis; 0 over the flat run aft. */
+  readonly slope: number;
+  /** This probe's share of the hull's LATERAL projected area (keel and
+   * chines of one station add to the station's), and of its frontal
+   * section. */
+  readonly lateralShare: number;
 };
 
 const cache = new Map<string, readonly HullProbe[]>();
@@ -54,7 +69,8 @@ export function hullProbes(spec: CraftSpec): readonly HullProbe[] {
   const probes: HullProbe[] = [];
   const stations = H.stations;
   const shareSum = H.stationShare.reduce((a, b) => a + b, 0);
-  const bottomVolume = spec.displacement * (1 - H.deckShare);
+  const lateralSum = H.lateralStationShare.reduce((a, b) => a + b, 0);
+  const bottomVolume = spec.displacement;
   // Plan area of a V bottom: the rectangle less the bow's taper.
   const bottomArea = spec.length * spec.beam * 0.72;
   const halfBeam = spec.beam / 2;
@@ -63,9 +79,9 @@ export function hullProbes(spec: CraftSpec): readonly HullProbe[] {
   for (let i = 0; i < stations.length; i++) {
     const s = stations[i];
     const share = H.stationShare[i] / shareSum;
-    const bow = i === stations.length - 1;
-    const taper = bow ? H.bowTaper : 1;
-    const rise = bow ? H.bowRise * spec.height : 0;
+    const taper = H.stationTaper[i];
+    const rise = H.stationRise[i] * spec.height;
+    const riseBehind = i > 0 ? H.stationRise[i - 1] * spec.height : 0;
     const z = (s - 0.5) * spec.length - spec.cog.z;
     const keelY = -spec.cog.y + rise;
     const chineOut = H.chineOut * halfBeam * taper;
@@ -74,6 +90,7 @@ export function hullProbes(spec: CraftSpec): readonly HullProbe[] {
     const area = bottomArea * share;
     const height = spec.height * 0.72;
     const width = spec.beam * taper;
+    const slope = Math.atan((rise - riseBehind) / stationLength);
     const row: [number, number, number, "keel" | "chine", number][] = [
       [0, keelY, volume * H.keelShare, "keel", 0],
       [-chineOut, chineY, (volume * (1 - H.keelShare)) / 2, "chine", -1],
@@ -93,26 +110,36 @@ export function hullProbes(spec: CraftSpec): readonly HullProbe[] {
         kind,
         side,
         station: i,
+        slope,
+        lateralShare: (areaShare * H.lateralStationShare[i]) / lateralSum,
       });
     }
   }
-  // The deck: two probes at the sheer, fore and aft, owning the volume
-  // above the chines. They fill over the top third of the hull.
+  // The deck: four probes at the SHEER — the gunwales, both sides, fore
+  // and aft — owning the sealed volume above the bottom. Out at the sides
+  // because that is where the topsides are: a hull heeled past its chines
+  // puts its low gunwale under and is righted by it, and a hull all the
+  // way over floats on both. They fill over the top third of the hull.
   const deckY = spec.height - spec.cog.y;
+  const deckOut = 0.85 * halfBeam;
   for (const zf of [-0.3, 0.3]) {
-    probes.push({
-      x: 0,
-      y: deckY,
-      z: zf * spec.length - spec.cog.z,
-      volume: (spec.displacement * H.deckShare) / 2,
-      height: spec.height * 0.3,
-      area: bottomArea / 6,
-      width: spec.beam * 0.6,
-      length: stationLength,
-      kind: "deck",
-      side: 0,
-      station: -1,
-    });
+    for (const side of [-1, 1]) {
+      probes.push({
+        x: side * deckOut,
+        y: deckY,
+        z: zf * spec.length - spec.cog.z,
+        volume: (spec.displacement * H.deckShare) / 4,
+        height: spec.height * 0.3,
+        area: bottomArea / 12,
+        width: spec.beam * 0.3,
+        length: stationLength,
+        kind: "deck",
+        side,
+        station: -1,
+        slope: 0,
+        lateralShare: 0.05,
+      });
+    }
   }
   cache.set(spec.id, probes);
   return probes;
@@ -207,6 +234,17 @@ export type HullResult = {
    * where the planing lift stands, so a rolled hull is lifted on its
    * deeper chine and rights. */
   liftX: number;
+  /** The water's total sideways push on the hull, body right, N — what the
+   * sponsons bank against. */
+  lateral: number;
+  /** Mean orbital velocity of the water under the wet probes, world
+   * frame, m/s — the flow the trim is read against. */
+  waterVx: number;
+  waterVy: number;
+  waterVz: number;
+  /** Total planing lift applied, N, and the wetted keel length, m. */
+  planingLift: number;
+  wettedLength: number;
 };
 
 export type ProbeSample = {
@@ -326,11 +364,16 @@ export function hullForces(
   out.ny = 0;
   out.entryVy = 0;
   out.liftX = 0;
+  out.lateral = 0;
+  out.waterVx = out.waterVy = out.waterVz = 0;
+  out.planingLift = 0;
+  out.wettedLength = 0;
   const right = rotate(q, { x: 1, y: 0, z: 0 });
   const up = rotate(q, { x: 0, y: 1, z: 0 });
   const fwd = rotate(q, { x: 0, y: 0, z: 1 });
   const deadrise = (spec.deadrise * Math.PI) / 180;
   const cotDeadrise = 1 / Math.tan(Math.max(deadrise, 0.05));
+  const stations = H.stations;
   const tanDeadrise = Math.tan(deadrise);
   const mass = totalMass(spec);
   let bottomArea = 0;
@@ -356,11 +399,19 @@ export function hullForces(
     s.fill = clamp(s.depth / p.height, 0, 1);
     if (p.kind !== "deck") {
       bottomArea += p.area;
-      if (s.depth > 0) wetArea += p.area * Math.min(1, s.depth / (p.height * 0.35));
+      if (s.depth > 0) wetArea += p.area * Math.min(1, s.depth / (p.height * H.patchWet));
       if (p.kind === "keel" && p.station === 0) out.transomDepth = s.depth;
       if (p.kind === "keel" && p.station === H.stations.length - 1) out.bowDepth = s.depth;
       if (s.depth > 0) {
-        const w = p.area * Math.min(s.depth, p.height);
+        // The pressure on a planing bottom peaks at the stagnation line
+        // at the forward end of the wetted length and falls to nothing at
+        // the transom (the flow leaves it cleanly — the Kutta condition
+        // Savitsky's 0.75·λ·B centre of pressure comes from), so a
+        // probe's share of the lift rises toward the bow of the wet part.
+        const w =
+          p.area *
+          Math.min(s.depth, p.height) *
+          (H.liftAft + (1 - H.liftAft) * stations[p.station]);
         liftWeight += w;
         liftX += w * p.x;
       }
@@ -369,6 +420,10 @@ export function hullForces(
   }
   out.wetted = bottomArea > 0 ? wetArea / bottomArea : 0;
   out.liftX = liftWeight > 0 ? liftX / liftWeight : 0;
+  const wetLen = wettedLength(spec, out.transomDepth, out.bowDepth);
+  out.wettedLength = wetLen;
+  // An inverted hull's bottom is in the air: no planing lift.
+  const canPlane = up.y > 0.2 && wetLen > 0;
   out.intakeWet = out.transomDepth > -TUNING.pump.intakeDepth;
 
   for (let i = 0; i < probes.length; i++) {
@@ -423,26 +478,67 @@ export function hullForces(
       out.nx += s.surface.nx;
       out.ny += s.surface.ny;
       out.nz += s.surface.nz;
+      out.waterVx += s.surface.vx;
+      out.waterVy += s.surface.vy;
+      out.waterVz += s.surface.vz;
       flowCount += 1;
     }
 
     // Longitudinal: skin friction over the wetted patch (ITTC-57), both
-    // faces of the V counted in the plan area already.
+    // faces of the V counted in the plan area already. A patch is wet in
+    // AREA as soon as the surface reaches it — the volume fill is the
+    // buoyancy's measure, not the friction's.
     const cf = frictionCoefficient(uFwd, spec.length);
-    let fFwd = -0.5 * density * cf * p.area * s.fill * Math.abs(uFwd) * uFwd;
-    // ...and the displacement-mode form drag of the section the hull
-    // pushes ahead of itself: the frontal area is the probe's width times
-    // its immersion. Present only until the hull is on the plane — past
-    // the hump the bottom is a lifting surface and Savitsky's induced drag
-    // (the lift's tilt) is the whole of the pressure drag.
-    const frontal = p.width * Math.min(s.depth, p.height);
+    const patchWet = Math.min(1, s.depth / (p.height * H.patchWet));
+    let fFwd = -0.5 * density * cf * p.area * patchWet * Math.abs(uFwd) * uFwd;
+    // ...and the displacement-mode RESIDUARY drag: the wave the hull makes
+    // pushing its section through the water, as a form drag on the frontal
+    // section (`formCd`, sized to Savitsky's hump of ~15% of the weight),
+    // each probe carrying its share of the ONE section the hull has.
+    // Present only until the hull is on the plane — past the hump the
+    // bottom is a lifting surface and the lift's tilt is the pressure drag.
+    const frontal = spec.beam * Math.min(s.depth, p.height) * p.lateralShare;
     fFwd -= 0.5 * density * H.formCd * frontal * Math.abs(uFwd) * uFwd * (1 - planingShare);
     // Lateral: the keel and the sponsons as a plate against the sideways
-    // flow — the force that makes the hull carve.
-    const lateralArea = p.length * Math.min(s.depth, p.height);
+    // flow — the force that makes the hull carve. The hull's lateral
+    // projection is its length times its immersion, once, shared out.
+    const lateralArea = spec.length * Math.min(s.depth, p.height) * p.lateralShare;
     const fRight = -0.5 * density * spec.lateralCd * lateralArea * Math.abs(uRight) * uRight;
+    out.lateral += fRight;
     // Heave: the bottom as a plate moving normal to itself.
     const fUp = -0.5 * density * H.heaveCd * p.area * s.fill * Math.abs(uUp) * uUp;
+    // THE BOW'S OWN LIFT: the rising bottom forward meets the flow at its
+    // slope σ, and the pressure on an inclined plate — Newtonian impact
+    // theory's C_p = 2·sin²σ (Hayes & Probstein 1959; the right shape for
+    // a blunt entry, scaled by `bowCp`) — acts normal to the bottom:
+    // mostly UP, a little back. This is the bow wave's lift, what trims a
+    // hull nose-up through the hump before Savitsky's lift takes the
+    // weight, and what a bow buried at speed is pushed back out by — and
+    // decelerated by, hard.
+    let bowUp = 0;
+    let bowBack = 0;
+    if (p.slope > 0 && uFwd > 0) {
+      const riseWet = Math.min(s.depth, p.length * Math.tan(p.slope));
+      // The angle the bottom actually meets the flow at: its own slope
+      // plus the hull's local trim, so a bow driven in nose-down meets it
+      // shallower and a bow lifted meets it steeper.
+      const attack = clamp(p.slope + Math.atan2(-uUp, uFwd), 0, Math.PI / 2);
+      const sinS = Math.sin(attack);
+      const cp = 2 * sinS * sinS * H.bowCp;
+      const n =
+        0.5 * density * uFwd * uFwd * p.width * riseWet * cp * (p.area / (p.width * p.length));
+      bowUp = n * Math.cos(p.slope);
+      bowBack = -n * Math.sin(p.slope);
+    }
+    // A BURIED SECTION — a bow driven in past the depth a planing hull ever
+    // runs at — pushes water ahead of itself as the bluff body it then is,
+    // whatever the speed: the dive's deceleration.
+    const buried = Math.max(0, s.depth - H.diveDepth * p.height);
+    if (buried > 0) {
+      const frontal = spec.beam * buried * p.lateralShare;
+      fFwd -= 0.5 * density * H.diveCd * frontal * Math.abs(uFwd) * uFwd;
+    }
+    fFwd += bowBack;
     // The V bottom's BANK-IN: the sideways flow meets the panel on the side
     // the hull slides toward, and that panel's normal has an upward part
     // of tan(deadrise) per unit of lateral. Lifting the outer chine rolls
@@ -452,7 +548,19 @@ export function hullForces(
     if (p.kind === "chine" && p.side === Math.sign(uRight)) {
       bank = Math.abs(fRight) * tanDeadrise * H.chineBank;
     }
-    const upTotal = fUp + bank;
+    // The planing lift this probe's patch earns at its own flow angle.
+    let lift = 0;
+    if (canPlane && p.kind !== "deck" && uFwd > 0) {
+      const trim = Math.atan2(-uUp, uFwd);
+      const share =
+        (p.area *
+          Math.min(s.depth, p.height) *
+          (H.liftAft + (1 - H.liftAft) * stations[p.station])) /
+        liftWeight;
+      lift = planingLift(spec, density, uFwd, trim, wetLen).lift * share;
+      out.planingLift += lift;
+    }
+    const upTotal = fUp + bank + bowUp + lift;
     apply(
       out,
       rx,
@@ -466,6 +574,9 @@ export function hullForces(
   if (flowCount > 0) {
     out.flowFwd /= flowCount;
     out.flowUp /= flowCount;
+    out.waterVx /= flowCount;
+    out.waterVy /= flowCount;
+    out.waterVz /= flowCount;
     const nl = Math.hypot(out.nx, out.ny, out.nz) || 1;
     out.nx /= nl;
     out.ny /= nl;

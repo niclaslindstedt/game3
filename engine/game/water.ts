@@ -186,7 +186,13 @@ function buildPhaseField(
   dirX: number,
   dirZ: number,
 ): Heightfield {
-  const field = createHeightfield(ground.originX, ground.originZ, ground.cell, ground.cols, ground.rows);
+  const field = createHeightfield(
+    ground.originX,
+    ground.originZ,
+    ground.cell,
+    ground.cols,
+    ground.rows,
+  );
   const { cols, rows, cell } = field;
   const ax = Math.abs(dirX);
   const az = Math.abs(dirZ);

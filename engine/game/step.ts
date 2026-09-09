@@ -66,6 +66,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     groundCooldown: 0,
     launchVy: 0,
     dived: false,
+    launchPending: false,
   };
 }
 

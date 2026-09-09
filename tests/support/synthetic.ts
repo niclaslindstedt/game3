@@ -23,6 +23,10 @@ export type SyntheticOptions = {
   noSolids?: boolean;
   /** Extra plan reach to seaward, m (default 400). */
   seaward?: number;
+  /** The air gate's ramp: its angle, rad (default 0.35), and length, m
+   * (default 8). The ring moves up with the ramp's lip. */
+  rampAngle?: number;
+  rampLength?: number;
 };
 
 /** The sea bed: −8 m out at sea, rising over the last 40 m to the shore at
@@ -36,7 +40,7 @@ export function syntheticGround(z: number): number {
 
 export function syntheticLevel(opts: SyntheticOptions = {}): Level {
   const seaward = opts.seaward ?? 400;
-  const bounds = { minX: -60, maxX: 760, minZ: -120, maxZ: seaward };
+  const bounds = { minX: -60, maxX: 820, minZ: -120, maxZ: seaward };
   const cols = Math.ceil((bounds.maxX - bounds.minX) / CELL) + 1;
   const rows = Math.ceil((bounds.maxZ - bounds.minZ) / CELL) + 1;
   const ground = createHeightfield(bounds.minX, bounds.minZ, CELL, cols, rows);
@@ -47,23 +51,56 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
   const gates: Gate[] = [];
   let index = 0;
   for (const x of [100, 200, 300, 400]) {
-    gates.push({ id: `G${index + 1}`, index, kind: "water", x, y: 0, z: 40, heading: east, width: 16 });
+    gates.push({
+      id: `G${index + 1}`,
+      index,
+      kind: "water",
+      x,
+      y: 0,
+      z: 40,
+      heading: east,
+      width: 16,
+    });
     index += 1;
   }
-  const ramp = { id: "R1", x: 500, z: 40, heading: east, length: 8, width: 5, angle: 0.35 };
+  const rampAngle = opts.rampAngle ?? 0.35;
+  const rampLength = opts.rampLength ?? 8;
+  // The ramp stands well past the last buoy so the fastest hull has room
+  // to line up on its axis.
+  const ramp = {
+    id: "R1",
+    x: 560,
+    z: 40,
+    heading: east,
+    length: rampLength,
+    width: 5,
+    angle: rampAngle,
+  };
+  // The ring stands where a hull that took the ramp at the pace this
+  // shore's straights allow (~70 km/h at the lip) passes: twenty metres
+  // past the lip and a couple of metres above it.
   gates.push({
     id: `A${index + 1}`,
     index,
     kind: "air",
-    x: 538,
-    y: 4,
+    x: 560 + rampLength + 20,
+    y: 2.2 + rampLength * Math.tan(rampAngle),
     z: 40,
     heading: east,
     width: 7,
     ramp,
   });
   index += 1;
-  gates.push({ id: `G${index + 1}`, index, kind: "water", x: 650, y: 0, z: 40, heading: east, width: 16 });
+  gates.push({
+    id: `G${index + 1}`,
+    index,
+    kind: "water",
+    x: 700,
+    y: 0,
+    z: 40,
+    heading: east,
+    width: 16,
+  });
   const solids: Solid[] = opts.noSolids
     ? []
     : [
@@ -83,7 +120,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     ],
     surfaceAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
     solids,
-    course: { gates, path, length: 630 },
+    course: { gates, path, length: 680 },
     start: { x: 20, z: 40, heading: east },
     wind: { from: opts.windFrom ?? Math.PI, speed: opts.windSpeed ?? 4 },
     water: { density: opts.density ?? 1005, temperature: 14 },

@@ -113,41 +113,88 @@ export const TUNING = {
   /** THE HULL IN THE WATER (`hull.ts`): buoyancy and the drags. */
   hull: {
     /** Stations along the hull the probes are laid at, as fractions of the
-     * length from the transom (0) to the bow (1). */
-    stations: [0.08, 0.35, 0.62, 0.88],
+     * length from the transom (0) to the bow (1). Six, because the trim a
+     * planing hull settles to is set by where the lift's resultant stands
+     * against the centre of gravity, and with fewer the resultant can only
+     * jump between stations. */
+    stations: [0.06, 0.22, 0.4, 0.58, 0.76, 0.92],
     /** How much of the hull's volume each station owns, transom first —
      * a planing hull carries its volume aft. Normalised at build. */
-    stationShare: [0.3, 0.32, 0.25, 0.13],
+    stationShare: [0.19, 0.2, 0.19, 0.17, 0.14, 0.11],
+    /** ...and how much of the hull's LATERAL area each station carries —
+     * aft-heavy, because the sponsons are at the stern and the bow is out
+     * of the water at speed. The lateral centre lands a little behind the
+     * centre of gravity, which is what makes a yawed hull straighten
+     * (weathervane) rather than spin. */
+    lateralStationShare: [0.35, 0.28, 0.17, 0.1, 0.06, 0.04],
+    /** How far the keel has risen toward the bow at each station, as a
+     * fraction of the hull depth: flat aft, then the bow's rise. */
+    stationRise: [0, 0, 0, 0, 0.12, 0.42],
+    /** How far in toward the keel each station's chines are drawn, as a
+     * fraction of the half-beam: the bow's taper. */
+    stationTaper: [1, 1, 1, 0.95, 0.75, 0.45],
     /** Of a station's share, how much sits on the keel probe against the
      * two chine probes. */
     keelShare: 0.4,
     /** Where the chine probes sit across the beam, as a fraction of the
-     * half-beam, and how much the bow station is drawn in toward the keel. */
+     * half-beam. */
     chineOut: 0.8,
-    bowTaper: 0.45,
-    /** How much the keel rises toward the bow, as a fraction of the hull
-     * depth at the bow station (rocker plus the bow's rise). */
-    bowRise: 0.45,
-    /** The DECK probes: the share of the volume above the chines, so an
-     * inverted hull still floats (a PWC does not self-right from all the
-     * way over; the rider flips it, which is what `reset` is for). */
-    deckShare: 0.18,
+    /** The DECK probes: the sealed volume ABOVE the bottom the spec's
+     * displacement describes, as a share of it — the seat and the deck —
+     * so an inverted hull still floats (a PWC does not self-right from
+     * all the way over; the rider flips it, which is what `reset` is
+     * for). It never fills upright. */
+    deckShare: 0.55,
+    /** Past this immersion, as a fraction of the hull depth, a probe's
+     * section counts as BURIED and drags as a bluff body (`diveCd`): a
+     * hull on the plane runs shallower, one at rest sits just short of
+     * it, and a bow driven in runs well past it. */
+    diveDepth: 0.75,
+    diveCd: 0.7,
     /** Vertical (heave) drag coefficient of the bottom as a flat plate
      * moving normal to itself (Hoerner 1965 ~1.17). */
     heaveCd: 1.15,
-    /** Form drag coefficient of the submerged frontal section in
-     * displacement mode — the bluff shape a hull pushes at hump speed. */
-    formCd: 0.65,
-    /** How much of the deadrise angle the lateral flow on the V bottom is
-     * allowed to turn into vertical force at the outer chine — the hull's
-     * bank-in. Tangent of the deadrise gives the panel geometry; PWCs bank
-     * harder than their bottom alone explains because the sponsons and the
-     * outer planing surface load up in a yawed turn, which this scales. */
-    chineBank: 2.2,
+    /** Residuary (wave-making) drag coefficient on the submerged frontal
+     * section in displacement mode, sized so the hump costs ~15% of the
+     * weight at C_v ≈ 1 as Savitsky's hump data has it. */
+    formCd: 0.14,
+    /** Scale on the Newtonian pressure coefficient of the bow's rising
+     * bottom (2·sin²σ); 1 is the theory. */
+    bowCp: 1,
+    /** How much higher a hull at speed rides than at rest, m — what
+     * `placeRun` stands a moving craft at so it is not dropped into the
+     * water at seventy an hour; the physics settles the rest. */
+    planingRise: 0.3,
+    /** How much of the deadrise angle the lateral flow on the V bottom
+     * turns into vertical force at the outer chine — the panel geometry
+     * says tan(deadrise), and 1 is that. */
+    chineBank: 1,
+    /** THE SPONSONS' BANK-IN, as a lever in units of the keel's own depth
+     * below the centre of gravity (`cog.y`): the outside sponson planes on
+     * the water it is being pushed across, and the lift it makes rolls the
+     * hull INTO the turn in proportion to the sideways force. A PWC leans
+     * in where a keel-level side force alone would lean it out (the force
+     * acts below the centre of gravity), and the sponsons — plus the rider
+     * hanging off (`rider.leanIn`) and the V bottom's own bank
+     * (`chineBank`) — are what turn that round. At 1 the sponsons exactly
+     * cancel the keel's lever and the lean-in is the rider's and the
+     * chines'. */
+    sponsonLever: 1.05,
+    /** How far under the surface a probe's PATCH counts as fully wet, as a
+     * fraction of the hull depth — the friction's measure, where the
+     * volume fill is the buoyancy's. */
+    patchWet: 0.3,
+    /** The fastest the body may spin about any axis, rad/s, and the fastest
+     * it may move, m/s — ceilings the integrator clamps to after every step.
+     * Nothing in the game reaches either honestly (four turns a second, three
+     * times the top speed); they are the wall between a contact that goes
+     * wrong and a NaN. */
+    maxSpin: 25,
+    maxSpeed: 80,
     /** Rotational damping about each body axis, N·m·s (linear), on top of
      * what the probes' drag produces: the water's added-mass damping that
      * a dozen point drags under-count. Pitch, yaw, roll. */
-    rotDamp: { x: 60, y: 40, z: 45 },
+    rotDamp: { x: 300, y: 650, z: 400 },
     /** The share of the total slam that may decelerate the hull, g — the
      * von Kármán pressure on a whole bottom at once is a load the real hull
      * spreads over the pile-up and the flex of the rider's legs; the cap
@@ -157,9 +204,19 @@ export const TUNING = {
      * flat; a hull landing at speed meets the water progressively, and
      * this scales the whole force. Dimensionless. */
     slamShare: 0.35,
-    /** Wetted-area share of the bottom the friction line runs over at
-     * full plane — the wetted length is only the aft part of the keel. */
-    planingWet: 0.45,
+    /** How much lift a probe at the transom carries against one at the
+     * bow, 0..1: the pressure on a planing bottom is a stagnation peak
+     * forward tapering to nothing at the transom, and this is the taper's
+     * floor (0 would be a clean Kutta transom; a little is kept because
+     * the probes stand for whole stations). */
+    liftAft: 0.15,
+    /** THE CARVE: a banked V bottom is a rudder — the immersed outer chine
+     * and keel turn the hull toward the bank. Yaw moment per radian of
+     * roll per (m/s)² of speed through the water, N·m. What lets a leaned
+     * hull turn once the thrust, and so the nozzle's authority, has fallen
+     * away at speed. Read through sin(2·roll), so it peaks at 45° of bank
+     * and a hull rolled further is not a hull turning faster. */
+    carve: 7,
     /** How quickly `planing` (the state readout) follows the lift share,
      * per second. */
     planingFollow: 6,
@@ -224,14 +281,15 @@ export const TUNING = {
     /** Hull-keel yaw authority with the throttle closed, N·m per rad of
      * nozzle per (m/s)² — the sponsons and the hull's turned attitude turn
      * it a little without thrust, the way a real one barely answers. */
-    keelYaw: 1.2,
+    keelYaw: 0.6,
   },
 
   /** THE RIDER as a point mass the inputs move (`craft.ts`). */
   rider: {
     /** How far the rider's mass moves aft at full lean back (and forward at
-     * full lean forward), m — a rider sliding on the seat. */
-    leanReach: 0.32,
+     * full lean forward), m — a rider sliding right back on the seat and
+     * hanging off the bars. */
+    leanReach: 0.55,
     /** How far the rider's mass moves into a turn at full steer, m, and
      * how much of the steer input becomes lean (a rider hangs off into a
      * hard turn, not into a twitch). */
@@ -250,8 +308,8 @@ export const TUNING = {
     leanTorque: 950,
     /** The rider's roll authority in the air, N·m at full steer, and the
      * yaw the same input buys. */
-    steerRoll: 260,
-    steerYaw: 120,
+    steerRoll: 140,
+    steerYaw: 90,
     /** Aerodynamic pitch-moment reference: the hull as a flat plate of
      * area `length × beam × plateShare` with its centre of pressure
      * `cpLead` of the length ahead of the centre of gravity. Nose-up in a
@@ -264,8 +322,10 @@ export const TUNING = {
     rotDamp: 35,
     rotDampSpeed: 20,
     /** Vertical speed the hull has to LEAVE the water with for it to count
-     * as a launch, m/s — a chop hop is not a jump. */
+     * as a launch, m/s — a chop hop is not a jump — and how long it has to
+     * stay clear, s, before a launch or a landing is reported at all. */
     launchVy: 1.2,
+    minAir: 0.2,
     /** A landing whose bow buries deeper than this, m, with the nose this
      * far down, rad, is a DIVE. */
     diveDepth: 0.55,
@@ -286,6 +346,10 @@ export const TUNING = {
      * ramp's wet deck. */
     groundFriction: 0.45,
     rampFriction: 0.08,
+    /** A probe further under a ramp's deck than this, m, did not sink
+     * through it — it came in through the flank, and is pushed back out
+     * sideways. */
+    rampFlankBelow: 0.3,
     /** Restitution against a solid rock, and how much of the tangential
      * speed a glancing hit keeps. */
     restitution: 0.25,

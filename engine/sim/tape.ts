@@ -5,6 +5,15 @@
 // the reader will live here; `simulate.ts` already carries the digest a
 // replay is compared by.
 
-export type TapeSample = { readonly tick: number; readonly steer: number; readonly throttle: number; readonly lean: number };
+export type TapeSample = {
+  readonly tick: number;
+  readonly steer: number;
+  readonly throttle: number;
+  readonly lean: number;
+};
 
-export type RunTape = { readonly seed: number; readonly craft: string; readonly samples: readonly TapeSample[] };
+export type RunTape = {
+  readonly seed: number;
+  readonly craft: string;
+  readonly samples: readonly TapeSample[];
+};

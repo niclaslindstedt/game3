@@ -86,8 +86,11 @@ export type CraftState = {
   groundCooldown: number;
   /** The launch's vertical speed, m/s, remembered for the `land` event. */
   launchVy: number;
-  /** Whether the landing in progress has already been reported as a dive. */
+  /** Whether the landing in progress has already been reported as a dive,
+   * and whether a launch is waiting to be confirmed by a flight long
+   * enough to count. */
   dived: boolean;
+  launchPending: boolean;
 };
 
 export type Progress = {

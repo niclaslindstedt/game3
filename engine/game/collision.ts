@@ -158,7 +158,10 @@ export function contactForces(
         if (closing > out.groundSpeed) out.groundSpeed = closing;
       }
     }
-    // The ramps.
+    // The ramps. A probe a little under the deck is riding it; a probe
+    // far under it came in through the ramp's FLANK — a hull arriving
+    // from the side meets a wall, not a deck two metres over its head —
+    // and is pushed back out across the deck's width instead.
     for (const ramp of ramps) {
       const at = onRampDeck(ramp, s.px, s.pz);
       if (!at) continue;
@@ -166,10 +169,18 @@ export function contactForces(
       if (s.py >= deck) continue;
       const sa = Math.sin(ramp.angle);
       const ca = Math.cos(ramp.angle);
+      const pen = (deck - s.py) * ca;
+      if (pen > C.rampFlankBelow) {
+        const side = at.across >= 0 ? 1 : -1;
+        const nx = side * Math.cos(ramp.heading);
+        const nz = -side * Math.sin(ramp.heading);
+        const overlap = ramp.width / 2 - Math.abs(at.across);
+        penalty(out, s, cx, cy, cz, nx, 0, nz, overlap, C.groundFriction);
+        continue;
+      }
       const nx = -sa * Math.sin(ramp.heading);
       const ny = ca;
       const nz = -sa * Math.cos(ramp.heading);
-      const pen = (deck - s.py) * ca;
       if (penalty(out, s, cx, cy, cz, nx, ny, nz, pen, C.rampFriction) > 0) out.onRamp = true;
     }
   }
@@ -209,10 +220,10 @@ export function clipSolids(
       const overlap = reach - dist;
       craft.x += nx * overlap;
       craft.z += nz * overlap;
-      const closing = -(craft.vx * nx + craft.vz * nz);
-      if (closing <= 0) continue;
+      const closing = Math.max(0, -(craft.vx * nx + craft.vz * nz));
       // Impulse: kill the closing speed, give back the restitution, keep
-      // most of the slide.
+      // most of the slide — a glancing pass that only scrapes loses a
+      // little of its way and none of its heading.
       const jn = closing * (1 + C.restitution);
       const tx = craft.vx + closing * nx;
       const tz = craft.vz + closing * nz;
@@ -222,7 +233,7 @@ export function clipSolids(
       const rb = unrotate(craft.q, { x: fwd.x * along, y: 0, z: fwd.z * along });
       const jb = unrotate(craft.q, { x: nx * jn * mass, y: 0, z: nz * jn * mass });
       craft.wy += (rb.z * jb.x - rb.x * jb.z) / I.y;
-      if (closing >= C.hitSpeed && craft.hitCooldown <= 0) {
+      if (Math.max(closing, craft.speed) >= C.hitSpeed && craft.hitCooldown <= 0) {
         events.push({ kind: "hit", t, solid: solid.id, speed: closing });
         craft.hitCooldown = C.hitCooldown;
       }
@@ -252,4 +263,3 @@ export function solidNear(level: Level, x: number, z: number, margin: number): S
   }
   return null;
 }
-

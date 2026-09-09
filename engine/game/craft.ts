@@ -35,7 +35,6 @@ import {
   type HullResult,
   type ProbeSample,
 } from "./hull.ts";
-import { planingLift, pressureCentre, wettedLength } from "./hydro.ts";
 import { stepEngine, stepNozzle, thrust } from "./propulsion.ts";
 import type { CraftInput, CraftState, GameEvent, GameState } from "./state.ts";
 import { surfaceAt } from "./water.ts";
@@ -83,21 +82,29 @@ function workFor(craft: CraftState): Work {
         nz: 0,
         entryVy: 0,
         liftX: 0,
+        lateral: 0,
+        waterVx: 0,
+        waterVy: 0,
+        waterVz: 0,
+        planingLift: 0,
+        wettedLength: 0,
       },
-      contact: { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0, onGround: false, onRamp: false, groundSpeed: 0 },
+      contact: {
+        fx: 0,
+        fy: 0,
+        fz: 0,
+        tx: 0,
+        ty: 0,
+        tz: 0,
+        onGround: false,
+        onRamp: false,
+        groundSpeed: 0,
+      },
       aero: { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 },
     };
     works.set(craft, w);
   }
   return w;
-}
-
-/** The trim of the bottom against the flow it meets, rad, nose up
- * positive: the angle between the keel plane and the relative velocity.
- * A level hull running horizontally has none; one pitched up by τ has τ. */
-function trimAngle(flowFwd: number, flowUp: number): number {
-  if (flowFwd < 0.5) return 0;
-  return Math.atan2(-flowUp, flowFwd);
 }
 
 /** One physics step of the craft. Emits into `events`. */
@@ -125,7 +132,14 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     const s = samples[i];
     surfaceAt(state.sea, level, s.px, s.pz, state.t, s.surface);
   }
-  hullForces(spec, probes, samples, c.q, c.x, c.y, c.z, density, c.planing, hull);
+  // The hump's drag fades with whichever comes first: the lift carrying
+  // the weight, or the speed passing Savitsky's band.
+  const cv = c.speed / Math.sqrt(G * spec.beam);
+  const hump = Math.max(
+    c.planing,
+    clamp((cv - T.planing.fadeLow) / (T.planing.fadeHigh - T.planing.fadeLow), 0, 1),
+  );
+  hullForces(spec, probes, samples, c.q, c.x, c.y, c.z, density, hump, hull);
 
   // World-frame force and torque accumulators, and body-frame torque.
   let fx = hull.fx;
@@ -138,29 +152,12 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   let tby = 0;
   let tbz = 0;
 
-  const fwd = rotate(c.q, { x: 0, y: 0, z: 1 });
   const up = rotate(c.q, { x: 0, y: 1, z: 0 });
   const keelY = -spec.cog.y;
 
-  // THE PLANING SURFACE (Savitsky), lifting at its pressure centre along
-  // the keel, at the wet bottom's lateral centre.
-  const trim = trimAngle(hull.flowFwd, hull.flowUp);
-  const wetLen = wettedLength(spec, hull.transomDepth, hull.bowDepth);
-  const plane = planingLift(spec, density, Math.max(hull.flowFwd, 0), trim, wetLen);
-  if (plane.lift > 0) {
-    const zcp = -spec.length / 2 + pressureCentre(spec, hull.flowFwd, wetLen) - spec.cog.z;
-    const r = rotate(c.q, { x: hull.liftX, y: keelY, z: zcp });
-    const lx = up.x * plane.lift;
-    const ly = up.y * plane.lift;
-    const lz = up.z * plane.lift;
-    fx += lx;
-    fy += ly;
-    fz += lz;
-    twx += r.y * lz - r.z * ly;
-    twy += r.z * lx - r.x * lz;
-    twz += r.x * ly - r.y * lx;
-  }
-  const liftShare = clamp(plane.lift / (mass * G), 0, 1);
+  // THE PLANING SURFACE was applied probe by probe in `hullForces`; what
+  // is left to do is read how much of the weight it is carrying.
+  const liftShare = clamp(hull.planingLift / (mass * G), 0, 1);
   c.planing += (liftShare - c.planing) * (1 - Math.exp(-dt * T.hull.planingFollow));
 
   // GRAVITY on the two masses, so the rider's shift is a moment and the
@@ -178,13 +175,22 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     twz += rr.x * fr + rh.x * fh;
   }
 
-  // THE PUMP: the intake is fed while the transom station is wet.
-  const wet = hull.intakeWet;
-  const engine = stepEngine(spec, density, c.rpm, c.throttleEff, input.throttle, wet, dt);
+  // THE SPONSONS: the outside one planes on the water the hull is being
+  // pushed across and banks it INTO the turn. A push to the right (the
+  // water turning the hull right) rolls the right side down, which in
+  // right-handed body axes is a negative z torque.
+  tbz -= hull.lateral * T.hull.sponsonLever * spec.cog.y;
+
+  // THE PUMP: the intake is fed while the transom station is wet, and the
+  // engine has a tilt cut-off — a capsized craft's throttle is closed.
+  const wet = hull.intakeWet && up.y > 0;
+  const throttle = up.y > 0 ? input.throttle : 0;
+  const engine = stepEngine(spec, density, c.rpm, c.throttleEff, throttle, wet, dt);
   c.rpm = engine.rpm;
   c.throttleEff = engine.throttleEff;
   c.nozzle = stepNozzle(spec, c.nozzle, input.steer, dt);
-  const throughWater = hull.flowFwd > 0 ? hull.flowFwd : Math.max(0, unrotate(c.q, { x: c.vx, y: c.vy, z: c.vz }).z);
+  const throughWater =
+    hull.flowFwd > 0 ? hull.flowFwd : Math.max(0, unrotate(c.q, { x: c.vx, y: c.vy, z: c.vz }).z);
   const push = thrust(spec, density, c.rpm, throughWater, wet);
   if (push > 0) {
     // The jet leaves the transom turned by the nozzle; the reaction on the
@@ -205,11 +211,21 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   }
   // ...and the little the hull turns with the throttle shut: the sponsons
   // and the keel answering the nozzle's attitude, not its thrust.
-  tby += T.pump.keelYaw * c.nozzle * throughWater * throughWater * clamp(hull.wetted * 2, 0, 1);
+  const wetShare = clamp(hull.wetted * 2, 0, 1);
+  tby += T.pump.keelYaw * c.nozzle * throughWater * throughWater * wetShare;
+  // THE CARVE: a banked bottom turns toward its bank (roll right, right
+  // side down, is positive and a clockwise yaw is +y).
+  tby +=
+    T.hull.carve *
+    0.5 *
+    Math.sin(2 * clamp(c.roll, -0.8, 0.8)) *
+    throughWater *
+    throughWater *
+    wetShare *
+    c.planing;
 
   // THE WATER'S ROTATIONAL DAMPING beyond the probes'.
   {
-    const wetShare = clamp(hull.wetted * 2, 0, 1);
     tbx -= T.hull.rotDamp.x * c.wx * wetShare;
     tby -= T.hull.rotDamp.y * c.wy * wetShare;
     tbz -= T.hull.rotDamp.z * c.wz * wetShare;
@@ -273,6 +289,21 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.vx += (fx / mass + edge.ax) * dt;
   c.vy += (fy / mass) * dt;
   c.vz += (fz / mass + edge.az) * dt;
+  // The ceilings nothing honest reaches (`hull.maxSpin`, `hull.maxSpeed`).
+  const spin = Math.hypot(c.wx, c.wy, c.wz);
+  if (spin > T.hull.maxSpin) {
+    const k = T.hull.maxSpin / spin;
+    c.wx *= k;
+    c.wy *= k;
+    c.wz *= k;
+  }
+  const pace = Math.hypot(c.vx, c.vy, c.vz);
+  if (pace > T.hull.maxSpeed) {
+    const k = T.hull.maxSpeed / pace;
+    c.vx *= k;
+    c.vy *= k;
+    c.vz *= k;
+  }
   c.x += c.vx * dt;
   c.y += c.vy * dt;
   c.z += c.vz * dt;
@@ -296,18 +327,18 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.landing = Math.min(c.landing + dt, 1e6);
 
   // FLIGHT is read, not declared: the hull is airborne when nothing on it
-  // touches anything.
+  // touches anything. A launch is reported once the hull has been clear
+  // for `flight.minAir` — a stern probe re-touching a ramp's lip for a
+  // step is not two jumps — and a landing only after a flight that long.
   const inWater = hull.submerged > 0;
   const airborne = !inWater && !contact.onRamp && !contact.onGround;
   if (airborne && !c.airborne) {
     c.airTime = 0;
     c.launchVy = c.vy;
+    c.launchPending = true;
     c.dived = false;
-    if (c.vy >= T.flight.launchVy) {
-      events.push({ kind: "launch", t: state.t, vy: c.vy, speed: c.speed });
-    }
   } else if (!airborne && c.airborne) {
-    if (c.airTime > 0.15 || c.launchVy >= T.flight.launchVy) {
+    if (c.airTime >= T.flight.minAir) {
       events.push({
         kind: "land",
         t: state.t,
@@ -318,13 +349,28 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       });
       c.landing = 0;
     }
+    c.launchPending = false;
   }
   c.airborne = airborne;
-  if (airborne) c.airTime += dt;
-  else c.airTime = 0;
+  if (airborne) {
+    c.airTime += dt;
+    if (c.launchPending && c.airTime >= T.flight.minAir) {
+      c.launchPending = false;
+      if (c.launchVy >= T.flight.launchVy) {
+        events.push({ kind: "launch", t: state.t, vy: c.launchVy, speed: c.speed });
+      }
+    }
+  } else {
+    c.airTime = 0;
+  }
   // A DIVE develops over the steps after a landing: the bow keeps going
   // in. Reported once per landing.
-  if (!c.dived && c.landing < 1 && hull.bowDepth > T.flight.diveDepth && c.pitch < T.flight.divePitch) {
+  if (
+    !c.dived &&
+    c.landing < 1 &&
+    hull.bowDepth > T.flight.diveDepth &&
+    c.pitch < T.flight.divePitch
+  ) {
     c.dived = true;
     events.push({ kind: "dive", t: state.t, depth: hull.bowDepth, speed: c.speed });
   }

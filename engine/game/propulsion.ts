@@ -87,7 +87,13 @@ export function pumpTorque(spec: CraftSpec, density: number, rpm: number, wet: b
  * momentum the jet gains over the inflow. Never negative — at a closed
  * throttle at speed the intake is a drag, not a brake, and the hull's own
  * drag stands for it. Zero with the intake out of the water. */
-export function thrust(spec: CraftSpec, density: number, rpm: number, speedThroughWater: number, wet: boolean): number {
+export function thrust(
+  spec: CraftSpec,
+  density: number,
+  rpm: number,
+  speedThroughWater: number,
+  wet: boolean,
+): number {
   if (!wet || rpm <= 0) return 0;
   const vj = jetVelocity(spec, rpm);
   const q = nozzleArea(spec) * vj;
@@ -111,7 +117,8 @@ export function stepEngine(
   wet: boolean,
   dt: number,
 ): { rpm: number; throttleEff: number } {
-  const eff = throttleEff + (clamp(throttle, 0, 1) - throttleEff) * (1 - Math.exp(-dt / PUMP.throttleLag));
+  const eff =
+    throttleEff + (clamp(throttle, 0, 1) - throttleEff) * (1 - Math.exp(-dt / PUMP.throttleLag));
   const inertia = PUMP.inertia;
   const omega = rpm * RPM_TO_RAD;
   const tEngine = engineTorque(spec, rpm, eff);

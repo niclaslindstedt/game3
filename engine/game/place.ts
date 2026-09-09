@@ -17,6 +17,7 @@ import { fromEuler } from "../lib/quat.ts";
 import { clamp } from "../lib/math.ts";
 import { standCraft } from "./course.ts";
 import { restY } from "./hull.ts";
+import { TUNING } from "./defs/tuning.ts";
 import { maxRpm } from "./limits.ts";
 import type { GameState } from "./state.ts";
 import { heightAt } from "./water.ts";
@@ -67,7 +68,12 @@ export function placeRun(state: GameState, moment: RunMoment): void {
     c.airTime = 0.01;
     c.launchVy = c.vy;
   } else {
-    c.y = heightAt(state.sea, state.level, moment.x, moment.z, state.t) + restY(c.spec, state.level.water.density);
+    // A hull under way rides higher than one at rest.
+    const rise = TUNING.hull.planingRise * clamp(speed / 12, 0, 1);
+    c.y =
+      heightAt(state.sea, state.level, moment.x, moment.z, state.t) +
+      restY(c.spec, state.level.water.density) +
+      rise;
   }
   // An engine that has been pulling: revs roughly where the speed puts
   // them, the throttle open, so the next step neither stalls nor lurches.
