@@ -53,6 +53,10 @@ export type GameRenderer = {
   render: (state: GameState, dt: number) => void;
   /** Rebuild the world for a new level or a new craft. */
   load: (state: GameState) => void;
+  /** Let the trails see a state that is being stepped WITHOUT being drawn
+   * — a scene pre-rolled for a screenshot — so the wake behind a craft
+   * that has been under way for three seconds is three seconds long. */
+  trail: (state: GameState) => void;
   camera: CameraRig;
   resize: () => void;
   cost: () => FrameCost;
@@ -78,7 +82,11 @@ function sunDirection(hour: number): THREE.Vector3 {
 }
 
 export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
-  const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, powerPreference: "high-performance" });
+  const renderer = new THREE.WebGLRenderer({
+    canvas,
+    antialias: true,
+    powerPreference: "high-performance",
+  });
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
@@ -93,7 +101,11 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   // Generous ambient: with a sun this low, everything's near side is in
   // its own shadow, and a Lambert face lit by the hemisphere alone has to
   // still read — the buoys, the hull, the skerries all face the lens.
-  const hemi = new THREE.HemisphereLight(new THREE.Color(PALETTE.sky), new THREE.Color(0x7f9aa3), 2.3);
+  const hemi = new THREE.HemisphereLight(
+    new THREE.Color(PALETTE.sky),
+    new THREE.Color(0x7f9aa3),
+    2.3,
+  );
   const sun = new THREE.DirectionalLight(0xfff2dc, 1.3);
   scene.add(hemi, sun);
 
@@ -172,7 +184,10 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       forward.copy(aim).sub(camera.position).normalize();
       right.crossVectors(forward, upVec.set(0, 1, 0)).normalize();
       upVec.crossVectors(right, forward).normalize();
-      camera.up.copy(upVec).multiplyScalar(Math.cos(pose.roll)).addScaledVector(right, Math.sin(pose.roll));
+      camera.up
+        .copy(upVec)
+        .multiplyScalar(Math.cos(pose.roll))
+        .addScaledVector(right, Math.sin(pose.roll));
     } else camera.up.set(0, 1, 0);
     camera.lookAt(aim);
     const fov = verticalFovFor(pose.fov, camera.aspect);
@@ -192,6 +207,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   return {
     render,
     load,
+    trail: (state) => wake.update(state),
     camera: rig,
     resize,
     cost: () => cost,

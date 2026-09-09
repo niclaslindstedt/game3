@@ -42,7 +42,14 @@ const FLOOR = c(PALETTE.pineDark);
 const scratch = new THREE.Color();
 
 /** The colour of the ground at a point, into `out`. */
-function paint(level: Level, x: number, z: number, h: number, kind: Surface, out: THREE.Color): void {
+function paint(
+  level: Level,
+  x: number,
+  z: number,
+  h: number,
+  kind: Surface,
+  out: THREE.Color,
+): void {
   if (h < 0) {
     out.copy(BED).lerp(BED_DEEP, clamp(-h / 14, 0, 1));
   } else {
@@ -67,7 +74,14 @@ function paint(level: Level, x: number, z: number, h: number, kind: Surface, out
   out.offsetHSL(0, 0, n * 0.09 - clamp(Math.hypot(gx, gz) * 0.25, 0, 0.14));
 }
 
-function buildChunk(level: Level, x0: number, z0: number, x1: number, z1: number, cell: number): THREE.Mesh {
+function buildChunk(
+  level: Level,
+  x0: number,
+  z0: number,
+  x1: number,
+  z1: number,
+  cell: number,
+): THREE.Mesh {
   const cols = Math.round((x1 - x0) / cell) + 1;
   const rows = Math.round((z1 - z0) / cell) + 1;
   const positions = new Float32Array(cols * rows * 3);
@@ -114,7 +128,9 @@ export function createTerrain(level: Level): THREE.Group {
   // Inside the bounds, at the level's own cell.
   for (let z = b.minZ; z < b.maxZ; z += CHUNK) {
     for (let x = b.minX; x < b.maxX; x += CHUNK) {
-      group.add(buildChunk(level, x, z, Math.min(x + CHUNK, b.maxX), Math.min(z + CHUNK, b.maxZ), cell));
+      group.add(
+        buildChunk(level, x, z, Math.min(x + CHUNK, b.maxX), Math.min(z + CHUNK, b.maxZ), cell),
+      );
     }
   }
   // The skirt: four coarse slabs around the box.

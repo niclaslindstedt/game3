@@ -195,7 +195,9 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     // travel come apart on purpose and the shot's job is the landing.
     const planSpeed = Math.hypot(c.vx, c.vz);
     const travel = planSpeed > 3 ? Math.atan2(c.vx, c.vz) : c.heading;
-    const wantSlip = c.airborne ? 0 : soften(angleDiff(c.heading, travel) * CHASE.slipWeight, CHASE.slipMax);
+    const wantSlip = c.airborne
+      ? 0
+      : soften(angleDiff(c.heading, travel) * CHASE.slipWeight, CHASE.slipMax);
     slip += (wantSlip - slip) * ease(CHASE.followRate);
     yaw = angleLerp(yaw, c.heading, ease(c.airborne ? CHASE.followRate * 0.5 : CHASE.followRate));
     const aimYaw = yaw + slip;
@@ -216,7 +218,9 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     // turn with the yaw rate. `wy` is the body's rate about its up axis,
     // right-handed, so a positive rate is the nose swinging toward the
     // craft's right — which is where the aim goes.
-    look += (clamp(c.wy * CHASE.lookThrough, -CHASE.lookThroughMax, CHASE.lookThroughMax) - look) * ease(4);
+    look +=
+      (clamp(c.wy * CHASE.lookThrough, -CHASE.lookThroughMax, CHASE.lookThroughMax) - look) *
+      ease(4);
 
     const fx = Math.sin(aimYaw);
     const fz = Math.cos(aimYaw);

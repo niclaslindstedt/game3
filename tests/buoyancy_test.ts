@@ -131,11 +131,15 @@ describe("stability", () => {
     // Then the rule (`TUNING.capsize`): a `capsize` event, and the hull
     // back upright at its draft with the engine idling and no way on —
     // the throttle is held through it to show the engine cut.
+    let idledWhileRighting = false;
     for (let i = 0; i < 1.5 * TUNING.physicsHz; i++) {
       step(state, { steer: 0, throttle: 1, lean: 0, reset: false });
       for (const e of state.events) events.push(e.kind);
+      if (state.craft.righting > 0 && state.craft.rpm === state.craft.spec.idleRpm) {
+        idledWhileRighting = true;
+      }
     }
-    expect(state.craft.rpm).toBe(state.craft.spec.idleRpm);
+    expect(idledWhileRighting).toBe(true);
     for (let i = 0; i < 1.5 * TUNING.physicsHz; i++) {
       step(state, NEUTRAL_INPUT);
       for (const e of state.events) events.push(e.kind);

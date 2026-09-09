@@ -68,7 +68,13 @@ const EDGE_CODES: Record<string, "reset" | InputAction> = {
 
 export function createInputManager(target: Window = window): InputManager {
   const model = createInputModel();
-  const keys: KeysHeld = { left: false, right: false, throttle: false, leanBack: false, leanForward: false };
+  const keys: KeysHeld = {
+    left: false,
+    right: false,
+    throttle: false,
+    leanBack: false,
+    leanForward: false,
+  };
   const touch = neutralTouch();
   let reset = false;
   let onAction: (action: InputAction) => void = () => {};

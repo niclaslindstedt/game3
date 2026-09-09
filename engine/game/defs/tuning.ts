@@ -211,16 +211,15 @@ export const TUNING = {
      * the probes stand for whole stations). */
     liftAft: 0.15,
     /** THE CARVE: a banked V bottom is a rudder — the immersed outer chine
-     * turns the hull toward the bank. Yaw moment per metre the wet
-     * bottom's centre sits off the keel (`liftX`) per (m/s)² of speed
-     * through the water, N·m. What lets a leaned hull turn once the
-     * thrust, and so the nozzle's authority, has fallen away at speed —
-     * and nothing at all while both chines are dry, however the hull
-     * wobbles: the wet centre has to sit `carveDead` m off the keel before
-     * the chine counts as dug in — a centimetre of heel in a crosswind or
-     * chop is not a rudder. */
-    carve: 34,
-    carveDead: 0.06,
+     * turns the hull toward the bank. Yaw moment per radian of bank past
+     * the dead band per (m/s)² of speed through the water, N·m, read
+     * through sin(2·bank) so it peaks at 45°. What lets a leaned hull turn
+     * once the thrust, and so the nozzle's authority, has fallen away at
+     * speed — and nothing at all inside `carveDead` rad of roll, where
+     * both chines are dry: the couple of degrees a crosswind heels a hull
+     * or chop rocks it are not a rudder. */
+    carve: 12,
+    carveDead: 0.09,
     /** How quickly `planing` (the state readout) follows the lift share,
      * per second. */
     planingFollow: 6,

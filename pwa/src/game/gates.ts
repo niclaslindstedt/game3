@@ -73,9 +73,16 @@ function buildRamp(ramp: Ramp): THREE.Group {
   // than a plank the sea forgot.
   const rise = ramp.length * Math.sin(ramp.angle);
   for (const side of [-1, 1]) {
-    const float = new THREE.Mesh(new THREE.CylinderGeometry(0.42, 0.42, ramp.length * 0.9, 7), flat(FLOAT));
+    const float = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.42, 0.42, ramp.length * 0.9, 7),
+      flat(FLOAT),
+    );
     float.rotation.x = Math.PI / 2 - ramp.angle;
-    float.position.set(side * (ramp.width / 2 - 0.5), rise / 2 - 0.5, (ramp.length * Math.cos(ramp.angle)) / 2);
+    float.position.set(
+      side * (ramp.width / 2 - 0.5),
+      rise / 2 - 0.5,
+      (ramp.length * Math.cos(ramp.angle)) / 2,
+    );
     g.add(float);
   }
   return g;
@@ -86,7 +93,8 @@ export function createGates(level: Level): Gates {
   const gates = level.course.gates;
   // The buoys, instanced: two per water gate.
   const buoyAt: { gate: number; x: number; z: number }[] = [];
-  for (const g of gates) for (const b of gateBuoys(g)) buoyAt.push({ gate: g.index, x: b.x, z: b.z });
+  for (const g of gates)
+    for (const b of gateBuoys(g)) buoyAt.push({ gate: g.index, x: b.x, z: b.z });
   const bodies = new THREE.InstancedMesh(
     BUOY_BODY,
     new THREE.MeshLambertMaterial({ flatShading: true }),

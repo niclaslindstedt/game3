@@ -135,7 +135,16 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
       [-half, chineY, z],
     ];
   });
-  const paint = [style.hull, style.topside, style.deck, style.deck, style.deck, style.deck, style.topside, style.hull];
+  const paint = [
+    style.hull,
+    style.topside,
+    style.deck,
+    style.deck,
+    style.deck,
+    style.deck,
+    style.topside,
+    style.hull,
+  ];
   for (let i = 0; i + 1 < rings.length; i++) {
     const r0 = rings[i];
     const r1 = rings[i + 1];
@@ -164,8 +173,18 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     const p = (x: number, y: number, z: number) => [x, y, z];
     const w0 = seatW / 2;
     const w1 = seatW * 0.36;
-    const back = [p(-w0, seatBase, seatZ0), p(w0, seatBase, seatZ0), p(w1, seatBase + seatH, seatZ0 + 0.05), p(-w1, seatBase + seatH, seatZ0 + 0.05)];
-    const front = [p(-w0, seatBase, seatZ1), p(w0, seatBase, seatZ1), p(w1, seatBase + seatH * 0.8, seatZ1 - 0.1), p(-w1, seatBase + seatH * 0.8, seatZ1 - 0.1)];
+    const back = [
+      p(-w0, seatBase, seatZ0),
+      p(w0, seatBase, seatZ0),
+      p(w1, seatBase + seatH, seatZ0 + 0.05),
+      p(-w1, seatBase + seatH, seatZ0 + 0.05),
+    ];
+    const front = [
+      p(-w0, seatBase, seatZ1),
+      p(w0, seatBase, seatZ1),
+      p(w1, seatBase + seatH * 0.8, seatZ1 - 0.1),
+      p(-w1, seatBase + seatH * 0.8, seatZ1 - 0.1),
+    ];
     b.quad(back[3], back[2], back[1], back[0], style.seat);
     b.quad(front[0], front[1], front[2], front[3], style.seat);
     b.quad(back[2], back[3], front[3], front[2], style.seat); // top
@@ -175,13 +194,37 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
 
   // THE REAR TRAY: the rubber footplate behind the saddle, and the two
   // footwell mats either side of it.
-  b.box(-0.3 * B, gunwaleY + 0.05 * H, zTransom + 0.04 * L, 0.3 * B, gunwaleY + 0.08 * H, seatZ0 - 0.02, style.tray);
+  b.box(
+    -0.3 * B,
+    gunwaleY + 0.05 * H,
+    zTransom + 0.04 * L,
+    0.3 * B,
+    gunwaleY + 0.08 * H,
+    seatZ0 - 0.02,
+    style.tray,
+  );
   b.box(-0.47 * B, gunwaleY + 0.05 * H, seatZ0, -0.2 * B, gunwaleY + 0.075 * H, seatZ1, style.tray);
   b.box(0.2 * B, gunwaleY + 0.05 * H, seatZ0, 0.47 * B, gunwaleY + 0.075 * H, seatZ1, style.tray);
 
   // THE INTAKE GRATE under the stern and the NOZZLE out of the transom.
-  b.box(-0.11 * B, keelY - 0.02, zTransom + 0.06 * L, 0.11 * B, keelY + 0.01, zTransom + 0.24 * L, style.tray);
-  b.box(-0.06, keelY + 0.05 * H, zTransom - 0.1, 0.06, keelY + 0.25 * H, zTransom + 0.02, style.grip);
+  b.box(
+    -0.11 * B,
+    keelY - 0.02,
+    zTransom + 0.06 * L,
+    0.11 * B,
+    keelY + 0.01,
+    zTransom + 0.24 * L,
+    style.tray,
+  );
+  b.box(
+    -0.06,
+    keelY + 0.05 * H,
+    zTransom - 0.1,
+    0.06,
+    keelY + 0.25 * H,
+    zTransom + 0.02,
+    style.grip,
+  );
 
   const group = new THREE.Group();
   const body = new THREE.Mesh(
@@ -200,7 +243,11 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     new THREE.CylinderGeometry(0.03, 0.045, colLen, 6),
     new THREE.MeshLambertMaterial({ color: style.bar, flatShading: true }),
   );
-  column.position.set(0, colBase + (colLen / 2) * Math.cos(rake), colZ - (colLen / 2) * Math.sin(rake));
+  column.position.set(
+    0,
+    colBase + (colLen / 2) * Math.cos(rake),
+    colZ - (colLen / 2) * Math.sin(rake),
+  );
   // A positive rotation about x tips the top forward; the column leans
   // back toward the rider.
   column.rotation.x = -rake;

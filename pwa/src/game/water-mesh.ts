@@ -34,9 +34,10 @@ import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 
 /** Vertices a side, the grid's reach either side of the craft, m, and the
- * cell at its centre, m. 80 × 80 = 6 400 samples a frame, about 7 ms of
- * `surfaceAt` on a laptop core — half the budget the water may spend. */
-export const GRID = 80;
+ * cell at its centre, m. 72 × 72 = 5 184 samples a frame, six to eight
+ * milliseconds of `surfaceAt` on a laptop core — the most the water may
+ * spend and still leave a 60 Hz frame room for everything else. */
+export const GRID = 72;
 export const HALF = 120;
 export const CENTRE_CELL = 1.5;
 
@@ -224,14 +225,18 @@ export function createWaterMesh(): WaterMesh {
         const dy = eyeY - positions[k + 1];
         const dz = eyeZ - wz;
         const dl = 1 / Math.max(1e-3, Math.hypot(dx, dy, dz));
-        const cosV = Math.max(0, (dx * normals[k] + dy * normals[k + 1] + dz * normals[k + 2]) * dl);
+        const cosV = Math.max(
+          0,
+          (dx * normals[k] + dy * normals[k + 1] + dz * normals[k + 2]) * dl,
+        );
         const grazing = (1 - cosV) ** 4 * FRESNEL;
         r += (SKY.r - r) * grazing;
         g += (SKY.g - g) * grazing;
         bl += (SKY.b - bl) * grazing;
         const tilt = 1 - sample.ny;
         const foam = clamp(
-          smoothstep(0.04, 0.09, tilt) + smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt),
+          smoothstep(0.04, 0.09, tilt) +
+            smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt),
           0,
           1,
         );

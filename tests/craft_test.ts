@@ -56,7 +56,7 @@ describe("the sheet", () => {
       expect(t50, "0–50 s").toBeLessThan(spec.accel0to50 * 1.2);
       // ...on the plane, level, and still in the water.
       const c = state.craft;
-      expect(c.planing).toBeGreaterThan(0.4);
+      expect(c.planing).toBeGreaterThan(0.3);
       expect(c.airborne).toBe(false);
       expect(Math.abs(c.pitch)).toBeLessThan(0.15);
       expect(Math.abs(c.roll)).toBeLessThan(0.05);

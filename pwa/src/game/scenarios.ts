@@ -137,7 +137,11 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
   const mid = midGate(level);
   switch (name) {
     case "rest":
-      return { moment: { x: start.x, z: start.z, heading: start.heading }, script: () => NEUTRAL, seconds: 2 };
+      return {
+        moment: { x: start.x, z: start.z, heading: start.heading },
+        script: () => NEUTRAL,
+        seconds: 2,
+      };
     case "cruise":
       return {
         moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.45 },

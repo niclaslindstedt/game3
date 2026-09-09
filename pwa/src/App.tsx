@@ -37,7 +37,12 @@ import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
 import { createInputManager } from "./game/input.ts";
 import { createRenderer } from "./game/renderer.ts";
 import { createRunClock } from "./game/run-loop.ts";
-import { isScenarioName, stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
+import {
+  isScenarioName,
+  stageScenario,
+  type Scenario,
+  type ScenarioName,
+} from "./game/scenarios.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
 import { STRINGS } from "./game/strings.ts";
 
@@ -98,7 +103,9 @@ function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null
     case "ground":
       return { text: STRINGS.grounded, tone: "bad" };
     case "land":
-      return e.airTime >= AIR_WORTH_A_LINE ? { text: STRINGS.landed(e.airTime), tone: "info" } : null;
+      return e.airTime >= AIR_WORTH_A_LINE
+        ? { text: STRINGS.landed(e.airTime), tone: "info" }
+        : null;
     default:
       return null;
   }
@@ -172,7 +179,12 @@ export function App() {
       }
       renderer.load(state);
       const steps = Math.round(ahead * TUNING.physicsHz);
-      for (let i = 0; i < steps; i++) stepOnce();
+      for (let i = 0; i < steps; i++) {
+        stepOnce();
+        // The trails see the pre-roll at a frame's cadence, as they would
+        // have had it been ridden on screen.
+        if (i % 2 === 0) renderer.trail(state);
+      }
       hudClock = HUD_TICK;
     };
     stand(params.scene, params.t);
@@ -251,7 +263,6 @@ export function App() {
       renderer.dispose();
     };
     // Boots once: the URL is read on mount and a new URL is a new page.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   return (

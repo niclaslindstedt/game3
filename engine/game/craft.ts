@@ -252,14 +252,21 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // and the keel answering the nozzle's attitude, not its thrust.
   const wetShare = clamp(hull.wetted * 2, 0, 1);
   tby += T.pump.keelYaw * c.nozzle * throughWater * throughWater * wetShare;
-  // THE CARVE: a banked bottom turns toward its bank. Read off where the
-  // wet bottom's centre actually sits across the hull (`liftX`, body
-  // right positive) rather than off the roll angle: a hull leaned far
-  // enough to put a chine in the water carves on that chine, and one
-  // wobbling two degrees in chop with both chines dry does not. Positive
-  // liftX is the right chine in, and a clockwise yaw is +y.
-  const dig = Math.max(0, Math.abs(hull.liftX) - T.hull.carveDead) * Math.sign(hull.liftX);
-  tby += T.hull.carve * dig * throughWater * throughWater * wetShare * c.planing;
+  // THE CARVE: a banked bottom turns toward its bank (roll right, right
+  // side down, is positive and a clockwise yaw is +y). Nothing below
+  // `carveDead` of bank — a hull wobbling a couple of degrees in chop or
+  // heeled by a crosswind has both chines dry and no rudder — and past it
+  // sin(2·bank), peaking at 45° so a hull rolled further is not a hull
+  // turning faster.
+  const bank = Math.max(0, Math.abs(c.roll) - T.hull.carveDead) * Math.sign(c.roll);
+  tby +=
+    T.hull.carve *
+    0.5 *
+    Math.sin(2 * clamp(bank, -0.8, 0.8)) *
+    throughWater *
+    throughWater *
+    wetShare *
+    c.planing;
 
   // THE WATER'S ROTATIONAL DAMPING beyond the probes'.
   {

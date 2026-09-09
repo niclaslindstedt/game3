@@ -456,11 +456,16 @@ export function hullForces(
     // part of it still to be wetted (1 − fill), then the whole hull's slam
     // is capped (`slamCapG`) because the pile-up Wagner (1932) doubles c
     // by is a pressure real hulls spread and real riders' knees absorb.
-    if (s.depth > -0.02 && s.fill < 1 && relY < 0 && p.kind !== "deck") {
-      const slam = 0.5 * density * relY * relY * Math.PI * cotDeadrise * H.slamShare;
+    // The closing speed that matters is the one NORMAL to the bottom: a
+    // bow driven in nose-down has its bottom moving away from the water
+    // and takes no slam there (the deck does the scooping, and buries),
+    // where a hull arriving flat meets it square.
+    const closing = -(relX * up.x + relY * up.y + relZ * up.z);
+    if (s.depth > -0.02 && s.fill < 1 && closing > 0 && p.kind !== "deck") {
+      const slam = 0.5 * density * closing * closing * Math.PI * cotDeadrise * H.slamShare;
       const force = slam * p.area * (1 - s.fill);
       slamTotal += force;
-      if (-relY > out.entryVy) out.entryVy = -relY;
+      if (closing > out.entryVy) out.entryVy = closing;
       // Along the hull's up: a wedge entering nose-down pushes the bow
       // back up, which is the pitch-up a flat landing recovers by and the
       // pitch-DOWN a buried bow does not get (its probes are already full).

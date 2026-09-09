@@ -20,15 +20,20 @@ import { PALETTE } from "../identity.ts";
  * sample lives, s. */
 const SAMPLES = 24;
 const SPACING = 1.6;
-const LIFE = 2.2;
+const LIFE = 1.8;
 /** How far the ribbon sits over the surface, m, so it is not swallowed by
  * the water it lies on. */
-const LIFT = 1.0; // DIAG
-/** The wake's width at the transom, m, and how much it spreads per second. */
-const WIDTH = 1.3;
-const SPREAD = 1.1;
+const LIFT = 0.14;
+/** The wake's width at the transom, m, how much it spreads per second, and
+ * how white it is when fresh — a wash, not a road. */
+const WIDTH = 0.8;
+const SPREAD = 0.7;
+const STRENGTH = 0.38;
+/** Where the wake starts: this far behind the centre of gravity, m, as a
+ * share of the hull's length — the transom, not the seat. */
+const STERN = 0.45;
 
-const FOAM = new THREE.Color(0xff0000); // DIAG
+const FOAM = new THREE.Color(PALETTE.foam);
 
 export type Wake = {
   mesh: THREE.Mesh;
@@ -74,10 +79,12 @@ export function createWake(): Wake {
     // A new sample once the transom has moved far enough, and only while
     // the hull is on the water and going somewhere.
     const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
-    const moved = last < 0 || Math.hypot(c.x - sx[last], c.z - sz[last]) >= SPACING;
+    const moved =
+      last < 0 || Math.hypot(c.x - sx[last], c.z - sz[last]) >= SPACING + c.spec.length * STERN;
     if (moved && !c.airborne && c.speed > 4 && c.wetted > 0.05) {
-      sx[head] = c.x;
-      sz[head] = c.z;
+      const back = c.spec.length * STERN;
+      sx[head] = c.x - Math.sin(c.heading) * back;
+      sz[head] = c.z - Math.cos(c.heading) * back;
       sh[head] = c.heading;
       st[head] = t;
       head = (head + 1) % SAMPLES;
@@ -92,7 +99,7 @@ export function createWake(): Wake {
       const k4 = n * 8;
       if (n >= SAMPLES - filled) {
         const age = t - st[i];
-        const alpha = Math.max(0, 1 - age / LIFE) * 0.8;
+        const alpha = Math.max(0, 1 - age / LIFE) * STRENGTH;
         const half = (WIDTH + SPREAD * age) / 2;
         const rx = Math.cos(sh[i]) * half;
         const rz = -Math.sin(sh[i]) * half;
