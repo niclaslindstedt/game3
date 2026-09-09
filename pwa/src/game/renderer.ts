@@ -4,8 +4,8 @@
 // engine never imports THREE; this module never mutates the state — it
 // reads the craft's position and quaternion, the progress, the clock, and
 // hands the water mesh the sea to sample. The camera is maths in camera.ts
-// and applied here in four lines; the sky and its lights are a stand-in
-// until sky.ts is real (see its header).
+// and applied here in four lines; the sky, the fog and both lights belong
+// to environment.ts, which owns everything in the scene that is air.
 //
 // AXES: engine and three.js agree — x east, z north, y up, both
 // right-handed — so the craft's quaternion goes straight onto the mesh and
@@ -15,10 +15,10 @@
 import * as THREE from "three";
 import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 
-import { PALETTE } from "../identity.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { buildCraft } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
+import { createEnvironment, type Environment } from "./environment.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createPines } from "./pines.ts";
 import { createRocks } from "./rocks.ts";
@@ -27,14 +27,13 @@ import { createWake } from "./wake.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
 import { createWaterMesh } from "./water-mesh.ts";
 
-/** Near and far planes, m. The far is past the fog's end, so nothing pops;
- * the near is under the nose camera's own deck. */
+/** Near and far planes, m. The far is past the sky's outermost shell — the
+ * weather's ceiling at 2400 m — so nothing in the sky is ever clipped; the
+ * near is under the nose camera's own deck. The fog's own range belongs to
+ * the sky (`Preset.fogNear` / `fogFar`), because how far a rider can see is
+ * a fact about the weather. */
 const NEAR = 0.2;
-const FAR = 2600;
-/** Distance fog, m: where it starts and where it has taken everything.
- * Sized to the water grid — the far edge of the grid is well inside it. */
-const FOG_NEAR = 140;
-const FOG_FAR = 560;
+const FAR = 4200;
 /** The device pixel ratio ceiling: a 3× phone drawing nine pixels for
  * every one it can show is a phone at 20 fps. */
 const MAX_DPR = 2;
@@ -67,24 +66,6 @@ export type GameRenderer = {
   dispose: () => void;
 };
 
-/** Where the sun stands for an hour of the day, as a unit direction TOWARD
- * it in the engine's frame: up in the east at six, south at noon, down in
- * the west at eighteen, low in the north through the short night. A
- * stand-in for the sky system's own clock (sky.ts). */
-function sunDirection(hour: number): THREE.Vector3 {
-  const day = ((hour - 6) / 12) * Math.PI;
-  const azimuth = Math.PI / 2 + day;
-  // Never lower than a morning sun a few hours up: a grazing sun under
-  // a stand-in sky with no sky light of its own leaves every near face
-  // black.
-  const elevation = Math.max(0.4, Math.sin(day) * 0.95);
-  return new THREE.Vector3(
-    Math.sin(azimuth) * Math.cos(elevation),
-    Math.sin(elevation),
-    Math.cos(azimuth) * Math.cos(elevation),
-  ).normalize();
-}
-
 export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -94,24 +75,12 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
-  scene.background = new THREE.Color(PALETTE.sky);
-  scene.fog = new THREE.Fog(new THREE.Color(PALETTE.sky), FOG_NEAR, FOG_FAR);
 
   const camera = new THREE.PerspectiveCamera(60, 16 / 9, NEAR, FAR);
   const rig = createCameraRig();
 
-  // THE STAND-IN SKY (sky.ts): a hemisphere for the ambient — pale sky over
-  // teal water — and one sun.
-  // Generous ambient: with a sun this low, everything's near side is in
-  // its own shadow, and a Lambert face lit by the hemisphere alone has to
-  // still read — the buoys, the hull, the skerries all face the lens.
-  const hemi = new THREE.HemisphereLight(
-    new THREE.Color(PALETTE.sky),
-    new THREE.Color(0x7f9aa3),
-    2.3,
-  );
-  const sun = new THREE.DirectionalLight(0xfff2dc, 1.3);
-  scene.add(hemi, sun);
+  // THE SKY, and with it the fog and both lights (environment.ts).
+  const sky: Environment = createEnvironment(scene);
 
   const water = createWaterMesh();
   scene.add(water.mesh, water.far);
@@ -127,6 +96,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let level: Level | null = null;
 
   const cost: FrameCost = { waterMs: 0, frameMs: 0, calls: 0, triangles: 0 };
+  const eye = new THREE.Vector3();
   const aim = new THREE.Vector3();
   const upVec = new THREE.Vector3();
   const right = new THREE.Vector3();
@@ -146,7 +116,11 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       world = new THREE.Group();
       world.add(terrain, createRocks(level), createPines(level), gates.group);
       scene.add(world);
-      sun.position.copy(sunDirection(level.hour).multiplyScalar(400));
+      // The sky is the level's: its hour, its coast's latitude and the
+      // weather it was generated under. The water answers to the same sky,
+      // which is what keeps a sunset from floating over a teal sea.
+      sky.load(level);
+      water.retone(sky.mirror());
     }
     const id = state.craft.spec.id;
     if (id !== craftId) {
@@ -206,6 +180,10 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       fovWas = fov;
       spray.setLens(bufferSize.y, fov);
     }
+    // The sky follows the lens LAST: its cloud cull reads the camera's own
+    // matrices, and reading them before the pose is applied culls this
+    // frame's sky against last frame's view.
+    sky.update(state, camera, eye.set(pose.x, pose.y, pose.z), dt);
 
     renderer.render(scene, camera);
     cost.calls = renderer.info.render.calls;
@@ -225,6 +203,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     resize,
     cost: () => cost,
     dispose: () => {
+      sky.dispose();
       water.dispose();
       wake.dispose();
       spray.dispose();

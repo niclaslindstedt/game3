@@ -203,16 +203,22 @@ describe("level analysis", () => {
     );
   });
 
-  it("R12, R13 — flags a gale, an onshore-from-the-land wind, a night, and the wrong water", () => {
+  it("R12, R13, R19 — flags a gale, a landward wind, an hour off the clock, the wrong water and an unoffered sky", () => {
     const seed = LEVEL_SEEDS[9];
     const level = levelFor(seed);
     expect(errors(broken(seed, { wind: { ...level.wind, speed: 20 } }))).toContain("R12.speed");
     expect(
       errors(broken(seed, { wind: { ...level.wind, from: level.wind.from + Math.PI } })),
     ).toContain("R12.direction");
-    expect(errors(broken(seed, { hour: 2 }))).toContain("R13.hour");
+    // Any hour on the clock is legal (R13's band is the whole day), so what
+    // is left to flag is an hour that is not one — a level whose sun cannot
+    // be placed at all.
+    expect(errors(broken(seed, { hour: 26 }))).toContain("R13.hour");
     expect(errors(broken(seed, { water: { density: 1025, temperature: 25 } }))).toEqual(
       expect.arrayContaining(["R13.density", "R13.temperature"]),
+    );
+    expect(errors(broken(seed, { weather: "fjord-fog" as Level["weather"] }))).toContain(
+      "R19.weather",
     );
   });
 
@@ -230,7 +236,7 @@ describe("level analysis", () => {
 
   it("names the rule and a stable code on every finding", () => {
     const seed = LEVEL_SEEDS[11];
-    const level = broken(seed, { hour: 23, wind: { ...levelFor(seed).wind, speed: 0 } });
+    const level = broken(seed, { hour: -1, wind: { ...levelFor(seed).wind, speed: 0 } });
     for (const f of analyzeLevel(level).findings) {
       expect(f.rule).toMatch(/^R\d+$/);
       expect(f.code.startsWith(`${f.rule}.`)).toBe(true);

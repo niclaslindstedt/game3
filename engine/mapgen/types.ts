@@ -22,6 +22,25 @@ export type BiomeId = "taiga" | "archipelago" | "fjord" | "atoll" | "delta" | "a
 /** What the ground is made of where a point of shore stands. */
 export type Surface = "bedrock" | "rock" | "sand" | "water";
 
+/** THE SKY a level is ridden under (R19). Five, and they are five different
+ * skies rather than one sky at five densities: the first two are OPEN — a
+ * gradient with cloud floating in it — and the last three have a LID, a
+ * ceiling whose underside is most of what the rider can see overhead.
+ *
+ *   clear     open blue, a handful of fair-weather cumulus.
+ *   high      open, with a high sheet across it: the light softened, the
+ *             blue paler, the sun still a disc.
+ *   overcast  a dry stratus lid, flat and high, the light shadowless.
+ *   rain      a lower, whiter, ragged ceiling — a wet day is a WHITE sky,
+ *             brighter overhead than anything on the water — and the view
+ *             closes right in.
+ *   squall    a black gust front kilometres thick, its one bright thing the
+ *             strip at the rim where daylight still gets in under the base.
+ *
+ * The word is drawn per seed from the biome's own chart; how HEAVY that sky
+ * is comes from the level's wind (`weather.ts`). */
+export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
+
 /** A rock standing in (or just out of) the water: a vertical-axis solid the
  * craft can hit. `top` is the rock's height above sea level (negative for a
  * reef the hull can still touch), `r` its plan radius. */
@@ -117,6 +136,9 @@ export type Level = {
   readonly start: { readonly x: number; readonly z: number; readonly heading: number };
   readonly wind: Wind;
   readonly water: WaterBody;
-  /** Hour of day, 0..24. Read by nobody yet; the sky will. */
+  /** Hour of day, 0..24 (R13) — where the sun stands, which is what the
+   * renderer's atmosphere builds the whole sky out of. */
   readonly hour: number;
+  /** The sky over it (R19). */
+  readonly weather: Weather;
 };

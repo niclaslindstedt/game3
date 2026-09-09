@@ -89,7 +89,14 @@ const SHALLOW = c(PALETTE.seaShallow);
 const SEA = c(PALETTE.sea);
 const DEEP = c(PALETTE.seaDeep);
 const FOAM = c(PALETTE.foam);
-/** What the water reflects at a grazing angle: the sky. */
+/** WHAT THE WATER REFLECTS at a grazing angle: the sky, and the LIVE one.
+ * The far half of every frame over open water is reflected sky, so a
+ * dramatic sky with a fixed teal sea under it is a sky that reads as
+ * pasted on — a sunset has to put orange on the wave faces out toward the
+ * light or it is a picture behind the game rather than in it. The
+ * environment writes it (`retone`); the ladder decides it (`seaMirror`),
+ * and this is only where it is kept. Its start is the palette's own high
+ * sky, which is the clear noon the whole palette was authored at. */
 const SKY = c(PALETTE.skyHigh);
 /** A crest catches the light and a trough hides from it: the height at
  * which the crest tint is full, as a share of the sea's own significant
@@ -120,6 +127,9 @@ export type WaterMesh = {
   mesh: THREE.Mesh;
   /** The far grid and the horizon disc under it. */
   far: THREE.Group;
+  /** Put the sky's own colour back on the water: what a grazing wave face
+   * reflects, packed sRGB. Called on a change of sky, not per frame. */
+  retone: (mirror: number) => void;
   /** Re-lay the grid under the craft and displace it for the state's
    * clock; `eye` is where the lens is, for the reflection's angle.
    * Returns the milliseconds it took — the profile's number. */
@@ -417,9 +427,22 @@ export function createWaterMesh(): WaterMesh {
     return performance.now() - t0;
   };
 
+  const retone = (mirror: number): void => {
+    SKY.set(mirror);
+    // Both far surfaces are the same water seen at the shallowest angles
+    // there are, so both are mostly sky — which is what makes each hand-over
+    // (near grid → far grid → horizon) a change of DETAIL rather than of
+    // colour, under any sky. The near grid needs no pass of its own: it
+    // takes the sky per vertex through the Fresnel term above, off this
+    // same `SKY`.
+    farMaterial.color.copy(DEEP).lerp(SKY, 0.62);
+    (horizon.material as THREE.MeshBasicMaterial).color.copy(DEEP).lerp(SKY, 0.62);
+  };
+
   return {
     mesh,
     far,
+    retone,
     update,
     dispose: () => {
       geometry.dispose();

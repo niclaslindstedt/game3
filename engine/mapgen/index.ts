@@ -10,6 +10,7 @@ export {
   type LevelRules,
 } from "./rules.ts";
 export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
+export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
 export { generateLevel, subSeed } from "./generate.ts";
 export { compileLevel, courseBounds, insideBounds, type LevelPlan } from "./compile.ts";
 export { createShore, shoreSpan, type Shore } from "./shore.ts";
@@ -64,5 +65,6 @@ export type {
   Surface,
   Vec2,
   WaterBody,
+  Weather,
   Wind,
 } from "./types.ts";

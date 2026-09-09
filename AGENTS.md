@@ -6,7 +6,7 @@ This file is the canonical source of truth for AI coding agents working in this 
 
 This repository conforms to [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) — the committed copy IS the spec, self-contained, with no upstream document to fetch and no validator to call; it is a verbatim copy of the sibling rally game's, one spec for both games, and amending it is a reviewed PR that propagates the new mandate into the tree. When in doubt about layout, naming, or workflow conventions, the spec is the tie-breaker. Where the repo knowingly falls short of it, [`docs/spec-conformance.md`](docs/spec-conformance.md) is the ledger — one row per chapter, with the verdict, the evidence and what closing the gap would take; the `sync-game-spec` skill walks it.
 
-**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft (no rider drawn), a chase camera, a HUD, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
+**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft (no rider drawn), a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
 
 ## Build and test commands
 
@@ -40,6 +40,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The generator, its rules, the analyzer                  | `level`, `analyze`             | `mapgen-improvement`                           |
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The HUD, the controls, a menu                           | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
+| The sky, the light, the weather                         | `screenshots`, `level`         | `game-feel`                                    |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
@@ -115,6 +116,9 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | A whole new gameplay system                           | engine first, then `pwa/`                                     | `engine-system`      |
 | How a craft looks                                     | `pwa/src/game/craft-body.ts`, `craft-styles.ts`               | `craft-design`       |
 | The camera                                            | `pwa/src/game/camera.ts`                                      | `game-feel`          |
+| The sky: the sun's place, the ladder of looks, the lid | `pwa/src/game/sky.ts`, `sky-rungs.ts`, `sky-looks.ts`, `daylight.ts` | `game-feel`   |
+| The sky as DRAWN: the dome, the stars, the clouds     | `pwa/src/game/environment.ts`, `sky-dome.ts`, `clouds.ts`     | `game-feel`          |
+| Which sky a seed is ridden under (R19)                | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`          | `mapgen-improvement` |
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
 | The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
 | The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `fx-textures.ts`          | `game-feel`            |
@@ -127,7 +131,6 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Waiting for                                   | The file(s) waiting                                              |
 | --------------------------------------------- | ---------------------------------------------------------------- |
 | Every sound and every note (synthesized, no files) | `pwa/src/game/audio/index.ts`                                |
-| The sky, the light from `level.hour`, weather | `pwa/src/game/sky.ts`, `engine/mapgen/weather.ts`                |
 | Damage: what a hit costs the machinery        | `engine/game/damage.ts`, `pwa/src/game/damage-fx.ts`             |
 | Trick scoring (the backflip is reachable, unscored) | `engine/game/tricks.ts`                                    |
 | The fish and animals, by biome                | `engine/game/defs/fauna.ts`, `engine/mapgen/fauna.ts`, `pwa/src/game/fauna.ts` |
@@ -167,6 +170,8 @@ Each of these is the one place an answer is written down. Anything that needs it
 - **Where a reset stands the craft** — `resetPose` in `engine/game/course.ts`; `standCraft` is how anything puts a craft down afloat at its rest draft (`restY` in `hull.ts` — Archimedes, bisected).
 - **The heading to the next gate** — `bearingToNext` in `engine/game/course.ts`, for the HUD's arrow and the bot alike.
 - **The sign conventions** — heading 0 = +z, clockwise from above; pitch NOSE-UP positive; roll RIGHT-SIDE-DOWN positive; body angular rates right-handed. `engine/lib/quat.ts`'s `fromEuler`/`toEuler` own the flip between the rider's reading and the algebra's. The one place the SCREEN's axes (thumb toward you, drag down for throttle) are turned into the engine's signs is `pwa/src/game/input-model.ts`, DOM-free so the tests can read it; `input.ts` only feeds it events.
+- **What sky a level is under** — `Level.weather` (R19) and `Level.hour`, with `skyCover(wind.speed)` the one measure of how heavy that sky is. `pwa/src/game/sky.ts`'s `skyAt` turns the three into a `Preset`, and everything that answers to the sky — the two lights, the fog, the dome, the clouds, what the water reflects — reads that ONE preset. Nothing anywhere else decides how dark it is.
+- **What the water reflects** — `seaMirror(preset)`; `water-mesh.ts` is handed it (`retone`) and never picks a sky colour of its own.
 - **The ONE clock** — `state.t` advances by `TUNING.dt` per step and is the only time the engine knows; the sea is a function of it. Nothing in `engine/` reads a wall clock (`analyzeLevel`'s report timer is the recorded exception, dev-time only).
 
 ## Test conventions
@@ -206,6 +211,7 @@ Places where one idea is deliberately written in two files that cannot import ea
 - The service worker contract (the cache id, the emitted files) is shared between `pwa/pwa-plugin.ts` and `pwa/src/app-pwa.ts` (`cacheIdForBase`) — keep them agreeing.
 - **The rule book has a mirror.** `engine/mapgen/rules.ts` states every R-rule once in its header; `docs/level-generator.md` carries the same prose VERBATIM. `tests/docs_rules_test.ts` reads the ids off the code, so a new rule fails the test until its mirror lands.
 - **The staged moments are named twice.** `pwa/src/game/scenarios.ts` (the app, `?scene=`, the screenshot tool) and the ride lab's list in `scripts/lib/ride-scenarios.mjs` both name them; a scenario added to one and not the other is a lab that cannot draw what the app can stand in, or the reverse. Change one, change both — or fold the lab onto the app's list through `aliasEngine`.
+- **The sky is authored in linear light and drawn in three.js.** `pwa/src/game/sky.ts` is deliberately three-free so the tests can read the whole colour model, and every mix in it goes through `pwa/src/lib/colour.ts`, which converts sRGB→linear→sRGB exactly the way `THREE.Color.lerp` does with colour management on. A mix added in the sky against a different curve drifts from every material the same preset lights.
 - **The ramp is one line in two engines.** `rampSurface` (`mapgen/course.ts`) and `rampDeckY` (`game/collision.ts`) compute the same deck height from the same hinge; `tests/collision_test.ts` rides one and `tests/mapgen_test.ts` places rings off the other.
 - **The shell global `__SH_SHELL__`** is stated in `pwa/src/shell-host.ts` and will be restated by each shell's initialization script, which cannot import it — `platform-shells`'s trap, reserved.
 - The deployed site IS the product (§11.2-as-webapp): there is no separate `website/` tree. SEO copy lives in `pwa/index.html` + `pwa/public/`; keep it in sync with `identity.ts`, and treat a stale deployed site after identity/feature changes as a bug (`update-website` owns the sweep).

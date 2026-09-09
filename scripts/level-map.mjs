@@ -153,7 +153,7 @@ const b = level.bounds;
 const pad = (v, n) => String(v).padStart(n);
 const padEnd = (v, n) => String(v).padEnd(n);
 
-const heading = `SEED ${args.seed} — ${level.biome}, wind ${w.speed.toFixed(1)} m/s from ${deg(w.from).toFixed(0)}°, ${hour}, water ${level.water.temperature.toFixed(1)} °C at ${level.water.density} kg/m³`;
+const heading = `SEED ${args.seed} — ${level.biome}, ${level.weather} sky, wind ${w.speed.toFixed(1)} m/s from ${deg(w.from).toFixed(0)}°, ${hour}, water ${level.water.temperature.toFixed(1)} °C at ${level.water.density} kg/m³`;
 const statLine =
   `${(level.course.length / 1000).toFixed(2)} km, ${gates.length} gates (${airCount} in the air), ` +
   `${level.solids.length} rocks (${Object.entries(solidsByKind)
@@ -205,6 +205,7 @@ if (args.json) {
         biome: level.biome,
         wind: w,
         hour: level.hour,
+        weather: level.weather,
         water: level.water,
         gates: rows,
       },
@@ -222,7 +223,7 @@ writeFileSync(join(outDir, `${name}.txt`), `${text}\n`);
 const canvas = renderLevelMap({
   level,
   scale: args.scale,
-  title: `SEED ${args.seed}  ${level.biome.toUpperCase()}  WIND ${w.speed.toFixed(1)} M/S FROM ${deg(w.from).toFixed(0)}°  ${hour}`,
+  title: `SEED ${args.seed}  ${level.biome.toUpperCase()}  ${level.weather.toUpperCase()}  WIND ${w.speed.toFixed(1)} M/S FROM ${deg(w.from).toFixed(0)}°  ${hour}`,
   lines: [
     `${(level.course.length / 1000).toFixed(2)} KM, ${gates.length} GATES, ${airCount} IN THE AIR`,
     `${level.solids.length} ROCKS`,

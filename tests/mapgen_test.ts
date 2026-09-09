@@ -387,6 +387,13 @@ describe("level generator", () => {
     }
   });
 
+  it("R19 — every level's sky is one the coast offers", () => {
+    const taiga = biomeOf("taiga");
+    for (const seed of LEVEL_SEEDS) {
+      expect(taiga.weathers).toContain(levelFor(seed).weather);
+    }
+  });
+
   it("R14 — both grids sit on 4 m cells, and the bounds are the grid's edges, padded past the course", () => {
     for (const seed of LEVEL_SEEDS) {
       const { ground, offshore, bounds, course, solids } = levelFor(seed);

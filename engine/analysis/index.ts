@@ -43,7 +43,7 @@ import {
 import { TUNING } from "../game/defs/tuning.ts";
 import { launchSpeedFor } from "../sim/bot.ts";
 import { LEVEL_RULES as R, withinBand, type Band } from "../mapgen/rules.ts";
-import type { Gate, Level, Solid } from "../mapgen/types.ts";
+import type { Gate, Level, Solid, Weather } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 
 export { ANALYSIS } from "./budgets.ts";
@@ -83,6 +83,7 @@ export type LevelAnalysis = {
     solids: number;
     windSpeed: number;
     hour: number;
+    weather: Weather;
   };
   /** Wall time, ms. */
   ms: number;
@@ -389,6 +390,16 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     });
   }
   const biome = biomeOf(level.biome);
+  // R19 — the sky is one the coast offers. A level under a sky the biome
+  // has no row for is a level nothing can draw, so it is an error rather
+  // than a note.
+  if (!biome.weathers.includes(level.weather)) {
+    rep.fail(
+      "R19",
+      "weather",
+      `sky "${level.weather}" (${biome.name} offers ${biome.weathers.join(", ")})`,
+    );
+  }
   if (level.water.density !== biome.water.density) {
     rep.fail(
       "R13",
@@ -436,6 +447,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       solids: level.solids.length,
       windSpeed: level.wind.speed,
       hour: level.hour,
+      weather: level.weather,
     },
     ms: Date.now() - started,
   };

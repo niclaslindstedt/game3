@@ -61,7 +61,7 @@ row and the `.lessons/` directory land where the next session expects them.
 | --- | --- |
 | `sound-effects` | Every sound synthesized from parameters — the engine note, the spray, the slam, the gate's chime — under `pwa/src/game/audio/`; the audition page |
 | `soundtrack` | The tracker scores under `pwa/src/game/audio/scores/`; the listen-with-voices-muted loop |
-| `atmosphere` | The sky system (`pwa/src/game/sky.ts`): the sun's clock from `level.hour`, clouds, mist, weather, the light on the water; `make sky` |
+| `atmosphere` | The sky is BUILT (`pwa/src/game/sky.ts` and kin, `engine/mapgen/weather.ts`) and routed to `game-feel` for now. This skill is still reserved for when it grows the parts that are not there yet — rain and snow on the water, lightning, the mist in the bays, a `make sky` contact sheet — and for the craft of the ladder itself. |
 | `visual-effects` | Transient FX: the spray sheet, the wake, the landing plume, the ring's flash, camera shake — event → effect |
 | `wipeout` | The craft past saving: the capsize, the rider thrown, the recovery — the sibling game's `crash`, for water |
 | `damage` | `engine/game/damage.ts` + `pwa/src/game/damage-fx.ts`: what a hit costs the machinery and how it reads; the sibling game's damage half of `collision` |
