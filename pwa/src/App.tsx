@@ -272,13 +272,13 @@ export function App() {
       setPaused(pausedRef.current);
     };
     document.addEventListener("visibilitychange", onVisibility);
-    const onResize = (): void => renderer.resize();
-    window.addEventListener("resize", onResize);
+    // Nothing here watches the canvas's size: the renderer observes its own
+    // box and matches the drawing buffer to it, which is the only way a
+    // rotation is measured after the browser has laid the page out again.
 
     return () => {
       cancelAnimationFrame(raf);
       document.removeEventListener("visibilitychange", onVisibility);
-      window.removeEventListener("resize", onResize);
       input.dispose();
       renderer.dispose();
     };

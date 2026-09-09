@@ -15,6 +15,7 @@
 import * as THREE from "three";
 import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 
+import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { buildCraft } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
@@ -34,9 +35,6 @@ import { createWaterMesh } from "./water-mesh.ts";
  * a fact about the weather. */
 const NEAR = 0.2;
 const FAR = 4200;
-/** The device pixel ratio ceiling: a 3× phone drawing nine pixels for
- * every one it can show is a phone at 20 fps. */
-const MAX_DPR = 2;
 
 /** What one frame cost, for the profile: the water's CPU time, the whole
  * frame's, and what the GPU was asked for. */
@@ -53,6 +51,10 @@ export type GameRenderer = {
   render: (state: GameState, dt: number) => void;
   /** Rebuild the world for a new level or a new craft. */
   load: (state: GameState) => void;
+  /** Re-measure the canvas and match the drawing buffer to it. Called for
+   * you whenever the browser resizes the canvas; exposed for a host that
+   * changes the box without the layout noticing. */
+  resize: () => void;
   /** Let the water effects see EVERY engine step — the wake, the spray
    * and the foam read the craft at the step's cadence and are drawn at
    * the frame's — including the steps of a scene pre-rolled for a
@@ -61,7 +63,6 @@ export type GameRenderer = {
    * still in the air. */
   observe: (state: GameState) => void;
   camera: CameraRig;
-  resize: () => void;
   cost: () => FrameCost;
   dispose: () => void;
 };
@@ -72,7 +73,6 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     antialias: true,
     powerPreference: "high-performance",
   });
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, MAX_DPR));
   renderer.outputColorSpace = THREE.SRGBColorSpace;
   const scene = new THREE.Scene();
 
@@ -103,6 +103,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const forward = new THREE.Vector3();
   const bufferSize = new THREE.Vector2();
   let fovWas = 0;
+  let viewport: Viewport | null = null;
 
   const load = (state: GameState): void => {
     if (state.level !== level) {
@@ -134,11 +135,28 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     rig.restand();
   };
 
+  // THE PICTURE'S SHAPE. The canvas's own CSS box is the truth about how
+  // big the frame must be — the window's inner size is the fallback for the
+  // one call made before the element has been laid out at all. The pixel
+  // ratio is re-read every time with it, because a ratio can change under a
+  // box that has not (a browser zoom, a window dragged to another display),
+  // and a stale ratio is the same stretch as a stale box.
   const resize = (): void => {
-    const w = canvas.clientWidth || window.innerWidth;
-    const h = canvas.clientHeight || window.innerHeight;
-    renderer.setSize(w, h, false);
-    camera.aspect = w / h;
+    const next = viewportOf(
+      canvas.clientWidth || window.innerWidth,
+      canvas.clientHeight || window.innerHeight,
+      window.devicePixelRatio,
+    );
+    if (sameViewport(viewport, next)) return;
+    viewport = next;
+    renderer.setPixelRatio(next.dpr);
+    renderer.setSize(next.w, next.h, false);
+    camera.aspect = next.w / next.h;
+    // The aspect is applied HERE and not left to the frame: the lens the
+    // frame picks is a vertical fov derived from this aspect (hor+), so the
+    // projection has to already know the new shape. `fovWas` is cleared so
+    // that lens is recomputed rather than held from the old shape.
+    camera.updateProjectionMatrix();
     fovWas = 0;
     renderer.getDrawingBufferSize(bufferSize);
   };
@@ -192,17 +210,34 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   };
 
   resize();
+  // A phone turned on its side fires the window's `resize` BEFORE the page
+  // has been laid out again, so a listener there measures the box the canvas
+  // had in the OLD orientation and the buffer keeps the old shape — a
+  // picture stretched or cramped until the app is restarted. A
+  // ResizeObserver is told about the box after layout instead, which is the
+  // only moment the number is right. Nothing here changes the canvas's CSS
+  // box (`setSize` is called with `updateStyle` false), so the observer
+  // cannot feed itself.
+  const boxes = new ResizeObserver(resize);
+  boxes.observe(canvas);
+  // The window is still watched for the ratio-only change the observer never
+  // sees: the box stays the same size in CSS px and every one of them is
+  // suddenly worth more device pixels.
+  window.addEventListener("resize", resize);
+
   return {
     render,
     load,
+    resize,
     observe: (state) => {
       wake.observe(state);
       spray.observe(state);
     },
     camera: rig,
-    resize,
     cost: () => cost,
     dispose: () => {
+      boxes.disconnect();
+      window.removeEventListener("resize", resize);
       sky.dispose();
       water.dispose();
       wake.dispose();
