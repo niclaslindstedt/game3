@@ -101,7 +101,7 @@ export {
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).
 export { boundsPush, onRampDeck, rampDeckY, solidNear } from "./game/collision.ts";
-export { bearingToNext, crossedGate, resetPose } from "./game/course.ts";
+export { bearingToNext, crossedGate, gatesReached, resetPose } from "./game/course.ts";
 
 // The level generator and its analyzer.
 export * from "./mapgen/index.ts";

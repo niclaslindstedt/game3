@@ -6,7 +6,7 @@ This file is the canonical source of truth for AI coding agents working in this 
 
 This repository conforms to [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) — the committed copy IS the spec, self-contained, with no upstream document to fetch and no validator to call; it is a verbatim copy of the sibling rally game's, one spec for both games, and amending it is a reviewed PR that propagates the new mandate into the tree. When in doubt about layout, naming, or workflow conventions, the spec is the tie-breaker. Where the repo knowingly falls short of it, [`docs/spec-conformance.md`](docs/spec-conformance.md) is the ledger — one row per chapter, with the verdict, the evidence and what closing the gap would take; the `sync-game-spec` skill walks it.
 
-**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft (no rider drawn), a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
+**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft (no rider drawn), a chase camera, a full sky (the sun's place from the level's hour, five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
 
 ## Build and test commands
 
@@ -120,6 +120,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | The sky as DRAWN: the dome, the stars, the clouds     | `pwa/src/game/environment.ts`, `sky-dome.ts`, `clouds.ts`     | `game-feel`          |
 | Which sky a seed is ridden under (R19)                | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`          | `mapgen-improvement` |
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
+| The minimap: the coast it cuts, what stands on it     | `pwa/src/game/minimap-scene.ts`, `minimap-view.ts`, `minimap.tsx` | `hud-and-menus`   |
 | The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
 | The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `fx-textures.ts`          | `game-feel`            |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
@@ -138,7 +139,6 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Menus, settings                               | `pwa/src/game/menu-main.tsx`, `settings.ts`                      |
 | The campaign, its modes, which seeds          | `pwa/src/game/campaign.ts`, `engine/rating/index.ts`             |
 | A run recorded and watched again              | `engine/sim/tape.ts`, `pwa/src/game/replay.ts`                   |
-| The minimap                                   | `pwa/src/game/minimap.ts`                                        |
 | The desktop app, the store app                | `tauri/README.md`, `native/README.md`                            |
 
 And the pieces that belong to no skill in particular:
@@ -169,6 +169,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 - **The ramp's anchor** — `rampSurface` in `engine/mapgen/course.ts`: `(x, z)` is the HINGE at the waterline, `length` is the plan footprint, the lip stands `length · tan(angle)` up. The collision engine's `rampDeckY` is the same line, and the search, the analysis and the tests all place a ring off it (`ringPlacement`).
 - **Where a reset stands the craft** — `resetPose` in `engine/game/course.ts`; `standCraft` is how anything puts a craft down afloat at its rest draft (`restY` in `hull.ts` — Archimedes, bisected).
 - **The heading to the next gate** — `bearingToNext` in `engine/game/course.ts`, for the HUD's arrow and the bot alike.
+- **How far down the course a run has got** — `gatesReached` in `engine/game/course.ts`: gates taken plus gates charged for. The HUD's `n / N` counter and the minimap's gauge are the same reading in two forms, and neither restates the sum.
 - **The sign conventions** — heading 0 = +z, clockwise from above; pitch NOSE-UP positive; roll RIGHT-SIDE-DOWN positive; body angular rates right-handed. `engine/lib/quat.ts`'s `fromEuler`/`toEuler` own the flip between the rider's reading and the algebra's. The one place the SCREEN's axes (thumb toward you, drag down for throttle) are turned into the engine's signs is `pwa/src/game/input-model.ts`, DOM-free so the tests can read it; `input.ts` only feeds it events.
 - **What sky a level is under** — `Level.weather` (R19) and `Level.hour`, with `skyCover(wind.speed)` the one measure of how heavy that sky is. `pwa/src/game/sky.ts`'s `skyAt` turns the three into a `Preset`, and everything that answers to the sky — the two lights, the fog, the dome, the clouds, what the water reflects — reads that ONE preset. Nothing anywhere else decides how dark it is.
 - **What the water reflects** — `seaMirror(preset)`; `water-mesh.ts` is handed it (`retone`) and never picks a sky colour of its own.

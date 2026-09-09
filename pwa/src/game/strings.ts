@@ -23,6 +23,10 @@ export const STRINGS = {
   /** The air-time readout, tenths. */
   air: (seconds: number): string => `${seconds.toFixed(1)}s`,
   airLabel: "AIR",
+  /** The minimap's readout: how far the next gate is, whole metres — and
+   * what stands there once the last one is behind the craft. */
+  mapToNext: (metres: number): string => `${Math.round(metres)} M`,
+  mapAtFinish: "FINISH",
   /** The RESET button — back to the last gate. */
   reset: "RESET",
   resetTitle: "Back to the last gate (R)",

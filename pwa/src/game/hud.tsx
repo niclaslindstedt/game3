@@ -4,8 +4,9 @@
 // is not) and lays out everything drawn over the sea:
 //
 //   top left      the run clock, the gate count
-//   top right     the wind vane, the RESET button, and the new-build mark
-//                 on the days there is one
+//   top right     the wind vane, the RESET button and the new-build mark
+//                 on the days there is one, and under them the MINIMAP —
+//                 the coast, the gates and the craft on it
 //   bottom left   the rev bar and the speed
 //   bottom right  the air time while the hull is off the water, and the
 //                 news column — a split, a missed gate, a dive
@@ -21,6 +22,7 @@ import { formatTime } from "../lib/util.ts";
 import { RevBar } from "./hud-dial.tsx";
 import { BarZone, LeverZone } from "./hud-touch.tsx";
 import type { InputManager } from "./input.ts";
+import { Minimap } from "./minimap.tsx";
 import type { HudSnapshot } from "./snapshot.ts";
 import { STRINGS } from "./strings.ts";
 import { UpdateButton } from "./update-button.tsx";
@@ -91,21 +93,27 @@ export function Hud({
       </div>
 
       <div class="hud-topright">
-        <WindVane angle={snap.windAngle} ms={snap.windMs} />
-        <button
-          type="button"
-          class="hud-mini"
-          title={STRINGS.resetTitle}
-          onClick={onReset}
-          // A button that keeps the focus keeps the next Enter, and the
-          // next Enter is the restart.
-          onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
-        >
-          {STRINGS.reset}
-        </button>
-        {/* Nothing on the days there is no new build, which is nearly all
-            of them: it draws itself or it draws nothing. */}
-        <UpdateButton />
+        <div class="hud-topright-row">
+          <WindVane angle={snap.windAngle} ms={snap.windMs} />
+          <button
+            type="button"
+            class="hud-mini"
+            title={STRINGS.resetTitle}
+            onClick={onReset}
+            // A button that keeps the focus keeps the next Enter, and the
+            // next Enter is the restart.
+            onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
+          >
+            {STRINGS.reset}
+          </button>
+          {/* Nothing on the days there is no new build, which is nearly all
+              of them: it draws itself or it draws nothing. */}
+          <UpdateButton />
+        </div>
+        {/* Under the readouts rather than beside them: the map is the one
+            thing up here that is LOOKED at rather than read, and it wants a
+            square of its own clear of the wind chip's baseline. */}
+        <Minimap map={snap.minimap} />
       </div>
 
       <div class="hud-speed">

@@ -10,9 +10,10 @@
 // progress the engine keeps. A number that decided an outcome would be a
 // rule in the shell (§23.2), and there are none.
 
-import { maxRpm, windAt, type CraftId, type GameState } from "@engine";
+import { gatesReached, maxRpm, windAt, type CraftId, type GameState } from "@engine";
 
 import { SCREEN_TO_ENGINE } from "./input-model.ts";
+import { buildMinimap, type HudMinimap } from "./minimap-view.ts";
 
 export type HudSnapshot = {
   speedKmh: number;
@@ -35,6 +36,11 @@ export type HudSnapshot = {
   airTime: number;
   seed: number;
   craft: CraftId;
+  /** The minimap for this frame — the coast around the craft, the gates on
+   * it and the run's share of them (minimap-view.ts). The one readout here
+   * that is a PICTURE, so it is built rather than measured, but it is built
+   * from the state like every other field and decides nothing. */
+  minimap: HudMinimap;
 };
 
 export function takeSnapshot(state: GameState): HudSnapshot {
@@ -48,7 +54,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     idle: c.spec.idleRpm / maxRpm(c.spec),
     time: p.time,
     finished: p.finished,
-    passed: p.passed.length + p.missed.length,
+    passed: gatesReached(p),
     gates: state.level.course.gates.length,
     // Relative to the nose, then onto the screen: the engine's clockwise
     // is the screen's counter-clockwise (input-model.ts).
@@ -58,5 +64,6 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     airTime: c.airTime,
     seed: state.seed,
     craft: c.spec.id,
+    minimap: buildMinimap(state),
   };
 }
