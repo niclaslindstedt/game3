@@ -1,0 +1,24 @@
+# Sea Haven
+
+> A personal-watercraft racing game that runs in the browser: ride a jet ski
+> along generated northern shores through buoy gates and airborne rings, on
+> water built from real wave physics — on phone and desktop, installable as a
+> PWA, offline once loaded. No account, no download, free.
+
+The game boots straight onto the water. Four craft ship — the skiff, the
+marlin, the otter and the dart — and every level is generated from a seed by
+a rules engine: a stretch of shore, the sea beside it, a course within a
+hundred metres of the coast, ramps before every air gate, and the wind that
+sets the sea. The waves are a Gerstner sum off a fetch-limited spectrum; the
+hull floats by displacement, planes by Savitsky's lift and steers by its jet.
+
+## Play
+
+- [Play Sea Haven](https://game3.niclaslindstedt.se/): the game itself.
+- [Privacy policy](https://game3.niclaslindstedt.se/privacy/): nothing leaves the device.
+- [Support](https://game3.niclaslindstedt.se/support/): where progress lives, what to send with a bug.
+
+## Source
+
+- [Repository](https://github.com/niclaslindstedt/game3): engine, level
+  generator, simulation harness, and the PWA shell. Noncommercial license.

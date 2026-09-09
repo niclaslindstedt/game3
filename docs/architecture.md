@@ -1,0 +1,3 @@
+# Architecture
+
+> **Placeholder.** This page is owed and not yet written. It will document the three layers and the one direction of dependency between them — the headless engine (the water, the craft, the course, the generator, the bot and the analyzer), the presentation shell (Preact + three.js + the HUD), and the tooling and tests around them — with the file-by-file map of each and the rules a review refuses a change against, and it syncs from `engine/index.ts`, the directory layout under `engine/` and `pwa/src/game/`, and `OSS_GAME_SPEC.md` §23 — the `update-docs` skill maps that source to this page, and a change there is a change here in the same PR.

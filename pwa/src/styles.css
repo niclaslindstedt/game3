@@ -1,0 +1,145 @@
+/* SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 */
+
+/* App stylesheet.
+
+     1. Tailwind v4 base + utilities.
+     2. The game shell: a full-viewport, non-scrolling canvas with the
+        arcade HUD painted over it, and the prerendered landing copy the
+        crawlers read underneath it.
+
+   Every surface a player sees, the new-build button included, is the app's
+   own and wears the chrome below: there is no third-party component
+   stylesheet here, and nothing outside this tree is scanned for utility
+   classes. The HUD's own classes arrive with the HUD; this file is the base
+   it stands on. */
+
+@import "tailwindcss";
+
+:root {
+  /* PALETTE from identity.ts, restated because a stylesheet cannot import a
+     TypeScript module. There is no third copy: this is a leaf. */
+  --sea: #1b6f8a;
+  --sea-deep: #0b3d4f;
+  --sea-shallow: #3fa7b8;
+  --sky: #d7e9f0;
+  --foam: #f2f7f8;
+  --buoy: #f28c28;
+  --hud-ink: #ffffff;
+  --hud-shadow: #082a38;
+  --hud-good: #f28c28;
+  --hud-bad: #ff5a4e;
+  --hud-info: #9cc6d8;
+}
+
+html,
+body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+  background: var(--sea);
+  color: var(--hud-ink);
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+  font-family: "Avenir Next Condensed", "Arial Narrow", "Roboto Condensed", system-ui, sans-serif;
+}
+
+/* NO TEXT INTERACTION ANYWHERE — the loupe, the callout, the word select.
+   iOS reads a double tap (and a press-and-hold) as the start of "put the
+   caret somewhere" and answers it with a magnifying lens over the page. On a
+   document that is the point; on a game it is a lens over the water because
+   a thumb bounced on the screen. Stated on EVERY element rather than
+   inherited, because iOS decides from the element under the touch, and a
+   UA-styled element never sees what the shell passed down. A surface that
+   MEANS to take typed text names a class and wins on specificity. */
+* {
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+/* THE GAME, over everything: the canvas and the HUD fill the viewport, and
+   the landing copy below sits in the document flow underneath — real HTML
+   a crawler reads, never on screen once the app has mounted. */
+#root {
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+}
+
+canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The prerendered copy in index.html (OSS_GAME_SPEC §11.3.1). Laid out as a
+   readable page for the one reader who ever sees it — a browser with scripts
+   off — and otherwise covered by #root. */
+.landing {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 2rem 1.25rem 4rem;
+  line-height: 1.5;
+  font-size: 17px;
+}
+.landing h1 {
+  font-size: 2.2rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  margin: 0 0 0.25em;
+}
+.landing h2 {
+  font-size: 1.1rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--hud-info);
+  margin: 1.6em 0 0.4em;
+}
+.landing a {
+  color: var(--foam);
+}
+
+/* The boot card: the name over the water while the game loads. */
+.boot {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  background: linear-gradient(180deg, var(--sea-deep) 0%, var(--sea) 100%);
+  text-shadow: 0 2px 0 var(--hud-shadow);
+}
+.boot-name {
+  font-size: clamp(2.4rem, 9vw, 5rem);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.boot-note {
+  font-size: 1rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--hud-info);
+}
+
+/* THE HUD's ground: a layer over the canvas that never takes the touch the
+   handlebar and the lever are reading, except where a control says it does.
+   Padded by the safe-area insets so nothing hides under a notch. */
+.hud {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
+    env(safe-area-inset-left);
+  text-shadow: 0 1px 0 var(--hud-shadow);
+}
+.hud button,
+.hud [data-touch] {
+  pointer-events: auto;
+}

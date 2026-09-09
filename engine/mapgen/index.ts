@@ -1,0 +1,51 @@
+// SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
+// The generator's public surface. `engine/index.ts` re-exports all of it;
+// nothing outside `mapgen/` and `analysis/` reaches past this file.
+export {
+  LEVEL_RULES,
+  inBand,
+  withinBand,
+  type Band,
+  type GenerateOptions,
+  type LevelRules,
+} from "./rules.ts";
+export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
+export { generateLevel, subSeed } from "./generate.ts";
+export { compileLevel, courseBounds, insideBounds, type LevelPlan } from "./compile.ts";
+export { createShore, shoreSpan, type Shore } from "./shore.ts";
+export {
+  bedDepth,
+  createGeology,
+  landHeight,
+  laySolids,
+  shelfFactor,
+  type Geology,
+  type KeepOut,
+} from "./geology.ts";
+export {
+  airCorridor,
+  courseKeepOut,
+  cumulative,
+  gateBuoys,
+  layCourse,
+  pointAlong,
+  polylineDistance,
+  rampSurface,
+  segmentDistance,
+  walkPolyline,
+  type CoursePlan,
+} from "./course.ts";
+export { analyzeLevel, ANALYSIS, type Finding, type LevelAnalysis, type Severity } from "../analysis/index.ts";
+export type {
+  BiomeId,
+  Bounds,
+  Course,
+  Gate,
+  Level,
+  Ramp,
+  Solid,
+  Surface,
+  Vec2,
+  WaterBody,
+  Wind,
+} from "./types.ts";

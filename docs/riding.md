@@ -1,0 +1,3 @@
+# Riding
+
+> **Placeholder.** This page is owed and not yet written. It will document how the craft feels and why — buoyancy off the hull probes, the Savitsky planing lift, the slamming on re-entry, the waterjet's thrust and the nozzle that steers it, the rider's lean, flight and the landing — every tuning knob in `TUNING` with what it buys, and it syncs from `engine/game/craft.ts`, `hull.ts`, `flight.ts`, `engine/game/defs/tuning.ts` and the craft catalog, judged with `make ride` and `make sim` — the `update-docs` skill maps that source to this page, and a change there is a change here in the same PR.
