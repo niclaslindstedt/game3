@@ -320,7 +320,7 @@ export const TUNING = {
     /** Where the windage stands: this high above the centre of gravity, m,
      * and this share of the length AFT of it — the rider's body, over
      * the water's lateral centre. */
-    windageY: 0.5,
+    windageY: 0.3,
     windageZ: -0.12,
     /** The rider's roll authority in the air, N·m at full steer, and the
      * yaw the same input buys. */
