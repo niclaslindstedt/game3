@@ -107,7 +107,8 @@ crafts:
 # two reference viewports (desktop landscape, phone portrait). Needs a built
 # pwa/dist, `npm i --no-save playwright-core` and a Chromium (CHROMIUM_PATH
 # overrides discovery). `make screenshots SCENE=launch SEED=38 CRAFT=skiff` ·
-# `make screenshots ARGS=--all` · `make screenshots ARGS="--drive W:4"`
+# `make screenshots ARGS=--all` · `make screenshots ARGS="--drive W:4"` ·
+# `make screenshots SCENE=rest ARGS=--update` (the new-build button)
 screenshots:
 	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) \
 		$(if $(CRAFT),--craft $(CRAFT),) $(ARGS)

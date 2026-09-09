@@ -14,6 +14,9 @@
 //                  frame is drawn — what the screenshot tool waits on
 //   ?wind=12       ride in this wind, m/s, from the level's own quarter
 //   ?hs=20         ...or in a sea quoted by its significant height, m
+//   ?update=1      show the new-build button as if a build were waiting, so
+//                  the surface can be photographed (read where it is drawn,
+//                  in game/update-button.tsx — it is not part of a repro)
 //
 // THE LOOP: `requestAnimationFrame` hands the clock (run-loop.ts) the wall
 // time; the clock says how many fixed steps to take; each step samples the

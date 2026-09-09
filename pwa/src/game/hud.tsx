@@ -4,7 +4,8 @@
 // is not) and lays out everything drawn over the sea:
 //
 //   top left      the run clock, the gate count
-//   top right     the wind vane, the RESET button, the build corner
+//   top right     the wind vane, the RESET button, and the new-build mark
+//                 on the days there is one
 //   bottom left   the rev bar and the speed
 //   bottom right  the air time while the hull is off the water, and the
 //                 news column — a split, a missed gate, a dive
@@ -22,6 +23,7 @@ import { BarZone, LeverZone } from "./hud-touch.tsx";
 import type { InputManager } from "./input.ts";
 import type { HudSnapshot } from "./snapshot.ts";
 import { STRINGS } from "./strings.ts";
+import { UpdateButton } from "./update-button.tsx";
 
 /** A line in the news column: what it says, its colour, and an id the list
  * is keyed on so a line leaving does not restart the animation of the one
@@ -101,6 +103,9 @@ export function Hud({
         >
           {STRINGS.reset}
         </button>
+        {/* Nothing on the days there is no new build, which is nearly all
+            of them: it draws itself or it draws nothing. */}
+        <UpdateButton />
       </div>
 
       <div class="hud-speed">
