@@ -29,6 +29,9 @@
   --hud-good: #f28c28;
   --hud-bad: #ff5a4e;
   --hud-info: #9cc6d8;
+  /* The minimap's plate, edge to edge. Big enough that a buoy pair is two
+     dots with a gap in it, small enough that it never owns the corner. */
+  --hud-map: clamp(4.8rem, 16vmin, 7.6rem);
 }
 
 html,
@@ -195,6 +198,13 @@ canvas {
   top: max(0.6rem, env(safe-area-inset-top));
   right: max(0.8rem, env(safe-area-inset-right));
   display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.5rem;
+}
+
+.hud-topright-row {
+  display: flex;
   align-items: flex-start;
   gap: 0.8rem;
 }
@@ -335,6 +345,266 @@ canvas {
 .update-nudge[data-armed] .update-nudge-word {
   max-width: 6rem;
   opacity: 1;
+}
+
+/* ── THE MINIMAP ─────────────────────────────────────────────────────────
+   A square of sea seen from above, under the wind chip in the corner a
+   rider already glances at. The plate's own ground is the DEEP water, so
+   the layers over it are everything that is not that.
+
+   The corner radius is derived from the ring's own geometry in minimap.tsx
+   (RING_R + RING_SW / 2, over a 100-unit box) so the chassis and the gauge
+   share one corner at every screen scale — change the constants there and
+   this number moves with them. */
+.hud-minimap {
+  position: relative;
+  display: block;
+  width: var(--hud-map);
+  height: var(--hud-map);
+  background: var(--sea-deep);
+  border-radius: calc(var(--hud-map) * 0.175);
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
+  /* The schematic fills the whole box and runs off every side of it: the
+     plate's own corners are what cut it back to the shape of the frame. */
+  overflow: hidden;
+}
+
+.hud-minimap-face,
+.hud-minimap-ring {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+/* The coast: scaled for the speedo's zoom and slid to wherever the craft
+   has got since the paths were cut (minimap.tsx's `worldPose`). The origin
+   is written into the transform list itself, so this only has to make sure
+   nothing else is imposed on it. Tweened at the snapshot's own rate, so the
+   coast SCROLLS and BREATHES rather than stepping twelve times a second —
+   the same treatment the craft icon gets. */
+.hud-minimap-world {
+  transform-origin: 0 0;
+  transition: transform 120ms linear;
+}
+
+/* Every stroked line is held OFF the zoom: the window opening up at speed
+   has to mean more sea in the frame, not a thinner shoreline in it. The
+   fills scale with the world, because a bay really is a piece of ground and
+   the racing line at this framing really is not — it is a metre of truth
+   drawn twenty wide so it can be read at all. */
+.hud-minimap-shoreline,
+.hud-minimap-route-case,
+.hud-minimap-route {
+  vector-effect: non-scaling-stroke;
+}
+
+/* Water shallow enough to stand a wave up and to ground a hull dropping off
+   one. A band between the deep water and the beach, and the only warning on
+   the map that is about the sea bed rather than about a thing on it. */
+.hud-minimap-shallows {
+  fill: var(--sea-shallow);
+  opacity: 0.42;
+}
+
+.hud-minimap-land {
+  fill: rgb(226 220 198 / 92%);
+}
+
+/* The shoreline itself — the edge the whole course is measured off. */
+.hud-minimap-shoreline {
+  fill: none;
+  stroke: rgb(12 44 58 / 70%);
+  stroke-width: 1.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* A rock that breaks the surface is a thing the rider can see and steer
+   round; a reef is not, which is exactly why it is on the map. So the
+   skerry is solid and the reef is hollow — the same told-apart-at-a-glance
+   trick the gates use, and it survives a screenshot with no colour in it. */
+.hud-minimap-rock {
+  fill: rgb(12 44 58 / 88%);
+}
+
+.hud-minimap-reef {
+  fill: rgb(12 44 58 / 22%);
+  stroke: rgb(12 44 58 / 70%);
+  stroke-width: 0.7;
+}
+
+/* The racing line, drawn twice: a dark casing, then the line over it. The
+   casing is what separates it from the water and the sand under it. */
+.hud-minimap-route-case {
+  fill: none;
+  stroke: rgb(6 30 42 / 70%);
+  stroke-width: 4.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.hud-minimap-route {
+  fill: none;
+  stroke: rgb(242 247 248 / 72%);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+/* THE GATES. State is a COLOUR, never a shape: a gate does not stop being
+   the same pair of buoys when it is taken, and a rider learning one glyph
+   is a rider who can read the whole course. Every shape in a gate reads its
+   colour out of `--gate`, so a state is one class on the group. */
+.hud-minimap-gate {
+  --gate: rgb(242 247 248 / 62%);
+}
+
+.hud-minimap-gate-passed {
+  --gate: rgb(242 247 248 / 24%);
+}
+
+.hud-minimap-gate-missed {
+  --gate: var(--hud-bad);
+}
+
+/* The one being ridden for, in the buoys' own orange — the colour the rider
+   is looking for out on the water. */
+.hud-minimap-gate-next {
+  --gate: var(--buoy);
+}
+
+.hud-minimap-buoy {
+  fill: var(--gate);
+}
+
+.hud-minimap-gate-line {
+  fill: none;
+  stroke: var(--gate);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+}
+
+.hud-minimap-gate-ring {
+  fill: none;
+  stroke: var(--gate);
+  stroke-width: 1.6;
+  stroke-dasharray: 2.6 2;
+}
+
+/* ...and the halo that breathes out of whichever gate is next. It is what
+   makes the mark findable rather than merely present, which is the whole
+   point of it: the gate earns the halo when the rider has been knocked off
+   the line and the window holds three sets of buoys. */
+.hud-minimap-halo {
+  fill: none;
+  stroke: var(--buoy);
+  stroke-width: 1.2;
+  opacity: 0;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hud-minimap-halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: minimap-halo 1.9s ease-out infinite;
+  }
+}
+
+/* Out of the gate and away. It fades as it goes, so the mark reads as one
+   thing pulsing rather than as two rings that happen to share a centre. */
+@keyframes minimap-halo {
+  0% {
+    opacity: 0.8;
+    transform: scale(0.5);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+
+/* What the next gate becomes once it is off the window: a wedge on the rim,
+   turned to point at it. The window is a few hundred metres across and the
+   legs between gates are over a hundred, so this is the state the mark is in
+   whenever the rider has lost the line — and it is the whole reason the map
+   survives no longer showing the course end to end. */
+.hud-minimap-chevron {
+  fill: var(--buoy);
+  stroke: rgb(6 30 42 / 80%);
+  stroke-width: 1;
+  stroke-linejoin: round;
+}
+
+/* The run's two ends, as flags on a staff standing at the place itself.
+   Squared for the finish, swallow-tailed for the start, so the pair read
+   apart in a screenshot with no colour in it at all. */
+.hud-minimap-end {
+  stroke: rgb(6 30 42 / 80%);
+  stroke-width: 0.9;
+  stroke-linejoin: round;
+}
+
+.hud-minimap-end-start {
+  fill: var(--hud-info);
+}
+
+.hud-minimap-end-finish {
+  fill: var(--foam);
+}
+
+/* THE CRAFT, in the middle of the window — the one glyph that never moves,
+   because the window is centred on it. Only its heading changes, and that is
+   tweened between the HUD's 12 Hz snapshots, like the wind vane, so the icon
+   swings instead of stepping. */
+.hud-minimap-craft {
+  transition: transform 120ms linear;
+}
+
+.hud-minimap-craft-hull {
+  fill: var(--hud-bad);
+  stroke: rgb(6 30 42 / 85%);
+  stroke-width: 1.2;
+  stroke-linejoin: round;
+}
+
+.hud-minimap-craft-seat {
+  fill: rgb(10 40 70 / 70%);
+}
+
+.hud-minimap-craft-sponsons {
+  fill: rgb(6 30 42 / 90%);
+}
+
+.hud-minimap-ring-track {
+  fill: none;
+  stroke: rgb(255 255 255 / 22%);
+}
+
+.hud-minimap-ring-fill {
+  fill: none;
+  stroke: var(--hud-good);
+  stroke-linecap: round;
+  transition: stroke-dasharray 160ms linear;
+}
+
+/* The readout rides the frame's bottom edge, inside the gauge. There is a
+   map under it and the map is the instrument, so it is set smaller than a
+   HUD figure that has the screen to itself. */
+.hud-minimap-read {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 5.5%;
+  opacity: 0.92;
+  font-size: clamp(0.44rem, 1.45vmin, 0.62rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.06em;
+  text-align: center;
+  pointer-events: none;
 }
 
 /* The bottom-left corner is the instrument panel: revs over speed. */
@@ -646,6 +916,16 @@ canvas {
     gap: 0.7rem;
   }
 
+  /* The map shares the top of a narrow screen with the clock and the gate
+     count, so it is sized off the WIDTH there rather than off `vmin`. */
+  .hud {
+    --hud-map: clamp(4rem, 23vw, 5.8rem);
+  }
+
+  .hud-topright {
+    gap: 0.35rem;
+  }
+
   .hud-speed-num {
     font-size: clamp(2rem, 12vw, 3.6rem);
   }
@@ -682,6 +962,10 @@ canvas {
 /* A short landscape (a phone on its side) has no height to spare: the
    panel tightens vertically. */
 @media (orientation: landscape) and (max-height: 30rem) {
+  .hud {
+    --hud-map: clamp(3.6rem, 15vmin, 5.2rem);
+  }
+
   .hud-speed {
     gap: 0.1rem;
   }

@@ -187,6 +187,14 @@ export function resetCraft(state: GameState, events: GameEvent[]): void {
   events.push({ kind: "reset", t: state.t, gate: pose.gate });
 }
 
+/** HOW FAR DOWN THE COURSE a run has got: the gates it has taken plus the
+ * ones it was charged for skipping past, which are reached all the same. The
+ * HUD's `n / N` counter and the minimap's gauge are the same reading in two
+ * forms, and this is the one place the sum is written. */
+export function gatesReached(progress: Progress): number {
+  return progress.passed.length + progress.missed.length;
+}
+
 /** The heading from the craft to the next gate's centre, and how far off
  * the craft's own heading that is, for the HUD's arrow and the bot. */
 export function bearingToNext(

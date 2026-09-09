@@ -17,7 +17,7 @@ Every level is **generated from a seed** by a rules engine, like the sibling ral
 
 Four craft ship, invented names and no real brands, and what separates them is real physics off a data card: the **skiff** (a light runabout — quick, nimble, skittish in chop), the **marlin** (heavy performance — the fastest, and it needs room), the **otter** (stable touring — the heaviest, the softest over waves, slow to turn) and the **dart** (a stand-up — the lightest, the most agile, the least stable). Every hull, every wave and every shore is written in code; the game ships no asset files.
 
-**What exists today is the vertical slice**: the game starts, one generated taiga level stands under a sky built from its own hour and weather, one craft rides it (no rider drawn), a simple HUD reads the run, and you free-ride the shore or run the gates. Sound, rain and lightning on the water, damage, the minimap, menus and settings, the campaign, time trial, heads-up, the map viewer, roam, trick scoring, the fauna and the rider model are each a placeholder file with a header saying what will live there. The desktop and store shells are one README each.
+**What exists today is the vertical slice**: the game starts, one generated taiga level stands under a sky built from its own hour and weather, one craft rides it (no rider drawn), a simple HUD with a minimap reads the run, and you free-ride the shore or run the gates. Sound, rain and lightning on the water, damage, menus and settings, the campaign, time trial, heads-up, the map viewer, roam, trick scoring, the fauna and the rider model are each a placeholder file with a header saying what will live there. The desktop and store shells are one README each.
 
 ## Why
 

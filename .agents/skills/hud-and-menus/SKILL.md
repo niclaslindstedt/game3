@@ -28,7 +28,7 @@ air time as a moment) load `game-feel`.
 | What the speedo READS | `CraftState.speed` — `|v|`, vertical included; stated once in `engine/game/state.ts`, never re-derived in the HUD |
 | The split against the last gate | `Progress.splits` / `lastGatePassedAt` in `engine/game/course.ts` — the HUD shows it, never computes it |
 | The `__SH_READY__` flag the screenshot harness waits on | `App.tsx`, set once the first frame has drawn — a HUD change that delays it is a harness that times out |
-| The minimap | `pwa/src/game/minimap.ts` — a PLACEHOLDER with a header comment. When it is built it follows the split above: a DOM-free scene module the tests read, a `.tsx` that draws it |
+| The minimap | `pwa/src/game/minimap-scene.ts` (the coast cut into paths around an ANCHOR, translated to the craft every frame), `minimap-view.ts` (the gates, the chevron, the gauge, the readout), `minimap.tsx` (the glyphs and the DOM) — the split above, and `tests/minimap_test.ts` reads the two payload halves without a browser |
 
 ## The controls
 
@@ -61,6 +61,12 @@ air time as a moment) load `game-feel`.
   HUD-side split arithmetic, no HUD-side "airborne" guess from `y`. If a
   readout needs a number the engine does not expose, the engine grows a
   field (the `engine-system` skill) — never the HUD a formula.
+- **The minimap draws in SCREEN space, and that is downstream of ONE flip.**
+  `input-model.ts`'s `SCREEN_TO_ENGINE` is the sign boundary; the map's
+  projection (`mx = -x`, `my = -z`) and the icon's negated heading are the
+  same decision applied to a picture, so a right-hand turn swings the icon
+  clockwise. North is up and east is LEFT — the price of agreeing with the
+  chase camera, and not a bug to be tidied.
 - **The build label is §38's "the running build says what it is".** It reads
   `engine/version.ts` and the build's short hash; do not drop it for room.
 - **A menu is not a saving.** When menus come (`menu-main.tsx` is a
