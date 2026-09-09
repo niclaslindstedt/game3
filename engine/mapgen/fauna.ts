@@ -27,9 +27,7 @@ import { faunaById, type FaunaSpec } from "../game/defs/fauna.ts";
 import { POD_LAYER } from "../game/fauna.ts";
 import type { Biome } from "./biomes.ts";
 import { insideBounds } from "./compile.ts";
-import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R, inBand, withinBand } from "./rules.ts";
-import type { Shore } from "./shore.ts";
 import type { Bounds, Pod, Solid } from "./types.ts";
 
 /** How many pods of one species a stretch of coast carries: the whole part
@@ -72,7 +70,7 @@ export type PodLoop = Pick<Pod, "x" | "z" | "radius" | "ovality" | "heading">;
 /** Is the whole loop inside the level, in water deep enough for the animal,
  * and clear of every rock? */
 function loopFits(
-  geology: Geology,
+  depthAt: (x: number, z: number) => number,
   solids: readonly Solid[],
   bounds: Bounds,
   loop: PodLoop,
@@ -82,7 +80,7 @@ function loopFits(
   walkPod(loop, (px, pz) => {
     if (!ok) return;
     if (!insideBounds(bounds, px, pz)) ok = false;
-    else if (-geology.groundAt(px, pz) < need) ok = false;
+    else if (depthAt(px, pz) < need) ok = false;
     else {
       for (const s of solids) {
         if (Math.hypot(s.x - px, s.z - pz) < s.r + R.fauna.clear) {
@@ -101,16 +99,14 @@ function loopFits(
 export function layFauna(
   rng: Rng,
   biome: Biome,
-  shore: Shore,
-  geology: Geology,
-  solids: readonly Solid[],
   bounds: Bounds,
+  offshoreAt: (x: number, z: number) => number,
+  depthAt: (x: number, z: number) => number,
+  solids: readonly Solid[],
   temperature: number,
-  sFrom: number,
-  sTo: number,
+  km: number,
 ): Pod[] {
   const pods: Pod[] = [];
-  const km = (sTo - sFrom) / 1000;
   for (const id of biome.fauna) {
     const spec = faunaById(id);
     // R13, R20 — the day's water decides which of the coast's animals are
@@ -121,8 +117,8 @@ export function layFauna(
     const count = podCount(rng, spec.perKm, km);
     for (let n = 0; n < count; n++) {
       for (let attempt = 0; attempt < R.fauna.tries; attempt++) {
-        const s = rng.range(sFrom, sTo);
-        const out = inBand(rng, spec.offshore);
+        const x = rng.range(bounds.minX, bounds.maxX);
+        const z = rng.range(bounds.minZ, bounds.maxZ);
         const radius = inBand(rng, R.fauna.loop);
         const ovality = inBand(rng, R.fauna.ovality);
         const heading = rng.range(0, TAU);
@@ -131,13 +127,13 @@ export function layFauna(
         const sense: 1 | -1 = rng.chance(0.5) ? 1 : -1;
         const phase = rng.range(0, TAU);
         const scatter = rng.int(1, 0x7fffffff);
-        // Pushed out along the base line's normal, then held to the TRUE
-        // offshore distance the way R17's rocks are: on a sloping stretch
-        // the two differ, and the band is a promise about the second.
-        const { x, z } = shore.toWorld(s, shore.offsetAt(s) + out);
+        // Placed by REJECTION over the level's box, the way R17's rocks
+        // are: the basin's baked field answers the only question a
+        // species' band asks, which is how far from the water's edge its
+        // loop swims.
         const loop = { x, z, radius, ovality, heading };
-        if (!withinBand(geology.sample(x, z).offshore, spec.offshore)) continue;
-        if (!loopFits(geology, solids, bounds, loop, podClearance(spec, depth))) continue;
+        if (!withinBand(offshoreAt(x, z), spec.offshore)) continue;
+        if (!loopFits(depthAt, solids, bounds, loop, podClearance(spec, depth))) continue;
         // The loop's PERIOD comes from the animal's cruising speed and the
         // loop's own circumference — the pod swims, it is not carried round
         // on a clock. Ramanujan's ellipse perimeter, which is exact enough

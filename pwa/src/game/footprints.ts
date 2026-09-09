@@ -50,10 +50,12 @@ const scale = new THREE.Vector3();
 export function createFootprints(level: Level): THREE.Group {
   const group = new THREE.Group();
   const rng = createRng(level.seed ^ 0xf007);
-  const pts = level.shore;
   const prints: { x: number; z: number; y: number; heading: number }[] = [];
   let trails = 0;
   let since = EVERY;
+  // Every coastline, not one: a beach can be on an island as easily as on
+  // the mainland (R15).
+  const pts = level.shore.flat();
   for (let i = 0; i + 1 < pts.length && trails < MAX_TRAILS; i++) {
     const a = pts[i];
     const b = pts[i + 1];
@@ -64,6 +66,8 @@ export function createFootprints(level: Level): THREE.Group {
     since += len;
     if (since < EVERY) continue;
     since = 0;
+    // A jump between two coastlines is not a stretch of shore to walk.
+    if (Math.hypot(b.x - a.x, b.z - a.z) > level.ground.cell * 3) continue;
     // The walk runs ALONG the shore, wandering a little either side of it:
     // that is the way people walk a beach, and it keeps the trail inside
     // the strip of sand rather than marching straight off it.

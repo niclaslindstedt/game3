@@ -181,12 +181,14 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
     }
   }
 
-  // ── The main coast as the level states it ─────────────────────────────
-  canvas.polyline(
-    level.shore.map((p) => [px(p.x), py(p.z)]),
-    [MARK.shore[0], MARK.shore[1], MARK.shore[2], 140],
-    1,
-  );
+  // ── Every coastline the level states: the mainland and its islands ────
+  for (const run of level.shore) {
+    canvas.polyline(
+      run.map((p) => [px(p.x), py(p.z)]),
+      [MARK.shore[0], MARK.shore[1], MARK.shore[2], 140],
+      1,
+    );
+  }
 
   // ── The rocks, by kind ────────────────────────────────────────────────
   for (const s of level.solids) {

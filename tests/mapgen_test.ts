@@ -21,7 +21,6 @@ import {
   biomeOf,
   cumulative,
   daylightWindow,
-  fieldGradient,
   gateBuoys,
   generateLevel,
   polylineDistance,
@@ -40,7 +39,6 @@ import {
 
 import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
 
-const DEG = Math.PI / 180;
 
 /** The level minus its classifier closure, for deep equality. */
 function structural(level: Level): Omit<Level, "materialAt"> {
@@ -123,36 +121,40 @@ describe("level generator", () => {
     }
   });
 
-  it("R2 — land stays under the cap and stops climbing past the reach", () => {
+  it("R2 — land stays under the cap, and its profile stops climbing past the reach", () => {
     for (const seed of LEVEL_SEEDS) {
-      const level = levelFor(seed);
-      const { ground, offshore } = level;
+      const { ground, offshore } = levelFor(seed);
       // Accumulated, not asserted per cell: a grid is a hundred thousand
       // cells and an `expect` is microseconds, which is minutes a file.
       let highest = -Infinity;
-      let steepest = 0;
-      let farLand = 0;
-      for (let r = 1; r + 1 < ground.rows; r++) {
-        for (let c = 1; c + 1 < ground.cols; c++) {
-          const i = r * ground.cols + c;
-          highest = Math.max(highest, ground.data[i]);
-          if (offshore.data[i] > -(R.land.reach + 12)) continue;
-          farLand++;
-          // Past the reach the land holds the height it climbed to: the
-          // hills VARY along the coast (R21), so what has to be flat is
-          // the way INLAND, which is where the offshore field falls.
-          const x = ground.originX + c * ground.cell;
-          const z = ground.originZ + r * ground.cell;
-          const sea = fieldGradient(offshore, x, z);
-          const len = Math.hypot(sea.gx, sea.gz);
-          if (len < 1e-6) continue;
-          const land = fieldGradient(ground, x, z);
-          steepest = Math.max(steepest, -(land.gx * sea.gx + land.gz * sea.gz) / len);
-        }
+      const bins = Math.ceil((R.land.reach + ANALYSIS.land.margin * 3) / ANALYSIS.land.bin);
+      const sum = new Float64Array(bins);
+      const count = new Int32Array(bins);
+      for (let i = 0; i < ground.data.length; i++) {
+        highest = Math.max(highest, ground.data[i]);
+        const off = offshore.data[i];
+        if (off >= 0) continue;
+        const bin = Math.min(bins - 1, Math.floor(-off / ANALYSIS.land.bin));
+        sum[bin] += ground.data[i];
+        count[bin]++;
       }
       expect(highest).toBeLessThanOrEqual(R.land.maxHeight);
-      expect(farLand).toBeGreaterThan(0);
-      expect(steepest).toBeLessThan(ANALYSIS.land.rise);
+      // The hills vary from place to place (R21), so what R2 claims is
+      // about the PROFILE: past the reach, the mean height against how far
+      // inland it is has stopped rising.
+      const settled = Math.floor((R.land.reach + ANALYSIS.land.margin) / ANALYSIS.land.bin);
+      let climb = 0;
+      let seen = 0;
+      for (let b = settled; b + 1 < bins; b++) {
+        if (count[b] === 0 || count[b + 1] === 0) continue;
+        seen++;
+        climb = Math.max(
+          climb,
+          (sum[b + 1] / count[b + 1] - sum[b] / count[b]) / ANALYSIS.land.bin,
+        );
+      }
+      expect(seen).toBeGreaterThan(0);
+      expect(climb).toBeLessThan(ANALYSIS.land.rise);
     }
   });
 
@@ -394,8 +396,9 @@ describe("level generator", () => {
       const uz = Math.cos(level.wind.from);
       let upwind = 0;
       let downwind = 0;
-      for (let i = 0; i < level.shore.length; i += 5) {
-        const p = level.shore[i];
+      const coast = level.shore.flat();
+      for (let i = 0; i < coast.length; i += 5) {
+        const p = coast[i];
         upwind += sampleField(level.offshore, p.x + ux * 60, p.z + uz * 60);
         downwind += sampleField(level.offshore, p.x - ux * 60, p.z - uz * 60);
       }
@@ -450,29 +453,56 @@ describe("level generator", () => {
     }
   });
 
-  it("R15 — the shore runs north-east, smoothly, with the sea on its right", () => {
+  it("R15 — the coastlines are the water's own edge, and the basin is a basin", () => {
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
-      const pts = level.shore;
-      expect(pts.length).toBeGreaterThan(20);
-      const a = pts[0];
-      const b = pts[pts.length - 1];
-      const base = Math.atan2(b.x - a.x, b.z - a.z);
-      expect(withinBand(base, R.shore.heading, 10 * DEG)).toBe(true);
-      for (let i = 1; i + 1 < pts.length; i++) {
-        const h0 = Math.atan2(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z);
-        const h1 = Math.atan2(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z);
-        let turn = Math.abs(h1 - h0);
-        if (turn > Math.PI) turn = 2 * Math.PI - turn;
-        expect(turn).toBeLessThan(2 * Math.atan(R.shore.maxSlope));
-        // The polyline is the zero contour of the ground, to a cell.
-        expect(Math.abs(sampleField(level.offshore, pts[i].x, pts[i].z))).toBeLessThan(R.grid.cell);
+      expect(level.shore.length).toBeGreaterThan(0);
+      let longest = 0;
+      for (const run of level.shore) {
+        expect(run.length).toBeGreaterThanOrEqual(R.shore.minRun);
+        let length = 0;
+        for (let i = 0; i + 1 < run.length; i++) {
+          // Every vertex of every coastline stands ON the water's edge: the
+          // lines are traced out of the offshore field, so the field reads
+          // zero along them to within the cell they were traced from.
+          expect(Math.abs(sampleField(level.offshore, run[i].x, run[i].z))).toBeLessThan(
+            R.grid.cell,
+          );
+          length += Math.hypot(run[i + 1].x - run[i].x, run[i + 1].z - run[i].z);
+        }
+        longest = Math.max(longest, length);
       }
-      const mid = pts[Math.floor(pts.length / 2)];
-      const rx = Math.cos(base);
-      const rz = -Math.sin(base);
-      expect(sampleField(level.offshore, mid.x + rx * 12, mid.z + rz * 12)).toBeGreaterThan(0);
-      expect(sampleField(level.offshore, mid.x - rx * 12, mid.z - rz * 12)).toBeLessThan(0);
+      expect(longest).toBeGreaterThanOrEqual(ANALYSIS.shore.minLength);
+      // …and the level is neither a canal cut through solid land nor an
+      // open sea with a fleck of coast on one edge.
+      let water = 0;
+      for (const v of level.offshore.data) if (v > 0) water++;
+      expect(withinBand(water / level.offshore.data.length, R.basin.waterShare)).toBe(true);
+    }
+  });
+
+  it("R24 — the route is drawn first, and the course is laid on it", () => {
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      const path = level.course.path;
+      // The corridor was drawn round the line, so the line is inside R1's
+      // band and over R5's water at every point of it — by construction
+      // rather than by a search, which is the whole of the inversion.
+      for (const p of path) {
+        const off = sampleField(level.offshore, p.x, p.z);
+        expect(off).toBeGreaterThanOrEqual(R.course.offshore.min);
+        expect(off).toBeLessThanOrEqual(R.course.offshore.max);
+      }
+      // …and it never comes back on itself inside the clearance.
+      const cum = cumulative(path);
+      for (let i = 0; i < path.length; i++) {
+        for (let j = i + 1; j < path.length; j++) {
+          if (cum[j] - cum[i] < R.route.selfSpan) continue;
+          expect(Math.hypot(path[j].x - path[i].x, path[j].z - path[i].z)).toBeGreaterThan(
+            R.route.selfClear * 0.5,
+          );
+        }
+      }
     }
   });
 

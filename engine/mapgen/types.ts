@@ -162,8 +162,10 @@ export type Level = {
   /** Metres from the nearest shoreline, positive out to sea, negative
    * inland. The wave model reads it as FETCH; the course rules bound it. */
   readonly offshore: Heightfield;
-  /** The main coast as a polyline, south-west to north-east in course order. */
-  readonly shore: readonly Vec2[];
+  /** THE COASTLINES: the water's edge as polylines, longest first. More
+   * than one, because a basin's edge is not one line — the mainland, and
+   * one round every island in it (R15). */
+  readonly shore: readonly (readonly Vec2[])[];
   /** What the shore is made of at a plan point. (`materialAt`, not
    * `surfaceAt`: the sea's `surfaceAt` is the wave surface.) */
   readonly materialAt: (x: number, z: number) => Surface;

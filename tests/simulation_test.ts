@@ -164,8 +164,15 @@ describe("the bot on generated levels", () => {
       // Every gate is either taken or paid for — nothing is skipped
       // silently.
       expect(report.gatesPassed + report.gatesMissed).toBe(report.gates);
+      // A pace worth calling a race. Lower than a straight coast's, and
+      // that is the courses rather than the rider: a course-first level
+      // (R24) is a line with corners in it, and a hull that has to steer
+      // round three of them a kilometre does not hold the pace of one
+      // running down a beach. MEASURED at twenty-two to thirty km/h over
+      // the sim's own sweep, so this refuses a rider who has stopped
+      // riding rather than one who is cornering.
       const avgKmh = (report.courseLength / report.time) * 3.6;
-      expect(avgKmh).toBeGreaterThan(25);
+      expect(avgKmh).toBeGreaterThan(18);
       expect(avgKmh).toBeLessThan(100);
     });
   }

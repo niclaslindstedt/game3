@@ -24,12 +24,14 @@ import { daylightWindow } from "../lib/solar.ts";
 import { analyzeLevel } from "../analysis/index.ts";
 import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
-import { compileLevel, courseBounds, insideBounds } from "./compile.ts";
+import { sampleField } from "../lib/heightfield.ts";
+import { bakeGround, compileLevel } from "./compile.ts";
+import { layBasin, routeBounds } from "./basin.ts";
+import { drawRoute } from "./route.ts";
 import { courseKeepOut, layCourse } from "./course.ts";
 import { layFauna } from "./fauna.ts";
 import { createGeology, laySolids } from "./geology.ts";
 import { LEVEL_RULES as R, inBand, type GenerateOptions } from "./rules.ts";
-import { createShore } from "./shore.ts";
 import { pickWeather, skyCover } from "./weather.ts";
 import type { Level } from "./types.ts";
 
@@ -52,13 +54,27 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   let lastReason = "no attempt made";
   for (let attempt = 0; attempt < attempts; attempt++) {
     const rng = createRng(subSeed(seed, attempt));
-    const shore = createShore(rng);
-    const geology = createGeology(rng, biome, shore);
-    // R12 — off the sea: the seaward normal's compass direction, swung
-    // by up to `wind.seaward` either way.
-    const seaward = shore.heading + Math.PI / 2;
+    // R24 — THE ROUTE FIRST. Everything else in a level is built around
+    // the line the race is ridden on, which is the whole inversion: a coast
+    // drawn first can only ever be raced ALONG.
+    const route = drawRoute(rng);
+    if (!route) {
+      lastReason = "the route folds back on itself";
+      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
+      continue;
+    }
+    // R15 — then the water round it, and the land the water is cut out of.
+    const bounds = routeBounds(route);
+    const basin = layBasin(rng, route, bounds);
+    const geology = createGeology(rng, biome, basin);
+    const ground = bakeGround(basin.offshore, geology);
+    const offshoreAt = (x: number, z: number): number => sampleField(basin.offshore, x, z);
+    const depthAt = (x: number, z: number): number => -sampleField(ground, x, z);
+    // R12 — off the sea: the open water's own seaward normal, swung by up
+    // to `wind.seaward` either way, so the fetch grows riding out from the
+    // land whichever way the route wandered.
     const wind = {
-      from: (((seaward + rng.range(-R.wind.seaward, R.wind.seaward)) % TAU) + TAU) % TAU,
+      from: (((basin.seaHeading + rng.range(-R.wind.seaward, R.wind.seaward)) % TAU) + TAU) % TAU,
       speed: inBand(rng, R.wind.speed),
     };
     // R13 — the day and the water. The hour comes out of the daylight
@@ -68,54 +84,39 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       density: biome.water.density,
       temperature: inBand(rng, biome.water.temperature),
     };
-    const course = layCourse(rng, shore, geology);
+    const course = layCourse(rng, route, { offshoreAt, depthAt });
     if (!course) {
-      lastReason = "the coast cannot carry a course";
+      lastReason = "the basin cannot carry a course";
       warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
       continue;
     }
-    // R17 — the rocks, over the coast the course runs along and a little
-    // past it, and only those the level's box actually holds.
-    const bounds = courseBounds(course);
-    const finishS = shore.toLocal(
-      course.path[course.path.length - 1].x,
-      course.path[course.path.length - 1].z,
-    ).s;
+    // R17 — the rocks, over the whole basin, kept off the course.
+    const km = route.length / 1000;
     const solids = laySolids(
       rng,
       biome,
-      shore,
-      geology,
-      -R.bounds.land,
-      finishS + R.bounds.sea,
+      bounds,
+      offshoreAt,
+      geology.groundAt,
+      km,
       courseKeepOut(course),
-    ).filter((s) => insideBounds(bounds, s.x, s.z));
-    // R19 — the sky, drawn LAST. It is the one thing about a level the
-    // search never judges: no sky makes a coast unrideable, so a rule about
-    // the weather has no business moving the shore, the course or the rocks
-    // that the draws before it made. Taking it off the end of the stream is
-    // what keeps that true — the geometry a seed produces is the geometry it
-    // produced before the sky existed.
+    );
+    // R19 — the sky, drawn LAST of the things the search judges. It is the
+    // one thing about a level the search never judges: no sky makes a basin
+    // unrideable, so a rule about the weather has no business moving the
+    // route, the course or the rocks that the draws before it made.
     const weather = pickWeather(rng, biome.weathers, skyCover(wind.speed));
     // R20 — the sea life, drawn after it for the same reason: no animal
     // moves a gate, so nothing the search judged may depend on how many
     // there turned out to be. The rocks are already placed, because a pod
     // is kept clear of them.
-    const fauna = layFauna(
-      rng,
-      biome,
-      shore,
-      geology,
-      solids,
-      bounds,
-      water.temperature,
-      -R.bounds.land,
-      finishS + R.bounds.sea,
-    );
+    const fauna = layFauna(rng, biome, bounds, offshoreAt, depthAt, solids, water.temperature, km);
     const level = compileLevel({
       seed,
       biome,
-      shore,
+      bounds,
+      offshore: basin.offshore,
+      ground,
       geology,
       course,
       solids,

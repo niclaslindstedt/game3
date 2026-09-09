@@ -28,6 +28,7 @@ import {
   type Level,
   type Pod,
   type RunMoment,
+  sampleField,
 } from "@engine";
 
 export type ScenarioName =
@@ -87,6 +88,32 @@ export function seawardAt(level: Level, x: number, z: number): { x: number; z: n
   const n = Math.hypot(gx, gz);
   if (n < 1e-6) return { x: 0, z: 1 };
   return { x: gx / n, z: gz / n };
+}
+
+/**
+ * A point `metres` out to sea of (x, z) — or as far out as the water goes,
+ * whichever comes first.
+ *
+ * A level is a BASIN now (R15): a channel has a far bank, and forty metres
+ * seaward of a gate in one is dry land. Every staged moment that wanted
+ * "further out" wants the water further out, so the walk follows the
+ * offshore gradient step by step and stops where the water stops getting
+ * deeper — which on the open coast is the full distance and in a channel is
+ * the middle of it.
+ */
+function outToSea(level: Level, x: number, z: number, metres: number): { x: number; z: number } {
+  const STEP = 4;
+  let at = { x, z };
+  let best = sampleField(level.offshore, x, z);
+  for (let d = STEP; d <= metres; d += STEP) {
+    const sea = seawardAt(level, at.x, at.z);
+    const next = { x: at.x + sea.x * STEP, z: at.z + sea.z * STEP };
+    const off = sampleField(level.offshore, next.x, next.z);
+    if (off < best) break;
+    best = off;
+    at = next;
+  }
+  return at;
 }
 
 /** The first air gate, or null for a course without one. */
@@ -192,11 +219,11 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
     case "chop": {
       // Flat out INTO the wind, off the course: the chop meets the bow
       // head on and the hull skips over it.
-      const sea = seawardAt(level, mid.x, mid.z);
+      const at = outToSea(level, mid.x, mid.z, 40);
       return {
         moment: {
-          x: mid.x + sea.x * 40,
-          z: mid.z + sea.z * 40,
+          x: at.x,
+          z: at.z,
           heading: level.wind.from,
           speed: top * 0.8,
           nextGate: mid.index,
@@ -207,11 +234,11 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
     }
     case "swell": {
       // Well out, idling across the swell: the water is the subject.
-      const sea = seawardAt(level, mid.x, mid.z);
+      const at = outToSea(level, mid.x, mid.z, 140);
       return {
         moment: {
-          x: mid.x + sea.x * 140,
-          z: mid.z + sea.z * 140,
+          x: at.x,
+          z: at.z,
           heading: level.wind.from + Math.PI / 2,
           speed: 5,
           nextGate: mid.index,
@@ -264,11 +291,12 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       };
     }
     case "offshore": {
-      const sea = seawardAt(level, mid.x, mid.z);
+      const at = outToSea(level, mid.x, mid.z, 200);
+      const sea = seawardAt(level, at.x, at.z);
       return {
         moment: {
-          x: mid.x + sea.x * 200,
-          z: mid.z + sea.z * 200,
+          x: at.x,
+          z: at.z,
           heading: Math.atan2(sea.x, sea.z) + Math.PI / 2,
           speed: top * 0.6,
           nextGate: mid.index,
@@ -278,30 +306,21 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       };
     }
     case "storm": {
-      // THE OPEN SEA, half a kilometre out, beam-on to a monster swell.
+      // THE OPEN SEA, as far out as the basin has, beam-on to a monster swell.
       // A wave only stands its full height in water it cannot feel the
       // bottom of — the field is clipped to `breakingHs`·d — so a sea
       // quoted at twenty metres is a nine-metre one over the course's
       // twenty-five and its whole self out here, where R3's bed has
       // fallen past forty. Ride it with `?hs=20`.
-      const sea = seawardAt(level, mid.x, mid.z);
-      const b = level.bounds;
-      // As far out as the level HAS, up to half a kilometre: the seaward
-      // walk is clamped inside the bounds with a margin, so a level whose
-      // open water runs out sooner stages in the deepest it owns.
-      const margin = 30;
-      let out = 0;
-      for (let d = 20; d <= 500; d += 20) {
-        const px = mid.x + sea.x * d;
-        const pz = mid.z + sea.z * d;
-        if (px < b.minX + margin || px > b.maxX - margin) break;
-        if (pz < b.minZ + margin || pz > b.maxZ - margin) break;
-        out = d;
-      }
+      // As far out as the level HAS, up to half a kilometre: the walk
+      // follows the water and stops where it stops deepening, so a basin
+      // whose open sea runs out sooner stages in the deepest it owns.
+      const at = outToSea(level, mid.x, mid.z, 360);
+      const sea = seawardAt(level, at.x, at.z);
       return {
         moment: {
-          x: mid.x + sea.x * out,
-          z: mid.z + sea.z * out,
+          x: at.x,
+          z: at.z,
           heading: Math.atan2(sea.x, sea.z) + Math.PI / 2,
           speed: top * 0.35,
           nextGate: mid.index,

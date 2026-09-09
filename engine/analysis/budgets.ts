@@ -37,8 +37,8 @@ export const ANALYSIS = {
      * is bilinear over 4 m cells and the reach falls between two of them,
      * so a cell straddling it blends the step's last rise into the flat. */
     margin: 12,
-    /** How steeply the land may still be climbing inland past the reach,
-     * m per m.
+    /** How steeply the land's MEAN PROFILE may still be climbing inland
+     * past the reach, m per m.
      *
      * Not float noise. The hills vary ALONG the coast (R21) and the inland
      * direction this walks is the shore's own normal, which beside an
@@ -50,7 +50,10 @@ export const ANALYSIS = {
      * place on the worst seed. A fifth is clear of it and still three
      * times under the 0.6 m/m the land's own step (R2) climbs at, which is
      * the failure this is here to catch. */
-    rise: 0.2,
+    rise: 0.08,
+    /** How wide a bin of R2's inland profile is, m — a few cells, so a bin
+     * holds enough of the level to average its hills out. */
+    bin: 12,
   },
   sea: {
     /** How far under `sea.depth` the bed may go, m — the detail's
@@ -99,9 +102,10 @@ export const ANALYSIS = {
     stencil: 30,
   },
   shore: {
-    /** How sharply the shore polyline may turn at a vertex, rad — R15's
-     * slope cap read as an angle, with a little room. */
-    turn: 0.6,
+    /** How long the level's longest coastline has to be, m. A basin whose
+     * coast is shorter than the course that runs through it is a level
+     * with no land in it worth looking at. */
+    minLength: 900,
     /** R21 — how far apart the walk along the waterline samples the
      * material, m. Under a hull's length, so a patch a rider would ride
      * past is a patch the walk sees. */

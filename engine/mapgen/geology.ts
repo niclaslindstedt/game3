@@ -2,12 +2,15 @@
 // R2, R3, R17, R21 — THE GROUND, and the rocks standing on it.
 //
 // A Baltic taiga coast is one rock, planed by the ice: the ground is a
-// single smooth function of HOW FAR FROM THE SHORE a point is and of WHAT
-// KIND OF SHORE it is (R21's ruggedness, read off the shore's own s), with
-// the grain of the country laid on top. Everything here is analytic — a
-// function of (x, z) through the shore's signed distance — so the search
-// can ask about any point before there is a grid, and the compiler can
-// bake the same answer into one afterwards.
+// single smooth function of HOW FAR FROM THE WATER'S EDGE a point is — the
+// basin's own signed field (R15) — and of WHAT KIND OF COAST it is (R21's
+// ruggedness), with the grain of the country laid on top.
+//
+// It takes the offshore distance as an ARGUMENT rather than working it out.
+// The basin bakes that field once for the whole level, and a coast that
+// doubles back on itself and carries islands has no frame to re-derive it
+// from: there is no "along the shore" any more, only how far the water's
+// edge is.
 //
 //   SEAWARD (R3): the bed falls from the waterline on a profile that is
 //   steep at first and levels at `sea.depth` by `sea.reach` — the concave
@@ -42,10 +45,10 @@
 import { clamp, lerp } from "../lib/math.ts";
 import { smooth, valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
+import type { Basin } from "./basin.ts";
 import type { Biome } from "./biomes.ts";
 import { LEVEL_RULES as R, inBand, solidRule } from "./rules.ts";
-import type { Shore } from "./shore.ts";
-import type { Solid } from "./types.ts";
+import type { Bounds, Solid } from "./types.ts";
 
 export type Geology = {
   /** The height the land climbs to before the coast's character has its
@@ -56,11 +59,12 @@ export type Geology = {
   hillAt(rugged: number): number;
   /** Noise seed the surface classifier keys the boulder field on (R16). */
   readonly boulderSeed: number;
-  /** Ground height at a plan point, m against sea level. */
-  groundAt(x: number, z: number): number;
-  /** Ground and offshore distance at once — one shore lookup, which is
-   * what the compiler and the search both want. */
-  sample(x: number, z: number): { ground: number; offshore: number };
+  /** R21 — how RUGGED the coast is at a plan point, 0..1: 0 a soft shore
+   * behind a beach, 1 bare rock standing in the open sea. */
+  ruggedAt(x: number, z: number): number;
+  /** Ground height at a plan point whose distance from the water's edge is
+   * already known, m against sea level. */
+  groundAt(x: number, z: number, offshore: number): number;
 };
 
 /** R3 — the open coast's bed profile: depth (positive) at `offshore` m.
@@ -75,15 +79,14 @@ export function bedDepth(offshore: number): number {
   return R.sea.depth + (R.sea.openDepth - R.sea.depth) * smooth(out);
 }
 
-/** R3, R21 — the shelf: the bed's depth multiplier at `offshore` m out
- * from a shore that has receded `bay` m and stands at `rugged`. 1 on a bare
- * headland and past the shelf's blend; `sea.shelf.factor` where the
- * sediment is deepest — the head of a full bay, or the sandy foreshore of a
- * soft stretch, whichever fills it further. */
-export function shelfFactor(bay: number, rugged: number, offshore: number): number {
-  const fromBay = clamp(bay / R.sea.shelf.bay, 0, 1);
-  const fromSand = clamp(1 - rugged / R.sea.shelf.rugged, 0, 1);
-  const fullness = Math.max(fromBay, fromSand);
+/** R3, R21 — the shelf: the bed's depth multiplier `offshore` m out from a
+ * coast standing at `rugged`. 1 on bare rock and past the shelf's blend;
+ * `sea.shelf.factor` where the sediment is deepest, which is the sandy
+ * foreshore of a soft stretch. A narrow channel needs no term of its own —
+ * every point in one is close to the edge, and the profile is already
+ * shallow that near it. */
+export function shelfFactor(rugged: number, offshore: number): number {
+  const fullness = clamp(1 - rugged / R.sea.shelf.rugged, 0, 1);
   const shallow = 1 - (1 - R.sea.shelf.factor) * fullness;
   const out = clamp((offshore - R.sea.shelf.reach) / R.sea.shelf.blend, 0, 1);
   return shallow + (1 - shallow) * smooth(out);
@@ -95,7 +98,7 @@ export function landHeight(inland: number, hill: number): number {
   return hill * smooth(clamp(inland / R.land.reach, 0, 1));
 }
 
-export function createGeology(rng: Rng, biome: Biome, shore: Shore): Geology {
+export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
   const plateau = inBand(rng, R.land.plateau) * biome.relief;
   // R2's ceiling, held once here rather than trusted to the bands: the
   // tallest hill the character can raise plus the deepest slab that can
@@ -107,25 +110,47 @@ export function createGeology(rng: Rng, biome: Biome, shore: Shore): Geology {
   const slabSeed = rng.int(1, 0x7fffffff);
   const bedSeed = rng.int(1, 0x7fffffff);
   const boulderSeed = rng.int(1, 0x7fffffff);
+  const characterSeed = rng.int(1, 0x7fffffff);
+  const detailSeed = rng.int(1, 0x7fffffff);
+
+  // R21 — the coast's CHARACTER, now a field over the plan rather than a
+  // function of a base line: with islands and inlets there is no line to be
+  // a function of. Two octaves of noise so a level carries places a few
+  // hundred metres across and coves inside them…
+  const K = R.shore.character;
+  const sx = Math.sin(basin.seaHeading);
+  const sz = Math.cos(basin.seaHeading);
+  const ruggedAt = (x: number, z: number): number => {
+    const broad = (valueNoise(x, z, K.scale, characterSeed) - 0.5) * 2;
+    const fine = (valueNoise(x, z, K.detail.scale, detailSeed) - 0.5) * 2;
+    const grain = broad * (1 - K.detail.share) + fine * K.detail.share;
+    // …and a SHELTER term with a physical meaning the old bay-versus-
+    // headland one only stood in for: how far behind the open sea's own
+    // edge the point lies. The coast that faces the fetch is stripped to
+    // rock; the channels behind it are where the sand ends up. It only
+    // TILTS the odds — a shelter strong enough to put the character under
+    // the beach's threshold on its own would make every inland channel one
+    // unbroken run of sand, which is the fault R21 exists to catch.
+    const inland = clamp((basin.seaOffset - (x * sx + z * sz)) / K.swing, 0, 1);
+    return clamp(K.bias + K.grain * grain - K.shelter * inland, 0, 1);
+  };
 
   // Past this the shelf's blend is complete and the bed is the open
   // coast's whatever the shore is like there — so the character, which
   // costs two noise lookups, is never asked for out here. Most of a
   // level's cells are open sea, and this is the bake's inner loop.
   const shelfEnd = R.sea.shelf.reach + R.sea.shelf.blend;
-  const sample = (x: number, z: number): { ground: number; offshore: number } => {
-    const offshore = shore.distanceAt(x, z);
+  const groundAt = (x: number, z: number, offshore: number): number => {
     if (offshore >= shelfEnd) {
       const grain = (valueNoise(x, z, R.sea.detail.scale, bedSeed) - 0.5) * 2;
-      return { ground: -bedDepth(offshore) + grain * R.sea.detail.amplitude, offshore };
+      return -bedDepth(offshore) + grain * R.sea.detail.amplitude;
     }
-    const { s } = shore.toLocal(x, z);
-    const rugged = shore.ruggedAt(s);
+    const rugged = ruggedAt(x, z);
     if (offshore >= 0) {
-      const bed = -bedDepth(offshore) * shelfFactor(shore.bayAt(s), rugged, offshore);
+      const bed = -bedDepth(offshore) * shelfFactor(rugged, offshore);
       const grain = (valueNoise(x, z, R.sea.detail.scale, bedSeed) - 0.5) * 2;
       const fade = Math.min(1, offshore / R.sea.detail.fade);
-      return { ground: bed + grain * R.sea.detail.amplitude * fade, offshore };
+      return bed + grain * R.sea.detail.amplitude * fade;
     }
     const inland = -offshore;
     const step = landHeight(inland, hillAt(rugged));
@@ -136,16 +161,10 @@ export function createGeology(rng: Rng, biome: Biome, shore: Shore): Geology {
       Math.min(1, inland / R.land.slab.fade) * (1 - smooth(clamp(inland / R.land.reach, 0, 1)));
     const slab = (valueNoise(x, z, R.land.slab.scale, slabSeed) - 0.5) * 2;
     const relief = lerp(R.land.slab.relief.low, R.land.slab.relief.high, rugged);
-    return { ground: step + slab * R.land.slab.amplitude * relief * window, offshore };
+    return step + slab * R.land.slab.amplitude * relief * window;
   };
 
-  return {
-    plateau,
-    hillAt,
-    boulderSeed,
-    groundAt: (x, z) => sample(x, z).ground,
-    sample,
-  };
+  return { plateau, hillAt, boulderSeed, ruggedAt, groundAt };
 }
 
 /** Whether a rock of radius `r` may stand at (x, z): the course's answer,
@@ -162,22 +181,30 @@ const KIND_PREFIX: Record<SolidKind, string> = {
   stack: "S",
 };
 
-/** R17 — lay the rocks along the coast between two distances along its
- * base line, in the water, off the course, apart from each other.
- * Deterministic in `rng`. */
+/** R17 — lay the rocks over the basin: in the water at the offshore
+ * distance their kind belongs at, off the course, apart from each other.
+ * Deterministic in `rng`.
+ *
+ * Placed by REJECTION over the level's own box rather than pushed out from
+ * a base line. There is no base line any more — the coast doubles back and
+ * carries islands — and the offshore field the basin baked answers the only
+ * question a kind's band actually asks, which is how far from the water's
+ * edge a point stands. A rock that finds no legal spot in its tries is
+ * simply not placed: the coast is a little emptier there, which is what a
+ * coast is allowed to be.
+ */
 export function laySolids(
   rng: Rng,
   biome: Biome,
-  shore: Shore,
-  geology: Geology,
-  sFrom: number,
-  sTo: number,
+  bounds: Bounds,
+  offshoreAt: (x: number, z: number) => number,
+  groundAt: (x: number, z: number, offshore: number) => number,
+  km: number,
   keepOut: KeepOut,
 ): Solid[] {
   const solids: Solid[] = [];
-  const km = (sTo - sFrom) / 1000;
   // Biggest first: a stack is a landmark and wants the open water, and
-  // `apart` gives whatever is placed first its pick of the coast.
+  // `apart` gives whatever is placed first its pick of the basin.
   const kinds: SolidKind[] = ["stack", "skerry", "boulder", "reef", "erratic"];
   for (const kind of kinds) {
     const rule = solidRule(kind);
@@ -185,18 +212,15 @@ export function laySolids(
     let placed = 0;
     for (let n = 0; n < count; n++) {
       for (let attempt = 0; attempt < R.solids.tries; attempt++) {
-        const s = rng.range(sFrom, sTo);
-        const out = inBand(rng, rule.offshore);
+        const x = rng.range(bounds.minX, bounds.maxX);
+        const z = rng.range(bounds.minZ, bounds.maxZ);
         const r = inBand(rng, rule.r);
         // One draw whichever way the kind states its size, so the stream
         // reads the same for every kind (R17).
         const size = inBand(rng, rule.height ?? rule.top ?? { min: 0, max: 0 });
-        // Pushed out along the base line's normal, then held to the TRUE
-        // distance: on a sloping stretch of shore the two differ, and the
-        // band is a promise about the second.
-        const { x, z } = shore.toWorld(s, shore.offsetAt(s) + out);
-        const { ground, offshore } = geology.sample(x, z);
+        const offshore = offshoreAt(x, z);
         if (offshore < rule.offshore.min || offshore > rule.offshore.max) continue;
+        const ground = groundAt(x, z, offshore);
         // A block on the shore stands on the GROUND it was dropped on; a
         // rock in the water stands at its own height against the SEA.
         const top = rule.height ? ground + size : size;

@@ -86,18 +86,23 @@
 //       course's own extent padded `bounds.sea` metres on the seaward sides
 //       and `bounds.land` metres on the landward ones, and the level's
 //       bounds ARE the grid's.
-//   R15 THE SHORE WANDERS, AND THE WATER CUTS INTO IT. The coast runs
-//       south-west to north-east — a base heading inside `shore.heading` —
-//       with the open sea on the RIGHT of that direction. Bays and
-//       headlands are drawn from the seeded noise at `shore.wander`'s
-//       amplitudes, and on top of them `shore.inlet.count` INLETS cut in:
-//       rounded notches `shore.inlet.depth` metres deep that the sea runs
-//       up and a course runs into and back out of, each drawn at the mouth
-//       width its own depth needs so the cap below never has to flatten
-//       it. The line never doubles back on itself (its offset per metre
-//       along the base line stays under `shore.maxSlope`) and it carries no
-//       corner: the cap is applied, the line smoothed, and the cap applied
-//       again.
+//   R15 THE WATER IS A BASIN AROUND THE ROUTE. Three things make it and
+//       one is cut back out of them. The CORRIDOR: water within the route's
+//       own half-width of the line (`route.corridor`), so every metre of
+//       the race stands inside R1's band over R5's water by construction
+//       rather than by a search. The OPEN SEA: everything past a straight
+//       edge cut `sea.line.edge` metres short of the route's most seaward
+//       point, which is where the fetch the waves are built from comes
+//       from. And the ISLANDS: `island.count` blobs cut OUT of the water,
+//       standing `island.clear` clear of the route, which are the rock a
+//       course goes round rather than past. What comes out is ONE SIGNED
+//       FIELD — metres from the water's edge, positive in the water — and
+//       the coastlines are wherever it crosses zero. So a level's coast
+//       doubles back on itself and carries islands, neither of which a
+//       single-valued shoreline could express at all; and the share of the
+//       level that is water lands inside `basin.waterShare`, which is what
+//       keeps a basin from being a canal at one end or an empty sea at the
+//       other.
 //   R16 WHAT THE SHORE IS MADE OF, by rule and in this order: below sea
 //       level it is WATER; ground steeper than `surface.bedrockSlope` is
 //       BEDROCK; low ground at the waterline of a stretch softer than
@@ -182,6 +187,18 @@
 //       head of an inlet is a U the course turns round the INSIDE of, so
 //       an inlet's mouth is drawn wide enough (R15) that the radius its
 //       head leaves the line is this one.
+//   R24 THE ROUTE IS DRAWN FIRST. The racing line is not found along a
+//       coast: it is drawn before there is any land, as a walk in the plane
+//       that turns at up to `route.swing` of the tightest circle R23
+//       allows, is bent back toward the middle when it strays past
+//       `route.reach` so a level is a place rather than a departure, and
+//       steers away from the legs it has already ridden. A line that comes
+//       back on itself inside `route.selfClear` — measured only between
+//       points `route.selfSpan` apart ALONG it — is refused rather than
+//       shipped, because two legs a rider cannot tell apart are two legs
+//       whose gates cross each other. The water is then carved around it
+//       (R15), and that is what puts a corner in a course rather than a
+//       bend in a coastline.
 //
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
@@ -210,54 +227,51 @@ export const LEVEL_RULES = {
    * the land side only has to hold the plateau (R2) with room to spare. */
   bounds: { sea: 150, land: 130 },
 
-  /** R15 — the shore's shape. */
+  /** R24 — the route, drawn before there is any land. */
+  route: {
+    /** How far apart its samples stand, m. */
+    step: 10,
+    /** How long the line is drawn, m — the band the finish is chosen from
+     * sits inside it (R10). */
+    length: { min: 1500, max: 2300 },
+    /** How hard it turns, as a share of the tightest circle R23 allows: at
+     * 1 the line spends whole stretches at the limit, which is a course of
+     * hairpins; at the band's floor it is a long open curve. Drawn per
+     * level, so one seed is a river run and the next a sweeping bay. */
+    swing: { min: 0.45, max: 0.95 },
+    /** …over this period of line, m. Long against a gate's spacing (R4) so
+     * a corner is a corner rather than a wobble. */
+    swingScale: 260,
+    /** How far the walk may stray from the middle before it is bent home,
+     * m. This is what makes a level a PLACE — a compact basin the rider
+     * comes back through — rather than a line receding into the distance. */
+    reach: 520,
+    /** The corridor of water the line is owed either side of it, m, and the
+     * period the width swells over. The band's floor is R1's own minimum
+     * offshore, so the narrowest channel still stands the course inside the
+     * rule by construction; its ceiling is R1's maximum, so the widest bay
+     * never puts the line further out than the rule allows. */
+    corridor: { min: 22, max: 95 },
+    corridorScale: 340,
+    /** R24 — how near the line may come back to itself, m, and how far
+     * apart along the line two points have to be for their closeness to
+     * count. Two legs inside this are two legs a rider cannot tell apart,
+     * and a gate on one is a gate the other crosses. */
+    selfClear: 85,
+    selfSpan: 220,
+    /** How far out the walk starts pushing away from a leg it has already
+     * ridden, as a multiple of that clearance, and how hard it pushes
+     * against the turn it was going to make anyway. */
+    avoidReach: 2.4,
+    avoid: 0.85,
+  },
+
+  /** R15 — what a traced coastline has to carry. */
   shore: {
-    /** Base heading band, rad: north-east give or take. */
-    heading: { min: 30 * DEG, max: 60 * DEG },
-    /** Polyline vertex spacing along the base line, m. */
-    spacing: 10,
-    /** Bays and headlands: a broad swing and a finer grain on top, each a
-     * value-noise amplitude (m, either side of the base line) at a period
-     * (m). The broad period is long against the air gates' straight window
-     * (R9 + R8 + R7 ≈ 150 m) so a chord across it does not cut the shore. */
-    wander: {
-      broad: { amplitude: 150, scale: 480 },
-      fine: { amplitude: 16, scale: 170 },
-    },
-    /** THE INLETS (R15): how many the coast carries, how far the water
-     * reaches in (m) and how wide the mouth is drawn (m, half-width).
-     *
-     * This is the feature that makes a level a PLACE rather than a
-     * straight run down a beach — the course follows the shore, so an
-     * inlet is a corner the rider has to steer round twice. The mouth is
-     * never narrower than the depth needs: a cosine notch `depth` deep
-     * over `half` runs at `depth·π/(2·half)` at its steepest, and cutting
-     * it steeper than `steep` of the slope cap only means the cap flattens
-     * it back into a shapeless bay. */
-    inlet: {
-      count: { min: 2, max: 3 },
-      depth: { min: 80, max: 200 },
-      half: { min: 90, max: 170 },
-      steep: 0.75,
-      /** The radius the course gets round the HEAD of one, m. The head is
-       * a U and the line turns round the INSIDE of it, so what the line
-       * gets is the shore's own radius LESS the distance it keeps off the
-       * shore — which is why a notch drawn as deep and narrow as the slope
-       * cap allows is a hairpin nothing can ride, however legal its sides
-       * are. A cosine's curvature at its head is `depth·π²/2half²`, so the
-       * mouth is widened until the head's radius leaves the line this
-       * much: R23's floor, the two stated as one number. */
-      turn: R_COURSE_RADIUS,
-    },
-    /** Cap on |d(offset)/ds|, m per m. High enough that an inlet can have
-     * SIDES rather than a slope — 2.8 is 70° off the base line, and it is
-     * what decides how narrow the water can be where it cuts in, because a
-     * notch is drawn at the mouth width its depth needs. The wander itself
-     * runs at under a third of it; only the inlets ever come near. */
-    maxSlope: 2.8,
-    /** How far past the course's ends the polyline is drawn, m, so a cell
-     * near an end still finds its true nearest shore. */
-    margin: 400,
+    /** How many marching-squares steps a traced coastline must carry to be
+     * published as one. A three-cell fleck on the rim of the grid is a
+     * rounding, not a coast. */
+    minRun: 8,
     /** R21 — the coast's CHARACTER along the base line, 0..1: 0 a soft
      * bay lying behind a beach, 1 a bare rock headland. */
     character: {
@@ -268,8 +282,8 @@ export const LEVEL_RULES = {
        * cove's worth, and it is there because a single 700 m octave gives
        * a 2 km coast only three draws — three highs in a row is a whole
        * level with no beach on it, and half the seeds came out that way. */
-      scale: 700,
-      detail: { scale: 260, share: 0.36 },
+      scale: 420,
+      detail: { scale: 155, share: 0.36 },
       /** What the coast is on average. Over half, because this is a rock
        * coast with beaches in it and not the other way round: the sand
        * only gets the stretches the noise and the bays push under
@@ -280,16 +294,17 @@ export const LEVEL_RULES = {
       /** …and how far the coast's own BROAD lie does: a bay collects the
        * sediment the headlands are stripped of, so a recession softens the
        * shore and a headland hardens it, over `swing` m of that swing. */
-      shelter: 0.25,
+      shelter: 0.13,
       swing: 90,
       /** R21's quilt: the longest one material may run unbroken along the
        * waterline, m. MEASURED: over forty seeds the longest such run is
        * about 660 m and the mean 300, so a level's coast changes every few
-       * gates on its own. Eight hundred is clear enough of that to reroll
-       * one attempt in ten rather than one in six, and still refuses the
-       * fault it is here for: a level whose whole two-and-a-half
-       * kilometres of waterline is one material. */
-      run: 800,
+       * gates on its own. A basin's coastlines run to three or four
+       * kilometres between them — a channel has two banks and every island
+       * has a rim — so the bound is longer than the old single coast's
+       * needed, and it still refuses the fault it is here for: a level
+       * whose whole waterline is one material. */
+      run: 1100,
     },
   },
 
@@ -347,6 +362,12 @@ export const LEVEL_RULES = {
      * shallow foreshore in front of it is a beach that starts in ten
      * metres of water. */
     shelf: { factor: 0.55, bay: 40, rugged: 0.45, reach: 90, blend: 70 },
+    /** R15 — how far beyond the route's most seaward reach the open sea's
+     * straight edge is cut, m. Inside R1's ceiling, because that is what
+     * bounds the race where the water is the sea's rather than the route's
+     * own corridor; and past its floor, so the line never runs aground on
+     * the sea's own edge. */
+    line: { edge: { min: 45, max: 92 } },
     /** Bed detail: amplitude m, period m, and the fade-in distance from
      * the waterline (m) that keeps the shallows the profile's own. */
     detail: { amplitude: 0.6, scale: 35, fade: 40 },
@@ -373,6 +394,29 @@ export const LEVEL_RULES = {
      * the beach narrows away rather than ending at a line — and the slope
      * (m per m) sand will lie at, because sand does not stand on a slab. */
     sand: { rugged: 0.34, reach: 45, floor: 0.35, slope: 0.14 },
+  },
+
+  /** R15 — what the basin has to come out as. The share of the level that
+   * is WATER: under the floor it is a canal cut through solid land, over
+   * the ceiling it is an open sea with a fleck of coast on one edge, and
+   * neither is a place to race. MEASURED against what the route and the
+   * corridor actually draw. */
+  basin: { waterShare: { min: 0.3, max: 0.85 } },
+
+  /** R15 — the ISLANDS cut out of the basin: how many a level carries, how
+   * big they are (mean plan radius, m), how far clear of the route's own
+   * corridor they stand, how much further out than that they may be
+   * pushed, how far apart they are kept, how much their rim is warped
+   * (0..1 of the radius) and over what share of it. */
+  island: {
+    count: { min: 1, max: 4 },
+    r: { min: 25, max: 110 },
+    clear: 18,
+    spread: 90,
+    apart: 40,
+    warp: 0.28,
+    warpScale: 1.1,
+    tries: 12,
   },
 
   /** R17 — the rocks. Each kind: count per km of coast, offshore band (m),

@@ -128,8 +128,10 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     ground,
     offshore,
     shore: [
-      { x: bounds.minX, z: 0 },
-      { x: bounds.maxX, z: 0 },
+      [
+        { x: bounds.minX, z: 0 },
+        { x: bounds.maxX, z: 0 },
+      ],
     ],
     materialAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
     solids,

@@ -26,7 +26,7 @@
 // `rules.ts`. `ok` is "no errors": a warn is a smell the loop reads and
 // nobody has to fix.
 
-import { fieldGradient, sampleField } from "../lib/heightfield.ts";
+import { sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
 import { daylightWindow } from "../lib/solar.ts";
 import { CRAFT } from "../game/defs/craft.ts";
@@ -169,44 +169,33 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R2, R3 — the ground ─────────────────────────────────────────────
   let maxLand = -Infinity;
   let maxDepth = -Infinity;
-  let stillClimbing = 0;
-  let climbAt: { x: number; z: number } | undefined;
+  // R2's profile, binned by metres inland: its mean height against how far
+  // from the water's edge it stands.
+  const PROFILE_BINS = Math.ceil((R.land.reach + A.land.margin * 3) / A.land.bin);
+  const profileSum = new Float64Array(PROFILE_BINS);
+  const profileCount = new Int32Array(PROFILE_BINS);
   let shallowFar = 0;
   let dryAtSea = 0;
   const g = level.ground;
   const o = level.offshore;
   for (let r = 0; r < g.rows; r++) {
-    const z = g.originZ + r * g.cell;
     for (let c = 0; c < g.cols; c++) {
       const i = r * g.cols + c;
       const h = g.data[i];
       const off = o.data[i];
       if (h > maxLand) maxLand = h;
       if (-h > maxDepth) maxDepth = -h;
-      // R2 — past the reach the land STOPS RISING. It does not stand at one
-      // height: the hills behind the coast are the coast's own (R21), so
-      // what is asked of the ground out there is that it has stopped
-      // climbing INLAND, which is the direction the offshore field's own
-      // gradient names. A cell on the grid's rim has a one-sided gradient
-      // and is left out of it.
-      if (
-        off <= -(R.land.reach + A.land.margin) &&
-        r > 0 &&
-        c > 0 &&
-        r + 1 < g.rows &&
-        c + 1 < g.cols
-      ) {
-        const x = g.originX + c * g.cell;
-        const sea = fieldGradient(o, x, z);
-        const len = Math.hypot(sea.gx, sea.gz);
-        if (len > 1e-6) {
-          const land = fieldGradient(g, x, z);
-          const rise = -(land.gx * sea.gx + land.gz * sea.gz) / len;
-          if (rise > A.land.rise) {
-            stillClimbing++;
-            climbAt ??= { x, z };
-          }
-        }
+      // R2 — the land's PROFILE. Read as an AVERAGE against how far inland
+      // a cell is, rather than cell by cell: the hills vary from place to
+      // place now (R21 is a field over the plan, not a function of a base
+      // line), so one cell inland of a taller stretch is climbing without
+      // the profile climbing at all. What R2 claims is about the profile —
+      // the ground rises from the waterline to the hill this stretch of
+      // coast carries inside the reach, and past it holds.
+      if (off < 0) {
+        const bin = Math.min(PROFILE_BINS - 1, Math.floor(-off / A.land.bin));
+        profileSum[bin] += h;
+        profileCount[bin]++;
       }
       if (off >= R.sea.reach + A.sea.margin && -h < R.sea.depth - A.sea.tolerance) shallowFar++;
       if (off >= A.sea.waterline && h >= 0) dryAtSea++;
@@ -217,13 +206,20 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       value: maxLand,
     });
   }
-  if (stillClimbing > 0) {
-    rep.fail(
-      "R2",
-      "climb",
-      `${stillClimbing} cells past the reach are still climbing inland (over ${A.land.rise} m/m)`,
-      { at: climbAt, value: stillClimbing },
-    );
+  // Past the reach (plus the grid's own blur) the profile has stopped
+  // climbing: no bin out there stands higher than the one before it, to
+  // within the tolerance.
+  const settled = Math.floor((R.land.reach + A.land.margin) / A.land.bin);
+  let climb = 0;
+  for (let b = settled; b + 1 < PROFILE_BINS; b++) {
+    if (profileCount[b] === 0 || profileCount[b + 1] === 0) continue;
+    const rise = profileSum[b + 1] / profileCount[b + 1] - profileSum[b] / profileCount[b];
+    climb = Math.max(climb, rise / A.land.bin);
+  }
+  if (climb > A.land.rise) {
+    rep.fail("R2", "climb", `the land is still climbing ${fmt(climb)} m/m past the reach`, {
+      value: climb,
+    });
   }
   if (maxDepth > R.sea.openDepth + A.sea.tolerance) {
     rep.fail("R3", "depth", `the bed reaches ${fmt(maxDepth)} m (rule ${R.sea.openDepth} m)`, {
@@ -423,7 +419,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   analyzeGrid(level, rep);
 
   // ── R15 — the shore ─────────────────────────────────────────────────
-  analyzeShore(level, rep, offshoreAt);
+  analyzeShore(level, rep);
 
   // ── R16 — the surface ───────────────────────────────────────────────
   analyzeSurface(level, rep);

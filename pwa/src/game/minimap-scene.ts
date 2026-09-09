@@ -249,6 +249,13 @@ function line(points: readonly Vec2[], cut: Cut): string {
   return stroke(points.map((p) => cut.at(p.x, p.z)));
 }
 
+/** …and the coastlines, which are several: the mainland and one round each
+ * island (R15). Drawn as one path so the minimap still strokes the shore in
+ * a single element. */
+function lines(runs: readonly (readonly Vec2[])[], cut: Cut): string {
+  return runs.map((run) => line(run, cut)).join(" ");
+}
+
 /** What the ground under one cell is: open water, shallows, or land. Cached
  * per world cell, because the window re-cut every twenty metres re-asks for
  * all but one row of the water it asked about last time. */
@@ -361,7 +368,7 @@ export function minimapScene(state: GameState, span: number = SPAN): MinimapScen
         zoom: 1,
         shallows: bed.shallows,
         land: bed.land,
-        shore: line(level.shore, cut),
+        shore: lines(level.shore, cut),
         rocks: stone.rocks,
         reefs: stone.reefs,
         route: line(level.course.path, cut),

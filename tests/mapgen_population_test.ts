@@ -123,12 +123,15 @@ describe("level population", () => {
     // browser the generator actually runs in.
     expect(max).toBeLessThan(6 * mean);
     const rerolled = population().filter((s) => s.rerolls > 0).length;
-    // A third of seeds draw a coast the analysis refuses and try another,
-    // and that is the search working rather than struggling: most of those
-    // are R21's quilt turning down a shore that runs 800 m as one
-    // material. A rule about what a coast has to BE is a rule some coasts
-    // fail, and rejecting is how this generator answers that — the cost is
-    // one extra build, which the mean above already carries.
-    expect(rerolled / SEEDS.length).toBeLessThanOrEqual(0.35);
+    // Most seeds draw a basin the analysis refuses and try another, and
+    // that is the search working rather than struggling. The route is drawn
+    // BLIND (R24) — before there is any land for it to answer to — so
+    // whether the water round it comes out as a basin, whether its coast is
+    // a quilt and whether its bends leave a straight long enough for a ramp
+    // are all found out afterwards. Rejecting is how this generator answers
+    // that, and the cost is one extra build: the MEAN above is what says
+    // whether that is affordable, and it is lower than the old shore-first
+    // generator's was.
+    expect(rerolled / SEEDS.length).toBeLessThanOrEqual(0.75);
   });
 });

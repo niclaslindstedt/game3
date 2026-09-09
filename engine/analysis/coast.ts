@@ -9,65 +9,78 @@
 // order from `analyzeLevel`, so the split is invisible in the findings.
 
 import { sampleField } from "../lib/heightfield.ts";
-import { angleDiff } from "../lib/math.ts";
+import { fieldGradient } from "../lib/heightfield.ts";
 import { LEVEL_RULES as R, solidRule, withinBand } from "../mapgen/rules.ts";
 import type { Level, Solid } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import { bandText, fmt, type Report } from "./report.ts";
 
-/** The compass heading the open sea lies in, from the published shore:
- * right of the line's overall direction. Undefined for a degenerate line. */
+/**
+ * The compass heading the OPEN SEA lies in, read off the level itself.
+ *
+ * There is no base line to take a normal to any more — a basin's coast
+ * doubles back and carries islands — so this reads the offshore field's own
+ * gradient, which points the way the water deepens.
+ *
+ * Summed over the OPEN water only. Inside the basin every channel has its
+ * own two banks and its gradients point at each other; they cancel, and
+ * what is left is noise. Past the shelf's reach there is only one thing
+ * left for the field to grow toward, and every cell out there agrees.
+ */
 export function shoreSeaward(level: Level): number | undefined {
-  const pts = level.shore;
-  if (pts.length < 2) return undefined;
-  const a = pts[0];
-  const b = pts[pts.length - 1];
-  return Math.atan2(b.x - a.x, b.z - a.z) + Math.PI / 2;
+  const { offshore } = level;
+  const { cols, rows, cell, originX, originZ } = offshore;
+  let gx = 0;
+  let gz = 0;
+  for (let r = 1; r + 1 < rows; r += 2) {
+    for (let c = 1; c + 1 < cols; c += 2) {
+      if (offshore.data[r * cols + c] < R.sea.shelf.reach) continue;
+      const g = fieldGradient(offshore, originX + c * cell, originZ + r * cell);
+      gx += g.gx;
+      gz += g.gz;
+    }
+  }
+  return Math.hypot(gx, gz) < 1e-9 ? undefined : Math.atan2(gx, gz);
 }
 
-export function analyzeShore(
-  level: Level,
-  rep: Report,
-  offshoreAt: (x: number, z: number) => number,
-): void {
-  const pts = level.shore;
-  if (pts.length < 3) {
-    rep.fail("R15", "line", `the shore has ${pts.length} vertices`);
+/**
+ * R15 — THE WATER IS A BASIN, and this is what that has to come out as.
+ *
+ * The old checks here were about a LINE: which way it ran, how sharply it
+ * turned, which side the sea was on. None of them survives the basin —
+ * there is no line, there are coastlines, one of them round each island,
+ * and the water reaches inland wherever the route went. What is left to
+ * hold is what a basin has to be: a coast with real length to it, and water
+ * that is neither a canal cut through solid land nor an open sea with a
+ * fleck of coast on one edge.
+ */
+export function analyzeShore(level: Level, rep: Report): void {
+  const coasts = level.shore;
+  if (coasts.length === 0) {
+    rep.fail("R15", "line", `the level has no coastline`);
     return;
   }
-  const base = Math.atan2(pts[pts.length - 1].x - pts[0].x, pts[pts.length - 1].z - pts[0].z);
-  if (!withinBand(base, R.shore.heading, A.shore.turn)) {
+  let longest = 0;
+  for (const line of coasts) {
+    let run = 0;
+    for (let i = 0; i + 1 < line.length; i++) {
+      run += Math.hypot(line[i + 1].x - line[i].x, line[i + 1].z - line[i].z);
+    }
+    longest = Math.max(longest, run);
+  }
+  if (longest < A.shore.minLength) {
+    rep.fail("R15", "coast", `the longest coastline is ${fmt(longest)} m`, { value: longest });
+  }
+  let water = 0;
+  for (const v of level.offshore.data) if (v > 0) water++;
+  const share = water / level.offshore.data.length;
+  if (!withinBand(share, R.basin.waterShare)) {
     rep.fail(
       "R15",
-      "heading",
-      `the shore runs at ${fmt((base * 180) / Math.PI)}° (band ${fmt((R.shore.heading.min * 180) / Math.PI)}–${fmt((R.shore.heading.max * 180) / Math.PI)}°)`,
-      {
-        value: base,
-      },
+      "share",
+      `${fmt(share * 100)}% of the level is water (band ${fmt(R.basin.waterShare.min * 100)}–${fmt(R.basin.waterShare.max * 100)}%)`,
+      { value: share },
     );
-  }
-  let worst = 0;
-  for (let i = 1; i + 1 < pts.length; i++) {
-    const h0 = Math.atan2(pts[i].x - pts[i - 1].x, pts[i].z - pts[i - 1].z);
-    const h1 = Math.atan2(pts[i + 1].x - pts[i].x, pts[i + 1].z - pts[i].z);
-    worst = Math.max(worst, Math.abs(angleDiff(h0, h1)));
-  }
-  if (worst > A.shore.turn) {
-    rep.fail("R15", "smooth", `the shore turns ${fmt((worst * 180) / Math.PI)}° at a vertex`, {
-      value: worst,
-    });
-  }
-  // The sea is on the RIGHT: a point a little right of the line's middle
-  // reads as offshore, a point left of it as land.
-  const mid = pts[Math.floor(pts.length / 2)];
-  const rx = Math.cos(base);
-  const rz = -Math.sin(base);
-  const probe = 3 * R.grid.cell;
-  if (
-    offshoreAt(mid.x + rx * probe, mid.z + rz * probe) <= 0 ||
-    offshoreAt(mid.x - rx * probe, mid.z - rz * probe) >= 0
-  ) {
-    rep.fail("R15", "side", `the sea is not on the right of the shore`, { at: mid });
   }
 }
 
@@ -96,7 +109,7 @@ export function analyzeSurface(level: Level, rep: Report): void {
 }
 
 /**
- * R21 — THE COAST IS A QUILT: walk the waterline and see how it changes.
+ * R21 — THE COAST IS A QUILT: walk every coastline and see how it changes.
  *
  * The material a few metres in from the line is what the rider actually
  * looks at all run — the bare rock of a headland, the boulder field behind
@@ -115,36 +128,41 @@ export function analyzeCharacter(level: Level, rep: Report): number {
   let current = "";
   let run = 0;
   let at: { x: number; z: number } | undefined;
-  for (let i = 0; i + 1 < pts.length; i++) {
-    const a = pts[i];
-    const b = pts[i + 1];
-    const dx = b.x - a.x;
-    const dz = b.z - a.z;
-    const len = Math.hypot(dx, dz);
-    if (len < 1e-6) continue;
-    // The sea is on the RIGHT of the line (R15), so the shore itself is to
-    // the LEFT; the probe stands far enough in to be past the cells the
-    // zero contour is drawn through.
-    const ix = (-dz / len) * A.shore.probe;
-    const iz = (dx / len) * A.shore.probe;
-    for (let d = 0; d < len; d += A.shore.walk) {
-      const t = d / len;
-      const x = a.x + dx * t + ix;
-      const z = a.z + dz * t + iz;
-      const kind = level.materialAt(x, z);
-      if (kind === "water") continue;
-      walked += A.shore.walk;
-      if (kind === "sand") sand += A.shore.walk;
-      runs.set(kind, (runs.get(kind) ?? 0) + A.shore.walk);
-      if (kind === current) run += A.shore.walk;
-      else {
-        current = kind;
-        run = A.shore.walk;
-      }
-      if (run > longest) {
-        longest = run;
-        longestKind = kind;
-        at = { x, z };
+  for (const line of pts) {
+    for (let i = 0; i + 1 < line.length; i++) {
+      const a = line[i];
+      const b = line[i + 1];
+      const dx = b.x - a.x;
+      const dz = b.z - a.z;
+      const len = Math.hypot(dx, dz);
+      if (len < 1e-6) continue;
+      for (let d = 0; d < len; d += A.shore.walk) {
+        const t = d / len;
+        const on = { x: a.x + dx * t, z: a.z + dz * t };
+        // INLAND is down the offshore field's own gradient — the field
+        // grows toward the water, so away from it is into the land. There
+        // is no "left of the line" any more: an island's coast has the
+        // land on whichever side the island is.
+        const g = fieldGradient(level.offshore, on.x, on.z);
+        const glen = Math.hypot(g.gx, g.gz);
+        if (glen < 1e-9) continue;
+        const x = on.x - (g.gx / glen) * A.shore.probe;
+        const z = on.z - (g.gz / glen) * A.shore.probe;
+        const kind = level.materialAt(x, z);
+        if (kind === "water") continue;
+        walked += A.shore.walk;
+        if (kind === "sand") sand += A.shore.walk;
+        runs.set(kind, (runs.get(kind) ?? 0) + A.shore.walk);
+        if (kind === current) run += A.shore.walk;
+        else {
+          current = kind;
+          run = A.shore.walk;
+        }
+        if (run > longest) {
+          longest = run;
+          longestKind = kind;
+          at = { x, z };
+        }
       }
     }
   }
