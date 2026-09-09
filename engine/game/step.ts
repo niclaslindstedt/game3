@@ -15,7 +15,7 @@ import { craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { identity } from "../lib/quat.ts";
 import { NEUTRAL_INPUT, type CraftInput, type CraftState, type GameState } from "./state.ts";
-import { createSea, seaSummary } from "./water.ts";
+import { createSea, seaSummary, type SeaOverride } from "./water.ts";
 import { createWind, stepWind } from "./wind.ts";
 
 export type CreateGameOptions = {
@@ -27,6 +27,11 @@ export type CreateGameOptions = {
   /** A wind to ride in instead of the level's own. The sea is built from
    * it too, so a run staged in a gale has a gale's chop. */
   wind?: Wind;
+  /** ...or only its SPEED, m/s, blowing from the level's own quarter. */
+  windSpeed?: number;
+  /** A sea quoted outright — a swell of this significant height, m, sent
+   * in from beyond the fetch law — in place of the one the wind grows. */
+  sea?: SeaOverride;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
 };
@@ -76,8 +81,12 @@ export function freshCraft(spec: CraftSpec): CraftState {
 export function createGame(options: CreateGameOptions): GameState {
   const spec = craftById(options.craft ?? "skiff");
   const level = options.level ?? generateLevel(options.seed);
-  const wind = options.wind ?? level.wind;
-  const sea = createSea(level, options.seed, wind);
+  const wind =
+    options.wind ??
+    (options.windSpeed !== undefined
+      ? { from: level.wind.from, speed: Math.max(0, options.windSpeed) }
+      : level.wind);
+  const sea = createSea(level, options.seed, wind, options.sea);
   const state: GameState = {
     seed: options.seed,
     rng: createRng(options.seed),

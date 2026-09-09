@@ -117,6 +117,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | The camera                                            | `pwa/src/game/camera.ts`                                      | `game-feel`          |
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
 | The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
+| The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `fx-textures.ts`          | `game-feel`            |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
 | The buoys, the rings, the ramps as drawn              | `pwa/src/game/gates.ts`                                       | `collision`          |
 | A staged moment                                       | `pwa/src/game/scenarios.ts`, `engine/game/place.ts`           | `test-scenario`      |

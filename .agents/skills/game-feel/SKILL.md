@@ -60,7 +60,7 @@ the game harder, not more dramatic.
 | What separates the four craft | `engine/game/defs/craft.ts` | `craft-tuning` |
 | Course scale: gate spacing, offshore band, ramp placement | `engine/mapgen/rules.ts` | `mapgen-improvement` |
 | Camera | `pwa/src/game/camera.ts` | (this skill) |
-| Water-contact FX: spray, wake, the landing plume (later) | `pwa/src/game/` | reserved: `visual-effects` |
+| Water-contact FX: the chine sheets, the rooster tail, the landing plume, the bow plunge, the foam patch (`spray.ts`); the wake ribbon (`wake.ts`); their textures, made in code (`fx-textures.ts`) | `pwa/src/game/` | (this skill; `visual-effects` reserved) |
 
 What each contributes:
 

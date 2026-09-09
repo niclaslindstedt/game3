@@ -12,6 +12,8 @@
 //   ?t=2.5         seconds of the script to run before the first frame
 //   ?shot=1        FREEZE after that and set `window.__SH_READY__` once the
 //                  frame is drawn — what the screenshot tool waits on
+//   ?wind=12       ride in this wind, m/s, from the level's own quarter
+//   ?hs=20         ...or in a sea quoted by its significant height, m
 //
 // THE LOOP: `requestAnimationFrame` hands the clock (run-loop.ts) the wall
 // time; the clock says how many fixed steps to take; each step samples the
@@ -67,6 +69,10 @@ type Params = {
   scene: ScenarioName | null;
   t: number;
   shot: boolean;
+  /** A wind speed, m/s, in place of the level's; a sea quoted by its
+   * significant height, m, in place of the one the wind grows. */
+  wind: number | undefined;
+  hs: number | undefined;
 };
 
 function readParams(): Params {
@@ -75,12 +81,20 @@ function readParams(): Params {
   const craft = p.get("craft") ?? "skiff";
   const scene = p.get("scene") ?? "";
   const t = Number(p.get("t"));
+  const metres = (key: string): number | undefined => {
+    const v = p.get(key);
+    if (v === null) return undefined;
+    const n = Number(v);
+    return Number.isFinite(n) && n >= 0 ? n : undefined;
+  };
   return {
     seed: Number.isFinite(seed) && seed > 0 ? Math.floor(seed) : 38,
     craft: isCraftId(craft) ? craft : "skiff",
     scene: isScenarioName(scene) ? scene : null,
     t: Number.isFinite(t) && t > 0 ? t : 0,
     shot: p.get("shot") === "1",
+    wind: metres("wind"),
+    hs: metres("hs"),
   };
 }
 
@@ -136,7 +150,14 @@ export function App() {
     const renderer = createRenderer(canvas);
     const clock = createRunClock(TUNING.physicsHz);
 
-    let state: GameState = createGame({ seed: params.seed, craft: params.craft });
+    const newGame = (): GameState =>
+      createGame({
+        seed: params.seed,
+        craft: params.craft,
+        windSpeed: params.wind,
+        sea: params.hs !== undefined ? { hs: params.hs } : undefined,
+      });
+    let state: GameState = newGame();
     let scenario: Scenario | null = null;
     /** The run clock the scenario's script started at, s. */
     let scriptFrom = 0;
@@ -160,6 +181,7 @@ export function App() {
 
     const stepOnce = (): void => {
       step(state, inputFor());
+      renderer.observe(state);
       for (const e of state.events) {
         const line = flashFor(e);
         if (line) live.push({ id: flashId++, ...line, until: wall + FLASH_LIFE });
@@ -170,7 +192,7 @@ export function App() {
      * URL asks for a scene — the craft placed in it and `t` seconds of its
      * script already ridden. */
     const stand = (scene: ScenarioName | null, ahead: number): void => {
-      state = createGame({ seed: params.seed, craft: params.craft });
+      state = newGame();
       scenario = null;
       live.length = 0;
       if (scene) {
@@ -179,12 +201,7 @@ export function App() {
       }
       renderer.load(state);
       const steps = Math.round(ahead * TUNING.physicsHz);
-      for (let i = 0; i < steps; i++) {
-        stepOnce();
-        // The trails see the pre-roll at a frame's cadence, as they would
-        // have had it been ridden on screen.
-        if (i % 2 === 0) renderer.trail(state);
-      }
+      for (let i = 0; i < steps; i++) stepOnce();
       hudClock = HUD_TICK;
     };
     stand(params.scene, params.t);

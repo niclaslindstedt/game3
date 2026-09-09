@@ -31,6 +31,13 @@
 // - Amplitude shoals by the linear-theory coefficient Ks = √(cg₀/cg)
 //   (Green's law √√(d₀/d) is its shallow limit) and the summed height is
 //   clipped at McCowan's breaking limit H = 0.78·d.
+// - THERE IS NO ARCADE CEILING. The sea is bounded by the fully developed
+//   law and by the depth under it, nothing else: a run handed a SEA
+//   OVERRIDE (`SeaOverride` — a swell quoted by its height rather than
+//   grown from the wind, the way a storm far out at sea sends one in) can
+//   stand a twenty-metre sea over deep water, and every term here — the
+//   depth table, the phase field, the orbital velocity — is sized to
+//   carry it (`tests/waves_test.ts`'s storm case).
 //
 // Deterministic: the seed fixes the phases and the directional draws, and
 // t is the only clock.
@@ -64,15 +71,29 @@ export type WaveComponent = {
   readonly table: Float32Array;
 };
 
+/** A sea quoted by its own numbers instead of grown from the wind: the
+ * significant height, m, and — left out — the peak period a wind sea of
+ * that height carries (`periodForHeight`). The fetch still shapes it: the
+ * height quoted is the course's, and the sea builds to seaward from there
+ * by the wind's own growth law (uniform when there is no wind). */
+export type SeaOverride = {
+  readonly hs: number;
+  readonly tp?: number;
+};
+
 export type SeaState = {
   /** The wind the field was built from. */
   readonly windSpeed: number;
   readonly windFrom: number;
-  /** Effective fetch the amplitudes are quoted at, m, and the significant
-   * height, m, and peak period, s, there. */
+  /** Effective fetch the amplitudes are quoted at, m — the course's own
+   * — and the significant height, m, and peak period, s, there. */
   readonly fetchRef: number;
   readonly hsRef: number;
   readonly tp: number;
+  /** What the wind alone would grow at the reference fetch, m — the
+   * denominator of the fetch growth (0 when there is no wind, and the sea
+   * is then the override's, uniform). */
+  readonly windHs: number;
   readonly components: readonly WaveComponent[];
 };
 
@@ -107,6 +128,14 @@ export function fetchPeriod(u: number, fetch: number): number {
   const limited = (0.286 * Math.cbrt(dimless) * u) / G;
   const developed = (TAU * u) / (0.877 * G);
   return Math.max(0.6, Math.min(limited, developed));
+}
+
+/** The peak period, s, a wind sea of significant height `hs` (m) carries:
+ * the significant steepness Hs/L₀ of a grown wind sea sits near
+ * `TUNING.sea.steepness`, and L₀ = g·Tp²/2π (Airy) turns that round. What
+ * a `SeaOverride` without a period is given. */
+export function periodForHeight(hs: number): number {
+  return Math.max(0.6, Math.sqrt((TAU * Math.max(hs, 0)) / (G * S.steepness)));
 }
 
 /** The fetch the model reads at an offshore distance, m — the level's
@@ -218,22 +247,40 @@ function buildPhaseField(
   return field;
 }
 
-/** The furthest any point of the level is from the shore, m — where the
- * amplitudes are quoted. */
-function maxOffshore(level: Level): number {
+/** The offshore distance the sea is QUOTED at, m: the mean over the course's
+ * gates — the water the level is ridden in — so the one peak period the
+ * field carries is the period of the sea under the course, not of the
+ * furthest cell of open water the bounds happen to hold (which stands
+ * several hundred metres further out and would give every gate a longer,
+ * gentler swell than its fetch earns). Falls back to the furthest cell
+ * for a level with no gates. */
+function courseOffshore(level: Level): number {
+  const gates = level.course.gates;
+  if (gates.length > 0) {
+    let sum = 0;
+    for (const g of gates) sum += Math.max(0, sampleField(level.offshore, g.x, g.z));
+    return sum / gates.length;
+  }
   let max = 0;
   const d = level.offshore.data;
   for (let i = 0; i < d.length; i++) if (d[i] > max) max = d[i];
   return max;
 }
 
-/** Build the field for a level's wind (or another one) and seed. */
-export function createSea(level: Level, seed: number, wind: Wind = level.wind): SeaState {
+/** Build the field for a level's wind (or another one) and seed, or for a
+ * sea quoted outright (`override`). */
+export function createSea(
+  level: Level,
+  seed: number,
+  wind: Wind = level.wind,
+  override?: SeaOverride,
+): SeaState {
   const rng = createRng((seed ^ 0x5ea5ea) >>> 0);
   const u = wind.speed;
-  const fetchRef = effectiveFetch(maxOffshore(level));
-  const hsRef = fetchHeight(u, fetchRef);
-  const tp = fetchPeriod(u, fetchRef);
+  const fetchRef = effectiveFetch(courseOffshore(level));
+  const windHs = fetchHeight(u, fetchRef);
+  const hsRef = override ? Math.max(0, override.hs) : windHs;
+  const tp = override ? (override.tp ?? periodForHeight(hsRef)) : fetchPeriod(u, fetchRef);
   const wp = TAU / tp;
   // Waves travel WITH the wind: `from` is where it blows from.
   const travel = wind.from + Math.PI;
@@ -274,27 +321,35 @@ export function createSea(level: Level, seed: number, wind: Wind = level.wind): 
       table,
     };
   });
-  return { windSpeed: u, windFrom: wind.from, fetchRef, hsRef, tp, components };
+  return { windSpeed: u, windFrom: wind.from, fetchRef, hsRef, tp, windHs, components };
 }
 
 /** How much of the reference amplitude reaches a point `offshore` metres
- * out, 0..1: the fetch law's growth, so the chop builds to seaward. */
+ * out: the fetch law's growth, so the chop builds to seaward — under 1
+ * inshore of the course, past 1 beyond it; 1 everywhere for a quoted sea
+ * with no wind to grow it. */
 export function fetchGrowth(sea: SeaState, offshore: number): number {
   if (sea.hsRef <= 0) return 0;
-  return fetchHeight(sea.windSpeed, effectiveFetch(offshore)) / sea.hsRef;
+  if (sea.windHs <= 0) return 1;
+  return fetchHeight(sea.windSpeed, effectiveFetch(offshore)) / sea.windHs;
 }
 
 /** The sea's headline numbers at an offshore distance: significant height
- * (m, by the fetch law at that distance) and the peak period (s, the
- * field's own — one period per component for the whole level). */
+ * (m, the quoted height grown by the fetch law to that distance) and the
+ * peak period (s, the field's own — one period per component for the
+ * whole level). */
 export function seaSummary(sea: SeaState, offshore: number): { Hs: number; Tp: number } {
-  return { Hs: fetchHeight(sea.windSpeed, effectiveFetch(offshore)), Tp: sea.tp };
+  return { Hs: sea.hsRef * fetchGrowth(sea, offshore), Tp: sea.tp };
 }
 
 const scratch = new Float64Array(3);
 
 /** The surface at a plan point and time. Writes into `out` when given so
- * a mesh of forty thousand vertices allocates nothing per frame. */
+ * a mesh of forty thousand vertices allocates nothing per frame. `count`
+ * sums only the first that many components — the LONGEST, since the
+ * field is laid from the low end of the band up — which is what the
+ * renderer's far water reads: the swell a coarse far grid can carry,
+ * without the chop it cannot, off the same field and the same clock. */
 export function surfaceAt(
   sea: SeaState,
   level: Level,
@@ -302,6 +357,7 @@ export function surfaceAt(
   z: number,
   t: number,
   out: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 },
+  count: number = sea.components.length,
 ): SurfaceSample {
   const depth = Math.max(-sampleField(level.ground, x, z), S.minDepth);
   const growth = fetchGrowth(sea, sampleField(level.offshore, x, z));
@@ -309,6 +365,7 @@ export function surfaceAt(
   // McCowan's limit is on the wave HEIGHT (crest to trough), which for a
   // sum of sinusoids is at most twice the summed amplitude.
   const comps = sea.components;
+  const n = Math.min(count, comps.length);
   let sumAmp = 0;
   let height = 0;
   let sx = 0;
@@ -325,7 +382,7 @@ export function surfaceAt(
   }
   sumAmp *= growth;
   const clip = sumAmp > cap ? cap / sumAmp : 1;
-  for (let i = 0; i < comps.length; i++) {
+  for (let i = 0; i < n; i++) {
     const c = comps[i];
     tableAt(c.table, depth, scratch);
     const k = scratch[0];

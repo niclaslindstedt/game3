@@ -305,7 +305,7 @@ export const LEVEL_RULES = {
   /** R12 — the wind. */
   wind: {
     /** Mean at 10 m, m/s. */
-    speed: { min: 2, max: 12 },
+    speed: { min: 6, max: 14 },
     /** How far the direction may swing from dead offshore, rad. */
     seaward: 60 * DEG,
   },

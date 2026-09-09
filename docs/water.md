@@ -8,14 +8,14 @@ What comes back from one call (`surfaceAt(sea, level, x, z, t, out?)`, a `Surfac
 
 The field is a sum of `TUNING.sea.components` = 8 sinusoidal components — Gerstner/trochoidal waves (Tessendorf 2001; Finch, _GPU Gems_ 1 ch. 1) **with the horizontal displacement dropped**, so that the height is a function of the undisplaced `(x, z)` the physics asks about. The crests lose their trochoidal sharpening; the heights, slopes and orbital velocities are linear (Airy) theory's, which is what the rest of the model — dispersion, shoaling, breaking — is stated in anyway.
 
-1. **The reference fetch.** The furthest any cell of the level's `offshore` field lies from the shore is stretched into the fetch the growth laws work in: `fetchRef = effectiveFetch(maxOffshore)`, where
+1. **The reference fetch.** The sea is quoted at the COURSE: the mean offshore distance of the level's gates (`courseOffshore`; the furthest cell of open water for a level with no gates) is stretched into the fetch the growth laws work in: `fetchRef = effectiveFetch(courseOffshore)`, where
 
    ```
    effectiveFetch(offshore) = baseFetch + fetchScale · max(offshore, 0)     [m]
-   baseFetch = 4000 m, fetchScale = 40
+   baseFetch = 30 000 m, fetchScale = 100
    ```
 
-   A level is a kilometre of coast, but the fetch-limited growth laws work in tens of kilometres — a hundred metres of real fetch grows a four-centimetre ripple. So the game's fiction is that the shore is a piece of a longer coast and the level lies nearer the open sea than its bounds say: a point 100 m out reads 8 km of fetch. The growth SHAPE is still Hasselmann's; only the metre is stretched.
+   A level is a kilometre of coast, but the fetch-limited growth laws work in tens of kilometres — a hundred metres of real fetch grows a four-centimetre ripple. So the game's fiction is that the shore is a piece of a longer coast facing the open sea, and the level lies nearer it than its bounds say: the lee of the shore reads 30 km of fetch (half a metre of significant height at the lightest wind the rule book draws), and a point 100 m out reads 40 km. The growth SHAPE is still Hasselmann's; only the metre is stretched. Quoting at the course rather than at the furthest cell is what gives the gates the period their own fetch earns: the one peak period the field carries (below) is the sea under the course, not the longer, gentler swell of the open water several hundred metres further out.
 
 2. **The headline numbers.** The significant height and the peak period at the reference fetch, for the mean wind `U` (m/s at 10 m):
 
@@ -25,6 +25,14 @@ The field is a sum of `TUNING.sea.components` = 8 sinusoidal components — Gers
    ```
 
    The first term of each is the SPM (1984) fetch-limited law — `g·Hs/U² = 1.6·10⁻³·(g·F/U²)^½` and `g·Tp/U = 0.286·(g·F/U²)^⅓` — and the cap is the fully developed Pierson–Moskowitz (1964) sea, `Hs = 0.21·U²/g` and `ω_p = 0.877·g/U`. `g` is `TUNING.g` = 9.81 m/s². A wind of 0 makes a flat sea (`Hs = 0`, `Tp = 1`).
+
+   **A sea can also be quoted outright** — `createSea(level, seed, wind, { hs, tp? })`, a `SeaOverride`; `createGame({ sea: { hs } })` and the app's `?hs=` hand it in. The significant height at the course is then the number given, in place of the wind's, and the period, when not given, is the one a grown wind sea of that height carries: the significant steepness `Hs/L₀` of a mature sea sits near `TUNING.sea.steepness` = 0.04 (Toba 1972's 3/2 law lands there), and `L₀ = g·Tp²/2π` turns that round —
+
+   ```
+   periodForHeight(Hs):  Tp = max( 0.6, √( 2π·Hs / (g · steepness) ) )     [s]
+   ```
+
+   so a one-metre sea is a four-second one and a twenty-metre sea an eighteen-second one (λ₀ = 500 m). The fetch still shapes an overridden sea: the height quoted is the course's and it grows to seaward by the wind's own law (uniform when there is no wind). **There is no arcade ceiling**: the field is bounded by the fully developed law and by the depth under it (McCowan, below) and by nothing else, and every term — the depth table, the phase field, the orbital velocity — is sized so a twenty-metre sea over deep water stands (`tests/waves_test.ts`'s storm case rides one for ten seconds). Over the generator's 25 m bed the breaking clip holds such a sea to some ten metres of height; a deeper bed lets it stand whole.
 
 3. **The components.** Eight frequencies, log-spaced over the band `bandLow..bandHigh` = 0.7–2.4 × the peak `ω_p = 2π/Tp` (JONSWAP's energy sits between ~0.7 and ~2 f_p; the tail past 2.5 f_p is too short to feel through a hull), each owning the band between the midpoints to its neighbours:
 
@@ -44,7 +52,7 @@ The field is a sum of `TUNING.sea.components` = 8 sinusoidal components — Gers
 
 4. **Per component, a depth table and a phase field** (below).
 
-`SeaState` carries `windSpeed`, `windFrom`, `fetchRef`, `hsRef`, `tp` and the components; `seaSummary(sea, offshore)` returns `{ Hs, Tp }` — Hs by the fetch law at that distance, Tp the field's one peak period. The sim's `maxHs` column is this Hs at the craft's position.
+`SeaState` carries `windSpeed`, `windFrom`, `fetchRef`, `hsRef`, `tp`, `windHs` (what the wind alone grows at the reference fetch — the fetch growth's denominator) and the components; `seaSummary(sea, offshore)` returns `{ Hs, Tp }` — the quoted Hs grown by the fetch law to that distance, Tp the field's one peak period. The sim's `maxHs` column is this Hs at the craft's position.
 
 ## Dispersion (`wavenumber(ω, d)`)
 
@@ -57,7 +65,7 @@ k  = k₀ / tanh((k₀·d)^0.75)^(2/3)
 
 The depth is floored at `minDepth` = 0.15 m so the relation and the shoaling coefficient stay finite where the bed comes up to the surface — by then the breaking cap has already clipped every wave to nothing worth drawing. `tests/waves_test.ts` holds the fit to both limits and to `ω² = g·k·tanh(k·d)` within 3 % over ω = 0.7–2.5 rad/s and d = 0.4–30 m.
 
-Each component precomputes a table over depth, `tableStep` = 0.1 m apart out to `tableDepth` = 40 m (401 rows — the compiler's bed never goes below −25 m; a tenth of a metre resolves the shallows where the coefficients actually move): the local `k`, the shoaling coefficient `Ks`, and `coth(k·d)` for the orbital velocity. `surfaceAt` reads it linearly between rows.
+Each component precomputes a table over depth, `tableStep` = 0.1 m apart out to `tableDepth` = 250 m (2 501 rows — past half the wavelength of the longest swell the model is asked to carry, so a deep bed reads as deep water rather than as the table's last row; the generator's own bed stops at −25 m, and a tenth of a metre resolves the shallows where the coefficients actually move): the local `k`, the shoaling coefficient `Ks`, and `coth(k·d)` for the orbital velocity. `surfaceAt` reads it linearly between rows.
 
 ## The phase field
 
@@ -77,15 +85,15 @@ Green's law `√√(d₀/d)` is its shallow limit. `Ks` is 1 in deep water and g
 
 ## Fetch growth (`fetchGrowth(sea, offshore)`)
 
-How much of the reference amplitude reaches a point `offshore` metres out is the fetch law's own growth, `fetchHeight(U, effectiveFetch(offshore)) / hsRef` — so the chop builds to seaward, and in the lee of the shore (`offshore` ≈ 0, 4 km of fictional fetch) it is smallest. Read off the engine (`fetchHeight` / `fetchPeriod` at the stretched fetch):
+How much of the quoted amplitude reaches a point `offshore` metres out is the fetch law's own growth, `fetchHeight(U, effectiveFetch(offshore)) / windHs` — under 1 inshore of the course, past 1 to seaward of it, so the chop builds riding out and calms riding in; 1 everywhere for a quoted sea with no wind to grow it. Read off the engine (`fetchHeight` / `fetchPeriod` at the stretched fetch):
 
-| Wind (m/s at 10 m) | 0 m out (4 km)       | 50 m (6 km)    | 100 m (8 km)            | 250 m (14 km)  |
-| ------------------ | -------------------- | -------------- | ----------------------- | -------------- |
-| 2                  | Hs 0.07 m, Tp 1.25 s | 0.08 m, 1.43 s | 0.09 m, 1.46 s (PM cap) | 0.09 m, 1.46 s |
-| 6                  | 0.19 m, 1.80 s       | 0.24 m, 2.06 s | 0.27 m, 2.27 s          | 0.36 m, 2.73 s |
-| 12                 | 0.39 m, 2.27 s       | 0.48 m, 2.60 s | 0.55 m, 2.86 s          | 0.73 m, 3.44 s |
+| Wind (m/s at 10 m) | 0 m out (30 km)     | 50 m (35 km)  | 100 m (40 km) | 250 m (55 km) |
+| ------------------ | ------------------- | ------------- | ------------- | ------------- |
+| 6                  | Hs 0.53 m, Tp 3.5 s | 0.57 m, 3.7 s | 0.61 m, 3.9 s | 0.72 m, 4.3 s |
+| 10                 | 0.88 m, 4.2 s       | 0.96 m, 4.4 s | 1.02 m, 4.6 s | 1.20 m, 5.1 s |
+| 14                 | 1.24 m, 4.7 s       | 1.34 m, 4.9 s | 1.43 m, 5.1 s | 1.68 m, 5.7 s |
 
-The rule book draws a level's wind from 2–12 m/s (R12), so the roughest shore in the game carries three-quarters of a metre of significant height at its seaward edge and a bit under half at the course's outer band. `offshore` is the level's `offshore` heightfield (metres from the nearest shoreline, negative inland), read with `sampleField`; the generator (`compile.ts`) bakes it.
+The rule book draws a level's wind from 6–14 m/s (R12 — a fresh breeze most days, a strong one on some), so the calmest shore in the game carries half a metre of significant height in its lee and the roughest close to two metres at its seaward bound; the individual waves run to nearly twice that. At a hull's pace that is a crest every second or so: the climb, the launch, the drop into the next face. `offshore` is the level's `offshore` heightfield (metres from the nearest shoreline, negative inland), read with `sampleField`; the generator (`compile.ts`) bakes it.
 
 ## Breaking
 
@@ -108,7 +116,7 @@ The orbital velocity is what makes a wave face lift the bow and a crest carry th
 
 ## What the renderer reads
 
-`pwa/src/game/water-mesh.ts` displaces a grid following the craft by calling `surfaceAt` per vertex on the CPU (the height; the normal for shading). It reads nothing else about the sea. There is no second wave function — not in a shader, not in the renderer — which is the whole point: a wave the physics did not compute cannot be drawn, and one the renderer cannot draw cannot be felt.
+`pwa/src/game/water-mesh.ts` displaces a grid following the craft by calling `surfaceAt` per vertex on the CPU (the height; the normal for shading). Under it a coarse FAR grid, out to the fog, calls the same function with `surfaceAt`'s `count` — the first that many components, which are the longest, since the field is laid from the low end of the band up — so a storm's swell stands out to the horizon while the chop that would alias on a thirty-metre cell is left off; the near grid's edge fades to the far grid's surface rather than to flat. The wake (`wake.ts`) and the foam patches (`spray.ts`) put their vertices on the same call. There is no second wave function — not in a shader, not in the renderer — which is the whole point: a wave the physics did not compute cannot be drawn, and one the renderer cannot draw cannot be felt.
 
 ## The wind the sea is built from (`engine/game/wind.ts`)
 
@@ -122,23 +130,24 @@ The sea is built from the level's MEAN wind (the spectrum needs a wind that has 
 
 ## The numbers, in one place
 
-| Knob                                 | Value      | Unit   | What it buys                                                     |
-| ------------------------------------ | ---------- | ------ | ---------------------------------------------------------------- |
-| `sea.components`                     | 8          | —      | components in the sum                                            |
-| `sea.bandLow` / `bandHigh`           | 0.7 / 2.4  | × ω_p  | the band the components are laid over                            |
-| `sea.spread`                         | 0.6        | rad    | cos² directional spread half-width (~35°)                        |
-| `sea.baseFetch` / `fetchScale`       | 4000 / 40  | m, —   | the stretched fetch: `4000 + 40·offshore`                        |
-| `sea.minDepth`                       | 0.15       | m      | floor on the depth the model reads                               |
-| `sea.breakingRatio`                  | 0.78       | —      | McCowan's H/d                                                    |
-| `sea.tableStep` / `tableDepth`       | 0.1 / 40   | m      | the per-component depth table                                    |
-| `water.viscosity`                    | 1.14·10⁻⁶  | m²/s   | kinematic viscosity for the ITTC-57 line (fresh water at ~15 °C) |
-| `wind.roughness`                     | 2·10⁻⁴     | m      | the log law's z₀                                                 |
-| `wind.referenceHeight` / `minHeight` | 10 / 0.3   | m      | where the mean is quoted; the profile's floor                    |
-| `wind.intensity` / `gustTime`        | 0.11 / 12  | —, s   | the gust process                                                 |
-| `wind.veer` / `veerTime`             | 0.12 / 25  | rad, s | the direction's wander                                           |
-| `wind.gustMin` / `gustMax`           | 0.55 / 1.6 | × mean | the gust factor's bounds                                         |
+| Knob                                 | Value       | Unit   | What it buys                                                     |
+| ------------------------------------ | ----------- | ------ | ---------------------------------------------------------------- |
+| `sea.components`                     | 8           | —      | components in the sum                                            |
+| `sea.bandLow` / `bandHigh`           | 0.7 / 2.4   | × ω_p  | the band the components are laid over                            |
+| `sea.spread`                         | 0.6         | rad    | cos² directional spread half-width (~35°)                        |
+| `sea.baseFetch` / `fetchScale`       | 30000 / 100 | m, —   | the stretched fetch: `30000 + 100·offshore`                      |
+| `sea.minDepth`                       | 0.15        | m      | floor on the depth the model reads                               |
+| `sea.breakingRatio`                  | 0.78        | —      | McCowan's H/d                                                    |
+| `sea.tableStep` / `tableDepth`       | 0.1 / 250   | m      | the per-component depth table                                    |
+| `sea.steepness`                      | 0.04        | —      | Hs/L₀ of a grown sea — a quoted height's period                  |
+| `water.viscosity`                    | 1.14·10⁻⁶   | m²/s   | kinematic viscosity for the ITTC-57 line (fresh water at ~15 °C) |
+| `wind.roughness`                     | 2·10⁻⁴      | m      | the log law's z₀                                                 |
+| `wind.referenceHeight` / `minHeight` | 10 / 0.3    | m      | where the mean is quoted; the profile's floor                    |
+| `wind.intensity` / `gustTime`        | 0.11 / 12   | —, s   | the gust process                                                 |
+| `wind.veer` / `veerTime`             | 0.12 / 25   | rad, s | the direction's wander                                           |
+| `wind.gustMin` / `gustMax`           | 0.55 / 1.6  | × mean | the gust factor's bounds                                         |
 
-The level contributes `wind.speed` (2–12 m/s, R12) and `wind.from`, its `offshore` and `ground` fields, and `water.density` (1005 kg/m³ on the taiga coast — brackish; R13), which is the density every hydrostatic and hydrodynamic force uses.
+The level contributes `wind.speed` (6–14 m/s, R12) and `wind.from`, its `offshore` and `ground` fields, and `water.density` (1005 kg/m³ on the taiga coast — brackish; R13), which is the density every hydrostatic and hydrodynamic force uses.
 
 ## What holds it
 
@@ -152,7 +161,7 @@ A list a future session can pick from, each a known simplification rather than a
 - **Horizontal Gerstner displacement.** The trochoidal sharpening of the crests is dropped so the height is a function of the undisplaced `(x, z)`; crests are sinusoidal, not peaked.
 - **Wave–current interaction.** There is no current; the orbital velocity is the only water motion.
 - **Whitecapping and dissipation.** The only energy loss is the McCowan clip at a point; nothing breaks progressively, and a breaking wave sheds no foam, spray or turbulence into the physics.
-- **Wind sea vs swell.** One peak period per level; there is no separate long swell from a distant storm.
+- **Wind sea vs swell.** One peak period per level: a quoted sea (`SeaOverride`) REPLACES the wind sea rather than standing beside it as a second peak.
 - **Directional spread beyond ±35°.** Truncated cos², eight draws — the sea is always more or less aligned with the wind.
 - **Wave–wave (nonlinear) interaction**, wave set-up, set-down and run-up at the shore.
 - **Reflection and diffraction** off skerries and headlands; the lee of a skerry is not calmer.

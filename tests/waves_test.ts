@@ -7,14 +7,19 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  NEUTRAL_INPUT,
   TUNING,
+  createGame,
   createSea,
   fetchGrowth,
   fetchHeight,
   fetchPeriod,
   heightAt,
+  periodForHeight,
+  placeRun,
   seaSummary,
   shoaling,
+  step,
   surfaceAt,
   wavenumber,
 } from "@engine";
@@ -75,23 +80,46 @@ describe("shoaling and fetch", () => {
   it("the chop builds riding out to sea", () => {
     const level = syntheticLevel({ windSpeed: 6 });
     const sea = createSea(level, 1);
-    expect(fetchGrowth(sea, 300)).toBeGreaterThan(fetchGrowth(sea, 30));
-    expect(fetchGrowth(sea, 300)).toBeLessThanOrEqual(1);
+    // The sea is quoted at the course (the gates stand 40 m out on the
+    // synthetic level): under the quote inshore, past it to seaward.
+    expect(fetchGrowth(sea, 300)).toBeGreaterThan(1);
+    expect(fetchGrowth(sea, 10)).toBeLessThan(1);
     const near = seaSummary(sea, 30);
     const far = seaSummary(sea, 300);
-    expect(far.Hs).toBeGreaterThan(near.Hs * 1.3);
-    // A 6 m/s breeze over the game's fetch: a chop, not a swell and not a
-    // millpond.
-    expect(far.Hs).toBeGreaterThan(0.2);
+    expect(far.Hs).toBeGreaterThan(near.Hs * 1.25);
+    // The lightest wind the rule book draws, over the game's fetch: half
+    // a metre at the shore, three-quarters out at the bound — a sea the
+    // hull leaves, not a millpond.
+    expect(near.Hs).toBeGreaterThan(0.45);
+    expect(far.Hs).toBeGreaterThan(0.6);
     expect(far.Hs).toBeLessThan(1.2);
-    expect(far.Tp).toBeGreaterThan(1.5);
+    expect(far.Tp).toBeGreaterThan(2.5);
     expect(far.Tp).toBeLessThan(6);
   });
 
   it("a stronger wind is a bigger sea", () => {
-    const calm = createSea(syntheticLevel({ windSpeed: 3 }), 1);
-    const gale = createSea(syntheticLevel({ windSpeed: 12 }), 1);
-    expect(seaSummary(gale, 200).Hs).toBeGreaterThan(seaSummary(calm, 200).Hs * 3);
+    const breeze = createSea(syntheticLevel({ windSpeed: 6 }), 1);
+    const gale = createSea(syntheticLevel({ windSpeed: 14 }), 1);
+    expect(seaSummary(gale, 200).Hs).toBeGreaterThan(seaSummary(breeze, 200).Hs * 2);
+    expect(seaSummary(gale, 200).Hs).toBeGreaterThan(1.4);
+  });
+
+  it("a sea quoted by its height keeps that height at the course and a period to match", () => {
+    const level = syntheticLevel({ windSpeed: 0 });
+    const sea = createSea(level, 1, level.wind, { hs: 2 });
+    // No wind to grow it: the quoted sea is uniform.
+    expect(seaSummary(sea, 40).Hs).toBeCloseTo(2, 6);
+    expect(seaSummary(sea, 400).Hs).toBeCloseTo(2, 6);
+    expect(sea.tp).toBeCloseTo(periodForHeight(2), 6);
+    // Toba's steepness: a two-metre sea is a five-or-six-second one.
+    expect(sea.tp).toBeGreaterThan(4.5);
+    expect(sea.tp).toBeLessThan(7);
+    const given = createSea(level, 1, level.wind, { hs: 2, tp: 9 });
+    expect(given.tp).toBe(9);
+    // With a wind under it the quoted height still grows to seaward.
+    const windy = createSea(syntheticLevel({ windSpeed: 8 }), 1, undefined, { hs: 1 });
+    expect(seaSummary(windy, 40).Hs).toBeCloseTo(1, 1);
+    expect(seaSummary(windy, 300).Hs).toBeGreaterThan(1.1);
   });
 });
 
@@ -111,8 +139,11 @@ describe("the surface", () => {
   it("heights stay within the summed amplitudes everywhere", () => {
     let bound = 0;
     for (const c of sea.components) bound += c.amp;
-    // Shoaling can lift a component past its deep amplitude; the cap on
-    // the sum is McCowan's, tested below. Out at sea the deep bound holds.
+    // The amplitudes are quoted at the course; the sweep runs out to
+    // z = 390, where the fetch has grown them. Shoaling can lift a
+    // component past its deep amplitude too; the cap on the sum is
+    // McCowan's, tested below. Out at sea the grown deep bound holds.
+    bound *= fetchGrowth(sea, 390);
     let max = 0;
     for (let i = 0; i < 400; i++) {
       const x = 100 + (i % 20) * 30;
@@ -134,7 +165,7 @@ describe("the surface", () => {
 
   it("is flat on the land and finite everywhere", () => {
     const s = surfaceAt(sea, level, 100, -50, 3);
-    expect(Math.abs(s.height)).toBeLessThan(0.07);
+    expect(Math.abs(s.height)).toBeLessThan(0.1);
     for (const [x, z] of [
       [-60, -120],
       [760, 400],
@@ -176,5 +207,66 @@ describe("the surface", () => {
     const h0 = heightAt(sea, level, 300, 250, 0);
     const h1 = heightAt(sea, level, 300, 250, 0.8);
     expect(h0).not.toBeCloseTo(h1, 3);
+  });
+
+  it("sums only the longest components when asked, off the same field", () => {
+    const full = surfaceAt(sea, level, 300, 250, 2);
+    const none = surfaceAt(sea, level, 300, 250, 2, undefined, 0);
+    expect(none.height).toBe(0);
+    expect(none.ny).toBe(1);
+    const all = surfaceAt(sea, level, 300, 250, 2, undefined, sea.components.length);
+    expect(all).toEqual(full);
+    // The first component is the longest.
+    for (let i = 1; i < sea.components.length; i++)
+      expect(sea.components[i].k0).toBeGreaterThan(sea.components[i - 1].k0);
+  });
+});
+
+describe("the storm", () => {
+  // A twenty-metre sea over deep water: the ceiling the model is sized
+  // to carry. Nothing caps it but the depth (McCowan) and the fully
+  // developed law, and the hull rides it without a number going wrong.
+  const level = syntheticLevel({ windSpeed: 0, depth: 60, seaward: 1600 });
+  const sea = createSea(level, 3, level.wind, { hs: 20 });
+
+  it("stands twenty metres of significant height with a swell's period", () => {
+    expect(seaSummary(sea, 800).Hs).toBeCloseTo(20, 6);
+    expect(sea.tp).toBeGreaterThan(14);
+    expect(sea.tp).toBeLessThan(22);
+    let bound = 0;
+    for (const c of sea.components) bound += c.amp;
+    let max = 0;
+    for (let i = 0; i < 600; i++) {
+      const x = 100 + (i % 30) * 20;
+      const z = 400 + Math.floor(i / 30) * 40;
+      const s = surfaceAt(sea, level, x, z, i * 0.41);
+      for (const v of Object.values(s)) expect(Number.isFinite(v)).toBe(true);
+      expect(s.ny).toBeGreaterThan(0.5);
+      max = Math.max(max, Math.abs(s.height));
+    }
+    // A sixty-metre bed lets it stand: the tallest crest over the sweep is
+    // well past a house and under the summed amplitudes.
+    expect(max).toBeGreaterThan(8);
+    expect(max).toBeLessThanOrEqual(bound * 1.05);
+    expect(max).toBeLessThanOrEqual((0.78 * 60) / 2 + 1e-6);
+  });
+
+  it("the hull rides it: ten seconds flat out, every reading finite and bounded", () => {
+    const state = createGame({ seed: 3, level, sea: { hs: 20 }, quiet: true });
+    placeRun(state, { x: 400, z: 800, heading: Math.PI, speed: 18 });
+    let lowest = Infinity;
+    let highest = -Infinity;
+    for (let i = 0; i < 1200; i++) {
+      step(state, { ...NEUTRAL_INPUT, throttle: 1 });
+      const c = state.craft;
+      for (const v of [c.x, c.y, c.z, c.vx, c.vy, c.vz, c.wx, c.wy, c.wz, c.pitch, c.roll])
+        expect(Number.isFinite(v)).toBe(true);
+      lowest = Math.min(lowest, c.y);
+      highest = Math.max(highest, c.y);
+      expect(c.speed).toBeLessThanOrEqual(TUNING.hull.maxSpeed);
+    }
+    // It rode the swell: several metres of heave, never through the bed.
+    expect(highest - lowest).toBeGreaterThan(4);
+    expect(lowest).toBeGreaterThan(-30);
   });
 });

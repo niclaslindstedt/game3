@@ -24,6 +24,7 @@
 //   npm run waves -- --seed 38                 # previews/waves-38.png
 //   npm run waves -- --seed 38 --wind 12       # the same shore in a gale
 //   npm run waves -- --seed 38 --from 90       # ...with the wind from the east
+//   npm run waves -- --seed 38 --hs 20         # a twenty-metre storm sea sent in
 //   npm run waves -- --seed 38 --reach 400 --times 8
 
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -54,11 +55,16 @@ const args = parseArgs(
     seed: { kind: "number", default: 1, help: "the level's seed" },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     from: { kind: "number", help: "override the wind's from-direction, degrees" },
+    hs: {
+      kind: "number",
+      help: "quote the sea by its significant height, m, instead of growing it from the wind",
+    },
+    tp: { kind: "number", help: "...and its peak period, s (the height's own when left out)" },
     reach: { kind: "number", default: 600, help: "how far out the transect runs, m" },
     times: { kind: "number", default: 5, help: "moments drawn on the transect, a second apart" },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
   },
-  "usage: npm run waves -- --seed n [--wind m/s] [--from deg] [--reach m] [--times n] [--out name]",
+  "usage: npm run waves -- --seed n [--wind m/s] [--from deg] [--hs m [--tp s]] [--reach m] [--times n] [--out name]",
 );
 
 // ── The sea ─────────────────────────────────────────────────────────────
@@ -67,7 +73,8 @@ const wind = {
   from: args.from !== undefined ? (args.from * Math.PI) / 180 : level.wind.from,
   speed: args.wind ?? level.wind.speed,
 };
-const sea = createSea(level, args.seed, wind);
+const override = args.hs !== undefined ? { hs: args.hs, tp: args.tp } : undefined;
+const sea = createSea(level, args.seed, wind, override);
 const deg = (rad) => ((rad * 180) / Math.PI + 360) % 360;
 const depthAt = (x, z) => Math.max(0, -sampleField(level.ground, x, z));
 const offshoreAt = (x, z) => sampleField(level.offshore, x, z);
@@ -146,6 +153,7 @@ const pad = (v, n) => String(v).padStart(n);
 console.log(
   `waves — engine ${engineVersion} · seed ${args.seed} (${level.biome}) · wind ${wind.speed.toFixed(1)} m/s from ${deg(wind.from).toFixed(0)}°` +
     `${args.wind !== undefined || args.from !== undefined ? ` (level's own ${level.wind.speed.toFixed(1)} m/s from ${deg(level.wind.from).toFixed(0)}°)` : ""}` +
+    `${override ? ` · sea quoted at Hs ${override.hs} m` : ""}` +
     ` · ${sea.components.length} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s`,
 );
 console.log(

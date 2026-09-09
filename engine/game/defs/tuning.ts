@@ -57,13 +57,17 @@ export const TUNING = {
      * kilometre of coast, but the fetch-limited growth laws work in tens of
      * kilometres: a hundred metres of real fetch grows a four-centimetre
      * ripple. So the game's fiction is that the shore is a piece of a
-     * longer coast and the whole level is nearer the open sea than its
-     * bounds say: the wave model reads fetch as `baseFetch + fetchScale ×
-     * offshore` (m), which is what makes the chop visibly build riding out
-     * over the hundred metres the course spans. The growth SHAPE is still
-     * Hasselmann's; only the metre is stretched. */
-    baseFetch: 4000,
-    fetchScale: 40,
+     * longer coast facing the open sea, and the whole level is nearer it
+     * than its bounds say: the wave model reads fetch as `baseFetch +
+     * fetchScale × offshore` (m). The base is what puts HALF A METRE of
+     * significant height in the lee of the shore at the lightest wind the
+     * rule book draws (6 m/s over 30 km: Hs 0.53 m, Tp 3.5 s), and the
+     * scale is what makes the sea build visibly riding out over the few
+     * hundred metres a course spans (a strong wind at the seaward bound:
+     * Hs near two metres). The growth SHAPE is still Hasselmann's; only
+     * the metre is stretched. */
+    baseFetch: 30_000,
+    fetchScale: 100,
     /** The smallest depth the wave model reads, m: keeps the dispersion
      * relation and the shoaling coefficient finite where the bed comes up
      * to the surface, and is where the breaking cap has already clipped
@@ -73,11 +77,20 @@ export const TUNING = {
      * of the depth. Applied to the summed height at a point. */
     breakingRatio: 0.78,
     /** Depth table pitch, m, and reach, m, for the per-component shoaling
-     * lookup (`buildTable` in water.ts). The bed never goes below the compiler's −25 m
-     * and a tenth of a metre resolves the shallows where the coefficient
-     * actually moves. */
+     * lookup (`buildTable` in water.ts). A tenth of a metre resolves the
+     * shallows where the coefficient actually moves; the reach is past
+     * half the wavelength of the longest swell the model is asked to
+     * carry (a twenty-metre sea's five hundred metres), so a deep bed
+     * reads as deep water rather than as the table's last row. The
+     * generator's own bed stops at −25 m. */
     tableStep: 0.1,
-    tableDepth: 40,
+    tableDepth: 250,
+    /** Significant steepness Hs/L₀ of a grown wind sea, dimensionless —
+     * a mature sea runs 0.03–0.05 (Toba 1972's 3/2 law lands there), and
+     * this is what turns a sea quoted by its height alone
+     * (`SeaOverride`) into a period. A MEASUREMENT: steeper is a younger,
+     * shorter sea. */
+    steepness: 0.04,
   },
 
   /** THE WIND (`wind.ts`). */

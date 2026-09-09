@@ -13,6 +13,8 @@ The running game reads its whole situation off the URL, which is what makes a le
 | `scene`   | A staged moment from `pwa/src/game/scenarios.ts` (`cruise`, `chop`, `launch`, `landing`, `dive`, `backflip`…) for labs and shots. |
 | `t`       | Seconds into the scene to stand at.                                                                                               |
 | `shot`    | `1` freezes the frame for the screenshot tool and sets `window.__SH_READY__` when it is drawn.                                    |
+| `wind`    | A wind speed, m/s, in place of the level's own (from the same quarter) — the sea is grown from it too.                            |
+| `hs`      | A sea quoted by its significant height, m, in place of the one the wind grows: `hs=20` is the storm the model is sized to carry.  |
 
 The debug switch the spec asks for (§19.3) is the dev build: `npm run dev` lifts the engine's `debug`-level output onto the console through `pwa/src/output-bridge.ts`, and the same lines are kept in an in-memory ring buffer every build can read back.
 
