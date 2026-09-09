@@ -108,10 +108,13 @@ crafts:
 # pwa/dist, `npm i --no-save playwright-core` and a Chromium (CHROMIUM_PATH
 # overrides discovery). `make screenshots SCENE=launch SEED=38 CRAFT=skiff` ·
 # `make screenshots ARGS=--all` · `make screenshots ARGS="--drive W:4"` ·
-# `make screenshots SCENE=rest ARGS=--update` (the new-build button)
+# `make screenshots SCENE=rest ARGS=--update` (the new-build button) ·
+# `make screenshots SCENE=cruise HOUR=20.5 WEATHER=clear` (the level under
+# another hour and another sky — how a sunset is looked at on demand)
 screenshots:
 	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) \
-		$(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
+		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
+		$(if $(WEATHER),--weather $(WEATHER),) $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as

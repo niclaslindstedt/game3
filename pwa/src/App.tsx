@@ -14,6 +14,9 @@
 //                  frame is drawn — what the screenshot tool waits on
 //   ?wind=12       ride in this wind, m/s, from the level's own quarter
 //   ?hs=20         ...or in a sea quoted by its significant height, m
+//   ?hour=20.5     ride at this hour on the clock in place of the level's
+//   ?weather=rain  ...and under this sky (clear | high | overcast | rain |
+//                  squall) — the sea stays the wind's
 //   ?update=1      show the new-build button as if a build were waiting, so
 //                  the surface can be photographed (read where it is drawn,
 //                  in game/update-button.tsx — it is not part of a repro)
@@ -29,11 +32,13 @@ import {
   TUNING,
   createGame,
   isCraftId,
+  WEATHER_IDS,
   step,
   type CraftId,
   type CraftInput,
   type GameEvent,
   type GameState,
+  type Weather,
 } from "@engine";
 
 import { APP_NAME } from "./identity.ts";
@@ -76,6 +81,9 @@ type Params = {
    * significant height, m, in place of the one the wind grows. */
   wind: number | undefined;
   hs: number | undefined;
+  /** An hour on the clock and a sky in place of the level's own. */
+  hour: number | undefined;
+  weather: Weather | undefined;
 };
 
 function readParams(): Params {
@@ -98,6 +106,10 @@ function readParams(): Params {
     shot: p.get("shot") === "1",
     wind: metres("wind"),
     hs: metres("hs"),
+    hour: metres("hour"),
+    weather: (WEATHER_IDS as readonly string[]).includes(p.get("weather") ?? "")
+      ? (p.get("weather") as Weather)
+      : undefined,
   };
 }
 
@@ -159,6 +171,8 @@ export function App() {
         craft: params.craft,
         windSpeed: params.wind,
         sea: params.hs !== undefined ? { hs: params.hs } : undefined,
+        hour: params.hour,
+        weather: params.weather,
       });
     let state: GameState = newGame();
     let scenario: Scenario | null = null;

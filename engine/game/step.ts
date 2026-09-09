@@ -7,7 +7,7 @@
 
 import { createRng } from "../lib/prng.ts";
 import { generateLevel } from "../mapgen/index.ts";
-import type { Level, Wind } from "../mapgen/types.ts";
+import type { Level, Weather, Wind } from "../mapgen/types.ts";
 import { status } from "../output.ts";
 import { stepCraft } from "./craft.ts";
 import { freshProgress, resetCraft, standCraft, stepCourse } from "./course.ts";
@@ -32,6 +32,11 @@ export type CreateGameOptions = {
   /** A sea quoted outright — a swell of this significant height, m, sent
    * in from beyond the fetch law — in place of the one the wind grows. */
   sea?: SeaOverride;
+  /** The hour on the clock and the sky to ride the level under in place of
+   * the ones it was dealt (R13, R19) — how a lab photographs a sunset on a
+   * seed that came up at noon. The sea is the wind's and does not move. */
+  hour?: number;
+  weather?: Weather;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
 };
@@ -80,7 +85,15 @@ export function freshCraft(spec: CraftSpec): CraftState {
 
 export function createGame(options: CreateGameOptions): GameState {
   const spec = craftById(options.craft ?? "skiff");
-  const level = options.level ?? generateLevel(options.seed);
+  const dealt = options.level ?? generateLevel(options.seed);
+  const level: Level =
+    options.hour === undefined && options.weather === undefined
+      ? dealt
+      : {
+          ...dealt,
+          hour: options.hour === undefined ? dealt.hour : ((options.hour % 24) + 24) % 24,
+          weather: options.weather ?? dealt.weather,
+        };
   const wind =
     options.wind ??
     (options.windSpeed !== undefined

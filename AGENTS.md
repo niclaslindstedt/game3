@@ -122,6 +122,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
 | The minimap: the coast it cuts, what stands on it     | `pwa/src/game/minimap-scene.ts`, `minimap-view.ts`, `minimap.tsx` | `hud-and-menus`   |
 | The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
+| The water as LIT: the glint, the reflected sky, the ripples, the foam's texture | `pwa/src/game/water-shader.ts`                       | `game-feel`, `water-feel` |
 | The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `fx-textures.ts`          | `game-feel`            |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
 | The buoys, the rings, the ramps as drawn              | `pwa/src/game/gates.ts`                                       | `collision`          |
@@ -172,7 +173,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 - **How far down the course a run has got** — `gatesReached` in `engine/game/course.ts`: gates taken plus gates charged for. The HUD's `n / N` counter and the minimap's gauge are the same reading in two forms, and neither restates the sum.
 - **The sign conventions** — heading 0 = +z, clockwise from above; pitch NOSE-UP positive; roll RIGHT-SIDE-DOWN positive; body angular rates right-handed. `engine/lib/quat.ts`'s `fromEuler`/`toEuler` own the flip between the rider's reading and the algebra's. The one place the SCREEN's axes (thumb toward you, drag down for throttle) are turned into the engine's signs is `pwa/src/game/input-model.ts`, DOM-free so the tests can read it; `input.ts` only feeds it events.
 - **What sky a level is under** — `Level.weather` (R19) and `Level.hour`, with `skyCover(wind.speed)` the one measure of how heavy that sky is. `pwa/src/game/sky.ts`'s `skyAt` turns the three into a `Preset`, and everything that answers to the sky — the two lights, the fog, the dome, the clouds, what the water reflects — reads that ONE preset. Nothing anywhere else decides how dark it is.
-- **What the water reflects** — `seaMirror(preset)`; `water-mesh.ts` is handed it (`retone`) and never picks a sky colour of its own.
+- **What the water reflects** — `seaReflection(preset)` (the sky as a gradient a wave face can point into, and how much sun there is to glint) and `seaMirror(preset)` (the same at the one grazing angle the horizon disc has); `water-mesh.ts` is handed the preset and the scene's two lights (`retone`) and never picks a sky colour or a light of its own. The open sky's gradient itself is `skyToneAt` in `sky.ts`, which the dome paints with and the water's GLSL restates from the same three constants (`SKY_CURVE`, `GLOW_FOCUS`, `GLOW_REACH`).
 - **The ONE clock** — `state.t` advances by `TUNING.dt` per step and is the only time the engine knows; the sea is a function of it. Nothing in `engine/` reads a wall clock (`analyzeLevel`'s report timer is the recorded exception, dev-time only).
 
 ## Test conventions

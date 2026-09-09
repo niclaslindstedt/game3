@@ -8,8 +8,8 @@
 //
 // This module owns everything about the scene that is AIR: the two lights,
 // the fog, the background, the dome and the clouds. It reads `GameState` and
-// never writes it, and it hands out the numbers other things need to answer
-// to the same sky — what the water reflects, and how much daylight there is.
+// never writes it, and it hands out what other things need to answer to the
+// same sky — the preset the water reflects, and the two lights it is lit by.
 //
 // THE SUN DOES NOT MOVE during a run. A run is ninety seconds; the sun
 // climbs a third of a degree in that time, which is less than the ladder's
@@ -21,15 +21,15 @@
 //
 // Neighbours own the parts that are their own craft: `sky.ts` decides what
 // colour everything is, `sky-dome.ts` draws the shells, `clouds.ts` the ring
-// and the ceiling, and `water-mesh.ts` puts the sky's own colour back on the
-// water at a grazing angle.
+// and the ceiling, and `water-mesh.ts` (through `water-shader.ts`) puts the
+// sky's own gradient back on the water, wave face by wave face.
 
 import * as THREE from "three";
 import { biomeOf, type GameState, type Level } from "@engine";
 
 import { createClouds, type Clouds } from "./clouds.ts";
 import { createSkyDome, type SkyDome } from "./sky-dome.ts";
-import { seaMirror, skyAt, skyFor, sunVector, type Preset } from "./sky.ts";
+import { skyAt, skyFor, sunVector, type Preset } from "./sky.ts";
 
 /** How far out the key light is parked, m. It is directional, so the
  * distance changes nothing about the light — it only has to be outside
@@ -58,8 +58,12 @@ export type Environment = {
   update: (state: GameState, camera: THREE.Camera, eye: THREE.Vector3, dt: number) => void;
   /** The sky as it stands — for anything that has to answer to it. */
   preset: () => Preset;
-  /** What the water reflects at a grazing angle under it, packed sRGB. */
-  mirror: () => number;
+  /** THE TWO LIGHTS, as set for that sky. The water's shader lights itself
+   * from these rather than from the preset, so what the sea is lit by is
+   * exactly what the hull beside it is lit by — the deck's skylight and
+   * the beam's share of the key are decided once, here. */
+  hemi: THREE.HemisphereLight;
+  key: THREE.DirectionalLight;
   dispose: () => void;
 };
 
@@ -144,7 +148,8 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     load,
     update,
     preset: () => preset,
-    mirror: () => seaMirror(preset),
+    hemi,
+    key,
     dispose: () => {
       dome.dispose();
       clouds.dispose();

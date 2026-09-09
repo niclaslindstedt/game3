@@ -94,10 +94,15 @@ const args = parseArgs(
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
+    hour: { kind: "number", help: "ride at this hour on the clock in place of the level's" },
+    weather: {
+      kind: "string",
+      help: "ride under this sky (clear, high, overcast, rain, squall) in place of the level's",
+    },
     viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
-  "usage: node scripts/screenshot.mjs [--scene name | --all | --drive W:4] [--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--viewport v] [--timeout s]",
+  "usage: node scripts/screenshot.mjs [--scene name | --all | --drive W:4] [--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] [--viewport v] [--timeout s]",
 );
 const viewports =
   args.viewport === "all" ? Object.keys(VIEWPORTS) : String(args.viewport).split(",");
@@ -176,6 +181,8 @@ const base = { seed: String(args.seed), craft: args.craft, shot: "1" };
 if (args.update) base.update = "1";
 if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
+if (args.hour !== undefined) base.hour = String(args.hour);
+if (args.weather !== undefined) base.weather = String(args.weather);
 if (args.drive) {
   // A plain run, a key held: `--drive W:4` is four seconds of throttle
   // from the start line, and whatever the sea did in those seconds.

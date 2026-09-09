@@ -34,18 +34,23 @@
 //   attribute arrays are written in place and flagged.
 //
 // COLOUR is per vertex, by depth (`level.ground`, the engine's own field):
-// the shallows teal, the deep dark blue, and FOAM where the surface is
-// steep or the water is shallow enough to break — the breaking itself is
-// the engine's clip (`TUNING.sea.breakingRatio`), and the tint reads its
-// symptoms rather than restating the rule — and WHITECAPS on the crests
-// once the wind is fresh enough to blow them: the top of a wave standing
-// higher than most, on its steep face, in a wind past `WHITECAP_WIND`.
+// the shallows teal, the deep dark blue, a crest lifted and a trough sunk;
+// and a FOAM SHARE in the colour's alpha where the surface is steep or the
+// water is shallow enough to break — the breaking itself is the engine's
+// clip (`TUNING.sea.breakingRatio`), and the tint reads its symptoms rather
+// than restating the rule — and WHITECAPS on the crests once the wind is
+// fresh enough to blow them: the top of a wave standing higher than most,
+// on its steep face, in a wind past `WHITECAP_WIND`. What the LIGHT does
+// with all of that — the sky each face reflects, the sun's glint, the
+// ripples, the foam's texture — is per pixel and `water-shader.ts`'s.
 
 import * as THREE from "three";
 import { sampleField, surfaceAt, type GameState, type SurfaceSample } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
+import { seaMirror, type Preset } from "./sky.ts";
+import { applyClock, applySea, applySky, createWaterMaterial } from "./water-shader.ts";
 
 /** Vertices a side, the grid's reach either side of the craft, m, and the
  * cell at its centre, m. 72 × 72 = 5 184 samples a frame, six to eight
@@ -88,16 +93,12 @@ const c = (hex: string): THREE.Color => new THREE.Color(hex);
 const SHALLOW = c(PALETTE.seaShallow);
 const SEA = c(PALETTE.sea);
 const DEEP = c(PALETTE.seaDeep);
-const FOAM = c(PALETTE.foam);
-/** WHAT THE WATER REFLECTS at a grazing angle: the sky, and the LIVE one.
- * The far half of every frame over open water is reflected sky, so a
- * dramatic sky with a fixed teal sea under it is a sky that reads as
- * pasted on — a sunset has to put orange on the wave faces out toward the
- * light or it is a picture behind the game rather than in it. The
- * environment writes it (`retone`); the ladder decides it (`seaMirror`),
- * and this is only where it is kept. Its start is the palette's own high
- * sky, which is the clear noon the whole palette was authored at. */
-const SKY = c(PALETTE.skyHigh);
+/** WHAT THE HORIZON DISC IS: the sky at the shallowest angle there is,
+ * which is all that surface ever shows. The grids reflect the live sky
+ * per pixel; the disc is too far off to be shaded and takes the one colour
+ * `seaMirror` quotes. Its start is the palette's own high sky, which is
+ * the clear noon the whole palette was authored at. */
+const MIRROR = c(PALETTE.skyHigh);
 /** A crest catches the light and a trough hides from it: the height at
  * which the crest tint is full, as a share of the sea's own significant
  * height (floored, so a calm sea still shows its ripples), and how far it
@@ -129,8 +130,6 @@ const WHITECAP_WIND_FULL = 14;
 const WHITECAP_CREST = 0.75;
 const WHITECAP_TILT = 0.012;
 const WHITECAP_TILT_FULL = 0.035;
-/** How much of the sky the surface reflects at a full grazing angle. */
-const FRESNEL = 0.75;
 
 function smoothstep(a: number, b: number, x: number): number {
   const t = clamp((x - a) / (b - a), 0, 1);
@@ -141,20 +140,13 @@ export type WaterMesh = {
   mesh: THREE.Mesh;
   /** The far grid and the horizon disc under it. */
   far: THREE.Group;
-  /** Put the sky's own colour back on the water: what a grazing wave face
-   * reflects, packed sRGB. Called on a change of sky, not per frame. */
-  retone: (mirror: number) => void;
+  /** Light the water for a sky: what the wave faces reflect, what glints,
+   * and the two lights the scene has set for it. Called on a change of
+   * sky, not per frame. */
+  retone: (preset: Preset, hemi: THREE.HemisphereLight, key: THREE.DirectionalLight) => void;
   /** Re-lay the grid under the craft and displace it for the state's
-   * clock; `eye` is where the lens is, for the reflection's angle.
-   * Returns the milliseconds it took — the profile's number. */
-  update: (
-    state: GameState,
-    cx: number,
-    cz: number,
-    eyeX: number,
-    eyeY: number,
-    eyeZ: number,
-  ) => number;
+   * clock. Returns the milliseconds it took — the profile's number. */
+  update: (state: GameState, cx: number, cz: number) => number;
   dispose: () => void;
 };
 
@@ -170,7 +162,8 @@ export function createWaterMesh(): WaterMesh {
   const count = GRID * GRID;
   const positions = new Float32Array(count * 3);
   const normals = new Float32Array(count * 3);
-  const colors = new Float32Array(count * 3);
+  // The colour and, in its fourth channel, the foam share.
+  const colors = new Float32Array(count * 4);
   for (let j = 0; j < GRID; j++) {
     for (let i = 0; i < GRID; i++) {
       const k = (j * GRID + i) * 3;
@@ -190,7 +183,7 @@ export function createWaterMesh(): WaterMesh {
   const geometry = new THREE.BufferGeometry();
   const posAttr = new THREE.BufferAttribute(positions, 3);
   const normAttr = new THREE.BufferAttribute(normals, 3);
-  const colAttr = new THREE.BufferAttribute(colors, 3);
+  const colAttr = new THREE.BufferAttribute(colors, 4);
   posAttr.setUsage(THREE.DynamicDrawUsage);
   normAttr.setUsage(THREE.DynamicDrawUsage);
   colAttr.setUsage(THREE.DynamicDrawUsage);
@@ -202,30 +195,32 @@ export function createWaterMesh(): WaterMesh {
   // frame would walk every vertex again for a number that never changes.
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), HALF * Math.SQRT2 + 5);
 
-  // A tight glint rather than a wash: with the sun low over a nearly flat
-  // sea, a broad highlight lights half the frame white.
-  const material = new THREE.MeshPhongMaterial({
-    vertexColors: true,
-    specular: new THREE.Color(0x2c3a42),
-    shininess: 200,
-  });
+  // ONE material for both grids: the light is the same light out to the
+  // fog, and a seam in the shading would show where a seam in the height
+  // does not.
+  const material = createWaterMaterial();
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
 
-  // THE FAR GRID: uniform cells, the same attributes, its own colour —
-  // the deep mostly given over to the sky at that grazing angle, which is
-  // what the near grid's own edge arrives at — so the hand-over is a
-  // change of detail, not of colour.
+  // THE FAR GRID: uniform cells, the same attributes, the deep colour and
+  // no foam — at that grazing angle the shader gives nearly all of it to
+  // the sky, which is what the near grid's own edge arrives at, so the
+  // hand-over is a change of detail, not of colour.
   const farCell = (2 * FAR_HALF) / (FAR_GRID - 1);
   const farCount = FAR_GRID * FAR_GRID;
   const farPositions = new Float32Array(farCount * 3);
   const farNormals = new Float32Array(farCount * 3);
+  const farColors = new Float32Array(farCount * 4);
   for (let j = 0; j < FAR_GRID; j++) {
     for (let i = 0; i < FAR_GRID; i++) {
       const k = (j * FAR_GRID + i) * 3;
       farPositions[k] = -FAR_HALF + i * farCell;
       farPositions[k + 2] = -FAR_HALF + j * farCell;
       farNormals[k + 1] = 1;
+      const q = (j * FAR_GRID + i) * 4;
+      farColors[q] = DEEP.r;
+      farColors[q + 1] = DEEP.g;
+      farColors[q + 2] = DEEP.b;
     }
   }
   const farIndex: number[] = [];
@@ -243,19 +238,16 @@ export function createWaterMesh(): WaterMesh {
   const farNormAttr = new THREE.BufferAttribute(farNormals, 3).setUsage(THREE.DynamicDrawUsage);
   farGeometry.setAttribute("position", farPosAttr);
   farGeometry.setAttribute("normal", farNormAttr);
+  farGeometry.setAttribute("color", new THREE.BufferAttribute(farColors, 4));
   farGeometry.setIndex(farIndex);
   farGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FAR_HALF * Math.SQRT2 + 50);
-  const farMaterial = new THREE.MeshPhongMaterial({
-    color: DEEP.clone().lerp(SKY, 0.62),
-    specular: new THREE.Color(0x1a242a),
-    shininess: 120,
-  });
-  const farMesh = new THREE.Mesh(farGeometry, farMaterial);
+  const farMesh = new THREE.Mesh(farGeometry, material);
   farMesh.frustumCulled = false;
-  // The horizon disc under both, unlit, in the far grid's colour.
+  // The horizon disc under both, unlit, in the colour the far water
+  // reaches at the fog: mostly sky.
   const horizon = new THREE.Mesh(
     new THREE.CircleGeometry(FAR_RADIUS, 48),
-    new THREE.MeshBasicMaterial({ color: DEEP.clone().lerp(SKY, 0.62) }),
+    new THREE.MeshBasicMaterial({ color: DEEP.clone().lerp(MIRROR, 0.62) }),
   );
   horizon.rotation.x = -Math.PI / 2;
   horizon.position.y = -FAR_SINK;
@@ -286,20 +278,15 @@ export function createWaterMesh(): WaterMesh {
   const sample: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
   const long: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
-  const update = (
-    state: GameState,
-    cx: number,
-    cz: number,
-    eyeX: number,
-    eyeY: number,
-    eyeZ: number,
-  ): number => {
+  const update = (state: GameState, cx: number, cz: number): number => {
     const t0 = performance.now();
     const sx = Math.round(cx / CENTRE_CELL) * CENTRE_CELL;
     const sz = Math.round(cz / CENTRE_CELL) * CENTRE_CELL;
     mesh.position.set(sx, 0, sz);
     const { sea, level, t } = state;
     const ground = level.ground;
+    // Where the crest tint and the whitecaps stand for this sea.
+    const crestHeight = Math.max(CREST_MIN, CREST_SHARE * sea.hsRef);
     if (sea !== farSea) {
       farSea = sea;
       farComponents = 0;
@@ -310,7 +297,9 @@ export function createWaterMesh(): WaterMesh {
         else short += c.amp;
       });
       farSink = FAR_SINK + SHORT_SINK * short;
+      applySea(material, sea.windFrom, sea.windSpeed, crestHeight);
     }
+    applyClock(material, t);
     // The far grid first, snapped to its own cells, so the near grid's
     // edge can read it.
     const fsx = Math.round(cx / farCell) * farCell;
@@ -335,8 +324,6 @@ export function createWaterMesh(): WaterMesh {
     }
     farPosAttr.needsUpdate = true;
     farNormAttr.needsUpdate = true;
-    // Where the crest tint and the whitecaps stand for this sea.
-    const crestHeight = Math.max(CREST_MIN, CREST_SHARE * sea.hsRef);
     // The sea's own characteristic tilt: a sinusoid of its significant
     // height at its deep-water peak wavelength, at its steepest point.
     const seaLambda = (9.81 * sea.tp * sea.tp) / (2 * Math.PI);
@@ -409,22 +396,6 @@ export function createWaterMesh(): WaterMesh {
           g += (DEEP.g - g) * -crest;
           bl += (DEEP.b - bl) * -crest;
         }
-        // The sky, reflected at a grazing angle (Schlick's Fresnel on the
-        // vertex): the water goes pale toward the horizon and stays its
-        // own colour under the lens, and a wave face turned toward the
-        // lens goes darker than the back turned away.
-        const dx = eyeX - wx;
-        const dy = eyeY - positions[k + 1];
-        const dz = eyeZ - wz;
-        const dl = 1 / Math.max(1e-3, Math.hypot(dx, dy, dz));
-        const cosV = Math.max(
-          0,
-          (dx * normals[k] + dy * normals[k + 1] + dz * normals[k + 2]) * dl,
-        );
-        const grazing = (1 - cosV) ** 4 * FRESNEL;
-        r += (SKY.r - r) * grazing;
-        g += (SKY.g - g) * grazing;
-        bl += (SKY.b - bl) * grazing;
         const tilt = 1 - sample.ny;
         // Breaking foam on the steep and the shallow, and whitecaps on the
         // high crests' steep faces once the wind blows them.
@@ -439,9 +410,11 @@ export function createWaterMesh(): WaterMesh {
           0,
           1,
         );
-        colors[k] = r + (FOAM.r - r) * foam;
-        colors[k + 1] = g + (FOAM.g - g) * foam;
-        colors[k + 2] = bl + (FOAM.b - bl) * foam;
+        const q = (j * GRID + i) * 4;
+        colors[q] = r;
+        colors[q + 1] = g;
+        colors[q + 2] = bl;
+        colors[q + 3] = foam;
       }
     }
     posAttr.needsUpdate = true;
@@ -450,16 +423,17 @@ export function createWaterMesh(): WaterMesh {
     return performance.now() - t0;
   };
 
-  const retone = (mirror: number): void => {
-    SKY.set(mirror);
-    // Both far surfaces are the same water seen at the shallowest angles
-    // there are, so both are mostly sky — which is what makes each hand-over
-    // (near grid → far grid → horizon) a change of DETAIL rather than of
-    // colour, under any sky. The near grid needs no pass of its own: it
-    // takes the sky per vertex through the Fresnel term above, off this
-    // same `SKY`.
-    farMaterial.color.copy(DEEP).lerp(SKY, 0.62);
-    (horizon.material as THREE.MeshBasicMaterial).color.copy(DEEP).lerp(SKY, 0.62);
+  const retone = (
+    preset: Preset,
+    hemi: THREE.HemisphereLight,
+    key: THREE.DirectionalLight,
+  ): void => {
+    applySky(material, preset, hemi, key);
+    // The disc is the same water seen at the shallowest angle there is, so
+    // it is mostly sky — which is what makes the hand-over from the far
+    // grid a change of DETAIL rather than of colour, under any sky.
+    MIRROR.set(seaMirror(preset));
+    (horizon.material as THREE.MeshBasicMaterial).color.copy(DEEP).lerp(MIRROR, 0.62);
   };
 
   return {
@@ -471,7 +445,6 @@ export function createWaterMesh(): WaterMesh {
       geometry.dispose();
       material.dispose();
       farGeometry.dispose();
-      farMaterial.dispose();
       horizon.geometry.dispose();
       (horizon.material as THREE.Material).dispose();
     },

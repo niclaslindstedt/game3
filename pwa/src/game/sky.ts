@@ -506,6 +506,96 @@ export function seaMirror(p: Preset): number {
   return mixHex(p.horizon, p.zenith, 0.25);
 }
 
+/**
+ * THE OPEN SKY'S GRADIENT, in three numbers the dome and the water share.
+ *
+ * `SKY_CURVE` is the exponent the horizon-to-zenith blend runs on against
+ * the sine of the elevation: steep low down and slack overhead, which is
+ * what a real sky does — nearly all of the colour change happens in the
+ * first twenty degrees, and a linear ramp puts it in the wrong half.
+ * `GLOW_FOCUS` is how tightly the warm bleed hugs the sun's own bearing
+ * (a power on the cosine of the bearing difference) and `GLOW_REACH` how
+ * fast it dies with height (a power on one minus the sine of the
+ * elevation): strongest at the horizon and gone by halfway up — Valheim's
+ * trick, and the reason a low sun lights a quarter of the sky rather than
+ * a disc.
+ *
+ * `sky-dome.ts` paints its vertices with `skyToneAt` below; the water's
+ * shader (`water-shader.ts`) has to restate the same formula in GLSL for
+ * the sky a wave face reflects, and reads THESE numbers into it, so the
+ * sea reflects the dome that is actually over it.
+ */
+export const SKY_CURVE = 0.62;
+export const GLOW_FOCUS = 3;
+export const GLOW_REACH = 2.2;
+
+/** The open sky's tone at `up` — the SINE of the elevation, 0..1 — looking
+ * `toward` the sun's bearing (the cosine of the bearing difference, 0..1),
+ * packed sRGB. Mixed in linear light, like every colour in the model. */
+export function skyToneAt(p: Preset, up: number, toward: number): number {
+  const tone = mixHex(p.horizon, p.zenith, Math.pow(clamp01(up), SKY_CURVE));
+  const w =
+    Math.pow(clamp01(toward), GLOW_FOCUS) * Math.pow(1 - clamp01(up), GLOW_REACH) * p.glowStrength;
+  return mixHex(tone, p.glow, Math.min(1, w));
+}
+
+/**
+ * WHAT THE WATER'S SHADER REFLECTS — the sky as a gradient the water can
+ * evaluate per pixel, in whichever direction a wave face happens to be
+ * pointing: the open sky's own three colours and glow under a clear sky,
+ * and under a lid the ceiling's underside overhead with its lit rim at the
+ * skyline. `seaMirror` is the same question asked for ONE grazing angle,
+ * for anything too far off to be shaded.
+ *
+ * `band` is the sine of the elevation at which the zenith tone is reached
+ * — one for an open sky, and for a deck `DECK_BLUR` times the rim band
+ * (`RIM_BAND`, whose gradient runs on the elevation itself; at these
+ * sizes the sine is the angle) — and `curve` the exponent the blend runs
+ * on. `glint` is how much of the sun arrives as a BEAM: the sparkle on
+ * the water is the sun's image in ten thousand facets, and a sun behind a
+ * squall's ceiling has no image to give.
+ */
+export type SeaLight = {
+  horizon: number;
+  zenith: number;
+  glow: number;
+  glowStrength: number;
+  band: number;
+  curve: number;
+  glint: number;
+};
+
+/** How much wider than the ceiling's own rim band the WATER reads it over.
+ * A sea is a rough mirror: every pixel of it reflects the ceiling through a
+ * spread of wave slopes, so the strip that is nine degrees tall in the sky
+ * is smeared over twenty on the water. Reflected sharp, the strip lands as
+ * hard white streaks along every wave back that happens to point at it,
+ * and a squall's sea reads as foam it does not have. */
+const DECK_BLUR = 2.5;
+
+export function seaReflection(p: Preset): SeaLight {
+  if (p.deck) {
+    return {
+      horizon: p.deck.rim,
+      zenith: p.deck.overhead,
+      glow: p.deck.rim,
+      glowStrength: 0,
+      band: Math.sin(RIM_BAND * DECK_BLUR),
+      curve: 1.2,
+      glint: p.beam,
+    };
+  }
+  return {
+    horizon: p.horizon,
+    zenith: p.zenith,
+    glow: p.glow,
+    glowStrength: p.glowStrength,
+    band: 1,
+    curve: SKY_CURVE,
+    glint: p.beam,
+  };
+}
+
 /** Direction from the origin TOWARD a light at elevation `el` on world
  * heading `az` — the engine's heading convention, so it drops straight onto
  * a three.js vector with no sign flipped. */
