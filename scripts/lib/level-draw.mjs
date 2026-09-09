@@ -164,14 +164,14 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       const h = heights[j * mapW + i];
       const hr = heights[j * mapW + i + 1];
       const hd = heights[(j + 1) * mapW + i];
-      if ((h < 0) !== (hr < 0) || (h < 0) !== (hd < 0)) {
+      if (h < 0 !== hr < 0 || h < 0 !== hd < 0) {
         canvas.set(ox + i, oy + j, MARK.shore);
         continue;
       }
       if (h >= 0) continue;
       for (const c of CONTOURS) {
         const d = -h;
-        if ((d < c.depth) !== (-hr < c.depth) || (d < c.depth) !== (-hd < c.depth)) {
+        if (d < c.depth !== -hr < c.depth || d < c.depth !== -hd < c.depth) {
           canvas.set(ox + i, oy + j, c.ink);
           break;
         }
@@ -189,14 +189,11 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
   // ── The rocks, by kind ────────────────────────────────────────────────
   for (const s of level.solids) {
     const ink = SOLID[s.kind] ?? SOLID.boulder;
+    // A reef's fill carries an alpha, so the water shows through it — a
+    // rock under the surface reads as a hazard, not an island.
     const r = Math.max(2, s.r * scale);
-    if (s.kind === "reef") {
-      canvas.disk(px(s.x), py(s.z), r, ink.fill);
-      canvas.circle(px(s.x), py(s.z), r, ink.edge, 1);
-    } else {
-      canvas.disk(px(s.x), py(s.z), r, ink.fill);
-      canvas.circle(px(s.x), py(s.z), r, ink.edge, 1);
-    }
+    canvas.disk(px(s.x), py(s.z), r, ink.fill);
+    canvas.circle(px(s.x), py(s.z), r, ink.edge, 1);
   }
 
   // ── The course: the line, then every gate with its id ─────────────────
@@ -280,7 +277,15 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
   const wy0 = oy + 70;
   const wl = 20 + w.speed * 3;
   canvas.disk(wx0, wy0, 34, [255, 255, 255, 160]);
-  arrow(canvas, wx0 - Math.sin(to) * wl * 0.5, wy0 + Math.cos(to) * wl * 0.5, Math.sin(to) * wl, -Math.cos(to) * wl, MARK.wind, 3);
+  arrow(
+    canvas,
+    wx0 - Math.sin(to) * wl * 0.5,
+    wy0 + Math.cos(to) * wl * 0.5,
+    Math.sin(to) * wl,
+    -Math.cos(to) * wl,
+    MARK.wind,
+    3,
+  );
   label(canvas, wx0 - 30, wy0 + 40, `WIND ${w.speed.toFixed(1)} M/S`, MARK.wind, 1);
 
   // ── Scale bar ─────────────────────────────────────────────────────────
@@ -310,7 +315,8 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
   };
   canvas.text("KEY", lx, ly, INK, 2);
   ly += 20;
-  for (const [d, c] of BATHY) key((x, y) => canvas.fillRect(x - 6, y - 5, 12, 10, c), `WATER ${d} M DEEP`);
+  for (const [d, c] of BATHY)
+    key((x, y) => canvas.fillRect(x - 6, y - 5, 12, 10, c), `WATER ${d} M DEEP`);
   key((x, y) => canvas.line(x - 8, y, x + 8, y, CONTOURS[0].ink), "1.5 M — R5'S FLOOR");
   for (const [m, c] of Object.entries(LAND)) {
     if (m === "water" || m === "unknown") continue;

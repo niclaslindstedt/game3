@@ -81,12 +81,14 @@ waves:
 # THE RIDE LAB — the craft on the water, drawn in profile every sixth of a
 # second over the water it crossed, with the numbers that decide the next
 # step beside each cell: speed, pitch, wetted share, rpm and air time. One
-# staged scenario at a time (pwa/src/game/scenarios.ts names them: cruise,
-# chop, launch, landing, dive, backflip…), through the real engine and a
-# canvas, so what is drawn is isolated from everything that is not the
-# physics. Required before/after any change to the hull, the planing lift,
-# the slamming or the flight.
-# `make ride SCENARIO=launch` · `make ride SCENARIO=chop CRAFT=otter`
+# staged scenario at a time (scripts/lib/ride-scenarios.mjs names them:
+# rest, cruise, carve, chop, swell, launch, landing, dive, offshore,
+# backflip — the app's pwa/src/game/scenarios.ts is the same list for the
+# browser), through the real engine and a canvas, so what is drawn is
+# isolated from everything that is not the physics. Required before/after
+# any change to the hull, the planing lift, the slamming or the flight.
+# `make ride SCENARIO=launch` · `make ride SCENARIO=chop CRAFT=otter` ·
+# `make ride ARGS=--all`
 ride:
 	npm run ride -- $(if $(SCENARIO),--scenario $(SCENARIO),) $(if $(CRAFT),--craft $(CRAFT),) \
 		$(if $(SEED),--seed $(SEED),) $(ARGS)
@@ -94,15 +96,19 @@ ride:
 # Drive the built app headlessly and screenshot the staged moments at the
 # two reference viewports (desktop landscape, phone portrait). Needs a built
 # pwa/dist, `npm i --no-save playwright-core` and a Chromium (CHROMIUM_PATH
-# overrides discovery). `make screenshots SCENE=launch`
+# overrides discovery). `make screenshots SCENE=launch SEED=38 CRAFT=skiff` ·
+# `make screenshots ARGS=--all` · `make screenshots ARGS="--drive W:4"`
 screenshots:
-	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(ARGS)
+	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) \
+		$(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as
-# `screenshots`. Run it before and after any rendering change.
+# `screenshots` — without them it prints what it would measure and exits 0.
+# Run it before and after any rendering change.
+# `make profile` · `make profile ARGS="--scene launch --seed 7"`
 profile:
-	npm run profile
+	npm run profile -- $(ARGS)
 
 shellcheck:
 	shellcheck scripts/*.sh .githooks/* .claude/hooks/*.sh

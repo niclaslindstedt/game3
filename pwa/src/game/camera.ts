@@ -224,8 +224,8 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     const rz = -Math.sin(aimYaw);
     const bx = Math.sin(yaw);
     const bz = Math.cos(yaw);
-    let camX = c.x - bx * dist;
-    let camZ = c.z - bz * dist;
+    const camX = c.x - bx * dist;
+    const camZ = c.z - bz * dist;
     let camY = sprungY + height + airY * CHASE.airLift;
     // The lens never goes under a swell.
     const floor = surfaceY(camX, camZ) + CHASE.clearance;
@@ -238,7 +238,6 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     pose.aimZ = c.z + fz * CHASE.aimAhead + rz * look;
     pose.fov = fov;
     pose.roll = 0;
-    camX = camZ = 0;
   };
 
   const nose = (state: GameState, dt: number) => {

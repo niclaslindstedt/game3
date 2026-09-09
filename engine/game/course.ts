@@ -31,6 +31,7 @@ export function freshProgress(level: Level): Progress {
     penalty: 0,
     finished: false,
     lastGatePassedAt: 0,
+    lastResetAt: 0,
   };
 }
 
@@ -166,12 +167,21 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.onRamp = false;
   c.onGround = false;
   c.launchVy = 0;
+  // A craft stood here has hit nothing and landed nowhere: a contact's
+  // cooldown carried over from where it was lifted from would read as a
+  // hull still wedged, on a step that never runs the contact model.
+  c.hitCooldown = 0;
+  c.groundCooldown = 0;
+  c.dived = false;
+  c.launchPending = false;
+  c.landing = 1e6;
 }
 
 /** `reset`: back to the last gate. Emits the event. */
 export function resetCraft(state: GameState, events: GameEvent[]): void {
   const pose = resetPose(state);
   standCraft(state, pose.x, pose.z, pose.heading);
+  state.progress.lastResetAt = state.progress.time;
   events.push({ kind: "reset", t: state.t, gate: pose.gate });
 }
 

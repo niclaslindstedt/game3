@@ -48,8 +48,9 @@ export type BotProfile = {
   easeAngle: number;
   easeTo: number;
   /** How far past a gate's plane, m, the bot stops trying for it and
-   * aims at the next. */
+   * aims at the next, and how long without a gate, s, before it resets. */
   giveUpPast: number;
+  giveUpAfter: number;
   /** The pace governor on a ramp run: throttle per m/s of shortfall, and
    * the least throttle it ever holds there. */
   paceGain: number;
@@ -62,11 +63,11 @@ export type BotProfile = {
 export const RIDER_BOT: BotProfile = {
   steerGain: 2.2,
   yawDamp: 0.4,
-  rampApproach: 85,
+  rampApproach: 110,
   rampCommit: 15,
   axisAhead: 14,
-  axisAheadTime: 0.9,
-  axisSettle: 0.7,
+  axisAheadTime: 0.35,
+  axisSettle: 1,
   airPitch: 0.08,
   airGainP: 2.5,
   airGainD: 0.9,
@@ -77,6 +78,7 @@ export const RIDER_BOT: BotProfile = {
   easeAngle: 0.9,
   easeTo: 0.55,
   giveUpPast: 6,
+  giveUpAfter: 40,
   paceGain: 0.35,
   paceFloor: 0.3,
   alignedWithin: 0.12,
@@ -131,8 +133,11 @@ function aimFor(
   const ch = Math.cos(r.heading);
   const ax = r.x - sh * profile.rampApproach;
   const az = r.z - ch * profile.rampApproach;
+  // The run at the ramp lasts from the approach point to the ring; a
+  // craft past the ring is off the axis and goes round again.
   const along = (x - ax) * sh + (z - az) * ch;
-  if (along > -profile.rampCommit) {
+  const pastRing = (x - gate.x) * sh + (z - gate.z) * ch > profile.giveUpPast;
+  if (along > -profile.rampCommit && !pastRing) {
     // The craft's own station along the axis, then the pursuit point
     // ahead of it — further ahead the faster it is going, so the pull
     // onto the line is a turn the hull can make at that speed.
@@ -154,6 +159,30 @@ function aimFor(
   return { ax, az, along: false, speed: null };
 }
 
+/** Where to cross a buoy gate that stands before a ramp: the point on the
+ * line between its buoys that the ramp's axis passes through (clamped a
+ * hull's width inside the buoys), so the craft arrives at the ramp already
+ * on its axis with the whole leg to settle. A rider looks two gates ahead;
+ * the bot does the same sum. Falls back to the centre when the axis misses
+ * the gate's line altogether. */
+function throughOnAxis(gate: Gate, next: Gate, margin: number): { ax: number; az: number } {
+  const r = next.ramp;
+  if (!r) return { ax: gate.x, az: gate.z };
+  const sh = Math.sin(r.heading);
+  const ch = Math.cos(r.heading);
+  const rx = Math.cos(gate.heading);
+  const rz = -Math.sin(gate.heading);
+  // Solve gate + t·right = ramp + s·axis for t.
+  const det = rx * ch - rz * sh;
+  if (Math.abs(det) < 1e-6) return { ax: gate.x, az: gate.z };
+  const dx = r.x - gate.x;
+  const dz = r.z - gate.z;
+  const t = (dx * ch - dz * sh) / det;
+  const half = Math.max(0, gate.width / 2 - margin);
+  const tc = clamp(t, -half, half);
+  return { ax: gate.x + rx * tc, az: gate.z + rz * tc };
+}
+
 /** How far past a gate's plane a point is, m (negative before it). */
 function pastGate(gate: Gate, x: number, z: number): number {
   return (x - gate.x) * Math.sin(gate.heading) + (z - gate.z) * Math.cos(gate.heading);
@@ -169,12 +198,25 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // A gate already BEHIND the craft — a ring sailed over, a buoy passed
   // on the wrong side — is a gate to pay for, not to turn back for: the
   // next one counts it as reached (`course.ts`), so aim there. What no
-  // rider does is loop back at speed through a field of skerries.
+  // rider does is loop back at speed through a field of skerries. But a
+  // craft that has run past BOTH has nothing ahead that counts, and goes
+  // back for the nearer one.
   let gate = gates[n];
-  if (n + 1 < gates.length && pastGate(gate, c.x, c.z) > profile.giveUpPast) gate = gates[n + 1];
+  const pastNext = pastGate(gate, c.x, c.z) > profile.giveUpPast;
+  if (pastNext && n + 1 < gates.length && pastGate(gates[n + 1], c.x, c.z) <= profile.giveUpPast) {
+    gate = gates[n + 1];
+  }
   const aim = aimFor(gate, c.x, c.z, c.vx, c.vz, c.spec.cog.y, topSpeedOf(c.spec), profile);
   let ax = aim.ax;
   let az = aim.az;
+  // A buoy gate with a ramp after it is crossed where the ramp's axis
+  // crosses it.
+  const after = gates[gate.index + 1];
+  if (gate.kind === "water" && after && after.kind === "air" && after.ramp) {
+    const through = throughOnAxis(gate, after, c.spec.beam);
+    ax = through.ax;
+    az = through.az;
+  }
 
   // A rock between here and there: move the aim off it, to whichever
   // side the rock is not on.
@@ -208,9 +250,13 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // has: a hull coming round at speed is steered less, not more, or it
   // weaves down the straight the way a rider who only looks at the buoy
   // does.
+  // On the deck the bars are held straight: a hull steered up a ramp
+  // leaves it rolled.
   const steer = c.airborne
     ? clamp(-c.roll * profile.airRollGain + c.wz * profile.airRollDamp, -1, 1)
-    : clamp(error * profile.steerGain - c.wy * profile.yawDamp, -1, 1);
+    : c.onRamp
+      ? 0
+      : clamp(error * profile.steerGain - c.wy * profile.yawDamp, -1, 1);
   let throttle = 1;
   if (Math.abs(error) > profile.easeAngle) throttle = profile.easeTo;
   // On the run at a ramp, hold the pace the ring asks for — never below
@@ -243,8 +289,12 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // Stuck — on the ground with no way on, or wedged against a rock it
   // has just hit and cannot get off: go back to the last gate.
   const wedged = c.hitCooldown > 0 && c.speed < 0.8 && !c.airborne;
-  // ...or over on its back, which a rider rights by hand.
+  // ...or over on its back, which a rider rights by hand — or, whatever
+  // it is doing, no gate for `giveUpAfter` seconds: a rider that lost
+  // does not ride on into the next county.
   const capsized = Math.abs(c.roll) > Math.PI / 2 && c.speed < 1.5 && !c.airborne;
-  const reset = state.t > 2 && ((c.onGround && c.speed < 0.5) || wedged || capsized);
+  const p = state.progress;
+  const idle = p.time - Math.max(p.lastGatePassedAt, p.lastResetAt) > profile.giveUpAfter;
+  const reset = state.t > 2 && ((c.onGround && c.speed < 0.5) || wedged || capsized || idle);
   return { steer, throttle, lean, reset };
 }

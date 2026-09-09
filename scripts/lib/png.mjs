@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // Minimal PNG encoder — pure Node (zlib only), no native image dependencies.
-// Shared by the icon generator, the OG-image generator, and the track
-// preview tool. RGB, 8-bit, no alpha: exactly what those pipelines need.
+// Shared by the icon generator, the OG-image generator, and every lab
+// that draws (through `draw.mjs`). RGB, 8-bit, no alpha: exactly what those pipelines need.
 import { deflateSync } from "node:zlib";
 
 const CRC_TABLE = new Int32Array(256).map((_, n) => {

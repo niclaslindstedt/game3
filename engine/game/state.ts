@@ -108,8 +108,11 @@ export type Progress = {
   /** Seconds of penalty folded into `time`. */
   penalty: number;
   finished: boolean;
-  /** Run clock the last gate was taken at, s; 0 on the line. */
+  /** Run clock the last gate was taken at, s; 0 on the line — and the
+   * clock the craft was last reset at, s, so "no progress for a while"
+   * is measured from whichever came later. */
   lastGatePassedAt: number;
+  lastResetAt: number;
 };
 
 export type GameEvent =

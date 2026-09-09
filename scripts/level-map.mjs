@@ -187,7 +187,8 @@ for (const r of rows) {
     lines.push(
       `        hinge speed the ring asks for: ` +
         CRAFT_IDS.map(
-          (id) => `${id} ${(rp.launchSpeed[id] * 3.6).toFixed(0)} km/h${id === args.craft ? "*" : ""}`,
+          (id) =>
+            `${id} ${(rp.launchSpeed[id] * 3.6).toFixed(0)} km/h${id === args.craft ? "*" : ""}`,
         ).join(" · ") +
         `  (run-up ${LEVEL_RULES.ramp.runUp} m, ${spec.name}'s top ${spec.topSpeed} km/h)`,
     );
@@ -199,7 +200,14 @@ console.log(text);
 if (args.json) {
   console.log(
     JSON.stringify(
-      { seed: args.seed, biome: level.biome, wind: w, hour: level.hour, water: level.water, gates: rows },
+      {
+        seed: args.seed,
+        biome: level.biome,
+        wind: w,
+        hour: level.hour,
+        water: level.water,
+        gates: rows,
+      },
       null,
       1,
     ),
@@ -224,4 +232,6 @@ const canvas = renderLevelMap({
 });
 const file = join(outDir, `${name}.png`);
 writeFileSync(file, canvas.toPng());
-console.log(`\nwrote ${file} (${canvas.width}×${canvas.height}) and ${join(outDir, `${name}.txt`)}`);
+console.log(
+  `\nwrote ${file} (${canvas.width}×${canvas.height}) and ${join(outDir, `${name}.txt`)}`,
+);

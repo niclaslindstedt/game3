@@ -131,7 +131,11 @@ const finished = rows.filter((r) => r.finished).length;
 console.log(`\n${finished}/${rows.length} runs finished`);
 
 if (args.json) {
-  const withoutEvents = rows.map(({ events: _events, ...rest }) => rest);
+  const withoutEvents = rows.map((r) => {
+    const copy = { ...r };
+    delete copy.events;
+    return copy;
+  });
   writeFileSync(args.json, `${JSON.stringify(withoutEvents, null, 2)}\n`);
   console.log(`wrote ${args.json}`);
 }
