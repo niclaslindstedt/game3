@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Deterministic PRNG. Everything random in the engine — stage generation and
-// the airborne turbulence alike — draws from a seeded stream, never from
-// `Math.random`, so a seed fully reproduces a stage and a simulated run
-// (which is what the sim tests and shareable stage seeds rely on).
+// Deterministic PRNG. Everything random in the engine — level generation and
+// the wind's gusts alike — draws from a seeded stream, never from
+// `Math.random`, so a seed fully reproduces a level and a simulated run
+// (which is what the sim tests and shareable level seeds rely on).
 
 export type Rng = {
   /** Uniform float in [0, 1). */

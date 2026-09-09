@@ -29,10 +29,10 @@ export const KEY_STEER_ATTACK = 6;
 export const KEY_STEER_RELEASE = 9;
 /** Below this the centred keyboard axis snaps to exactly zero. */
 export const KEY_AXIS_SNAP = 0.02;
-/** The throttle key's ramp, 1/s: a quarter of a second to wide open, so a
- * tap is a squirt and a hold is the whole pump, and a release that lets
- * go at once — there is no brake, and the only way to slow down is to stop
- * asking. */
+/** The throttle key's ramp, 1/s: a quarter-second time constant — nine
+ * tenths open six tenths of a second into a hold — so a tap is a squirt
+ * and a hold is the whole pump; and a release that lets go at once, since
+ * there is no brake and the only way to slow down is to stop asking. */
 export const KEY_THROTTLE_ATTACK = 4;
 export const KEY_THROTTLE_RELEASE = 12;
 /** The lean keys' ramp, 1/s: a rider shifting their weight takes a moment,
@@ -96,6 +96,7 @@ export function barSteer(dxPx: number): number {
  * is leaning forward. The dead band is spent before the travel counts. */
 export function barLean(dyPx: number): number {
   const beyond = Math.max(0, Math.abs(dyPx) - LEAN_DEAD_PX);
+  if (beyond === 0) return 0;
   return clamp((Math.sign(dyPx) * beyond) / LEAN_REACH_PX, -1, 1);
 }
 
@@ -177,7 +178,8 @@ export function sampleInput(
   const lean = touch.bar ? touch.lean : model.lean;
   const throttle = Math.max(model.throttle, touch.lever ? touch.throttle : 0);
   return {
-    steer: clamp(steer, -1, 1) * SCREEN_TO_ENGINE,
+    // `0 * -1` is -0, and a -0 is a wart every equality downstream trips on.
+    steer: steer === 0 ? 0 : clamp(steer, -1, 1) * SCREEN_TO_ENGINE,
     throttle: clamp(throttle, 0, 1),
     lean: clamp(lean, -1, 1),
     reset,

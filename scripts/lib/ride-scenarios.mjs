@@ -170,6 +170,11 @@ export const SCENARIOS = {
     seconds: 7,
     stage: (level, spec) => rampRun(firstAirGate(level), spec, {}),
   },
+  apex: {
+    blurb: "in the air over the first ring at its height, at the apex, level",
+    seconds: 3,
+    stage: (level, spec) => overRing(firstAirGate(level), spec, { pitch: 0.28, vy: 0 }),
+  },
   landing: {
     blurb: "at the ring's height over the ring, a touch nose-up, coming down",
     seconds: 5,

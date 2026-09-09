@@ -48,3 +48,7 @@ Each slot's manifest gets a distinct `id`/`scope`/`start_url` and install name, 
 ## Identity
 
 Name, copy, palette, and URLs live in `pwa/src/identity.ts` and nowhere else; `pwa/index.html` (SEO head and the prerendered copy), `pwa/public/` (robots/sitemap/llms/CNAME, the privacy and support pages), and the icon generator all follow it. Changing identity means touching those in the same change — AGENTS.md's parity table is the checklist.
+
+## Losing focus
+
+A hidden tab, a minimised window or a phone call **pauses the run** — the run clock included — and coming back lands on the very frame it left (OSS_GAME_SPEC §37.3). This is a single-player game, so there is nobody the world has to keep moving for. The decision lives in `pwa/src/game/run-loop.ts`, which also clamps a long frame to a tenth of a second and drops the time beyond it rather than simulating a stall (§37.2).

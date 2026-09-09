@@ -23,12 +23,12 @@ const SPACING = 1.6;
 const LIFE = 2.2;
 /** How far the ribbon sits over the surface, m, so it is not swallowed by
  * the water it lies on. */
-const LIFT = 0.14;
+const LIFT = 1.0; // DIAG
 /** The wake's width at the transom, m, and how much it spreads per second. */
 const WIDTH = 1.3;
 const SPREAD = 1.1;
 
-const FOAM = new THREE.Color(PALETTE.foam);
+const FOAM = new THREE.Color(0xff0000); // DIAG
 
 export type Wake = {
   mesh: THREE.Mesh;

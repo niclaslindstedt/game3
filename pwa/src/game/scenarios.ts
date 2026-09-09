@@ -217,12 +217,13 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       };
     }
     case "dive": {
-      // Nose down into the water past the ring: the bow buries and the
-      // hull stops — the landing every rider learns to avoid.
+      // Nose down into the water past the ring, fast and from a height,
+      // the rider still forward: the bow buries and the hull stops — the
+      // landing every rider learns to avoid.
       if (!air) return scenarioFor(state, "cruise");
       return {
-        moment: pastGate(air, 4, { speed: top * 0.65, height: 2.2, vy: -6, pitch: -0.38 }),
-        script: () => input(0, 1, -1),
+        moment: pastGate(air, 4, { speed: top * 0.9, height: 3, pitch: -0.45 }),
+        script: () => input(0, 0, -1),
         seconds: 3,
       };
     }

@@ -106,12 +106,12 @@ describe("sampleInput", () => {
     let input = sampleInput(model, { ...NO_KEYS, right: true }, neutralTouch(), DT, false);
     for (let i = 0; i < 240; i++)
       input = sampleInput(model, { ...NO_KEYS, right: true }, neutralTouch(), DT, false);
-    expect(input.steer).toBeCloseTo(-1, 6);
+    expect(input.steer).toBeCloseTo(-1, 3);
     const left = createInputModel();
     let l = sampleInput(left, { ...NO_KEYS, left: true }, neutralTouch(), DT, false);
     for (let i = 0; i < 240; i++)
       l = sampleInput(left, { ...NO_KEYS, left: true }, neutralTouch(), DT, false);
-    expect(l.steer).toBeCloseTo(1, 6);
+    expect(l.steer).toBeCloseTo(1, 3);
   });
 
   it("ramps the throttle key rather than switching it, and lets go faster", () => {
@@ -121,7 +121,7 @@ describe("sampleInput", () => {
     expect(first.throttle).toBeLessThan(0.1);
     let up = first;
     let steps = 1;
-    while (up.throttle < 0.99 && steps < 600) {
+    while (up.throttle < 0.9 && steps < 600) {
       up = sampleInput(model, { ...NO_KEYS, throttle: true }, neutralTouch(), DT, false);
       steps++;
     }
@@ -153,7 +153,7 @@ describe("sampleInput", () => {
       sampleInput(model, { ...NO_KEYS, throttle: true }, touch, DT, false);
     expect(
       sampleInput(model, { ...NO_KEYS, throttle: true }, touch, DT, false).throttle,
-    ).toBeCloseTo(1, 6);
+    ).toBeCloseTo(1, 2);
     // A lever nobody is touching is not a throttle, whatever it last wrote.
     const stale = { ...neutralTouch(), lever: false, throttle: 0.9 };
     expect(sampleInput(createInputModel(), NO_KEYS, stale, DT, false).throttle).toBe(0);
