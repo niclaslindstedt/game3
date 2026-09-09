@@ -61,7 +61,11 @@ export function sampleField(field: Heightfield, x: number, z: number): number {
 
 /** Central-difference slope of the field at a world point: the plan-space
  * gradient (dh/dx, dh/dz), in metres per metre. */
-export function fieldGradient(field: Heightfield, x: number, z: number): { gx: number; gz: number } {
+export function fieldGradient(
+  field: Heightfield,
+  x: number,
+  z: number,
+): { gx: number; gz: number } {
   const h = field.cell * 0.5;
   return {
     gx: (sampleField(field, x + h, z) - sampleField(field, x - h, z)) / (2 * h),

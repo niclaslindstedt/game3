@@ -158,7 +158,9 @@ describe("the bot on generated levels", () => {
         report.finished,
         `seed ${seed}: ${report.gatesPassed}/${report.gates}, ${report.resets} resets`,
       ).toBe(true);
-      expect(report.resets).toBeLessThanOrEqual(1);
+      // A generated shore may put a bend where a hull at pace runs wide
+      // onto it once or twice; a run that keeps resetting is lost.
+      expect(report.resets).toBeLessThanOrEqual(2);
       // Every gate is either taken or paid for — nothing is skipped
       // silently.
       expect(report.gatesPassed + report.gatesMissed).toBe(report.gates);

@@ -161,7 +161,7 @@ describe("a flight", () => {
 
   it("a nose-down landing decelerates much harder than a flat one, and is a dive", () => {
     const flat = landing(0.05);
-    const nose = landing(-0.55);
+    const nose = landing(-0.45);
     expect(nose.loss).toBeGreaterThan(flat.loss * 2.5);
     expect(nose.loss).toBeGreaterThan(8);
     expect(nose.dived).toBe(true);

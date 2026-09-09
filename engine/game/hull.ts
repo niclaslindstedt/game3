@@ -456,11 +456,14 @@ export function hullForces(
     // part of it still to be wetted (1 − fill), then the whole hull's slam
     // is capped (`slamCapG`) because the pile-up Wagner (1932) doubles c
     // by is a pressure real hulls spread and real riders' knees absorb.
-    // The closing speed that matters is the one NORMAL to the bottom: a
-    // bow driven in nose-down has its bottom moving away from the water
-    // and takes no slam there (the deck does the scooping, and buries),
-    // where a hull arriving flat meets it square.
-    const closing = -(relX * up.x + relY * up.y + relZ * up.z);
+    // The closing speed is the SMALLER of two: the descent into the water
+    // (world vertical) and the closing normal to the bottom. A bow driven
+    // in nose-down has its bottom moving away from the water and takes no
+    // slam there (the deck does the scooping, and buries); a hull on the
+    // plane has its bottom closing on the flow at its trim every step,
+    // which is the lift Savitsky already prices and no slam at all; a hull
+    // arriving flat has both and meets the water square.
+    const closing = Math.min(-relY, -(relX * up.x + relY * up.y + relZ * up.z));
     if (s.depth > -0.02 && s.fill < 1 && closing > 0 && p.kind !== "deck") {
       const slam = 0.5 * density * closing * closing * Math.PI * cotDeadrise * H.slamShare;
       const force = slam * p.area * (1 - s.fill);

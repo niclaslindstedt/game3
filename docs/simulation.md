@@ -4,7 +4,7 @@ Handling, water and generator changes in this repo are **measured**, not eyeball
 
 ## The bot (`engine/sim/bot.ts`)
 
-A deterministic player stand-in that reads the same `GameState` the HUD reads and produces the same `CraftInput` a thumb produces. It must never reach into the physics' internals: everything it knows it reads off the state and `engine/game/limits.ts` (`topSpeedOf` is how it knows what "flat out" looks like). It is a pure function of the state — `tests/determinism_test.ts` calls it twice on the same state and asserts the same answer — and it decides on every step: the harness calls `botInput` before every `step`. (`TUNING.botHz` is declared beside `physicsHz` as the bot's decision rate, but nothing reads it yet; there is no decision hold.)
+A deterministic player stand-in that reads the same `GameState` the HUD reads and produces the same `CraftInput` a thumb produces. It must never reach into the physics' internals: everything it knows it reads off the state and `engine/game/limits.ts` (`topSpeedOf` is how it knows what "flat out" looks like). It is a pure function of the state — `tests/determinism_test.ts` calls it twice on the same state and asserts the same answer — and it decides on every step: the harness calls `botInput` before every `step`.
 
 Its decision rule, in order, every step:
 

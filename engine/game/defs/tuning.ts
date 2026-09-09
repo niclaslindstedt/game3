@@ -16,13 +16,11 @@ export const TUNING = {
    * stiff contacts: a ramp and a grounding are penalty springs, and a
    * penalty spring stiff enough to hold three hundred kilos on a plank with
    * millimetres of sink has a natural frequency that 60 Hz cannot follow.
-   * The bot decides at the same rate (`botHz`). */
+   * The bot decides on every step too: there is no decision hold. */
   physicsHz: PHYSICS_HZ,
   /** ...and the same number as the timestep every rate in here is spent in,
    * seconds. Derived, never authored. */
   dt: 1 / PHYSICS_HZ,
-  /** How often the bot re-reads the course, decisions a second. */
-  botHz: PHYSICS_HZ,
 
   /** Standard gravity, m/s². */
   g: 9.81,
@@ -75,7 +73,7 @@ export const TUNING = {
      * of the depth. Applied to the summed height at a point. */
     breakingRatio: 0.78,
     /** Depth table pitch, m, and reach, m, for the per-component shoaling
-     * lookup (`waveTable`). The bed never goes below the compiler's −25 m
+     * lookup (`buildTable` in water.ts). The bed never goes below the compiler's −25 m
      * and a tenth of a metre resolves the shallows where the coefficient
      * actually moves. */
     tableStep: 0.1,
@@ -345,9 +343,6 @@ export const TUNING = {
      * far down, rad, is a DIVE. */
     diveDepth: 0.55,
     divePitch: -0.12,
-    /** Seconds after a landing the readout keeps counting toward before
-     * it stops mattering (the camera's settle window). */
-    landingWindow: 3,
   },
 
   /** CONTACTS with what is not water (`collision.ts`). */

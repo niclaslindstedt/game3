@@ -9,6 +9,7 @@
 
 import { angleDiff, clamp } from "../lib/math.ts";
 import { onRampDeck, solidNear } from "../game/collision.ts";
+import { fieldGradient, sampleField } from "../lib/heightfield.ts";
 import { TUNING } from "../game/defs/tuning.ts";
 import { topSpeedOf } from "../game/limits.ts";
 import type { CraftInput, GameState } from "../game/state.ts";
@@ -61,6 +62,10 @@ export type BotProfile = {
   /** The bearing error, rad, within which the run at a ramp counts as
    * lined up and the pace governor is allowed the throttle. */
   alignedWithin: number;
+  /** Water shallower than this, m, at the point the hull reaches in this
+   * many seconds, is a shore to turn away from. */
+  shoalDepth: number;
+  shoalAhead: number;
 };
 
 export const RIDER_BOT: BotProfile = {
@@ -86,6 +91,8 @@ export const RIDER_BOT: BotProfile = {
   paceGain: 0.35,
   paceFloor: 0.3,
   alignedWithin: 0.12,
+  shoalDepth: 2.5,
+  shoalAhead: 2.6,
 };
 
 /** The speed to arrive at the ramp's hinge with, m/s, so that the centre
@@ -258,7 +265,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   // leaves it rolled.
   // In the air the same bars hold the nose too: a yaw rate carried off
   // the lip would otherwise turn the whole flight.
-  const steer = c.airborne
+  let steer = c.airborne
     ? clamp(
         -c.roll * profile.airRollGain + c.wz * profile.airRollDamp - c.wy * profile.airYawDamp,
         -1,
@@ -267,6 +274,22 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
     : c.onRamp
       ? 0
       : clamp(error * profile.steerGain - c.wy * profile.yawDamp, -1, 1);
+  // READING THE WATER. Shallows ahead — the bed within `shoalDepth` of the
+  // surface at the point the hull will be in `shoalAhead` seconds — turn
+  // the bow toward deeper water, gate or no gate: a rider sees the beach
+  // coming, and no line through a buoy runs up a shore.
+  if (!c.airborne && !c.onRamp) {
+    const reach = Math.max(12, c.speed * profile.shoalAhead);
+    const px = c.x + Math.sin(c.heading) * reach;
+    const pz = c.z + Math.cos(c.heading) * reach;
+    if (-sampleField(state.level.ground, px, pz) < profile.shoalDepth) {
+      const g = fieldGradient(state.level.offshore, px, pz);
+      if (Math.hypot(g.gx, g.gz) > 1e-6) {
+        const seaward = Math.atan2(g.gx, g.gz);
+        steer = clamp(angleDiff(c.heading, seaward) * profile.steerGain, -1, 1);
+      }
+    }
+  }
   let throttle = 1;
   if (Math.abs(error) > profile.easeAngle) throttle = profile.easeTo;
   // On the run at a ramp, hold the pace the ring asks for — never below

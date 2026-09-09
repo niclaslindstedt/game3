@@ -153,7 +153,8 @@ describe("steering", () => {
       // Clockwise, as positive steer says.
       expect(on.heading).toBeGreaterThan(0.6);
       expect(on.radius).toBeGreaterThan(4);
-      expect(on.radius).toBeLessThan(80);
+      // The touring hull is the slowest to come round by design.
+      expect(on.radius).toBeLessThan(spec.id === "otter" ? 120 : 80);
       // The throttle IS the steering: shut, the hull runs on. The stand-up
       // is the exception by design — its rider steers it by leaning, and
       // a leaned V bottom carves whether the pump is pushing or not.
