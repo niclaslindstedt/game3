@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride screenshots profile hooks shellcheck actionlint changelog bump docs
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts screenshots profile hooks shellcheck actionlint changelog bump docs
 
 build:
 	npm run build
@@ -92,6 +92,16 @@ waves:
 ride:
 	npm run ride -- $(if $(SCENARIO),--scenario $(SCENARIO),) $(if $(CRAFT),--craft $(CRAFT),) \
 		$(if $(SEED),--seed $(SEED),) $(ARGS)
+
+# THE CRAFT SHEET: every craft from the builder the app draws with, in
+# elevation — side, bow, stern, plan and the chase three-quarter — with the
+# rest waterline and the buoyancy probes laid over it, to previews/crafts.png,
+# and a table of draft, freeboard, bar height and triangle count. Pure Node,
+# no build, no browser: the contact sheet for a craft's LOOK; the built app
+# (`screenshots SCENE=rest`) is where it is judged at chase range.
+# `make crafts` · `make crafts CRAFT=marlin` · `make crafts ARGS="--scale 120"`
+crafts:
+	npm run crafts -- $(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
 
 # Drive the built app headlessly and screenshot the staged moments at the
 # two reference viewports (desktop landscape, phone portrait). Needs a built

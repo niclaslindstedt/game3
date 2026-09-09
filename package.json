@@ -27,6 +27,7 @@
     "analyze": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/analyze-level.mjs",
     "waves": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/waves-lab.mjs",
     "ride": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/ride-lab.mjs",
+    "crafts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/craft-preview.mjs",
     "screenshots": "node scripts/screenshot.mjs",
     "profile": "node scripts/profile-render.mjs"
   },

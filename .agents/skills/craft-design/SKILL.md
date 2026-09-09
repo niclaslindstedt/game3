@@ -1,6 +1,6 @@
 ---
 name: craft-design
-description: "Use when designing or changing how a CRAFT LOOKS — its hull's silhouette, the deck, the seat, the handlebars, the sponsons, the colours. Owns the parametric low-poly builder (pwa/src/game/craft-body.ts), the per-craft styles (craft-styles.ts — one style built, the other three reusing it with their own dimensions and colours), and the render-compare-iterate loop: build, photograph at rest with `make screenshots SCENE=rest`, LOOK, refine, then verify at speed. A `make crafts` turntable is future; until it exists the rest scene is the contact sheet."
+description: "Use when designing or changing how a CRAFT LOOKS — its hull's silhouette, the deck, the seat, the handlebars, the sponsons, the colours. Owns the parametric low-poly builder (pwa/src/game/craft-body.ts), the per-craft styles (craft-styles.ts — one style built, the other three reusing it with their own dimensions and colours), and the render-compare-iterate loop: `make crafts` for the elevation sheet (pure Node, seconds, the physics' waterline and probes over the drawn hull), then the built app at rest with `make screenshots SCENE=rest`, LOOK, refine, then verify at speed."
 ---
 
 # Craft design
@@ -21,40 +21,39 @@ skill for any code change.
 
 | Piece | Role |
 | --- | --- |
-| `pwa/src/game/craft-body.ts` | The assembly line: the hull loft (a V-bottom from the deadrise, a bow, a transom, the gunwale line), the deck, the seat, the handlebars, the sponsons; writes flat vertex colour and a per-face normal, so a low-poly body reads as panels under the scene's light |
-| `pwa/src/game/craft-styles.ts` | The styles — one `CraftBodySpec` per catalog id. **Pure data, no three.js import** (Node tooling loads it). ONE style is authored; the other three reuse it with their own dimensions and colours |
-| `engine/game/defs/craft.ts` | NOT this skill's file — the physics row. The builder READS `length`, `beam`, `deadrise` and `cog` from it; a style never restates them |
+| `pwa/src/game/craft-body.ts` | The assembly line: one cross-section per station (keel, chine, spray strake, the rail's two edges, the coaming, down into the footwell, across to the pedestal, up over its crown) lofted along stations whose rise and taper are read off `TUNING.hull` — the physics' own probe tables — so the drawn keel is the probes' keel; then the saddle loft, the boarding bumper, the sponsons, the pump housing and nozzle, the steering pod, column, bars, grips and mirrors. Everything is ONE vertex-coloured geometry with a per-facet brightness hash, drawn as one mesh |
+| `pwa/src/game/craft-styles.ts` | The styles — one `CraftStyle` per catalog id: the paint (hull, topside, rail, deck, seat and its top insert, tray, bar, grip) and a `CraftShape` (the bow's rake, the hood's height, the saddle's length and height, the column's length, the sponsons' reach). **Pure data, no three.js import** (Node tooling loads it). `RUNABOUT` is the one authored shape; the sit-downs spread it with a knob or two each, the dart is its own |
+| `engine/game/defs/craft.ts` | NOT this skill's file — the physics row. The builder READS `length`, `beam`, `height`, `deadrise` and `cog` from it, and the station tables from `TUNING.hull`; a style never restates them |
+| `scripts/craft-preview.mjs` | `make crafts` — the elevation sheet: every craft from the real builder in side, bow, stern, plan and chase views, the rest waterline (`restY`) and every probe (`hullProbes`) over it, and a table of draft, freeboard, bar height and triangle count. Pure Node through `aliasEngine`, no build |
 | `pwa/src/game/renderer.ts` | Places the body from `CraftState` (`x, y, z`, the quaternion) — the mesh's origin is the CoG, so it pitches and rolls about the point the physics does |
 | `pwa/src/game/rider.ts` | PLACEHOLDER: the rider model. Not this session's — the craft ships with no rider, and the seat and bars are sized for one |
 | `pwa/src/game/scenarios.ts` | `rest` is the contact sheet for now: the craft afloat, still, beside the shore |
 | `scripts/screenshot.mjs` | `make screenshots SCENE=rest CRAFT=<id>` photographs it, both viewports |
 | `pwa/src/identity.ts` | The PALETTE the colours are drawn from — a style names a palette entry, never a hex |
 
-## The loop: build → render → LOOK → iterate
+## The loop: sheet → LOOK → iterate → the built app
 
-1. **Render the current state**: `make build`, then
+1. **Sheet the current state**: `make crafts` (a second, no build) writes
+   `previews/crafts.png` — the four craft in five views, the physics over
+   them — and prints the table. Keep the picture and the table: the PR
+   owes both, before and after.
+2. **Change one axis at a time** — a `CraftShape` knob, a paint entry, a
+   station's cross-section — and re-sheet. Judge the SIDE view for the
+   silhouette (the sheer, the stem's rake, the hood against the saddle),
+   the BOW and STERN for the hood's shoulders and the transom, the PLAN
+   for the footwells and the pedestal, and the CHASE cell for how it will
+   read from the game's camera. A change that moved three things teaches
+   nothing.
+3. **LOOK — with the Read tool.** The sheet is where the sculpture is
+   judged; every proportion argued about is a number in its table.
+4. **Then the built app**: `make build`, then
    `CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=rest
-   CRAFT=skiff` (and each of the other three). The frames land in
-   `previews/`; the landscape frame is the chase camera's view — the one
-   that matters — and portrait shows the craft taller in the frame.
-2. **Generate candidates, one axis at a time.** Clone the style, patch ONE
-   thing (the bow's rake, the gunwale height, the seat's length, the
-   sponson's flare, a colour), give the variant an id that says what
-   changed, and render it. A sheet of one variant per axis reads as an
-   A/B test; a variant that moved three things teaches nothing.
-3. **LOOK — with the Read tool.** Judge the landscape frame at the chase
-   camera's range first; only then the portrait.
-4. **Fold the winner into `craft-styles.ts`, re-render.**
+   CRAFT=<id>` for every craft touched. The landscape frame is the chase
+   camera's view at its real range — sixty pixels tall, against the
+   water's palette, under the scene's light — and it is the verdict; the
+   sheet only diagnoses.
 5. **Close at speed**: `make screenshots SCENE=cruise` and `SCENE=carve` —
-   the contact sheet judges the sculpture; only the game proves the read at
-   speed, in spray, rolled into a turn, against the water's palette.
-
-**`make crafts` is the future contact sheet** — a turntable of every style
-from the chase view and the elevations, with the physics' probe layout drawn
-over the hull. Until it exists, `SCENE=rest` per craft is the sheet, and a
-session that finds itself rendering all four repeatedly is the session that
-should write the tool (`scripts/craft-preview.mjs`, over `serve-dist.mjs`),
-then update this skill.
+   only the game proves the read at speed, in spray, rolled into a turn.
 
 ## Judging a craft (what "good" means here)
 
@@ -89,15 +88,24 @@ then update this skill.
 ## The craft rules
 
 - **Everything is merged vertex-coloured low-poly under one material.**
-  The body is one geometry per style (hull + deck + seat + bars merged),
-  drawn as one mesh, so a craft is a handful of draw calls. New parts go
-  through the builder's helpers; per-facet brightness jitter keeps a
-  big flat colour from reading plastic.
-- **The builder reads the row; the style adds only what the row does not
-  say.** Colours, the bow's rake, the seat's proportions, the bars' height,
-  the sponsons' flare are style; length, beam, deadrise and the CoG are the
-  row's. A style that restates a dimension drifts from the physics on the
-  next catalog change.
+  The body is ONE geometry per style — the hull and deck loft, the saddle
+  loft, every box and every tube — drawn as one mesh: one draw call a
+  craft. New parts go through the builder's helpers (`loft`, `cap`,
+  `box`, `tube`), never a three.js primitive with its own material; the
+  per-facet brightness hash keeps a big flat colour from reading plastic.
+- **The builder reads the row and the physics; the style adds only what
+  neither says.** Colours, the bow's rake, the hood's height, the saddle's
+  proportions, the column's length, the sponsons' reach are style; length,
+  beam, depth, deadrise and the CoG are the row's, and the keel's rise,
+  the bow's taper and the chines' position are `TUNING.hull`'s. A style
+  that restates a dimension drifts from the physics on the next catalog
+  change; a loft that draws its own rise draws a keel the probes are not
+  on.
+- **Rings run counter-clockwise seen from astern, and advance toward the
+  bow.** That is the winding `loft` and `cap` assume (`cap(…, true)` faces
+  aft, `cap(…, false)` forward); a half-section is authored starboard,
+  keel to crown, and `mirror`ed. A part wound the other way is invisible
+  from outside and visible from inside — the sheet shows it as a hole.
 - **Keep every three.js allocation out of the per-frame path.** The body is
   built once per craft per level; the renderer moves it. A material or a
   geometry created in the frame loop is a leak that shows as a stutter
@@ -118,8 +126,9 @@ one-glance signature.
 
 ## What the change obliges elsewhere
 
-- `make screenshots SCENE=rest` per craft touched, in the PR, before and
-  after; `SCENE=cruise` for anything that changes the silhouette.
+- `make crafts` before and after, the picture and the table, in the PR;
+  `make screenshots SCENE=rest` per craft touched; `SCENE=cruise` for
+  anything that changes the silhouette; `make profile` for the draw calls.
 - Nothing in `docs/` restates a style; the README's What names the four
   craft and their characters, which the look should match.
 - A `.changes/unreleased/` fragment — the craft is what the player looks at
@@ -129,5 +138,5 @@ one-glance signature.
 
 Load **`skill-reflection`** before this session commits. What belongs here:
 a proportion that reads wrong at chase range and right in elevation, a colour
-that vanishes against foam, a part the builder was missing — and, when the
-turntable tool gets written, the loop above rewritten around it.
+that vanishes against foam, a part the builder was missing, a view the sheet
+should add.
