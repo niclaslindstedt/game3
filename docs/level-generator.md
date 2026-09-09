@@ -68,7 +68,7 @@ Every band above is a row of `LEVEL_RULES`; these are the ones a tuner reaches f
 |          | `angle`                      | 15–22             | °     | R8   |
 |          | `runUp` / `runUpDepth`       | 60 / 2            | m     | R9   |
 | `start`  | `behind`                     | 40                | m     | R11  |
-| `wind`   | `speed` / `seaward`          | 2–12 / ±60        | m/s,° | R12  |
+| `wind`   | `speed` / `seaward`          | 6–14 / ±60        | m/s,° | R12  |
 | `day`    | `hour`                       | 6–20              | h     | R13  |
 | `solids` | `<kind>.perKm`               | 5 / 14 / 7        | /km   | R17  |
 | `search` | `attempts`                   | 24                | —     |      |
@@ -80,7 +80,7 @@ The `search` group is the search's own: how many sub-seeds it tries, and the SLA
 
 1. **The coast.** `createShore` draws a base heading and two noise seeds; the shore's seaward offset is broad value noise plus a finer grain, its slope capped in one pass so the line never doubles back. The open sea is to the RIGHT of the heading — south-east of a north-east coast, as on the Swedish side of the Bothnian Sea.
 2. **The ground.** `createGeology` draws the plateau's height and three more noise seeds. The bed is a concave profile of the shore's distance (steep at first, level by 250 m) scaled shallower in a bay; the land is a smooth step to the plateau with the slabs faded out at the waterline and at the reach. Nothing here needs a grid.
-3. **The conditions.** Wind from the seaward normal ± 60°, at 2–12 m/s; an hour; a water temperature from the biome's band.
+3. **The conditions.** Wind from the seaward normal ± 60°, at 6–14 m/s — a fresh breeze most days, a strong one on some; an hour; a water temperature from the biome's band.
 4. **The path.** A station every 10 m along the shore, each aiming a slow wander inside 25–90 m out. Every station is pushed seaward, 5 m at a time, until the water under it is deep enough (R5 plus the slack) and it is inside R1's band; the line is smoothed with a `[1, 2, 1]` kernel so the pushes are swells rather than kinks; the pushing repeats until nothing moves. A station that cannot be made legal fails the attempt.
 5. **The gates.** Gate 1 at 40 m; then a spacing drawn from 80–150 m, again and again, until the next would pass the target length drawn from 1350–1950 m. The last placed is the finish, and the first 50 m of path are straightened so the start faces gate 1 along it.
 6. **The air.** Two or three gate indices are chosen by a seeded shuffle from those that are neither first nor last. For each, a ramp length and angle are drawn and `ringPlacement` derives the ring's distance and height from the design arc (R18); then the window from 60 m before its ramp's hinge to 50 m past its ring is checked as a chord — depth, band — and the path inside it replaced by that chord, in course order, with the distances recomputed each time. Fewer than two legal windows fails the attempt.

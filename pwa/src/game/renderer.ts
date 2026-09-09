@@ -22,7 +22,8 @@ import { CRAFT_STYLES } from "./craft-styles.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createPines } from "./pines.ts";
 import { createRocks } from "./rocks.ts";
-import { createWake } from "./spray.ts";
+import { createSpray } from "./spray.ts";
+import { createWake } from "./wake.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
 import { createWaterMesh } from "./water-mesh.ts";
 
@@ -53,10 +54,13 @@ export type GameRenderer = {
   render: (state: GameState, dt: number) => void;
   /** Rebuild the world for a new level or a new craft. */
   load: (state: GameState) => void;
-  /** Let the trails see a state that is being stepped WITHOUT being drawn
-   * — a scene pre-rolled for a screenshot — so the wake behind a craft
-   * that has been under way for three seconds is three seconds long. */
-  trail: (state: GameState) => void;
+  /** Let the water effects see EVERY engine step — the wake, the spray
+   * and the foam read the craft at the step's cadence and are drawn at
+   * the frame's — including the steps of a scene pre-rolled for a
+   * screenshot, so the wake behind a craft that has been under way for
+   * three seconds is three seconds long and its last landing's splash is
+   * still in the air. */
+  observe: (state: GameState) => void;
   camera: CameraRig;
   resize: () => void;
   cost: () => FrameCost;
@@ -112,7 +116,8 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const water = createWaterMesh();
   scene.add(water.mesh, water.far);
   const wake = createWake();
-  scene.add(wake.mesh);
+  const spray = createSpray();
+  scene.add(wake.mesh, spray.group);
 
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
@@ -126,6 +131,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   const upVec = new THREE.Vector3();
   const right = new THREE.Vector3();
   const forward = new THREE.Vector3();
+  const bufferSize = new THREE.Vector2();
   let fovWas = 0;
 
   const load = (state: GameState): void => {
@@ -150,6 +156,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       scene.add(craft);
     }
     wake.reset();
+    spray.reset();
     rig.restand();
   };
 
@@ -159,6 +166,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     renderer.setSize(w, h, false);
     camera.aspect = w / h;
     fovWas = 0;
+    renderer.getDrawingBufferSize(bufferSize);
   };
 
   const render = (state: GameState, dt: number): void => {
@@ -175,6 +183,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     cost.waterMs = water.update(state, c.x, c.z, pose.x, pose.y, pose.z);
     gates?.update(state);
     wake.update(state);
+    spray.update(state);
 
     camera.position.set(pose.x, pose.y, pose.z);
     aim.set(pose.aimX, pose.aimY, pose.aimZ);
@@ -195,6 +204,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       camera.fov = fov;
       camera.updateProjectionMatrix();
       fovWas = fov;
+      spray.setLens(bufferSize.y, fov);
     }
 
     renderer.render(scene, camera);
@@ -207,12 +217,17 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   return {
     render,
     load,
-    trail: (state) => wake.update(state),
+    observe: (state) => {
+      wake.observe(state);
+      spray.observe(state);
+    },
     camera: rig,
     resize,
     cost: () => cost,
     dispose: () => {
       water.dispose();
+      wake.dispose();
+      spray.dispose();
       if (terrain) disposeTerrain(terrain);
       renderer.dispose();
     },

@@ -59,8 +59,13 @@ const args = parseArgs(
     seed: { kind: "number", default: 38, help: "the level the scenario is staged on" },
     seconds: { kind: "number", help: "how long to ride (the scenario's own when left out)" },
     every: { kind: "number", default: 1 / 6, help: "seconds between drawn frames" },
+    wind: { kind: "number", help: "override the wind speed, m/s (the level's own quarter)" },
+    hs: {
+      kind: "number",
+      help: "quote the sea by its significant height, m, instead of the wind's",
+    },
   },
-  "usage: npm run ride -- [--scenario name | name | --all] [--craft id] [--seed n] [--seconds s] [--every s]",
+  "usage: npm run ride -- [--scenario name | name | --all] [--craft id] [--seed n] [--seconds s] [--every s] [--wind m/s] [--hs m]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -86,7 +91,14 @@ const pad = (v, n) => String(v).padStart(n);
 function ride(id) {
   const scenario = SCENARIOS[id];
   const { moment, input } = scenario.stage(level, spec);
-  const state = createGame({ seed: args.seed, craft: args.craft, level, quiet: true });
+  const state = createGame({
+    seed: args.seed,
+    craft: args.craft,
+    level,
+    quiet: true,
+    windSpeed: args.wind,
+    sea: args.hs !== undefined ? { hs: args.hs } : undefined,
+  });
   placeRun(state, moment);
   const x0 = state.craft.x;
   const z0 = state.craft.z;

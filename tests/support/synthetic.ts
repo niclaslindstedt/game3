@@ -23,17 +23,21 @@ export type SyntheticOptions = {
   noSolids?: boolean;
   /** Extra plan reach to seaward, m (default 400). */
   seaward?: number;
+  /** The bed's depth out at sea, m (default 8) — deepen it for a sea the
+   * shallows would break. */
+  depth?: number;
   /** The air gate's ramp: its angle, rad (default 0.35), and length, m
    * (default 8). The ring moves up with the ramp's lip. */
   rampAngle?: number;
   rampLength?: number;
 };
 
-/** The sea bed: −8 m out at sea, rising over the last 40 m to the shore at
- * z = 0, then land climbing to +5 m by 60 m inland and flat beyond. */
-export function syntheticGround(z: number): number {
-  if (z >= 40) return -8;
-  if (z >= 0) return -8 * (z / 40);
+/** The sea bed: −`depth` m out at sea, rising over the last 40 m to the
+ * shore at z = 0, then land climbing to +5 m by 60 m inland and flat
+ * beyond. */
+export function syntheticGround(z: number, depth = 8): number {
+  if (z >= 40) return -depth;
+  if (z >= 0) return -depth * (z / 40);
   if (z >= -60) return 5 * (-z / 60);
   return 5;
 }
@@ -44,7 +48,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
   const cols = Math.ceil((bounds.maxX - bounds.minX) / CELL) + 1;
   const rows = Math.ceil((bounds.maxZ - bounds.minZ) / CELL) + 1;
   const ground = createHeightfield(bounds.minX, bounds.minZ, CELL, cols, rows);
-  fillField(ground, (_x, z) => syntheticGround(z));
+  fillField(ground, (_x, z) => syntheticGround(z, opts.depth));
   const offshore = createHeightfield(bounds.minX, bounds.minZ, CELL, cols, rows);
   fillField(offshore, (_x, z) => z);
   const east = Math.PI / 2;

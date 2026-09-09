@@ -1,141 +1,492 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// PLACEHOLDER — the SPRAY will live here: the bow wave thrown off a hull on
-// the plane, the sheet off a landing, the rooster tail behind the pump, a
-// dive's wall of water, each an engine event or a reading (`planing`,
-// `wetted`, `land`, `dive`) turned into a transient in the three.js world.
-// That is the `visual-effects` craft, and it is future work.
+// THE SPRAY: the water a hull throws. Every event the engine already reads
+// off its probes — the planing bottom shedding a sheet off each chine, the
+// pump's rooster tail, a landing's plume, the bow driving into the next
+// face — is turned here into a burst of droplets, one particle cloud
+// drawn as a single point sprite batch (`THREE.Points`, a custom shader
+// so every droplet has its own size), plus a FOAM PATCH laid on the water
+// where a landing came down, spreading and fading behind the craft. The
+// budget is spent where the camera is: everything here happens within a
+// hull length of the craft, and the far water is left to the water mesh.
 //
-// What IS here is the bare minimum a hull cannot be seen without: a WAKE.
-// A short ribbon of foam laid on the water surface behind the craft, one
-// segment per metre or so of travel, fading as it ages — cheap (a few
-// dozen `surfaceAt` calls a frame so it rides the waves), and enough that a
-// craft at speed leaves a mark on the sea instead of sliding over it.
+// Two cadences, like the wake. `observe(state)` runs once per ENGINE STEP:
+// it reads the craft (`planing`, `wetted`, `throttleEff`, `airborne`,
+// `submergedDepth` — engine readings, never re-derived), emits, and moves
+// every droplet by the engine's own `dt`, so a scene pre-rolled for a
+// screenshot carries the same spray the player would have seen. `update`
+// runs once per frame and only uploads. The droplets read nothing off the
+// sea after they are born — a splash is over before the water under it
+// has moved — except the foam patches, which ride the surface.
+//
+// Renderer-side and stateless toward the engine: nothing here mutates the
+// `GameState`, and the randomness is a local generator reseeded on reset
+// so a staged moment always throws the same water.
 
 import * as THREE from "three";
-import { surfaceAt, type GameState } from "@engine";
+import { TUNING, rotate, surfaceAt, type GameState } from "@engine";
 
 import { PALETTE } from "../identity.ts";
+import { clamp } from "../lib/util.ts";
+import { foamTexture, spriteTexture } from "./fx-textures.ts";
 
-/** Ribbon length in samples, the travel between samples, m, and how long a
- * sample lives, s. */
-const SAMPLES = 24;
-const SPACING = 1.6;
-const LIFE = 1.8;
-/** How far the ribbon sits over the surface, m, so it is not swallowed by
- * the water it lies on. */
-const LIFT = 0.14;
-/** The wake's width at the transom, m, how much it spreads per second, and
- * how white it is when fresh — a wash, not a road. */
-const WIDTH = 0.8;
-const SPREAD = 0.7;
-const STRENGTH = 0.38;
-/** Where the wake starts: this far behind the centre of gravity, m, as a
- * share of the hull's length — the transom, not the seat. */
-const STERN = 0.45;
+/** Droplets in the pool. Dead ones cost a vertex and nothing else. */
+const POOL = 2400;
+/** Droplet drag: the rate, 1/s, spray loses its speed to the air. */
+const DRAG = 1.9;
+/** A droplet that has fallen this far under where it was born, m, is back
+ * in the water. */
+const SPLASHDOWN = 0.25;
+/** The biggest a droplet may be drawn, device pixels — inside every GPU's
+ * point-size range — and the distance from the lens, m, inside which a
+ * droplet fades out rather than filling the frame. */
+const MAX_PX = 256;
+const NEAR_FADE_FROM = 2;
+const NEAR_FADE_TO = 5;
+
+/** THE CHINE SHEETS: droplets a second at full planing and pace, the pace
+ * (m/s) that is full, and how far along the hull they are shed (shares of
+ * the length from the centre of gravity). */
+const SHEET_RATE = 520;
+const SHEET_FULL_SPEED = 18;
+const SHEET_FROM = -0.08;
+const SHEET_TO = 0.32;
+/** THE ROOSTER TAIL: droplets a second at full throttle, and how high and
+ * how far back the pump throws them, m/s. */
+const TAIL_RATE = 340;
+const TAIL_UP = 3;
+const TAIL_UP_PER_THROTTLE = 4.5;
+const TAIL_BACK = 3;
+const TAIL_BACK_PER_THROTTLE = 5;
+/** THE LANDING PLUME: the descent, m/s, past which a landing is a full
+ * splash, and the droplets a full one throws. */
+const PLUME_VY = 7;
+const PLUME_BURST = 520;
+/** THE BOW PLUNGE: the rate the deepest probe goes under, m/s, past which
+ * the bow is driving into a face, and the droplets each metre-per-second
+ * of it throws a step. */
+const PLUNGE_RATE = 1.6;
+const PLUNGE_PER_RATE = 5;
+/** THE FOAM PATCHES: how many ride the water at once, how long one lives,
+ * s, how fast it spreads, m/s, and how far it stands over the surface. */
+const PATCHES = 6;
+const PATCH_LIFE = 2.6;
+const PATCH_SPREAD = 0.9;
+const PATCH_SEGMENTS = 20;
+const PATCH_LIFT = 0.08;
 
 const FOAM = new THREE.Color(PALETTE.foam);
 
-export type Wake = {
-  mesh: THREE.Mesh;
+/** xorshift32 — a few hundred draws a step, reseeded on reset. */
+function makeRng(seed: number): () => number {
+  let s = seed >>> 0 || 1;
+  return () => {
+    s ^= s << 13;
+    s >>>= 0;
+    s ^= s >>> 17;
+    s ^= s << 5;
+    s >>>= 0;
+    return s / 4294967296;
+  };
+}
+
+export type Spray = {
+  group: THREE.Group;
+  /** Once per engine step: emit and move. */
+  observe: (state: GameState) => void;
+  /** Once per frame: upload. */
   update: (state: GameState) => void;
+  /** The lens the droplets are sized for: the drawing buffer's height,
+   * device pixels, and the vertical field of view, degrees. */
+  setLens: (pixelHeight: number, fovDeg: number) => void;
   reset: () => void;
+  dispose: () => void;
 };
 
-export function createWake(): Wake {
-  // A ring buffer of samples: the position the transom was at, its
-  // heading, and when.
-  const sx = new Float32Array(SAMPLES);
-  const sz = new Float32Array(SAMPLES);
-  const sh = new Float32Array(SAMPLES);
-  const st = new Float32Array(SAMPLES);
-  let head = 0;
-  let filled = 0;
+export function createSpray(): Spray {
+  const group = new THREE.Group();
+  let rng = makeRng(7);
 
-  const positions = new Float32Array(SAMPLES * 2 * 3);
-  const colors = new Float32Array(SAMPLES * 2 * 4);
-  const index: number[] = [];
-  for (let i = 0; i + 1 < SAMPLES; i++) {
-    const p = i * 2;
-    index.push(p, p + 2, p + 1, p + 1, p + 2, p + 3);
-  }
+  // ── The droplets ────────────────────────────────────────────────────
+  const px = new Float32Array(POOL);
+  const py = new Float32Array(POOL);
+  const pz = new Float32Array(POOL);
+  const vx = new Float32Array(POOL);
+  const vy = new Float32Array(POOL);
+  const vz = new Float32Array(POOL);
+  const age = new Float32Array(POOL);
+  const life = new Float32Array(POOL);
+  const size0 = new Float32Array(POOL);
+  const size1 = new Float32Array(POOL);
+  const bright = new Float32Array(POOL);
+  const floor = new Float32Array(POOL);
+  let cursor = 0;
+
+  const positions = new Float32Array(POOL * 3);
+  const sizes = new Float32Array(POOL);
+  const alphas = new Float32Array(POOL);
   const geometry = new THREE.BufferGeometry();
   const posAttr = new THREE.BufferAttribute(positions, 3).setUsage(THREE.DynamicDrawUsage);
-  const colAttr = new THREE.BufferAttribute(colors, 4).setUsage(THREE.DynamicDrawUsage);
+  const sizeAttr = new THREE.BufferAttribute(sizes, 1).setUsage(THREE.DynamicDrawUsage);
+  const alphaAttr = new THREE.BufferAttribute(alphas, 1).setUsage(THREE.DynamicDrawUsage);
   geometry.setAttribute("position", posAttr);
-  geometry.setAttribute("color", colAttr);
-  geometry.setIndex(index);
-  const material = new THREE.MeshBasicMaterial({
+  geometry.setAttribute("aSize", sizeAttr);
+  geometry.setAttribute("aAlpha", alphaAttr);
+  geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), 1e6);
+  const material = new THREE.ShaderMaterial({
+    uniforms: {
+      uMap: { value: spriteTexture() },
+      uColor: { value: FOAM.clone() },
+      uScale: { value: 600 },
+    },
+    vertexShader: `
+      attribute float aSize;
+      attribute float aAlpha;
+      uniform float uScale;
+      varying float vAlpha;
+      void main() {
+        vec4 mv = modelViewMatrix * vec4(position, 1.0);
+        float away = -mv.z;
+        gl_PointSize = min(${MAX_PX.toFixed(1)}, aSize * uScale / max(0.5, away));
+        gl_Position = projectionMatrix * mv;
+        // A droplet flying at the lens is a blob the size of the frame:
+        // it fades out over the last few metres instead.
+        vAlpha = aAlpha * smoothstep(${NEAR_FADE_FROM.toFixed(1)}, ${NEAR_FADE_TO.toFixed(1)}, away);
+      }`,
+    fragmentShader: `
+      uniform sampler2D uMap;
+      uniform vec3 uColor;
+      varying float vAlpha;
+      void main() {
+        float a = texture2D(uMap, gl_PointCoord).a * vAlpha;
+        if (a < 0.01) discard;
+        gl_FragColor = vec4(uColor, a);
+        #include <colorspace_fragment>
+      }`,
+    transparent: true,
+    depthWrite: false,
+  });
+  const points = new THREE.Points(geometry, material);
+  points.frustumCulled = false;
+  points.renderOrder = 3;
+  group.add(points);
+
+  const spawn = (
+    x: number,
+    y: number,
+    z: number,
+    ux: number,
+    uy: number,
+    uz: number,
+    seconds: number,
+    from: number,
+    to: number,
+    alpha: number,
+  ): void => {
+    const i = cursor;
+    cursor = (cursor + 1) % POOL;
+    px[i] = x;
+    py[i] = y;
+    pz[i] = z;
+    vx[i] = ux;
+    vy[i] = uy;
+    vz[i] = uz;
+    age[i] = 0;
+    life[i] = seconds;
+    size0[i] = from;
+    size1[i] = to;
+    bright[i] = alpha;
+    floor[i] = y - SPLASHDOWN;
+  };
+
+  // ── The foam patches ────────────────────────────────────────────────
+  const patchX = new Float32Array(PATCHES);
+  const patchZ = new Float32Array(PATCHES);
+  const patchT = new Float32Array(PATCHES).fill(-1e9);
+  const patchR = new Float32Array(PATCHES);
+  const patchS = new Float32Array(PATCHES);
+  let patchCursor = 0;
+  const ringVerts = PATCH_SEGMENTS + 1;
+  const patchPositions = new Float32Array(PATCHES * ringVerts * 3);
+  const patchColors = new Float32Array(PATCHES * ringVerts * 4);
+  const patchUvs = new Float32Array(PATCHES * ringVerts * 2);
+  const patchIndex: number[] = [];
+  for (let p = 0; p < PATCHES; p++) {
+    const base = p * ringVerts;
+    for (let s = 0; s < PATCH_SEGMENTS; s++) {
+      patchIndex.push(base, base + 1 + ((s + 1) % PATCH_SEGMENTS), base + 1 + s);
+    }
+  }
+  const patchGeometry = new THREE.BufferGeometry();
+  const patchPos = new THREE.BufferAttribute(patchPositions, 3).setUsage(THREE.DynamicDrawUsage);
+  const patchCol = new THREE.BufferAttribute(patchColors, 4).setUsage(THREE.DynamicDrawUsage);
+  const patchUv = new THREE.BufferAttribute(patchUvs, 2).setUsage(THREE.DynamicDrawUsage);
+  patchGeometry.setAttribute("position", patchPos);
+  patchGeometry.setAttribute("color", patchCol);
+  patchGeometry.setAttribute("uv", patchUv);
+  patchGeometry.setIndex(patchIndex);
+  const patchMaterial = new THREE.MeshBasicMaterial({
+    map: foamTexture(),
     vertexColors: true,
     transparent: true,
     depthWrite: false,
   });
-  const mesh = new THREE.Mesh(geometry, material);
-  mesh.frustumCulled = false;
+  const patches = new THREE.Mesh(patchGeometry, patchMaterial);
+  patches.frustumCulled = false;
+  patches.renderOrder = 2;
+  group.add(patches);
+
+  const patch = (x: number, z: number, t: number, radius: number, strength: number): void => {
+    const p = patchCursor;
+    patchCursor = (patchCursor + 1) % PATCHES;
+    patchX[p] = x;
+    patchZ[p] = z;
+    patchT[p] = t;
+    patchR[p] = radius;
+    patchS[p] = strength;
+  };
+
+  // ── Reading the craft ───────────────────────────────────────────────
+  let prevAirborne = false;
+  let prevVy = 0;
+  let prevSub = 0;
+  let sheetAcc = 0;
+  let tailAcc = 0;
+  const body = { x: 0, y: 0, z: 0 };
+
+  /** A world point on the hull, from body coordinates. */
+  const at = (c: GameState["craft"], bx: number, by: number, bz: number) => {
+    body.x = bx;
+    body.y = by;
+    body.z = bz;
+    return rotate(c.q, body);
+  };
+
+  const observe = (state: GameState): void => {
+    const c = state.craft;
+    const spec = c.spec;
+    const dt = TUNING.dt;
+    const L = spec.length;
+    const keelY = -spec.cog.y;
+    const fwdX = Math.sin(c.heading);
+    const fwdZ = Math.cos(c.heading);
+    const rightX = Math.cos(c.heading);
+    const rightZ = -Math.sin(c.heading);
+    const pace = clamp(c.speed / SHEET_FULL_SPEED, 0, 1);
+    const afloat = !c.airborne && c.wetted > 0.04;
+
+    // THE CHINE SHEETS: a planing bottom throws water off both chines,
+    // from a little aft of the centre of gravity forward to the stagnation
+    // line, out and up and a touch back.
+    if (afloat && c.planing > 0.1 && c.speed > 4) {
+      sheetAcc += SHEET_RATE * c.planing * pace * dt;
+      while (sheetAcc >= 1) {
+        sheetAcc -= 1;
+        const side = rng() < 0.5 ? -1 : 1;
+        const r = rng();
+        const p = at(
+          c,
+          side * spec.beam * 0.46,
+          keelY + 0.04,
+          L * (SHEET_FROM + (SHEET_TO - SHEET_FROM) * r) - spec.cog.z,
+        );
+        const out = (2.2 + 3.6 * rng()) * pace;
+        const up = (1.4 + 2.6 * rng()) * pace;
+        spawn(
+          c.x + p.x,
+          c.y + p.y,
+          c.z + p.z,
+          c.vx * 0.25 + rightX * side * out - fwdX * rng() * 1.5,
+          up,
+          c.vz * 0.25 + rightZ * side * out - fwdZ * rng() * 1.5,
+          0.4 + 0.4 * rng(),
+          0.16,
+          0.38 + 0.22 * pace,
+          0.75,
+        );
+      }
+    } else sheetAcc = 0;
+
+    // THE ROOSTER TAIL: the pump's jet breaking the surface behind the
+    // transom, thrown up and back with the throttle.
+    if (afloat && c.throttleEff > 0.08) {
+      const thr = clamp(c.throttleEff, 0, 1);
+      tailAcc += TAIL_RATE * thr * (0.35 + 0.65 * pace) * dt;
+      while (tailAcc >= 1) {
+        tailAcc -= 1;
+        const p = at(c, (rng() - 0.5) * 0.18, keelY + 0.05, -L / 2 - spec.cog.z);
+        const back = TAIL_BACK + TAIL_BACK_PER_THROTTLE * thr;
+        const up =
+          (TAIL_UP + TAIL_UP_PER_THROTTLE * thr * (0.3 + 0.7 * c.planing)) * (0.6 + 0.4 * rng());
+        spawn(
+          c.x + p.x,
+          c.y + p.y,
+          c.z + p.z,
+          c.vx * 0.2 - fwdX * back + rightX * (rng() - 0.5) * 1.6,
+          up,
+          c.vz * 0.2 - fwdZ * back + rightZ * (rng() - 0.5) * 1.6,
+          0.45 + 0.4 * rng(),
+          0.16,
+          0.45,
+          0.7,
+        );
+      }
+    } else tailAcc = 0;
+
+    // THE LANDING PLUME: the hull coming back down, the whole wet perimeter
+    // thrown out at once, sized by how fast it arrived.
+    if (prevAirborne && !c.airborne) {
+      const strength = clamp((-prevVy - 1) / (PLUME_VY - 1), 0, 1);
+      burst(c, 40 + PLUME_BURST * strength, strength, -0.45, 0.45);
+      patch(c.x, c.z, state.t, spec.beam * 1.2, 0.5 + 0.5 * strength);
+    }
+    // THE BOW PLUNGE: the deepest probe going under faster than a hull
+    // settling ever does — the bow driving into the next face.
+    const plunge = (c.submergedDepth - prevSub) / dt;
+    if (afloat && plunge > PLUNGE_RATE && c.speed > 4) {
+      const n = Math.min(60, Math.round(plunge * PLUNGE_PER_RATE));
+      burst(c, n, clamp(plunge / 6, 0.3, 1), 0.15, 0.48);
+    }
+    for (const e of state.events) {
+      if (e.kind === "dive") {
+        burst(c, 220, 1, 0.1, 0.5);
+        patch(c.x + fwdX * L * 0.3, c.z + fwdZ * L * 0.3, state.t, spec.beam * 1.4, 1);
+      }
+    }
+    prevAirborne = c.airborne;
+    prevVy = c.vy;
+    prevSub = c.submergedDepth;
+
+    // MOVE every droplet: ballistic, dragged by the air, gone when it is
+    // back in the water or spent.
+    const keep = Math.exp(-DRAG * dt);
+    for (let i = 0; i < POOL; i++) {
+      if (age[i] >= life[i]) continue;
+      age[i] += dt;
+      vy[i] -= TUNING.g * dt;
+      vx[i] *= keep;
+      vy[i] *= keep;
+      vz[i] *= keep;
+      px[i] += vx[i] * dt;
+      py[i] += vy[i] * dt;
+      pz[i] += vz[i] * dt;
+      if (py[i] < floor[i]) age[i] = life[i];
+    }
+  };
+
+  /** `n` droplets off both chines between two shares of the length, out
+   * and up in proportion to `strength`. */
+  function burst(c: GameState["craft"], n: number, strength: number, from: number, to: number) {
+    const spec = c.spec;
+    const keelY = -spec.cog.y;
+    const rightX = Math.cos(c.heading);
+    const rightZ = -Math.sin(c.heading);
+    for (let k = 0; k < n; k++) {
+      const side = rng() < 0.5 ? -1 : 1;
+      const p = at(
+        c,
+        side * spec.beam * (0.3 + 0.25 * rng()),
+        keelY + 0.05,
+        spec.length * (from + (to - from) * rng()) - spec.cog.z,
+      );
+      const out = (1.5 + 7 * strength) * (0.3 + 0.7 * rng());
+      const up = (1.5 + 6.5 * strength) * (0.3 + 0.7 * rng());
+      spawn(
+        c.x + p.x,
+        c.y + p.y,
+        c.z + p.z,
+        c.vx * 0.35 + rightX * side * out,
+        up,
+        c.vz * 0.35 + rightZ * side * out,
+        0.55 + 0.6 * rng(),
+        0.2,
+        (0.42 + 0.33 * strength) * (0.6 + 0.4 * rng()),
+        0.8,
+      );
+    }
+  }
+
   const sample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
   const update = (state: GameState): void => {
-    const c = state.craft;
-    const t = state.t;
-    // A new sample once the transom has moved far enough, and only while
-    // the hull is on the water and going somewhere.
-    const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
-    const moved =
-      last < 0 || Math.hypot(c.x - sx[last], c.z - sz[last]) >= SPACING + c.spec.length * STERN;
-    if (moved && !c.airborne && c.speed > 4 && c.wetted > 0.05) {
-      const back = c.spec.length * STERN;
-      sx[head] = c.x - Math.sin(c.heading) * back;
-      sz[head] = c.z - Math.cos(c.heading) * back;
-      sh[head] = c.heading;
-      st[head] = t;
-      head = (head + 1) % SAMPLES;
-      if (filled < SAMPLES) filled++;
-    }
-    // Lay the ribbon oldest to newest, each edge on this frame's surface.
-    // The buffer is a ring: once full, `head` is the oldest sample, and
-    // before that the first `SAMPLES - filled` slots are simply unused.
-    for (let n = 0; n < SAMPLES; n++) {
-      const i = (head + n) % SAMPLES;
-      const k3 = n * 6;
-      const k4 = n * 8;
-      if (n >= SAMPLES - filled) {
-        const age = t - st[i];
-        const alpha = Math.max(0, 1 - age / LIFE) * STRENGTH;
-        const half = (WIDTH + SPREAD * age) / 2;
-        const rx = Math.cos(sh[i]) * half;
-        const rz = -Math.sin(sh[i]) * half;
-        for (const side of [0, 1]) {
-          const s = side === 0 ? -1 : 1;
-          const x = sx[i] + rx * s;
-          const z = sz[i] + rz * s;
-          surfaceAt(state.sea, state.level, x, z, t, sample);
-          positions[k3 + side * 3] = x;
-          positions[k3 + side * 3 + 1] = sample.height + LIFT;
-          positions[k3 + side * 3 + 2] = z;
-          colors[k4 + side * 4] = FOAM.r;
-          colors[k4 + side * 4 + 1] = FOAM.g;
-          colors[k4 + side * 4 + 2] = FOAM.b;
-          colors[k4 + side * 4 + 3] = alpha;
-        }
-      } else {
-        // Nothing here yet: fold the pair onto the craft, invisible.
-        for (let j = 0; j < 6; j += 3) {
-          positions[k3 + j] = c.x;
-          positions[k3 + j + 1] = c.y;
-          positions[k3 + j + 2] = c.z;
-        }
-        colors[k4 + 3] = colors[k4 + 7] = 0;
+    for (let i = 0; i < POOL; i++) {
+      const k = i * 3;
+      if (age[i] >= life[i]) {
+        alphas[i] = 0;
+        sizes[i] = 0;
+        continue;
       }
+      const a = age[i] / life[i];
+      positions[k] = px[i];
+      positions[k + 1] = py[i];
+      positions[k + 2] = pz[i];
+      sizes[i] = size0[i] + (size1[i] - size0[i]) * Math.sqrt(a);
+      alphas[i] = bright[i] * (1 - a) * (1 - a) * Math.min(1, a * 8);
     }
     posAttr.needsUpdate = true;
-    colAttr.needsUpdate = true;
+    sizeAttr.needsUpdate = true;
+    alphaAttr.needsUpdate = true;
+
+    // The patches: a disc on this instant's water, spreading and paling.
+    const t = state.t;
+    for (let p = 0; p < PATCHES; p++) {
+      const base = p * ringVerts;
+      const life = (t - patchT[p]) / PATCH_LIFE;
+      const alive = life >= 0 && life < 1;
+      const radius = patchR[p] + PATCH_SPREAD * Math.max(0, t - patchT[p]);
+      const alpha = alive ? patchS[p] * Math.pow(1 - life, 1.6) * 0.3 : 0;
+      for (let v = 0; v < ringVerts; v++) {
+        const k3 = (base + v) * 3;
+        const k4 = (base + v) * 4;
+        const k2 = (base + v) * 2;
+        const ang = v === 0 ? 0 : ((v - 1) / PATCH_SEGMENTS) * Math.PI * 2;
+        const r = v === 0 ? 0 : radius;
+        const x = patchX[p] + Math.cos(ang) * r;
+        const z = patchZ[p] + Math.sin(ang) * r;
+        if (alive) {
+          surfaceAt(state.sea, state.level, x, z, t, sample);
+          patchPositions[k3] = x;
+          patchPositions[k3 + 1] = sample.height + PATCH_LIFT;
+          patchPositions[k3 + 2] = z;
+        } else {
+          patchPositions[k3] = patchX[p];
+          patchPositions[k3 + 1] = -100;
+          patchPositions[k3 + 2] = patchZ[p];
+        }
+        patchColors[k4] = FOAM.r;
+        patchColors[k4 + 1] = FOAM.g;
+        patchColors[k4 + 2] = FOAM.b;
+        patchColors[k4 + 3] = v === 0 ? alpha : 0;
+        patchUvs[k2] = 0.5 + (Math.cos(ang) * r) / 3;
+        patchUvs[k2 + 1] = 0.5 + (Math.sin(ang) * r) / 3;
+      }
+    }
+    patchPos.needsUpdate = true;
+    patchCol.needsUpdate = true;
+    patchUv.needsUpdate = true;
   };
 
   return {
-    mesh,
+    group,
+    observe,
     update,
+    setLens: (pixelHeight, fovDeg) => {
+      material.uniforms.uScale.value = pixelHeight / (2 * Math.tan((fovDeg * Math.PI) / 360));
+    },
     reset: () => {
-      head = 0;
-      filled = 0;
+      rng = makeRng(7);
+      age.fill(1);
+      life.fill(0);
+      patchT.fill(-1e9);
+      prevAirborne = false;
+      prevVy = 0;
+      prevSub = 0;
+      sheetAcc = tailAcc = 0;
+    },
+    dispose: () => {
+      geometry.dispose();
+      material.dispose();
+      patchGeometry.dispose();
+      patchMaterial.dispose();
     },
   };
 }
