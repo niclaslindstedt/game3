@@ -37,6 +37,7 @@ export type ScenarioName =
   | "landing"
   | "dive"
   | "offshore"
+  | "storm"
   | "backflip";
 
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
@@ -50,6 +51,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "landing",
   "dive",
   "offshore",
+  "storm",
   "backflip",
 ];
 
@@ -243,6 +245,39 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         },
         script: () => input(0, 0.8, 0),
         seconds: 5,
+      };
+    }
+    case "storm": {
+      // THE OPEN SEA, half a kilometre out, beam-on to a monster swell.
+      // A wave only stands its full height in water it cannot feel the
+      // bottom of — the field is clipped to `breakingHs`·d — so a sea
+      // quoted at twenty metres is a nine-metre one over the course's
+      // twenty-five and its whole self out here, where R3's bed has
+      // fallen past forty. Ride it with `?hs=20`.
+      const sea = seawardAt(level, mid.x, mid.z);
+      const b = level.bounds;
+      // As far out as the level HAS, up to half a kilometre: the seaward
+      // walk is clamped inside the bounds with a margin, so a level whose
+      // open water runs out sooner stages in the deepest it owns.
+      const margin = 30;
+      let out = 0;
+      for (let d = 20; d <= 500; d += 20) {
+        const px = mid.x + sea.x * d;
+        const pz = mid.z + sea.z * d;
+        if (px < b.minX + margin || px > b.maxX - margin) break;
+        if (pz < b.minZ + margin || pz > b.maxZ - margin) break;
+        out = d;
+      }
+      return {
+        moment: {
+          x: mid.x + sea.x * out,
+          z: mid.z + sea.z * out,
+          heading: Math.atan2(sea.x, sea.z) + Math.PI / 2,
+          speed: top * 0.35,
+          nextGate: mid.index,
+        },
+        script: () => input(0, 0.5, 0),
+        seconds: 8,
       };
     }
     case "backflip": {

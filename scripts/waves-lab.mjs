@@ -142,7 +142,31 @@ function station(s) {
     }
   }
   const breaking = depth > 0.05 && H >= TUNING.sea.breakingRatio * depth * 0.95;
-  return { s, x, z, depth, offshore, Hs, Tp, H, wavelength, breaking };
+  // The derived characteristics — what the four numbers above MEAN.
+  // Steepness H/λ is what the eye reads (Michell breaks a wave at 1/7);
+  // celerity λ/T is how fast the crest travels; d/λ says which of the
+  // three regimes the wave is in, which is what decides whether the bed
+  // is doing anything to it at all.
+  const steepness = wavelength > 0 ? H / wavelength : 0;
+  const celerity = Tp > 0 ? wavelength / Tp : 0;
+  const ratio = wavelength > 0 ? depth / wavelength : 0;
+  const regime = ratio > 0.5 ? "deep" : ratio < 0.05 ? "shallow" : "inter";
+  return {
+    s,
+    x,
+    z,
+    depth,
+    offshore,
+    Hs,
+    Tp,
+    H,
+    wavelength,
+    breaking,
+    steepness,
+    celerity,
+    ratio,
+    regime,
+  };
 }
 const stations = [];
 for (let s = 0; s <= args.reach; s += 1) stations.push(station(s));
@@ -155,6 +179,11 @@ console.log(
     `${args.wind !== undefined || args.from !== undefined ? ` (level's own ${level.wind.speed.toFixed(1)} m/s from ${deg(level.wind.from).toFixed(0)}°)` : ""}` +
     `${override ? ` · sea quoted at Hs ${override.hs} m` : ""}` +
     ` · ${sea.components.length} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s`,
+);
+console.log(
+  `dials — height ×${TUNING.sea.heightScale} · period ×${TUNING.sea.periodScale} · γ ${TUNING.sea.peakEnhancement}` +
+    ` · quoted steepness ${TUNING.sea.steepness} · crest ×${TUNING.sea.crestSharpness}` +
+    ` · breaking Hs/d ${TUNING.sea.breakingHs} · spread ±${deg(TUNING.sea.spread).toFixed(0)}°`,
 );
 console.log(
   `transect from (${sx.toFixed(0)}, ${sz.toFixed(0)}) on the shore, heading ${deg(Math.atan2(dx, dz)).toFixed(0)}°, ${args.reach} m out` +
@@ -171,6 +200,10 @@ console.log(
     pad("Tp", 5),
     pad("H here", 7),
     pad("λ dom", 7),
+    pad("H/λ", 6),
+    pad("c m/s", 6),
+    pad("d/λ", 6),
+    pad("regime", 7),
     "  breaking",
   ].join(" "),
 );
@@ -186,6 +219,10 @@ for (const s of [0, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500,
       pad(st.Tp.toFixed(1), 5),
       pad(st.H.toFixed(2), 7),
       pad(st.wavelength.toFixed(1), 7),
+      pad(st.steepness.toFixed(3), 6),
+      pad(st.celerity.toFixed(1), 6),
+      pad(st.ratio.toFixed(3), 6),
+      pad(st.regime, 7),
       st.breaking ? "  yes" : "  -",
     ].join(" "),
   );
@@ -195,7 +232,8 @@ for (const c of sea.components) {
   const rel = ((deg(Math.atan2(c.dirX, c.dirZ)) - deg(wind.from + Math.PI) + 540) % 360) - 180;
   console.log(
     `  T ${((2 * Math.PI) / c.omega).toFixed(2).padStart(5)} s  λ ${((2 * Math.PI) / c.k0).toFixed(1).padStart(6)} m  ` +
-      `a ${c.amp.toFixed(3)} m  ${rel >= 0 ? "+" : ""}${rel.toFixed(0)}° off the wind`,
+      `a ${c.amp.toFixed(3)} m  ak ${(c.amp * c.k0).toFixed(3)}  ` +
+      `${rel >= 0 ? "+" : ""}${rel.toFixed(0)}° off the wind`,
   );
 }
 

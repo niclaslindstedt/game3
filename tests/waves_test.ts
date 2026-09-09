@@ -87,12 +87,14 @@ describe("shoaling and fetch", () => {
     const near = seaSummary(sea, 30);
     const far = seaSummary(sea, 300);
     expect(far.Hs).toBeGreaterThan(near.Hs * 1.25);
-    // The lightest wind the rule book draws, over the game's fetch: half
-    // a metre at the shore, three-quarters out at the bound — a sea the
-    // hull leaves, not a millpond.
-    expect(near.Hs).toBeGreaterThan(0.45);
-    expect(far.Hs).toBeGreaterThan(0.6);
-    expect(far.Hs).toBeLessThan(1.2);
+    // The lightest wind the rule book draws, over the game's fetch and
+    // through `sea.heightScale`: near a metre at the shore and half as
+    // much again at the bound — a sea that stands against a three-metre
+    // hull, not a millpond. (The law alone grows 0.53/0.75 m here; the
+    // dial is what puts the water in the world.)
+    expect(near.Hs).toBeGreaterThan(0.8);
+    expect(far.Hs).toBeGreaterThan(1.1);
+    expect(far.Hs).toBeLessThan(1.8);
     expect(far.Tp).toBeGreaterThan(2.5);
     expect(far.Tp).toBeLessThan(6);
   });
@@ -111,9 +113,12 @@ describe("shoaling and fetch", () => {
     expect(seaSummary(sea, 40).Hs).toBeCloseTo(2, 6);
     expect(seaSummary(sea, 400).Hs).toBeCloseTo(2, 6);
     expect(sea.tp).toBeCloseTo(periodForHeight(2), 6);
-    // Toba's steepness: a two-metre sea is a five-or-six-second one.
-    expect(sea.tp).toBeGreaterThan(4.5);
-    expect(sea.tp).toBeLessThan(7);
+    // `sea.steepness` is the arcade dial, above nature's own: a quoted
+    // two-metre sea is a short, steep one — a three-second wave about
+    // seventeen metres long — not the five-or-six-second swell Toba's
+    // mature sea would give it.
+    expect(sea.tp).toBeGreaterThan(3);
+    expect(sea.tp).toBeLessThan(4);
     const given = createSea(level, 1, level.wind, { hs: 2, tp: 9 });
     expect(given.tp).toBe(9);
     // With a wind under it the quoted height still grows to seaward.
@@ -229,10 +234,19 @@ describe("the storm", () => {
   const level = syntheticLevel({ windSpeed: 0, depth: 60, seaward: 1600 });
   const sea = createSea(level, 3, level.wind, { hs: 20 });
 
-  it("stands twenty metres of significant height with a swell's period", () => {
+  it("stands twenty metres of significant height with a period that makes a wall", () => {
     expect(seaSummary(sea, 800).Hs).toBeCloseTo(20, 6);
-    expect(sea.tp).toBeGreaterThan(14);
-    expect(sea.tp).toBeLessThan(22);
+    // A REAL twenty-metre sea is a five-hundred-metre swell with a
+    // ten-degree face — at sea you feel it and from a boat you cannot see
+    // it. The dial buys a young storm sea instead: near twelve seconds
+    // and under half that length, a face you have to climb. It stays
+    // clear of Michell's 1/7 all the same, or the whole sea sits on the
+    // point of breaking and the renderer paints every face white.
+    expect(sea.tp).toBeGreaterThan(9);
+    expect(sea.tp).toBeLessThan(14);
+    const lambda = (TUNING.g * sea.tp * sea.tp) / (2 * Math.PI);
+    expect(lambda).toBeLessThan(250);
+    expect(20 / lambda).toBeLessThan(1 / 7);
     let bound = 0;
     for (const c of sea.components) bound += c.amp;
     let max = 0;

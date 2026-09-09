@@ -23,9 +23,12 @@
 //       `land.maxHeight` (25 m). No cliffs — this is a glacially planed
 //       coast, low bedrock slabs sloping into the water.
 //   R3  THE SEA BED FALLS AWAY. Depth grows from nothing at the waterline
-//       to `sea.depth` (25 m) at `sea.reach` (250 m) out and never deeper;
-//       a bay carries a SHELF, its water `sea.shelf.factor` as deep as the
-//       open coast's over the first `sea.shelf.reach` metres.
+//       to `sea.depth` (25 m) at `sea.reach` (250 m) out, and keeps falling
+//       past it to `sea.openDepth` (60 m) by `sea.openReach` (700 m) — the
+//       open sea beyond the coastal shelf, the water a storm swell needs to
+//       stand its full height in; a bay carries a SHELF, its water
+//       `sea.shelf.factor` as deep as the open coast's over the first
+//       `sea.shelf.reach` metres.
 //   R4  GATES COME EVERY 80–150 m. Consecutive gates are `gate.spacing.min`
 //       to `gate.spacing.max` metres apart along the path, and a water
 //       gate's buoys stand `gate.width` metres apart.
@@ -176,10 +179,23 @@ export const LEVEL_RULES = {
 
   /** R3 — the sea bed. */
   sea: {
-    /** Depth at the seaward reach and beyond, m. */
+    /** Depth at the seaward reach, m — the foot of the coastal shelf,
+     * and the water every course is ridden in. */
     depth: 25,
-    /** Distance from the shore at which full depth is reached, m. */
+    /** Distance from the shore at which that depth is reached, m. */
     reach: 250,
+    /** ...and the OPEN SEA past it: the bed goes on falling to
+     * `openDepth` m by `openReach` m out. A wave only stands its full
+     * height in water it cannot feel the bottom of — the sea is clipped
+     * to `TUNING.sea.breakingHs`·d, so twenty-five metres of water holds
+     * a fourteen-metre sea and no more, and a storm swell asked for
+     * offshore was being flattened by a bed that stopped falling a
+     * hundred metres past the last gate. Sixty metres carries a
+     * thirty-metre sea, which is past anything the game quotes. The
+     * profile inshore of `reach` is untouched, so no course's water
+     * moves. */
+    openDepth: 60,
+    openReach: 700,
     /** A bay's shelf: the bed's depth multiplier at the head of a full bay
      * (`bay`, m of recession, is where the shelf is complete), out to
      * `reach` metres, blending back to the open profile over `blend`. */

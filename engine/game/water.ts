@@ -7,30 +7,41 @@
 //
 // The model, and where each piece comes from:
 //
-// - The field is a sum of `TUNING.sea.components` sinusoidal components —
-//   Gerstner/trochoidal waves (Tessendorf 2001; Finch, GPU Gems 1 ch. 1)
-//   with the horizontal displacement dropped, so that the height is a
-//   function of the undisplaced (x, z) the physics asks about. The crests
-//   lose their trochoidal sharpening; the heights, the slopes and the
-//   orbital velocities are linear theory's, which is what the rest of the
-//   model (shoaling, dispersion, breaking) is stated in anyway.
+// - The field is a sum of `TUNING.sea.components` components, each a
+//   linear (Airy) wave carrying STOKES' second-order correction (1847):
+//   η = a·sin φ − ½·k·a²·cos 2φ. The trochoidal shape — a peaked crest
+//   over a long flat trough — is what that second term is, and taking it
+//   this way rather than as the Gerstner horizontal displacement
+//   (Tessendorf 2001; Finch, GPU Gems 1 ch. 1) keeps the height a
+//   function of the UNDISPLACED (x, z) the physics asks about: a Gerstner
+//   field would have to be inverted at every probe and every vertex.
+//   Heights, slopes and orbital velocities are otherwise linear theory's,
+//   which is what the rest of the model (shoaling, dispersion, breaking)
+//   is stated in anyway.
 // - Heights come from a fetch-limited JONSWAP spectrum (Hasselmann et al.
 //   1973) capped at the fully developed Pierson–Moskowitz sea (1964): the
 //   significant height and peak period follow the SPM (1984) fetch laws
 //   g·Hs/U² = 1.6e-3·(g·F/U²)^½ and g·Tp/U = 0.286·(g·F/U²)^⅓, and the
-//   component amplitudes are laid over the JONSWAP shape (γ = 3.3) and
+//   component amplitudes are laid over the JONSWAP shape (γ is
+//   `TUNING.sea.peakEnhancement`) and
 //   normalised so that 4·√m0 = Hs.
 // - FETCH is the level's `offshore` distance, stretched by
 //   `TUNING.sea.fetchScale` (see there): the amplitudes at a point scale
 //   with Hs(F(offshore))/Hs(F_ref), so the chop builds riding out to sea.
+// - The wind sea's HEIGHT and PERIOD then take `TUNING.sea.heightScale`
+//   and `periodScale` — the two arcade dials that say how big and how
+//   long a wind sea is here, against what the law alone would grow. The
+//   growth is a ratio, so neither disturbs its shape.
 // - Each component keeps ONE frequency and direction and lets its
 //   wavenumber follow the depth through the dispersion relation
 //   ω² = g·k·tanh(k·d) (Airy; Fenton & McKee 1990's explicit solution),
 //   integrated into a PHASE FIELD over the level's grid at build time so the
 //   wavelength shortens honestly toward the shore.
 // - Amplitude shoals by the linear-theory coefficient Ks = √(cg₀/cg)
-//   (Green's law √√(d₀/d) is its shallow limit) and the summed height is
-//   clipped at McCowan's breaking limit H = 0.78·d.
+//   (Green's law √√(d₀/d) is its shallow limit) and the sea is clipped
+//   where the bed cannot hold it: the SIGNIFICANT height at the point is
+//   held to `TUNING.sea.breakingHs`·d (Nelson 1994's depth-limited sea),
+//   and every component is scaled by the same factor when it passes.
 // - THERE IS NO ARCADE CEILING. The sea is bounded by the fully developed
 //   law and by the depth under it, nothing else: a run handed a SEA
 //   OVERRIDE (`SeaOverride` — a swell quoted by its height rather than
@@ -130,10 +141,11 @@ export function fetchPeriod(u: number, fetch: number): number {
   return Math.max(0.6, Math.min(limited, developed));
 }
 
-/** The peak period, s, a wind sea of significant height `hs` (m) carries:
- * the significant steepness Hs/L₀ of a grown wind sea sits near
- * `TUNING.sea.steepness`, and L₀ = g·Tp²/2π (Airy) turns that round. What
- * a `SeaOverride` without a period is given. */
+/** The peak period, s, a sea of significant height `hs` (m) is given when
+ * it is quoted without one: the significant steepness Hs/L₀ is
+ * `TUNING.sea.steepness` and L₀ = g·Tp²/2π (Airy) turns that round. The
+ * steepness is what makes a quoted sea a WALL rather than a long swell —
+ * see the dial. What a `SeaOverride` without a period is given. */
 export function periodForHeight(hs: number): number {
   return Math.max(0.6, Math.sqrt((TAU * Math.max(hs, 0)) / (G * S.steepness)));
 }
@@ -146,12 +158,13 @@ export function effectiveFetch(offshore: number): number {
 
 /** JONSWAP spectral density S(ω), unnormalised (α dropped: the amplitudes
  * are scaled to Hs afterwards), for peak frequency `wp`. Hasselmann et
- * al. 1973: ω⁻⁵·exp(−1.25·(ω_p/ω)⁴)·γ^r, γ = 3.3, σ = 0.07 below the peak
- * and 0.09 above it. */
+ * al. 1973: ω⁻⁵·exp(−1.25·(ω_p/ω)⁴)·γ^r, σ = 0.07 below the peak and 0.09
+ * above it. γ is `TUNING.sea.peakEnhancement` — at 1 this is
+ * Pierson–Moskowitz, the broad fully developed sea. */
 function jonswap(w: number, wp: number): number {
   const sigma = w <= wp ? 0.07 : 0.09;
   const r = Math.exp(-((w - wp) * (w - wp)) / (2 * sigma * sigma * wp * wp));
-  return Math.pow(w, -5) * Math.exp(-1.25 * Math.pow(wp / w, 4)) * Math.pow(3.3, r);
+  return Math.pow(w, -5) * Math.exp(-1.25 * Math.pow(wp / w, 4)) * Math.pow(S.peakEnhancement, r);
 }
 
 /** Local wavenumber for frequency `omega` in depth `d`, rad/m: Fenton &
@@ -278,20 +291,33 @@ export function createSea(
   const rng = createRng((seed ^ 0x5ea5ea) >>> 0);
   const u = wind.speed;
   const fetchRef = effectiveFetch(courseOffshore(level));
+  // What the LAW grows at the reference fetch — the denominator of the
+  // fetch growth, and so unscaled: the growth is a ratio and the dials
+  // cancel out of it, which is what keeps the growth SHAPE Hasselmann's
+  // while the metre it is quoted in moves.
   const windHs = fetchHeight(u, fetchRef);
-  const hsRef = override ? Math.max(0, override.hs) : windHs;
-  const tp = override ? (override.tp ?? periodForHeight(hsRef)) : fetchPeriod(u, fetchRef);
+  const hsRef = override ? Math.max(0, override.hs) : windHs * S.heightScale;
+  // A quoted sea takes its period from `steepness`; a wind sea takes the
+  // law's and scales it. Either way this is the WAVELENGTH dial, since
+  // L₀ = g·Tp²/2π.
+  const tp = override
+    ? (override.tp ?? periodForHeight(hsRef))
+    : fetchPeriod(u, fetchRef) * S.periodScale;
   const wp = TAU / tp;
   // Waves travel WITH the wind: `from` is where it blows from.
   const travel = wind.from + Math.PI;
   const n = S.components;
+  // The band's short end: `bandHigh` peaks, or the absolute shortest
+  // period the field carries, whichever reaches further. A slow-peaked
+  // swell needs the second or it arrives with no chop on it.
+  const bandHigh = Math.max(S.bandHigh, tp / S.minPeriod);
   const raw: { omega: number; dir: number; weight: number }[] = [];
   let energy = 0;
   for (let i = 0; i < n; i++) {
     // Log-spaced over the band, each component owning the band between the
     // midpoints to its neighbours.
-    const lo = S.bandLow * Math.pow(S.bandHigh / S.bandLow, i / n);
-    const hi = S.bandLow * Math.pow(S.bandHigh / S.bandLow, (i + 1) / n);
+    const lo = S.bandLow * Math.pow(bandHigh / S.bandLow, i / n);
+    const hi = S.bandLow * Math.pow(bandHigh / S.bandLow, (i + 1) / n);
     const omega = wp * Math.sqrt(lo * hi);
     const dOmega = wp * (hi - lo);
     // A cos² directional spread (Longuet-Higgins et al. 1963), drawn by
@@ -361,27 +387,34 @@ export function surfaceAt(
 ): SurfaceSample {
   const depth = Math.max(-sampleField(level.ground, x, z), S.minDepth);
   const growth = fetchGrowth(sea, sampleField(level.offshore, x, z));
-  // First pass: the shoaled amplitudes and the breaking cap they sum to.
-  // McCowan's limit is on the wave HEIGHT (crest to trough), which for a
-  // sum of sinusoids is at most twice the summed amplitude.
+  // First pass: the shoaled amplitudes, and the depth limit the SEA they
+  // make has to stay under. The limit is on the significant height —
+  // Hs = 4·√m0 over the shoaled, fetch-grown spectrum — and not on the
+  // arithmetic sum of the amplitudes, which is the superposition where
+  // every component crests at once and is ~1.8× the significant amplitude:
+  // clipping to that holds a sea in deep water to a third of the height
+  // its own spectrum carries. Individual crests ride past Hs here as they
+  // do in nature; the bed is what they break on.
   const comps = sea.components;
   const n = Math.min(count, comps.length);
-  let sumAmp = 0;
+  let m0 = 0;
   let height = 0;
   let sx = 0;
   let sz = 0;
   let vx = 0;
   let vy = 0;
   let vz = 0;
-  const cap = (S.breakingRatio * depth) / 2;
   // The amplitude scale is common to every component, so it can be
   // computed before the sum from the shoaling coefficients alone.
   for (let i = 0; i < comps.length; i++) {
     tableAt(comps[i].table, depth, scratch);
-    sumAmp += comps[i].amp * scratch[1];
+    const a = comps[i].amp * scratch[1];
+    m0 += a * a;
   }
-  sumAmp *= growth;
-  const clip = sumAmp > cap ? cap / sumAmp : 1;
+  // m0 = Σa²/2, Hs = 4√m0 = 2·√(2·Σa²) — the growth is common to all.
+  const hsLocal = 2 * Math.SQRT2 * Math.sqrt(m0) * growth;
+  const cap = S.breakingHs * depth;
+  const clip = hsLocal > cap ? cap / hsLocal : 1;
   for (let i = 0; i < n; i++) {
     const c = comps[i];
     tableAt(c.table, depth, scratch);
@@ -391,11 +424,23 @@ export function surfaceAt(
     const phase = sampleField(c.phaseField, x, z) - c.omega * t + c.phase0;
     const sin = Math.sin(phase);
     const cos = Math.cos(phase);
-    height += a * sin;
+    // STOKES SECOND ORDER (1847): a linear component is a rounded hump,
+    // and a real wave is not — its crest is peaked and its trough is long
+    // and flat. The correction −½·k·a²·cos 2φ is exactly that shape, and
+    // it is a function of the UNDISPLACED point, so the whole field stays
+    // a function of (x, z) the physics can ask about — which the Gerstner
+    // horizontal displacement, the other way to the same shape, is not.
+    // Evaluated at a steepness the expansion is still good at, so a steep
+    // component peaks rather than growing a second bump in its trough.
+    const steep = Math.min(k * a, S.crestMaxSteepness) * S.crestSharpness;
+    const peak = 0.5 * steep * a;
+    height += a * sin - peak * Math.cos(2 * phase);
     // Slope from the phase gradient k·d̂ (the amplitude's own gradient is
-    // a shoaling effect too slow to tilt the surface).
-    sx += a * k * c.dirX * cos;
-    sz += a * k * c.dirZ * cos;
+    // a shoaling effect too slow to tilt the surface), with the crest
+    // correction's own slope on it: d/dφ[−½·k·a²·cos 2φ] = k·a²·sin 2φ.
+    const dEta = a * cos + 2 * peak * Math.sin(2 * phase);
+    sx += dEta * k * c.dirX;
+    sz += dEta * k * c.dirZ;
     // Orbital velocity at the surface (Airy): horizontal a·ω·coth(kd) in
     // phase with the height, vertical −a·ω·cos φ (the surface's own rate).
     const horizontal = a * c.omega * scratch[2] * sin;

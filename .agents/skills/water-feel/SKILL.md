@@ -1,6 +1,6 @@
 ---
 name: water-feel
-description: "Use when working on THE SEA — the wave field the hull rides (the Gerstner sum, its components, their steepness), the sea state a level's wind and fetch build (the JONSWAP / Pierson–Moskowitz spectrum, the fetch-limited growth), how a wave changes coming ashore (dispersion, shoaling, breaking), the orbital velocity the craft feels, the gusts, and how the renderer's water mesh follows all of it. Owns `engine/game/water.ts` and `wind.ts`, `TUNING.sea`, `pwa/src/game/water-mesh.ts`'s displacement, and `make waves` — the lab that must run before and after any change here. Not the hull's answer to the water (`craft-physics`)."
+description: "Use when working on THE SEA — the wave field the hull rides (the Stokes-corrected component sum, its spectrum, its steepness), the sea state a level's wind and fetch build (the JONSWAP / Pierson–Moskowitz spectrum, the fetch-limited growth), how a wave changes coming ashore (dispersion, shoaling, breaking), the orbital velocity the craft feels, the gusts, and how the renderer's water mesh follows all of it. Owns `engine/game/water.ts` and `wind.ts`, `TUNING.sea`, `pwa/src/game/water-mesh.ts`'s displacement, and `make waves` — the lab that must run before and after any change here. Not the hull's answer to the water (`craft-physics`)."
 ---
 
 # The water's feel
@@ -35,14 +35,14 @@ comment's claim has to stay true.
 
 | Term | Model | Where |
 | --- | --- | --- |
-| The surface: a sum of N (8) trochoidal components, each displacing a point horizontally toward its crest as well as vertically | Gerstner waves — Tessendorf, _Simulating Ocean Water_ (2001); Finch, _GPU Gems_ 1 ch. 1 | `surfaceAt`, the component loop |
+| The surface: a sum of N (8) linear components, each carrying a second-order crest correction — a peaked top over a long flat trough | Airy + Stokes (1847) second order, `η = a·sin φ − ½·k·a²·cos 2φ`. NOT Gerstner (Tessendorf 2001): the horizontal displacement would have to be inverted at every probe and vertex | `surfaceAt`, the component loop |
 | Each component's amplitude, from the wind and the fetch | A fetch-limited JONSWAP spectrum (Hasselmann et al. 1973), falling back to Pierson–Moskowitz (1964) for the fully developed sea | `createSea` — the spectrum sampled at N frequencies |
 | The directions, spread about the wind | A cos²ⁿ spreading function about the mean wind direction | `createSea` |
 | Frequency from wavenumber, given the depth | Linear dispersion, ω² = g k tanh(k d), `d` from `level.ground` | `dispersion(k, d)` |
 | Amplitude growth coming ashore | The linear-theory shoaling coefficient K_s = √(c_g,deep / c_g), with Green's law (H ∝ d^−¼) as the shallow limit | `shoal(a, k, d)` |
-| The ceiling on height in shallow water | McCowan's breaking criterion, H/d = 0.78 | the clip inside `surfaceAt` |
+| The ceiling on height in shallow water | The depth-limited SIGNIFICANT height, Hs/d = 0.55 (Nelson 1994) — never McCowan's 0.78 applied to the summed amplitudes, which saturates every big sea to one value | the clip inside `surfaceAt` |
 | How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is `level.offshore` | `fetchScale(offshore, U)` |
-| What the water under the surface is doing | The orbital velocity of the same components (the Gerstner circle's tangent) | `surfaceAt`'s `vx, vy, vz` |
+| What the water under the surface is doing | The orbital velocity of the same components (the tangent of the water particle's circle) | `surfaceAt`'s `vx, vy, vz` |
 | The mean wind, and the gusts on it | A log-law height profile, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y)` |
 | The summary a level or a lab quotes | Hs = 4√m₀ over the sampled spectrum, Tp at the peak | `seaSummary(sea, offshore) → { Hs, Tp }` |
 
@@ -91,9 +91,12 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
   the picture, and it is the single most visible way this game can break.
   Bigger waves are a `TUNING.sea` change, seen by everyone at once.
 - **A wave has a CEILING, and it is stated twice.** Per component, the
-  steepness `Q·k·A` stays under 1 or the trochoid loops over itself (a
-  Gerstner wave past that is a curl the hull falls through); across
-  components, McCowan clips the total against the local depth. A sea that
+  crest correction is evaluated at `crestMaxSteepness` at most, or the
+  second-order term grows a spurious bump in its own trough; across
+  components, the local SIGNIFICANT height is clipped against the depth
+  (`breakingHs`·d). Clip the significant height, never the summed
+  amplitudes — that sum is the once-in-forever superposition, and a cap on
+  it makes every sea above a few metres come out the same height. A sea that
   grows without a cap — a fetch law with no fully developed limit, a
   shoaling coefficient that runs to infinity at zero depth (K_s does; that
   is what Green's law and the breaking clip are FOR), a gust factor that

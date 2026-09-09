@@ -232,8 +232,8 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       },
     );
   }
-  if (maxDepth > R.sea.depth + A.sea.tolerance) {
-    rep.fail("R3", "depth", `the bed reaches ${fmt(maxDepth)} m (rule ${R.sea.depth} m)`, {
+  if (maxDepth > R.sea.openDepth + A.sea.tolerance) {
+    rep.fail("R3", "depth", `the bed reaches ${fmt(maxDepth)} m (rule ${R.sea.openDepth} m)`, {
       value: maxDepth,
     });
   }
