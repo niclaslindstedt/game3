@@ -39,11 +39,11 @@
 
 import { CRAFT } from "../game/defs/craft.ts";
 import { TUNING } from "../game/defs/tuning.ts";
-import { clamp } from "../lib/math.ts";
+import { angleDiff, clamp } from "../lib/math.ts";
 import type { Rng } from "../lib/prng.ts";
 import { LEVEL_RULES as R, inBand, solidBerth } from "./rules.ts";
 import type { Route } from "./route.ts";
-import type { Gate, Ramp, Vec2 } from "./types.ts";
+import type { Gate, Ramp, Vec2, Wind } from "./types.ts";
 
 export type CoursePlan = {
   readonly gates: Gate[];
@@ -274,7 +274,7 @@ export type Water = {
  * it can cross an island or a headland the line went round; a window whose
  * chord does not hold water is a window this course cannot have.
  */
-export function layCourse(rng: Rng, route: Route, water: Water): CoursePlan | null {
+export function layCourse(rng: Rng, route: Route, water: Water, wind: Wind): CoursePlan | null {
   const S = R.search;
   const band = {
     min: R.course.offshore.min + S.offshoreSlack,
@@ -383,6 +383,16 @@ export function layCourse(rng: Rng, route: Route, water: Water): CoursePlan | nu
     }
     return { from: w.from, to };
   };
+  // R9 — the run-up crosses the sea. The waves travel the way the wind
+  // blows TO, and the run-up runs the way the path does at the ring; the
+  // angle between them has to be a right angle give or take `ramp.beam`.
+  const waveHeading = wind.from + Math.PI;
+  const acrossTheSea = (draw: AirDraw, pts: Vec2[]): boolean => {
+    const cum = cumulative(pts);
+    const at = pointAlong(pts, cum, gateD[draw.index] - draw.lead);
+    const off = Math.abs(angleDiff(waveHeading, at.heading));
+    return Math.abs(off - Math.PI / 2) <= R.ramp.beam;
+  };
   const chordOk = (draw: AirDraw, pts: Vec2[]): boolean => {
     const cum = cumulative(pts);
     const w = straightSpan(draw, pts);
@@ -405,6 +415,7 @@ export function layCourse(rng: Rng, route: Route, water: Water): CoursePlan | nu
     const w = straightSpan(draw, points);
     if (w.from < startStraight || w.to > finishD) continue;
     if (chosen.some((c) => windowOf(c).from < w.to && w.from < windowOf(c).to)) continue;
+    if (!acrossTheSea(draw, points)) continue;
     if (!chordOk(draw, points)) continue;
     chosen.push(draw);
   }

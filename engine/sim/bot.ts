@@ -8,6 +8,7 @@
 // Used by the simulation harness, the balance CLI and the tests.
 
 import { angleDiff, clamp } from "../lib/math.ts";
+import { rotate } from "../lib/quat.ts";
 import { onRampDeck, solidNear } from "../game/collision.ts";
 import { fieldGradient, sampleField } from "../lib/heightfield.ts";
 import { TUNING } from "../game/defs/tuning.ts";
@@ -228,6 +229,20 @@ function rideFor(gates: readonly Gate[], from: number, x: number, z: number, pas
   return gates[gates.length - 1];
 }
 
+/** How fast the nose is swinging ACROSS THE WATER, rad/s — the body rate
+ * turned into the world and read about the vertical.
+ *
+ * `wy` alone is the rate about the hull's own mast, and a hull leaned over
+ * on a wave face has its mast pointing sideways: a roll rate reads there as
+ * a yaw rate that is not one. In a metre of sea that borrows enough of the
+ * roll to saturate the damping term on its own, which puts the nozzle hard
+ * over twice a second on a straight — and a jet that is sawing is a jet
+ * that is not driving. A rider reads the swing against the horizon.
+ */
+function yawRate(c: GameState["craft"]): number {
+  return rotate(c.q, { x: c.wx, y: c.wy, z: c.wz }).y;
+}
+
 export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): CraftInput {
   const c = state.craft;
   const gates = state.level.course.gates;
@@ -296,7 +311,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
       )
     : c.onRamp
       ? 0
-      : clamp(error * profile.steerGain - c.wy * Math.min(profile.yawLead, eta), -1, 1);
+      : clamp(error * profile.steerGain - yawRate(c) * Math.min(profile.yawLead, eta), -1, 1);
   // READING THE WATER. Shallows ahead — the bed within `shoalDepth` of the
   // surface at the point the hull will be in `shoalAhead` seconds — turn
   // the bow toward deeper water, gate or no gate: a rider sees the beach

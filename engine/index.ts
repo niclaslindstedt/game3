@@ -121,7 +121,7 @@ export { bearingToNext, crossedGate, crossedLine, gatesReached, resetPose } from
 export * from "./mapgen/index.ts";
 
 // The headless simulator and its bot rider.
-export { simulateStage, type RunReport, type SimOptions } from "./sim/simulate.ts";
+export { simulateStage, SIM_SECONDS, type RunReport, type SimOptions } from "./sim/simulate.ts";
 export { botInput, launchSpeedFor, RIDER_BOT, type BotProfile } from "./sim/bot.ts";
 export { type RunTape, type TapeSample } from "./sim/tape.ts";
 

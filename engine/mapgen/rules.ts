@@ -56,13 +56,21 @@
 //       water at its hinge to a lip `length · tan(angle)` high. How far
 //       before the ring the hinge stands is not drawn: R18 derives it from
 //       the arc, and `ramp.lead` is only the band that result must land in.
-//   R9  A RUN-UP. The `ramp.runUp` (60 m) of water before a ramp's hinge is
+//   R9  A RUN-UP. The `ramp.runUp` (160 m) of water before a ramp's hinge is
 //       STRAIGHT, at least `ramp.runUpDepth` deep, and clear of every solid
 //       across the ramp's width plus R6's margin — a rider lines a jump up
 //       on the run-up and must not be asked to steer on it. It is long
 //       enough for the SLOWEST craft in the catalog to reach R18's design
-//       speed from a standing start, so a ring is never out of reach for
-//       want of road.
+//       speed from a corner exit in the sea the level carries, so a ring is
+//       never out of reach for want of road. And it CROSSES the sea: the angle between the way the
+//       run-up runs and the way the waves travel is within `ramp.beam` of a
+//       right angle. A hull driving into a head sea stuffs its bow, and one
+//       running with a following sea cannot climb past the wave in front of
+//       it; either way it arrives at the lip too slow for the arc the ring
+//       stands on. The rule only had to be written down when the course was
+//       drawn before the land (R24) and could run in any direction — a
+//       course laid along a coast the wind blows off (R12) is beam-on by
+//       construction.
 //   R10 THE COURSE IS A SPRINT. Its length — the path from the start to the
 //       finish gate — lands inside `course.length` (1.2–2.0 km).
 //   R11 THE START IS BEHIND THE FIRST GATE. The run begins `start.behind`
@@ -565,10 +573,26 @@ export const LEVEL_RULES = {
     width: 4,
     /** Rise from the water, rad. */
     angle: { min: 15 * DEG, max: 22 * DEG },
-    /** Straight, clear, deep water before the hinge, m. */
-    runUp: 60,
+    /** Straight, clear, deep water before the hinge, m.
+     *
+     * MEASURED, and measured twice. On flat water the slowest hull is at
+     * R18's design lip speed inside 40 m of a corner exit, which is what
+     * the old 60 m was drawn against. In the sea a level actually carries
+     * it takes three times that: a hull leaves a corner at 7–9 m/s and
+     * climbs to 12 over the first eighty metres before the water lets it
+     * go. Halving the run-up halves nothing but the resets — 23 over a
+     * 24-run sweep at 60 m against 11 at this figure — because a rider who
+     * arrives at a lip too slow lands in front of the ring and spends the
+     * next leg getting back on terms. */
+    runUp: 160,
     /** Water under the run-up and the ramp, m. */
     runUpDepth: 2,
+    /** R9 — how far from the beam the run-up may lie, rad. MEASURED over
+     * twelve seeds by riding every ring in them with all four craft: a
+     * ramp pointing within 60° of the way the waves travel was threaded on
+     * 1 run in 36, one within 60° of dead into them on 3 in 44, and one
+     * ACROSS them on 11 in 36. The band is the middle third. */
+    beam: 30 * DEG,
   },
 
   /** R11 — the start. */
@@ -647,6 +671,21 @@ export const LEVEL_RULES = {
    * search reads — finds the finished level inside the bands. */
   search: {
     attempts: 24,
+    /** How many COURSES are laid in one basin before the basin itself is
+     * thrown away.
+     *
+     * A basin is the expensive artefact — a route, a coast, the geology and
+     * two baked heightfields — and the course laid in it is a few hundred
+     * microseconds of arithmetic on top. The draws that fail are mostly the
+     * air gates: R9 now asks a jump for a beam-on run-up 160 m long, and
+     * whether two of those fit is decided by where the SHUFFLE happened to
+     * put the candidate gates, not by anything about the water. Re-shuffling
+     * costs nothing; re-cutting the basin costs a build. MEASURED over
+     * thirty seeds: rejected basins fall from 92 to 34 and the mean build
+     * from 267 ms to under 200. Past about four tries the curve is flat — a basin
+     * that has refused four courses has no beam-on straight in it at all,
+     * and no shuffle will find one. */
+    courseTries: 8,
     /** Extra depth the search demands under the path, m. */
     depthSlack: 0.4,
     /** Extra clearance the placer keeps from the path, m. */

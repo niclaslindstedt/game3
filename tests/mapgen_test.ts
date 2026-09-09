@@ -16,6 +16,7 @@ import {
   ANALYSIS,
   CRAFT,
   LEVEL_RULES as R,
+  angleDiff,
   airCorridor,
   arcHeight,
   biomeOf,
@@ -354,6 +355,22 @@ describe("level generator", () => {
             c.halfWidth,
           );
         }
+      }
+    }
+  });
+
+  it("R9 — every run-up crosses the sea rather than running into or down it", () => {
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      // The waves travel the way the wind blows TO; the run-up runs the way
+      // the ramp points. The angle between them is a right angle give or
+      // take `ramp.beam` — a jump into a head sea is one a hull arrives at
+      // too slow for the arc its ring stands on.
+      const waveHeading = level.wind.from + Math.PI;
+      for (const g of level.course.gates) {
+        if (g.kind !== "air") continue;
+        const off = Math.abs(angleDiff(waveHeading, g.ramp!.heading));
+        expect(Math.abs(off - Math.PI / 2)).toBeLessThanOrEqual(R.ramp.beam + 1e-9);
       }
     }
   });

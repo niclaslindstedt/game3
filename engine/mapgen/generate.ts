@@ -84,7 +84,14 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       density: biome.water.density,
       temperature: inBand(rng, biome.water.temperature),
     };
-    const course = layCourse(rng, route, { offshoreAt, depthAt });
+    // The basin is the expensive thing; the course in it is not. A draw
+    // that cannot fit R9's two beam-on run-ups is usually a shuffle that
+    // put the candidate gates in the wrong order, so the course is drawn
+    // again before the basin is given up (`search.courseTries`).
+    let course = null;
+    for (let try_ = 0; try_ < R.search.courseTries && !course; try_++) {
+      course = layCourse(rng, route, { offshoreAt, depthAt }, wind);
+    }
     if (!course) {
       lastReason = "the basin cannot carry a course";
       warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);

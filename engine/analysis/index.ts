@@ -625,6 +625,19 @@ function analyzeAirGate(
       value: bent,
     });
   }
+  // R9 — and it crosses the sea rather than running along it: the waves
+  // travel the way the wind blows to, and a ramp pointed within `ramp.beam`
+  // of a right angle to that is one a hull can arrive at on the plane.
+  const off = Math.abs(angleDiff(level.wind.from + Math.PI, ramp.heading));
+  const fromBeam = Math.abs(off - Math.PI / 2);
+  if (fromBeam > R.ramp.beam + A.heading) {
+    rep.fail(
+      "R9",
+      "beam",
+      `${gate.id}'s run-up lies ${fmt((fromBeam * 180) / Math.PI)}° off the beam (rule ${fmt((R.ramp.beam * 180) / Math.PI)}°)`,
+      { at: ramp, value: fromBeam },
+    );
+  }
   const runUp = Math.hypot(ramp.x - c.x0, ramp.z - c.z0);
   const n = Math.ceil(runUp / A.stride);
   let shallow = Infinity;

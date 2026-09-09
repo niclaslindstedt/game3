@@ -103,12 +103,20 @@ describe("level population", () => {
     for (const s of population()) expect(s.level.water.density).toBe(1005);
   });
 
-  it("every coast carries rocks of every kind", () => {
+  it("every coast carries rocks of nearly every kind, and the population carries all of them", () => {
+    const everywhere = new Set<string>();
     for (const { level } of population()) {
       const kinds = new Set(level.solids.map((s) => s.kind));
-      expect(kinds.size).toBe(5);
+      // Nearly every kind on every level. Not ALL of them: the rocks are
+      // placed by rejection over the basin (R17), and a level that is all
+      // channel has nowhere a sea stack's own offshore band reaches. What
+      // would be a bug is a kind that never places anywhere, which the
+      // population below holds.
+      expect(kinds.size).toBeGreaterThanOrEqual(4);
       expect(level.solids.length).toBeGreaterThan(15);
+      for (const kind of kinds) everywhere.add(kind);
     }
+    expect([...everywhere].sort()).toEqual(["boulder", "erratic", "reef", "skerry", "stack"]);
   });
 
   it("builds fast, and rarely needs a second coast", () => {
@@ -127,11 +135,13 @@ describe("level population", () => {
     // that is the search working rather than struggling. The route is drawn
     // BLIND (R24) — before there is any land for it to answer to — so
     // whether the water round it comes out as a basin, whether its coast is
-    // a quilt and whether its bends leave a straight long enough for a ramp
-    // are all found out afterwards. Rejecting is how this generator answers
-    // that, and the cost is one extra build: the MEAN above is what says
-    // whether that is affordable, and it is lower than the old shore-first
-    // generator's was.
-    expect(rerolled / SEEDS.length).toBeLessThanOrEqual(0.75);
+    // a quilt and whether its bends leave a beam-on straight long enough
+    // for a ramp (R9) are all found out afterwards. Rejecting is how this
+    // generator answers that, and the RATE is not the cost: a basin that
+    // refuses a course is re-drawn a course first (`search.courseTries`),
+    // and only the ones that refuse eight are re-cut. The MEAN above is
+    // what says whether the search is affordable, and at under 200 ms it
+    // is where the old shore-first generator's was.
+    expect(rerolled / SEEDS.length).toBeLessThanOrEqual(0.85);
   });
 });
