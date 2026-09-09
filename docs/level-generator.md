@@ -19,7 +19,7 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 
 - **R1** THE SHORE IS WITHIN REACH. The course lives beside the land, not out at sea and not on the rocks: every gate and every point of the path stands between `course.offshore.min` (15 m) and `course.offshore.max` (100 m) from the nearest shoreline.
 - **R2** LAND ENDS AT 100 m. Only the strip of country the rider can see matters: the ground rises from the waterline to a plateau of `land.plateau` metres inside `land.reach` (100 m) of the shore and is FLAT past it, and nothing on land stands higher than `land.maxHeight` (25 m). No cliffs — this is a glacially planed coast, low bedrock slabs sloping into the water.
-- **R3** THE SEA BED FALLS AWAY. Depth grows from nothing at the waterline to `sea.depth` (25 m) at `sea.reach` (250 m) out and never deeper; a bay carries a SHELF, its water `sea.shelf.factor` as deep as the open coast's over the first `sea.shelf.reach` metres.
+- **R3** THE SEA BED FALLS AWAY. Depth grows from nothing at the waterline to `sea.depth` (25 m) at `sea.reach` (250 m) out, and keeps falling past it to `sea.openDepth` (60 m) by `sea.openReach` (700 m) — the open sea beyond the coastal shelf, the water a storm swell needs to stand its full height in; a bay carries a SHELF, its water `sea.shelf.factor` as deep as the open coast's over the first `sea.shelf.reach` metres.
 - **R4** GATES COME EVERY 80–150 m. Consecutive gates are `gate.spacing.min` to `gate.spacing.max` metres apart along the path, and a water gate's buoys stand `gate.width` metres apart.
 - **R5** DEEP WATER UNDER THE LINE. The sea is at least `course.minDepth` (1.5 m) deep under every point of the path, start to finish.
 - **R6** CLEAR OF THE ROCKS. Every solid — skerry, boulder or reef — keeps at least `course.solidMargin` (6 m) of open water between its edge and the path, and between its edge and every buoy.
@@ -52,6 +52,7 @@ Every band above is a row of `LEVEL_RULES`; these are the ones a tuner reaches f
 |          | `plateau`                    | 8–20              | m     | R2   |
 |          | `slab.amplitude`             | 1.6               | m     | R2   |
 | `sea`    | `depth` / `reach`            | 25 / 250          | m     | R3   |
+|          | `openDepth` / `openReach`    | 60 / 700          | m     | R3   |
 |          | `shelf.factor`               | 0.55              | —     | R3   |
 | `course` | `offshore`                   | 15–100            | m     | R1   |
 |          | `aim`                        | 25–90             | m     | R1   |

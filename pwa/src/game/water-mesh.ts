@@ -99,6 +99,20 @@ const SKY = c(PALETTE.skyHigh);
 const CREST_SHARE = 0.55;
 const CREST_MIN = 0.25;
 const CREST_TINT = 0.45;
+/** THE TILT BANDS ARE RELATIVE TO THE SEA THEY ARE READ IN. A tilt
+ * (1 − n_y) of 0.09 is the surface standing at Michell's breaking
+ * steepness, so as an ABSOLUTE threshold it is the right place to foam a
+ * wind sea — whose crests only just reach it. But a big quoted swell is
+ * steep over its whole face by construction, and an absolute band paints
+ * every one of its vertices white: a twenty-metre sea comes out a
+ * snowfield with a jet ski on it. So each band below is held against the
+ * SEA'S OWN characteristic tilt as well — the tilt of a sinusoid of its
+ * significant height at its peak wavelength — and the wider of the two
+ * wins. A gentle sea is unchanged (its own tilt puts the relative band
+ * back at the absolute one); a monster sea foams only where it is steep
+ * FOR ITSELF. */
+const FOAM_REL_FROM = 3.5;
+const FOAM_REL_TO = 8;
 /** WHITECAPS: the wind, m/s, they start blowing at and the wind at which
  * every crest carries one; how high a crest stands, as a share of the
  * significant height, before it caps; and the tilt band (1 − n_y) that
@@ -313,6 +327,15 @@ export function createWaterMesh(): WaterMesh {
     farNormAttr.needsUpdate = true;
     // Where the crest tint and the whitecaps stand for this sea.
     const crestHeight = Math.max(CREST_MIN, CREST_SHARE * sea.hsRef);
+    // The sea's own characteristic tilt: a sinusoid of its significant
+    // height at its deep-water peak wavelength, at its steepest point.
+    const seaLambda = (9.81 * sea.tp * sea.tp) / (2 * Math.PI);
+    const seaSlope = seaLambda > 0 ? (Math.PI * sea.hsRef) / seaLambda : 0;
+    const seaTilt = 1 - 1 / Math.hypot(1, seaSlope);
+    const foamFrom = Math.max(0.04, FOAM_REL_FROM * seaTilt);
+    const foamTo = Math.max(0.09, FOAM_REL_TO * seaTilt);
+    const capTiltFrom = Math.max(WHITECAP_TILT, FOAM_REL_FROM * seaTilt * 0.3);
+    const capTiltTo = Math.max(WHITECAP_TILT_FULL, FOAM_REL_TO * seaTilt * 0.4);
     const whitecaps = clamp(
       (sea.windSpeed - WHITECAP_WIND) / (WHITECAP_WIND_FULL - WHITECAP_WIND),
       0,
@@ -398,9 +421,9 @@ export function createWaterMesh(): WaterMesh {
         const cap =
           whitecaps *
           smoothstep(WHITECAP_CREST * sea.hsRef, 1.15 * sea.hsRef, sample.height) *
-          smoothstep(WHITECAP_TILT, WHITECAP_TILT_FULL, tilt);
+          smoothstep(capTiltFrom, capTiltTo, tilt);
         const foam = clamp(
-          smoothstep(0.04, 0.09, tilt) +
+          smoothstep(foamFrom, foamTo, tilt) +
             smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt) +
             cap * 0.8,
           0,

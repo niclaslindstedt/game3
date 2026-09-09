@@ -39,7 +39,23 @@ export const TUNING = {
     viscosity: 1.14e-6,
   },
 
-  /** THE SEA — the wave field built from the wind (`water.ts`). */
+  /** THE SEA — the wave field built from the wind (`water.ts`).
+   *
+   * A WAVE IS FOUR NUMBERS and everything else is derived from them:
+   * its HEIGHT H (crest to trough), its WAVELENGTH λ (crest to crest),
+   * its PERIOD T (crest to crest past a point) and its DIRECTION. From
+   * those come its CELERITY c = λ/T (how fast the crest travels), its
+   * STEEPNESS H/λ (which is what the eye actually reads, and which breaks
+   * the wave past Michell's 1/7), and — against the water it stands in —
+   * the DEPTH RATIO d/λ, which decides whether it is a deep-water wave
+   * (d/λ > ½, the bed does nothing), an intermediate one, or a shallow-
+   * water wave (d/λ < 1/20, the bed has it entirely). A SEA is a spread
+   * of those: a spectrum of heights and periods about a peak, fanned
+   * about a mean direction.
+   *
+   * So the dials below come in five groups — how BIG (the energy), how
+   * LONG (the scale), how SHARP (the shape), how CONFUSED (the spread),
+   * and what WATER it stands in. `docs/water.md` has the whole board. */
   sea: {
     /** How many Gerstner components the field is summed from. Eight is
      * enough to lose the visible periodicity of a single sine and few enough
@@ -50,9 +66,46 @@ export const TUNING = {
      * the tail past 2.5 f_p is too short to feel through a hull. */
     bandLow: 0.7,
     bandHigh: 2.4,
+    /** ...but `bandHigh` is a multiple of the PEAK, and a big sea's peak
+     * is slow: at a twelve-second peak, 2.4 f_p is still a five-second,
+     * forty-metre wave, so a storm swell comes out with no wind chop on
+     * it at all — a mirror the size of a hill, which is the one thing a
+     * storm does not look like. The band's short end is therefore also
+     * held to an ABSOLUTE shortest period, s, and the wider of the two
+     * wins: a four-second wind sea is untouched (2.4 f_p is already
+     * shorter than this), and a swell gets the chop that rides on it.
+     * The floor is what the water mesh can still draw — 2.5 s is a ten-
+     * metre wave, some six cells at the craft. */
+    minPeriod: 2.5,
     /** Directional spread half-width about the wind, radians (~35°) — a
-     * cos² spread (Longuet-Higgins 1963) truncated there. */
+     * cos² spread (Longuet-Higgins 1963) truncated there. How CONFUSED
+     * the sea is across the frame: at 0 every component runs the same
+     * way and the sea is a corduroy of parallel crests; wide, the crests
+     * cross and the surface is a chop with no direction to it. */
     spread: 0.6,
+    /** JONSWAP's peak enhancement γ, dimensionless — how much of the
+     * sea's energy sits AT the peak period rather than spread around it.
+     * 3.3 is Hasselmann et al. (1973)'s mean for the North Sea and the
+     * value the spectrum is usually quoted at; 1 collapses JONSWAP to
+     * Pierson–Moskowitz (a broad, fully developed sea, every wavelength
+     * represented); 7 is a narrow, ordered swell where wave follows wave
+     * at nearly one length. Higher reads as ORDER, lower as confusion. */
+    peakEnhancement: 3.3,
+    /** HOW BIG, as a plain multiple of what the fetch law grows — the one
+     * place the wind sea's height is allowed to be more than the Baltic
+     * would give a 2–12 m/s wind. The growth SHAPE is untouched (the
+     * fetch ratio is a ratio, so it cancels): only the metre the sea is
+     * quoted in moves. 1 is the honest ocean. An ARCADE DIAL. */
+    heightScale: 1.5,
+    /** HOW LONG — a plain multiple on the wind sea's peak period, and so
+     * (through L₀ = g·T²/2π) on its WAVELENGTH, which moves as the
+     * SQUARE of this. It is the frequency dial: under 1 the same sea
+     * arrives in shorter, steeper, more frequent waves — a wave meets
+     * the bow every two seconds instead of every three — and over 1 it
+     * stretches into a longer, gentler swell. Steepness Hs/L₀ goes as
+     * `heightScale / periodScale²`, so these two together are the whole
+     * of how a wind sea reads. An ARCADE DIAL. */
+    periodScale: 1.0,
     /** THE FETCH the level's shore is stood in front of. A level is a
      * kilometre of coast, but the fetch-limited growth laws work in tens of
      * kilometres: a hundred metres of real fetch grows a four-centimetre
@@ -74,8 +127,34 @@ export const TUNING = {
      * every wave to nothing worth drawing. */
     minDepth: 0.15,
     /** McCowan (1894): a solitary wave breaks when its height passes 0.78
-     * of the depth. Applied to the summed height at a point. */
+     * of the depth. It bounds ONE wave, so it is quoted here for the labs
+     * and the analyzer; the field's own limit is `breakingHs` below, on
+     * the sea rather than on a wave. */
     breakingRatio: 0.78,
+    /** DEPTH-LIMITED SIGNIFICANT HEIGHT, Hs/d — what the surface is
+     * actually clipped to. Nelson (1994) measures Hs/d ≈ 0.55 for an
+     * irregular sea over a flat bed, and Hs is what the spectrum carries,
+     * so this is the limit the model can hold a random sea to honestly.
+     * (McCowan's 0.78 applied to the SUM of the component amplitudes — the
+     * once-in-forever superposition, ~1.8× the significant amplitude —
+     * held a sea in twenty-five metres of water to a third of the height
+     * its own spectrum carried, and made every quoted sea above six
+     * metres come out the same ten. The individual crests still ride past
+     * this, as they do in nature.) A MEASUREMENT. */
+    breakingHs: 0.55,
+    /** CREST SHARPNESS, as a multiple of Stokes' own second-order term.
+     * The field sums linear (sinusoidal) components, whose crests are
+     * rounded humps; Stokes (1847) second order adds −½·k·a²·cos 2φ per
+     * component, lifting and peaking the crest and filling the trough
+     * flat, which is the shape a real wave has and the shape the eye
+     * reads as water. 1 is the textbook coefficient; above it the peaking
+     * is exaggerated past the physics. An ARCADE DIAL. */
+    crestSharpness: 1.6,
+    /** ...and the steepness a·k the correction is evaluated at, at most.
+     * The second-order expansion is asymptotic in a·k and grows bumps in
+     * the trough once it is pushed past its range; Stokes' own series is
+     * quoted to about a third. */
+    crestMaxSteepness: 0.32,
     /** Depth table pitch, m, and reach, m, for the per-component shoaling
      * lookup (`buildTable` in water.ts). A tenth of a metre resolves the
      * shallows where the coefficient actually moves; the reach is past
@@ -85,12 +164,23 @@ export const TUNING = {
      * generator's own bed stops at −25 m. */
     tableStep: 0.1,
     tableDepth: 250,
-    /** Significant steepness Hs/L₀ of a grown wind sea, dimensionless —
-     * a mature sea runs 0.03–0.05 (Toba 1972's 3/2 law lands there), and
-     * this is what turns a sea quoted by its height alone
-     * (`SeaOverride`) into a period. A MEASUREMENT: steeper is a younger,
-     * shorter sea. */
-    steepness: 0.04,
+    /** Significant steepness Hs/L₀, dimensionless — what turns a sea
+     * quoted by its height alone (`SeaOverride`) into a period, and so
+     * into a WAVELENGTH: L₀ = Hs/steepness. It is the one number that
+     * decides whether a big sea reads as a wave or as a tilted floor,
+     * because what the eye reads is the FACE, and the face's angle is the
+     * steepness — not the height. A mature ocean sea runs 0.03–0.05 (Toba
+     * 1972), which is why the real twenty-metre sea is a five-hundred-
+     * metre swell with a ten-degree face: at sea you feel it and from a
+     * boat you cannot see it. The game wants the young, wind-driven
+     * storm sea instead — a wall — so this sits above nature's range and
+     * under Michell's 1/7 breaking limit (0.142) — far enough under it
+     * that the sea is not uniformly ON the point of breaking, which is
+     * both wrong and unreadable: a face at the limit everywhere is a
+     * face the renderer paints entirely in foam, and a twenty-metre sea
+     * comes out looking like a snowfield. An ARCADE DIAL: the deliberate
+     * place the sea is steeper than the Baltic would give. */
+    steepness: 0.09,
   },
 
   /** THE WIND (`wind.ts`). */

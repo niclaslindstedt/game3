@@ -154,8 +154,10 @@ describe("level generator", () => {
         }
         if (offshore.data[i] >= 8 && ground.data[i] >= 0) dry++;
       }
-      expect(deepest).toBeLessThanOrEqual(R.sea.depth + 1);
+      expect(deepest).toBeLessThanOrEqual(R.sea.openDepth + 1);
       expect(far).toBeGreaterThan(0);
+      // Past the reach the shelf is complete; the bed goes on falling to
+      // the open sea from there, so this is a floor and not a band.
       expect(shallowestFar).toBeGreaterThanOrEqual(R.sea.depth - 1);
       expect(dry).toBe(0);
     }

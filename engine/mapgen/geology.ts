@@ -50,10 +50,16 @@ export type Geology = {
   sample(x: number, z: number): { ground: number; offshore: number };
 };
 
-/** R3 — the open coast's bed profile: depth (positive) at `offshore` m. */
+/** R3 — the open coast's bed profile: depth (positive) at `offshore` m.
+ * The concave shelf to `sea.depth` at `sea.reach`, then on down to
+ * `sea.openDepth` by `sea.openReach` — the open sea, where a swell has
+ * water enough to stand its whole height. */
 export function bedDepth(offshore: number): number {
   const t = clamp(offshore / R.sea.reach, 0, 1);
-  return R.sea.depth * (1 - (1 - t) * (1 - t));
+  const shelf = R.sea.depth * (1 - (1 - t) * (1 - t));
+  if (offshore <= R.sea.reach) return shelf;
+  const out = clamp((offshore - R.sea.reach) / (R.sea.openReach - R.sea.reach), 0, 1);
+  return R.sea.depth + (R.sea.openDepth - R.sea.depth) * smooth(out);
 }
 
 /** R3 — the shelf: the bed's depth multiplier at `offshore` m out from a

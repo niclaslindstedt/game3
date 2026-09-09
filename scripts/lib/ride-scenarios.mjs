@@ -198,6 +198,27 @@ export const SCENARIOS = {
       };
     },
   },
+  storm: {
+    blurb: "beam-on to a monster swell in the open sea, half a kilometre out",
+    seconds: 10,
+    stage: (level) => {
+      // Far enough out that R3's bed has fallen past forty metres: the
+      // sea is clipped to `TUNING.sea.breakingHs`·d, so a twenty-metre
+      // swell is only itself where the water is deep enough to hold it.
+      // Pair with the lab's `--hs 20`.
+      const p = outerPoint(level);
+      const out = 500;
+      return {
+        moment: {
+          x: p.x + Math.sin(level.wind.from) * -out,
+          z: p.z + Math.cos(level.wind.from) * -out,
+          heading: level.wind.from + Math.PI / 2,
+          speed: 12,
+        },
+        input: () => ({ ...NEUTRAL, throttle: 0.5 }),
+      };
+    },
+  },
   backflip: {
     blurb: "the first ramp with the rider held back through the whole flight",
     seconds: 7,
