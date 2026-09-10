@@ -36,6 +36,7 @@ import type { GameState } from "@engine";
 
 import { Builder, type P } from "../lib/lowpoly.ts";
 import type { Cockpit } from "./craft-body.ts";
+import { FINISH, craftSurface } from "./craft-surface.ts";
 import {
   BODY,
   REST_READ,
@@ -80,6 +81,28 @@ const PAINT = {
    * full-face's front is from any distance that matters. */
   visor: 0x14181e,
 };
+
+/** What each of those is finished in (`FINISH`, craft-surface.ts): the
+ * shell and the visor flare, the wet skin and the wet suit carry a sheen,
+ * the nylon and the leather do not. Keyed by the paint, because every
+ * segment names its colour and a segment's colour is its material. */
+const RIDER_FINISH: Record<keyof typeof PAINT, number> = {
+  skin: FINISH.skin,
+  suit: FINISH.neoprene,
+  suitLight: FINISH.neoprene,
+  vest: FINISH.cloth,
+  vestBack: FINISH.cloth,
+  orange: FINISH.pad,
+  glove: FINISH.cloth,
+  boot: FINISH.cloth,
+  shellLow: FINISH.shell,
+  helmet: FINISH.shell,
+  visor: FINISH.shell,
+};
+const FINISH_OF = new Map<number, number>(
+  (Object.keys(PAINT) as (keyof typeof PAINT)[]).map((key) => [PAINT[key], RIDER_FINISH[key]]),
+);
+const finishOf = (paint: number): number => FINISH_OF.get(paint) ?? FINISH.cloth;
 
 /** How many facets each part is lofted with. This is the one dial between
  * a rounded man and the cost of rebuilding him: the figure is re-emitted
@@ -151,6 +174,7 @@ function segment(
   const u = across(hint, axis);
   const v = cross(axis, u);
   const colours = typeof paint === "number" ? new Array<number>(n).fill(paint) : paint;
+  const finishes = colours.map(finishOf);
   const out: P[][] = rings.map((r) => {
     const o = add(add(a, scale(sub(to, a), r.t)), scale(v, k(r.o ?? 0)));
     const ring: P[] = [];
@@ -166,7 +190,8 @@ function segment(
     }
     return ring;
   });
-  b.loft(out, colours, true);
+  b.loft(out, colours, true, finishes);
+  b.finish = finishes[0];
   if (caps[0]) b.cap(out[0], colours[0], true);
   if (caps[1]) b.cap(out[out.length - 1], colours[0], false);
 }
@@ -350,6 +375,7 @@ function figure(b: Builder, p: RiderPose): void {
       }
       return ring;
     });
+    b.finish = FINISH.shell;
     for (let i = 0; i < livery.length; i++) b.loft([rings[i], rings[i + 1]], livery[i], true);
     b.cap(rings[0], PAINT.visor, true);
     b.cap(rings[rings.length - 1], PAINT.helmet, false);
@@ -581,8 +607,11 @@ export type Rider = {
   dispose: () => void;
 };
 
-/** The rider for a cockpit, sat at rest until posed. */
-export function createRider(cockpit: Cockpit): Rider {
+/** The rider for a cockpit, sat at rest until posed. `surface` is the
+ * material he is drawn with — the renderer hands in the one the craft is
+ * drawn with, on the sky's own uniforms; left out, he carries a plain one
+ * of his own. */
+export function createRider(cockpit: Cockpit, surface?: THREE.Material): Rider {
   const builder = new Builder();
   const dynamics = createRiderDynamics();
   const draw = (p: RiderPose): void => {
@@ -595,7 +624,8 @@ export function createRider(cockpit: Cockpit): Rider {
   // recomputed off every frame's triangles is a sphere computed for
   // nothing.
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0.9, 0.3), 1.6);
-  const material = new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true });
+  const owned = surface === undefined;
+  const material = surface ?? craftSurface();
   const mesh = new THREE.Mesh(geometry, material);
 
   const pose = (p: RiderPose): void => {
@@ -615,7 +645,7 @@ export function createRider(cockpit: Cockpit): Rider {
     reset: () => dynamics.reset(),
     dispose: () => {
       geometry.dispose();
-      material.dispose();
+      if (owned) material.dispose();
     },
   };
 }

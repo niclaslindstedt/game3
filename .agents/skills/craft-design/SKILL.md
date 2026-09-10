@@ -22,6 +22,7 @@ skill for any code change.
 | Piece | Role |
 | --- | --- |
 | `pwa/src/game/craft-body.ts` | The assembly line: one cross-section per station (keel, chine, spray strake, the rail's two edges, the coaming, down into the footwell, across to the pedestal, up over its crown) lofted along stations whose rise and taper are read off `TUNING.hull` — the physics' own probe tables — so the drawn keel is the probes' keel; then the saddle loft, the boarding bumper, the sponsons, the pump housing and nozzle, the steering pod, column, bars, grips and mirrors. Everything is ONE vertex-coloured geometry with a per-facet brightness hash, drawn as one mesh |
+| `pwa/src/game/craft-surface.ts` | THE SURFACE: the one lit material the hull and the rider are drawn with — Phong over the flat facets for the sun's highlight, the sky along the reflected ray (`skyAlong`, the water's own function on the water's own uniforms) mixed in by Fresnel, both scaled by the vertex's FINISH. `FINISH` is the table of what everything is finished in (gel coat, paint, chrome, moulding, vinyl, rubber, mat; the rider's shell, neoprene, skin, cloth, pad); the builder's `finish` pen writes it per vertex. Compiled for the sheet count like the water (`applyCraftSky`); with no sky bundle it is the same Phong without the mirror, for the turntable |
 | `pwa/src/game/craft-styles.ts` | The styles — one `CraftStyle` per catalog id: the paint (hull, topside, rail, deck, seat and its top insert, tray, bar, grip) and a `CraftShape` (the bow's rake, the hood's height, the saddle's length and height, the column's length, the sponsons' reach). **Pure data, no three.js import** (Node tooling loads it). `RUNABOUT` is the one authored shape; the sit-downs spread it with a knob or two each, the dart is its own |
 | `engine/game/defs/craft.ts` | NOT this skill's file — the physics row. The builder READS `length`, `beam`, `height`, `deadrise` and `cog` from it, and the station tables from `TUNING.hull`; a style never restates them |
 | `scripts/craft-preview.mjs` | `make crafts` — the elevation sheet: every craft from the real builder in side, bow, stern, plan and chase views, the rest waterline (`restY`) and every probe (`hullProbes`) over it, and a table of draft, freeboard, bar height and triangle count. Pure Node through `aliasEngine`, no build |
@@ -72,9 +73,14 @@ skill for any code change.
   most of this for free because they come from the catalog; the colours
   and the seat/bars proportions do the rest.
 - **Match the world's art direction**: faceted, chunky, flat-shaded under
-  the hemisphere light, colours from `identity.ts`'s palette. No smooth
+  the scene's two lights, colours from `identity.ts`'s palette. No smooth
   curves — the loft's hard stations ARE the style, and the per-face
-  normals are what keep them reading as stations.
+  normals are what keep them reading as stations. What a low sun does to
+  the hull is the surface's (`craft-surface.ts`): the highlight swinging
+  from one facet to the next as it rolls, and the sky lying along the
+  sheer — judge a craft at dawn and dusk (`--hour 5.5`, `--hour 20.6`)
+  as well as at noon, because a hull that reads at noon and not at
+  sunset is a hull the sky is not in.
 - **The waterline is honest.** At rest the hull sits at the physics' draft;
   the drawn hull's bottom must be at the depth the probes are, and the
   gunwale must be above the water by what the freeboard implies. A hull
@@ -93,6 +99,11 @@ skill for any code change.
   craft. New parts go through the builder's helpers (`loft`, `cap`,
   `box`, `tube`), never a three.js primitive with its own material; the
   per-facet brightness hash keeps a big flat colour from reading plastic.
+  **What a part is FINISHED in rides the vertices, not the material**:
+  set the builder's `finish` pen (a `FINISH` entry) before drawing a part,
+  or hand the hull loft one finish per panel beside its paint. A new part
+  drawn under the last part's pen is a rubber grip that flares like gel
+  coat, and nothing but the picture says so.
 - **The builder reads the row and the physics; the style adds only what
   neither says.** Colours, the bow's rake, the hood's height, the saddle's
   proportions, the column's length, the sponsons' reach are style; length,

@@ -422,6 +422,20 @@ export function writeDrift(
  * twenty on the water. */
 export const MIRROR_RIM = RIM_BAND * 2.5;
 
+/** THE SKY AS A ROUGH MIRROR REFLECTS IT — the build every surface that
+ * mirrors the sky is compiled with: the water (`water-shader.ts`) and the
+ * craft's shell and its rider's helmet (`craft-surface.ts`). Well under the
+ * dome's: a mirror wants the sky's MASS rather than its edges, because an
+ * edge reflected sharp through a spread of wave slopes or across a hull's
+ * facets lands as hard streaks, and it is a far bigger pass than the sky.
+ * Two sheets is every stack the cloud chart rolls (a deck and its scud, a
+ * veil and its cumulus); three octaves is the mass and one arm of erosion;
+ * and no sun, because a surface's own highlight IS the sun's image and a
+ * second one added through the mirror is one sun too many. */
+export function mirrorBuild(layers: number): SkyBuild {
+  return { octaves: 3, layers, sunlit: false, sun: false, rimBand: MIRROR_RIM, soften: 0.35 };
+}
+
 function smooth01(t: number): number {
   const x = t < 0 ? 0 : t > 1 ? 1 : t;
   return x * x * (3 - 2 * x);
