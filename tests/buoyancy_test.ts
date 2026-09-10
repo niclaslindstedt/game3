@@ -133,7 +133,7 @@ describe("stability", () => {
     // the throttle is held through it to show the engine cut.
     let idledWhileRighting = false;
     for (let i = 0; i < 1.5 * TUNING.physicsHz; i++) {
-      step(state, { steer: 0, throttle: 1, lean: 0, reset: false });
+      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
       for (const e of state.events) events.push(e.kind);
       if (state.craft.righting > 0 && state.craft.rpm === state.craft.spec.idleRpm) {
         idledWhileRighting = true;

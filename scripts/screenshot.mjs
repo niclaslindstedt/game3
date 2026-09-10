@@ -57,6 +57,7 @@ const SCENES = [
   "rest",
   "cruise",
   "carve",
+  "brake",
   "chop",
   "swell",
   "launch",

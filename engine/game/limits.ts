@@ -18,6 +18,19 @@ export function maxNozzle(spec: CraftSpec): number {
   return spec.nozzleAngle;
 }
 
+/** How far the nozzle may be trimmed above or below the hull's axis, rad;
+ * 0 on a craft with no trim system. */
+export function maxTrim(spec: CraftSpec): number {
+  return spec.trimRange;
+}
+
+/** The share of the jet's thrust the bucket can send back the other way
+ * with the gate fully down; 0 on a craft with no bucket, which therefore
+ * has no brake and no reverse. */
+export function maxReverse(spec: CraftSpec): number {
+  return spec.bucket.reverse;
+}
+
 /** The rider's full lean, either way, as the input scale: 1. */
 export const MAX_LEAN = 1;
 
@@ -28,9 +41,9 @@ export function jetCeiling(spec: CraftSpec): number {
 }
 
 /** The rider's pitch authority in the air, N·m at full lean — the same
- * number `flight.ts` applies. */
-export function airPitchTorque(): number {
-  return TUNING.flight.leanTorque;
+ * number `flight.ts` applies, this craft's rider included. */
+export function airPitchTorque(spec: CraftSpec): number {
+  return TUNING.flight.leanTorque * spec.riderAuthority;
 }
 
 /** The expected top speed the spec documents, m/s. The bot reads it to

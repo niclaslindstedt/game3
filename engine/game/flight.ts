@@ -15,10 +15,12 @@
 //   length × beam, acting `cpLead` of the length ahead of the centre of
 //   gravity: a nose-up hull in a headwind lifts its nose further, which is
 //   the flat plate's static instability and what a rider leans against.
-// - Rider authority, N·m per unit input (`TUNING.flight`), stated as the
-//   arcade number it is: real riders do rotate a craft in the air by
-//   pulling on the bars and moving their mass, and the size is chosen for
-//   what the air game needs rather than measured.
+// - Rider authority, N·m per unit input (`TUNING.flight`) times the
+//   craft's own `riderAuthority`, stated as the arcade number it is: real
+//   riders do rotate a craft in the air by pulling on the bars and moving
+//   their mass, and the size is chosen for what the air game needs rather
+//   than measured. How much of it each rider HAS is the craft's, and it is
+//   most of what separates a freestyle stand-up from a touring hull.
 // - Rotational damping ∝ airspeed, an added-mass figure rather than a
 //   measured one.
 
@@ -95,10 +97,14 @@ export function aeroForces(
 
   // The rider's authority — the HOLD; the PULL that starts a flip is an
   // impulse `craft.ts` delivers. Nose-up is −x; a right roll (right side
-  // down) is −z; a clockwise yaw is +y.
-  out.tx -= clamp(lean, -1, 1) * F.leanTorque * airShare;
-  out.tz -= clamp(steer, -1, 1) * F.steerRoll * airShare;
-  out.ty += clamp(steer, -1, 1) * F.steerYaw * airShare;
+  // down) is −z; a clockwise yaw is +y. All three are scaled by how much
+  // of the craft this craft's rider actually commands (`riderAuthority`):
+  // a rider standing on a stand-up throws their whole mass about, one sat
+  // behind a backrest on a touring hull throws very little.
+  const rider = spec.riderAuthority * airShare;
+  out.tx -= clamp(lean, -1, 1) * F.leanTorque * rider;
+  out.tz -= clamp(steer, -1, 1) * F.steerRoll * rider;
+  out.ty += clamp(steer, -1, 1) * F.steerYaw * rider;
 
   // Rotational damping, rising with airspeed.
   const damp = F.rotDamp * (Math.max(speed, 5) / F.rotDampSpeed) * airShare;

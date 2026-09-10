@@ -37,6 +37,7 @@ export type ScenarioName =
   | "rest"
   | "cruise"
   | "carve"
+  | "brake"
   | "chop"
   | "swell"
   | "launch"
@@ -54,6 +55,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "rest",
   "cruise",
   "carve",
+  "brake",
   "chop",
   "swell",
   "launch",
@@ -84,7 +86,14 @@ export type Scenario = {
 const NEUTRAL = NEUTRAL_INPUT;
 
 function input(steer: number, throttle: number, lean: number): CraftInput {
-  return { steer, throttle, lean, reset: false };
+  return { steer, throttle, reverse: 0, lean, reset: false };
+}
+
+/** ...and the same with the BRAKE LEVER pulled instead of the throttle:
+ * the bucket dropping over the jet. The throttle is shut, because the
+ * bucket asks the engine for the flow it needs on its own. */
+function braking(steer: number, reverse: number): CraftInput {
+  return { steer, throttle: 0, reverse, lean: 0, reset: false };
 }
 
 /** The unit vector pointing out to sea at a plan point — up the `offshore`
@@ -232,6 +241,17 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.7 },
         script: (t) => input(t < 0.4 ? t / 0.4 : 1, 1, 0),
         seconds: 4,
+      };
+    }
+    case "brake": {
+      // Flat out, then the BRAKE LEVER: the bucket swings down over the
+      // jet, the bow goes under and the craft stops — or, on the stand-up,
+      // it does not, because a stand-up carries no bucket at all. Held on
+      // past the stop, so the last seconds are the craft backing up.
+      return {
+        moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.8 },
+        script: (t) => (t < 0.6 ? input(0, 1, 0) : braking(0, 1)),
+        seconds: 9,
       };
     }
     case "chop": {

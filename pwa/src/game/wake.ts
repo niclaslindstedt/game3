@@ -9,8 +9,9 @@
 //
 // Two cadences. `observe(state)` runs once per ENGINE STEP and only decides
 // whether the transom has moved far enough for a new sample (and drops a
-// gap sample when the hull leaves the water, so a flight is a break in the
-// road and not a bridge across it). `update(state)` runs once per FRAME and
+// gap sample when the hull leaves the water OR goes astern under its
+// bucket, so a flight and a reverse are both a break in the road and not a
+// bridge across it). `update(state)` runs once per FRAME and
 // lays the geometry. A scene pre-rolled for a screenshot observes every
 // step and updates once, and gets the same trail the player would see.
 
@@ -130,7 +131,14 @@ export function createWake(): Wake {
     const tx = c.x - Math.sin(c.heading) * back;
     const tz = c.z - Math.cos(c.heading) * back;
     const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
-    const churning = !c.airborne && c.wetted > 0.05 && c.speed > SPEED_MIN;
+    // How fast the craft is going the way it is POINTING. A hull under
+    // its bucket stops and then backs up, and a craft moving astern is not
+    // laying a road: it is churning the water it is already sitting in,
+    // which the spray's boil draws and this ribbon must not. Reading the
+    // sign here rather than off `speed` is the whole point — `speed` is
+    // |v| and cannot tell the two apart.
+    const alongTrack = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
+    const churning = !c.airborne && c.wetted > 0.05 && alongTrack > SPEED_MIN;
     if (!churning) {
       // Out of the water, or stopped: one gap sample closes the road, at
       // the transom, so the last real segment fades out where it ended.
@@ -141,9 +149,13 @@ export function createWake(): Wake {
     if (!moved) return;
     // How white: pace, and the pump working — a hull coasting leaves a
     // paler road than one on full throttle.
-    const pace = clamp((c.speed - SPEED_MIN) / (SPEED_FULL - SPEED_MIN), 0, 1);
-    const strength = pace * (0.55 + 0.45 * clamp(c.throttleEff, 0, 1));
-    const half = c.spec.beam * HALF_BEAM + c.speed * HALF_PER_SPEED;
+    // ...and only the flow still leaving astern whitens it: with the
+    // bucket part way down, that much of the pump is going forward and
+    // under instead, and the road behind pales with it.
+    const pace = clamp((alongTrack - SPEED_MIN) / (SPEED_FULL - SPEED_MIN), 0, 1);
+    const pump = clamp(c.throttleEff, 0, 1) * (1 - clamp(c.bucket, 0, 1));
+    const strength = pace * (0.55 + 0.45 * pump);
+    const half = c.spec.beam * HALF_BEAM + alongTrack * HALF_PER_SPEED;
     push(tx, tz, c.heading, state.t, strength, half);
   };
 

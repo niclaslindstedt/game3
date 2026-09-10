@@ -248,7 +248,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   const gates = state.level.course.gates;
   const n = state.progress.nextGate;
   if (state.phase !== "running" || n >= gates.length) {
-    return { steer: 0, throttle: 0, lean: 0, reset: false };
+    return { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
   }
   const gate = rideFor(gates, n, c.x, c.z, profile.giveUpPast);
   const aim = aimFor(gate, c.x, c.z, c.vx, c.vz, c.spec.cog.y, topSpeedOf(c.spec), profile);
@@ -366,5 +366,10 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   const p = state.progress;
   const idle = p.time - Math.max(p.lastGatePassedAt, p.lastResetAt) > profile.giveUpAfter;
   const reset = state.t > 2 && ((c.onGround && c.speed < 0.5) || wedged || idle);
-  return { steer, throttle, lean, reset };
+  // THE BOT NEVER TOUCHES THE BUCKET. Braking round a buoy is a rider's
+  // trick, not this bot's — it is kept to aiming and holding the throttle
+  // — and a reverse the sweep never asks for is one the sweep cannot
+  // credit a craft for. Anything that tunes a bucket is measured by hand
+  // (`make ride SCENARIO=brake`), not off `make sim`.
+  return { steer, throttle, reverse: 0, lean, reset };
 }

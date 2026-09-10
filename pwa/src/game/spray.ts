@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE SPRAY: the water a hull throws. Every event the engine already reads
 // off its probes — the planing bottom shedding a sheet off each chine, the
-// pump's rooster tail, a landing's plume, the bow driving into the next
+// pump's rooster tail, the boil the reverse bucket makes instead of one, a
+// landing's plume, the bow driving into the next
 // face — is turned here into a burst of droplets, one particle cloud
 // drawn as a single point sprite batch (`THREE.Points`, a custom shader
 // so every droplet has its own size), plus a FOAM PATCH laid on the water
@@ -10,8 +11,8 @@
 // hull length of the craft, and the far water is left to the water mesh.
 //
 // Two cadences, like the wake. `observe(state)` runs once per ENGINE STEP:
-// it reads the craft (`planing`, `wetted`, `throttleEff`, `airborne`,
-// `submergedDepth` — engine readings, never re-derived), emits, and moves
+// it reads the craft (`planing`, `wetted`, `throttleEff`, `bucket`,
+// `airborne`, `submergedDepth` — engine readings, never re-derived), emits, and moves
 // every droplet by the engine's own `dt`, so a scene pre-rolled for a
 // screenshot carries the same spray the player would have seen. `update`
 // runs once per frame and only uploads. The droplets read nothing off the
@@ -57,6 +58,23 @@ const TAIL_UP = 3;
 const TAIL_UP_PER_THROTTLE = 4.5;
 const TAIL_BACK = 3;
 const TAIL_BACK_PER_THROTTLE = 5;
+/** THE BUCKET BOIL: what the reverse gate makes instead of a tail.
+ *
+ * With the gate down the jet does not leave astern at all — it is turned
+ * FORWARD and UNDER, so the tail collapses and the water erupts alongside
+ * the transom and along the hull instead: a low, wide, white boil rather
+ * than an arc. Droplets a second at a full gate, how fast they are thrown
+ * forward and out, and how little they are thrown up — a boil that arced
+ * would just be a rooster tail pointing the wrong way. */
+const BOIL_RATE = 460;
+const BOIL_FWD = 2.4;
+const BOIL_FWD_PER_THROTTLE = 3.2;
+const BOIL_OUT = 2.6;
+const BOIL_UP = 1.5;
+/** ...and how far forward along the hull the boil reaches, as a share of
+ * the length from the transom: the flow runs up under the bottom rather
+ * than pooling at one point. */
+const BOIL_ALONG = 0.4;
 /** THE LANDING PLUME: the descent, m/s, past which a landing is a full
  * splash, and the droplets a full one throws. */
 const PLUME_VY = 7;
@@ -263,6 +281,7 @@ export function createSpray(): Spray {
   let prevSub = 0;
   let sheetAcc = 0;
   let tailAcc = 0;
+  let boilAcc = 0;
   const body = { x: 0, y: 0, z: 0 };
 
   /** A world point on the hull, from body coordinates. */
@@ -319,9 +338,15 @@ export function createSpray(): Spray {
     } else sheetAcc = 0;
 
     // THE ROOSTER TAIL: the pump's jet breaking the surface behind the
-    // transom, thrown up and back with the throttle.
-    if (afloat && c.throttleEff > 0.08) {
-      const thr = clamp(c.throttleEff, 0, 1);
+    // transom, thrown up and back with the throttle — and only what the
+    // BUCKET has not already caught. A gate half down is half a tail; a
+    // gate fully down is none, because none of the flow is going that way
+    // any more. (`c.bucket` is the engine's own reading of where the gate
+    // is, the same number the thrust is turned by.)
+    const gateDown = clamp(c.bucket, 0, 1);
+    const astern = 1 - gateDown;
+    if (afloat && c.throttleEff * astern > 0.08) {
+      const thr = clamp(c.throttleEff, 0, 1) * astern;
       tailAcc += budget * TAIL_RATE * thr * (0.35 + 0.65 * pace) * dt;
       while (tailAcc >= 1) {
         tailAcc -= 1;
@@ -343,6 +368,42 @@ export function createSpray(): Spray {
         );
       }
     } else tailAcc = 0;
+
+    // THE BUCKET BOIL: the other half of the same jet. What the gate
+    // catches is thrown forward and down under the hull, so it comes back
+    // up around the transom and runs along the bottom — white water low to
+    // the surface on both sides, going the way the craft is being stopped
+    // rather than the way it is pointing. Bigger, shorter-lived droplets
+    // than the tail's: a boil is broken water, not spray.
+    if (afloat && gateDown > 0.05 && c.throttleEff > 0.08) {
+      const strength = gateDown * clamp(c.throttleEff, 0, 1);
+      boilAcc += budget * BOIL_RATE * strength * dt;
+      while (boilAcc >= 1) {
+        boilAcc -= 1;
+        const side = rng() < 0.5 ? -1 : 1;
+        const along = rng();
+        const p = at(
+          c,
+          side * spec.beam * (0.3 + 0.24 * rng()),
+          keelY + 0.02,
+          -L / 2 - spec.cog.z + L * BOIL_ALONG * along,
+        );
+        const fwd = (BOIL_FWD + BOIL_FWD_PER_THROTTLE * strength) * (0.5 + 0.5 * rng());
+        const out = BOIL_OUT * (0.3 + 0.7 * rng());
+        spawn(
+          c.x + p.x,
+          c.y + p.y,
+          c.z + p.z,
+          c.vx * 0.3 + fwdX * fwd + rightX * side * out,
+          BOIL_UP * (0.4 + 0.6 * rng()),
+          c.vz * 0.3 + fwdZ * fwd + rightZ * side * out,
+          0.35 + 0.3 * rng(),
+          0.22,
+          0.55,
+          0.8,
+        );
+      }
+    } else boilAcc = 0;
 
     // THE LANDING PLUME: the hull coming back down, the whole wet perimeter
     // thrown out at once, sized by how fast it arrived.
@@ -497,7 +558,7 @@ export function createSpray(): Spray {
       prevAirborne = false;
       prevVy = 0;
       prevSub = 0;
-      sheetAcc = tailAcc = 0;
+      sheetAcc = tailAcc = boilAcc = 0;
     },
     dispose: () => {
       geometry.dispose();

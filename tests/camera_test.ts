@@ -162,7 +162,8 @@ describe("the chase rig", () => {
     placeRun(state, { x: 100, z: 200, heading: 0, speed: 5 });
     const rig = createCameraRig();
     for (let f = 0; f < 240; f++) {
-      for (let i = 0; i < 2; i++) step(state, { steer: 0.6, throttle: 1, lean: 0, reset: false });
+      for (let i = 0; i < 2; i++)
+        step(state, { steer: 0.6, throttle: 1, reverse: 0, lean: 0, reset: false });
       const pose = rig.update(state, 2 * TUNING.dt, FLAT);
       const c = state.craft;
       const d = Math.hypot(pose.x - c.x, pose.y - c.y, pose.z - c.z);

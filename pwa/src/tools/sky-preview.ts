@@ -119,7 +119,7 @@ async function main(): Promise<void> {
       renderer.camera.restand();
       const steps = Math.round(WARM_S * 120);
       for (let i = 0; i < steps; i++) {
-        step(state, { steer: 0, throttle: 0, lean: 0, reset: false });
+        step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false });
         renderer.observe(state);
       }
       renderer.render(state, 1 / 60);

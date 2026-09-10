@@ -36,7 +36,14 @@ import {
   type HullResult,
   type ProbeSample,
 } from "./hull.ts";
-import { stepEngine, stepNozzle, thrust } from "./propulsion.ts";
+import {
+  bucketVector,
+  stepBucket,
+  stepEngine,
+  stepNozzle,
+  stepTrim,
+  thrust,
+} from "./propulsion.ts";
 import type { CraftInput, CraftState, GameEvent, GameState } from "./state.ts";
 import { surfaceAt } from "./water.ts";
 import { windAt } from "./wind.ts";
@@ -147,6 +154,8 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.z += c.vz * dt;
     c.rpm = spec.idleRpm;
     c.throttleEff = 0;
+    c.trim = 0;
+    c.bucket = 0;
     const r = toEuler(c.q);
     c.heading = r.heading;
     c.pitch = r.pitch;
@@ -217,17 +226,24 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // THE SPONSONS: the outside one planes on the water the hull is being
   // pushed across and banks it INTO the turn. A push to the right (the
   // water turning the hull right) rolls the right side down, which in
-  // right-handed body axes is a negative z torque.
-  tbz -= hull.lateral * T.hull.sponsonLever * spec.cog.y;
+  // right-handed body axes is a negative z torque. How deep they are set
+  // is the craft's own (`sponsonBite`).
+  tbz -= hull.lateral * T.hull.sponsonLever * spec.cog.y * spec.sponsonBite;
 
   // THE PUMP: the intake is fed while the transom station is wet, and the
   // engine has a tilt cut-off — a capsized craft's throttle is closed.
+  // The BRAKE LEVER asks for its own throttle: the bucket can only turn
+  // flow the pump is already making.
   const wet = hull.intakeWet && up.y > 0;
-  const throttle = up.y > 0 ? input.throttle : 0;
+  const brake = spec.bucket.reverse > 0 ? clamp(input.reverse, 0, 1) : 0;
+  const asked = Math.max(clamp(input.throttle, 0, 1), brake * T.pump.bucketThrottle);
+  const throttle = up.y > 0 ? asked : 0;
   const engine = stepEngine(spec, density, c.rpm, c.throttleEff, throttle, wet, dt);
   c.rpm = engine.rpm;
   c.throttleEff = engine.throttleEff;
   c.nozzle = stepNozzle(spec, c.nozzle, input.steer, dt);
+  c.trim = stepTrim(spec, c.trim, input.lean, dt);
+  c.bucket = stepBucket(spec, c.bucket, up.y > 0 ? brake : 0, dt);
   const throughWater =
     hull.flowFwd > 0 ? hull.flowFwd : Math.max(0, unrotate(c.q, { x: c.vx, y: c.vy, z: c.vz }).z);
   const push = thrust(spec, density, c.rpm, throughWater, wet);
@@ -235,11 +251,24 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     // The jet leaves the transom turned by the nozzle; the reaction on the
     // hull is the jet's opposite. A nozzle swung for a clockwise turn
     // throws the jet to the right-rear, pushing the stern LEFT.
-    const bx = -push * Math.sin(c.nozzle);
-    const bz = push * Math.cos(c.nozzle);
+    //
+    // The BUCKET is downstream of it: what the gate catches goes forward
+    // and under instead, so `axial` is what is left driving the hull —
+    // still turned by the nozzle, which is why a craft in reverse steers
+    // the other way round. The TRIM aims what still leaves through the
+    // nozzle above or below the axis.
+    const gate = bucketVector(spec, c.bucket);
+    const along = push * gate.axial * Math.cos(c.trim);
+    const bx = -along * Math.sin(c.nozzle);
+    const bz = along * Math.cos(c.nozzle);
+    // Aimed up, the jet leaves upward and the reaction is DOWNWARD; what
+    // the bucket spills leaves DOWNWARD under the transom and its reaction
+    // is UPWARD. Both act behind the centre of gravity, so they pitch
+    // opposite ways: trim lifts the bow, the bucket buries it.
+    const by = push * (gate.down - gate.through * Math.sin(c.trim));
     const nozzleZ = -spec.length / 2 - spec.cog.z + 0.1;
     const nozzleY = keelY + 0.1;
-    const wf = rotate(c.q, { x: bx, y: 0, z: bz });
+    const wf = rotate(c.q, { x: bx, y: by, z: bz });
     const r = rotate(c.q, { x: 0, y: nozzleY, z: nozzleZ });
     fx += wf.x;
     fy += wf.y;
@@ -266,12 +295,18 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     throughWater *
     throughWater *
     wetShare *
-    c.planing;
+    c.planing *
+    spec.sponsonBite;
 
-  // THE WATER'S ROTATIONAL DAMPING beyond the probes'.
+  // THE WATER'S ROTATIONAL DAMPING beyond the probes'. THE RIDE PLATE is
+  // the flat plate under the transom behind the pump, and it is what a
+  // hull yaws and pitches against: a long one tracks straight and lands
+  // flat, a short one pivots. It stands aft, in the plane of the bottom,
+  // so it has the yaw outright and only half a say in the pitch — and
+  // none at all in the roll, which is the beam's.
   {
-    tbx -= T.hull.rotDamp.x * c.wx * wetShare;
-    tby -= T.hull.rotDamp.y * c.wy * wetShare;
+    tbx -= T.hull.rotDamp.x * c.wx * wetShare * (0.5 + 0.5 * spec.ridePlate);
+    tby -= T.hull.rotDamp.y * c.wy * wetShare * spec.ridePlate;
     tbz -= T.hull.rotDamp.z * c.wz * wetShare;
   }
 
@@ -408,7 +443,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       if (input.lean > 0.5) {
         c.pull += dt;
         if (c.pull >= T.flight.pullWindow) {
-          c.wx -= T.flight.pull / I.x;
+          c.wx -= (T.flight.pull * spec.riderAuthority) / I.x;
           c.pull = -1;
         }
       } else {

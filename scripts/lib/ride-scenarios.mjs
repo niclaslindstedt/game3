@@ -16,7 +16,7 @@ import { onRampDeck, sampleField, topSpeedOf } from "../../engine/index.ts";
 // engine's public surface yet, so it is read from the module that owns it.
 import { launchSpeedFor } from "../../engine/sim/bot.ts";
 
-const NEUTRAL = { steer: 0, throttle: 0, lean: 0, reset: false };
+const NEUTRAL = { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /** The first air gate of a level, with its ramp. */
@@ -74,8 +74,10 @@ function rampRun(gate, spec, { holdLean = false, lead = 45 }) {
     moment: { ...rampApproach(gate, lead), speed, nextGate: gate.index },
     input: (t, state) => {
       const c = state.craft;
-      if (c.airborne) return { ...NEUTRAL, throttle: 1, lean: holdLean ? 1 : levelInAir(c) };
-      if (c.onRamp || onRampDeck(gate.ramp, c.x, c.z)) return { ...NEUTRAL, throttle: 1, lean: 1 };
+      if (c.airborne)
+        return { ...NEUTRAL, throttle: 1, reverse: 0, lean: holdLean ? 1 : levelInAir(c) };
+      if (c.onRamp || onRampDeck(gate.ramp, c.x, c.z))
+        return { ...NEUTRAL, throttle: 1, reverse: 0, lean: 1 };
       return { ...NEUTRAL, throttle: 1 };
     },
   };
@@ -98,7 +100,7 @@ function overRing(gate, spec, { pitch, vy, lean }) {
     },
     input: (t, state) => {
       const c = state.craft;
-      if (c.airborne) return { ...NEUTRAL, throttle: 1, lean: lean ?? levelInAir(c) };
+      if (c.airborne) return { ...NEUTRAL, throttle: 1, reverse: 0, lean: lean ?? levelInAir(c) };
       return { ...NEUTRAL, throttle: 1 };
     },
   };
@@ -132,6 +134,23 @@ export const SCENARIOS = {
     stage: (level) => ({
       moment: { x: level.start.x, z: level.start.z, heading: level.start.heading, speed: 16 },
       input: (t) => ({ ...NEUTRAL, throttle: 1, steer: t < 1 ? 0 : 1 }),
+    }),
+  },
+  brake: {
+    blurb: "flat out, then the bucket: the only brake a watercraft has",
+    seconds: 9,
+    stage: (level, spec) => ({
+      moment: {
+        x: level.start.x,
+        z: level.start.z,
+        heading: level.start.heading,
+        speed: topSpeedOf(spec) * 0.8,
+      },
+      // Throttle for the first stretch, then the brake lever held down to
+      // the stop and past it, into reverse. A craft with no bucket fitted
+      // simply coasts, which is the point of drawing all four.
+      input: (t) =>
+        t < 0.6 ? { ...NEUTRAL, throttle: 1 } : { ...NEUTRAL, throttle: 0, reverse: 1 },
     }),
   },
   chop: {

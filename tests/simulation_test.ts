@@ -104,6 +104,7 @@ describe("nothing explodes", () => {
       const input: CraftInput = {
         steer: Math.sin(t * 0.4) * 0.35,
         throttle: 1,
+        reverse: 0,
         lean: 0,
         reset: false,
       };
@@ -128,6 +129,7 @@ describe("nothing explodes", () => {
       const input: CraftInput = {
         steer: Math.sin(t * 0.15) * 0.6,
         throttle: 0.5 + 0.5 * Math.sin(t),
+        reverse: 0,
         lean: Math.sin(t * 0.5),
         reset: i === 30 * TUNING.physicsHz,
       };
@@ -147,7 +149,7 @@ describe("nothing explodes", () => {
     c.wx = 6;
     c.wz = 4;
     for (let i = 0; i < 30 * TUNING.physicsHz; i++) {
-      step(state, { steer: 1, throttle: 1, lean: -1, reset: false });
+      step(state, { steer: 1, throttle: 1, reverse: 0, lean: -1, reset: false });
       expect(finite(state), `step ${i}`).toBe(true);
     }
   });

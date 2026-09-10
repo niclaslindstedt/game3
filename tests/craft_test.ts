@@ -9,12 +9,15 @@ import { describe, expect, it } from "vitest";
 import {
   CRAFT,
   TUNING,
+  boostFactor,
+  craftById,
   angleDiff,
   createGame,
   curveTorque,
   jetCeiling,
   placeRun,
   pumpTorque,
+  ratedTorque,
   staticThrust,
   step,
   topSpeedOf,
@@ -27,7 +30,7 @@ import { syntheticLevel } from "./support/synthetic.ts";
 
 // A long flat sea with nothing on it: the drag strip.
 const STRIP = syntheticLevel({ windSpeed: 0, noSolids: true, seaward: 1200 });
-const FULL: CraftInput = { steer: 0, throttle: 1, lean: 0, reset: false };
+const FULL: CraftInput = { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false };
 
 function flatOut(id: string, seconds: number): { top: number; t50: number; state: GameState } {
   const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
@@ -103,7 +106,11 @@ describe("the pump", () => {
     it(`${spec.id}'s pump is matched to its engine at the limiter`, () => {
       const density = 1005;
       const pump = pumpTorque(spec, density, spec.maxRpm, true);
-      const engine = curveTorque(spec, spec.maxRpm);
+      // The BLOWER is in at the limiter, so this is the torque the pump
+      // has to absorb — on the naturally aspirated craft it is the curve's
+      // own last point, and on the blown one it is that times 1 + peak.
+      const engine = ratedTorque(spec);
+      expect(engine / curveTorque(spec, spec.maxRpm)).toBeCloseTo(1 + spec.boost.peak, 6);
       expect(pump / engine).toBeGreaterThan(0.85);
       expect(pump / engine).toBeLessThan(1.05);
       // The rated power lands on the curve at redline.
@@ -132,18 +139,25 @@ describe("steering", () => {
   function turned(id: string, throttle: number): { heading: number; radius: number; roll: number } {
     const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
     placeRun(state, { x: 100, z: 700, heading: Math.PI / 2, speed: 20 });
-    const h0 = state.craft.heading;
+    let last = state.craft.heading;
+    // ACCUMULATED, step by step, not the endpoint difference: the tightest
+    // hull here comes round further than half a circle inside the window,
+    // and a shortest-way angle between two headings cannot say so — it
+    // reads a 190° turn as −170°. Summing the step's own change unwraps it.
+    let heading = 0;
     let radius = Infinity;
     let maxRoll = 0;
     for (let i = 0; i < 4 * TUNING.physicsHz; i++) {
-      step(state, { steer: 1, throttle, lean: 0, reset: false });
+      step(state, { steer: 1, throttle, reverse: 0, lean: 0, reset: false });
       const c = state.craft;
+      heading += angleDiff(last, c.heading);
+      last = c.heading;
       if (i > 2 * TUNING.physicsHz && Math.abs(c.wy) > 0.05) {
         radius = Math.min(radius, c.speed / Math.abs(c.wy));
       }
       maxRoll = Math.max(maxRoll, c.roll);
     }
-    return { heading: angleDiff(h0, state.craft.heading), radius, roll: maxRoll };
+    return { heading, radius, roll: maxRoll };
   }
 
   for (const spec of CRAFT) {
@@ -171,13 +185,15 @@ describe("steering", () => {
   it("the nozzle follows the hand, at the cable's rate", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: STRIP, quiet: true });
     placeRun(state, { x: 100, z: 400, heading: 0, speed: 10 });
-    step(state, { steer: 1, throttle: 1, lean: 0, reset: false });
+    step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, reset: false });
     const first = state.craft.nozzle;
     expect(first).toBeGreaterThan(0);
     expect(first).toBeLessThan(state.craft.spec.nozzleAngle);
-    for (let i = 0; i < 60; i++) step(state, { steer: 1, throttle: 1, lean: 0, reset: false });
+    for (let i = 0; i < 60; i++)
+      step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, reset: false });
     expect(state.craft.nozzle).toBeCloseTo(state.craft.spec.nozzleAngle, 6);
-    for (let i = 0; i < 60; i++) step(state, { steer: -1, throttle: 1, lean: 0, reset: false });
+    for (let i = 0; i < 60; i++)
+      step(state, { steer: -1, throttle: 1, reverse: 0, lean: 0, reset: false });
     expect(state.craft.nozzle).toBeCloseTo(-state.craft.spec.nozzleAngle, 6);
   });
 
@@ -187,12 +203,141 @@ describe("steering", () => {
       placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 12 });
       let sum = 0;
       for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
-        step(state, { steer: 0, throttle: 1, lean, reset: false });
+        step(state, { steer: 0, throttle: 1, reverse: 0, lean, reset: false });
         if (i > 2 * TUNING.physicsHz) sum += state.craft.pitch;
       }
       return sum / TUNING.physicsHz;
     };
     expect(run(1)).toBeGreaterThan(run(0) + 0.006);
     expect(run(-1)).toBeLessThan(run(0) - 0.006);
+  });
+});
+
+describe("the blower", () => {
+  it("adds nothing below the onset and its full share at the limiter", () => {
+    for (const spec of CRAFT) {
+      const { peak, onset } = spec.boost;
+      expect(boostFactor(spec, spec.idleRpm)).toBe(1);
+      expect(boostFactor(spec, spec.maxRpm * onset)).toBeCloseTo(1, 6);
+      expect(boostFactor(spec, spec.maxRpm)).toBeCloseTo(1 + peak, 6);
+      // Monotone, and a SQUARE law rather than a straight one: at half way
+      // up the boosted band a centrifugal blower has a quarter of its rise.
+      const half = spec.maxRpm * (onset + (1 - onset) / 2);
+      expect(boostFactor(spec, half)).toBeCloseTo(1 + peak * 0.25, 6);
+    }
+  });
+
+  it("costs the blown craft its midrange, at the same rated power", () => {
+    const marlin = craftById("marlin");
+    expect(marlin.boost.peak).toBeGreaterThan(0);
+    // The one blown craft on the roster: its rated power still lands at the
+    // limiter, so what the blower bought at the top it gave up in the
+    // middle — the trade the archetype exists for.
+    const ratedPower = (ratedTorque(marlin) * marlin.maxRpm * 2 * Math.PI) / 60 / 1000;
+    expect(ratedPower).toBeCloseTo(marlin.powerKw, 0);
+    const mid = marlin.maxRpm * 0.4;
+    const blown = curveTorque(marlin, mid) * boostFactor(marlin, mid);
+    const unblown = (marlin.powerKw * 1000 * 60) / (2 * Math.PI * marlin.maxRpm);
+    expect(blown).toBeLessThan(unblown);
+    for (const spec of CRAFT) {
+      if (spec.id !== "marlin") expect(spec.boost.peak).toBe(0);
+    }
+  });
+});
+
+describe("the reverse bucket", () => {
+  /** Flat out, then the brake lever hard down and held. */
+  function onTheBrake(id: string, seconds: number) {
+    const spec = craftById(id);
+    const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: (spec.topSpeed / 3.6) * 0.7 });
+    const v0 = state.craft.speed;
+    const BRAKE: CraftInput = { steer: 0, throttle: 0, reverse: 1, lean: 0, reset: false };
+    let stopped = -1;
+    let lowestPitch = 0;
+    for (let i = 0; i < seconds * TUNING.physicsHz; i++) {
+      step(state, BRAKE);
+      const c = state.craft;
+      const along = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
+      if (stopped < 0 && along <= 0) stopped = i / TUNING.physicsHz;
+      if (stopped > 0) lowestPitch = Math.min(lowestPitch, c.pitch);
+    }
+    const c = state.craft;
+    return {
+      stopped,
+      lowestPitch,
+      along: c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading),
+      v0,
+      bucket: c.bucket,
+    };
+  }
+
+  it("stops a craft that has one, and backs it up at walking pace", () => {
+    for (const spec of CRAFT) {
+      const r = onTheBrake(spec.id, 14);
+      if (spec.bucket.reverse <= 0) continue;
+      expect(r.bucket, `${spec.id} gate down`).toBeCloseTo(1, 3);
+      // It stops, inside the window and not instantly.
+      expect(r.stopped, `${spec.id} stops`).toBeGreaterThan(1);
+      expect(r.stopped, `${spec.id} stops`).toBeLessThan(10);
+      // ...and then goes ASTERN, at a pace a transom pushed backwards
+      // through the water can manage and no more.
+      expect(r.along, `${spec.id} astern m/s`).toBeLessThan(-0.5);
+      expect(r.along * -3.6, `${spec.id} astern km/h`).toBeLessThan(20);
+      // Braking puts the BOW DOWN: the gate's spill lifts the stern and the
+      // reverse thrust acts below the centre of gravity, and both agree.
+      expect(r.lowestPitch, `${spec.id} bow down`).toBeLessThan(-0.02);
+    }
+  });
+
+  it("does nothing at all on a craft with no bucket fitted", () => {
+    const dart = craftById("dart");
+    expect(dart.bucket.reverse).toBe(0);
+    const r = onTheBrake("dart", 14);
+    expect(r.bucket).toBe(0);
+    // Never stops, never reverses: it coasts, and keeps going the way it
+    // was pointed. That is the stand-up's whole bargain.
+    expect(r.stopped).toBe(-1);
+    expect(r.along).toBeGreaterThan(0);
+    expect(r.along).toBeLessThan(r.v0);
+  });
+
+  it("swings at the gate's own rate, and stows again when let go", () => {
+    const state = createGame({ seed: 1, craft: "otter", level: STRIP, quiet: true });
+    const deploy = state.craft.spec.bucket.deploy;
+    placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 15 });
+    const BRAKE: CraftInput = { steer: 0, throttle: 0, reverse: 1, lean: 0, reset: false };
+    step(state, BRAKE);
+    // Not there on the first step — a gate that snapped down would be a
+    // brake with no travel in it.
+    expect(state.craft.bucket).toBeGreaterThan(0);
+    expect(state.craft.bucket).toBeLessThan(0.2);
+    for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) step(state, BRAKE);
+    expect(state.craft.bucket).toBeCloseTo(1, 3);
+    for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) {
+      step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false });
+    }
+    expect(state.craft.bucket).toBe(0);
+  });
+});
+
+describe("the trim", () => {
+  it("follows the lean on a craft that has it, and never moves on one that has not", () => {
+    for (const id of ["otter", "dart"] as const) {
+      const state = createGame({ seed: 1, craft: id, level: STRIP, quiet: true });
+      const range = state.craft.spec.trimRange;
+      placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 15 });
+      for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
+        step(state, { steer: 0, throttle: 1, reverse: 0, lean: 1, reset: false });
+      }
+      // Leaning back trims UP, to the craft's own stop — and the stand-up
+      // has no trim system at all, so it stays at nothing.
+      expect(state.craft.trim, `${id} trimmed`).toBeCloseTo(range, 3);
+      for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
+        step(state, { steer: 0, throttle: 1, reverse: 0, lean: -1, reset: false });
+      }
+      expect(state.craft.trim, `${id} trimmed down`).toBeCloseTo(-range, 3);
+    }
+    expect(craftById("dart").trimRange).toBe(0);
   });
 });

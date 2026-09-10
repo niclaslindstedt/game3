@@ -31,10 +31,17 @@ export const KEY_STEER_RELEASE = 9;
 export const KEY_AXIS_SNAP = 0.02;
 /** The throttle key's ramp, 1/s: a quarter-second time constant — nine
  * tenths open six tenths of a second into a hold — so a tap is a squirt
- * and a hold is the whole pump; and a release that lets go at once, since
- * there is no brake and the only way to slow down is to stop asking. */
+ * and a hold is the whole pump; and a release that lets go at once,
+ * because letting go of a throttle is letting go. */
 export const KEY_THROTTLE_ATTACK = 4;
 export const KEY_THROTTLE_RELEASE = 12;
+/** The brake-and-reverse key's ramp, 1/s. Quicker to ask for than the
+ * throttle — a brake is grabbed, not squeezed — and quicker still to let
+ * go of. The BUCKET's own travel is what actually delays it (the engine's
+ * `spec.bucket.deploy`), so a soft ramp here would only be a second, made
+ * up lag on top of the real one. */
+export const KEY_REVERSE_ATTACK = 10;
+export const KEY_REVERSE_RELEASE = 14;
 /** The lean keys' ramp, 1/s: a rider shifting their weight takes a moment,
  * and coming back to centre is quicker than going out. */
 export const KEY_LEAN_ATTACK = 5;
@@ -63,11 +70,29 @@ export function rampToward(
  * is squeezed toward the rider, never pushed. */
 export const LEVER_FULL_PX = 90;
 
-/** How open the lever is for a thumb `dyPx` below its anchor (screen y
- * grows downward, so a drag down is positive). Analogue and clamped: half
- * the travel is half the pump. Above the anchor is nothing. */
+/** ...and UP from the same anchor is the BRAKE AND REVERSE lever, the
+ * craft's other one. Shorter travel than the throttle's, because it is
+ * reached for in a hurry and because the thumb has less room going that
+ * way; the bucket's own swing is what makes it gradual, not the glass. */
+export const LEVER_REVERSE_PX = 60;
+
+/** How open the throttle lever is for a thumb `dyPx` below its anchor
+ * (screen y grows downward, so a drag down is positive). Analogue and
+ * clamped: half the travel is half the pump. Above the anchor is nothing —
+ * that half of the throw belongs to `leverReverse`. */
 export function leverThrottle(dyPx: number): number {
   return clamp(dyPx / LEVER_FULL_PX, 0, 1);
+}
+
+/** ...and how far the brake is pulled for the same thumb: the travel
+ * ABOVE the anchor, 0..1. Below it is nothing. One anchor, two levers, and
+ * the neutral between them is where the thumb started. */
+export function leverReverse(dyPx: number): number {
+  // At or below the anchor is nothing, and stated as an early return so
+  // the answer is +0: negating a zero drag gives -0, and a -0 is the same
+  // wart here that `sampleInput` guards the steer against.
+  if (dyPx >= 0) return 0;
+  return clamp(-dyPx / LEVER_REVERSE_PX, 0, 1);
 }
 
 /** THE HANDLEBAR. Thumb travel sideways from the anchor for full lock —
@@ -105,6 +130,7 @@ export type KeysHeld = {
   left: boolean;
   right: boolean;
   throttle: boolean;
+  reverse: boolean;
   leanBack: boolean;
   leanForward: boolean;
 };
@@ -113,6 +139,7 @@ export const NO_KEYS: KeysHeld = {
   left: false,
   right: false,
   throttle: false,
+  reverse: false,
   leanBack: false,
   leanForward: false,
 };
@@ -125,13 +152,16 @@ export type TouchChannel = {
   steer: number;
   lean: number;
   bar: boolean;
-  /** The lever, 0..1, and whether a thumb is on it. */
+  /** The lever, 0..1 each way from its anchor, and whether a thumb is on
+   * it. Only one of the two can be open at a time: the thumb is either
+   * above the anchor or below it. */
   throttle: number;
+  reverse: number;
   lever: boolean;
 };
 
 export function neutralTouch(): TouchChannel {
-  return { steer: 0, lean: 0, bar: false, throttle: 0, lever: false };
+  return { steer: 0, lean: 0, bar: false, throttle: 0, reverse: 0, lever: false };
 }
 
 /** The keyboard's three ramped axes, screen-space. Advanced once per STEP
@@ -139,11 +169,12 @@ export function neutralTouch(): TouchChannel {
 export type InputModel = {
   steer: number;
   throttle: number;
+  reverse: number;
   lean: number;
 };
 
 export function createInputModel(): InputModel {
-  return { steer: 0, throttle: 0, lean: 0 };
+  return { steer: 0, throttle: 0, reverse: 0, lean: 0 };
 }
 
 /** One step's input: advance the keyboard ramps by `dt`, merge the thumbs
@@ -154,7 +185,9 @@ export function createInputModel(): InputModel {
  * Merging: a thumb on the bar owns steer and lean outright — a key held
  * under it would fight the hand. The throttle takes the DEEPER of key and
  * lever: both are asking for pump, and the answer to both is the one that
- * asks for more. */
+ * asks for more. The brake is merged the same way, and then WINS over the
+ * throttle: a rider reaching for the only brake the craft has is not also
+ * asking to go faster, whichever hand the other input came from. */
 export function sampleInput(
   model: InputModel,
   keys: KeysHeld,
@@ -171,16 +204,25 @@ export function sampleInput(
     KEY_THROTTLE_ATTACK,
     KEY_THROTTLE_RELEASE,
   );
+  model.reverse = rampToward(
+    model.reverse,
+    keys.reverse ? 1 : 0,
+    dt,
+    KEY_REVERSE_ATTACK,
+    KEY_REVERSE_RELEASE,
+  );
   const leanTarget = (keys.leanBack ? 1 : 0) - (keys.leanForward ? 1 : 0);
   model.lean = rampToward(model.lean, leanTarget, dt, KEY_LEAN_ATTACK, KEY_LEAN_RELEASE);
 
   const steer = touch.bar ? touch.steer : model.steer;
   const lean = touch.bar ? touch.lean : model.lean;
+  const reverse = clamp(Math.max(model.reverse, touch.lever ? touch.reverse : 0), 0, 1);
   const throttle = Math.max(model.throttle, touch.lever ? touch.throttle : 0);
   return {
     // `0 * -1` is -0, and a -0 is a wart every equality downstream trips on.
     steer: steer === 0 ? 0 : clamp(steer, -1, 1) * SCREEN_TO_ENGINE,
-    throttle: clamp(throttle, 0, 1),
+    throttle: reverse > 0 ? 0 : clamp(throttle, 0, 1),
+    reverse,
     lean: clamp(lean, -1, 1),
     reset,
   };

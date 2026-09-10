@@ -27,8 +27,8 @@ function rampOf(level: typeof FLAT): { x: number; z: number } {
   const ramp = level.course.gates.find((g) => g.kind === "air")!.ramp!;
   return { x: ramp.x, z: ramp.z };
 }
-const FULL: CraftInput = { steer: 0, throttle: 1, lean: 0, reset: false };
-const COAST: CraftInput = { steer: 0, throttle: 0, lean: 0, reset: false };
+const FULL: CraftInput = { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false };
+const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
 
 function ride(
   state: GameState,
@@ -183,7 +183,13 @@ describe("a flight", () => {
         rotation += -c.wx * TUNING.dt;
         maxAir = Math.max(maxAir, c.airTime);
       }
-      return { steer: 0, throttle: 1, lean: c.airborne || c.onRamp ? 1 : 0, reset: false };
+      return {
+        steer: 0,
+        throttle: 1,
+        reverse: 0,
+        lean: c.airborne || c.onRamp ? 1 : 0,
+        reset: false,
+      };
     });
     expect(maxAir).toBeGreaterThan(1.5);
     expect(rotation).toBeGreaterThan(2 * Math.PI);
@@ -197,7 +203,7 @@ describe("a flight", () => {
     const events = ride(state, 8, (s) => {
       const c = s.craft;
       const lean = c.airborne ? Math.max(-1, Math.min(1, (0.1 - c.pitch) * 2.5 + c.wx * 0.9)) : 0;
-      return { steer: 0, throttle: 1, lean, reset: false };
+      return { steer: 0, throttle: 1, reverse: 0, lean, reset: false };
     });
     expect(events.some((e) => e.kind === "launch")).toBe(true);
     expect(events.some((e) => e.kind === "land")).toBe(true);
@@ -210,7 +216,8 @@ describe("a flight", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 8, vy: 4 });
     const v0 = Math.hypot(state.craft.vx, state.craft.vz);
-    for (let i = 0; i < 40; i++) step(state, { steer: 1, throttle: 1, lean: 0, reset: false });
+    for (let i = 0; i < 40; i++)
+      step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, reset: false });
     expect(state.craft.airborne).toBe(true);
     // No thrust: horizontal speed can only have fallen (air drag).
     expect(Math.hypot(state.craft.vx, state.craft.vz)).toBeLessThanOrEqual(v0);

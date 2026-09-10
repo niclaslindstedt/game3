@@ -1056,6 +1056,17 @@ canvas {
   fill: var(--hud-good);
 }
 
+/* The upward half of the throw is the BRAKE, and it is the one control
+   that has to read differently at a glance from the one beside it. */
+.hud-lever-fill-reverse {
+  fill: var(--hud-bad);
+}
+
+.hud-lever-neutral {
+  stroke: rgb(255 255 255 / 70%);
+  stroke-width: 2;
+}
+
 .hud-lever-knob {
   fill: var(--hud-ink);
   stroke: rgb(8 42 56 / 70%);

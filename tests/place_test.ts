@@ -36,7 +36,7 @@ describe("placeRun", () => {
     expect(c.throttleEff).toBe(1);
     // ...and rides on from there without a lurch.
     for (let i = 0; i < TUNING.physicsHz; i++)
-      step(state, { steer: 0, throttle: 1, lean: 0, reset: false });
+      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
     expect(c.speed).toBeGreaterThan(17);
     expect(Math.abs(c.pitch)).toBeLessThan(0.3);
   });
@@ -71,7 +71,7 @@ describe("placeRun", () => {
     placeRun(state, { x: 250, z: 40, heading: Math.PI / 2, speed: 10, time: 42.5, nextGate: 2 });
     expect(state.progress.time).toBe(42.5);
     expect(state.progress.nextGate).toBe(2);
-    step(state, { steer: 0, throttle: 1, lean: 0, reset: false });
+    step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
     expect(state.progress.time).toBeCloseTo(42.5 + TUNING.dt, 9);
   });
 
@@ -85,7 +85,7 @@ describe("placeRun", () => {
       });
       placeRun(state, { x: 150, z: 120, heading: 1, speed: 18 });
       for (let i = 0; i < 300; i++)
-        step(state, { steer: 0.3, throttle: 0.8, lean: 0, reset: false });
+        step(state, { steer: 0.3, throttle: 0.8, reverse: 0, lean: 0, reset: false });
       return [state.craft.x, state.craft.y, state.craft.z, state.craft.heading];
     });
     expect(runs[0]).toEqual(runs[1]);

@@ -24,7 +24,7 @@ import {
 import { syntheticLevel } from "./support/synthetic.ts";
 
 const LEVEL = syntheticLevel({ windSpeed: 0, noSolids: true });
-const FULL: CraftInput = { steer: 0, throttle: 1, lean: 0, reset: false };
+const FULL: CraftInput = { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false };
 
 function ride(state: GameState, seconds: number, input: (s: GameState) => CraftInput): GameEvent[] {
   const events: GameEvent[] = [];

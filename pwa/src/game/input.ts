@@ -11,16 +11,18 @@
 // everything else the player chooses):
 //   W / ↑        throttle           S / ↓    lean back
 //   A / ←  D / → steer              Shift    lean forward
-//   R            reset to the last gate (edge)
+//   Space        brake and reverse  R        reset to the last gate (edge)
 //   Enter        restart the run     C       next camera
 //   Escape       hold the run and put the pause card up (menu-pause.tsx);
 //                pressing it again over the card resumes, because the card's
 //                RESUME row is its `data-nav-back` and menu-nav.ts takes
 //                Escape upstream of this manager
 //
-// THERE IS NO BRAKE, NO HANDBRAKE AND NO GEARBOX. The throttle is the
-// control, and letting go of it is the only way to slow down — which is
-// the real thing.
+// THERE IS NO GEARBOX, and the ONE brake is not a brake pedal: Space drops
+// the reverse BUCKET over the jet, which is the only way a watercraft
+// slows itself down and the only way it goes backwards. A craft with no
+// bucket fitted — the stand-up — has neither, and the key does nothing on
+// it. Letting go of the throttle is still most of how you slow down.
 
 import type { CraftInput } from "@engine";
 
@@ -54,6 +56,7 @@ type KeyAction = keyof KeysHeld;
 const KEY_CODES: Record<string, KeyAction> = {
   KeyW: "throttle",
   ArrowUp: "throttle",
+  Space: "reverse",
   KeyS: "leanBack",
   ArrowDown: "leanBack",
   KeyA: "left",
@@ -75,12 +78,30 @@ const EDGE_CODES: Record<string, "reset" | InputAction> = {
   Escape: "pause",
 };
 
-export function createInputManager(target: Window = window): InputManager {
+/**
+ * `claiming` says whether a RUN is being ridden right now. The listeners
+ * live for the app's whole life but the held keys are only the craft's
+ * while it is being ridden, and the difference matters for exactly one
+ * key: every control on every menu card is a real `<button>`, and SPACE on
+ * a focused button is how the browser presses it. Claiming space on a menu
+ * — `preventDefault` on the keydown — would swallow that. The menu's own
+ * nav handler stops the arrows and Escape upstream of here (capture phase,
+ * App.tsx), but it has no reason to know about the brake, so the gate is
+ * here instead. `App.tsx` passes `playerRides` from `shell.ts`, which is the
+ * module that owns the question of whose hands are on the craft — including
+ * the pause card, where they are not. It defaults to always claiming, which
+ * is what a host with no menus around the run wants.
+ */
+export function createInputManager(
+  target: Window = window,
+  claiming: () => boolean = () => true,
+): InputManager {
   const model = createInputModel();
   const keys: KeysHeld = {
     left: false,
     right: false,
     throttle: false,
+    reverse: false,
     leanBack: false,
     leanForward: false,
   };
@@ -90,6 +111,7 @@ export function createInputManager(target: Window = window): InputManager {
 
   const onKeyDown = (e: KeyboardEvent): void => {
     const held = KEY_CODES[e.code];
+    if (held && !claiming()) return;
     if (held) {
       keys[held] = true;
       // The arrows and space scroll the page; on a keyboard-driven game
@@ -103,6 +125,8 @@ export function createInputManager(target: Window = window): InputManager {
     else onAction(edge);
     e.preventDefault();
   };
+  // A key let go is always let go, claimed or not: a run left mid-throttle
+  // must not come back to a throttle that is still down.
   const onKeyUp = (e: KeyboardEvent): void => {
     const held = KEY_CODES[e.code];
     if (held) keys[held] = false;
