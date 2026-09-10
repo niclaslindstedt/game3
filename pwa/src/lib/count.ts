@@ -2,10 +2,10 @@
 // A figure that TRAVELS to its new value instead of being replaced by it.
 //
 // A number that swaps between two frames is a number a player has to notice
-// changed; one that counts is a number they watch change, and on the
-// pre-race card that is the whole difference between the transmission
-// reading as a label and reading as a choice with a consequence. It is the
-// same trick every rolling odometer and every arcade score is built on.
+// changed; one that counts is a number they watch change, and on the craft
+// card that is the whole difference between a top speed reading as a label
+// and reading as a choice with a consequence. It is the same trick every
+// rolling odometer and every arcade score is built on.
 //
 // DOM-free and frame-free on purpose: this is the maths, the caller owns
 // the clock. That is what lets a test ask where the counter stands a
@@ -14,7 +14,7 @@
 
 /** How long a figure takes to reach its new value, seconds. Long enough to
  * be a count rather than a flicker, short enough that a player rowing
- * through the cars is never reading a number on its way somewhere. */
+ * through the roster is never reading a number on its way somewhere. */
 export const COUNT_SECONDS = 0.42;
 
 /** Where a counter stands `at` seconds into a run from `from` to `to`.

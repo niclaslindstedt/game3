@@ -131,6 +131,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
 | The splash, the main menu, options, the developer page | `pwa/src/game/menu*.ts*`, `splash*.ts*`, `loading-screen.tsx` | `menu-system`       |
 | The start card: craft, shore, time, weather, then RIDE | `pwa/src/game/menu-start.tsx`                                  | `menu-system`       |
+| The craft card: the hull on a turntable, its spec sheet | `pwa/src/game/menu-craft.tsx`, `craft-picker.tsx`, `craft-turntable.ts`, `craft-stats.ts` | `menu-system`, `craft-design` |
 | The seed's chart, and the worker that builds it       | `pwa/src/game/seed-preview.tsx`, `seed-preview-worker.ts`      | `menu-system`       |
 | What the game REMEMBERS between visits                | `pwa/src/game/settings.ts`                                    | `menu-system`        |
 | Standing a run up behind a card                       | `pwa/src/game/run-loader.ts` + the steps in `App.tsx`          | `menu-system`        |
@@ -264,7 +265,7 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 - **`mapgen-improvement`** — the shore generator (rules / search / geometry, the R-rules), the analyze → fix → `make level` loop.
 - **`nature`** — the shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, and the sea life under the water (R20: the catalog and its rarity, the placer, the swim model, the look); later the flora.
 - **`hud-and-menus`** — the HUD's readouts, the handlebar and the throttle lever, the keys — what is drawn over a RUN.
-- **`menu-system`** — the shell around a run: the attract card, the front door, options, the developer page behind the seven-second hold, the loading card, and the settings they read and write.
+- **`menu-system`** — the shell around a run: the attract card, the front door, the start card and the craft card behind its CRAFT row, options, the developer page behind the seven-second hold, the loading card, and the settings they read and write.
 - **`ui-review`** — the fit-and-finish sweep at the reference viewports (1280×720, 390×844).
 - **`playtest`** — staged moments photographed in the built app: `make screenshots SCENE=`.
 - **`test-scenario`** — exact situations: the synthetic level, `placeRun`, scripted inputs, `scenarios.ts` read three ways.

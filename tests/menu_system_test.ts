@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE MENU SYSTEM'S DOM-FREE HALVES — everything the shell decides before a
 // browser is involved: when the attract card may take a press, where the
-// cursor goes next, what a seven-second hold means, how a load is sequenced
-// into phases, and what survives a stored settings blob.
+// cursor goes next, what a seven-second hold means, what the craft card
+// bills a hull at, how a load is sequenced into phases, and what survives a
+// stored settings blob.
 //
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
 import { describe, expect, it } from "vitest";
+import { CRAFT, craftById } from "@engine";
 
+import { craftBars, craftFacts, steadiness, turnRate } from "../pwa/src/game/craft-stats.ts";
 import { pickNeighbour, type NavRect } from "../pwa/src/game/menu-cursor.ts";
 import {
   NO_HOLD,
@@ -62,6 +65,51 @@ describe("the attract card's timing (splash.ts)", () => {
     expect(splashSkipped("?splash=0")).toBe(true);
     // `?splash=1` wins over everything: it is how the card itself is looked at.
     expect(splashSkipped("?shot=1&splash=1")).toBe(false);
+  });
+});
+
+describe("the craft card's spec sheet (craft-stats.ts)", () => {
+  const bar = (id: string, key: string): number => {
+    const found = craftBars(craftById(id)).find((b) => b.key === key);
+    if (!found) throw new Error(`no ${key} bar`);
+    return found.value;
+  };
+
+  it("QUOTES THE CATALOG rather than a second table beside it", () => {
+    for (const spec of CRAFT) {
+      const [top, sprint] = craftFacts(spec);
+      expect(top.value).toBe(spec.topSpeed);
+      expect(sprint.value).toBe(spec.accel0to50);
+    }
+  });
+
+  it("draws four axes and no more — the card's whole budget beside the craft", () => {
+    expect(craftBars(CRAFT[0]).map((b) => b.key)).toEqual(["accel", "top", "turn", "steady"]);
+  });
+
+  it("scales every bar across the ROSTER, so the best fills and the worst is not empty", () => {
+    for (const key of ["accel", "top", "turn", "steady"]) {
+      const values = CRAFT.map((spec) => bar(spec.id, key));
+      expect(Math.max(...values)).toBeCloseTo(1, 6);
+      // Never zero: an empty bar reads as a missing value, not as the
+      // slowest craft on the water.
+      expect(Math.min(...values)).toBeGreaterThan(0);
+      expect(Math.min(...values)).toBeLessThan(1);
+    }
+  });
+
+  it("bills each hull the way its own blurb does", () => {
+    // The dart is the stand-up: the quickest to come round and the one that
+    // will throw its rider. The otter is the touring hull: the slowest round
+    // and the hardest to unsettle. A retune that swapped either pair would
+    // leave four blurbs describing craft the sheet no longer shows.
+    expect(turnRate(craftById("dart"))).toBeGreaterThan(turnRate(craftById("marlin")));
+    expect(turnRate(craftById("otter"))).toBeLessThan(turnRate(craftById("skiff")));
+    expect(steadiness(craftById("otter"))).toBeGreaterThan(steadiness(craftById("marlin")));
+    expect(steadiness(craftById("dart"))).toBeLessThan(steadiness(craftById("skiff")));
+    // And the marlin is the fastest thing here, which is a bar as well as a
+    // sentence.
+    expect(bar("marlin", "top")).toBeCloseTo(1, 6);
   });
 });
 

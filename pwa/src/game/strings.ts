@@ -95,6 +95,16 @@ export const STRINGS = {
   startOwn: "AS DEALT",
   /** The press that actually rides. */
   startGo: "RIDE",
+
+  /* ── THE CRAFT CARD (menu-craft.tsx, craft-picker.tsx) ─────────────── */
+  /** The arrows either side of the hull, for a reader who cannot see it. */
+  craftPrev: "Previous craft",
+  craftNext: "Next craft",
+  /** Where this hull stands in the roster — `2 / 4`, so four craft turning
+   * one at a time read as a set with edges rather than as a carousel. */
+  craftOf: (at: number, of: number): string => `${at} / ${of}`,
+  /** The press that takes this craft and goes back to the rest of the run. */
+  craftTake: "TAKE IT",
   /** The hours, earliest first. */
   timeSunrise: "SUNRISE",
   timeDay: "DAY",

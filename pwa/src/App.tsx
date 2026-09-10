@@ -40,8 +40,9 @@
 //                  sky AND the wind that builds the sea under it
 //   ?start=1       skip both cards and ride: a pinned run
 //   ?splash=0/1    force the attract card off, or back on
-//   ?menu=start    open the front door ON that page — how the screenshot
-//                  lab photographs a menu surface, and how a link points at
+//   ?menu=start    open the front door ON that page (root | start | craft |
+//                  options | developer) — how the screenshot lab
+//                  photographs a menu surface, and how a link points at
 //                  one. `developer` lets the developer menu out with it: a
 //                  URL that names the page has, by definition, found it
 //   ?update=1      show the new-build button as if a build were waiting, so
@@ -195,7 +196,11 @@ function readParams(): Params {
       : undefined,
     rides: shot || named !== null || p.get("start") === "1",
     menu:
-      menu === "start" || menu === "options" || menu === "developer" || menu === "root"
+      menu === "start" ||
+      menu === "craft" ||
+      menu === "options" ||
+      menu === "developer" ||
+      menu === "root"
         ? { page: menu }
         : null,
   };

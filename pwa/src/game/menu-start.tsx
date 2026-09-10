@@ -7,7 +7,11 @@
 // changes the ride they are about to have, so it asks the four things that
 // do and leaves everything else to OPTIONS:
 //
-//   CRAFT    which hull — the roster, off the catalog.
+//   CRAFT    which hull. The one row here that does NOT ask its question:
+//            a craft is a shape, and four names in a chip row asks a rider
+//            to choose between four hulls they have never seen. So the row
+//            reads back the craft and opens the card that shows it turning
+//            on the water (`menu-craft.tsx`).
 //   SHORE    which seed, with the coast it makes drawn underneath: the
 //            schematic is the row, because a number nobody can picture is
 //            not a choice.
@@ -26,22 +30,15 @@
 // what they WRITE is `settings.ride` — so a run stood up from here and a run
 // stood up from a link are the same run read the same way.
 
-import { CRAFT, TIMES_OF_DAY, type CraftId, type TimeOfDay } from "@engine";
+import { craftById, TIMES_OF_DAY, type TimeOfDay } from "@engine";
 
-import { MenuBody, MenuHead, OptionRow, StepRow } from "./menu.tsx";
+import { MenuBody, MenuHead, OptionRow, PageRow, StepRow } from "./menu.tsx";
 import { SeedPreview } from "./seed-preview.tsx";
 import { CONDITIONS, DEFAULT_SEED, type Conditions, type Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
 /** What null means on every row here: the shore rides as it was dealt. */
 const OWN = "own";
-
-/** The craft, as chips — off the catalog rather than restated, so a craft
- * added to `engine/game/defs/craft.ts` is on this card the same day. */
-const CRAFT_OPTIONS: readonly { id: CraftId; label: string }[] = CRAFT.map((craft) => ({
-  id: craft.id,
-  label: craft.name.toUpperCase(),
-}));
 
 const TIME_LABELS: Record<TimeOfDay, string> = {
   sunrise: STRINGS.timeSunrise,
@@ -71,11 +68,15 @@ export function StartPage({
   settings,
   onSettings,
   onBack,
+  onCraft,
   onRide,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
   onBack: () => void;
+  /** Open the craft card — the one row here that is a way on rather than a
+   * question (see this module's header). */
+  onCraft: () => void;
   onRide: () => void;
 }) {
   const ride = settings.ride;
@@ -92,11 +93,10 @@ export function StartPage({
         sub={STRINGS.startSub}
       />
       <MenuBody>
-        <OptionRow
+        <PageRow
           label={STRINGS.optCraft}
-          options={CRAFT_OPTIONS}
-          value={ride.craft}
-          onPick={(craft) => setRide({ craft })}
+          read={craftById(ride.craft).name.toUpperCase()}
+          onOpen={onCraft}
         />
         <StepRow
           label={STRINGS.startShore}
