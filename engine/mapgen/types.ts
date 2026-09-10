@@ -45,10 +45,12 @@ export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
 /** A rock standing in the water or on the shore beside it: a vertical-axis
  * solid the craft can hit. `top` is the rock's height above SEA level
  * (negative for a reef the hull can still touch, and high for an erratic
- * sitting up a beach), `r` its plan radius. */
+ * sitting up a beach), `r` its plan radius. The MARK (R25) is the one kind
+ * the route places rather than the density: the rock the ocean leg is
+ * drawn round. */
 export type Solid = {
   readonly id: string;
-  readonly kind: "skerry" | "boulder" | "reef" | "erratic" | "stack";
+  readonly kind: "skerry" | "boulder" | "reef" | "erratic" | "stack" | "mark";
   readonly x: number;
   readonly z: number;
   readonly r: number;
@@ -62,6 +64,11 @@ export type Solid = {
  * pure function of the pod and the clock exactly as the sea's surface is a
  * pure function of the point and the clock. Nothing about a pod changes
  * during a run, so nothing has to be stepped or replayed. */
+/** R17, R25 — the kinds of rock a coast is STREWN with, at their own
+ * density per kilometre. Every kind but the mark, which is not strewn: the
+ * route stands one where its ocean leg turns, and there is exactly one. */
+export type ScatteredKind = Exclude<Solid["kind"], "mark">;
+
 export type Pod = {
   readonly id: string;
   /** Which animal — a row in `engine/game/defs/fauna.ts`. */
@@ -170,6 +177,12 @@ export type Level = {
    * `surfaceAt`: the sea's `surfaceAt` is the wave surface.) */
   readonly materialAt: (x: number, z: number) => Surface;
   readonly solids: readonly Solid[];
+  /** R26 — THE RIVER, mouth first: the water that carries on inland past
+   * the end of the race, thinning to a creek nothing can ride. Published
+   * because it is a place — the plan draws it, the analysis walks it — but
+   * it is not a separate body of water: it is stamped into `offshore` with
+   * the rest, and the hull only ever reads the field. */
+  readonly river: readonly Vec2[];
   /** What swims here (R20), in the order it was placed. Read by the
    * renderer through `faunaPose`; nothing in the physics touches it. */
   readonly fauna: readonly Pod[];

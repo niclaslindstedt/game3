@@ -135,6 +135,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     ],
     materialAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
     solids,
+    river: [],
     // Empty water: the synthetic level stages the PHYSICS, and nothing in
     // the physics touches the fauna. A test about the sea life stands its
     // own pods (tests/fauna_test.ts).

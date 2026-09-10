@@ -10,7 +10,9 @@ import { describe, expect, it } from "vitest";
 import {
   LEVEL_RULES as R,
   analyzeLevel,
+  fieldGradient,
   polylineDistance,
+  sampleField,
   solidBerth,
   type Gate,
   type Level,
@@ -38,6 +40,26 @@ const errors = (level: Level): string[] =>
     .findings.filter((f) => f.severity === "error")
     .map((f) => f.code);
 
+/** A point well INLAND of a plan point — where a gate or a station carried
+ * there is on dry land, out of R1's band and out of R5's water at once.
+ *
+ * WALKED down the offshore field's own gradient rather than stepped once
+ * along it: a basin has no "shore's left" to walk (R15), and one step in
+ * the direction the field falls at a point can come out further from the
+ * water than it started when the water it was measuring is a bend of a
+ * channel. This follows the field until it is actually on land. */
+function inlandFrom(level: Level, x: number, z: number): { x: number; z: number } {
+  let at = { x, z };
+  for (let step = 0; step < 60; step++) {
+    if (sampleField(level.offshore, at.x, at.z) < -20) break;
+    const g = fieldGradient(level.offshore, at.x, at.z);
+    const len = Math.hypot(g.gx, g.gz);
+    if (len < 1e-6) break;
+    at = { x: at.x - (g.gx / len) * 8, z: at.z - (g.gz / len) * 8 };
+  }
+  return at;
+}
+
 describe("level analysis", () => {
   it("passes every level the generator ships, with the stats filled in", () => {
     for (const seed of LEVEL_SEEDS) {
@@ -63,10 +85,8 @@ describe("level analysis", () => {
     const seed = LEVEL_SEEDS[0];
     const level = withGates(seed, (gates) => {
       const g = gates[3];
-      // Straight inland: the shore's left, 120 m — well past the reach.
-      const lx = -Math.cos(g.heading);
-      const lz = Math.sin(g.heading);
-      gates[3] = { ...g, x: g.x + lx * 120, z: g.z + lz * 120 };
+      // Carried inland until it is on dry land — well out of R1's band.
+      gates[3] = { ...g, ...inlandFrom(levelFor(seed), g.x, g.z) };
       return gates;
     });
     const a = analyzeLevel(level);
@@ -82,11 +102,11 @@ describe("level analysis", () => {
     const level = levelFor(seed);
     const path = level.course.path.map((p) => ({ ...p }));
     const mid = Math.floor(path.length / 2);
-    const g = level.course.gates[0];
-    path[mid] = {
-      x: path[mid].x - Math.cos(g.heading) * 200,
-      z: path[mid].z + Math.sin(g.heading) * 200,
-    };
+    // Inland, so the point is out of R1's band on the FLOOR and out of the
+    // water R5 asks for at the same time. Seaward would break neither on
+    // its own: out past R1's ceiling is where R25's ocean leg goes, and the
+    // analysis reads the longest such stretch as the leg.
+    path[mid] = inlandFrom(level, path[mid].x, path[mid].z);
     const found = errors(broken(seed, { course: { ...level.course, path } }));
     expect(found).toContain("R1.path");
     expect(found).toContain("R5.path");

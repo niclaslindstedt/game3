@@ -15,12 +15,14 @@
 
 import {
   NEUTRAL_INPUT,
+  cumulative,
   faunaById,
   faunaPose,
   fieldGradient,
   freshPose,
   launchSpeedFor,
   placeRun,
+  pointAlong,
   topSpeedOf,
   type CraftInput,
   type Gate,
@@ -44,7 +46,9 @@ export type ScenarioName =
   | "offshore"
   | "storm"
   | "backflip"
-  | "wildlife";
+  | "wildlife"
+  | "mark"
+  | "river";
 
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "rest",
@@ -60,6 +64,8 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "storm",
   "backflip",
   "wildlife",
+  "mark",
+  "river",
 ];
 
 export function isScenarioName(name: string): name is ScenarioName {
@@ -180,6 +186,18 @@ export function rarestPod(level: Level): Pod | null {
  * leaves the bottom of the frame by about twenty metres out. What can be
  * seen under the surface is what is nearly under the hull. */
 const WILDLIFE_STANDOFF = 12;
+
+/** How far back down the racing line the MARK shot stands from the
+ * rounding, m. Far enough that the rock is a thing on the water ahead
+ * rather than a wall filling the frame, and near enough that a rider would
+ * already be lining the turn up. */
+const MARK_STANDOFF = 150;
+
+/** How far up the RIVER its shot stands, as a share of the water's own
+ * length. A third of the way: past the mouth, where the channel has closed
+ * to something narrower than the race was ridden in, and still wide enough
+ * to be riding on. */
+const RIVER_UP = 0.34;
 
 /** How far before the ramp the launch stands: the run-up the rules
  * guarantee straight and clear (R9), so the craft is at speed and settled
@@ -349,6 +367,59 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         // only go straight, so any pace at all is a pace that loses it.
         script: () => NEUTRAL,
         seconds: 2,
+      };
+    }
+    case "mark": {
+      // R25 — the approach to the MARK: standing on the racing line where
+      // the run out to the rounding begins, pointed at the rock. It is the
+      // one thing in a level taller than the land behind it, and the whole
+      // question this shot asks is whether it reads as a landmark from the
+      // water rather than as a lump on the horizon.
+      const rock = level.solids.find((s) => s.kind === "mark");
+      if (!rock) return scenarioFor(state, "offshore");
+      const path = level.course.path;
+      const cum = cumulative(path);
+      let at = 0;
+      let nearest = Infinity;
+      for (let i = 0; i < path.length; i++) {
+        const d = Math.hypot(path[i].x - rock.x, path[i].z - rock.z);
+        if (d < nearest) {
+          nearest = d;
+          at = cum[i];
+        }
+      }
+      const from = pointAlong(path, cum, Math.max(0, at - MARK_STANDOFF));
+      return {
+        moment: {
+          x: from.x,
+          z: from.z,
+          heading: Math.atan2(rock.x - from.x, rock.z - from.z),
+          speed: top * 0.55,
+          nextGate: mid.index,
+        },
+        script: () => input(0, 0.7, 0),
+        seconds: 4,
+      };
+    }
+    case "river": {
+      // R26 — a way up the RIVER, looking further up it: the water
+      // narrowing between its banks, with the country closing in. What
+      // the shot is for is whether the level still looks like a place
+      // this far from the race.
+      const river = level.river;
+      if (river.length < 4) return scenarioFor(state, "cruise");
+      const cum = cumulative(river);
+      const up = pointAlong(river, cum, cum[cum.length - 1] * RIVER_UP);
+      const ahead = pointAlong(river, cum, cum[cum.length - 1] * RIVER_UP + 40);
+      return {
+        moment: {
+          x: up.x,
+          z: up.z,
+          heading: Math.atan2(ahead.x - up.x, ahead.z - up.z),
+          speed: top * 0.25,
+        },
+        script: () => input(0, 0.4, 0),
+        seconds: 4,
       };
     }
     case "backflip": {

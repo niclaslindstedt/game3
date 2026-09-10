@@ -26,14 +26,42 @@ import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
 import { sampleField } from "../lib/heightfield.ts";
 import { bakeGround, compileLevel } from "./compile.ts";
-import { layBasin, routeBounds } from "./basin.ts";
+import { layBasin, levelBounds, routeBounds } from "./basin.ts";
+import { drawRiver } from "./river.ts";
 import { drawRoute } from "./route.ts";
 import { courseKeepOut, layCourse } from "./course.ts";
 import { layFauna } from "./fauna.ts";
 import { createGeology, laySolids } from "./geology.ts";
-import { LEVEL_RULES as R, inBand, type GenerateOptions } from "./rules.ts";
+import { LEVEL_RULES as R, inBand, withinBand, type GenerateOptions } from "./rules.ts";
 import { pickWeather, skyCover } from "./weather.ts";
-import type { Level } from "./types.ts";
+import type { Level, Solid } from "./types.ts";
+
+/** R15, R25 — where the open sea's straight edge stands, as a distance
+ * along the sea's own heading. `sea.line.edge` short of the route's most
+ * seaward station OUTSIDE the ocean leg — the same cut `layBasin` makes,
+ * stated here for the river, which has to know where the sea is before the
+ * basin has baked a field to read it off. Both read the route and the same
+ * rule, so neither can drift from the other without the other's draw
+ * moving too.
+ *
+ * The edge itself is a band; this takes its MIDDLE, because the river only
+ * asks whether its mouth is up a channel or out in the open, and forty
+ * metres of drawn edge does not change that answer. */
+function seaEdge(route: {
+  points: readonly { x: number; z: number }[];
+  along: Float64Array;
+  seaHeading: number;
+  leg: { from: number; to: number };
+}): number {
+  const sx = Math.sin(route.seaHeading);
+  const sz = Math.cos(route.seaHeading);
+  let highU = -Infinity;
+  for (let i = 0; i < route.points.length; i++) {
+    if (route.along[i] >= route.leg.from && route.along[i] <= route.leg.to) continue;
+    highU = Math.max(highU, route.points[i].x * sx + route.points[i].z * sz);
+  }
+  return highU - (R.sea.line.edge.min + R.sea.line.edge.max) / 2;
+}
 
 /** The sub-seed of an attempt: the golden-ratio stride keeps successive
  * attempts far apart in the generator's state space. */
@@ -63,13 +91,39 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
       continue;
     }
-    // R15 — then the water round it, and the land the water is cut out of.
-    const bounds = routeBounds(route);
-    const basin = layBasin(rng, route, bounds);
+    // R26 — the river that runs on inland from the route's own mouth. It is
+    // drawn before the water is carved, because it is part of what gets
+    // carved: the basin stamps the river's line beside the route's.
+    //
+    // Its own sea edge is worked out here rather than asked of the basin,
+    // because the basin needs the river to bake the field it would answer
+    // from. It is the same line the basin cuts (`sea.line.edge` short of
+    // the route's most seaward station outside the ocean leg) — and this
+    // is the ONE place the two have to agree.
+    const river = drawRiver(rng, route, seaEdge(route));
+    if (!river) {
+      lastReason = "no river will run inland from this route";
+      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
+      continue;
+    }
+    // R15 — then the water round them both, and the land it is cut out of.
+    const bounds = levelBounds(route, river);
+    const basin = layBasin(rng, route, river, bounds);
     const geology = createGeology(rng, biome, basin);
     const ground = bakeGround(basin.offshore, geology);
     const offshoreAt = (x: number, z: number): number => sampleField(basin.offshore, x, z);
     const depthAt = (x: number, z: number): number => -sampleField(ground, x, z);
+    // R25 — and the leg is only an ocean leg if it reached the ocean. Where
+    // the walk strayed further seaward than the leg's own entry, the sea's
+    // edge is cut past the apex and what was drawn as a run out to a mark
+    // comes out as a bulge inside the band. Checked here, on the field, the
+    // moment there is a field to check it on.
+    const apexOffshore = offshoreAt(route.leg.apex.x, route.leg.apex.z);
+    if (!withinBand(apexOffshore, R.leg.offshore)) {
+      lastReason = `the ocean leg stands ${apexOffshore.toFixed(0)} m out`;
+      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
+      continue;
+    }
     // R12 — off the sea: the open water's own seaward normal, swung by up
     // to `wind.seaward` either way, so the fetch grows riding out from the
     // land whichever way the route wandered.
@@ -97,16 +151,32 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
       continue;
     }
-    // R17 — the rocks, over the whole basin, kept off the course.
+    // R17, R25 — the rocks. The MARK first, where the route put it, and
+    // then the density-placed rocks over the route's own box, kept off the
+    // course and off the mark.
+    //
+    // The ROUTE'S box rather than the level's: the river carries the level
+    // a kilometre inland (R26), and scattering a coast's worth of rock over
+    // that plan by rejection would leave the water the race is actually
+    // ridden through half as strewn as the rule says.
     const km = route.length / 1000;
+    const mark: Solid = {
+      id: "M1",
+      kind: "mark",
+      x: route.leg.mark.x,
+      z: route.leg.mark.z,
+      r: route.leg.mark.r,
+      top: route.leg.mark.top,
+    };
     const solids = laySolids(
       rng,
       biome,
-      bounds,
+      routeBounds(route),
       offshoreAt,
       geology.groundAt,
       km,
       courseKeepOut(course),
+      [mark],
     );
     // R19 — the sky, drawn LAST of the things the search judges. It is the
     // one thing about a level the search never judges: no sky makes a basin
@@ -117,7 +187,16 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // moves a gate, so nothing the search judged may depend on how many
     // there turned out to be. The rocks are already placed, because a pod
     // is kept clear of them.
-    const fauna = layFauna(rng, biome, bounds, offshoreAt, depthAt, solids, water.temperature, km);
+    const fauna = layFauna(
+      rng,
+      biome,
+      routeBounds(route),
+      offshoreAt,
+      depthAt,
+      solids,
+      water.temperature,
+      km,
+    );
     const level = compileLevel({
       seed,
       biome,
@@ -126,6 +205,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       ground,
       geology,
       course,
+      river,
       solids,
       fauna,
       wind,

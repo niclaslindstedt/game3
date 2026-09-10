@@ -111,18 +111,34 @@ describe("level population", () => {
       // placed by rejection over the basin (R17), and a level that is all
       // channel has nowhere a sea stack's own offshore band reaches. What
       // would be a bug is a kind that never places anywhere, which the
-      // population below holds.
+      // population below holds. The MARK is the exception on both counts —
+      // the route places exactly one on every level (R25), never the
+      // density — so it is in every level's set and in the population's.
       expect(kinds.size).toBeGreaterThanOrEqual(4);
       expect(level.solids.length).toBeGreaterThan(15);
       for (const kind of kinds) everywhere.add(kind);
     }
-    expect([...everywhere].sort()).toEqual(["boulder", "erratic", "reef", "skerry", "stack"]);
+    expect([...everywhere].sort()).toEqual([
+      "boulder",
+      "erratic",
+      "mark",
+      "reef",
+      "skerry",
+      "stack",
+    ]);
   });
 
   it("builds fast, and rarely needs a second coast", () => {
     const times = population().map((s) => s.ms);
     const { max, mean } = spread(times);
-    expect(mean).toBeLessThan(400);
+    // MEASURED over sixty fresh seeds: a median of 0.46 s and a mean of
+    // 0.48 under the suite's own type-stripped run. R25's ocean leg and
+    // R26's river carry a level a kilometre further than the coast the
+    // course is laid along, and both are stamped into the same field, so a
+    // level is about half again the cells it was and costs about half
+    // again what it cost. The bar is what would say the search has stopped
+    // being affordable, not what it costs today.
+    expect(mean).toBeLessThan(900);
     // The worst seed is the one that rerolls its coast most: it builds
     // four or five before one comes up clean, and each of those is a
     // whole shore, course, bake and analysis. The ceiling is that many
@@ -139,9 +155,8 @@ describe("level population", () => {
     // for a ramp (R9) are all found out afterwards. Rejecting is how this
     // generator answers that, and the RATE is not the cost: a basin that
     // refuses a course is re-drawn a course first (`search.courseTries`),
-    // and only the ones that refuse eight are re-cut. The MEAN above is
-    // what says whether the search is affordable, and at under 200 ms it
-    // is where the old shore-first generator's was.
+    // and only the ones that refuse `search.courseTries` are re-cut. The
+    // MEAN above is what says whether the search is affordable.
     expect(rerolled / SEEDS.length).toBeLessThanOrEqual(0.85);
   });
 });

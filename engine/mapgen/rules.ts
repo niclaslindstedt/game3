@@ -195,6 +195,33 @@
 //       head of an inlet is a U the course turns round the INSIDE of, so
 //       an inlet's mouth is drawn wide enough (R15) that the radius its
 //       head leaves the line is this one.
+//   R25 THE COURSE GOES OUT TO THE OCEAN, AND ROUNDS A MARK. One stretch
+//       of the route — `leg.span` metres of it, leaving the coast at
+//       `leg.at` — turns off the shore, runs out past R1's ceiling into
+//       open water and comes back on the heading it left on. It is drawn
+//       with one radius (`leg.round`, never under R23's): a quarter turn
+//       out, a straight run of `leg.out`, a HALF CIRCLE round the mark,
+//       the same run back, and the turn that puts it back on the coast.
+//       The MARK stands at the centre of that half circle — the one rock
+//       in the vocabulary a course is drawn ROUND rather than past, over
+//       twenty metres of it out of the water (`solids.mark`), and the only
+//       thing in a level placed by the route rather than by density. The
+//       leg's furthest point stands `leg.offshore` from the shore, and
+//       inside `mark.zone` of the mark R1's ceiling gives way to this
+//       rule: everywhere else on the path it still holds.
+//   R26 THE RIVER RUNS ON PAST THE RACE. The route's inland end is a
+//       MOUTH, and the water does not stop at it: a river carries on from
+//       there into the country for `river.length` of walking, meandering
+//       under `river.radius` of curvature but pulled inland the whole way,
+//       until its head stands at least `river.inland` (1 km) from the
+//       mouth. It THINS as it goes — `river.taper` from the corridor's own
+//       half-width at the mouth to `river.head` at the head — and because
+//       the bed is a function of the distance from the water's edge (R3), a
+//       channel that narrows shoals with itself: the last stretch is a
+//       creek too thin and too shallow to ride, which is where a rider
+//       roaming upstream stops. Past its mouth's own run it keeps
+//       `river.clear` off the racing line, so the water a rider can leave
+//       the course by is one mouth and not three.
 //   R24 THE ROUTE IS DRAWN FIRST. The racing line is not found along a
 //       coast: it is drawn before there is any land, as a walk in the plane
 //       that turns at up to `route.swing` of the tightest circle R23
@@ -272,6 +299,134 @@ export const LEVEL_RULES = {
      * against the turn it was going to make anyway. */
     avoidReach: 2.4,
     avoid: 0.85,
+    /** Walks drawn before the whole attempt is given up on. A walk is a
+     * couple of hundred steps of arithmetic and everything downstream of it
+     * is a build, so a line that folded onto itself — or whose furthest
+     * point from the coast fell where the course could not reach it
+     * (R25) — is redrawn here rather than paid for with a sub-seed. */
+    tries: 12,
+  },
+
+  /** R25 — THE OCEAN LEG: the one stretch of the route that leaves the
+   * coast, and the mark it is drawn round. */
+  leg: {
+    /** Where along the route it leaves, m. An absolute distance rather
+     * than a share of the line, because the course is measured out in
+     * metres from the start (R4, R10) and a leg drawn as a share of a long
+     * route lands past a short course's finish. Late enough that the start
+     * straight (R11) and the first gates are ridden along the shore, early
+     * enough that the whole leg plus a gate's spacing fits inside R10's
+     * shortest course. */
+    at: { min: 280, max: 900 },
+    /** …and how much line the course needs AFTER it, m: a gate's spacing to
+     * put the finish past the leg, and the tail the finish is measured
+     * back from. The window's far end is whichever of the two comes
+     * first. */
+    after: 140,
+    /** The straight run out to the mark, m — ridden twice, out and back.
+     * Most of the leg's reach comes from the turns; this is what makes the
+     * approach a RUN at the mark rather than a curve past it. */
+    out: { min: 20, max: 90 },
+    /** The radius every turn in the leg is drawn at, m: the quarter turns
+     * off the coast and back, and the half circle round the mark. Over
+     * R23's floor with room, because this is the one corner of a course
+     * ridden at whatever speed the run out built. */
+    round: { min: 58, max: 76 },
+    /** How far out the leg's furthest point stands from the shore, m.
+     * DERIVED — `sea.line.edge` + 2·round + out — so this is the band that
+     * result has to land in: a route whose walk strayed further seaward
+     * than the leg's own entry cuts the sea's edge past it and is refused
+     * here rather than shipped as a leg that never left the band. */
+    offshore: { min: 130, max: 360 },
+    /** How much of the PATH ends up outside R1's band, m. Shorter than the
+     * leg itself (which is 2π·round + 2·out): the leg's ends are inside the
+     * band, and only what is past the ceiling counts. A band because a leg
+     * that reads as a wiggle is as wrong as one that turns the race into an
+     * offshore course. MEASURED over forty seeds: 274 m at the shortest,
+     * 522 at the longest, a median of 414 — so the floor refuses a leg an
+     * air gate's chord has straightened most of the way out (R9), and the
+     * ceiling refuses a course that spent a third of itself at sea. */
+    span: { min: 200, max: 620 },
+    /** How far over the entry's own seaward reach the walk has to stray
+     * before it is turned back inland at full strength, m (R25's sea wall).
+     * A short fade rather than a wall proper, so the line bends away from
+     * the open sea instead of cornering off it. */
+    wall: 40,
+    /** How far past the leg's own furthest point the zone reaches, m —
+     * where R1's ceiling gives way to R25. A hull's length of slack, so a
+     * chord straightened across the leg's mouth (R9) is still inside it. */
+    zoneSlack: 20,
+  },
+
+  /** R26 — THE RIVER that runs on inland past the race. */
+  river: {
+    /** How far apart its samples stand, m — closer than the route's,
+     * because a river bends tighter than a racing line. */
+    step: 12,
+    /** The tightest circle the meander turns at, m. Under R23's racing
+     * floor on purpose: nothing races up here, and a watercourse that can
+     * only bend as gently as a course line reads as a canal. */
+    radius: 38,
+    /** How hard it meanders, as a share of that circle, and over what
+     * period of walking, m. MEASURED by the SINUOSITY that comes out —
+     * how much longer the water is than the country it crosses. A natural
+     * lowland river runs 1.3 to 2; at the first numbers tried here the
+     * median was 1.07, which draws as a canal cut straight inland however
+     * the noise wobbles it, and the reason was the inland pull rather
+     * than the meander: a walk turned toward one heading every step
+     * cannot bend far off it. */
+    swing: { min: 0.7, max: 1.15 },
+    swingScale: 210,
+    /** How hard the walk is pulled toward the way inland lies, as a share
+     * of a step's own turn. Weak enough that the meander owns the shape —
+     * that is the whole tuning above — strong enough that a river never
+     * turns back to the sea. */
+    pull: 0.22,
+    /** How much longer the water is than the country it crosses — its
+     * SINUOSITY, the check the meander above was tuned against. A band
+     * because a river is wrong at both ends of it: under the floor it is a
+     * canal, and over the ceiling it is a walk that spent its length
+     * meandering in one field instead of running out of the country. */
+    sinuosity: { min: 1.12, max: 2.7 },
+    /** The most it may walk, m, before the attempt is given up: a river
+     * that has wandered this far without getting inland is meandering in
+     * one place rather than running out of the country. */
+    length: { min: 1000, max: 2600 },
+    /** …and how far from the mouth its head has to STAND, m, in a straight
+     * line — drawn per level. A kilometre of country at the floor: far
+     * enough that riding up it is a journey out of the basin the race was
+     * run in rather than a look round the next headland. */
+    inland: { min: 1000, max: 1250 },
+    /** Half-width at the head, m. Three metres of water is narrower than
+     * the turning circle of anything in the catalog and, on R3's own bed
+     * profile, under half a metre deep — so the creek stops the rider by
+     * being a creek, which is the only kind of "no further" this game
+     * has. */
+    head: 3,
+    /** The power the half-width tapers from the mouth's to the head's by.
+     * Over 1, so most of the narrowing is in the first third of the run —
+     * a river loses its tributaries going up, it does not close like a
+     * wedge. */
+    taper: 1.8,
+    /** How far the walk keeps off the racing line, m, and how much of its
+     * own start is exempt because it IS the race's water there. Two mouths
+     * a rider cannot tell apart is one mouth too many. */
+    clear: 100,
+    mouthRun: 130,
+    /** How far inshore of the open sea's straight edge the mouth must
+     * stand, m. Only enough to put it in the CORRIDOR'S water rather than
+     * the sea's: inside the edge the water at the mouth is the route's own
+     * and the land closes round it, which is what makes the thing a river
+     * mouth instead of a stream drawn across a bay. */
+    mouthInshore: 20,
+    /** Walks drawn before the route is given up on. The walk is a couple
+     * of hundred steps and everything downstream of the route it hangs off
+     * is a build, so a meander that wandered back onto the racing line — or
+     * spent its length turning without getting inland — is redrawn rather
+     * than paid for with a whole attempt. MEASURED: at six tries one route
+     * in seven was thrown away for want of a river, at sixteen it is one in
+     * forty, and the walk is a tenth of a millisecond. */
+    tries: 16,
   },
 
   /** R15 — what a traced coastline has to carry. */
@@ -325,6 +480,25 @@ export const LEVEL_RULES = {
     maxHeight: 45,
     /** The land stops rising this far inland, m. */
     reach: 100,
+    /** How far inland the offshore field still MEASURES, m. Past it every
+     * cell reads exactly `-measured` — "further inland than this level
+     * cares" — because the field is stamped from the lines that carry
+     * water (R15, R26) and stamping the whole country from a creek three
+     * metres wide is a level's build time spent on cells that all read the
+     * plateau anyway. It is past `reach`, so nothing about the ground's own
+     * step is lost — the step is flat past `reach` and the slabs have faded
+     * out by it — and the analysis skips the cells that carry no distance
+     * rather than binning them as country at the far end of a profile they
+     * were never measured for.
+     *
+     * It is `reach` plus THREE BINS of that profile rather than plus a cell:
+     * R2's own check reads the mean height against inland distance and asks
+     * whether it is still climbing PAST the reach, and a field that stops
+     * measuring at the reach leaves it nothing out there to compare. Every
+     * metre costs — the stamp is the level's biggest single cost and it
+     * grows with the square of how far it reaches — so this is the shortest
+     * the check can be given. */
+    measured: 136,
     /** Height band the land climbs to, m: drawn per level, before the
      * coast's own character has its say. */
     plateau: { min: 8, max: 20 },
@@ -474,6 +648,18 @@ export const LEVEL_RULES = {
       offshore: { min: -16, max: 14 },
       r: { min: 1.6, max: 4.5 },
       height: { min: 1.2, max: 4 },
+    },
+    /** R25 — THE MARK: the rock the ocean leg is drawn ROUND. The one
+     * solid in a level the route places rather than the density does, so
+     * `perKm` is zero and this row is only what the finished rock is held
+     * to. Over twenty metres of it stand out of open water: from the coast
+     * it is the thing on the horizon that says where the race goes, and
+     * from the rounding it fills the sky. */
+    mark: {
+      perKm: 0,
+      offshore: { min: 60, max: 330 },
+      r: { min: 8, max: 14 },
+      top: { min: 21, max: 32 },
     },
     /** Minimum open water between two rocks, edge to edge, m. */
     spacing: 6,
@@ -682,10 +868,18 @@ export const LEVEL_RULES = {
      * put the candidate gates, not by anything about the water. Re-shuffling
      * costs nothing; re-cutting the basin costs a build. MEASURED over
      * thirty seeds: rejected basins fall from 92 to 34 and the mean build
-     * from 267 ms to under 200. Past about four tries the curve is flat — a basin
-     * that has refused four courses has no beam-on straight in it at all,
-     * and no shuffle will find one. */
-    courseTries: 8,
+     * from 267 ms to under 200.
+     *
+     * FORTY, not four. The old figure was measured when a course could put
+     * a jump anywhere on the line; R25's ocean leg takes a third of the
+     * course out of the running for one, and R9's beam is now read on the
+     * chord the window actually becomes rather than on the curve it
+     * replaces — so a shuffle has fewer places to succeed and fails more
+     * honestly. RE-MEASURED over twenty-four seeds: eight tries built 21 of
+     * them at 770 ms, forty built 24 at 630, and a hundred is inside the
+     * noise of forty. The curve is flat past it, which is the tell that the
+     * basins still refusing have no beam-on straight in them at all. */
+    courseTries: 40,
     /** Extra depth the search demands under the path, m. */
     depthSlack: 0.4,
     /** Extra clearance the placer keeps from the path, m. */

@@ -28,13 +28,23 @@ const ERRATIC = new THREE.Color(0x9a8b78);
 /** The sea stacks: paler than the shore, because a rock standing in open
  * water is lit from every side by the sky and washed by the salt. */
 const STACK = new THREE.Color(0xa8a49b);
+/** THE MARK (R25): the rock the course goes out to round, and the only
+ * thing on the water taller than the land behind it. Paler still — a
+ * seabird colony's rock is white with guano from the waterline up, and on
+ * this coast that is what a landmark stack looks like from a kilometre
+ * out, which is exactly the distance it has to be legible from. */
+const MARK = new THREE.Color(0xc9c4b6);
 
 /** How far below the sea the solids' shapes continue, m, so a rock is
  * rooted in the bed rather than floating at the surface. */
 const ROOT = 6;
 /** …and how far a STACK's column continues under it, m: deeper, because a
- * stack stands in open water where the bed is well down. */
+ * stack stands in open water where the bed is well down. The MARK's own is
+ * deeper again — it stands where the bed has fallen to R3's shelf depth
+ * and then some, and a column that stops short of the bottom is a rock
+ * floating in the sea from anywhere the water is clear. */
 const STACK_ROOT = 26;
+const MARK_ROOT = 40;
 
 const m = new THREE.Matrix4();
 const pos = new THREE.Vector3();
@@ -103,6 +113,26 @@ export function createRocks(level: Level): THREE.Group {
       STACK,
       level.seed,
       0.05,
+    ),
+  );
+  // THE MARK: the stack's column again, but drawn to be a ROCK at a
+  // kilometre rather than a post. Seven sides and a hard taper — a stack
+  // is a remnant, wider at the water where the sea has not got at it and
+  // narrow at the top where it has — and a lean off vertical, because a
+  // column standing plumb with a flat top reads as something that was
+  // built.
+  group.add(
+    instanced(
+      new THREE.CylinderGeometry(0.42, 1, 2, 7, 1),
+      by("mark"),
+      (s) => {
+        const h = s.top + MARK_ROOT;
+        pos.y = s.top - h / 2;
+        scale.set(s.r, h / 2, s.r * 0.86);
+      },
+      MARK,
+      level.seed,
+      0.07,
     ),
   );
   group.add(
