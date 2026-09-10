@@ -63,9 +63,9 @@ and watching it in the game shows spray. So do not: stage it on the bench and
 read it.
 
 ```sh
-make ride SCENARIO=rest              # the whole set is every scenario in scenarios.ts
+make ride SCENARIO=rest              # ONE scenario — the flag takes one name
 make ride SCENARIO=chop
-make ride SCENARIO="launch landing dive"
+npm run ride -- --all                # every scenario, one picture each
 npm run ride -- --scenario carve --craft otter --seed 3 --every 0.1
 ```
 

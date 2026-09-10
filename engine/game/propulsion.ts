@@ -1,12 +1,14 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE PUMP — the engine, the impeller, the jet and the nozzle it steers
-// with. A personal watercraft has no propeller, no rudder and no gears: an
+// THE PUMP — the engine, the impeller, the jet, and the three things that
+// aim it: the nozzle that swings to steer, the trim that aims it up or
+// down, and the bucket that drops over it to throw the flow forward. A
+// personal watercraft has no propeller, no rudder and no gears: an
 // axial-flow pump draws water through a flush intake under the transom
-// and throws it out of a nozzle, and the nozzle swings to steer. Three
-// consequences the whole handling model rests on, and all three are here:
-// thrust falls as the hull speeds up (the jet gains less momentum over the
-// inflow), thrust vanishes the moment the intake leaves the water, and
-// with no thrust there is almost nothing to steer with.
+// and throws it out of a nozzle. Three consequences the whole handling
+// model rests on, and all three are here: thrust falls as the hull speeds
+// up (the jet gains less momentum over the inflow), thrust vanishes the
+// moment the intake leaves the water, and with no thrust there is almost
+// nothing to steer with — or to brake with.
 //
 // Models:
 // - Waterjet MOMENTUM THEORY (Allison 1993; Bulten 2006 ch. 2): the jet
@@ -25,11 +27,28 @@
 //   (T_engine − T_pump)/I. The pump term is integrated IMPLICITLY — its
 //   stiffness at redline (−2·T_pump/ω per rad/s) is several times the
 //   step's reciprocal, and an explicit step would ring.
+// - FORCED INDUCTION: a centrifugal blower geared off the crank raises
+//   the delivery pressure with the square of its shaft speed, so its
+//   torque contribution goes as (N/N_max)² above the onset and there is
+//   nothing at all below it. The catalog's curve is already the
+//   before-the-blower one (`marineCurve`), so this multiplies it.
+// - THE REVERSE BUCKET: the gate catches its own deployment's share of the
+//   jet and turns it forward and down, so the AXIAL force is what is left
+//   going aft less what the gate sends back — `(1 − d) − d·reverse` of the
+//   thrust — and it passes through zero at a neutral part way down. The
+//   deflected share leaves DOWNWARD under the hull, so its reaction lifts
+//   the stern — and a stern lifted behind the centre of gravity puts the
+//   BOW DOWN, which is what a watercraft does under braking. The reverse
+//   thrust itself acts below the centre of gravity and pushes the same
+//   way, so the two agree.
+// - THE TRIM: the nozzle pivots vertically, so the thrust line leaves the
+//   axis. Aimed UP, the reaction is downward at the transom, and a
+//   downward force behind the centre of gravity lifts the bow.
 
 import { approach, clamp } from "../lib/math.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
-import { maxNozzle, maxRpm } from "./limits.ts";
+import { maxNozzle, maxRpm, maxTrim } from "./limits.ts";
 
 const PUMP = TUNING.pump;
 const RPM_TO_RAD = (2 * Math.PI) / 60;
@@ -66,10 +85,27 @@ export function peakTorque(spec: CraftSpec): number {
   return peak;
 }
 
-/** Net engine torque, N·m: the curve times the throttle, less friction. */
+/** What the blower is worth at `rpm`, as a multiple of the engine's own
+ * torque: 1 below the onset, rising as the square of the shaft speed to
+ * `1 + peak` at the limiter. 1 everywhere on a naturally aspirated craft. */
+export function boostFactor(spec: CraftSpec, rpm: number): number {
+  const { peak, onset } = spec.boost;
+  if (peak <= 0) return 1;
+  const over = clamp((rpm / maxRpm(spec) - onset) / (1 - onset), 0, 1);
+  return 1 + peak * over * over;
+}
+
+/** Net engine torque, N·m: the curve times the throttle and the blower,
+ * less friction. */
 export function engineTorque(spec: CraftSpec, rpm: number, throttle: number): number {
   const friction = PUMP.friction * peakTorque(spec) * (rpm / maxRpm(spec));
-  return curveTorque(spec, rpm) * throttle - friction;
+  return curveTorque(spec, rpm) * boostFactor(spec, rpm) * throttle - friction;
+}
+
+/** Torque at the limiter with the blower in, N·m — where the spec's rated
+ * power lands, and what the pump has to absorb for the two to meet. */
+export function ratedTorque(spec: CraftSpec): number {
+  return curveTorque(spec, maxRpm(spec)) * boostFactor(spec, maxRpm(spec));
 }
 
 /** Pump shaft torque at `rpm`, N·m: the jet's kinetic power over the pump
@@ -141,4 +177,38 @@ export function stepEngine(
 export function stepNozzle(spec: CraftSpec, nozzle: number, steer: number, dt: number): number {
   const target = clamp(steer, -1, 1) * maxNozzle(spec);
   return approach(nozzle, target, PUMP.nozzleRate * maxNozzle(spec) * dt);
+}
+
+/** Aim the nozzle toward the trim the rider's lean is asking for, rad —
+ * leaning back trims UP. Slower than the steering nozzle: trim is a screw
+ * or a motor, not a cable and a hand. Always 0 on a craft with no trim. */
+export function stepTrim(spec: CraftSpec, trim: number, lean: number, dt: number): number {
+  const range = maxTrim(spec);
+  if (range <= 0) return 0;
+  return approach(trim, clamp(lean, -1, 1) * range, PUMP.trimRate * range * dt);
+}
+
+/** Swing the bucket toward what the brake lever is asking for, 0..1 down.
+ * A craft with no bucket fitted never leaves 0. */
+export function stepBucket(spec: CraftSpec, bucket: number, reverse: number, dt: number): number {
+  const { reverse: authority, deploy } = spec.bucket;
+  if (authority <= 0 || deploy <= 0) return 0;
+  return approach(bucket, clamp(reverse, 0, 1), dt / deploy);
+}
+
+/** What the gate does to the jet, given how far down it is: the share
+ * still leaving THROUGH the nozzle (which is the only share the trim can
+ * aim), the share of the thrust still acting ALONG the hull (negative once
+ * the gate is past its neutral), and the share thrown DOWNWARD under the
+ * transom. The nozzle is upstream of the gate and steers what it catches
+ * too, so applying the nozzle's angle to a negative axial is what makes a
+ * craft steer backwards in reverse — as a real one does. */
+export function bucketVector(
+  spec: CraftSpec,
+  bucket: number,
+): { through: number; axial: number; down: number } {
+  const d = clamp(bucket, 0, 1);
+  const authority = spec.bucket.reverse;
+  if (d <= 0 || authority <= 0) return { through: 1, axial: 1, down: 0 };
+  return { through: 1 - d, axial: 1 - d - d * authority, down: d * authority * PUMP.bucketDown };
 }

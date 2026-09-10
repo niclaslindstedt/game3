@@ -329,6 +329,13 @@ export const TUNING = {
      * section in displacement mode, sized so the hump costs ~15% of the
      * weight at C_v ≈ 1 as Savitsky's hump data has it. */
     formCd: 0.14,
+    /** ...and the same section's coefficient going ASTERN, where the hull
+     * is not a hull at all but a flat transom pushed backwards through the
+     * water: a bluff plate, Hoerner's ~1.1, near an order of magnitude
+     * over the fine end's. It is why a watercraft backs up at walking pace
+     * however hard the bucket pushes, and it is a MEASUREMENT of a shape
+     * rather than a limiter on reverse. */
+    asternCd: 1.1,
     /** Scale on the Newtonian pressure coefficient of the bow's rising
      * bottom (2·sin²σ); 1 is the theory. */
     bowCp: 1,
@@ -465,6 +472,25 @@ export const TUNING = {
     /** How fast the nozzle swings, rad/s at full input (a cable and a
      * hand). */
     nozzleRate: 6,
+    /** How fast the TRIM travels, in trim-ranges a second: a screw or a
+     * small motor moving the whole nozzle housing, so about a second and a
+     * half from one stop to the other rather than the steering's fifth of
+     * one. Quoted as a rate against each craft's own range so a wide-range
+     * system is not also a faster one. */
+    trimRate: 1.4,
+    /** How much of the reversed jet leaves DOWNWARD under the transom, as
+     * a share of what the bucket turns. The gate is a clamshell: the flow
+     * it catches goes forward and under rather than straight back up the
+     * hull's own line, and the reaction squats the stern and puts the bow
+     * down — which is why braking hard on a watercraft buries the nose.
+     * An ARCADE DIAL sized for that read, not a measured deflection. */
+    bucketDown: 0.55,
+    /** How far the brake lever opens the throttle on its own, 0..1. The
+     * bucket can only turn flow the pump is making, so pulling the lever
+     * asks the engine for enough of it to stop with — which is exactly
+     * what an electronic brake does and why a watercraft brakes with the
+     * engine revving. */
+    bucketThrottle: 0.65,
     /** Intake depth below the keel probe at the transom, m: the intake is
      * fed while the transom station is wet to this. */
     intakeDepth: 0.05,

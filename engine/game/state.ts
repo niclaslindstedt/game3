@@ -17,17 +17,31 @@ import type { WindState } from "./wind.ts";
 export type CraftInput = {
   /** -1..1; positive steers clockwise (right in map view). */
   steer: number;
-  /** 0..1, analogue. There is no brake: the throttle IS the control. */
+  /** 0..1, analogue — the throttle lever. */
   throttle: number;
+  /** 0..1, analogue — the BRAKE AND REVERSE lever, which drops the bucket
+   * over the jet and opens the throttle enough to feed it. The only brake
+   * a watercraft has, and a craft with no bucket fitted (`spec.bucket
+   * .reverse` 0) does nothing with it at all. Held against `throttle`
+   * rather than signed onto it because the two are separate levers on the
+   * bars and the engine never runs backwards. */
+  reverse: number;
   /** -1..1; +1 is the rider leaning BACK (nose up), -1 forward. In the air
-   * it is the pitch control. */
+   * it is the pitch control; afloat it also carries the nozzle's TRIM on a
+   * craft that has one. */
   lean: number;
   /** Edge-triggered: put the craft back at the last gate passed, facing
    * the next one, at rest. */
   reset: boolean;
 };
 
-export const NEUTRAL_INPUT: CraftInput = { steer: 0, throttle: 0, lean: 0, reset: false };
+export const NEUTRAL_INPUT: CraftInput = {
+  steer: 0,
+  throttle: 0,
+  reverse: 0,
+  lean: 0,
+  reset: false,
+};
 
 export type CraftState = {
   spec: CraftSpec;
@@ -57,6 +71,12 @@ export type CraftState = {
   throttleEff: number;
   /** Steering nozzle deflection, rad, positive for a clockwise turn. */
   nozzle: number;
+  /** Nozzle TRIM, rad, positive aimed up (which lifts the bow); 0 on a
+   * craft with no trim system. Lags the lean. */
+  trim: number;
+  /** How far the reverse bucket has swung down, 0..1; 0 on a craft with no
+   * bucket. Lags the brake lever by the gate's own travel time. */
+  bucket: number;
   /** Where the rider's mass currently sits, m: aft (positive) of nominal,
    * and toward the craft's right. Lags the inputs. */
   riderAft: number;

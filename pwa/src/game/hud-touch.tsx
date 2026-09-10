@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE TOUCH CONTROLS — the two thumb zones the phone rides the craft with:
-// the HANDLEBAR on the lower left, the THROTTLE LEVER on the lower right.
+// the HANDLEBAR on the lower left, the LEVER on the lower right — throttle
+// pulled down from its anchor, brake and reverse pushed up from it.
 // Both stop short of the top of the screen so the readouts and their
 // buttons keep their own presses; styles.css owns where the line falls.
 //
@@ -26,7 +27,15 @@
 
 import { useEffect, useMemo, useRef } from "preact/hooks";
 
-import { BAR_REACH_PX, LEVER_FULL_PX, barLean, barSteer, leverThrottle } from "./input-model.ts";
+import {
+  BAR_REACH_PX,
+  LEVER_FULL_PX,
+  LEVER_REVERSE_PX,
+  barLean,
+  barSteer,
+  leverReverse,
+  leverThrottle,
+} from "./input-model.ts";
 import type { InputManager } from "./input.ts";
 import { createThumbGuard } from "./thumb-guard.ts";
 
@@ -143,26 +152,37 @@ export function BarZone({ touch }: { touch: InputManager["touch"] }) {
   );
 }
 
-/** The right thumb: touching anywhere in the zone anchors the LEVER at
- * zero; dragging DOWN the glass pulls it open, full at `LEVER_FULL_PX`,
+/** The right thumb: touching anywhere in the zone anchors the LEVER at its
+ * NEUTRAL, and the throw runs both ways from there. Dragging DOWN the glass
+ * pulls the throttle open, full at `LEVER_FULL_PX`; dragging UP pulls the
+ * BRAKE AND REVERSE lever instead, full at `LEVER_REVERSE_PX` — the bucket
+ * dropping over the jet, which is the only brake a watercraft has. Both are
  * analogue the whole way, held while the finger is down and let go on the
- * lift. Nothing else is on this thumb — there is no brake to reach for. */
+ * lift, and only one of them can be open at once because the thumb is
+ * either side of where it started. */
 export function LeverZone({ touch }: { touch: InputManager["touch"] }) {
   const leverRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<SVGGElement>(null);
   const fillRef = useRef<SVGRectElement>(null);
   const originRef = useRef(0);
 
-  const write = (throttle: number): void => {
+  const write = (throttle: number, reverse: number): void => {
     touch.throttle = throttle;
-    // The track is drawn LEVER_FULL_PX tall; the knob rides the thumb.
-    const px = throttle * LEVER_FULL_PX;
+    touch.reverse = reverse;
+    // The knob rides the thumb; the fill runs from the neutral at 0 out to
+    // it, downward for throttle and upward for the brake, which is drawn
+    // in the alarm colour so a thumb never has to ask which half it is in.
+    const px = throttle * LEVER_FULL_PX - reverse * LEVER_REVERSE_PX;
     knobRef.current?.setAttribute("transform", `translate(0 ${px.toFixed(1)})`);
-    fillRef.current?.setAttribute("height", px.toFixed(1));
+    const fill = fillRef.current;
+    if (!fill) return;
+    fill.setAttribute("y", Math.min(0, px).toFixed(1));
+    fill.setAttribute("height", Math.abs(px).toFixed(1));
+    fill.classList.toggle("hud-lever-fill-reverse", reverse > 0);
   };
   const letGo = (): void => {
     touch.lever = false;
-    write(0);
+    write(0, 0);
     if (leverRef.current) leverRef.current.style.display = "none";
   };
   const letGoRef = useRef(letGo);
@@ -186,11 +206,12 @@ export function LeverZone({ touch }: { touch: InputManager["touch"] }) {
           lever.style.display = "block";
         }
         touch.lever = true;
-        write(0);
+        write(0, 0);
       }}
       onPointerMove={(e) => {
         if (!guard.owns(e.pointerId)) return;
-        write(leverThrottle(e.clientY - originRef.current));
+        const dy = e.clientY - originRef.current;
+        write(leverThrottle(dy), leverReverse(dy));
       }}
       onPointerUp={(e) => guard.release(e.pointerId)}
       onPointerCancel={(e) => guard.release(e.pointerId)}
@@ -200,11 +221,21 @@ export function LeverZone({ touch }: { touch: InputManager["touch"] }) {
         <svg
           class="hud-lever-svg"
           width="44"
-          height={LEVER_FULL_PX + 44}
-          viewBox={`-22 -22 44 ${LEVER_FULL_PX + 44}`}
+          height={LEVER_REVERSE_PX + LEVER_FULL_PX + 44}
+          viewBox={`-22 ${-LEVER_REVERSE_PX - 22} 44 ${LEVER_REVERSE_PX + LEVER_FULL_PX + 44}`}
         >
-          <rect class="hud-lever-track" x="-6" y="0" width="12" height={LEVER_FULL_PX} rx="6" />
+          <rect
+            class="hud-lever-track"
+            x="-6"
+            y={-LEVER_REVERSE_PX}
+            width="12"
+            height={LEVER_REVERSE_PX + LEVER_FULL_PX}
+            rx="6"
+          />
           <rect ref={fillRef} class="hud-lever-fill" x="-6" y="0" width="12" height="0" rx="6" />
+          {/* The neutral the thumb anchored at, so the two throws read as
+              two levers rather than one long one. */}
+          <line class="hud-lever-neutral" x1="-11" y1="0" x2="11" y2="0" />
           <g ref={knobRef}>
             <circle class="hud-lever-knob" cx="0" cy="0" r="15" />
           </g>

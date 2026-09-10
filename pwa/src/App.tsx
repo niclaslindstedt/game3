@@ -402,7 +402,7 @@ export function App() {
     const canvas = canvasRef.current;
     if (!canvas) return;
     connectOutput();
-    const input = createInputManager(window);
+    const input = createInputManager(window, () => playerRides(shellRef.current));
     inputRef.current = input;
     const renderer = createRenderer(canvas, settingsRef.current.video);
     rendererRef.current = renderer;

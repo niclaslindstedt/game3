@@ -38,6 +38,7 @@ export {
   CRAFT_IDS,
   craftById,
   isCraftId,
+  type CraftArchetype,
   type CraftId,
   type CraftSpec,
 } from "./game/defs/craft.ts";
@@ -106,12 +107,15 @@ export {
 export { planingLift, pressureCentre, wettedLength, type PlaningResult } from "./game/hydro.ts";
 // THE PUMP (propulsion.ts).
 export {
+  boostFactor,
+  bucketVector,
   curveTorque,
   engineTorque,
   jetVelocity,
   nozzleArea,
   peakTorque,
   pumpTorque,
+  ratedTorque,
   staticThrust,
   thrust,
 } from "./game/propulsion.ts";
@@ -121,7 +125,9 @@ export {
   airPitchTorque,
   jetCeiling,
   maxNozzle,
+  maxReverse,
   maxRpm,
+  maxTrim,
   topSpeedOf,
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).

@@ -172,7 +172,7 @@ describe("the body on its springs", () => {
   function fresh(): GameState {
     return createGame({ seed: 5, craft: "skiff", level: LEVEL, quiet: true });
   }
-  const INPUT = { steer: 0, throttle: 0.5, lean: 0, reset: false };
+  const INPUT = { steer: 0, throttle: 0.5, reverse: 0, lean: 0, reset: false };
 
   it("rises off the seat in the air, compresses on the landing, and settles", () => {
     const state = fresh();
@@ -205,7 +205,7 @@ describe("the body on its springs", () => {
     const dyn = createRiderDynamics();
     let minBob = 0;
     for (let i = 0; i < 2 * TUNING.physicsHz; i++) {
-      step(state, { steer: 0, throttle: 1, lean: 0, reset: false });
+      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
       dyn.observe(state);
       minBob = Math.min(minBob, dyn.read(state).bob);
     }
@@ -216,7 +216,7 @@ describe("the body on its springs", () => {
     const state = fresh();
     placeRun(state, { x: 100, z: 200, heading: 0, speed: 10 });
     const dyn = createRiderDynamics();
-    step(state, { steer: 1, throttle: 1, lean: 1, reset: false });
+    step(state, { steer: 1, throttle: 1, reverse: 0, lean: 1, reset: false });
     dyn.observe(state);
     const r = dyn.read(state);
     expect(r.aft).toBe(state.craft.riderAft);

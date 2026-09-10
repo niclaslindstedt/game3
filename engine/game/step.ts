@@ -66,6 +66,8 @@ export function freshCraft(spec: CraftSpec): CraftState {
     rpm: spec.idleRpm,
     throttleEff: 0,
     nozzle: 0,
+    trim: 0,
+    bucket: 0,
     riderAft: 0,
     riderRight: 0,
     wetted: 0,

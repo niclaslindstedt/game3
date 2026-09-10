@@ -14,11 +14,13 @@ import {
   LEAN_DEAD_PX,
   LEAN_REACH_PX,
   LEVER_FULL_PX,
+  LEVER_REVERSE_PX,
   NO_KEYS,
   SCREEN_TO_ENGINE,
   barLean,
   barSteer,
   createInputModel,
+  leverReverse,
   leverThrottle,
   neutralTouch,
   rampToward,
@@ -97,7 +99,7 @@ describe("the key ramps", () => {
 describe("sampleInput", () => {
   it("hands the engine neutral for nothing held", () => {
     const input = sampleInput(createInputModel(), NO_KEYS, neutralTouch(), DT, false);
-    expect(input).toEqual({ steer: 0, throttle: 0, lean: 0, reset: false });
+    expect(input).toEqual({ steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false });
   });
 
   it("flips the steer sign ONCE: the right key is the engine's negative", () => {
@@ -171,5 +173,56 @@ describe("sampleInput", () => {
     expect(input.steer).toBe(-1);
     expect(input.lean).toBe(-1);
     expect(input.throttle).toBe(1);
+  });
+});
+
+describe("the brake and reverse lever", () => {
+  it("is the same anchor's other half: up is brake, down is nothing", () => {
+    expect(leverReverse(0)).toBe(0);
+    expect(leverReverse(40)).toBe(0);
+    expect(leverReverse(-LEVER_REVERSE_PX / 2)).toBeCloseTo(0.5, 9);
+    expect(leverReverse(-LEVER_REVERSE_PX)).toBe(1);
+    expect(leverReverse(-LEVER_REVERSE_PX * 3)).toBe(1);
+  });
+
+  it("and the two throws never open at once", () => {
+    for (let px = -LEVER_REVERSE_PX * 2; px <= LEVER_FULL_PX * 2; px += 5) {
+      expect(Math.min(leverThrottle(px), leverReverse(px)), `at ${px}px`).toBe(0);
+    }
+  });
+});
+
+describe("the brake against the throttle", () => {
+  it("wins, whichever hand each came from", () => {
+    const model = createInputModel();
+    const touch = neutralTouch();
+    // A thumb pulling the brake while a key holds the throttle down: a
+    // rider reaching for the only brake the craft has is not also asking
+    // to go faster.
+    touch.lever = true;
+    touch.reverse = 1;
+    let input = sampleInput(model, { ...NO_KEYS, throttle: true }, touch, 1, false);
+    expect(input.reverse).toBe(1);
+    expect(input.throttle).toBe(0);
+    // ...and let go of, the throttle is the rider's again.
+    touch.reverse = 0;
+    input = sampleInput(model, { ...NO_KEYS, throttle: true }, touch, 1, false);
+    expect(input.reverse).toBe(0);
+    expect(input.throttle).toBeGreaterThan(0);
+  });
+
+  it("ramps on the key and lets go faster than it takes", () => {
+    const model = createInputModel();
+    const held = sampleInput(model, { ...NO_KEYS, reverse: true }, neutralTouch(), 0.05, false);
+    expect(held.reverse).toBeGreaterThan(0);
+    expect(held.reverse).toBeLessThan(1);
+    const rising = held.reverse;
+    const released = sampleInput(model, NO_KEYS, neutralTouch(), 0.05, false);
+    expect(released.reverse).toBeLessThan(rising);
+  });
+
+  it("is 0 in a neutral sample", () => {
+    const input = sampleInput(createInputModel(), NO_KEYS, neutralTouch(), 0.016, false);
+    expect(input.reverse).toBe(0);
   });
 });

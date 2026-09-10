@@ -80,8 +80,15 @@ export function hullProbes(spec: CraftSpec): readonly HullProbe[] {
     const s = stations[i];
     const share = H.stationShare[i] / shareSum;
     const taper = H.stationTaper[i];
-    const rise = H.stationRise[i] * spec.height;
-    const riseBehind = i > 0 ? H.stationRise[i - 1] * spec.height : 0;
+    // How far the keel has swept up by this station. `bowRise` is the
+    // craft's own rocker against the reference hull's, and it moves two
+    // things at once: the probe's HEIGHT (so a rockered bow carries its
+    // volume clear of the water and has less to hold the nose up with) and
+    // its SLOPE (so the same bow meets the flow at a steeper angle and
+    // earns more of the bow's own lift). The first wins — measured on a
+    // staged nose-down landing — so more rocker is a hull that buries.
+    const rise = H.stationRise[i] * spec.height * spec.bowRise;
+    const riseBehind = i > 0 ? H.stationRise[i - 1] * spec.height * spec.bowRise : 0;
     const z = (s - 0.5) * spec.length - spec.cog.z;
     const keelY = -spec.cog.y + rise;
     const chineOut = H.chineOut * halfBeam * taper;
@@ -518,8 +525,15 @@ export function hullForces(
     // each probe carrying its share of the ONE section the hull has.
     // Present only until the hull is on the plane — past the hump the
     // bottom is a lifting surface and the lift's tilt is the pressure drag.
+    //
+    // GOING ASTERN it is a different shape entirely: the fine entry is
+    // behind and what meets the water is the flat transom, a bluff plate
+    // (`asternCd`). Nothing planes backwards, so the fade never lifts it.
     const frontal = spec.beam * Math.min(s.depth, p.height) * p.lateralShare;
-    fFwd -= 0.5 * density * H.formCd * frontal * Math.abs(uFwd) * uFwd * (1 - planingShare);
+    const astern = uFwd < 0;
+    const formCd = astern ? H.asternCd : H.formCd;
+    const inDisplacement = astern ? 1 : 1 - planingShare;
+    fFwd -= 0.5 * density * formCd * frontal * Math.abs(uFwd) * uFwd * inDisplacement;
     // Lateral: the keel and the sponsons as a plate against the sideways
     // flow — the force that makes the hull carve. The hull's lateral
     // projection is its length times its immersion, once, shared out.
