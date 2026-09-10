@@ -28,9 +28,9 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
 | `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF, the app side of a biome row: its three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are all written against. A coast in `BIOMES` without a row here throws on its first level (`tests/water_optics_test.ts`) |
 | `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground` and the same optics row, so a bed that changes shape changes what the water looks like over it (`water-feel`) |
-| `engine/game/defs/fauna.ts` | THE CATALOG (R20): the ten animals, and for each what it is — length, beam, cruising speed, the depth it holds at, the water it needs, its offshore band, its school size, its breathing interval, its temperature band — and `perKm`, how rare it is. `rarityOf` turns that one number into the word; nothing states the word |
+| `engine/game/defs/fauna.ts` | THE CATALOG (R20): the ten animals, and for each what it is — length, beam, cruising speed, the depth it holds at, the water it needs, its offshore band, its school size, how often it comes up (`breath` / `bask`) and how deep it holds when it does (`awash`), whether its bulls breach (`breach`), its temperature band — and `perKm`, how rare it is. `rarityOf` turns that one number into the word; nothing states the word |
 | `engine/mapgen/fauna.ts` | THE PLACER (R20): pods laid along the coast after the rocks, each tried a bounded number of times for a spot with the water its species needs the whole way round the loop it swims, clear of the solids. Its draws come off the END of the seed's stream, after R19's sky, so adding or retuning an animal moves no geometry |
-| `engine/game/fauna.ts` | THE SWIM MODEL: `faunaPose(pod, i, t, out)` — the loop, the formation, the weave, the breath — a pure function of the placement and the clock, the fauna's own `surfaceAt`. Nothing about the sea life is ever stepped |
+| `engine/game/fauna.ts` | THE SWIM MODEL: `faunaPose(pod, i, t, out, waterY)` — the loop, the formation, the weave, the rise, the breach — a pure function of the placement, the clock and the sea over the pod. Nothing about the sea life is ever stepped |
 | `pwa/src/game/fauna.ts` | THE LOOK: `STYLES` (paint, fin proportions, markings) and the parametric body, one instanced draw call a species, with the tail beat and the depth haze grafted into the vertex shader |
 | `pwa/src/game/flora-defs.ts` | THE ROSTER: the thirteen rows the shore is covered in — for each, what it IS (its form, height band, spread, bark and the two greens of its canopy) and its HABITAT (the ground and inland bands, the surfaces, the slope it holds on, its share, the bigger share it takes on a riverbank, the shelter it needs, the patch it comes in). `TREE_LINE` is stated here and `terrain.ts` paints the forest floor under it |
 | `pwa/src/game/flora-plan.ts` | THE PLACER: candidates thrown along `level.shore` — which the river's banks are part of (R26) — and each point offered to every row, one species picked weighted by share. Three-free, so `tests/flora_test.ts` holds the habitats |
@@ -68,9 +68,18 @@ water, and that one fact decides everything about the fauna's look:
   rather than two settings — and the corollary is that the window is never
   the lever for hiding anything, because it hides the sea life by the same
   share.
-- **A breath is the sighting.** A cetacean rolling its back through the
-  surface is the only moment it reads at range, which is why the catalog's
-  breathing intervals are the short end of the real ones.
+- **Coming up is the sighting, and it is measured against the WATER.** A
+  cetacean rolling its back through the surface is the only moment it
+  reads at range, which is why the catalog's breathing intervals are the
+  short end of the real ones — and why the porbeagle comes up too (`bask`)
+  even though it breathes water. What shows is the FIN and nothing under
+  it: `awash` is how deep the centreline holds at the top of the rise, in
+  body radii, and about one radius puts the back awash with the dorsal
+  cutting the surface. Taken against the sea over the pod rather than
+  against y = 0, because a level's sea is metres high and a fin that
+  clears the mathematical plane clears nothing. Only a BULL DOLPHIN goes
+  further, and that leap is the one time this game shows an animal
+  against the sky.
 - **Rarity is the feature.** Retuning `perKm` is retuning the whole thing:
   run a sweep of seeds and COUNT before and after (`make level SEED=n`
   prints a seed's roster, `make analyze` the pods and animals per level),

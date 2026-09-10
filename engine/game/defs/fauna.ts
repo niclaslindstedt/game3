@@ -3,8 +3,9 @@
 //
 // A row here is one ANIMAL, and everything about it that is not a colour:
 // how long it is, how fast it swims, how deep it holds, how many travel
-// together, how often it has to breathe, the water it is met in — and how
-// OFTEN it is met, which is the number the whole catalog is really about.
+// together, how often it comes up and how far out of the water it comes
+// when it does, the water it is met in — and how OFTEN it is met, which is
+// the number the whole catalog is really about.
 // The look (the paint, the patches, the fins) belongs to the renderer's own
 // table in `pwa/src/game/fauna.ts`, the way a craft's dimensions are here
 // and its paint is in `craft-styles.ts`.
@@ -104,6 +105,30 @@ export type FaunaSpec = {
    * reason: a minke that sounded for twenty minutes would be a row in the
    * catalog nobody ever met. */
   readonly breath: number;
+  /** Seconds between one BASKING RUN and the next, for an animal that does
+   * not breathe air but comes up anyway — a porbeagle hunting or lying at
+   * the surface with its dorsal and the tip of its tail out. 0 for anything
+   * that stays down. At most one of `breath` and `bask` is ever set: they
+   * are two reasons for the same rise, and the swim model treats them as
+   * one. */
+  readonly bask: number;
+  /** HOW HIGH IT COMES at the top of a rise: the depth of its centreline
+   * then, in BODY RADII (half a beam × the length) below the water over
+   * it. About 1 for everything here, and that is the whole design — one
+   * radius down puts the back AWASH and leaves the DORSAL, and only the
+   * dorsal, standing clear of the sea. That is what a sighting at sea
+   * actually is: a fin cutting the surface, not an animal riding on top of
+   * it. Measured against the water over the pod rather than mean sea
+   * level, because a level's sea is metres high and a fin that clears the
+   * mathematical plane by a hand's breadth clears nothing at all. */
+  readonly awash: number;
+  /** Seconds between one BREACH and the next — the leap that takes the
+   * whole animal out of the water and is the only time this game shows an
+   * animal against the sky rather than against the sea. Only the MALES of a
+   * species breach (`isMale` in `engine/game/fauna.ts`), so a pod throws one
+   * about as often as this divided by the bulls in it. 0 for everything that
+   * never leaves the water. */
+  readonly breach: number;
   /** The water temperature band it is met in, °C — a level's water
    * (R13) either falls in it or the animal is not on that coast that day. */
   readonly temperature: Band;
@@ -141,6 +166,9 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 10, max: 180 },
     perKm: 3.4,
     breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
     temperature: { min: 4, max: 18 },
   },
   {
@@ -157,6 +185,9 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 6, max: 90 },
     perKm: 2.2,
     breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
     temperature: { min: 8, max: 22 },
   },
   {
@@ -173,6 +204,9 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 8, max: 120 },
     perKm: 1.7,
     breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
     temperature: { min: 6, max: 22 },
   },
   {
@@ -191,6 +225,9 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 6, max: 70 },
     perKm: 0.55,
     breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
     temperature: { min: 8, max: 22 },
   },
   {
@@ -207,6 +244,9 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 15, max: 200 },
     perKm: 0.42,
     breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
     temperature: { min: 4, max: 16 },
   },
   {
@@ -225,6 +265,10 @@ export const FAUNA: readonly FaunaSpec[] = [
     // whole sea. One in three or four rides is already generous to it.
     perKm: 0.16,
     breath: 12,
+    bask: 0,
+    // A quick low roll: the blunt little triangular fin, and gone again.
+    awash: 0.9,
+    breach: 0,
     temperature: { min: 4, max: 18 },
   },
   {
@@ -239,8 +283,18 @@ export const FAUNA: readonly FaunaSpec[] = [
     depth: { min: 1.5, max: 4.5 },
     water: 6,
     offshore: { min: 30, max: 240 },
-    perKm: 0.075,
+    // The one animal in the catalog whose rarity is set by what it DOES
+    // rather than by how often it strays into the Baltic: the bull's
+    // breach is the coast's signature moment, and a moment a rider meets
+    // on one seed in fourteen is a moment nobody has seen. Uncommon —
+    // better than half the coasts carry a pod, and it is still the rarest
+    // thing a rider can count on.
+    perKm: 0.4,
     breath: 16,
+    bask: 0,
+    // The fin on a rise; the whole animal only on the bull's breach.
+    awash: 0.85,
+    breach: 55,
     temperature: { min: 4, max: 16 },
   },
   {
@@ -257,6 +311,12 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 40, max: 250 },
     perKm: 0.04,
     breath: 0,
+    // A porbeagle breathes water, but it hunts and lies at the surface,
+    // and the fin cutting along it is the entire sighting.
+    bask: 34,
+    // Back awash, fin and the tip of the tail out — the whole sighting.
+    awash: 0.95,
+    breach: 0,
     temperature: { min: 4, max: 17 },
   },
   {
@@ -273,6 +333,11 @@ export const FAUNA: readonly FaunaSpec[] = [
     offshore: { min: 45, max: 250 },
     perKm: 0.02,
     breath: 20,
+    bask: 0,
+    // A bull's fin stands nearly two metres over a back that never leaves
+    // the water: the tallest thing in the catalog, and the whole point.
+    awash: 0.9,
+    breach: 0,
     temperature: { min: 4, max: 16 },
   },
   {
@@ -291,6 +356,10 @@ export const FAUNA: readonly FaunaSpec[] = [
     // and it is the sighting the whole catalog exists to make possible.
     perKm: 0.011,
     breath: 30,
+    bask: 0,
+    // A long back rolling through, low — a rorqual surfaces flat.
+    awash: 0.85,
+    breach: 0,
     temperature: { min: 4, max: 15 },
   },
 ];

@@ -20,11 +20,13 @@ import {
   faunaPose,
   fieldGradient,
   freshPose,
+  isMale,
   launchSpeedFor,
   placeRun,
   pointAlong,
   topSpeedOf,
   type CraftInput,
+  type FaunaId,
   type Gate,
   type GameState,
   type Level,
@@ -48,6 +50,7 @@ export type ScenarioName =
   | "storm"
   | "backflip"
   | "wildlife"
+  | "breach"
   | "mark"
   | "river";
 
@@ -66,6 +69,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "storm",
   "backflip",
   "wildlife",
+  "breach",
   "mark",
   "river",
 ];
@@ -195,6 +199,96 @@ export function rarestPod(level: Level): Pod | null {
  * leaves the bottom of the frame by about twenty metres out. What can be
  * seen under the surface is what is nearly under the hull. */
 const WILDLIFE_STANDOFF = 12;
+
+/** And how far off its track, m. The chase camera puts the rider's back in
+ * the middle of the picture, so an animal dead ahead surfaces behind his
+ * shoulders; a few metres to one side is the difference between a shot of
+ * a whale and a shot of a man. */
+const WILDLIFE_SIDE = 5;
+
+/** Where the BREACH shot stands relative to the leaping animal, m —
+ * ABEAM of its track and a little behind it, not on the track looking
+ * back down it. A breach is an ARC, and an arc seen end-on is a dot: a
+ * dolphin flying straight at the camera shows its cross-section and
+ * nothing else, which is a shot of a grey blob two metres over the water.
+ * Further out than the wildlife shot, too, because a breaching bull is
+ * ABOVE the water rather than under it — seeing into the sea does not
+ * limit the range, the frame does, and an animal clearing two metres of
+ * air needs room over its head. */
+const BREACH_ABEAM = 14;
+const BREACH_BEHIND = 4;
+/** And how far the aim is swung off the animal, rad. The chase camera
+ * puts the rider's back in the middle of the picture, so anything the
+ * craft is pointed straight at leaps behind his shoulders. */
+const BREACH_AIM = 0.2;
+
+/** How long the breach is worth watching once it has been stood at its
+ * apex, s — the fall, the splash, and the water closing over it. */
+const BREACH_WATCH = 2.5;
+
+/** How often an animal's own cycle repeats, s — the window a shot of it at
+ * its highest has to search, and 0 for one that never comes up. */
+function surfaceCycle(id: FaunaId): number {
+  const spec = faunaById(id);
+  return spec.breach > 0 ? spec.breach : spec.breath > 0 ? spec.breath : spec.bask;
+}
+
+/** When animal `i` of `pod` is at its highest in the `span` seconds after
+ * `from`. Found by SEARCHING `faunaPose` rather than by re-deriving the
+ * arc: the swim model owns when an animal is where, and a second copy of
+ * its timing here is a copy that would go quietly wrong the day the rise
+ * or the leap is retuned. The step is fine enough to land inside the
+ * second or so an animal spends at the top of either. */
+function highest(pod: Pod, i: number, from: number, span: number): number {
+  let best = -Infinity;
+  let at = from;
+  const pose = freshPose();
+  for (let t = from; t < from + span; t += 0.05) {
+    const y = faunaPose(pod, i, t, pose).y;
+    if (y > best) {
+      best = y;
+      at = t;
+    }
+  }
+  return at;
+}
+
+/** How far up its own leap a breach is photographed, as a share of the
+ * apex. NOT the apex itself: at the top of a ballistic arc the vertical
+ * speed is zero, so the animal is level, and a level dolphin two metres
+ * over a flat sea reads as one HOVERING. Half way up it is still climbing
+ * at half its launch speed, which the pose turns into fifty-odd degrees of
+ * nose — the attitude that says leap. */
+const BREACH_UP = 0.5;
+
+/** Walking back from an apex the search found: the moment on the way UP at
+ * which the animal was `share` of the way to it. */
+function climbing(pod: Pod, i: number, apexAt: number, apexY: number, share: number): number {
+  const pose = freshPose();
+  const want = apexY * share;
+  let t = apexAt;
+  while (t > apexAt - 4 && faunaPose(pod, i, t, pose).y > want) t -= 0.02;
+  return t;
+}
+
+/** The soonest breach after `from` on this level, and the moment part way
+ * up it that a still of it wants. */
+function nextBreach(level: Level, from: number): { pod: Pod; index: number; at: number } | null {
+  let best: { pod: Pod; index: number; at: number } | null = null;
+  const pose = freshPose();
+  for (const pod of level.fauna) {
+    const spec = faunaById(pod.species);
+    if (spec.breach <= 0) continue;
+    for (let i = 0; i < pod.count; i++) {
+      if (!isMale(pod, i)) continue;
+      const apexAt = highest(pod, i, from, spec.breach);
+      if (best && apexAt >= best.at) continue;
+      const apexY = faunaPose(pod, i, apexAt, pose).y;
+      best = { pod, index: i, at: climbing(pod, i, apexAt, apexY, BREACH_UP) };
+    }
+  }
+  return best;
+}
 
 /** How far back down the racing line the MARK shot stands from the
  * rounding, m. Far enough that the rock is a thing on the water ahead
@@ -375,18 +469,64 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       // standing on top of the second animal.
       const pod = rarestPod(level);
       if (!pod) return scenarioFor(state, "swell");
-      const lead = faunaPose(pod, 0, 0, freshPose());
+      // At the top of the leader's own rise, when the species has one: a
+      // sighting is a back and a fin through the water, and a shot taken
+      // at whatever second the clock happened to be at photographs an
+      // animal holding at depth most of the time.
+      const cycle = surfaceCycle(pod.species);
+      const at = cycle > 0 ? highest(pod, 0, state.t, cycle) : state.t;
+      const lead = faunaPose(pod, 0, at, freshPose());
       return {
         moment: {
-          x: lead.x + Math.sin(lead.heading) * WILDLIFE_STANDOFF,
-          z: lead.z + Math.cos(lead.heading) * WILDLIFE_STANDOFF,
+          x:
+            lead.x +
+            Math.sin(lead.heading) * WILDLIFE_STANDOFF +
+            Math.cos(lead.heading) * WILDLIFE_SIDE,
+          z:
+            lead.z +
+            Math.cos(lead.heading) * WILDLIFE_STANDOFF -
+            Math.sin(lead.heading) * WILDLIFE_SIDE,
           heading: lead.heading + Math.PI,
           nextGate: mid.index,
+          clock: at,
         },
         // Stopped, and held there: a pod swims a curve and the craft can
         // only go straight, so any pace at all is a pace that loses it.
         script: () => NEUTRAL,
         seconds: 2,
+      };
+    }
+    case "breach": {
+      // THE SIGHTING: a bull dolphin clear of the water, which is the one
+      // moment this game shows an animal against the sky. The scene is
+      // staged in TIME as much as in space — the shot is the apex of a leap
+      // that happens once a minute per bull, so the scenario stands the
+      // craft where the animal will be when it gets there and hands back
+      // the wait as the script's length.
+      const leap = nextBreach(level, state.t);
+      if (!leap) return scenarioFor(state, "wildlife");
+      const bull = faunaPose(leap.pod, leap.index, leap.at, freshPose());
+      const ahead = Math.sin(bull.heading);
+      const acrossZ = Math.cos(bull.heading);
+      const bx = bull.x + acrossZ * BREACH_ABEAM - ahead * BREACH_BEHIND;
+      const bz = bull.z - ahead * BREACH_ABEAM - acrossZ * BREACH_BEHIND;
+      return {
+        moment: {
+          x: bx,
+          z: bz,
+          heading: Math.atan2(bull.x - bx, bull.z - bz) + BREACH_AIM,
+          nextGate: mid.index,
+          // The world's clock is wound to the leap rather than the craft
+          // being left to wait for it: a hull holding station for half a
+          // minute of sea is a hull the wind has carried out of its own
+          // shot, and a still is taken where the run is STOOD, not where
+          // its script ends.
+          clock: leap.at,
+        },
+        // Held still: the animal is the thing moving, and a craft under way
+        // would have left the frame before the leap.
+        script: () => NEUTRAL,
+        seconds: BREACH_WATCH,
       };
     }
     case "mark": {

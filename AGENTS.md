@@ -40,7 +40,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The generator, its rules, the analyzer                  | `level`, `analyze`             | `mapgen-improvement`                           |
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
-| The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife` | `nature`, `game-feel`                   |
+| The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife`, `SCENE=breach` | `nature`, `game-feel`   |
 | What grows on the shore: the trees, the scrub, the reed | `flora`, `screenshots SCENE=river`, `profile` | `nature`                    |
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
@@ -194,7 +194,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 
 - **What a craft CAN do** — `engine/game/limits.ts` (`maxRpm`, `maxNozzle`, `MAX_LEAN`, `jetCeiling`, `airPitchTorque`, `topSpeedOf`), read by the physics AND `sim/bot.ts`. Never restate a ceiling.
 - **What the speedo reads** — `CraftState.speed`: `|v|`, vertical included, written once at the end of `stepCraft`. The HUD, the bot and the sim all read it and none restates it.
-- **Where an animal is** — `faunaPose(pod, i, t, out)` in `engine/game/fauna.ts`: the sea life's `surfaceAt`, a pure function of the pod's loop and the clock. Nothing about the fauna is stepped, stored per frame or replayed, and `pwa/src/game/fauna.ts` reads this and nothing else.
+- **Where an animal is** — `faunaPose(pod, i, t, out, waterY)` in `engine/game/fauna.ts`: the sea life's `surfaceAt`, a pure function of the pod's loop, the clock and the water over the pod (every depth in it is measured down from `waterY` — `surfaceAt`'s height at the pod, sampled once per pod per frame, not from the plane y = 0). The rise through the surface, how far out of it the animal comes (`rise`) and a bull's breach (`isMale`, `breach`) are all here. Nothing about the fauna is stepped, stored per frame or replayed, and `pwa/src/game/fauna.ts` reads this and nothing else.
 - **The wave surface** — `surfaceAt(sea, level, x, z, t)` in `engine/game/water.ts`: the height, the normal and the water's velocity — the waves' orbital motion AND the river's current (R27), because "how fast is the water going here" is one question. The hull probes call it at 120 Hz and the renderer's `water-mesh.ts` calls the SAME function to displace its vertices. There is no second wave function anywhere.
 - **What the wind crossed to get here** — `createShelter(level, wind)` in `engine/game/fetch.ts`: the effective fetch, the exposure to the open sea and the shelter over the plan, measured ONCE per run and read by both the sea (R28's two bands) and the wind. Nothing else decides whether a piece of water is the ocean's or a river's.
 - **What the shore is made of** — `Level.materialAt(x, z)`; the sea's `surfaceAt` is the WAVE surface, which is why the level's classifier is not called that.

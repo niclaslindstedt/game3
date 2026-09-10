@@ -50,7 +50,7 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 
 ## What swims here
 
-R20's roster is the one piece of level content that is drawn from a CATALOG rather than from the rule book: `engine/game/defs/fauna.ts` states each animal — how long it is, how fast, how deep it holds, how many travel together, how often it must breathe, and the water temperature it is met in — and, above all, `perKm`, how many pods of it a kilometre of coast carries. That last number spans three orders of magnitude, and it is the whole design: a coast where every animal turned up every ride would have no animals on it, only scenery.
+R20's roster is the one piece of level content that is drawn from a CATALOG rather than from the rule book: `engine/game/defs/fauna.ts` states each animal — how long it is, how fast, how deep it holds, how many travel together, how often it comes up (`breath` for a cetacean, `bask` for the porbeagle) and how deep it holds when it does (`awash`, in body radii), whether its bulls breach (`breach`), and the water temperature it is met in — and, above all, `perKm`, how many pods of it a kilometre of coast carries. That last number spans three orders of magnitude, and it is the whole design: a coast where every animal turned up every ride would have no animals on it, only scenery.
 
 `rarityOf(perKm)` turns the number into the word, so the two can never disagree. On the taiga coast, over a couple of kilometres of shore:
 
@@ -61,13 +61,17 @@ R20's roster is the one piece of level content that is drawn from a CATALOG rath
 | Perch                | 1.7         | common    | 5–12       | three schools      |
 | Pike                 | 0.55        | uncommon  | 1          | one most rides     |
 | Sea trout            | 0.42        | uncommon  | 2–5        | one most rides     |
+| White-beaked dolphin | 0.4         | uncommon  | 3–8        | one ride in two    |
 | Harbour porpoise     | 0.16        | scarce    | 1–3        | one ride in three  |
-| White-beaked dolphin | 0.075       | rare      | 3–8        | one ride in seven  |
 | Porbeagle            | 0.04        | rare      | 1–2        | one ride in twelve |
 | Killer whale         | 0.02        | legendary | 2–5        | one ride in forty  |
 | Minke whale          | 0.011       | legendary | 1–2        | one ride in sixty  |
 
-The five fish and the porpoise are the Bothnian Sea's own. The dolphin, the porbeagle, the orca and the minke are Atlantic animals that stray into the Baltic a handful of times a century; they are in the catalog because the game wants them, and they are as rare as it can make them and still be reachable.
+The five fish and the porpoise are the Bothnian Sea's own. The porbeagle, the orca and the minke are Atlantic animals that stray into the Baltic a handful of times a century; they are in the catalog because the game wants them, and they are as rare as it can make them and still be reachable. The white-beaked dolphin is the exception, and its rarity is set by what it DOES rather than by where it belongs: its bulls breach, and a leap nobody is ever there to see is not a feature.
+
+Coming up is the sighting, and the sighting is a FIN. A fish never comes up; a cetacean surfaces to breathe and the porbeagle comes up to hunt and bask, and either way the animal rises until its centreline is `awash` body radii under the water over it — about one, which brings the back awash and leaves the dorsal, and only the dorsal, cutting the surface. Measured against that water and not against mean sea level, because a sea a metre high swallows a fin that clears the mathematical plane by a hand's breadth.
+
+One animal goes further. A BULL DOLPHIN breaches roughly every `breach` seconds: a ballistic arc that takes the whole animal three quarters of its own length clear of the sea and is the only time this game shows an animal against the sky. Only the dolphin, and only its males (`isMale`), so a pod of five throws one every twenty seconds or so and a rider who passes one sees it once or twice.
 
 `make level SEED=n` prints the roster a seed drew, and `make analyze` counts the pods and the animals per level.
 

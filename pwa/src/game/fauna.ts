@@ -25,6 +25,21 @@
 // which is how one number both places the animals and switches them off.
 // Nothing is allocated per frame.
 //
+// EXCEPT WHAT IS OUT OF THE WATER. The see-through radius is how far a rider
+// can see INTO the sea, and it has no authority over a fin that is standing
+// above it: a breaching bull two hundred metres off is against the sky, not
+// under a hundred metres of opaque water, and culling it with the fish would
+// throw away the one sighting the whole catalog is for. So the test is
+// geometric — an animal whose fin tip is higher than the water over its pod
+// is drawn out to `PROUD_REACH` instead, whatever the window is set to.
+//
+// AND EVERY POD RIDES THE SWELL. The engine measures an animal's depth down
+// from the water over its pod rather than from y = 0 (`faunaPose`'s
+// `waterY`), so the datum is sampled here, once per pod per frame, with the
+// same `surfaceAt` the hull and the water mesh read. One sample carries a
+// whole school: a pod's loop is a dozen metres across and the sea it rides
+// is fifty.
+//
 // THE TAIL BEATS IN THE VERTEX SHADER. A rigid fish is a wooden fish, and
 // a per-animal skeleton is a per-animal draw call. So the body carries its
 // own bend: a travelling wave whose amplitude grows as the square of the
@@ -32,6 +47,12 @@
 // AND DOWN for a cetacean, on a phase the engine hands over per animal
 // (`FaunaPose.beat`). The graft goes in through `onBeforeCompile`, the same
 // door `sky-depth.ts` uses.
+//
+// AND THE PAINT ANSWERS TO THE WATER, in the same graft: an animal is
+// painted twice (`SHADE_WET`, `SHADE_DEEP`) and the shader slides between
+// the two by how much sea is over it, so a back that is out of the water
+// is the colour the animal really is and one under it keeps the lifted
+// pale flank that is the only way to pick a body out of dark water.
 //
 // AND THE DEPTH HAZES IT, in the same graft. The water surface's own alpha
 // cannot do this job: it is one number for a patch of sea and knows nothing
@@ -49,10 +70,12 @@ import {
   faunaById,
   faunaPose,
   freshPose,
+  surfaceAt,
   type FaunaId,
   type FaunaSpec,
   type GameState,
   type Level,
+  type SurfaceSample,
 } from "@engine";
 
 import { seaMirror, type Preset } from "./sky.ts";
@@ -237,6 +260,28 @@ const SIDES = 6;
 /** How much of the pectoral's outer half a flipper band whitens. */
 const BAND_FROM = 0.45;
 
+/** WHERE THE BACK ENDS AND THE BELLY BEGINS, as the exponent the two are
+ * mixed on: how far up the body the pale side reaches. An animal is
+ * painted TWICE and the shader slides between the two by how deep it is,
+ * because the honest answer changes with the water over it:
+ *
+ *   WET is the animal as it really is — dark down past the lateral line,
+ *   pale beneath — and it is the right paint the moment the back is out
+ *   of the water, where the sea and the sky behind it are BRIGHT and a
+ *   killer whale had better be black.
+ *
+ *   DEEP lifts the pale flank most of the way up instead. Over water too
+ *   deep to have a bottom worth drawing, everything behind an animal is
+ *   near-black, and a body painted honestly dark down to its waterline is
+ *   a body nobody can pick out of it.
+ *
+ * `LIFT_DEPTH` is how much water it takes to go all the way from one to
+ * the other — about a body's depth of it, so an animal rolling through
+ * the surface changes over the same moment it breaks it. */
+const SHADE_WET = 0.7;
+const SHADE_DEEP = 2.4;
+const LIFT_DEPTH = 1.2;
+
 /** How deep an animal has to be before the water between it and the eye has
  * taken it entirely is the COAST's `clarity` (`water-optics.ts`) — the same
  * depth scale the sea bed fades into the water over, because it is the same
@@ -257,6 +302,12 @@ const HAZE_MAX = 0.72;
  * that contrast is the only reason it can be seen at all over water too
  * deep to have a bottom worth drawing. */
 const HAZE_SKY = 0.35;
+/** How far off an animal with its fin out of the water still reads, m. Not
+ * the see-through radius, which is about seeing THROUGH water and says
+ * nothing about a back standing over it — this is simply how far away a
+ * two-metre fin is still a shape rather than a pixel, and it is the range a
+ * breach has to survive to be a sighting at all. */
+const PROUD_REACH = 380;
 
 function table(knots: readonly (readonly [number, number])[], x: number): number {
   if (x <= knots[0][0]) return knots[0][1];
@@ -299,15 +350,9 @@ class Body {
 /** The colour of the hide at a station and an angle round the body: the
  * back above, the belly below, and whatever marking the style puts on top
  * of that. `up` is +1 at the spine and −1 at the keel. */
-function hide(style: FaunaStyle, s: number, up: number): number {
+function hide(style: FaunaStyle, s: number, up: number, shade: number): number {
   const t = Math.max(0, Math.min(1, up * 0.5 + 0.5));
-  // The line between back and belly sits HIGH on the body — the top
-  // quarter is the dark, the flanks below it are pale. Higher than a
-  // photograph of the animal would put it, and for the reason every
-  // silhouette here is drawn the way it is: the water is dark, so a body
-  // painted honestly dark down to the waterline is a body nobody can pick
-  // out of it. The pale flank is what makes a school read as a school.
-  const mix = t ** 2.4;
+  const mix = t ** shade;
   const back = new THREE.Color(style.back);
   const belly = new THREE.Color(style.belly);
   const c = belly.clone().lerp(back, mix);
@@ -327,7 +372,7 @@ function hide(style: FaunaStyle, s: number, up: number): number {
 
 /** One unit-length body: the hull, the dorsal, two pectorals and the tail.
  * z runs −0.5 (tail) to +0.5 (nose); x is the animal's right, y up. */
-function buildBody(spec: FaunaSpec, style: FaunaStyle): THREE.BufferGeometry {
+function buildBody(spec: FaunaSpec, style: FaunaStyle, shade: number): THREE.BufferGeometry {
   const body = new Body();
   const halfW = spec.beam / 2;
   const halfH = style.height / 2;
@@ -347,10 +392,10 @@ function buildBody(spec: FaunaSpec, style: FaunaStyle): THREE.BufferGeometry {
         at(s1, k),
         at(s1, k + 1),
         at(s0, k + 1),
-        hide(style, s0, a0),
-        hide(style, s1, a0),
-        hide(style, s1, a1),
-        hide(style, s0, a1),
+        hide(style, s0, a0, shade),
+        hide(style, s1, a0, shade),
+        hide(style, s1, a1, shade),
+        hide(style, s0, a1, shade),
       );
     }
   }
@@ -425,6 +470,8 @@ function buildMaterial(
   material.onBeforeCompile = (shader) => {
     shader.uniforms.uHaze = haze;
     shader.vertexShader = `attribute float aBeat;
+attribute float aWater;
+attribute vec3 aDeep;
 uniform vec3 uHaze;
 ${shader.vertexShader}`
       .replace(
@@ -444,7 +491,9 @@ ${shader.vertexShader}`
 \thazeWorld = instanceMatrix * hazeWorld;
 \t#endif
 \thazeWorld = modelMatrix * hazeWorld;
-\tvColor = mix(vColor, uHaze, clamp(-hazeWorld.y / ${num(clarity)}, 0.0, 1.0) * ${num(HAZE_MAX)});`,
+\tfloat under = aWater - hazeWorld.y;
+\tvColor = mix(vColor, aDeep, clamp(under / ${num(LIFT_DEPTH)}, 0.0, 1.0));
+\tvColor = mix(vColor, uHaze, clamp(under / ${num(clarity)}, 0.0, 1.0) * ${num(HAZE_MAX)});`,
       );
   };
   return material;
@@ -468,7 +517,18 @@ export type Fauna = {
 type Shoal = {
   mesh: THREE.InstancedMesh;
   beats: THREE.InstancedBufferAttribute;
+  /** The sea level over each written animal's pod, m — what its depth,
+   * and so its paint and its haze, are measured down from. */
+  waters: THREE.InstancedBufferAttribute;
   spec: FaunaSpec;
+  /** How high the tip of the dorsal stands over the centreline, m — the
+   * highest point of the animal, and so the one that decides whether it is
+   * out of the water and drawn at range. Off the style rather than the
+   * catalog, because the fin is a look. */
+  finTip: number;
+  /** Does this species ever come up at all? A pod that never does can be
+   * culled at the see-through radius without a second thought. */
+  surfaces: boolean;
 };
 
 export function createFauna(level: Level): Fauna {
@@ -486,10 +546,19 @@ export function createFauna(level: Level): Fauna {
   for (const [id, cap] of capacity) {
     const spec = faunaById(id);
     const style = STYLES[id];
-    const geometry = buildBody(spec, style);
+    const geometry = buildBody(spec, style, SHADE_WET);
+    // The same body painted for deep water, kept as a second colour the
+    // shader slides toward; the geometry it came on is thrown away.
+    const lifted = buildBody(spec, style, SHADE_DEEP);
+    const deep = (lifted.getAttribute("color") as THREE.BufferAttribute).array as Float32Array;
+    geometry.setAttribute("aDeep", new THREE.Float32BufferAttribute(deep.slice(), 3));
+    lifted.dispose();
     const beats = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
     beats.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aBeat", beats);
+    const waters = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
+    waters.setUsage(THREE.DynamicDrawUsage);
+    geometry.setAttribute("aWater", waters);
     const mesh = new THREE.InstancedMesh(
       geometry,
       buildMaterial(spec, style, haze, optics.clarity),
@@ -501,7 +570,14 @@ export function createFauna(level: Level): Fauna {
     // is the cull.
     mesh.frustumCulled = false;
     group.add(mesh);
-    shoals.set(id, { mesh, beats, spec });
+    shoals.set(id, {
+      mesh,
+      beats,
+      waters,
+      spec,
+      finTip: (style.height / 2 + style.dorsal) * spec.length,
+      surfaces: spec.breath > 0 || spec.bask > 0 || spec.breach > 0,
+    });
   }
 
   const pose = freshPose();
@@ -511,25 +587,36 @@ export function createFauna(level: Level): Fauna {
   const scale = new THREE.Vector3();
   const written = new Map<FaunaId, number>();
   const sky = new THREE.Color();
+  const sample: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
   const update = (state: GameState, cx: number, cz: number, reach: number): void => {
     for (const id of shoals.keys()) written.set(id, 0);
     for (const pod of level.fauna) {
-      // The pod's whole loop, not its centre: a school circling just inside
-      // the range must not pop in and out as it goes round.
-      if (Math.hypot(pod.x - cx, pod.z - cz) - pod.radius > reach) continue;
       const shoal = shoals.get(pod.species);
       if (!shoal) continue;
+      // The pod's whole loop, not its centre: a school circling just inside
+      // the range must not pop in and out as it goes round. A pod that comes
+      // up is kept to the longer range whatever the window says, because it
+      // may have an animal standing over the water right now.
+      const far = shoal.surfaces ? Math.max(reach, PROUD_REACH) : reach;
+      if (Math.hypot(pod.x - cx, pod.z - cz) - pod.radius > far) continue;
+      // The water over the pod, which is what every depth in the pose is
+      // measured down from. Every pod, not only the ones that come up: a
+      // school holding a metre down under a two-metre sea would hang in
+      // the air over every trough if it were pinned to y = 0.
+      const waterY = surfaceAt(state.sea, state.level, pod.x, pod.z, state.t, sample).height;
       let n = written.get(pod.species) ?? 0;
       for (let i = 0; i < pod.count && n < shoal.mesh.instanceMatrix.count; i++) {
-        faunaPose(pod, i, state.t, pose);
-        if (Math.hypot(pose.x - cx, pose.z - cz) > reach) continue;
+        faunaPose(pod, i, state.t, pose, waterY);
+        const proud = pose.y + shoal.finTip > waterY;
+        if (Math.hypot(pose.x - cx, pose.z - cz) > (proud ? far : reach)) continue;
         pos.set(pose.x, pose.y, pose.z);
         quat.set(pose.q.x, pose.q.y, pose.q.z, pose.q.w);
         scale.setScalar(shoal.spec.length);
         m.compose(pos, quat, scale);
         shoal.mesh.setMatrixAt(n, m);
         shoal.beats.setX(n, pose.beat);
+        shoal.waters.setX(n, waterY);
         n++;
       }
       written.set(pod.species, n);
@@ -538,6 +625,7 @@ export function createFauna(level: Level): Fauna {
       shoal.mesh.count = written.get(id) ?? 0;
       shoal.mesh.instanceMatrix.needsUpdate = true;
       shoal.beats.needsUpdate = true;
+      shoal.waters.needsUpdate = true;
     }
   };
 

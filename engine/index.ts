@@ -57,7 +57,14 @@ export {
 // THE SEA LIFE, MOVING (game/fauna.ts): where one animal of a pod is at a
 // moment — the fauna's own `surfaceAt`, a pure function of the pod and the
 // clock, which is the only thing the renderer needs to draw a whale.
-export { POD_LAYER, faunaCount, faunaPose, freshPose, type FaunaPose } from "./game/fauna.ts";
+export {
+  POD_LAYER,
+  faunaCount,
+  faunaPose,
+  freshPose,
+  isMale,
+  type FaunaPose,
+} from "./game/fauna.ts";
 export { freshDamage, type CraftDamage } from "./game/damage.ts";
 export { NO_TRICKS, type TrickScore } from "./game/tricks.ts";
 
