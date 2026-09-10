@@ -53,13 +53,14 @@ the door comes up over the shore the player was just on.
 | Piece | Where |
 | --- | --- |
 | What the game REMEMBERS, and the versioned storage round it | `pwa/src/game/settings.ts` |
-| The shared row vocabulary: the head, `OptionRow` (with its dealt mark), `SliderRow`, `StepRow`, `ToggleRow` | `pwa/src/game/menu.tsx` |
+| The head with the way out in it | `pwa/src/game/menu.tsx` |
+| THE ROW every setting on every surface is: `StepRow` (a named ladder, with its dealt mark), `FadeRow`, `NumberRow`, `KnobGroup`, `Caption` | `pwa/src/game/menu-knobs.tsx` |
 | The craft on a turntable, and what the card bills it at | `pwa/src/game/craft-picker.tsx` + `craft-turntable.ts` (three.js, a dynamic chunk) over `craft-stats.ts` (DOM-free) |
 | The seven-second hold on START | `pwa/src/game/menu-hold.ts` (the rule) + `menu-main.tsx` (the pointer, the key, the clock) |
 | Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
 | Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
-| The run held mid-ride, and its three ways on | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
+| The run held mid-ride: RESUME, its own strip of knobs, MAIN MENU | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
 | The app's mark, building | `pwa/src/game/mark-wave.tsx` over `app-mark.ts`'s paths |
 | Every word on every card | `pwa/src/game/strings.ts` (§39.1) — no card carries a literal |
 | The chrome | `pwa/src/styles.css`, from `── THE MENU SYSTEM` down |
@@ -73,14 +74,14 @@ the door comes up over the shore the player was just on.
   `settings.ts`'s `mergeSettings` are all on the testable side of that line,
   and a rule moved
   out of one of them into its component is a rule that stops being checked.
-- **A ROW CANNOT ASK A QUESTION WHOSE ANSWERS ARE SHAPES.** Chips work
-  because the answer and everything it was chosen over are on screen
-  together; four craft named in a row asks a rider to choose between four
+- **A ROW CANNOT ASK A QUESTION WHOSE ANSWERS ARE SHAPES.** A ladder works
+  because the answer, its pips and its two arrows say the whole choice in a
+  row's width; four craft named on one asks a rider to choose between four
   hulls they have never seen, which is the reason the craft is a card of its
   own (`menu-craft.tsx`) rather than a row on the start card — the second of
   the two, with RIDE on it, so the last thing seen before the water is the
-  hull. It writes the same `settings.ride.craft` a chip row would have, so a
-  run stood up from it and a run stood up from a `?craft=` link are one run.
+  hull. It writes the same `settings.ride.craft` a row would have, so a run
+  stood up from it and a run stood up from a `?craft=` link are one run.
 - **THE PAUSE CARD FREEZES; NOTHING ELSE DOES.** It is the only surface
   standing over a run the PLAYER has, so `simulates("pause")` is false, the
   frame is rendered with dt 0 and the accumulator is never asked for steps.
@@ -99,13 +100,25 @@ the door comes up over the shore the player was just on.
   no bindings while `input.ts` carries a fixed table. Each becomes a row the
   day the thing behind it exists — as the picture rows did, once
   `settings-video.ts` gave the renderer a ladder and `renderer.setVideo` a
-  place to read it. The pause card is where this bites hardest: it opens
-  OPTIONS over a FROZEN run, so every row there has to apply to the frame the
+  place to read it. The pause card is where this bites hardest: its strip
+  stands over a FROZEN run, so every row on it has to apply to the frame the
   player is looking at — which is why `settings.ride.camera` reaches the
   renderer the moment it moves and not only when the next run is stood up.
+- **ONE SILHOUETTE FOR EVERY SETTING, AND NO ROW EXPLAINS ITSELF.** Name,
+  value between two arrows, pips under it (`menu-knobs.tsx`) — a switch is a
+  two-stop ladder and a fader is a ladder drawn as a track, so a player learns
+  one row and can read every page. The sentences go to the ONE caption bar a
+  page owns, which reads whichever row the pointer or the cursor is on: a row
+  that carries its own prose is two lines of HEIGHT, and a column of them is a
+  card that scrolls on a phone.
+- **THE PAUSE CARD CARRIES A STRIP, NOT THE OPTIONS PAGE.** The camera, the
+  HUD and the frame rate read perfectly well over a held frame; a picture row
+  is judged against a sea that is MOVING, and stopping it is the one thing
+  this card does — so those wait for the front door. The strip earns its place
+  twice over by standing between RESUME and the press that ends the run.
 - **The stored blob is merged FIELD BY FIELD and every value is CHECKED**
   against what this build offers (`mergeSettings`). A value off a ladder is
-  one the menu has no chip to put the cursor back on, so the player can never
+  one the menu has no stop to put the cursor back on, so the player can never
   return to it — `Object.assign` over the whole thing is the bug.
 - **A completed hold is not also a press, and `armed` must still be SPENT.**
   The release that arms the hold is the one release certain to change the

@@ -97,18 +97,23 @@ export const STRINGS = {
   startTitle: "THE RUN",
   startSub: "Your shore, and the day you want it in",
   startShore: "SHORE",
-  /** The way back to the shore every player who never touched the row gets.
-   * A sentence rather than a chip: it is the readout's own label, read out
-   * loud and nowhere else. */
-  startShoreDefault: "Back to the default shore",
+  startShoreHint: "The seed the whole coast is built from — type one in to ride somebody else's",
   startTime: "TIME",
+  startTimeHint: "The hour to ride at, set against this coast's own daylight rather than a clock",
   /** The wind, which is the sea; then the sky over it. Two rows because they
    * are two questions — see `menu-start.tsx` for why they used to be one. */
   startWind: "WIND",
+  startWindHint: "The wind, and so the sea it builds — the fetch law turns one into the other",
   startWeather: "WEATHER",
-  /** What the mark on a chip means: this is the answer the shore came with,
+  startWeatherHint:
+    "The sky over it. Left alone it is the one the wind implies, which is R19's own agreement",
+  /** What the mark on a value means: this is the answer the shore came with,
    * and the one that rides while the row is left alone. */
   startDealt: "Dealt by this seed",
+  /** The card's own line under the rows, which is where the mark is
+   * explained: a dot on three of four rows needs saying once, not four
+   * times. */
+  startCaption: "Marked · the answer this shore was dealt. Land back on it to ride the shore's own",
   /** The way on from the start card — the craft, and RIDE with it. */
   startNext: "CHOOSE YOUR CRAFT",
   /** The press that actually rides, on the craft card at the end of it. */
@@ -152,8 +157,32 @@ export const STRINGS = {
   seedChart: (seed: number, gates: number, metres: number): string =>
     `Seed ${seed}: ${gates} gates over ${Math.round(metres)} metres of coast`,
 
+  /* ── THE KNOB ROWS (menu-knobs.tsx) ────────────────────────────────── */
+  /** The two stops of every switch in the game. A switch is a two-stop ladder
+   * here, so ON and OFF are read off the same table as every other value. */
+  optOn: "ON",
+  optOff: "OFF",
+  /** What a row reads while it has no answer yet — the moment on the start
+   * card before the seed's own day has come back from the worker. */
+  optUnset: "—",
+  /** What the two arrows either side of a value DO, for a screen reader: a
+   * ladder steps, a fader goes up and down. Never drawn. */
+  optPrev: "previous",
+  optNext: "next",
+  optLess: "less",
+  optMore: "more",
+
   /* ── OPTIONS (menu-options.tsx) ────────────────────────────────────── */
+  /** The three groups the page's rows stand under: what the picture costs,
+   * what the ride is watched from, what is drawn over it. */
+  optPicture: "PICTURE",
+  optRiding: "RIDING",
+  optHudGroup: "HUD",
+  /** The page's own line, under the rows, while no row is being looked at. */
+  optCaption: "Every row here changes the sea behind this card as you press it",
   optCamera: "CAMERA",
+  optCameraHint:
+    "Where the eye rides — the ladder the C key walks, from the bow out to the helicopter",
   optHud: "HUD",
   optHudHint: "The readouts over the water — off leaves the sea and nothing else",
   /** The three stops every picture ladder is walked in, cheapest first. One
@@ -166,11 +195,14 @@ export const STRINGS = {
    * out the sea is drawn properly" is the row, and its three stops are the
    * answer; a row that had to be read is a row that has failed. */
   optWater: "WATER",
+  optWaterHint: "How far out the sea is drawn properly, and how fine the grid under it is",
   optResolution: "RESOLUTION",
+  optResolutionHint: "How many pixels the water is drawn at before it reaches the screen",
   optDetail: "DETAIL",
-  optSeeThrough: "SEE INTO THE WATER",
+  optDetailHint: "The spray off the hull, the sea life under it and what grows on the shore",
+  optSeeThrough: "SEE-THROUGH",
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
-  optFps: "SHOW FPS",
+  optFps: "FPS",
   optFpsHint: "Frames a second in the corner, beside the build",
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order — the handlebars backwards.
@@ -183,12 +215,25 @@ export const STRINGS = {
   cameraHeli: "HELI",
 
   /* ── THE DEVELOPER PAGE (menu-dev.tsx) ─────────────────────────────── */
+  /** The three groups: which shore and where on it, what the water is doing,
+   * and the instruments over the top. */
+  devGroupRun: "THE RUN",
+  devGroupSea: "THE SEA",
+  devGroupTools: "TOOLS",
   devSeed: "SEED",
+  devSeedHint: "The same shore the start card picks — one setting, two places to turn it",
   devWind: "WIND",
+  devWindHint:
+    "Ride in this wind from the level's own quarter, whatever the shore was generated with",
   devSea: "SEA",
+  devSeaHint: "…or quote the sea by its significant height. Set beside a wind, this one wins",
   devScene: "SCENE",
+  devSceneHint: "Stand the run in a staged moment instead of at the start line",
   devCost: "FRAME COST",
   devCostHint: "The water's CPU time, the draw calls and the triangles, in the HUD's corner",
+  /** The page's own line under the rows — the bargain the whole page is
+   * built on, said where a row is not being looked at. */
+  devCaption: "Every row here is a parameter the repro link carries",
   devAuto: "AUTO",
   devStart: "START",
   devLock: "LOCK THE DEVELOPER MENU",
@@ -215,13 +260,10 @@ export const STRINGS = {
    * behind it name the run the same way. */
   pauseTitle: "PAUSED",
   pauseSub: (seed: number, craft: string): string => `SEED ${seed} · ${craft.toUpperCase()}`,
-  /** The three ways on. RESUME is the way OUT of the card as well as its
-   * first row — see menu-pause.tsx. */
+  /** The two ways on. RESUME is the way OUT of the card as well as its first
+   * row — see menu-pause.tsx. */
   pauseResume: "RESUME",
   pauseMainMenu: "MAIN MENU",
-  /** The way back to the card from the options page under it. Not "MENU":
-   * from here the way back is the run, not the front door. */
-  pauseBack: "PAUSED",
   /** What the minimap does when it is pressed — the way into the card on a
    * screen with no Escape key to press. */
   pauseOpen: "Pause (Esc)",

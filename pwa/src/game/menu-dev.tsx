@@ -11,9 +11,11 @@
 // other half of that bargain, and the reason the page is worth having at all
 // rather than four more URL parameters nobody can remember.
 //
-// The rows are `menu.tsx`'s, shared with OPTIONS: a wind picked here and a
-// camera picked there have to be the same kind of row, or the page reads as
-// a different program bolted onto the side of the game.
+// The rows are the KNOBS (`menu-knobs.tsx`), shared with OPTIONS, the start
+// card and the pause strip: a wind picked here and a camera picked there have
+// to be the same kind of row, or the page reads as a different program bolted
+// onto the side of the game. Their sentences go to the ONE caption bar at the
+// foot, which is what lets a page of tools stay a page rather than a booklet.
 //
 // LOCK is the way back out. It is not a tidy-up — RESTORE DEFAULTS on the
 // options page deliberately leaves the menu unlocked — it is for somebody
@@ -22,11 +24,22 @@
 import { useState } from "preact/hooks";
 
 import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
-import { MenuBody, MenuHead, OptionRow, SliderRow, StepRow, ToggleRow } from "./menu.tsx";
+import { MenuHead } from "./menu.tsx";
+import {
+  Caption,
+  FadeRow,
+  KnobGroup,
+  NumberRow,
+  ON_OFF,
+  StepRow,
+  onOff,
+  type Stop,
+} from "./menu-knobs.tsx";
 import {
   DEFAULT_SEED,
   DEV_HS_RANGE,
   DEV_WIND_RANGE,
+  SEED_RANGE,
   freshSettings,
   type Settings,
 } from "./settings.ts";
@@ -38,7 +51,7 @@ const SAID_MS = 2000;
 /** The scenes, plus the one that is not a scene: START, which is the level's
  * own start line with the clock running — what a player gets, and therefore
  * what a bug report is about until somebody says otherwise. */
-const SCENE_OPTIONS: readonly { id: ScenarioName | "start"; label: string }[] = [
+const SCENE_STOPS: Stop<ScenarioName | "start">[] = [
   { id: "start", label: STRINGS.devStart },
   ...SCENARIO_NAMES.map((id) => ({ id, label: id.toUpperCase() })),
 ];
@@ -78,6 +91,7 @@ export function DeveloperPage({
   onBack: () => void;
 }) {
   const [said, setSaid] = useState<string | null>(null);
+  const [hint, setHint] = useState<string | null>(null);
   const dev = settings.dev;
   const setDev = (patch: Partial<Settings["dev"]>): void =>
     onSettings({ ...settings, dev: { ...dev, ...patch } });
@@ -85,91 +99,108 @@ export function DeveloperPage({
   // reaching for a seed should not have to walk back out to the front door
   // for it. One setting, two places to turn it — never two seeds.
   const seed = settings.ride.seed ?? DEFAULT_SEED;
-  const setSeed = (next: number | null): void =>
-    onSettings({ ...settings, ride: { ...settings.ride, seed: next } });
+  // The default shore stays stored as null, exactly as it is on the start
+  // card — see the note beside `setSeed` there.
+  const setSeed = (next: number): void =>
+    onSettings({
+      ...settings,
+      ride: { ...settings.ride, seed: next === DEFAULT_SEED ? null : next },
+    });
 
   return (
-    <div class="menu-card">
-      <MenuHead
-        back={onBack}
-        backLabel={STRINGS.menuBack}
-        title={STRINGS.menuDeveloper}
-        sub="Every row here is a URL the next person can open"
-      />
-      <MenuBody>
-        <StepRow
-          label={STRINGS.devSeed}
-          read={String(seed)}
-          // Never below 1: seed 0 is not a level, and an arrow that walks
-          // off the bottom of the catalog is an arrow that hangs the page.
-          onStep={(by) => setSeed(Math.max(1, seed + by))}
-          onClear={() => setSeed(null)}
-          clearLabel={`${STRINGS.devSeed} ${STRINGS.devAuto}`}
-        />
-        <SliderRow
-          label={STRINGS.devWind}
-          value={dev.wind}
-          min={DEV_WIND_RANGE.min}
-          max={DEV_WIND_RANGE.max}
-          step={1}
-          autoLabel={STRINGS.devAuto}
-          format={STRINGS.devWindValue}
-          onChange={(wind) => setDev({ wind })}
-        />
-        <SliderRow
-          label={STRINGS.devSea}
-          value={dev.hs}
-          min={DEV_HS_RANGE.min}
-          max={DEV_HS_RANGE.max}
-          step={0.5}
-          autoLabel={STRINGS.devAuto}
-          format={STRINGS.devSeaValue}
-          onChange={(hs) => setDev({ hs })}
-        />
-        <OptionRow
-          label={STRINGS.devScene}
-          options={SCENE_OPTIONS}
-          value={dev.scene ?? "start"}
-          onPick={(scene) => setDev({ scene: scene === "start" ? null : scene })}
-        />
-        <div class="opt-toggles">
-          <ToggleRow
-            label={STRINGS.devCost}
-            hint={STRINGS.devCostHint}
-            on={dev.cost}
-            onToggle={() => setDev({ cost: !dev.cost })}
-          />
+    <div class="menu-card menu-card-options" onPointerLeave={() => setHint(null)}>
+      <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuDeveloper} />
+      <div class="knob-groups">
+        <div class="knob-col">
+          <KnobGroup title={STRINGS.devGroupRun}>
+            <NumberRow
+              label={STRINGS.devSeed}
+              hint={STRINGS.devSeedHint}
+              value={seed}
+              min={SEED_RANGE.min}
+              max={SEED_RANGE.max}
+              onValue={setSeed}
+              onHint={setHint}
+            />
+            <StepRow
+              label={STRINGS.devScene}
+              hint={STRINGS.devSceneHint}
+              stops={SCENE_STOPS}
+              value={dev.scene ?? "start"}
+              onPick={(scene) => setDev({ scene: scene === "start" ? null : scene })}
+              onHint={setHint}
+            />
+          </KnobGroup>
+          <KnobGroup title={STRINGS.devGroupTools}>
+            <StepRow
+              label={STRINGS.devCost}
+              hint={STRINGS.devCostHint}
+              stops={ON_OFF}
+              value={onOff(dev.cost)}
+              onPick={(id) => setDev({ cost: id === "on" })}
+              onHint={setHint}
+            />
+          </KnobGroup>
         </div>
-        <button
-          type="button"
-          class="opt-reset"
-          onClick={() => {
-            const url = `${location.origin}${location.pathname}${reproQuery(settings)}`;
-            void navigator.clipboard
-              ?.writeText(url)
-              .then(() => setSaid(STRINGS.devReproCopied))
-              .catch(() => setSaid(STRINGS.devReproFailed))
-              .finally(() => setTimeout(() => setSaid(null), SAID_MS));
-          }}
-        >
-          {said ?? STRINGS.devRepro}
-        </button>
-        {/* The way back out, and the one press on this page that changes what
-            the MENU looks like rather than what the run does. Last, and
-            styled as the quiet one: a page of tools should not put its own
-            trapdoor where a thumb reaching for a slider lands. */}
-        <button
-          type="button"
-          class="opt-reset opt-reset-quiet"
-          onClick={() => {
-            const fresh = freshSettings();
-            onSettings({ ...settings, developer: false, dev: fresh.dev });
-            onBack();
-          }}
-        >
-          {STRINGS.devLock}
-        </button>
-      </MenuBody>
+        <div class="knob-col">
+          <KnobGroup title={STRINGS.devGroupSea}>
+            <FadeRow
+              label={STRINGS.devWind}
+              hint={STRINGS.devWindHint}
+              value={dev.wind}
+              min={DEV_WIND_RANGE.min}
+              max={DEV_WIND_RANGE.max}
+              step={1}
+              autoLabel={STRINGS.devAuto}
+              read={STRINGS.devWindValue}
+              onChange={(wind) => setDev({ wind })}
+              onHint={setHint}
+            />
+            <FadeRow
+              label={STRINGS.devSea}
+              hint={STRINGS.devSeaHint}
+              value={dev.hs}
+              min={DEV_HS_RANGE.min}
+              max={DEV_HS_RANGE.max}
+              step={0.5}
+              autoLabel={STRINGS.devAuto}
+              read={STRINGS.devSeaValue}
+              onChange={(hs) => setDev({ hs })}
+              onHint={setHint}
+            />
+          </KnobGroup>
+        </div>
+      </div>
+      <Caption text={hint} fallback={STRINGS.devCaption} />
+      <button
+        type="button"
+        class="opt-reset"
+        onClick={() => {
+          const url = `${location.origin}${location.pathname}${reproQuery(settings)}`;
+          void navigator.clipboard
+            ?.writeText(url)
+            .then(() => setSaid(STRINGS.devReproCopied))
+            .catch(() => setSaid(STRINGS.devReproFailed))
+            .finally(() => setTimeout(() => setSaid(null), SAID_MS));
+        }}
+      >
+        {said ?? STRINGS.devRepro}
+      </button>
+      {/* The way back out, and the one press on this page that changes what
+          the MENU looks like rather than what the run does. Last, and styled
+          as the quiet one: a page of tools should not put its own trapdoor
+          where a thumb reaching for a fader lands. */}
+      <button
+        type="button"
+        class="opt-reset opt-reset-quiet"
+        onClick={() => {
+          const fresh = freshSettings();
+          onSettings({ ...settings, developer: false, dev: fresh.dev });
+          onBack();
+        }}
+      >
+        {STRINGS.devLock}
+      </button>
     </div>
   );
 }

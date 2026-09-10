@@ -1740,289 +1740,462 @@ canvas {
   color: var(--hud-info);
 }
 
-.menu-body {
+/* ── THE KNOB ROWS (menu-knobs.tsx) ────────────────────────────────────────
+   ONE SILHOUETTE PER ROW: the setting's name on the left, its value on the
+   right between two arrows, and under the value the pips that say where on
+   its ladder it stands. Groups are a word over a rule; every sentence lives
+   in ONE caption bar under the rows, which reads the row being looked at — so
+   a page is as tall as its rows and no taller, and a dozen settings stand on
+   a phone without scrolling.
+
+   The ARROWS are the touch targets, 2.2rem square: 40px is the floor for a
+   thumb, and the row is sized by them rather than by its text. */
+
+.knob-groups,
+.knob-col {
   display: flex;
   flex-direction: column;
-  gap: 0.55rem;
+  gap: clamp(0.5rem, 1.8vmin, 0.85rem);
 }
 
-/* ── THE ROWS (menu.tsx) ───────────────────────────────────────────────────
-   A label and its control, side by side where there is width for it and
-   stacked where there is not — which on a phone is every row. */
-.menu-row {
+.knob-group {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.35rem 0.7rem;
-}
-
-.menu-label {
-  font-size: 0.74rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  color: var(--hud-info);
-}
-
-.menu-opts {
-  display: flex;
-  flex-wrap: wrap;
+  flex-direction: column;
   gap: 0.3rem;
 }
 
-.menu-opt {
-  padding: 0.36rem 0.6rem;
-  border: 2px solid rgb(242 247 248 / 22%);
-  border-radius: 0.4rem;
-  background: rgb(8 42 56 / 45%);
-  color: var(--hud-info);
+.knob-group-title {
+  margin: 0;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 700;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
+  letter-spacing: 0.24em;
+  text-indent: 0.24em;
+  color: var(--buoy);
+  padding: 0 0.25rem 0.15rem;
+  border-bottom: 2px solid rgb(242 140 40 / 32%);
+}
+
+.knob-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+/* The row. A transparent border rather than none, so lighting it on hover or
+   under the cursor changes a colour and never a size. */
+.knob {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.6rem;
+  min-height: 2.6rem;
+  font: inherit;
+  color: var(--hud-ink);
+  background: rgb(242 247 248 / 8%);
+  border: 2px solid transparent;
+  border-radius: 0.55rem;
+  padding: 0.2rem 0.3rem 0.2rem 0.7rem;
+  text-align: left;
+}
+
+.knob:hover,
+.knob:focus-within,
+.knob.nav-cursor {
+  background: rgb(242 140 40 / 14%);
+  border-color: rgb(242 140 40 / 45%);
+}
+
+/* The deal on screen belongs to a seed the worker has moved past — dimmed for
+   the same reason the chart above it is (`.seed-preview-waiting`), and more
+   gently, because the row stays pressable while it waits. */
+.knob-waiting {
+  opacity: 0.7;
+}
+
+.knob-label {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  color: var(--hud-info);
+}
+
+.knob-name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.knob-ctl {
+  display: flex;
+  align-items: center;
+  gap: 0.15rem;
+  flex: none;
+}
+
+.knob-arrow {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 2.2rem;
+  font: inherit;
+  font-size: 1.3rem;
+  line-height: 1;
+  color: var(--buoy);
+  background: transparent;
+  border: 0;
+  border-radius: 0.45rem;
   cursor: pointer;
   touch-action: manipulation;
 }
 
-/* A NARROW CARD, where a chip row is decided by a handful of pixels. A row
-   is a label and its stops on one line, and on a phone the longest label
-   this page has (RESOLUTION) plus three stops lands a few pixels over — so
-   THAT row wraps and the ones above and below it do not, which reads as a
-   broken row rather than as a tight fit. The letters are what is given back:
-   the tracking is what makes a chip wide, the tap target is the padding, and
-   only the horizontal padding moves. */
-@media (max-width: 30rem) {
-  .menu-opt {
-    padding-inline: 0.46rem;
-    letter-spacing: 0.06em;
-  }
-
-  .menu-row {
-    column-gap: 0.5rem;
-  }
-}
-
-.menu-opt:hover,
-.menu-opt:focus-visible,
-.menu-opt.nav-cursor {
-  border-color: var(--buoy);
-  color: var(--hud-ink);
+.knob-arrow:hover,
+.knob-arrow:focus-visible {
+  background: rgb(242 247 248 / 14%);
   outline: none;
 }
 
-.menu-opt-active {
+.knob-arrow:active {
   background: var(--buoy);
-  border-color: var(--foam);
   color: var(--hud-shadow);
+  transform: translateY(1px);
 }
 
-/* THE ANSWER THE SHORE CAME WITH (menu.tsx's `dealt`). Every row on the
-   start card defers to the level unless the rider says otherwise, and this
-   is how a row of named answers says WHICH answer that is — so the card can
-   offer the three real hours rather than a fourth chip standing for
-   "whichever of them this turns out to be".
-
-   A DOT IN THE CORNER, NOT A WIDER CHIP. It rides over the padding, so the
-   mark moving from one chip to the next as the seed is walked never relays
-   the row; and it is legible on the active fill as well as beside it, which
-   it has to be, because the marked chip IS the active one on every row
-   nobody has touched. */
-.menu-opt-dealt {
-  position: relative;
-  border-color: rgb(242 247 248 / 45%);
-}
-
-.menu-opt-mark {
-  position: absolute;
-  top: 0.16rem;
-  right: 0.18rem;
-  width: 0.3rem;
-  height: 0.3rem;
-  border-radius: 50%;
-  background: var(--buoy);
-}
-
-.menu-opt-active .menu-opt-mark {
-  background: var(--hud-shadow);
-}
-
-/* The deal on screen belongs to a seed the worker has moved past — dimmed
-   for the same reason the chart under it is (`.seed-preview-waiting`), and
-   more gently, because these chips stay pressable while they wait. */
-.menu-opts-waiting {
-  opacity: 0.7;
-}
-
-/* A continuous setting: the fader, and the figure that doubles as the way
-   back to AUTO. */
-.menu-slide {
+/* The value column is a FIXED width so the arrows stand on the same two x's
+   down the whole page — a page whose arrows wander is a page the eye has to
+   hunt across. */
+.knob-value {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  justify-content: center;
+  gap: 0.2rem;
+  width: clamp(6.5rem, 22vw, 9rem);
 }
 
-.menu-slider {
-  width: min(11rem, 46vw);
-  accent-color: var(--buoy);
+.knob-word {
+  position: relative;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--buoy);
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
 }
 
-.menu-slide-read {
-  min-width: 4.5rem;
-  padding: 0.3rem 0.4rem;
-  border: 2px solid rgb(242 247 248 / 18%);
+/* THE ANSWER THE SHORE CAME WITH (menu-knobs.tsx's `dealt`): a dot riding
+   over the value's own corner rather than a word beside it, so the mark
+   arriving and leaving as the ladder is walked never relays the row. It is
+   read together with the ringed pip under it, and the caption at the foot of
+   the card is where it is explained. */
+.knob-mark {
+  position: absolute;
+  top: -0.05rem;
+  right: -0.36rem;
+  width: 0.32rem;
+  height: 0.32rem;
+  border-radius: 50%;
+  background: var(--foam);
+}
+
+/* A VALUE THAT IS TYPED INTO — the seed. Drawn as the reading it is, with a
+   faint box that says "type here" without competing with the number inside
+   it, because a touch screen has no hover to find a control with. Tabular
+   figures, so stepping through seeds does not shuffle the arrows either side
+   of them. */
+.knob-field {
+  font-family: inherit;
+  font-weight: inherit;
+  font-style: inherit;
+  color: inherit;
+  width: 100%;
+  min-width: 0;
+  text-align: center;
+  border: 2px solid rgb(242 247 248 / 20%);
   border-radius: 0.4rem;
-  background: rgb(8 42 56 / 45%);
-  color: var(--hud-ink);
+  padding: 0.05rem 0.3rem;
+  background: transparent;
+  cursor: text;
+  /* The one place in the game a caret belongs, so it takes its text
+     interaction back from the shell's blanket ban: a field that cannot be
+     selected in is a field you cannot correct a seed in. */
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.knob-field:hover {
+  border-color: rgb(242 140 40 / 45%);
+}
+
+.knob-field:focus {
+  outline: none;
+  border-color: rgb(242 140 40 / 75%);
+  background: rgb(242 140 40 / 16%);
+}
+
+.knob-pips {
+  display: flex;
+  gap: 0.26rem;
+}
+
+.knob-pip {
+  width: 0.36rem;
+  height: 0.36rem;
+  border-radius: 50%;
+  background: rgb(242 247 248 / 28%);
+}
+
+.knob-pip-on {
+  background: var(--buoy);
+  box-shadow: 0 0 0.35rem rgb(242 140 40 / 70%);
+}
+
+/* Where the shore's own answer stands on the ladder, whether or not the value
+   is sitting on it — which is what makes the mark a bearing rather than a
+   badge: a rider two stops away can see which way back is. An OUTLINE rather
+   than a second box-shadow, because the pip it most often lands on is the lit
+   one and two box-shadows at equal specificity are one box-shadow: the ring
+   would take the glow away exactly where both are wanted. */
+.knob-pip-dealt {
+  outline: 2px solid rgb(242 247 248 / 70%);
+  outline-offset: 1px;
+}
+
+/* A fader: the ladder drawn as a track, filled to the level (`--fill` is
+   written by the row), the reading beside it — and the reading is the press
+   that means AUTO. */
+.knob-fade {
+  flex-direction: row;
+  gap: 0.4rem;
+  width: clamp(8.5rem, 30vw, 11rem);
+}
+
+/* THE WHOLE BAND IS THE PRESS, not the line drawn inside it. A range input is
+   hit-tested on its own BOX, so a fader sized to its 8 px line is a fader with
+   an 8 px target: the thumb overhangs it and becomes the only part of the row
+   big enough to aim at, which is a control you have to CATCH before you can
+   set it. The element is therefore a finger-tall transparent band with the
+   line drawn on the runnable track inside it. */
+.knob-range {
+  flex: 1;
+  min-width: 0;
+  height: 1.5rem;
+  margin: 0;
+  appearance: none;
+  background: none;
+  cursor: pointer;
+}
+
+.knob-range::-webkit-slider-runnable-track {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: linear-gradient(
+    to right,
+    var(--buoy) var(--fill),
+    rgb(242 247 248 / 22%) var(--fill)
+  );
+}
+
+.knob-range::-moz-range-track {
+  height: 0.5rem;
+  border-radius: 0.25rem;
+  background: linear-gradient(
+    to right,
+    var(--buoy) var(--fill),
+    rgb(242 247 248 / 22%) var(--fill)
+  );
+}
+
+.knob-range::-webkit-slider-thumb {
+  appearance: none;
+  width: 1rem;
+  height: 1rem;
+  /* Onto the middle of the line: webkit hangs the thumb off the TRACK's top
+     edge, where Firefox centres it for you. Half the difference between the
+     line and the dot, border included — the box is content-box here. */
+  margin-top: calc((0.5rem - 1rem) / 2 - 2px);
+  border-radius: 50%;
+  background: var(--foam);
+  border: 2px solid var(--hud-shadow);
+}
+
+.knob-range::-moz-range-thumb {
+  width: 0.8rem;
+  height: 0.8rem;
+  border-radius: 50%;
+  background: var(--foam);
+  border: 2px solid var(--hud-shadow);
+}
+
+.knob-read {
+  min-width: 3.4em;
+  padding: 0.15rem 0.2rem;
+  border: 2px solid transparent;
+  border-radius: 0.35rem;
+  background: transparent;
   font: inherit;
   font-size: 0.72rem;
   font-weight: 700;
   letter-spacing: 0.06em;
-  font-variant-numeric: tabular-nums;
-  text-transform: uppercase;
+  color: var(--buoy);
+  text-align: right;
   cursor: pointer;
 }
 
-.menu-slide-auto {
+.knob-read:hover,
+.knob-read:focus-visible {
+  border-color: rgb(242 140 40 / 45%);
+  outline: none;
+}
+
+/* Standing at AUTO is standing at NOTHING, and it reads as the quiet state
+   rather than as a value: the row is deferring to the shore. */
+.knob-read-auto {
   color: var(--hud-info);
 }
 
-.menu-slide-read:hover,
-.menu-slide-read:focus-visible,
-.menu-slide-read.nav-cursor {
-  border-color: var(--buoy);
-  outline: none;
-}
-
-/* A value stepped in place. The ring goes round the WHOLE group rather than
-   one arrow (menu-nav.ts): what is selected is the value between them. */
-.menu-step {
-  display: flex;
-  align-items: center;
-  gap: 0.25rem;
-  border: 2px solid transparent;
-  border-radius: 0.45rem;
-}
-
-.menu-step.nav-cursor {
-  border-color: var(--buoy);
-}
-
-.menu-step-arrow {
-  width: 2rem;
-  padding: 0.3rem 0;
-  border: 2px solid rgb(242 247 248 / 22%);
-  border-radius: 0.4rem;
-  background: rgb(8 42 56 / 45%);
-  color: var(--hud-ink);
-  font: inherit;
-  font-size: 0.95rem;
-  line-height: 1;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.menu-step-arrow:hover,
-.menu-step-arrow:focus-visible {
-  border-color: var(--buoy);
-  outline: none;
-}
-
-.menu-step-read {
-  min-width: 4rem;
-  padding: 0.3rem 0.4rem;
-  border: none;
-  background: none;
-  color: var(--hud-ink);
-  font: inherit;
-  font-size: 0.85rem;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  text-align: center;
-  cursor: pointer;
-}
-
-/* A switch with its cost written under it. */
-.opt-toggles {
-  display: flex;
-  flex-direction: column;
-  gap: 0.4rem;
-}
-
-.opt-toggle {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.7rem;
-  width: 100%;
-  padding: 0.55rem 0.7rem;
-  border: 2px solid rgb(242 247 248 / 18%);
-  border-radius: 0.5rem;
-  background: rgb(8 42 56 / 40%);
-  color: var(--hud-ink);
-  font: inherit;
-  text-align: left;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.opt-toggle:hover,
-.opt-toggle:focus-visible,
-.opt-toggle.nav-cursor {
-  border-color: var(--buoy);
-  outline: none;
-}
-
-.opt-toggle-on {
-  background: rgb(27 111 138 / 60%);
-}
-
-.opt-toggle-text {
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
-  min-width: 0;
-}
-
-.opt-toggle-text b {
-  font-size: 0.78rem;
-  letter-spacing: 0.12em;
-}
-
-.opt-toggle-hint {
+/* The page's one sentence. A floor of two lines so the card does not change
+   height as the pointer crosses it, and the accent down its edge comes on with
+   the text, so an empty bar reads as a rest and not a hole. */
+.knob-caption {
+  min-height: 2.7em;
   font-size: 0.64rem;
+  font-weight: 500;
   letter-spacing: 0.02em;
   line-height: 1.35;
   text-transform: none;
   color: var(--hud-info);
+  opacity: 0.6;
+  padding: 0.35rem 0.6rem;
+  border-left: 3px solid rgb(242 247 248 / 25%);
+  transition: opacity 120ms ease;
 }
 
-.opt-switch {
-  flex: none;
-  width: 2.4rem;
-  height: 1.25rem;
-  padding: 0.15rem;
-  border-radius: 999px;
-  background: rgb(8 42 56 / 70%);
-  border: 2px solid rgb(242 247 248 / 22%);
+.knob-caption-on {
+  opacity: 0.95;
+  border-left-color: var(--buoy);
 }
 
-.opt-toggle-on .opt-switch {
-  background: var(--buoy);
-  border-color: var(--foam);
+/* ── THE PAGES THE KNOBS STAND ON ──────────────────────────────────────────
+   OPTIONS and the developer page are the same shape: a head, two columns of
+   groups, the caption, and the page's one blunt press. */
+.menu-card-options {
+  width: min(36rem, 100%);
+  gap: 0.6rem;
 }
 
-.opt-switch-knob {
-  display: block;
-  width: 0.85rem;
-  height: 0.85rem;
-  border-radius: 999px;
-  background: var(--foam);
-  transition: transform 120ms ease-out;
+/* THE START CARD, WHOSE LAYOUT IS DECIDED BY THE CHART. The chart is SQUARE,
+   so every pixel of its width is a pixel of card height: stood over the rows
+   in one narrow column it was the tallest thing on the card and still only a
+   thumbnail of a coast. Beside them it costs the card no height at all — the
+   three rows are shorter than it either way — so the card takes the width
+   instead and the coast is drawn big enough to read a course off. */
+.menu-card-start {
+  gap: 0.6rem;
 }
 
-.opt-toggle-on .opt-switch-knob {
-  transform: translateX(1.1rem);
+.start-cols,
+.start-col {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+}
+
+/* A phone held UPRIGHT: one column, every group stacked in it, and the chrome
+   between them given back. The ROWS keep their height — the arrows in them
+   are the thumb targets and 40px is the floor for one, so a settings page
+   that fits by making itself harder to press has not fixed anything. */
+@media (max-width: 30rem) {
+  .menu-card-options {
+    gap: 0.4rem;
+  }
+
+  .knob-groups,
+  .knob-col {
+    gap: 0.4rem;
+  }
+
+  .knob-group {
+    gap: 0.2rem;
+  }
+
+  .knob-rows {
+    gap: 0.15rem;
+  }
+
+  .knob {
+    padding-left: 0.5rem;
+  }
+
+  .knob-caption {
+    min-height: 0;
+    padding: 0.3rem 0.5rem;
+  }
+}
+
+/* Wide enough for two columns — a laptop, a tablet, a phone held sideways —
+   the page's two column blocks stand side by side and a 1280x720 screen holds
+   the whole card. The value column narrows with it: a row now shares half a
+   card, and RESOLUTION must not be truncated to make room. */
+@media (min-width: 48rem) {
+  .menu-card-options {
+    width: min(48rem, 100%);
+  }
+
+  .knob-groups {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+    gap: 0.4rem 1rem;
+  }
+
+  .menu-card-options .knob-value {
+    width: 6.8rem;
+  }
+
+  .menu-card-options .knob-fade {
+    width: 9.5rem;
+  }
+
+  /* The start card's two columns, and the chart taking the room they buy it.
+     `align-items: start` so the SHORE column is not stretched to the height of
+     nothing, and the chart column is the wider of the two: a coast is read,
+     and three rows of a ladder are glanced at. */
+  .menu-card-start {
+    width: min(46rem, 100%);
+  }
+
+  .start-cols {
+    display: grid;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+    align-items: start;
+    gap: 0.4rem 1.1rem;
+  }
+
+  /* Half again as big as the one-column card could afford it. The `vh` term is
+     still what gives way first on a short window — a 720-tall desktop keeps
+     the whole card on screen with the button under it. */
+  .menu-card-start .seed-preview-map {
+    max-width: min(19rem, 44vh);
+  }
+
+  .menu-card-start .knob-value {
+    width: 7rem;
+  }
+}
+
+/* THE PAUSE STRIP (menu-pause.tsx): the same rows, between RESUME and the one
+   press that ends the run. It sits in the card's own gap rather than under a
+   group heading — three rows a rider already knows the names of do not need a
+   word over them, and a card held over a frozen run is not a page to read. */
+.menu-pause-knobs {
+  gap: 0.3rem;
 }
 
 /* ── THE SEED'S PICTURE (seed-preview.tsx) ─────────────────────────────────

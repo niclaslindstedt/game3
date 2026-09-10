@@ -224,6 +224,13 @@ export const DEFAULT_SETTINGS: Settings = {
  * menu lying about the frame under it. */
 export const DEFAULT_SEED = 38;
 
+/** The shores a row may be walked or typed to. Seed 0 is not a level, so the
+ * floor is 1; the ceiling is six digits because that is what a seed being
+ * PASSED BETWEEN PEOPLE has to stay — a number somebody can read off a screen,
+ * say out loud and type back in. The generator takes any integer, so this is
+ * the CARD's range and not the engine's. */
+export const SEED_RANGE = { min: 1, max: 999999 } as const;
+
 /** The wind the developer's row may ask for, m/s, and the sea it may ask
  * for, m. Both are the range the model is honest over: past the top of the
  * wind the fetch law is extrapolating, and a sea quoted taller than this
