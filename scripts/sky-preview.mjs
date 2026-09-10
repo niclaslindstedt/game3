@@ -127,7 +127,13 @@ const query = new URLSearchParams(
 ).toString();
 const url = `http://127.0.0.1:${port}/sky-preview.html${query ? `?${query}` : ""}`;
 console.log(`sky — seed 38, ${args.rows || "every weather"} × ${args.hours || "every hour"}`);
-await page.goto(url);
+// The harness draws all twenty-five cells synchronously before the page's
+// load event can fire, so the NAVIGATION is as long as the sheet — the
+// `--timeout` flag has to cover it too. Left at Playwright's own 30 s default
+// this fails as a navigation timeout, which reads as a broken page rather
+// than as a sheet that is simply heavier than it was (a shore with a wood on
+// it, a sky with cloud in it).
+await page.goto(url, { timeout: args.timeout * 1000 });
 
 await Promise.race([
   page.waitForFunction("window.__done === true", undefined, { timeout: args.timeout * 1000 }),

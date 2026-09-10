@@ -39,7 +39,6 @@ import {
   dayLight,
   deckToneAt,
   seaMirror,
-  seaReflection,
   skyAt,
   skyToneAt,
   sunHardness,
@@ -327,26 +326,25 @@ describe("what a wave face reflects", () => {
     expect(skyToneAt(sunset, 1, 1)).toBe(skyToneAt(sunset, 1, 0));
   });
 
-  it("hands the water the open gradient under a clear sky and the ceiling under a lid", () => {
-    const open = seaReflection(clear);
-    expect(open.horizon).toBe(clear.horizon);
-    expect(open.zenith).toBe(clear.zenith);
-    expect(open.glowStrength).toBe(clear.glowStrength);
-    const lid = seaReflection(squall);
+  it("puts the ceiling's own rim on the skyline under a lid", () => {
+    // The water reflects the SAME `skyAlong` the dome is painted with
+    // (sky-glsl.ts), so there is no second gradient to hold to this one.
+    // What is left to assert is the hand-over the whole thing rests on:
+    // under a lid the sky's horizon IS the ceiling's lit rim, so the sliver
+    // of open dome under the base and the strip right above it are one
+    // colour rather than a hard band ruled across the skyline.
     if (!squall.deck) throw new Error("a squall has a deck");
-    expect(lid.horizon).toBe(squall.deck.rim);
-    expect(lid.zenith).toBe(squall.deck.overhead);
-    expect(lid.glowStrength).toBe(0);
-    // The ceiling's gradient is a few degrees tall; the open sky's is the
-    // whole dome.
-    expect(lid.band).toBeLessThan(open.band);
+    expect(squall.horizon).toBe(squall.deck.rim);
+    expect(luminance(squall.zenith)).toBeLessThan(luminance(clear.zenith));
   });
 
   it("gives the glint the beam's share, so a ceiling glints nothing", () => {
-    expect(seaReflection(clear).glint).toBe(1);
-    expect(seaReflection(squall).glint).toBe(0);
+    // The sparkle on the water is the sun's image in ten thousand facets,
+    // and a sun behind a squall's ceiling has no image to give.
+    expect(clear.beam).toBe(1);
+    expect(squall.beam).toBe(0);
     // A high sheet keeps some of it: a patch of light, no hard sparkle.
-    const sheet = seaReflection(skyAt(12, LAT, "high", 1)).glint;
+    const sheet = skyAt(12, LAT, "high", 1).beam;
     expect(sheet).toBeGreaterThan(0);
     expect(sheet).toBeLessThan(1);
   });

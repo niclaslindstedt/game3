@@ -62,9 +62,10 @@ import {
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
+import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
-import { applyClock, applySea, applySky, createWaterMaterial } from "./water-shader.ts";
+import { applyClock, applyRain, applySea, applySky, createWaterMaterial } from "./water-shader.ts";
 
 /** The grid the game is tuned on, and what the labs and the tests measure:
  * 72 × 72 = 5 184 samples a frame, six to eight milliseconds of `surfaceAt`
@@ -185,10 +186,20 @@ export type WaterMesh = {
   mesh: THREE.Mesh;
   /** The far grid and the horizon disc under it. */
   far: THREE.Group;
-  /** Light the water for a sky: what the wave faces reflect, what glints,
-   * and the two lights the scene has set for it. Called on a change of
-   * sky, not per frame. */
-  retone: (preset: Preset, hemi: THREE.HemisphereLight, key: THREE.DirectionalLight) => void;
+  /** Light the water for a sky: the two lights the scene has set for it,
+   * and how many cloud sheets the mirror has to be compiled for. What the
+   * wave faces REFLECT is not passed — it is the shared sky uniforms, which
+   * `environment.ts` has already written. Called on a change of sky, not per
+   * frame. */
+  retone: (
+    preset: Preset,
+    hemi: THREE.HemisphereLight,
+    key: THREE.DirectionalLight,
+    layers: number,
+  ) => void;
+  /** How hard it is raining on the sea, 0..1, and how far out the rings are
+   * worth drawing (the DETAIL row's reach, m). */
+  setRain: (fall: number, reach: readonly [number, number]) => void;
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
@@ -206,7 +217,7 @@ export type WaterMesh = {
   dispose: () => void;
 };
 
-export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
+export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER): WaterMesh {
   const GRID = look.grid;
   const HALF = look.half;
   // The stretched axis: s in [-1, 1] → offset(s) = HALF·(a·s + (1−a)·s³),
@@ -261,7 +272,7 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
   // ONE material for both grids: the light is the same light out to the
   // fog, and a seam in the shading would show where a seam in the height
   // does not.
-  const material = createWaterMaterial(look);
+  const material = createWaterMaterial(sky, look);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
 
@@ -531,8 +542,9 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
     preset: Preset,
     hemi: THREE.HemisphereLight,
     key: THREE.DirectionalLight,
+    layers: number,
   ): void => {
-    applySky(material, preset, hemi, key);
+    applySky(material, preset, hemi, key, layers);
     MIRROR.set(seaMirror(preset));
     paintHorizon();
   };
@@ -541,6 +553,7 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
     mesh,
     far,
     retone,
+    setRain: (fall, reach) => applyRain(material, fall, reach),
     setWindow: (open) => {
       windowOpen = open;
       // Blending is switched off with it: an opaque surface drawn through the

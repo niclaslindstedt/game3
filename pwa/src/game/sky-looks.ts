@@ -76,11 +76,6 @@ export type WeatherLook = {
 export type OpenLook = Pick<WeatherLook, "grey" | "mix" | "dim" | "hemi" | "through"> & {
   fogNear: [number, number];
   fogFar: [number, number];
-  /** How much of the fair-weather cumulus ring this sky flies, 0..1 — a
-   * COUNT rather than a fade. A dry sky gets FEWER clouds, not
-   * see-through ones: a thin cumulus reads as a rendering fault where a
-   * half-empty sky reads as a clear day. */
-  cloudShare: number;
 };
 
 /** How a coast's skies look — one row per sky the engine can hand over, the
@@ -92,9 +87,13 @@ export type Looks = {
 };
 
 export const TAIGA_LOOKS: Looks = {
-  // A CLEAR SKY is the ladder untouched. Its only say is how much cumulus
-  // floats in it, and a clear northern morning has some: a bare gradient
-  // over a bare sea is the blandest picture this game can draw.
+  // A CLEAR SKY is the ladder untouched, and it is EMPTY: not a thin ring of
+  // cumulus, not one puff on the rim — bare air from one horizon to the
+  // other (`dressSky` rolls it no sheets at all). R19 already has a sky for
+  // "fair, with something in it" and it is `high`; leaving a token cloud in
+  // this one is what made the two read as the same picture. What carries a
+  // clear day instead is the gradient, the glare on the water and the sun's
+  // road across it — which is what a flat calm at 06:00 actually looks like.
   clear: {
     grey: 0xffffff,
     mix: 0,
@@ -103,22 +102,31 @@ export const TAIGA_LOOKS: Looks = {
     fogNear: [1, 1.05],
     fogFar: [1, 1.05],
     through: [1, 1],
-    cloudShare: 0.4,
   },
   // HIGH CLOUD is the sky that costs a game nothing and buys it most: no
   // lid, no shorter view, just a sheet of cirrostratus the light comes
   // through. The blue goes milky, the sun keeps its disc but loses its
   // edge, and — the part that reads on the water — the shadows go soft.
   // Half the seeds should get something like this rather than bare blue.
+  //
+  // The numbers here are what the LIGHT does; the sky's SHAPE is the cloud
+  // chart's, and this is the one weather whose stack has two floors in it —
+  // a cirrus veil eight kilometres up over fair-weather cumulus a kilometre
+  // above the water, drifting at their own two paces. That parallax is what
+  // separates this sky from the clear one beside it, and until it existed
+  // the two came back off `make sky` as the same picture.
   high: {
     grey: 0xdfe7ee,
-    mix: 0.26,
+    // Half what it was before the veil was a real sheet: the milkiness used
+    // to have to STAND IN for cirrus, and now that the cirrus is drawn, the
+    // same mix over it whites the sky out and the veil has no blue to read
+    // against.
+    mix: 0.13,
     dim: [0.9, 0.74],
     hemi: [1.05, 1.15],
     fogNear: [0.92, 0.8],
     fogFar: [0.94, 0.84],
     through: [0.8, 0.5],
-    cloudShare: 1,
   },
   // OVERCAST is a DRY lid: a flat stratus ceiling, high and even, the light
   // shadowless and the colour gone out of everything. Nothing falls out of

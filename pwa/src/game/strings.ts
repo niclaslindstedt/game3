@@ -199,7 +199,8 @@ export const STRINGS = {
   optResolution: "RESOLUTION",
   optResolutionHint: "How many pixels the water is drawn at before it reaches the screen",
   optDetail: "DETAIL",
-  optDetailHint: "The spray off the hull, the sea life under it and what grows on the shore",
+  optDetailHint:
+    "The spray, the sea life, what grows on the shore, how much cloud is in the sky, and whether the rain lands on the water",
   optSeeThrough: "SEE-THROUGH",
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
   optFps: "FPS",

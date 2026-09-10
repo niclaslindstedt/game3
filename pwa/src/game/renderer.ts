@@ -30,6 +30,7 @@ import { createRocks } from "./rocks.ts";
 import {
   DEFAULT_VIDEO,
   FLORA_SCALE,
+  RAIN_RING_REACH,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
   WATER_LOOK,
@@ -104,7 +105,7 @@ export function createRenderer(
   // THE SKY, and with it the fog and both lights (environment.ts).
   const sky: Environment = createEnvironment(scene);
 
-  let water: WaterMesh = createWaterMesh(WATER_LOOK[video.water]);
+  let water: WaterMesh = createWaterMesh(sky.uniforms, WATER_LOOK[video.water]);
   scene.add(water.mesh, water.far);
   const wake = createWake();
   const spray = createSpray();
@@ -168,7 +169,7 @@ export function createRenderer(
       // and how far the rider sees into it (`water-optics.ts`). Set before
       // the horizon is painted out of it.
       water.setCoast(level.biome);
-      water.retone(sky.preset(), sky.hemi, sky.key);
+      water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
       fauna.retone(sky.preset());
     }
     const id = state.craft.spec.id;
@@ -221,10 +222,10 @@ export function createRenderer(
   const buildWater = (): void => {
     scene.remove(water.mesh, water.far);
     water.dispose();
-    water = createWaterMesh(WATER_LOOK[video.water]);
+    water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water]);
     scene.add(water.mesh, water.far);
     if (level) water.setCoast(level.biome);
-    water.retone(sky.preset(), sky.hemi, sky.key);
+    water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
   };
 
   const setVideo = (next: VideoSettings): void => {
@@ -243,6 +244,11 @@ export function createRenderer(
     }
     spray.setBudget(SPRAY_SCALE[next.spray]);
     flora?.setDensity(FLORA_SCALE[next.flora]);
+    // The SKY stop recompiles the dome and, through the shared uniforms, the
+    // water's mirror with it — which is why the water is re-toned after it
+    // rather than left to the next level.
+    sky.setLook(next.sky);
+    water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
   };
 
   const render = (state: GameState, dt: number): void => {
@@ -288,10 +294,16 @@ export function createRenderer(
       fovWas = fov;
       spray.setLens(bufferSize.y, fov);
     }
-    // The sky follows the lens LAST: its cloud cull reads the camera's own
-    // matrices, and reading them before the pose is applied culls this
-    // frame's sky against last frame's view.
-    sky.update(state, camera, eye.set(pose.x, pose.y, pose.z), dt);
+    // The sky follows the lens LAST, because it reads where the lens ended
+    // up: the dome rides it, the rain's box wraps around it, and the cloud
+    // over the sun is read at the craft.
+    sky.update(state, eye.set(pose.x, pose.y, pose.z), dt);
+    // …and the water answers to the light the sky just set. Per frame rather
+    // than per level, because within a run the light MOVES: a sheet drifting
+    // over the sun dims the key, and the sea's glint has to go with it or
+    // the water keeps a sparkle the sky no longer has.
+    water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
+    water.setRain(sky.rainfall(), RAIN_RING_REACH[video.rainRings]);
 
     renderer.render(scene, camera);
     cost.calls = renderer.info.render.calls;

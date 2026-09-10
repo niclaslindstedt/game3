@@ -28,7 +28,8 @@
  *               screen. The single biggest lever on a weak GPU.
  *   DETAIL      is how much world there is per metre: the spray thrown off the
  *               hull, the sea life under the surface, the tree line behind the
- *               shore.
+ *               shore, how many sheets of cloud are in the sky (and so in the
+ *               sea reflecting it), and whether the rain lands on the water.
  *   SEE-THROUGH is the one thing on the page that is a LOOK rather than an
  *               amount — and it is paid twice over, in a transparent pass over
  *               most of the frame and in everything drawn under it.
@@ -80,6 +81,24 @@ export type VideoSettings = {
    * than submission, and it applies the instant it is set: the cover is planted
    * once at its thickest and the row decides how much of it is drawn. */
   flora: FloraLevel;
+  /** HOW MUCH SKY THERE IS — how deep the cloud sheets are read, whether
+   * their sunlit faces are found by a second sample, and how many sheets may
+   * be stacked at once (`SKY_LOOK`). Part of DETAIL, and it recompiles the
+   * dome and the water's mirror on its way, which is a few milliseconds.
+   *
+   * It is the steepest per-pixel lever the game has, because it is paid
+   * TWICE: once on every pixel of sky, and again on every pixel of sea,
+   * which reflects the same sheets. That is also why it is worth the most —
+   * over open water the sky and its reflection are most of the frame. */
+  sky: SkyLevel;
+  /** WHETHER THE RAIN LANDS ON THE SEA — the rings a downpour pocks the
+   * surface with (`water-shader.ts`), and how far out they are drawn. Part of
+   * DETAIL, and it applies the instant it is set.
+   *
+   * OFF is genuinely off rather than a short fade: the whole nine-cell ring
+   * loop is skipped, so a level under a clear sky pays nothing for it at any
+   * stop and a phone in a downpour pays nothing for it at this one. */
+  rainRings: RainRingLevel;
 };
 
 export const WATER_LEVELS = ["low", "medium", "high"] as const;
@@ -93,6 +112,45 @@ export type SprayLevel = (typeof SPRAY_LEVELS)[number];
 
 export const FLORA_LEVELS = ["sparse", "normal", "lush"] as const;
 export type FloraLevel = (typeof FLORA_LEVELS)[number];
+
+export const SKY_LEVELS = ["low", "medium", "high"] as const;
+export type SkyLevel = (typeof SKY_LEVELS)[number];
+
+export const RAIN_RING_LEVELS = ["off", "near", "far"] as const;
+export type RainRingLevel = (typeof RAIN_RING_LEVELS)[number];
+
+/** THE SKY LADDER — what each stop of the SKY lever compiles into the dome
+ * and into the water's mirror.
+ *
+ * `layers` is the steep one: every sheet is a whole field of noise sampled on
+ * every sky pixel and again on every sea pixel, and which sheets go is the
+ * cloud chart's `rank` rather than their altitudes. One sheet is the sky the
+ * level is actually ridden under and nothing over it — a deck with no scud
+ * under it, a cirrus veil with no cumulus below. `octaves` is how much
+ * structure each sheet has: three is mass with one arm of erosion, five is a
+ * cauliflower edge. `sunlit` takes a second sample toward the sun to find
+ * which way a cloud's surface faces, and it is the difference between cloud
+ * and cotton wool. */
+export const SKY_LOOK: Record<SkyLevel, { octaves: number; sunlit: boolean; layers: number }> = {
+  low: { octaves: 3, sunlit: false, layers: 1 },
+  medium: { octaves: 4, sunlit: true, layers: 2 },
+  high: { octaves: 5, sunlit: true, layers: 3 },
+};
+
+/** Where the rain's rings begin to fade and where they are gone, m from the
+ * lens. `off` is both zero, which the shader reads as "draw none".
+ *
+ * NEAR is the honest reach: a raindrop's ring is a hand's width across, and
+ * past twenty metres it is under a pixel — what the eye is actually reading
+ * out there is the sheet in the air and the fog behind it. FAR carries them
+ * out to where the near water grid gives way, which on a machine with the
+ * pixels for it is the difference between a shower on the boat and a shower
+ * on the bay. */
+export const RAIN_RING_REACH: Record<RainRingLevel, readonly [number, number]> = {
+  off: [0, 0],
+  near: [9, 22],
+  far: [20, 48],
+};
 
 /** What one stop of the WATER row builds. `water-mesh.ts` lays its grid out of
  * the first three and `water-shader.ts` reads the last two. */
@@ -198,7 +256,7 @@ export const FLORA_SCALE: Record<FloraLevel, number> = {
 /** The three levers DETAIL owns. Named as a slice of `VideoSettings` rather
  * than restated, so adding another is a decision about which row it belongs on
  * instead of a silent omission from both. */
-export type DetailSettings = Pick<VideoSettings, "spray" | "fauna" | "flora">;
+export type DetailSettings = Pick<VideoSettings, "spray" | "fauna" | "flora" | "sky" | "rainRings">;
 
 export const DETAIL_LEVELS = ["low", "medium", "high"] as const;
 export type DetailLevel = (typeof DETAIL_LEVELS)[number];
@@ -213,16 +271,17 @@ export type DetailLevel = (typeof DETAIL_LEVELS)[number];
  * there are fish under the boat. */
 export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
   // The phone that would rather have the frames: under half the spray, an
-  // empty sea under the hull, a thin tree line.
-  low: { spray: "low", fauna: false, flora: "sparse" },
+  // empty sea under the hull, a thin tree line, one cloud sheet read shallow,
+  // and a sea the rain does not land on.
+  low: { spray: "low", fauna: false, flora: "sparse", sky: "low", rainRings: "off" },
   // The design point — every lever at the number the game was tuned on.
-  medium: { spray: "full", fauna: true, flora: "normal" },
-  // A machine with headroom. Only the cover has anywhere left to go: the
-  // spray is already every droplet the hull throws and the sea life is already
-  // every pod the rider can see into, so HIGH is a thicker shore and nothing
-  // else. A stop that promised more than that would be the page inventing work
-  // to sell.
-  high: { spray: "full", fauna: true, flora: "lush" },
+  medium: { spray: "full", fauna: true, flora: "normal", sky: "medium", rainRings: "near" },
+  // A machine with headroom: a thicker shore, a third cloud sheet read a stop
+  // deeper, and the rain landing out to where the near grid gives way. The
+  // spray is already every droplet the hull throws and the sea life already
+  // every pod the rider can see into, so those two have nowhere left to go —
+  // a stop that promised more would be the page inventing work to sell.
+  high: { spray: "full", fauna: true, flora: "lush", sky: "high", rainRings: "far" },
 };
 
 /** Where the rows stand on a first visit — and the answers are not the same
