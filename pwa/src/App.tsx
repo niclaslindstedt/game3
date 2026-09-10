@@ -389,7 +389,7 @@ export function App() {
         hour: params.hour,
         timeOfDay: s.ride.time ?? undefined,
         // The WEATHER row wins over the sky its wind implies — that is the
-        // whole of what it is for. Left AS DEALT it defers, and the pair
+        // whole of what it is for. Left alone (null) it defers, and the pair
         // stays the one R19 would have dealt.
         weather: s.ride.weather ?? day?.weather,
       });

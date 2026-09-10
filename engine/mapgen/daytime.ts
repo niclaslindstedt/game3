@@ -55,3 +55,25 @@ export function hourOfDay(level: Level, when: TimeOfDay): number {
       return min + span / 2;
   }
 }
+
+/**
+ * The named hour a level was DEALT: the rung of {@link TIMES_OF_DAY} its own
+ * hour (R13) stands nearest to on this coast.
+ *
+ * The inverse of {@link hourOfDay}, and engine-side for the same reason that
+ * one is: the three hours are facts about the PLACE, so which of them a dealt
+ * hour belongs to cannot be read off the number alone. The start card asks,
+ * so that its three chips can say which hour the seed already gives.
+ */
+export function dealtTimeOfDay(level: Level): TimeOfDay {
+  let nearest: TimeOfDay = TIMES_OF_DAY[0];
+  let gap = Infinity;
+  for (const when of TIMES_OF_DAY) {
+    const from = Math.abs(level.hour - hourOfDay(level, when));
+    if (from < gap) {
+      gap = from;
+      nearest = when;
+    }
+  }
+  return nearest;
+}

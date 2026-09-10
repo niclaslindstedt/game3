@@ -30,8 +30,11 @@ import {
   type LoadStep,
 } from "../pwa/src/game/run-loader.ts";
 import {
+  CONDITIONS,
+  CONDITION_DAY,
   DEFAULT_SETTINGS,
   DEV_HOLD_MS,
+  conditionsFor,
   freshSettings,
   mergeSettings,
 } from "../pwa/src/game/settings.ts";
@@ -342,6 +345,31 @@ describe("standing a run up (run-loader.ts)", () => {
       /* to the end */
     }
     expect(Object.keys(loadTimes(job)).sort()).toEqual(["a", "b"]);
+  });
+});
+
+describe("the wind a seed deals, as one of the card's three rungs (conditionsFor)", () => {
+  it("names the rung a wind is standing exactly on", () => {
+    for (const rung of CONDITIONS) expect(conditionsFor(CONDITION_DAY[rung].wind)).toBe(rung);
+  });
+
+  it("names the nearest rung for the winds R12 actually deals", () => {
+    // No seed lands on a rung: R12 grows a level's wind inside its own band,
+    // so the chip the start card marks is the one whose sea is closest to
+    // the sea the level has.
+    expect(conditionsFor(6)).toBe("fine");
+    expect(conditionsFor(9)).toBe("windy");
+    expect(conditionsFor(14)).toBe("windy");
+    expect(conditionsFor(25)).toBe("storm");
+    // Exactly between two rungs the calmer one takes it, which is the rung
+    // whose wind the sea is more likely to be under.
+    expect(conditionsFor(8)).toBe("fine");
+  });
+
+  it("leaves no wind with nothing marked", () => {
+    // The row always has a chip to stand on: a mark that vanished on some
+    // seeds would read as a broken row rather than as an unusual wind.
+    for (let ms = 0; ms <= 40; ms += 0.5) expect(CONDITIONS).toContain(conditionsFor(ms));
   });
 });
 

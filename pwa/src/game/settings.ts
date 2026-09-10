@@ -61,7 +61,7 @@ export type HudSettings = {
  * to ask for a sea. Each rung names a mean wind at 10 m and, with it, the sky
  * that BELONGS over that wind — which is R19's own agreement (a level's sky
  * is dealt off the wind that grew its waves) carried onto the card, so a
- * player who names a wind and leaves the sky AS DEALT still rides a day whose
+ * player who names a wind and leaves the sky alone still rides a day whose
  * water and ceiling are telling them the same thing. {@link RideSettings.weather}
  * is how that agreement is broken on purpose.
  *
@@ -81,6 +81,31 @@ export const CONDITION_DAY: Record<Conditions, { weather: Weather; wind: number 
   windy: { weather: "overcast", wind: 12 },
   storm: { weather: "squall", wind: 20 },
 };
+
+/**
+ * The rung a wind of this speed stands nearest to, m/s.
+ *
+ * A level's own wind is a FIGURE rather than a rung — R12 grows it inside a
+ * band and no seed lands on 4, 12 or 20 exactly — so the start card cannot
+ * point at one of its three chips and say "this is the wind you were dealt"
+ * without a rule for which chip that is. This is the rule: the nearest rung,
+ * which is the one whose sea is closest to the sea the level actually has.
+ * The chip it marks still rides the LEVEL's wind while nothing is chosen
+ * (`RideSettings.conditions` null) — the mark says which sea is coming, not
+ * which number is being asked for.
+ */
+export function conditionsFor(windMs: number): Conditions {
+  let nearest: Conditions = CONDITIONS[0];
+  let gap = Infinity;
+  for (const rung of CONDITIONS) {
+    const from = Math.abs(windMs - CONDITION_DAY[rung].wind);
+    if (from < gap) {
+      gap = from;
+      nearest = rung;
+    }
+  }
+  return nearest;
+}
 
 export type RideSettings = {
   craft: CraftId;

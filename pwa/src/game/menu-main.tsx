@@ -6,10 +6,12 @@
 //
 // THREE ROWS, AND THE MIDDLE ONE IS THE POINT.
 //
-//   START      → the start card (menu-start.tsx): the craft, the shore, the
-//                hour and the day, then the press that rides. Its CRAFT row
-//                opens a card of its own (menu-craft.tsx), because four
-//                hulls are four shapes and a row of names cannot show one.
+//   START      → the start card (menu-start.tsx): the shore, the hour and
+//                the day; then the craft card (menu-craft.tsx), where the
+//                hull is chosen and the press that rides lives. Two cards
+//                because four hulls are four shapes and a row of names
+//                cannot show one — and the last thing a rider looks at
+//                before the water should be the hull.
 //                The only way into a run there is: this is
 //                a vertical slice, and a front door offering four modes that
 //                all lead to the same shore would be a door telling four
@@ -306,18 +308,18 @@ export function MainMenu({
           settings={settings}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
-          onCraft={() => onNavigate({ page: "craft" })}
-          onRide={onStart}
+          onNext={() => onNavigate({ page: "craft" })}
         />
       )}
-      {/* The craft card's only way out is BACK to the start card: it was a
-          row there, and a rider who has just chosen a hull is still in the
-          middle of answering what this run is. */}
+      {/* The second half of the same question, and the end of it: BACK is
+          the start card the rider came through, and RIDE stands the run up
+          from what the two of them agreed. */}
       {page.page === "craft" && (
         <CraftPage
           settings={settings}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "start" })}
+          onRide={onStart}
         />
       )}
       {page.page === "options" && (

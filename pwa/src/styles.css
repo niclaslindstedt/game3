@@ -1694,6 +1694,43 @@ canvas {
   color: var(--hud-shadow);
 }
 
+/* THE ANSWER THE SHORE CAME WITH (menu.tsx's `dealt`). Every row on the
+   start card defers to the level unless the rider says otherwise, and this
+   is how a row of named answers says WHICH answer that is — so the card can
+   offer the three real hours rather than a fourth chip standing for
+   "whichever of them this turns out to be".
+
+   A DOT IN THE CORNER, NOT A WIDER CHIP. It rides over the padding, so the
+   mark moving from one chip to the next as the seed is walked never relays
+   the row; and it is legible on the active fill as well as beside it, which
+   it has to be, because the marked chip IS the active one on every row
+   nobody has touched. */
+.menu-opt-dealt {
+  position: relative;
+  border-color: rgb(242 247 248 / 45%);
+}
+
+.menu-opt-mark {
+  position: absolute;
+  top: 0.16rem;
+  right: 0.18rem;
+  width: 0.3rem;
+  height: 0.3rem;
+  border-radius: 50%;
+  background: var(--buoy);
+}
+
+.menu-opt-active .menu-opt-mark {
+  background: var(--hud-shadow);
+}
+
+/* The deal on screen belongs to a seed the worker has moved past — dimmed
+   for the same reason the chart under it is (`.seed-preview-waiting`), and
+   more gently, because these chips stay pressable while they wait. */
+.menu-opts-waiting {
+  opacity: 0.7;
+}
+
 /* A continuous setting: the fader, and the figure that doubles as the way
    back to AUTO. */
 .menu-slide {
@@ -1780,43 +1817,6 @@ canvas {
   font-variant-numeric: tabular-nums;
   text-align: center;
   cursor: pointer;
-}
-
-/* A row that READS BACK an answer and opens the card that asks it — the
-   craft (menu.tsx's `PageRow`). It wears the stepper's readout weight, since
-   what it shows is the same kind of thing: the value as it stands. The
-   chevron is the promise that pressing goes somewhere. */
-.menu-page-row {
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.3rem 0.5rem 0.3rem 0.7rem;
-  border: 2px solid rgb(242 247 248 / 22%);
-  border-radius: 0.4rem;
-  background: rgb(8 42 56 / 45%);
-  color: var(--hud-ink);
-  font: inherit;
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
-.menu-page-row:hover,
-.menu-page-row:focus-visible,
-.menu-page-row.nav-cursor {
-  border-color: var(--buoy);
-  outline: none;
-}
-
-.menu-page-read {
-  font-size: 0.78rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-}
-
-.menu-page-more {
-  font-size: 0.95rem;
-  line-height: 1;
-  color: var(--hud-info);
 }
 
 /* A switch with its cost written under it. */

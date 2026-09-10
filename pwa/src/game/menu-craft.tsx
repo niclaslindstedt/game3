@@ -1,15 +1,19 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE CRAFT CARD — which hull, on a screen of its own.
+// THE CRAFT CARD — which hull, on a screen of its own, and the last thing
+// between the rider and the water.
 //
-// IT WAS A ROW ON THE START CARD, and four names in a row is the one
-// question on that card its chips could not answer. A shore is a seed with
-// a chart drawn under it and an hour is a word that means an hour; a craft
-// is a SHAPE, and "SKIFF / MARLIN / OTTER / DART" asks a rider to choose
-// between four hulls they have never seen by picking one of four words.
-// So the choice comes off the row and takes a card, the way the sibling
-// rally game's pre-race card gives the car one: the craft turning on the
-// water it will ride, at the draft it actually floats at, with the numbers
-// beside it.
+// A ROW OF NAMES CANNOT ASK THIS QUESTION. A shore is a seed with a chart
+// drawn under it and an hour is a word that means an hour; a craft is a
+// SHAPE, and "SKIFF / MARLIN / OTTER / DART" asks a rider to choose between
+// four hulls they have never seen by picking one of four words. So it takes
+// a card, the way the sibling rally game's pre-race card gives the car one:
+// the craft turning on the water it will ride, at the draft it actually
+// floats at, with the numbers beside it.
+//
+// IT IS THE SECOND CARD, AND RIDE IS ON IT. The start card asks where and
+// when; this one asks what with, and then goes. That order is the one thing
+// this card's position is for: the last picture a rider sees before the
+// loading card is the hull they are about to be sitting on.
 //
 // TWO THINGS ARE ON IT, and the layout says so: THE CRAFT, which is the
 // decision, and FOUR SHORT READINGS beside it — two figures and four bars
@@ -21,9 +25,8 @@
 //
 // The card is built the way OPTIONS is — the way back and the title on one
 // head row, the content under it in a column, or two on a screen wide
-// enough — and it WRITES `settings.ride.craft`, the same field the row it
-// replaced wrote. A run stood up from here and a run stood up from a
-// `?craft=` link are the same run read the same way.
+// enough — and it WRITES `settings.ride.craft`. A run stood up from here and
+// a run stood up from a `?craft=` link are the same run read the same way.
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import { craftById, type CraftId } from "@engine";
@@ -114,17 +117,20 @@ export function CraftPage({
   settings,
   onSettings,
   onBack,
+  onRide,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
-  /** Back to the start card, which is the only way in. */
+  /** Back to the start card, which is the way in. */
   onBack: () => void;
+  /** The press that stands the run up — this card is the end of the flow. */
+  onRide: () => void;
 }) {
   const craft = settings.ride.craft;
   const spec = craftById(craft);
   return (
     <div class="menu-card menu-card-craft">
-      <MenuHead back={onBack} backLabel={STRINGS.startTitle} title={STRINGS.optCraft} />
+      <MenuHead back={onBack} backLabel={STRINGS.startTitle} title={STRINGS.craftTitle} />
       <div class="craft-pick-body">
         {/* THE CRAFT takes the room. It is the only thing on this card that
             cannot be said in words, and the one the whole screen exists to
@@ -148,17 +154,17 @@ export function CraftPage({
         </div>
         <CraftReadings craft={craft} />
       </div>
-      {/* The way back to the rest of the run, wearing the start card's own
-          weight and marked as this surface's `next` — so a controller that
-          walked in here gets out the way it came without hunting. */}
+      {/* The press that rides, wearing the front door's own START weight and
+          marked as this surface's `next` — so a controller that walked in
+          here gets on the water without hunting for it. */}
       <button
         type="button"
         class="menu-item menu-item-start craft-done"
-        data-menu="craft-done"
+        data-menu="ride"
         data-nav-next
-        onClick={onBack}
+        onClick={onRide}
       >
-        <span class="menu-item-name">{STRINGS.craftTake}</span>
+        <span class="menu-item-name">{STRINGS.startGo}</span>
       </button>
     </div>
   );
