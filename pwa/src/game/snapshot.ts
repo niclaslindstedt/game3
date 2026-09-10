@@ -10,8 +10,17 @@
 // progress the engine keeps. A number that decided an outcome would be a
 // rule in the shell (§23.2), and there are none.
 
-import { gatesReached, maxRpm, windAt, type CraftId, type GameState } from "@engine";
+import {
+  biomeOf,
+  gatesReached,
+  maxRpm,
+  sunHourAt,
+  windAt,
+  type CraftId,
+  type GameState,
+} from "@engine";
 
+import { daylightOf, sunOver, type Daylight } from "./daylight.ts";
 import { SCREEN_TO_ENGINE } from "./input-model.ts";
 import { buildMinimap, type HudMinimap } from "./minimap-view.ts";
 
@@ -24,6 +33,11 @@ export type HudSnapshot = {
   /** The run clock, s, and whether it has stopped. */
   time: number;
   finished: boolean;
+  /** THE SUN'S CLOCK: the hour the run has reached (`sunHourAt`, an hour a
+   * minute from the level's own), and the word for its light — which is
+   * the astronomy's word (`daylightOf`), the same one the sky keys on. */
+  hour: number;
+  daylight: Daylight;
   /** Gates passed (missed ones count as reached) and gates in the course. */
   passed: number;
   gates: number;
@@ -48,7 +62,10 @@ export function takeSnapshot(state: GameState): HudSnapshot {
   const p = state.progress;
   const wind = windAt(state.wind, Math.max(0, c.y), c.x, c.z);
   const blowsTo = Math.atan2(wind.vx, wind.vz);
+  const hour = sunHourAt(state.level, state.t);
   return {
+    hour,
+    daylight: daylightOf(sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season)),
     speedKmh: c.speed * 3.6,
     rpm: c.rpm / maxRpm(c.spec),
     idle: c.spec.idleRpm / maxRpm(c.spec),

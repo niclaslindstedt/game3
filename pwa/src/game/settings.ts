@@ -19,10 +19,12 @@
 
 import {
   CRAFT_IDS,
-  TIMES_OF_DAY,
-  WEATHER_IDS,
   type CraftId,
+  SEASONS,
+  type Season,
+  TIMES_OF_DAY,
   type TimeOfDay,
+  WEATHER_IDS,
   type Weather,
 } from "@engine";
 
@@ -122,6 +124,11 @@ export type RideSettings = {
    * it against the coast's own daylight window (`hourOfDay`). Null rides
    * the hour the level was dealt (R13). */
   time: TimeOfDay | null;
+  /** Which SEASON to ride in — the sun's arc, and so how long the day is
+   * and how dark the night gets (R13). Null rides the season the level was
+   * dealt. A season asked for here moves the sun and nothing else: the
+   * water and what swims in it stay the level's own. */
+  season: Season | null;
   /** The wind to ride in, and so the sea it builds — see {@link CONDITIONS}.
    * Null rides the shore as it was generated. */
   conditions: Conditions | null;
@@ -252,6 +259,7 @@ export const DEFAULT_SETTINGS: Settings = {
     // touched it.
     seed: null,
     time: null,
+    season: null,
     conditions: null,
     weather: null,
     // Behind and above, which is the camera the game is tuned to be read
@@ -363,6 +371,7 @@ export function mergeSettings(parsed: unknown): Settings {
     settings.ride.seed = ride.seed;
   }
   if (TIMES_OF_DAY.some((id) => id === ride?.time)) settings.ride.time = ride?.time as TimeOfDay;
+  if (SEASONS.some((id) => id === ride?.season)) settings.ride.season = ride?.season as Season;
   if (CONDITIONS.some((id) => id === ride?.conditions)) {
     settings.ride.conditions = ride?.conditions as Conditions;
   }

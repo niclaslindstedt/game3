@@ -6,18 +6,27 @@
 // it builds out of this, and what lets the tests read the whole model
 // without standing up a renderer.
 //
-// Three layers, applied in this order and in this order for a reason:
+// Four layers, applied in this order and in this order for a reason:
 //
 //   THE SUN     astronomy (daylight.ts) — how high it stands at this hour on
-//               this coast, and which way it is going.
+//               this coast in this season, and which way it is going. THE
+//               SUN MOVES: the clock runs an hour a minute (`sunHourAt`),
+//               so this is asked every frame, and a run started at sunset
+//               is ridden down the whole ladder below.
 //   THE LADDER  the authored art direction (sky-rungs.ts), keyed on that
-//               elevation: a rung for the sun on the water, for the golden
-//               hour, for morning and for full day, with the rungs the sun
-//               CLIMBS through painted differently from the ones it comes
-//               down in. The sky at any moment is the blend of the two rungs
-//               its elevation lies between, so nothing in a day has a cut in
-//               it. There is no rung under the horizon: R13 rides every
-//               level in daylight.
+//               elevation: a rung for the dark, for the twilight, for the
+//               sun on the water, for the golden hour, for morning and for
+//               full day, with the rungs the sun CLIMBS through painted
+//               differently from the ones it comes down in. The sky at any
+//               moment is the blend of the two rungs its elevation lies
+//               between, so nothing in a day has a cut in it. Under the
+//               twilight the KEY LIGHT hands over from the sun's afterglow
+//               to the full moon (`MOON_TAKES_OVER`), which stands opposite
+//               the sun and is what a night sea is lit by.
+//   THE SEASON  what the year does to the air (sky-looks.ts's
+//               `TAIGA_SEASONS`): a colour cast and a clarity, shown in
+//               proportion to the sun. Where the sun IS in that season is
+//               already in the elevation.
 //   THE SKY     what the level was generated under (R19), as a LID over the
 //               top of it (`weathered`). Overcast, rain and a squall are not
 //               the same sky dimmed by different amounts — one is flat grey,
@@ -29,12 +38,18 @@
 // `THREE.Color.lerp` does. The renderer turns a hex into a `THREE.Color` at
 // the last moment; nothing before that needs a renderer to exist.
 
-import { skyCover, type Level, type Weather } from "@engine";
+import { skyCover, sunHourAt, type Level, type Season, type Weather } from "@engine";
 
 import { luminance, mixHex } from "../lib/colour.ts";
-import { daylightOf, sunAt, type Daylight, type SunPlace } from "./daylight.ts";
+import { daylightOf, lampsAt, moonAt, sunOver, type Daylight, type SunPlace } from "./daylight.ts";
 import { KEYS, DAY } from "./sky-rungs.ts";
-import { TAIGA_LOOKS, type OpenLook, type WeatherLook } from "./sky-looks.ts";
+import {
+  TAIGA_LOOKS,
+  TAIGA_SEASONS,
+  type OpenLook,
+  type SeasonLook,
+  type WeatherLook,
+} from "./sky-looks.ts";
 
 /** How far out the sky's shells stand, m. Past everything the world puts in
  * front of them and inside the camera's far plane. */
@@ -129,6 +144,16 @@ export type Rung = {
   halo: number;
   haloSize: number;
   haloOpacity: number;
+  /** How much of the night sky shows, 0..1: the stars, and — its own
+   * number, because the two die at very different rates — the DIFFUSE sky
+   * behind them, the Milky Way and the galaxies (starfield.ts). A first
+   * magnitude star is still there in the last of the twilight; the band
+   * needs a genuinely black sky. */
+  stars: number;
+  galaxy: number;
+  /** How much sea mist lies on the water, 0..1 — a dawn's bank, burnt off
+   * by mid-morning. Shortens the view and veils the horizon. */
+  mist: number;
   cloud: number;
   cloudShade: number;
   cloudOpacity: number;
@@ -137,15 +162,20 @@ export type Rung = {
 export type Preset = Rung & {
   /** THE KEY LIGHT's place: radians above the horizon — never under it,
    * because a key light from below the water lights nothing — and the world
-   * heading it stands at. */
+   * heading it stands at. The sun by day, the moon by night, and a blend of
+   * the two through the twilight between; the disc and the halo are drawn
+   * here too, so the moon is the disc once it has taken the key. */
   sunElevation: number;
   sunAzimuth: number;
-  /** THE REAL SUN, on the horizon at the lowest a level is ridden at.
-   * Anything asking how much sun a thing at ALTITUDE gets — a cloud, the
-   * deck's own underside — reads these rather than the key, because the sun
-   * sets on the water before it sets on a ceiling two kilometres up. */
+  /** THE REAL SUN, wherever it is — under the horizon included. Anything
+   * asking how much sun a thing at ALTITUDE gets — a cloud, the deck's own
+   * underside — reads these rather than the key, because the sun sets on
+   * the water before it sets on a ceiling two kilometres up. */
   sunUp: number;
   sunBearing: number;
+  /** How lit the craft's lamps are, 0..1 (`lampsAt`) — the sky's say,
+   * because what a rider reaches for the switch about is the sky. */
+  lamps: number;
   /** The word for this light, for anything that keys on one. */
   daylight: Daylight;
   /** How much of the light arrives as a BEAM rather than as skylight
@@ -218,19 +248,72 @@ function rungAt(elevation: number, rising: boolean): Rung {
  * lens would go black at the one moment the sky is most worth looking at. */
 const KEY_FLOOR = 2 * DEG;
 
+/** Between which elevations of the SUN the key hands over to the moon,
+ * degrees under the horizon. Above the top of the band the sea is lit by
+ * the afterglow's skylight from the sun's side; below the bottom it is
+ * moonlit from the other. The band is the civil twilight, which is where a
+ * real evening's light stops being the sun's. */
+const MOON_TAKES_OVER = { from: -3, to: -9 };
+
 /** THE OPEN SKY at a sun's place: the rung, with the key light placed. */
 function openSky(sun: SunPlace): Preset {
   const rung = rungAt(sun.elevation, sun.rising);
+  const moon = moonAt(sun);
+  // How far the moon has taken the key over, 0..1.
+  const handed = clamp01(
+    (sun.elevation / DEG - MOON_TAKES_OVER.from) / (MOON_TAKES_OVER.to - MOON_TAKES_OVER.from),
+  );
+  // The sun's side of the sky keeps the key while the afterglow lasts; the
+  // moon's takes it as the dark comes down. Both stand off the floor.
+  const sunKey = Math.max(KEY_FLOOR, sun.elevation);
+  const moonKey = Math.max(KEY_FLOOR, moon.elevation);
   return {
     ...rung,
-    sunElevation: Math.max(KEY_FLOOR, sun.elevation),
-    sunAzimuth: sun.azimuth,
+    // HOW VISIBLE THE BAND IS is far steeper than any pair of rungs can
+    // blend: a sky twice as bright does not show half the Milky Way, it
+    // shows almost none of it, because the band is a glow a shade over the
+    // sky's own floor and the twilight it is competing with is not. So the
+    // rungs author how much band a sky HAS and this is the curve between
+    // them — at the bottom of the ladder the whole of it, and at nautical
+    // twilight, four degrees up the ladder, a fifth.
+    galaxy: rung.galaxy * rung.galaxy * rung.galaxy,
+    sunElevation: lerp(sunKey, moonKey, handed),
+    sunAzimuth: sun.azimuth + Math.PI * handed,
     sunUp: sun.elevation,
     sunBearing: sun.azimuth,
+    lamps: lampsAt(sun.elevation),
     daylight: daylightOf(sun),
     beam: 1,
     deck: null,
   };
+}
+
+/** THE SEASON'S CAST over the open sky, in the proportion the sun is up —
+ * a colour cast is a statement about sunlight, and a midnight has none to
+ * cast. Before the weather, because a lid greys whatever is under it and
+ * that includes the year's colour. */
+function seasoned(p: Preset, look: SeasonLook): Preset {
+  const day = daytime(p.sunUp);
+  p.horizon = mixHex(p.horizon, look.horizon[0], look.horizon[1] * day);
+  p.fog = mixHex(p.fog, look.fog[0], look.fog[1] * day);
+  p.fogNear *= look.reach;
+  p.fogFar *= look.reach;
+  p.sunIntensity *= lerp(1, look.sun, day);
+  p.mist = clamp01(p.mist * look.mist);
+  return p;
+}
+
+/** THE MIST, before the weather for the same reason. It is a fact about the
+ * water's own air rather than about the sky: the view pulls in — hard at the
+ * near end, because a bank on the water is dense where the rider is — and
+ * the haze goes toward the horizon's own pale, which is what a bank looks
+ * like with the sky behind it. */
+function misted(p: Preset): Preset {
+  const m = p.mist;
+  p.fogNear *= 1 - 0.7 * m;
+  p.fogFar *= 1 - 0.5 * m;
+  p.fog = mixHex(p.fog, p.horizon, 0.5 * m);
+  return p;
 }
 
 /** The clear-weather baseline, for anything needing a REFERENCE sky rather
@@ -241,6 +324,7 @@ export const NOON: Preset = {
   sunAzimuth: Math.PI,
   sunUp: 0.9,
   sunBearing: Math.PI,
+  lamps: 0,
   daylight: "day",
   beam: 1,
   deck: null,
@@ -248,19 +332,25 @@ export const NOON: Preset = {
 
 /**
  * HOW MUCH DAY THERE IS IN THE AIR, 0..1 — the sun's elevation in degrees
- * read as a ramp: one for a sun well up, and falling away as it comes down
- * onto the water.
+ * read as a ramp: one for a sun well up, falling away as it comes down
+ * onto the water, and gone by nautical twilight.
  *
  * Every colour a weather look puts on the sky is a statement about SUNLIGHT
  * in it — the grey of a lid, the lit strip under a gust front, the white
- * glow of a rain deck. Not one of them is a property of the air itself, so
- * each is shown in this proportion, and a lid over a setting sun is a dark
- * ceiling rather than a daylight grey over a red sea.
+ * glow of a rain deck, a season's cast. Not one of them is a property of
+ * the air itself, so each is shown in this proportion, and a lid over a
+ * setting sun is a dark ceiling rather than a daylight grey over a red sea.
+ *
+ * The mixes it guards cannot simply be left at full strength after dark.
+ * `mixHex` mixes in LINEAR light, where a midnight sky sits four orders
+ * under a bright authored grey — so a fifth of the way toward one lands two
+ * thirds of the way up the sRGB ramp, and a night under a lid came out a
+ * mid-grey ceiling over a black sea.
  *
  * Keyed on the SUN rather than on how much light there is, because no
  * measure of the light can tell a low sun from weather: a clear sunset and
- * a squall at noon put the same amount on the water. The ladder can tell —
- * its rungs ARE elevations.
+ * a squall at noon put the same amount on the water, and `dayLight` after
+ * dark is the MOON. The ladder can tell — its rungs ARE elevations.
  */
 function daytime(elevation: number): number {
   return clamp01((elevation / DEG + 10) / 8);
@@ -290,6 +380,11 @@ function opened(p: Preset, look: OpenLook, cover: number): Preset {
   p.haloSize *= lerp(1, 1.5, 1 - through);
   p.haloOpacity *= lerp(0.5, 1, through);
   p.beam = through;
+  // A sheet over the night takes the faint sky first: the band needs a
+  // black sky and a veil of cirrus is not one, where the bright stars
+  // still come through it.
+  p.stars *= through;
+  p.galaxy *= through * through;
   return p;
 }
 
@@ -331,6 +426,10 @@ function lidded(p: Preset, look: WeatherLook, cover: number): Preset {
   p.haloSize *= 1.5;
   p.cloud = greyed(p.cloud);
   p.cloudShade = greyed(p.cloudShade);
+  // A lid over the night: the stars are gone under a thick one and a hint
+  // through a thin one, and the band never gets through at all.
+  p.stars *= 0.2 * through;
+  p.galaxy = 0;
   const deck: Deck = {
     // The underside is lit from above by whatever day there is: at night it
     // is as dark as the sky it hides.
@@ -404,25 +503,38 @@ function isOpen(weather: Weather): weather is "clear" | "high" {
 }
 
 /**
- * THE WHOLE SKY at `hour` over a coast at `latitude`, under `weather` at
- * `cover` (R19's heaviness, 0..1).
+ * THE WHOLE SKY at `hour` over a coast at `latitude` in `season`, under
+ * `weather` at `cover` (R19's heaviness, 0..1).
  *
- * Takes the four facts rather than a `Level` so that a lab, a test or a
+ * Takes the five facts rather than a `Level` so that a lab, a test or a
  * contact sheet can ask for a sky nobody generated — every hour of the day
- * under every sky there is, which is the only honest way to look at a
- * ladder.
+ * and night under every sky there is, which is the only honest way to look
+ * at a ladder.
  */
-export function skyAt(hour: number, latitude: number, weather: Weather, cover: number): Preset {
-  const p = openSky(sunAt(hour, latitude));
+export function skyAt(
+  hour: number,
+  latitude: number,
+  weather: Weather,
+  cover: number,
+  season: Season = "summer",
+): Preset {
+  const p = misted(seasoned(openSky(sunOver(hour, latitude, season)), TAIGA_SEASONS[season]));
   const looks = TAIGA_LOOKS;
   return isOpen(weather) ? opened(p, looks[weather], cover) : lidded(p, looks[weather], cover);
 }
 
-/** …for the level actually being ridden. The hour, the coast and the sky
- * are all its own; the heaviness is its wind read against R12's band, which
+/** …for the level actually being ridden, at run time `t`. The coast, the
+ * season and the sky are all its own and the hour is its own run on
+ * (`sunHourAt`); the heaviness is its wind read against R12's band, which
  * is what makes the biggest seas come under the darkest skies. */
-export function skyFor(level: Level, latitude: number): Preset {
-  return skyAt(level.hour, latitude, level.weather, skyCover(level.wind.speed));
+export function skyFor(level: Level, latitude: number, t: number): Preset {
+  return skyAt(
+    sunHourAt(level, t),
+    latitude,
+    level.weather,
+    skyCover(level.wind.speed),
+    level.season,
+  );
 }
 
 /** HOW MUCH LIGHT a preset puts on a horizontal surface — the skylight from
@@ -440,10 +552,10 @@ function keyLight(p: Preset): number {
  * HOW MUCH DAYLIGHT THERE IS, 0..1 against a clear noon.
  *
  * The things not lit by the scene's own lights have to be TOLD how dark it
- * is — the foam on a crest, a HUD readout deciding whether it is night, and
- * (when they are built) the craft's lamps, which are a pool on the water in
- * the dark and invisible by day. One number answers all of them and follows
- * any retune of the ladder for free.
+ * is — the foam on a crest, the lens of the craft's lamp, the pool it lays
+ * on the water in the dark and cannot lay by day. One number answers all of
+ * them and follows any retune of the ladder for free. After dark it is the
+ * MOON's light, a tenth of a noon's under a clear sky.
  */
 export function dayLight(p: Preset): number {
   const full = keyLight(NOON);

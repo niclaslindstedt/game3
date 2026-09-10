@@ -8,7 +8,7 @@
 // is the same one the rest of the app keeps: the engine owns the fact, the
 // renderer owns the picture.
 
-import type { Weather } from "@engine";
+import type { Season, Weather } from "@engine";
 
 /**
  * ONE SKY, AT ITS LIGHTEST AND AT ITS HEAVIEST.
@@ -193,4 +193,51 @@ export const TAIGA_LOOKS: Looks = {
     relief: [0.32, 0.58],
     through: [0, 0],
   },
+};
+
+/**
+ * WHAT A SEASON DOES TO THE AIR — never to where the sun is, which is the
+ * declination's and already in the elevation the ladder is keyed on. This
+ * is only the year's colour cast and its clarity: a mix toward a tone for
+ * the horizon band and the haze, a scale on how far the view runs, and a
+ * scale on the sun's warmth. Applied in the proportion the sun is up
+ * (`daytime`, sky.ts), because a colour cast is a statement about sunlight
+ * and a midnight has none to cast.
+ */
+export type SeasonLook = {
+  /** The horizon band and the haze, pulled toward this tone by this much. */
+  horizon: [number, number];
+  fog: [number, number];
+  /** How far the view runs against the ladder's own, and how much of the
+   * sun's own strength arrives. */
+  reach: number;
+  sun: number;
+  /** How much of the ladder's own sea mist this season's mornings carry —
+   * a scale on the rung's `mist`. */
+  mist: number;
+};
+
+/** The seasons as the Swedish weather service dates them on this coast,
+ * each one on the day `DECLINATION` puts it (`engine/lib/solar.ts`). What
+ * the year does to the AIR is stated here; what it does to the sun is
+ * already in the elevation. */
+export const TAIGA_SEASONS: Record<Season, SeasonLook> = {
+  // May: the air scrubbed clean by the winter and the light hard and pale,
+  // but the sea is at four degrees under air already at ten, which is the
+  // recipe for sea fog — the Gulf of Bothnia's short spring is its foggy
+  // season, a bank of advection fog lying on the cold water most mornings.
+  spring: { horizon: [0xe4eef6, 0.18], fog: [0xd6e6f0, 0.14], reach: 1.06, sun: 1, mist: 1.35 },
+  // The ladder was authored against a Bothnian July, so this is the
+  // baseline: nothing added.
+  summer: { horizon: [0xffffff, 0], fog: [0xffffff, 0], reach: 1, sun: 1, mist: 1 },
+  // Early October: the birch already yellow and the aspen red, a warmer,
+  // browner horizon under a sun that is low the whole day, and the other
+  // foggy season — the sea still holding the summer's warmth under air
+  // that has had its first frosts, so the dawn steams.
+  autumn: { horizon: [0xf0d8b8, 0.22], fog: [0xe4cfb6, 0.2], reach: 0.94, sun: 1.02, mist: 1.2 },
+  // Mid-November, the last open water before the ice: the air cold and
+  // blue and the sun weak and nine degrees up at its highest, the view
+  // short, and sea smoke off the water on a still morning. Over the
+  // Bothnian shallows it is the colour of tin.
+  winter: { horizon: [0xc4d0dc, 0.34], fog: [0xb8c4d0, 0.3], reach: 0.8, sun: 0.86, mist: 1.1 },
 };

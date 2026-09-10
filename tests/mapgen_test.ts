@@ -21,6 +21,8 @@ import {
   arcHeight,
   biomeOf,
   cumulative,
+  DECLINATION,
+  SEASONS,
   daylightWindow,
   gateBuoys,
   generateLevel,
@@ -443,15 +445,21 @@ describe("level generator", () => {
 
   it("R13 — every level is ridden in daylight, in the biome's own water", () => {
     const taiga = biomeOf("taiga");
-    const daylight = daylightWindow(taiga.latitude, R.day.minSun);
-    if (!daylight) throw new Error("the taiga coast has daylight");
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
+      expect(SEASONS).toContain(level.season);
+      const declination = DECLINATION[level.season];
+      const daylight = daylightWindow(taiga.latitude, R.day.minSun, declination);
+      if (!daylight) throw new Error("the taiga coast has daylight in every season");
       expect(withinBand(level.hour, daylight, 0.05)).toBe(true);
-      // The point of the rule, stated as the rider sees it: the sun is up.
-      expect(sunAt(level.hour, taiga.latitude).elevation).toBeGreaterThanOrEqual(-1e-6);
+      // The point of the rule, stated as the rider sees it: the sun is up
+      // when the run starts.
+      expect(sunAt(level.hour, taiga.latitude, declination).elevation).toBeGreaterThanOrEqual(
+        -1e-6,
+      );
       expect(level.water.density).toBe(taiga.water.density);
-      expect(withinBand(level.water.temperature, taiga.water.temperature)).toBe(true);
+      // …and the water is the season's.
+      expect(withinBand(level.water.temperature, taiga.water.temperature[level.season])).toBe(true);
     }
   });
 

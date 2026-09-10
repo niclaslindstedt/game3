@@ -31,6 +31,7 @@ import * as THREE from "three";
 
 import { MAX_LAYERS, cloudNoiseGlsl, type CloudLayer } from "./cloud-field.ts";
 import { GLOW_FOCUS, GLOW_REACH, RIM_BAND, SKY_CURVE, type Preset } from "./sky.ts";
+import { GALAXY_OCTAVES, starfieldGlsl, type SkyTurn, turnBasis } from "./starfield.ts";
 
 /**
  * WHAT ONE COPY OF THE SKY WAS COMPILED FOR.
@@ -51,10 +52,13 @@ export type SkyBuild = {
    * that face it. The difference between cloud and cotton wool, and the
    * dearest thing on the ladder. */
   sunlit: boolean;
-  /** Whether the sun's disc, its glare and its halo are in this copy. The
-   * dome draws them; the water does NOT — the sun's image on the sea is the
+  /** Whether the sun's disc, its glare and its halo are in this copy — and
+   * with them THE NIGHT: the stars and the band (starfield.ts). The dome
+   * draws them; the water does NOT — the sun's image on the sea is the
    * glint, computed from the real surface normal, and a second sun added
-   * through the mirror is one sun too many. */
+   * through the mirror is one sun too many; and a star field reflected
+   * through a spread of wave slopes is grain rather than stars, where the
+   * moon's road across the water is the glint's again. */
   sun: boolean;
   /** How tall the deck's lit rim is read, radians. `RIM_BAND` for the dome,
    * which is what the ceiling physically is; wider for the water, because a
@@ -103,6 +107,7 @@ export function createSkyUniforms(): SkyUniforms {
     uSkyGlowStrength: { value: 0.35 },
     uSkyBand: { value: SKY_CURVE },
     uSkyBelow: { value: new THREE.Color(0xd7e9f0) },
+    uSkyMist: { value: 0 },
     uSkyAz: { value: new THREE.Vector2(0, 1) },
     uSkySunDir: { value: new THREE.Vector3(0, 1, 0) },
     uSkyKeyDir: { value: new THREE.Vector3(0, 1, 0) },
@@ -113,6 +118,10 @@ export function createSkyUniforms(): SkyUniforms {
     uSkyHaloSize: { value: 0.1 },
     uSkyHaloOpacity: { value: 0 },
     uSkyThrough: { value: 1 },
+    uSkyStars: { value: 0 },
+    uSkyGalaxy: { value: 0 },
+    uSkyTurn: { value: new THREE.Matrix3() },
+    uSkyStarTime: { value: 0 },
     uSkyCloudLit: { value: new THREE.Color(0xffffff) },
     uSkyCloudShade: { value: new THREE.Color(0x8a97a8) },
     uSkySunColor: { value: new THREE.Color(0xffffff) },
@@ -145,6 +154,10 @@ export function skyGlsl(build: SkyBuild): string {
   const field = `cloudField${build.octaves}`;
   const sunField = `cloudField${sunlitOctaves(build.octaves)}`;
   const fields = build.sunlit ? [build.octaves, sunlitOctaves(build.octaves)] : [build.octaves];
+  // The night reads the galaxy's mottle off the same lattice the sheets are
+  // cut from, at its own depth — so the dome's copy asks for that depth
+  // too, and the water's, which carries no night, does not.
+  if (build.sun) fields.push(GALAXY_OCTAVES);
   // ONLY WHAT THIS BUILD READS IS DECLARED. The bundle is shared, so a
   // build takes the part of it that build needs — a sky with no sheets in
   // it carries no layer arrays, and the water carries no sun. An unused
@@ -158,6 +171,7 @@ uniform vec3 uSkyGlow;
 uniform float uSkyGlowStrength;
 uniform float uSkyBand;
 uniform vec3 uSkyBelow;
+uniform float uSkyMist;
 uniform vec2 uSkyAz;
 ${
   build.sun
@@ -168,9 +182,20 @@ uniform float uSkyGlare;
 uniform vec3 uSkyHalo;
 uniform float uSkyHaloSize;
 uniform float uSkyHaloOpacity;
-uniform float uSkyThrough;`
+uniform float uSkyThrough;
+uniform float uSkyStars;
+uniform float uSkyGalaxy;
+uniform mat3 uSkyTurn;
+uniform float uSkyStarTime;`
     : ""
 }
+${
+  // THE LATTICE, once, before anything that reads it: the sheets and the
+  // night both do, and GLSL wants a function declared before its first
+  // call. The water's copy with no sheets in it needs none of it.
+  build.layers > 0 || build.sun ? cloudNoiseGlsl(fields) : ""
+}
+${build.sun ? starfieldGlsl() : ""}
 ${
   build.layers === 0
     ? ""
@@ -186,7 +211,6 @@ uniform vec4 uSkyLayerE[${MAX_LAYERS}];
 uniform vec3 uSkyDeckOverhead;
 uniform vec3 uSkyDeckRim;
 uniform float uSkyDeckRelief;
-${cloudNoiseGlsl(fields)}
 
 // The same sample cloud-field.ts takes on the CPU (cloudUv).
 vec2 skyCloudUv( vec2 p, vec4 c, float scale, float streak, float seed ) {
@@ -220,15 +244,30 @@ vec3 skyAlong( vec3 ray, vec3 origin, float blur ) {
   float toward = max( 0.0, dot( az, uSkyAz ) );
   float w = pow( toward, ${GLOW_FOCUS.toFixed(1)} ) * pow( 1.0 - t, ${GLOW_REACH.toFixed(1)} ) * uSkyGlowStrength;
   col = mix( col, uSkyGlow, min( 1.0, w ) );
-  // Under the skyline the sky is the far water, which is fog.
-  col = mix( uSkyBelow, col, smoothstep( ${(-0.04 - build.skyline).toFixed(3)} - blur, ${build.skyline.toFixed(3)} + blur, up ) );
+  // Under the skyline the sky is the far water, which is fog — blurred by
+  // the slopes a rough mirror reflects it through, and a MIST on the water
+  // stands a few degrees up over the rim as well, a bank the sky is seen
+  // over rather than a line it stops at.
+  col = mix( uSkyBelow, col, smoothstep( ${(-0.04 - build.skyline).toFixed(3)} - blur, ${build.skyline.toFixed(3)} + blur + 0.05 * uSkyMist, up ) );
 ${
   build.sun
     ? /* glsl */ `
-  // THE DISC AND ITS HALO, under the clouds — so a sheet over the sun is a
-  // bright patch with no edge, which is what a covered sun is.
   float cosA = dot( ray, uSkyKeyDir );
   float ang = acos( clamp( cosA, - 1.0, 1.0 ) );
+  // THE NIGHT BEHIND EVERYTHING — the stars, the Milky Way and the other
+  // galaxies, on the sphere the hour has turned (starfield.ts). Drawn
+  // before the disc and the sheets so a cloud drifting across takes them
+  // exactly as it takes the moon: gone under a thick one, hinted through a
+  // thin one, and the band still readable through a veil of cirrus.
+  if ( uSkyStars > 0.0 || uSkyGalaxy > 0.0 ) {
+    // How much of the moon's own sky glow this pixel is in. The halo is a
+    // few degrees; the glow that actually kills the faint sky is tens of
+    // them, which is why it is its own falloff and not the halo's.
+    float glare = exp( - ang * ang * 7.0 ) * uSkyThrough;
+    col += nightSky( uSkyTurn * ray, ray, up, glare, uSkyStars, uSkyGalaxy, uSkyStarTime );
+  }
+  // THE DISC AND ITS HALO, under the clouds — so a sheet over the sun is a
+  // bright patch with no edge, which is what a covered sun is.
   col += uSkyHalo * exp( - ang / max( uSkyHaloSize, 1e-3 ) * 2.5 ) * uSkyHaloOpacity * uSkyThrough;
   float glareAng = max( uSkyDiscSize * ${GLARE_SPREAD.toFixed(1)}, 1e-3 );
   col += uSkyDisc * exp( - ang / glareAng * 2.5 ) * uSkyGlare;
@@ -364,8 +403,9 @@ vec3 skyAlong( vec3 ray, vec3 origin ) {
 `;
 }
 
-/** The sky's whole colour model, written into the shared uniforms. Once per
- * level — the sun does not move during a run. */
+/** The sky's whole colour model, written into the shared uniforms. Every
+ * frame — the sun moves during a run — and it is a couple of dozen
+ * colours. */
 export function writeSky(u: SkyUniforms, p: Preset): void {
   (u.uSkyZenith.value as THREE.Color).set(p.zenith);
   (u.uSkyHorizon.value as THREE.Color).set(p.horizon);
@@ -378,13 +418,18 @@ export function writeSky(u: SkyUniforms, p: Preset): void {
   const lowSun = smooth01((0.26 - p.sunUp) / 0.26);
   u.uSkyBand.value = SKY_CURVE - 0.24 * lowSun;
   (u.uSkyBelow.value as THREE.Color).set(p.fog);
-  (u.uSkyAz.value as THREE.Vector2).set(Math.sin(p.sunBearing), Math.cos(p.sunBearing));
+  u.uSkyMist.value = p.mist;
+  // The glow hugs the SUN's bearing by day and the moon's by night — the
+  // key's, which is the one that has handed over.
+  (u.uSkyAz.value as THREE.Vector2).set(Math.sin(p.sunAzimuth), Math.cos(p.sunAzimuth));
   (u.uSkyDisc.value as THREE.Color).set(p.disc);
   u.uSkyDiscSize.value = (p.discSize / AUTHORED_AT) * 0.5;
   u.uSkyGlare.value = GLARE_STRENGTH * p.beam * (p.discSize > 0 ? 1 : 0);
   (u.uSkyHalo.value as THREE.Color).set(p.halo);
   u.uSkyHaloSize.value = (p.haloSize / AUTHORED_AT) * 0.5;
   u.uSkyHaloOpacity.value = p.haloOpacity;
+  u.uSkyStars.value = p.stars;
+  u.uSkyGalaxy.value = p.galaxy;
   (u.uSkyCloudLit.value as THREE.Color).set(p.cloud);
   (u.uSkyCloudShade.value as THREE.Color).set(p.cloudShade);
   (u.uSkySunColor.value as THREE.Color).set(p.sun);
@@ -393,6 +438,15 @@ export function writeSky(u: SkyUniforms, p: Preset): void {
     (u.uSkyDeckRim.value as THREE.Color).set(p.deck.rim);
     u.uSkyDeckRelief.value = p.deck.relief;
   }
+}
+
+/** Where the sphere of stars has turned to, and the clock they twinkle on.
+ * The clock is wrapped, because a float that has been counting seconds all
+ * afternoon has no precision left for a twinkle by the time the sun goes
+ * down. */
+export function writeNight(u: SkyUniforms, turn: SkyTurn, dt: number): void {
+  turnBasis(turn, u.uSkyTurn.value as THREE.Matrix3);
+  u.uSkyStarTime.value = ((u.uSkyStarTime.value as number) + dt) % 3600;
 }
 
 /** Where the real sun and the key stand, and how much of the disc gets

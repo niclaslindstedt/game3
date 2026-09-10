@@ -20,7 +20,7 @@
 
 import { createRng } from "../lib/prng.ts";
 import { TAU } from "../lib/math.ts";
-import { daylightWindow } from "../lib/solar.ts";
+import { DECLINATION, SEASONS, daylightWindow } from "../lib/solar.ts";
 import { analyzeLevel } from "../analysis/index.ts";
 import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
@@ -74,11 +74,13 @@ export function subSeed(seed: number, attempt: number): number {
 export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   const biome = biomeOf(opts.biome ?? "taiga");
   const attempts = opts.attempts ?? R.search.attempts;
-  // R13 — the hours this coast is in daylight, off its own latitude. A
-  // fact about the place rather than about the attempt, so it is worked out
-  // once, outside the loop and outside the seeded stream.
-  const daylight = daylightWindow(biome.latitude, R.day.minSun);
-  if (!daylight) throw new Error(`the sun never rises on the ${biome.id} coast`);
+  // R13 — the hours this coast is in daylight in each season, off its own
+  // latitude. A fact about the place rather than about the attempt, so it
+  // is worked out once, outside the loop and outside the seeded stream.
+  const daylightIn = SEASONS.map((season) =>
+    daylightWindow(biome.latitude, R.day.minSun, DECLINATION[season]),
+  );
+  if (daylightIn.some((w) => !w)) throw new Error(`the sun never rises on the ${biome.id} coast`);
   let lastReason = "no attempt made";
   for (let attempt = 0; attempt < attempts; attempt++) {
     const rng = createRng(subSeed(seed, attempt));
@@ -131,13 +133,14 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       from: (((basin.seaHeading + rng.range(-R.wind.seaward, R.wind.seaward)) % TAU) + TAU) % TAU,
       speed: inBand(rng, R.wind.speed),
     };
-    // R13 — the day and the water. The hour comes out of the daylight
-    // window, so no seed is ridden in the dark.
-    const hour = inBand(rng, daylight);
-    const water = {
-      density: biome.water.density,
-      temperature: inBand(rng, biome.water.temperature),
-    };
+    // R13 — the day and the water: WHERE in the daylight window the hour
+    // falls and where in the season's band the water's temperature does,
+    // each as a fraction. Both are resolved once the season is known,
+    // which is not until the end of the stream (see below) — but the two
+    // draws stay HERE, where they have always been, so that everything
+    // drawn after them lands where it always did.
+    const dayAt = rng.range(0, 1);
+    const waterAt = rng.range(0, 1);
     // The basin is the expensive thing; the course in it is not. A draw
     // that cannot fit R9's two beam-on run-ups is usually a shuffle that
     // put the candidate gates in the wrong order, so the course is drawn
@@ -183,10 +186,23 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // unrideable, so a rule about the weather has no business moving the
     // route, the course or the rocks that the draws before it made.
     const weather = pickWeather(rng, biome.weathers, skyCover(wind.speed));
-    // R20 — the sea life, drawn after it for the same reason: no animal
-    // moves a gate, so nothing the search judged may depend on how many
-    // there turned out to be. The rocks are already placed, because a pod
-    // is kept clear of them.
+    // R13 — the SEASON, drawn after the sky for the same reason and before
+    // the sea life because the sea life depends on it: the season decides
+    // how cold the water is, and the water decides what swims in it. Then
+    // the two fractions drawn up by the wind become an hour in THIS
+    // season's daylight and a temperature in its band.
+    const season = SEASONS[rng.int(0, SEASONS.length - 1)];
+    const daylight = daylightIn[SEASONS.indexOf(season)] as { min: number; max: number };
+    const hour = daylight.min + dayAt * (daylight.max - daylight.min);
+    const band = biome.water.temperature[season];
+    const water = {
+      density: biome.water.density,
+      temperature: band.min + waterAt * (band.max - band.min),
+    };
+    // R20 — the sea life, drawn after all of it: no animal moves a gate, so
+    // nothing the search judged may depend on how many there turned out to
+    // be. The rocks are already placed, because a pod is kept clear of
+    // them.
     const fauna = layFauna(
       rng,
       biome,
@@ -210,6 +226,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       fauna,
       wind,
       water,
+      season,
       hour,
       weather,
     });

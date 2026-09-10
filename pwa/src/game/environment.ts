@@ -13,13 +13,15 @@
 // to answer to the same sky — the preset, the two lights, and the SHARED
 // SKY UNIFORMS the water reflects the dome through.
 //
-// THE SUN DOES NOT MOVE during a run. A run is ninety seconds; the sun
-// climbs a third of a degree in that time, which is less than the ladder's
-// smallest step. So the preset and the cloud stack are built ONCE per level.
-// What DOES move within a run is what is in front of the sun: the sheets
-// ride the wind, and when one comes over the sun the whole coast goes dull
-// and brightens again as it passes (`sunOcclusion`). That is the one part of
-// the light that is read per frame, and it is a handful of noise samples.
+// THE SUN MOVES. One minute of riding is one hour of sun (`sunHourAt`), so
+// the preset is worked out again EVERY FRAME off the run's own clock — a
+// few dozen colour mixes — and everything that hangs on it follows: the
+// two lights, the fog, the dome, the moon taking the key over as the sun
+// goes, the stars coming out, the craft's lamp switching on. Only the
+// cloud STACK is built once per level; what is in front of the sun still
+// moves on its own — the sheets ride the wind, and when one comes over the
+// sun the whole coast goes dull and brightens again as it passes
+// (`sunOcclusion`).
 //
 // Neighbours own the parts that are their own craft: `sky.ts` decides what
 // colour everything is, `cloud-field.ts` what is up there, `sky-glsl.ts`
@@ -28,7 +30,7 @@
 // `water-shader.ts`) reflects the very same sky off every wave face.
 
 import * as THREE from "three";
-import { biomeOf, skyCover, type GameState, type Level } from "@engine";
+import { biomeOf, skyCover, sunHourAt, type GameState, type Level } from "@engine";
 
 import { dressSky, sunOcclusion, type SkyDressing } from "./cloud-field.ts";
 import { litAt } from "./daylight.ts";
@@ -37,6 +39,7 @@ import { SKY_LOOK, type SkyLevel } from "./settings-video.ts";
 import { createSkyDome, type SkyDome, type SkyLook } from "./sky-dome.ts";
 import { createSkyUniforms, type SkyUniforms } from "./sky-glsl.ts";
 import { highLightFor, skyAt, skyFor, sunVector, type Preset } from "./sky.ts";
+import { skyTurnAt } from "./starfield.ts";
 import { fallOf, precipReach, squallOf } from "./weather.ts";
 
 /** How far out the key light is parked, m. It is directional, so the
@@ -122,11 +125,14 @@ export function createEnvironment(scene: THREE.Scene): Environment {
   scene.fog = fog;
 
   // ── The lights ───────────────────────────────────────────────────────────
-  // Two, and no more: a hemisphere for the skylight and the bounce off the
-  // water, and one directional for the key. Everything on this coast is
-  // flat-shaded — Lambert on the shore, Phong on the craft, and the water
-  // and the craft reflect the dome itself for the rest — so a third light
-  // buys nothing a hemisphere colour cannot say more cheaply.
+  // Two, and no more of the sky's: a hemisphere for the skylight and the
+  // bounce off the water, and one directional for the key — the sun by day,
+  // the moon by night. Everything on this coast is flat-shaded — Lambert on
+  // the shore, Phong on the craft, and the water and the craft reflect the
+  // dome itself for the rest — so a third sky light buys nothing a
+  // hemisphere colour cannot say more cheaply. The one other light in the
+  // scene is the craft's own headlamp (`craft-lamps.ts`), a spotlight the
+  // rider carries into the dark.
   const hemi = new THREE.HemisphereLight(0xffffff, 0x7f9aa3, 2.3);
   const key = new THREE.DirectionalLight(0xfff2dc, 1.3);
   scene.add(hemi, key);
@@ -138,6 +144,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
   let dressing: SkyDressing = { layers: [] };
   let look: SkyLook = SKY_LOOK.medium;
   let level: Level | null = null;
+  let latitude = TAIGA_LATITUDE;
   /** The level's mean wind as a VELOCITY, m/s — which way the air is going,
    * not where it came from. The sheets ride this; the rain rides the live
    * gust on top of it. */
@@ -197,7 +204,8 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     // there is no geometry at all, which above the dome's rim is sky.
     background.set(p.zenith);
 
-    dome.apply(p, dressing, look);
+    dome.apply(p);
+    dome.setLit(litFor);
     dome.setSun(sunDir, keyDir, p.beam);
     // A DROP IS A LENS, NOT A LIGHT. Against a rain deck — the brightest
     // thing in the frame — a streak is DARKER than the sky behind it; only
@@ -211,18 +219,26 @@ export function createEnvironment(scene: THREE.Scene): Environment {
   /** How much daylight a sheet at its own altitude is standing in. The sun
    * sets on the water first, so the cirrus burns after the cumulus under it
    * has gone grey — which is the whole of what a sunset sky is made of. */
-  const litFor = (altitude: number): number => litAt(altitude, preset.sunUp);
+  const litFor = (layer: { altitude: number }): number => litAt(layer.altitude, preset.sunUp);
+
+  /** The sky as it stands at run time `t` on this level. Every frame. */
+  const follow = (lvl: Level, t: number): void => {
+    apply(skyFor(lvl, latitude, t));
+  };
 
   const load = (next: Level): void => {
     level = next;
+    latitude = biomeOf(next.biome).latitude;
     const speed = next.wind.speed;
     wind.x = -Math.sin(next.wind.from) * speed;
     wind.z = -Math.cos(next.wind.from) * speed;
-    const p = skyFor(next, biomeOf(next.biome).latitude);
+    // The stack is dressed for the sky the level was DEALT under: its deck's
+    // base is a fact about the weather and does not move with the hour.
+    const dealt = skyFor(next, latitude, 0);
     const cover = skyCover(speed);
-    dressing = dressSky(next, next.weather, cover, p.deck ? p.deck.base : null);
-    dome.setLit((layer) => litFor(layer.altitude));
-    apply(p);
+    dressing = dressSky(next, next.weather, cover, dealt.deck ? dealt.deck.base : null);
+    dome.dress(dressing, look);
+    follow(next, 0);
     standingFall = fallOf(next.weather, cover);
     fall = standingFall;
     setFog();
@@ -230,21 +246,26 @@ export function createEnvironment(scene: THREE.Scene): Environment {
 
   const setLook = (levelName: SkyLevel): void => {
     look = SKY_LOOK[levelName];
-    dome.apply(preset, dressing, look);
-    dome.setLit((layer) => litFor(layer.altitude));
+    dome.dress(dressing, look);
+    dome.setLit(litFor);
   };
 
   const update = (state: GameState, eye: THREE.Vector3, dt: number): void => {
     if (state.level !== level) load(state.level);
+    // WHERE THE SUN HAS GOT TO. The whole preset, every frame, off the
+    // run's own clock — and the sphere of stars turned to the same hour.
+    follow(state.level, state.t);
+    dome.setTurn(skyTurnAt(sunHourAt(state.level, state.t), state.level.season, latitude), dt);
     dome.update(eye.x, eye.y, eye.z);
     dome.tick(wind.x, wind.z, dt);
 
-    // WHAT IS IN FRONT OF THE SUN, this frame, at the craft. The same field
-    // the sky is drawn from, read on the CPU along the ray to the sun — so
-    // the cloud the rider can see over the sun is the cloud the light
-    // answers to. Sampled at ONE point rather than per pixel, which is what
-    // keeps the sea, the hull and the shore under one light: a sea in shadow
-    // beside a craft in full sun is worse than no shadow at all.
+    // WHAT IS IN FRONT OF THE KEY, this frame, at the craft — the sun by
+    // day, the moon by night. The same field the sky is drawn from, read on
+    // the CPU along the ray to the light — so the cloud the rider can see
+    // over it is the cloud the light answers to. Sampled at ONE point rather
+    // than per pixel, which is what keeps the sea, the hull and the shore
+    // under one light: a sea in shadow beside a craft in full sun is worse
+    // than no shadow at all.
     let shade = 0;
     const drift = dome.wind();
     for (const { layer, offsetX, offsetZ } of dome.layers()) {
@@ -256,7 +277,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
           state.craft.x,
           state.craft.y,
           state.craft.z,
-          sunDir,
+          keyDir,
           offsetX,
           offsetZ,
           drift.x,

@@ -37,12 +37,14 @@ import {
   skyGlsl,
   writeDrift,
   writeLayers,
+  writeNight,
   writeSky,
   writeSun,
   type SkyBuild,
   type SkyUniforms,
 } from "./sky-glsl.ts";
 import { DOME_RADIUS, RIM_BAND, type Preset } from "./sky.ts";
+import type { SkyTurn } from "./starfield.ts";
 
 /** How the sky is drawn at each stop of the picture ladder: how many octaves
  * of noise a sheet is read at, whether the clouds are lit by a second sample
@@ -85,10 +87,14 @@ export type SkyDome = {
   /** The uniforms the sky is written into, SHARED with the water's material
    * so the sea reflects the dome that is actually over it. */
   uniforms: SkyUniforms;
-  /** Re-dress the sky for this preset, this stack of sheets and this stop of
-   * the picture ladder. Recompiles only when the ladder or the stack has
-   * actually moved. */
-  apply: (p: Preset, dressing: SkyDressing, look: SkyLook) => void;
+  /** Dress the sky in this stack of sheets at this stop of the picture
+   * ladder. Once per level and per stop: it recompiles when the ladder or
+   * the stack has actually moved. */
+  dress: (dressing: SkyDressing, look: SkyLook) => void;
+  /** Paint the sky this preset. Every frame — the sun moves. */
+  apply: (p: Preset) => void;
+  /** Where the sphere of stars has turned to this frame. */
+  setTurn: (turn: SkyTurn, dt: number) => void;
   /** Where the real sun and the key stand, and how much of the sun's disc is
    * getting through whatever is in front of it. */
   setSun: (sun: THREE.Vector3, key: THREE.Vector3, through: number) => void;
@@ -154,9 +160,15 @@ export function createSkyDome(uniforms: SkyUniforms = createSkyUniforms()): SkyD
     material.needsUpdate = true;
   };
 
-  const apply = (p: Preset, dressing: SkyDressing, look: SkyLook): void => {
+  const apply = (p: Preset): void => {
     writeSky(uniforms, p);
-    cloudOpacity = p.cloudOpacity;
+    if (cloudOpacity !== p.cloudOpacity) {
+      cloudOpacity = p.cloudOpacity;
+      writeLayers(uniforms, drawn, cloudOpacity, lit);
+    }
+  };
+
+  const dress = (dressing: SkyDressing, look: SkyLook): void => {
     // THE STACK THE LOOK WILL PAY FOR. Every sheet is a whole field of noise
     // sampled on every sky pixel, so this is the sky's steepest lever after
     // the depth — and which sheets go is a question about the SKY rather
@@ -190,7 +202,9 @@ export function createSkyDome(uniforms: SkyUniforms = createSkyUniforms()): SkyD
   return {
     mesh,
     uniforms,
+    dress,
     apply,
+    setTurn: (turn, dt) => writeNight(uniforms, turn, dt),
     setSun: (sun, key, through) => writeSun(uniforms, sun, key, through),
     setLit: (next) => {
       lit = next;

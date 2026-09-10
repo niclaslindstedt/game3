@@ -79,6 +79,7 @@ import { layWaterGrid, snapOrigin } from "./water-grid.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 import {
   applyClock,
+  applyLamp,
   applyMirror,
   applyRain,
   applySea,
@@ -249,6 +250,11 @@ export type WaterMesh = {
   /** Whether the mirror handed to `createWaterMesh` has a picture this
    * frame (`Reflection.live`). Every frame. */
   setMirror: (live: boolean) => void;
+  /** The craft's lamp, as the one spotlight in the scene: its pool on the
+   * water is this shader's own term, read off the very light that lights
+   * the hull and the buoys beside it. Every frame — the lamp rides the
+   * hull. */
+  setLamp: (lamp: THREE.SpotLight) => void;
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
@@ -613,6 +619,7 @@ export function createWaterMesh(
     retone,
     setRain: (fall, reach) => applyRain(material, fall, reach),
     setMirror: (live) => applyMirror(material, live),
+    setLamp: (lamp) => applyLamp(material, lamp),
     setWindow: (open) => {
       windowOpen = open;
       // Blending is switched off with it: an opaque surface drawn through the
