@@ -3,6 +3,10 @@
 // down with a `land`, a ramp at speed launches, a nose-down landing costs
 // far more than a flat one, a big ramp with the lean held back completes a
 // backflip, and the orientation algebra under all of it round-trips.
+//
+// The arcade landing assist has its own file (`assist_test.ts`). What is
+// measured HERE is the model under it, so anything about an entry attitude
+// is ridden with `assist: 0` and says so.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -135,8 +139,11 @@ describe("a flight", () => {
     expect(events.some((e) => e.kind === "launch")).toBe(false);
   });
 
+  /** The bare physics of an entry attitude — `assist: 0`, because the
+   * arcade's hand is exactly what stops a nose-down landing from being a
+   * dive and this is the model underneath it being measured. */
   function landing(pitch: number): { loss: number; dived: boolean } {
-    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, assist: 0, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 22, height: 3, pitch });
     let landedAt = -1;
     let atLanding = 0;

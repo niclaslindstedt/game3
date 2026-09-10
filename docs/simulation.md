@@ -47,8 +47,11 @@ make sim SEEDS=38,39 CRAFT=marlin          # specific seeds, one craft
 npm run sim -- --craft skiff,dart         # a comma list
 npm run sim -- --max 500                  # give a run longer than 360 s to finish
 npm run sim -- --json examples/sim-report.json   # the rows, events dropped
+npm run sim -- --assist 0                 # ride the BARE physics, no arcade landing assist
 npm run sim -- --help                     # every flag with its default
 ```
+
+`--assist` is the run's arcade dial (`GameState.assist`, `TUNING.assist` — the landing assist in `docs/riding.md`), and it defaults to what the game ships with, so the table measures the game as it is played. `--assist 0` is the physics underneath it, and it is how a before-and-after over any change to that assist is taken; it is also the comparable baseline for a roster read taken before the assist existed. The bot flies its own landings (an air PD on the pitch, which folds the assist away in proportion to the lean it is holding), so the two tables are closer than the flight bench in `docs/riding.md` is — but they are not the same table, and a balance claim should say which one it was read off.
 
 The default seeds are the ones `examples/seeds.md` describes, so the table CI prints is a table somebody has looked at the plans of. The run cap is `--max` = `SIM_SECONDS` (360 s of sim time per run), stated once in `engine/sim/simulate.ts` and read by the CLI and `tests/simulation_test.ts` alike; `make sim ARGS="--max 500"` passes anything else through. An unknown flag exits 2 (`scripts/lib/cli.mjs`).
 
