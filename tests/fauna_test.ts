@@ -25,6 +25,7 @@ import {
   fromEuler,
   generateLevel,
   isFaunaId,
+  isMale,
   podClearance,
   rarityOf,
   sampleField,
@@ -84,11 +85,35 @@ describe("the catalog", () => {
     }
   });
 
-  it("only cetaceans breathe", () => {
+  it("only cetaceans breathe, and the one animal that basks does not", () => {
     for (const spec of FAUNA) {
-      if (spec.kind === "cetacean") expect(spec.breath, spec.id).toBeGreaterThan(0);
-      else expect(spec.breath, spec.id).toBe(0);
+      if (spec.kind === "cetacean") {
+        expect(spec.breath, spec.id).toBeGreaterThan(0);
+        expect(spec.bask, spec.id).toBe(0);
+      } else {
+        expect(spec.breath, spec.id).toBe(0);
+      }
+      if (spec.kind === "fish") expect(spec.bask, spec.id).toBe(0);
     }
+    // The porbeagle is the whole reason `bask` exists: a fish that comes up
+    // without needing air.
+    expect(faunaById("shark").bask).toBeGreaterThan(0);
+  });
+
+  it("brings the fin of anything that comes up out, and nothing more", () => {
+    for (const spec of FAUNA) {
+      const comesUp = spec.breath > 0 || spec.bask > 0;
+      // `awash` is the sighting, and the two go together or neither is set
+      // at all. At most one radius down the back reaches the surface, so
+      // the dorsal over it is clear; anything shallower would be an animal
+      // riding on the sea rather than a fin cutting it.
+      expect(spec.awash > 0, spec.id).toBe(comesUp);
+      expect(spec.awash, spec.id).toBeLessThanOrEqual(1);
+      expect(spec.breach, spec.id).toBeGreaterThanOrEqual(0);
+      if (spec.breach > 0) expect(comesUp, spec.id).toBe(true);
+    }
+    // Only the dolphin leaves the water, and only its bulls.
+    expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual(["dolphin"]);
   });
 
   it("gives a rarer animal a rarer word, in step with `perKm` and never against it", () => {
@@ -198,9 +223,9 @@ describe("the rarity a level actually delivers", () => {
     // Adjacent rungs may tie over a corpus this size — the ladder is a
     // rule about `perKm`, and a dozen levels is a sample, not a census.
     // What it may never do is invert.
-    expect(pods("pike")).toBeGreaterThanOrEqual(pods("porpoise"));
-    expect(pods("porpoise")).toBeGreaterThanOrEqual(pods("dolphin"));
-    expect(pods("dolphin")).toBeGreaterThanOrEqual(pods("minke"));
+    expect(pods("pike")).toBeGreaterThanOrEqual(pods("dolphin"));
+    expect(pods("dolphin")).toBeGreaterThanOrEqual(pods("porpoise"));
+    expect(pods("porpoise")).toBeGreaterThanOrEqual(pods("minke"));
   });
 });
 
@@ -260,16 +285,21 @@ describe("the swim model", () => {
     expect(pose.q.w).toBeCloseTo(q.w, 12);
   });
 
-  it("keeps every animal in the water and off the bed, all the way round", () => {
+  it("keeps every animal off the bed, and out of the air unless it earned it", () => {
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
       const pose = freshPose();
       for (const pod of level.fauna) {
+        const spec = faunaById(pod.species);
+        // A rise never takes the centreline out of the water at all — only
+        // the fin over it — so the one thing allowed above the waterline is
+        // a breaching bull, and he is allowed a body length of air.
+        const roof = spec.breach > 0 ? spec.length : 0;
         for (let i = 0; i < pod.count; i++) {
           for (let t = 0; t < pod.period; t += pod.period / 16) {
             faunaPose(pod, i, t, pose);
             expect(pose.y, `seed ${seed} ${pod.id}[${i}] at ${t.toFixed(1)}s`).toBeLessThanOrEqual(
-              0,
+              roof,
             );
             expect(pose.y).toBeGreaterThan(-depthAt(level, pose.x, pose.z));
           }
@@ -307,6 +337,106 @@ describe("the swim model", () => {
     expect(highest).toBeGreaterThan(0.99);
     faunaPose(whale, 0, 0, pose);
     expect(pose.surfacing).toBeLessThan(1);
+  });
+
+  it("brings every finned animal's back awash and keeps its body in the water", () => {
+    const pose = freshPose();
+    for (const id of ["porpoise", "dolphin", "shark", "orca"] as const) {
+      const pod = podOf(id);
+      const spec = faunaById(id);
+      const every = spec.breath > 0 ? spec.breath : spec.bask;
+      let highest = -Infinity;
+      for (let t = 0; t < every; t += every / 600) {
+        faunaPose(pod, 0, t, pose);
+        highest = Math.max(highest, pose.y);
+      }
+      // Against y = 0 here because the datum is 0: on a real sea it is the
+      // same depth under the swell. The back comes up to the surface —
+      // which is what stands the fin over it — and the centreline stays
+      // under it, so what shows is the fin and not the animal.
+      const radius = 0.5 * spec.beam * spec.length;
+      expect(highest, id).toBeLessThan(0);
+      expect(highest + radius, id).toBeGreaterThanOrEqual(-1e-9);
+      // The sweep can only undershoot the true peak, never pass it.
+      const peak = -spec.awash * radius;
+      expect(highest, id).toBeLessThanOrEqual(peak + 1e-9);
+      expect(highest, id).toBeGreaterThan(peak * 1.01);
+    }
+  });
+
+  it("measures every depth down from the water over the pod, not from y = 0", () => {
+    const pod = podOf("dolphin");
+    const flat = faunaPose(pod, 1, 6.25, freshPose());
+    const crest = faunaPose(pod, 1, 6.25, freshPose(), 1.7);
+    expect(crest.y - flat.y).toBeCloseTo(1.7, 9);
+    // The datum lifts the animal and changes nothing else about it.
+    expect(crest.x).toBe(flat.x);
+    expect(crest.z).toBe(flat.z);
+    expect(crest.pitch).toBe(flat.pitch);
+    expect(crest.surfacing).toBe(flat.surfacing);
+  });
+
+  it("throws the bulls of a breaching species clear of the water and nobody else", () => {
+    const spec = faunaById("dolphin");
+    // A pod wide enough that both sexes are certainly in it — the corpus
+    // deals a school of a handful and the sex of each is a hash.
+    const pod: Pod = { ...podOf("dolphin"), count: 40 };
+    const bulls: number[] = [];
+    const cows: number[] = [];
+    for (let i = 0; i < pod.count; i++) (isMale(pod, i) ? bulls : cows).push(i);
+    expect(bulls.length).toBeGreaterThan(0);
+    expect(cows.length).toBeGreaterThan(0);
+
+    const pose = freshPose();
+    const highestOf = (i: number): number => {
+      let highest = -Infinity;
+      for (let t = 0; t < spec.breach; t += spec.breach / 4000) {
+        faunaPose(pod, i, t, pose);
+        highest = Math.max(highest, pose.y);
+      }
+      return highest;
+    };
+    // A cow never gets her centreline out of the water at all; a bull
+    // leaves it by most of his own length.
+    const roof = -spec.awash * 0.5 * spec.beam * spec.length;
+    for (const i of cows) expect(highestOf(i), `cow ${i}`).toBeLessThanOrEqual(roof + 1e-9);
+    for (const i of bulls) expect(highestOf(i), `bull ${i}`).toBeGreaterThan(0.6 * spec.length);
+  });
+
+  it("flies the breach as one arc, with no kink where the water is", () => {
+    const spec = faunaById("dolphin");
+    const pod: Pod = { ...podOf("dolphin"), count: 40 };
+    const bull = [...Array(pod.count).keys()].find((i) => isMale(pod, i));
+    expect(bull).toBeDefined();
+    const pose = freshPose();
+    const dt = spec.breach / 8000;
+    let previous = faunaPose(pod, bull as number, 0, pose).y;
+    let jump = 0;
+    let airborne = 0;
+    let apex = 0;
+    let top = 0;
+    for (let t = dt; t < spec.breach; t += dt) {
+      const y = faunaPose(pod, bull as number, t, pose).y;
+      jump = Math.max(jump, Math.abs(y - previous));
+      if (y > 0) airborne++;
+      if (y > apex) {
+        apex = y;
+        top = pose.surfacing;
+      }
+      previous = y;
+    }
+    // The underwater drive is solved from the airborne parabola, so the
+    // whole manoeuvre is one continuous curve: nothing ever moves more in a
+    // step than the launch speed the apex implies, and a kink where the
+    // water is would be a step of metres.
+    expect(jump).toBeLessThan(1.05 * Math.sqrt(2 * 9.81 * apex) * dt);
+    // And it is an EVENT, not a rhythm: a couple of seconds out of a
+    // minute-long cycle.
+    const air = (airborne * dt) / spec.breach;
+    expect(air).toBeGreaterThan(0.01);
+    expect(air).toBeLessThan(0.1);
+    // Past 1 is what says "this is a leap, not a roll".
+    expect(top).toBeGreaterThan(1);
   });
 
   it("beats a small tail faster than a big one", () => {

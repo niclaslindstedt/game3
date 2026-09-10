@@ -26,13 +26,36 @@
 //   dragged round a track. The whole formation scales with `spread` and the
 //   animal's length: herring pack tight, minke keep two lengths apart.
 //
-//   THE BREATH. A cetacean has to surface. Every `breath` seconds it rises
-//   from its holding depth until its back is through the surface, rolls,
-//   and goes back down — a raised-cosine bump over `SURFACE_SPAN` of the
-//   cycle, with its own phase per animal so a pod of five does not breathe
-//   in unison. The pitch comes out of the same bump's slope rather than
-//   being invented separately, so the animal is always pointing the way it
-//   is actually moving. A fish (`breath` 0) never comes up.
+//   THE RISE. Most of the catalog has a reason to come up: a cetacean has
+//   to breathe (`breath`), and a porbeagle does not but hunts and lies at
+//   the surface anyway (`bask`). Either way the animal leaves its holding
+//   depth on that beat, comes up until its centreline is `awash` body
+//   radii under the water — about one, which puts the BACK awash and the
+//   DORSAL, and only the dorsal, clear of it — rolls, and goes back down.
+//   A raised-cosine bump over `SURFACE_SPAN` of the cycle, with its own
+//   phase per animal so a pod of five does not surface in unison. The
+//   pitch comes out of the same bump's slope rather than being invented
+//   separately, so the animal is always pointing the way it is actually
+//   moving. A fish (neither beat set) never comes up.
+//
+//   THE BREACH. And a bull — only a bull (`isMale`), of the one species
+//   the catalog gives a `breach` to at all — throws itself clear. That one is not a bump but a BALLISTIC ARC: it drives up from
+//   its holding depth under a constant acceleration chosen to bring it
+//   through the surface at exactly the launch speed a leap of
+//   `BREACH_APEX` body lengths needs, flies the parabola gravity gives it,
+//   and decelerates back down to depth on the mirror of the climb. There
+//   is no kink in the arc where the water is because the underwater half
+//   is solved from the airborne half, and the whole manoeuvre is a couple
+//   of seconds out of a `breach`-second cycle — which is why it reads as
+//   an event rather than as a rhythm.
+//
+// EVERY DEPTH HERE IS MEASURED DOWN FROM THE WATER OVER THE POD, not from
+// the plane y = 0. A level's sea is metres high; an animal that surfaced to
+// a fixed height above mean sea level would spend half of every swell
+// buried under a crest, and the fin that is the whole sighting would be the
+// half nobody saw. The caller hands the datum in (`waterY` — `surfaceAt`'s
+// height at the pod, which is the same thing the hull and the water mesh
+// read), and it defaults to the flat sea a test stages.
 //
 // The engine's sign conventions hold: heading 0 is +z and grows clockwise
 // from above, pitch is NOSE-UP positive.
@@ -59,8 +82,9 @@ export type FaunaPose = {
   /** The same three angles as an orientation, so a host can put the body
    * down without knowing the sign conventions `lib/quat.ts` owns. */
   q: Quat;
-  /** 0 at the holding depth, 1 at the top of a breath. Nothing but a
-   * cetacean is ever above 0. */
+  /** 0 at the holding depth, 1 at the top of an ordinary rise, and past 1
+   * in a breach, where the animal is clear of the water altogether. A
+   * species with no reason to come up is never above 0. */
   surfacing: number;
   /** Where this animal is in its own tail beat, rad — the phase a renderer
    * flexes the body on, so two fish side by side are not one fish drawn
@@ -82,7 +106,7 @@ export function freshPose(): FaunaPose {
   };
 }
 
-/** The share of a breath cycle an animal spends coming up, rolling and
+/** The share of a surfacing cycle an animal spends coming up, rolling and
  * going back down. The rest of it is spent at the holding depth. */
 const SURFACE_SPAN = 0.22;
 /** How far the weave carries an animal off its station, in body lengths,
@@ -97,8 +121,19 @@ const BEAT_RATE = 1.1;
  * acceleration — an arcade dial, not a measurement: enough that a turning
  * pod shows its flank and catches the light. */
 const BANK = 0.09;
-/** The most an animal pitches on a breath, rad. */
+/** The most an animal pitches on an ordinary rise, rad — and the much
+ * larger angle a breach is allowed, which is not a clamp so much as a
+ * backstop: an animal leaving the water at three times its cruising speed
+ * is honestly pointing 60° up, and that steep nose is the whole shape of a
+ * leap. */
 const MAX_PITCH = 0.45;
+const BREACH_PITCH = 1.25;
+/** How high a breach throws the animal's centreline over the water, in body
+ * lengths, and the gravity that brings it back — the leap's LENGTH IN TIME
+ * is derived from these two and nothing else, so an apex that is raised
+ * lengthens the hang the way it would in the world. */
+const BREACH_APEX = 0.75;
+const GRAVITY = 9.81;
 /** How far above or below its pod's depth one animal may hold, as a share
  * of that depth — the thickness of a school. A share rather than a distance
  * so that no formation, however wide, can put a fish through the surface or
@@ -112,21 +147,42 @@ function jitter(pod: Pod, i: number, channel: number): number {
   return hash2(i, channel, pod.scatter);
 }
 
-/** How deep the animal's centreline is when it is NOT breathing, m below
- * the surface (positive down), and how deep it is at the top of a breath:
- * far enough up that the back and the fin are through the water, which is
- * the whole of what a sighting is. */
-function breathTop(spec: FaunaSpec): number {
-  return 0.35 * spec.beam * spec.length;
+/** How deep the animal's centreline is at the top of a rise, m below the
+ * water over its pod. Body radii, so what clears the surface is the same
+ * share of a herring as of a whale — its fin, and nothing under it. */
+function riseTop(spec: FaunaSpec): number {
+  return spec.awash * 0.5 * spec.beam * spec.length;
+}
+
+/** Seconds between one visit to the surface and the next, 0 for an animal
+ * that has no reason to make one. A cetacean's is a breath and a
+ * porbeagle's is a basking run; the catalog states them apart because they
+ * are different facts, and the model reads them as one beat. */
+function surfaceEvery(spec: FaunaSpec): number {
+  return spec.breath > 0 ? spec.breath : spec.bask;
+}
+
+/** Is animal `i` of `pod` a bull? Deterministic in the pod's scatter, like
+ * every other per-animal fact here, so a seed's pod has the same males
+ * every time it is ridden. Only the males breach — which is most of why a
+ * breach is rare enough to be worth seeing. */
+export function isMale(pod: Pod, i: number): boolean {
+  return jitter(pod, i, 8) < 0.5;
 }
 
 /**
  * Where animal `i` of `pod` is at time `t`, written into `out`.
  *
  * `t` is the engine's own clock (`state.t`), so a replayed run puts every
- * animal back exactly where it was.
+ * animal back exactly where it was. `waterY` is the height of the sea over
+ * the pod — `surfaceAt(sea, level, pod.x, pod.z, t).height` — and every
+ * depth below is measured down from it; a caller that wants the flat sea
+ * (a test, a plan view) leaves it out. It is asked for per POD rather than
+ * per animal on purpose: a pod's loop is a dozen metres across and the
+ * swell it rides is fifty, so one sample carries the whole school and the
+ * hot loop pays for one wave sum instead of thirty.
  */
-export function faunaPose(pod: Pod, i: number, t: number, out: FaunaPose): FaunaPose {
+export function faunaPose(pod: Pod, i: number, t: number, out: FaunaPose, waterY = 0): FaunaPose {
   const spec = faunaById(pod.species);
   const len = spec.length;
 
@@ -164,26 +220,65 @@ export function faunaPose(pod: Pod, i: number, t: number, out: FaunaPose): Fauna
   out.x = cx + fx * back + fz * lateral;
   out.z = cz + fz * back - fx * lateral;
 
-  // ── The breath ──────────────────────────────────────────────────────
+  // ── The rise, and the breach ────────────────────────────────────────
+  // `height` is the centreline against the water over the pod (0 is in it,
+  // negative under it) and `climb` how fast that is changing; the pitch is
+  // that climb against the animal's own way through the water, so it never
+  // has to be invented.
   const hold = pod.depth + sink;
+  const top = riseTop(spec);
+  const travel = hold - top;
   let surfacing = 0;
-  let pitch = 0;
-  if (spec.breath > 0) {
-    const cycle = t / spec.breath + jitter(pod, i, 6);
+  let height = -hold;
+  let climb = 0;
+  let ceiling = MAX_PITCH;
+  const every = surfaceEvery(spec);
+  if (every > 0) {
+    const cycle = t / every + jitter(pod, i, 6);
     const p = cycle - Math.floor(cycle);
     if (p < SURFACE_SPAN) {
       const u = p / SURFACE_SPAN;
       // A raised cosine: nose-down at the depth, nose-up on the way, level
       // at the top, and the slope is the pitch.
       surfacing = 0.5 - 0.5 * Math.cos(TAU * u);
-      const rate = (Math.PI / (SURFACE_SPAN * spec.breath)) * Math.sin(TAU * u);
-      const climb = rate * (hold - breathTop(spec));
-      pitch = Math.atan2(climb, spec.speed);
-      if (pitch > MAX_PITCH) pitch = MAX_PITCH;
-      else if (pitch < -MAX_PITCH) pitch = -MAX_PITCH;
+      height = -hold + travel * surfacing;
+      climb = (Math.PI / (SURFACE_SPAN * every)) * Math.sin(TAU * u) * travel;
     }
   }
-  out.y = -(hold + (breathTop(spec) - hold) * surfacing);
+  if (spec.breach > 0 && isMale(pod, i)) {
+    // The arc, solved from its apex: `v0` is what leaving the water at
+    // takes, `air` how long gravity keeps it up, and `drive` the climb (and
+    // the mirror plunge) that reaches and leaves the surface at that same
+    // speed — so velocity is continuous where the water is.
+    const apex = BREACH_APEX * len;
+    const v0 = Math.sqrt(2 * GRAVITY * apex);
+    const air = (2 * v0) / GRAVITY;
+    const drive = (2 * hold) / v0;
+    const cycle = t / spec.breach + jitter(pod, i, 9);
+    const tau = (cycle - Math.floor(cycle)) * spec.breach;
+    if (tau < 2 * drive + air) {
+      if (tau < drive) {
+        height = -hold + (0.5 * v0 * tau * tau) / drive;
+        climb = (v0 * tau) / drive;
+      } else if (tau < drive + air) {
+        const u = tau - drive;
+        height = (v0 - 0.5 * GRAVITY * u) * u;
+        climb = v0 - GRAVITY * u;
+      } else {
+        const u = tau - drive - air;
+        height = -0.5 * v0 * u * (2 - u / drive);
+        climb = -v0 + (v0 * u) / drive;
+      }
+      // Past 1 the moment the animal is higher than a rise would take it,
+      // which is what tells a host this is a leap and not a roll.
+      surfacing = (height + hold) / travel;
+      ceiling = BREACH_PITCH;
+    }
+  }
+  let pitch = Math.atan2(climb, spec.speed);
+  if (pitch > ceiling) pitch = ceiling;
+  else if (pitch < -ceiling) pitch = -ceiling;
+  out.y = waterY + height;
   out.surfacing = surfacing;
   out.pitch = pitch;
   out.heading = heading;
