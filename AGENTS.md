@@ -6,7 +6,7 @@ This file is the canonical source of truth for AI coding agents working in this 
 
 This repository conforms to [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) — the committed copy IS the spec, self-contained, with no upstream document to fetch and no validator to call; it is a verbatim copy of the sibling rally game's, one spec for both games, and amending it is a reviewed PR that propagates the new mandate into the tree. When in doubt about layout, naming, or workflow conventions, the spec is the tie-breaker. Where the repo knowingly falls short of it, [`docs/spec-conformance.md`](docs/spec-conformance.md) is the ledger — one row per chapter, with the verdict, the evidence and what closing the gap would take; the `sync-game-spec` skill walks it.
 
-**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft with its rider on the saddle, a ladder of six cameras, a full sky (the sun moving an hour a minute from the level's hour, in the level's season — a night under the moon and the stars, the craft's lamp on the water — five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch, the sound (the engine and the pump, the spray and the wind, the sea and the surf, every splash — all of it synthesized, nothing a file), and the shell around all of it — an attract card, a front door with START and OPTIONS over a bot-ridden sea, a developer page behind a seven-second hold, a loading card over a run being stood up, and a pause card that holds a run where it stands. Around THAT, one platform shell is built: `native/`, the store app — an Expo WebView over a copy of the site packed inside it, plus the phone's haptics under the game's own vibration table. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
+**This repository is a VERTICAL SLICE.** The engine — the water, the wind, the craft, the course, the generator, the bot — is built and green. The app around it is the first playable cut: one taiga shore, one craft with its rider on the saddle, a ladder of six cameras, a full sky (the sun moving an hour a minute from the level's hour, in the level's season — a night under the moon and the stars, the craft's lamp on the water — five weathers, a cloud deck), a HUD with a minimap of the course in it, keyboard and touch, the sound (the engine and the pump, the spray and the wind, the sea and the surf, every splash — all of it synthesized, nothing a file), and the shell around all of it — an attract card, a front door with START and OPTIONS over a bot-ridden sea, a developer page behind a seven-second hold, a loading card over a run being stood up, and a pause card that holds a run where it stands. Around THAT, both platform shells are built: `tauri/`, the desktop app — a window in the platform's own webview over the site served from a private scheme, with a macOS menu bar whose every row presses a button the game already has — and `native/`, the store app — an Expo WebView over a copy of the site packed inside it, plus the phone's haptics under the game's own vibration table. Everything else is a placeholder file with a header comment saying what will live there, and this file says so wherever it routes to one. Do not describe a placeholder as a feature, and do not build into one without loading `engine-system` first.
 
 ## Build and test commands
 
@@ -42,12 +42,16 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The generator, its rules, the analyzer                  | `level`, `analyze` (`TRACK=circuit` for the other kind) | `mapgen-improvement`         |
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
-| The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife`, `SCENE=breach` | `nature`, `game-feel`   |
+| The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife`, `SCENE=breach` | `nature`, `water-look`  |
+| The water as DRAWN: the grid, the shader, the mirror, a coast's optics | `screenshots` (two skies, zoomed), `profile` | `water-look`     |
+| The spray, the wake, the footprints, a pulse in the hands | `screenshots`, `profile`     | `visual-effects`                               |
 | What grows on the shore: the trees, the scrub, the reed | `flora`, `screenshots SCENE=river`, `profile` | `nature`                    |
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | A sound: a bed, a splash, the listener, the mix         | `audition`, `audition ARGS=--meter` | `sound-effects`                           |
 | A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
-| The sky, the light, the weather                         | `sky`, `screenshots`           | `game-feel`                                    |
+| The sky, the light, the clouds, the night, the weather  | `sky`, `screenshots`           | `atmosphere`                                   |
+| The desktop app, the store app, the seam with the page  | `tauri-test`, `native-typecheck`, the three seam tests | `platform-shells`      |
+| A lab, a preview, a script under `scripts/`             | the tool's own `--help`, then the lab it registers | `lab-tooling`              |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
@@ -66,7 +70,7 @@ Five of these are worth knowing about even when they are not your subject:
 
 Rules that apply to every task, before any subject skill has a say. They are restated here from the skills that own them because a session that gets them wrong gets them wrong from its first tool call:
 
-- **LOOK AT THE SIBLING REPO BEFORE BUILDING ANYTHING THAT IS NOT THE WATER.** [`niclaslindstedt/game2`](https://github.com/niclaslindstedt/game2) is the rally game this repo shares [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) with — same spec, same layering, same conventions, same commit and skill machinery — and it is **further along in nearly everything**. It has written skills where this repo only reserves the name (sound, soundtrack, atmosphere, visual effects, crashes, debug tools, level rating, platform shells, store listing and store shots), and a much deeper `scripts/` shelf: a sky lab, a track schematic, per-subject preview labs, tape record-and-replay, store preflight and shot sweeps. **Read its answer first and adapt it; do not reinvent one.** It is public, so a session reaches it read-only with `git clone --depth 1 https://github.com/niclaslindstedt/game2` (this repo cannot push there, and nothing in this tree may import from it — what comes across is the DESIGN, retyped in our vocabulary: a car is a craft, a stage is a shore, tarmac is water).
+- **LOOK AT THE SIBLING REPO BEFORE BUILDING ANYTHING THAT IS NOT THE WATER.** [`niclaslindstedt/game2`](https://github.com/niclaslindstedt/game2) is the rally game this repo shares [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) with — same spec, same layering, same conventions, same commit and skill machinery — and it is **further along in nearly everything**. It has written skills where this repo only reserves the name (soundtrack, crashes, debug tools, level rating, store listing and store shots), and a deeper `scripts/` shelf: a track schematic, more per-subject preview labs, tape record-and-replay, store preflight and shot sweeps. **Read its answer first and adapt it; do not reinvent one.** It is public, so a session reaches it read-only with `git clone --depth 1 https://github.com/niclaslindstedt/game2` (this repo cannot push there, and nothing in this tree may import from it — what comes across is the DESIGN, retyped in our vocabulary: a car is a craft, a stage is a shore, tarmac is water).
   - **What is ours alone, and where the sibling has no answer worth taking:** the sea (`water-feel`), the hull's reply to it (`craft-physics`, `craft-tuning`), the coast and what swims off it (`mapgen-improvement`, `nature`), the rider on the saddle. A rally game's grip model is not a planing hull, and a road is not a wave field — porting a shape from there into any of those is how this game stops being about water.
   - **What comes across nearly unchanged:** tooling and labs, the menu and shell furniture, the maintenance and release plumbing, store and platform work, and the procedure half of any skill. Adapting one of the sibling's skills is a real port — its subject must exist HERE first (this file's placeholder table is the list of subjects that do not), and it lands with its name and routing added to this file, `.agents/skills/README.md` and the `maintenance` registry, which `tests/skills_test.ts` holds.
 
@@ -98,7 +102,7 @@ The root suite may import from a shell in exactly one place: the pure, import-fr
 
 ### The role map, and what is generated
 
-The spec (§23) names roles, not directories; this is the mapping, and the arrows are rules a review may refuse a change against. `engine/` is the **simulation core** (§23.1) with `engine/index.ts` as its one public entry surface; `pwa/` is the **presentation shell** (§23.2); `tauri/` and `native/` are **platform shells** (§23.3 — `tauri/` built, `native/` a placeholder); `scripts/` is **tooling** (§23.6) and may import anything while nothing imports it. There is no session service — the game is single-player (§34 does not apply). The core imports nothing from a shell or a script; a shell imports the core, never another shell; the suite reaches the core through `@engine` like a host does.
+The spec (§23) names roles, not directories; this is the mapping, and the arrows are rules a review may refuse a change against. `engine/` is the **simulation core** (§23.1) with `engine/index.ts` as its one public entry surface; `pwa/` is the **presentation shell** (§23.2); `tauri/` and `native/` are **platform shells** (§23.3 — both built); `scripts/` is **tooling** (§23.6) and may import anything while nothing imports it. There is no session service — the game is single-player (§34 does not apply). The core imports nothing from a shell or a script; a shell imports the core, never another shell; the suite reaches the core through `@engine` like a host does.
 
 **Content (§23.5) is the deliberate deviation**: this game's levels are GENERATED from a seed rather than authored, and its small fixed catalogs (`engine/game/defs/craft.ts`, `tuning.ts`; `mapgen/biomes.ts`, `mapgen/rules.ts`) are TypeScript consts rather than schema-validated data files. `docs/spec-conformance.md` carries the reasoning, mirrored from the sibling repo's, and what changing it would cost — do not start converting a catalog to data on the strength of §24 alone.
 
@@ -136,12 +140,12 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | How a craft is LIT: the highlight, the sky in the gel coat, what each part is finished in | `pwa/src/game/craft-surface.ts`   | `craft-design`, `rider` |
 | The rider on the saddle: the pose, the figure         | `pwa/src/game/rider-pose.ts`, `rider.ts`                      | `rider`              |
 | The camera: the ladder, its rigs, the flown hand-over  | `pwa/src/game/camera.ts`, `camera-rigs.ts`, `camera-change.ts` | `game-feel`         |
-| The sky: the sun's place, the moon's, the ladder of looks, the seasons' cast, the lid | `pwa/src/game/sky.ts`, `sky-rungs.ts`, `sky-looks.ts`, `daylight.ts` | `game-feel`   |
-| The night sky: the stars, the band, where the sphere has turned | `pwa/src/game/starfield.ts`                                   | `game-feel`          |
-| The craft's lamps: the headlamp's beam, the sidelights, the buoys' own lights | `pwa/src/game/craft-lamps.ts`, `gates.ts`'s `setNight`, `water-shader.ts`'s lamp term | `game-feel` |
-| What CLOUD is over a level: the genera, their altitudes | `pwa/src/game/cloud-field.ts`                                 | `game-feel`          |
-| The sky as DRAWN: the dome, the sun, the cloud sheets  | `pwa/src/game/environment.ts`, `sky-dome.ts`, `sky-glsl.ts`   | `game-feel`          |
-| Rain: the sheet in the air, and how hard it falls      | `pwa/src/game/rain.ts`, `weather.ts`                          | `game-feel`          |
+| The sky: the sun's place, the moon's, the ladder of looks, the seasons' cast, the lid | `pwa/src/game/sky.ts`, `sky-rungs.ts`, `sky-looks.ts`, `daylight.ts` | `atmosphere`  |
+| The night sky: the stars, the band, where the sphere has turned | `pwa/src/game/starfield.ts`                                   | `atmosphere`         |
+| The craft's lamps: the headlamp's beam, the sidelights, the buoys' own lights | `pwa/src/game/craft-lamps.ts`, `gates.ts`'s `setNight`, `water-shader.ts`'s lamp term | `atmosphere`, `water-look` |
+| What CLOUD is over a level: the genera, their altitudes | `pwa/src/game/cloud-field.ts`                                 | `atmosphere`         |
+| The sky as DRAWN: the dome, the sun, the cloud sheets  | `pwa/src/game/environment.ts`, `sky-dome.ts`, `sky-glsl.ts`   | `atmosphere`         |
+| Rain: the sheet in the air, and how hard it falls      | `pwa/src/game/rain.ts`, `weather.ts`                          | `atmosphere`         |
 | Which sky a seed is ridden under (R19)                | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`          | `mapgen-improvement` |
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
 | The frame rate the HUD's corner reads                 | `pwa/src/game/frame-rate.ts`                                  | `hud-and-menus`      |
@@ -155,14 +159,17 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | How much WORLD is drawn before the haze takes it      | `pwa/src/game/draw-distance.ts`, `DISTANCE_LOOK`              | `game-feel`, `menu-system` |
 | Standing a run up behind a card                       | `pwa/src/game/run-loader.ts` + the steps in `App.tsx`          | `menu-system`        |
 | The minimap: the coast it cuts, what stands on it     | `pwa/src/game/minimap-scene.ts`, `minimap-view.ts`, `minimap.tsx` | `hud-and-menus`   |
-| The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
-| What a COAST's water looks like: its tones, its clarity | `pwa/src/game/water-optics.ts`                              | `nature`, `game-feel` |
-| The water as LIT: the glint, the sky it mirrors, the ripples, the rain's rings, the foam's texture | `pwa/src/game/water-shader.ts`   | `game-feel`, `water-feel` |
-| The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `wake-profile.ts` (the trail's shape, three-free), `fx-textures.ts` | `game-feel` |
+| The water as DRAWN: the grid of rings, the far grid, the see-through radius | `pwa/src/game/water-mesh.ts`, `water-grid.ts`     | `water-look`         |
+| What the water MIRRORS besides the sky: the shore, the craft | `pwa/src/game/reflection.ts`                                | `water-look`         |
+| The terrain, the rocks                                | `pwa/src/game/terrain.ts`, `rocks.ts`                         | `nature`             |
+| What a COAST's water looks like: its tones, its clarity | `pwa/src/game/water-optics.ts`                              | `water-look`, `nature` |
+| The water as LIT: the glint, the sky it mirrors, the ripples, the rain's rings, the foam's texture | `pwa/src/game/water-shader.ts`   | `water-look`         |
+| The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `wake-profile.ts` (the trail's shape, three-free), `fx-textures.ts` | `visual-effects` |
+| Footprints on the sand                                | `pwa/src/game/footprints.ts`                                  | `visual-effects`     |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
 | What swims here: the catalog, its rarity (R20)        | `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `biomes.ts`'s `fauna` | `nature`     |
 | Where an animal IS at a moment                        | `engine/game/fauna.ts` (`faunaPose`)                          | `nature`             |
-| The sea life as DRAWN, seen through the water         | `pwa/src/game/fauna.ts`, `water-mesh.ts`'s alpha              | `nature`, `game-feel` |
+| The sea life as DRAWN, seen through the water         | `pwa/src/game/fauna.ts`, `water-mesh.ts`'s alpha              | `nature`, `water-look` |
 | What GROWS here: the roster, its habitats (the trees, the scrub, the grass, the reed, the loose stone) | `pwa/src/game/flora-defs.ts` | `nature` |
 | Where every plant STANDS                              | `pwa/src/game/flora-plan.ts` (three-free, so the tests read it) | `nature`             |
 | The cover as DRAWN                                    | `pwa/src/game/flora-shapes.ts`, `flora.ts`                    | `nature`, `game-feel` |
@@ -172,11 +179,12 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | A BED: the engine, the pump, the spray, the wind, the sea | `pwa/src/game/audio/engine-voice.ts`, `water-voice.ts`, `ride-bed.ts` | `sound-effects` |
 | What the ear hears from a seat                        | `pwa/src/game/audio/listener.ts`                              | `sound-effects`      |
 | The instrument itself: a voice, a layer, the context  | `pwa/src/lib/voice.ts` (the vocabulary), `lib/synth.ts` (the only WebAudio) | `sound-effects` |
-| WHAT IS FELT: which moment is worth a pulse, how big  | `pwa/src/game/rumble.ts` (DOM-free, the table AND the sea's slam) | `game-feel`     |
-| The motor itself: the browser's buzz, the shell's tap | `pwa/src/game/haptics.ts` (the only `navigator.vibrate`), `native/src/haptics.ts` | `game-feel` |
-| The store app's shell: the WebView, the local server, a bridge | `native/` — `App.tsx`, `src/*.ts`; `make native-*`  | none yet — platform-shells is reserved |
+| WHAT IS FELT: which moment is worth a pulse, how big  | `pwa/src/game/rumble.ts` (DOM-free, the table AND the sea's slam) | `visual-effects` |
+| The motor itself: the browser's buzz, the shell's tap | `pwa/src/game/haptics.ts` (the only `navigator.vibrate`), `native/src/haptics.ts` | `visual-effects`, `platform-shells` |
+| The store app's shell: the WebView, the local server, a bridge | `native/` — `App.tsx`, `src/*.ts`; `make native-*`  | `platform-shells`    |
+| The desktop app's shell: the window, the scheme, the menu bar | `tauri/` — `shell/` decides, `src-tauri/` acts; `make tauri*` | `platform-shells` |
 
-**The placeholders** — each a file with a header saying what will live there. Nothing routes here yet; the skills that WILL own them are reserved by name in `.agents/skills/README.md` and do not exist. Building one starts with `engine-system` (engine half first) and, for anything drawn, `game-feel`.
+**The placeholders** — each a file with a header saying what will live there. Nothing routes here yet; the skills that WILL own them are reserved by name in `.agents/skills/README.md` and do not exist. Building one starts with `engine-system` (engine half first) and, for anything drawn, `game-feel` and `visual-effects`.
 
 | Waiting for                                   | The file(s) waiting                                              |
 | --------------------------------------------- | ---------------------------------------------------------------- |
@@ -200,8 +208,8 @@ And the pieces that belong to no skill in particular:
 | The app mark, wherever the app draws one           | `pwa/src/game/app-mark.ts` (the wave's two paths as data)                                                  |
 | App identity (name, palette, URLs)                 | `pwa/src/identity.ts` — the single source; `tests/identity_test.ts` holds every restatement to it          |
 | A Node script needing an app module                | `aliasEngine` in `scripts/lib/engine-alias.mjs` before the `import()` — never a Vite build to read a table |
-| New CLI tooling                                    | `scripts/*.mjs` (Node, `--experimental-strip-types`, flags through `scripts/lib/cli.mjs`)                   |
-| A lab that has to DRAW to answer its question      | a harness page in `pwa/src/tools/` + its own `pwa/<name>-preview.html`, driven by `scripts/<name>-preview.mjs` — the sibling repo's pattern; vite builds only `index.html`, so a harness never ships |
+| New CLI tooling                                    | `scripts/*.mjs` (Node, `--experimental-strip-types`, flags through `scripts/lib/cli.mjs`) — the `lab-tooling` skill owns the shelf and the registration |
+| A lab that has to DRAW to answer its question      | a harness page in `pwa/src/tools/` + its own `pwa/<name>-preview.html`, driven by `scripts/<name>-preview.mjs` — the sibling repo's pattern; vite builds only `index.html`, so a harness never ships (`lab-tooling`) |
 | Engine tests                                       | `tests/<topic>_test.ts`                                                                                    |
 | A DECISION the desktop window makes                | `tauri/shell/src/` + a case in `tauri/shell/tests/` — no Tauri, no GUI, so it runs on a bare toolchain      |
 | An EFFECT the desktop window has                   | `tauri/src-tauri/src/` — the only crate that knows Tauri exists; a decision in here is in the wrong crate   |
@@ -263,6 +271,8 @@ Each of these is the one place an answer is written down. Anything that needs it
 | The store app: the shell, its build, its bridges | `native/README.md`, `native/RELEASING.md`, `docs/platforms.md`; the Make targets in the README's Usage table |
 | A spec chapter, or a verdict under one       | `docs/spec-conformance.md` — `sync-game-spec` re-dates it                                             |
 | A sound, a bed, a column in the listener     | `docs/audio.md`, then `make audition` (and its `--meter` table in the PR)                              |
+| The sky, the clouds, the night, the weather  | the sky bullet in `docs/architecture.md`, then `make sky` (both sheets in the PR)                      |
+| A shell's tree, a bridge, a build knob       | `docs/platforms.md`, `tauri/README.md` or `native/README.md`, `docs/configuration.md`'s environment rows |
 | A skill added, renamed or retired            | this file's Skills section, `.agents/skills/README.md`, the `maintenance` registry for an `update-*` — `tests/skills_test.ts` holds all three |
 
 ## Parity and cross-cutting rules
@@ -306,7 +316,12 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 - **`collision`** — the hull meeting what is not water: solids, grounding, ramps, gates and misses, the bounds; what each event means.
 - **`engine-system`** — adding or changing a gameplay system, engine-first.
 - **`mapgen-improvement`** — the shore generator (rules / search / geometry, the R-rules), the analyze → fix → `make level` loop.
-- **`nature`** — the shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, and the sea life under the water (R20: the catalog and its rarity, the placer, the swim model, the look); later the flora.
+- **`nature`** — the shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, the sea life under the water (R20: the catalog and its rarity, the placer, the swim model, the look), and the cover above the waterline (the roster, its habitats, `make flora`).
+- **`atmosphere`** — the sky and the air under it: the sun's place by hour, season and latitude, the ladder of looks, what each weather puts over it, the clouds, the night (the stars, the moon's key, the lamps), the haze, the rain; `make sky`.
+- **`water-look`** — the sea as DRAWN: the grid of rings and the far grid, how the surface is lit (the sky and the shore it mirrors, the glint, the ripples, the foam), a coast's water optics, how far the eye gets into it; judged at two skies, zoomed.
+- **`visual-effects`** — what the craft throws off and what the rider feels: the spray, the wake as a map the water shader draws, the footprints, the vibration table; event → effect, presentation only.
+- **`platform-shells`** — the desktop app (`tauri/`: two crates, decisions and effects) and the store app (`native/`: the WebView, the local server, the haptics bridge), the `__SH_SHELL__` seam and the names stated twice.
+- **`lab-tooling`** — how a lab or a script is built here: the `scripts/lib/` shelf, pure-Node versus browser-driven, the harness-page pattern, the URL contract, and registering a tool. Load it BEFORE writing a one-off script.
 - **`hud-and-menus`** — the HUD's readouts, the handlebar and the throttle lever, the keys — what is drawn over a RUN.
 - **`menu-system`** — the shell around a run: the attract card, the front door, the start card and the craft card after it, options, the developer page behind the seven-second hold, the loading card, the pause card that holds a run mid-ride, and the settings they read and write.
 - **`ui-review`** — the fit-and-finish sweep at the reference viewports (1280×720, 390×844).
@@ -325,4 +340,4 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 
 Run the specific skill when you know what drifted; run `maintenance` when you don't.
 
-**Reserved, not written** (see `.agents/skills/README.md`): soundtrack, atmosphere, visual-effects, wipeout, damage, tricks, craft-creation, built-shore, fauna, level-rating, campaign, replay, debug-tools, platform-shells, store-listing, store-shots. A lesson about one of those subjects waits, scoped, in the nearest existing skill until its subject is built.
+**Reserved, not written** (see `.agents/skills/README.md`): soundtrack, wipeout, damage, tricks, craft-creation, built-shore, fauna, level-rating, campaign, replay, debug-tools, store-listing, store-shots. A lesson about one of those subjects waits, scoped, in the nearest existing skill until its subject is built.

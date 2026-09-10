@@ -9,7 +9,7 @@ tests/  scripts/(sim, the labs)            pwa/ (Preact + three.js shell)
            (framework-free TypeScript — imports nothing but itself)
 ```
 
-`tauri/` and `native/` — the desktop and store shells — are reserved beside these as one README each. Neither exists yet; when they do they wrap the built site and import nothing else ([platforms.md](platforms.md)).
+`tauri/` and `native/` — the desktop and store shells — stand beside these, outside the npm workspace: each wraps the built site and imports nothing else, and the one line of `pwa/` that knows either exists is `shell-host.ts` ([platforms.md](platforms.md)).
 
 ## `engine/` — the game, headless
 
@@ -113,4 +113,4 @@ What the budget does NOT yet buy is §23.9's narrow entry surface: the game has 
 
 ## Deployment
 
-The deployed site is the product. `pages.yml` builds three whole sites — `/` (the latest `v*` tag), `/preview/` (`main`), `/branch/` (a parked branch) — and serves them under one domain, each with its own manifest identity and service-worker scope; `release.yml` derives the version from the changeset fragments, writes `CHANGELOG.md`, tags, and chains into the deploy. [configuration.md](configuration.md) has the slots and the environment; [platforms.md](platforms.md) the shells reserved beside the web.
+The deployed site is the product. `pages.yml` builds three whole sites — `/` (the latest `v*` tag), `/preview/` (`main`), `/branch/` (a parked branch) — and serves them under one domain, each with its own manifest identity and service-worker scope; `release.yml` derives the version from the changeset fragments, writes `CHANGELOG.md`, tags, and chains into the deploy. [configuration.md](configuration.md) has the slots and the environment; [platforms.md](platforms.md) the two shells beside the web.

@@ -1,6 +1,6 @@
 ---
 name: game-feel
-description: "Use when the task is about how the game FEELS to ride — the sensation of a hull meeting a wave (the lift, the slam, the spray, the air), the sense of speed over water, the camera's framing, how pace and danger read on screen. The feeling of riding IS the core product; this skill owns the reference (the 90s jetski racers), the levers that create the sensation across the wave field, the hull's probes, the camera and the FX, how they interact, and the look-first verification loop. Load it for any change whose acceptance test is 'does it feel like riding water', alongside the skill that owns the specific subsystem being edited."
+description: "Use when the task is about how the game FEELS to ride — the sensation of a hull meeting a wave (the lift, the slam, the spray, the air), the sense of speed over water, the camera's framing, how pace and danger read on screen. The feeling of riding IS the core product; this skill owns the reference (the 90s jetski racers), the levers that create the sensation across the wave field, the hull's probes, the camera, how the levers interact, and the look-first verification loop. Load it for any change whose acceptance test is 'does it feel like riding water', alongside the skill that owns the specific subsystem being edited."
 ---
 
 # Game feel — the hull meeting the wave
@@ -60,9 +60,10 @@ the game harder, not more dramatic.
 | How the hull answers it: buoyancy, planing, slamming, the jet, the lean | `engine/game/craft.ts`, `hull.ts`, `flight.ts`, `defs/tuning.ts` | `craft-physics` |
 | What separates the four craft | `engine/game/defs/craft.ts` | `craft-tuning` |
 | Course scale: gate spacing, offshore band, ramp placement | `engine/mapgen/rules.ts` | `mapgen-improvement` |
-| Camera | `pwa/src/game/camera.ts` | (this skill) |
-| Water-contact FX: the chine sheets, the rooster tail, the landing plume, the bow plunge (`spray.ts`); the wake — the road, the boil, the fan, the transom's hollow, a landing's foam — as a MAP the water shader draws from (`wake.ts`, its shape in `wake-profile.ts`); their textures, made in code (`fx-textures.ts`) | `pwa/src/game/` | (this skill; `visual-effects` reserved) |
-| The water's LIGHT: the sky each wave face reflects, the sun's glint (the sparkle and the road), the wind's ripples, the rain's rings, the light through a crest, the foam's texture — per pixel, never moving a vertex | `pwa/src/game/water-shader.ts`, through `sky-glsl.ts`'s `skyAlong` | (this skill; `water-feel` for what the grid carries) |
+| Camera: the ladder, its rigs, the flown hand-over, the landing's kick | `pwa/src/game/camera.ts`, `camera-rigs.ts`, `camera-change.ts` | (this skill) |
+| Water-contact FX: the spray, the wake as a map, a pulse in the hands | `pwa/src/game/spray.ts`, `wake.ts`, `rumble.ts` | `visual-effects` |
+| The water's LIGHT: the sky each face reflects, the glint, the ripples, the foam — per pixel, never moving a vertex | `pwa/src/game/water-shader.ts`, `water-mesh.ts` | `water-look` |
+| The sky the water reflects: the sun's hour, the weather, the clouds, the night | `pwa/src/game/sky.ts`, `environment.ts` | `atmosphere` |
 
 What each contributes:
 

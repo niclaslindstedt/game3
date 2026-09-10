@@ -42,7 +42,12 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `collision` | The hull meeting what is not water: solids, grounding, ramps, gates and misses, bounds; what the events mean |
 | `engine-system` | Adding or changing a gameplay system, engine-first |
 | `mapgen-improvement` | The shore generator: rules / search / geometry, the R-rules, the analyze → fix → `make level` loop |
-| `nature` | The shore's materials as biome-as-data, what `terrain.ts` paints, the rocks; later the flora |
+| `nature` | The shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, the sea life (R20), the cover above the waterline; `make flora` |
+| `atmosphere` | The sky and the air under it: the sun by hour, season and latitude, the ladder of looks, the weathers, the clouds, the night, the haze, the rain; `make sky` |
+| `water-look` | The sea as DRAWN: the grid of rings, the far grid, the light (the mirror, the glint, the ripples, the foam), a coast's optics, the see-through radius; judged at two skies, zoomed |
+| `visual-effects` | What the craft throws off and what the rider feels: the spray, the wake as a map, the footprints, the vibration table; event → effect, presentation only |
+| `platform-shells` | The desktop app (`tauri/`) and the store app (`native/`): the two-crate split, the WebView and its server, the `__SH_SHELL__` seam, the haptics bridge, the names stated twice |
+| `lab-tooling` | How a lab or a script is built: the `scripts/lib/` shelf, pure-Node versus browser-driven, the harness page, the URL contract, registering a tool |
 | `hud-and-menus` | The HUD's readouts, the handlebar and the throttle lever, the keys — what is drawn over a RUN |
 | `menu-system` | The shell around a run: the attract card, the front door, options, the developer page behind the seven-second hold, the loading card, the settings |
 | `ui-review` | The fit-and-finish sweep at the reference viewports |
@@ -63,8 +68,6 @@ row and the `.lessons/` directory land where the next session expects them.
 | Future skill | Will own |
 | --- | --- |
 | `soundtrack` | The tracker scores under `pwa/src/game/audio/scores/` — a second view of the one synth in `audio/bus.ts`, its own fader; the listen-with-voices-muted loop |
-| `atmosphere` | The sky is BUILT (`pwa/src/game/sky.ts` and kin, `engine/mapgen/weather.ts`) and routed to `game-feel` for now. This skill is still reserved for when it grows the parts that are not there yet — rain and snow on the water, lightning, the mist in the bays, a `make sky` contact sheet — and for the craft of the ladder itself. |
-| `visual-effects` | Transient FX: the spray sheet, the wake, the landing plume, the ring's flash, camera shake — event → effect |
 | `wipeout` | The craft past saving: the capsize, the rider thrown, the recovery — the sibling game's `crash`, for water |
 | `damage` | `engine/game/damage.ts` + `pwa/src/game/damage-fx.ts`: what a hit costs the machinery and how it reads; the sibling game's damage half of `collision` |
 | `tricks` | `engine/game/tricks.ts`: the aerial vocabulary and its scoring — the backflip is reachable today and scored then |
@@ -75,5 +78,4 @@ row and the `.lessons/` directory land where the next session expects them.
 | `campaign` | `pwa/src/game/campaign.ts`: which seeds become the campaign's levels and the modes (Time Trial, Heads Up, Roam) — the rows they hang off the front door are `menu-system`'s |
 | `replay` | `pwa/src/game/replay.ts` + `engine/sim/tape.ts`: a run recorded and watched again |
 | `debug-tools` | The in-game developer overlay, the REPRO line, `make debug-shot` — when a bug arrives as a picture |
-| `platform-shells` | `tauri/` and `native/`: the desktop and store apps around the built site |
 | `store-listing`, `store-shots` | The storefront's words (gitignored copy) and its screenshot set |

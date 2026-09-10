@@ -135,7 +135,7 @@ Three layers, one direction of dependency: `engine/` is the whole game as a fram
 - [Level generator](docs/level-generator.md) — the rules engine and its R-rules
 - [Simulation & the bot](docs/simulation.md) — the headless harness and the balance workflow
 - [Audio](docs/audio.md) — the synth, the bank, the beds, the listener, and how to audition and meter them
-- [Platforms](docs/platforms.md) — the web, and the two shells reserved beside it
+- [Platforms](docs/platforms.md) — the web, the desktop app and the store app beside it
 - [Configuration](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md)
 - [Spec conformance](docs/spec-conformance.md) — where this repo stands against [OSS_GAME_SPEC.md](OSS_GAME_SPEC.md), chapter by chapter
 

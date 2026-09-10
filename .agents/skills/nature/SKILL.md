@@ -1,15 +1,16 @@
 ---
 name: nature
-description: "Use when working on the NATURE the levels run along — the shore's materials (bedrock slabs, boulder fields, sand pockets, the skerries standing offshore), the biome-as-data model behind them, what the renderer's terrain.ts paints for each, the rocks it stands up, and — later — the flora above the waterline and the countries beyond the taiga. Owns the engine's biome row, the surface classifier's vocabulary, the terrain's paint, the placement rules that keep every solid in the engine's field, and the look-first verification loop."
+description: "Use when working on the NATURE the levels run along — the shore's materials (bedrock slabs, boulder fields, sand pockets, the skerries standing offshore), the biome-as-data model behind them, what the renderer's terrain.ts paints for each, the rocks it stands up, the sea life under the water (R20), the flora above the waterline, and — later — the countries beyond the taiga. Owns the engine's biome row, the surface classifier's vocabulary, the terrain's paint, the placement rules that keep every solid in the engine's field, and the look-first verification loop."
 ---
 
 # The nature: the shore, its stone, and what will grow on it
 
 The shore IS half the game's look — the course is a line of buoys along it.
 This skill owns everything the shore is MADE of and how it is painted: which
-biome a level is set on, what its surfaces are, where its rocks stand, and
-(later) what grows above the waterline. The water itself is `water-feel`'s;
-the course laid along the shore is `mapgen-improvement`'s.
+biome a level is set on, what its surfaces are, where its rocks stand, what
+swims off it and what grows above the waterline. The water itself is
+`water-feel`'s and its look `water-look`'s; the course laid along the shore
+is `mapgen-improvement`'s.
 
 **Read this skill's lessons first** —
 `node scripts/skill-lessons.mjs nature --list`, then the ones the task
@@ -26,8 +27,8 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | `engine/mapgen/compile.ts` | Bakes the ground heightfield and the solids — where every skerry, boulder and reef STANDS, because the craft can hit them (the `collision` skill owns the contact) |
 | `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.materialAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
-| `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF, the app side of a biome row: its three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are all written against. A coast in `BIOMES` without a row here throws on its first level (`tests/water_optics_test.ts`) |
-| `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground` and the same optics row, so a bed that changes shape changes what the water looks like over it (`water-feel`) |
+| `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF, the app side of a biome row: its three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are all written against. A coast in `BIOMES` without a row here throws on its first level (`tests/water_optics_test.ts`). The see-through model those numbers feed is `water-look`'s |
+| `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground` and the same optics row, so a bed that changes shape changes what the water looks like over it (`water-look`) |
 | `engine/game/defs/fauna.ts` | THE CATALOG (R20): the ten animals, and for each what it is — length, beam, cruising speed, the depth it holds at, the water it needs, its offshore band, its school size, how often it comes up (`breath` / `bask`) and how deep it holds when it does (`awash`), whether its bulls breach (`breach`), its temperature band — and `perKm`, how rare it is. `rarityOf` turns that one number into the word; nothing states the word |
 | `engine/mapgen/fauna.ts` | THE PLACER (R20): pods laid along the coast after the rocks, each tried a bounded number of times for a spot with the water its species needs the whole way round the loop it swims, clear of the solids. Its draws come off the END of the seed's stream, after R19's sky, so adding or retuning an animal moves no geometry |
 | `engine/game/fauna.ts` | THE SWIM MODEL: `faunaPose(pod, i, t, out, waterY)` — the loop, the formation, the weave, the rise, the breach — a pure function of the placement, the clock and the sea over the pod. Nothing about the sea life is ever stepped |
