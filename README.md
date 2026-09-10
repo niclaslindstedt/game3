@@ -79,7 +79,7 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 
 **Keyboard:** W / ↑ throttle (ramps up while held), A D / ← → steer (ramped, so a tap is a nudge and a hold is full lock), S / ↓ lean back (nose up — in the air, pitch up), Shift lean forward (nose down), R reset to the last gate passed, Enter restart the run, C camera. There is no brake and no gear.
 
-**Touch:** the LEFT half of the screen is the handlebar — touch anywhere and move the thumb: sideways travel steers, vertical travel leans. The RIGHT half is the throttle lever — a touch anchors it at zero and dragging DOWN opens it, full at about ninety pixels, analogue, held while the finger is down and closed the moment it lifts. Both overlays are drawn under the thumb that owns them. Works in portrait and landscape; the HUD re-flows to fit.
+**Touch:** the LOWER-LEFT of the screen is the handlebar — touch anywhere and move the thumb: sideways travel steers, vertical travel leans. The LOWER-RIGHT is the throttle lever — a touch anchors it at zero and dragging DOWN opens it, full at about ninety pixels, analogue, held while the finger is down and closed the moment it lifts. Both overlays are drawn under the thumb that owns them, and both stop at the lower three fifths of the screen so a press meant for the HUD's own buttons is not read as throttle. Works in portrait and landscape; the HUD re-flows to fit.
 
 **On the phone:** the game is an installable PWA — open [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/), then "Add to Home Screen" (iOS Safari: Share → Add to Home Screen; Android Chrome: menu → Install app). It launches fullscreen, works offline, plays in portrait or landscape, and prompts in-app when a new build ships.
 

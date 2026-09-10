@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE TOUCH CONTROLS — the two thumb zones the phone rides the craft with:
-// the HANDLEBAR on the left half, the THROTTLE LEVER on the right.
+// the HANDLEBAR on the lower left, the THROTTLE LEVER on the lower right.
+// Both stop short of the top of the screen so the readouts and their
+// buttons keep their own presses; styles.css owns where the line falls.
 //
 // They are a HUD surface but not a HUD readout: everything here writes
 // straight into the input manager between snapshots, at pointer rate,
@@ -54,10 +56,10 @@ const BAR_LOCK_DEG = 28;
  * thumb's real travel. */
 const BAR_SVG_PX = 200;
 
-/** The left thumb: touching anywhere anchors a handlebar under the finger;
- * dragging sideways turns it, dragging up or down leans the rider, and
- * releasing centres both. Screen-space: right = +1 (input-model.ts flips
- * the sign for the engine, once). */
+/** The left thumb: touching anywhere in the zone anchors a handlebar under
+ * the finger; dragging sideways turns it, dragging up or down leans the
+ * rider, and releasing centres both. Screen-space: right = +1
+ * (input-model.ts flips the sign for the engine, once). */
 export function BarZone({ touch }: { touch: InputManager["touch"] }) {
   const barRef = useRef<HTMLDivElement>(null);
   const rotorRef = useRef<SVGGElement>(null);
@@ -141,10 +143,10 @@ export function BarZone({ touch }: { touch: InputManager["touch"] }) {
   );
 }
 
-/** The right thumb: touching anywhere anchors the LEVER at zero; dragging
- * DOWN the glass pulls it open, full at `LEVER_FULL_PX`, analogue the whole
- * way, held while the finger is down and let go on the lift. Nothing else
- * is on this thumb — there is no brake to reach for. */
+/** The right thumb: touching anywhere in the zone anchors the LEVER at
+ * zero; dragging DOWN the glass pulls it open, full at `LEVER_FULL_PX`,
+ * analogue the whole way, held while the finger is down and let go on the
+ * lift. Nothing else is on this thumb — there is no brake to reach for. */
 export function LeverZone({ touch }: { touch: InputManager["touch"] }) {
   const leverRef = useRef<HTMLDivElement>(null);
   const knobRef = useRef<SVGGElement>(null);

@@ -12,10 +12,12 @@
 // WHY THE TOP BAR, when the sibling game puts the same mark in a bottom
 // corner: on this screen neither bottom corner is free. The left is the
 // instrument panel with the build stamp under it, and the right is the air
-// time and the news column — and on a phone the whole lower half is the two
-// thumb zones, the throttle lever's being exactly the right-hand one. The
-// top-right cluster is above both zones and already holds a button (RESET),
-// so the mark stands at the end of that row.
+// time and the news column — and on a phone the lower three fifths is the
+// two thumb zones, the throttle lever's being exactly the right-hand one.
+// The top-right cluster is above both zones and already holds a button
+// (RESET), so the mark stands at the end of that row. In portrait this mark
+// hangs UNDER the cluster, which is the part that has to clear the lever
+// zone — styles.css argues that clearance where it sets the zone's top.
 //
 // TWO PRESSES, because the press throws the run away: the page reloads onto
 // the new build and the ride in progress goes with it, and this mark stands

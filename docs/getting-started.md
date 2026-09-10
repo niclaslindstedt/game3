@@ -33,7 +33,7 @@ On a menu card the arrow keys (or WASD) walk the rows, Enter or Space presses on
 
 There is no brake, no handbrake and no gear: a jet ski has a throttle and a nozzle, and that is the whole of it. Which means the one thing to learn early — **no throttle, almost no steering**. The nozzle turns the thrust; with no thrust there is nothing to turn. Off the throttle the hull keeps going where it was pointed, with only the keel's small say in the matter. To turn, stay on the gas.
 
-**Phone (touch).** The LEFT half of the screen is the handlebar: touch anywhere and move your thumb — sideways travel steers, vertical travel leans (down toward you is back, nose up). The RIGHT half is the throttle lever: touch anchors it at zero, and dragging DOWN opens it — full throttle at about ninety pixels of travel — analogue, held for as long as the finger is down, and closed the moment it lifts. Both overlays are drawn under the thumb that owns them. Works in portrait and landscape.
+**Phone (touch).** The LOWER-LEFT of the screen is the handlebar: touch anywhere and move your thumb — sideways travel steers, vertical travel leans (down toward you is back, nose up). The LOWER-RIGHT is the throttle lever: touch anchors it at zero, and dragging DOWN opens it — full throttle at about ninety pixels of travel — analogue, held for as long as the finger is down, and closed the moment it lifts. Both overlays are drawn under the thumb that owns them. Both stop at the lower three fifths of the screen, so the readouts along the top — and the RESET and new-build buttons among them — keep their own presses instead of losing them to the throttle. Works in portrait and landscape.
 
 ### How a run reads
 
