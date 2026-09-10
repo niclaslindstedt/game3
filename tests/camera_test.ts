@@ -1,24 +1,31 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// The camera rig as maths (pwa/src/game/camera.ts): the chase lens stands
-// behind and above the craft, low enough for the Wave Race read, keeps its
-// horizon level whatever the hull does, pulls back and widens with pace,
-// looks through a turn, tracks a launch, and never goes under the sea. The
-// nose rig sits on the craft. No three.js, no DOM: the rig is driven by a
-// staged state and held to the framing rules.
+// The camera rigs as maths (pwa/src/game/camera.ts): the outside lenses
+// stand behind and above the craft, low enough for the Wave Race read, keep
+// their horizon level whatever the hull does, pull back and widen with pace,
+// look through a turn, swing to the outside of a carve, hang their rod along
+// the flight path in the air, and never go under the sea. The nose rig sits
+// on the craft, and the camera key FLIES between them rather than cutting.
+// No three.js, no DOM: the rigs are driven by a staged state and held to the
+// framing rules.
 import { describe, expect, it } from "vitest";
 
 import { TUNING, createGame, placeRun, step, type GameState } from "@engine";
 
 import {
   CAMERA_MODES,
-  CHASE,
   MAX_VFOV,
   REF_ASPECT,
   createCameraRig,
   verticalFovFor,
   type CameraPose,
 } from "../pwa/src/game/camera.ts";
+import { CHASE_RIGS, type ChaseCamera } from "../pwa/src/game/camera-rigs.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
+
+/** The reference rig every framing rule below is stated against. */
+const CHASE = CHASE_RIGS.chase;
+/** The ladder's outside rungs, nearest the craft first. */
+const OUTSIDE: readonly ChaseCamera[] = ["close", "chase", "far", "heli"];
 
 const LEVEL = syntheticLevel({ windSpeed: 0, noSolids: true });
 const FLAT = (): number => 0;
@@ -32,8 +39,9 @@ function fresh(): GameState {
 function settle(
   state: GameState,
   frames = 240,
+  mode: "chase" | ChaseCamera = "chase",
 ): { pose: CameraPose; rig: ReturnType<typeof createCameraRig> } {
-  const rig = createCameraRig();
+  const rig = createCameraRig(mode);
   let pose = rig.update(state, DT, FLAT);
   for (let i = 0; i < frames; i++) pose = rig.update(state, DT, FLAT);
   return { pose, rig };
@@ -179,21 +187,113 @@ describe("the nose rig", () => {
   });
 });
 
+describe("the flight rod", () => {
+  it("tips the boom onto the flight path without changing its length", () => {
+    const level = fresh();
+    placeRun(level, { x: 100, z: 200, heading: 0, speed: 15 });
+    const climb = fresh();
+    placeRun(climb, { x: 100, z: 200, heading: 0, speed: 15, height: 6, vy: 10 });
+    expect(climb.craft.airborne).toBe(true);
+    // One update on a fresh rig STANDS it, so both poses are exact rather
+    // than part-way through an ease.
+    const a = createCameraRig().update(level, DT, FLAT);
+    const b = createCameraRig().update(climb, DT, FLAT);
+    const ra = relative(a, level);
+    const rb = relative(b, climb);
+    // The rod is exactly as long as the rig's own row says it should be at
+    // that pace — turning it is a rotation, and a rotation does not change a
+    // length, so the hull is as big in the frame off a ramp as it was on the
+    // water. (The two states are at different SPEEDS, since a climb counts
+    // into `speed`, so the length is read off the row rather than off the
+    // level pose.)
+    const s = climb.craft.speed;
+    const rod = Math.hypot(
+      CHASE.dist + s * CHASE.distPerSpeed,
+      CHASE.height + s * CHASE.heightPerSpeed,
+    );
+    expect(Math.hypot(rb.behind, rb.above)).toBeCloseTo(rod, 6);
+    // ...and it has swung DOWN under a craft that is going up, so the shot
+    // looks along the flight rather than down at the water it left.
+    expect(ra.above).toBeGreaterThan(0);
+    expect(rb.above).toBeLessThan(0);
+  });
+});
+
+describe("the ladder", () => {
+  it("stands every outside rig further back and higher than the last", () => {
+    const state = fresh();
+    placeRun(state, { x: 100, z: 200, heading: 0.7 });
+    let behind = 0;
+    let above = 0;
+    for (const mode of OUTSIDE) {
+      const { pose } = settle(state, 240, mode);
+      const r = relative(pose, state);
+      expect(r.above).toBeGreaterThan(above);
+      expect(r.behind).toBeGreaterThan(behind);
+      expect(Math.abs(r.aside)).toBeLessThan(1e-6);
+      behind = r.behind;
+      above = r.above;
+    }
+  });
+
+  it("swings the flown rigs wide of a turn and holds the near ones steady", () => {
+    const swingOf = (mode: ChaseCamera): number => {
+      const state = fresh();
+      placeRun(state, { x: 100, z: 200, heading: 0, speed: 15 });
+      const { rig } = settle(state, 240, mode);
+      state.craft.wy = 0.8;
+      let pose = rig.update(state, DT, FLAT);
+      for (let i = 0; i < 240; i++) pose = rig.update(state, DT, FLAT);
+      // The lens's own offset across the craft's axis: positive is the
+      // craft's right, and a nose swinging right throws the lens LEFT.
+      return relative(pose, state).aside;
+    };
+    const near = swingOf("chase");
+    const flown = swingOf("heli");
+    expect(near).toBeLessThan(0);
+    expect(flown).toBeLessThan(near - 1);
+    expect(Math.abs(flown)).toBeLessThanOrEqual(CHASE_RIGS.heli.swingMax + 1e-6);
+  });
+});
+
 describe("the modes", () => {
   it("cycle through every mode and back", () => {
-    const rig = createCameraRig();
+    const rig = createCameraRig(CAMERA_MODES[0]);
     const seen = [rig.mode()];
     for (let i = 1; i < CAMERA_MODES.length; i++) seen.push(rig.cycle());
     expect(seen).toEqual([...CAMERA_MODES]);
     expect(rig.cycle()).toBe(CAMERA_MODES[0]);
   });
 
-  it("restand the lens in one frame on a mode change", () => {
+  it("FLY between rigs rather than cutting, and land exactly on the new one", () => {
+    const state = fresh();
+    placeRun(state, { x: 100, z: 200, heading: 0 });
+    const { pose, rig } = settle(state);
+    const was = { x: pose.x, y: pose.y, z: pose.z };
+    rig.setMode("heli");
+    // The first frame of the move is still near where the lens was standing:
+    // a step from behind the transom to sixteen metres back and nine up is a
+    // MOVE, and a cut is the one edit that tells the rider nothing.
+    const first = rig.update(state, DT, FLAT);
+    expect(Math.hypot(first.x - was.x, first.y - was.y, first.z - was.z)).toBeLessThan(2);
+    // ...and within the move's own beat it is standing on the new rig, with
+    // nothing left to catch up.
+    let flown = first;
+    for (let i = 0; i < 60; i++) flown = rig.update(state, DT, FLAT);
+    const r = relative(flown, state);
+    expect(r.behind).toBeCloseTo(CHASE_RIGS.heli.dist, 3);
+    expect(r.above).toBeCloseTo(CHASE_RIGS.heli.height, 3);
+  });
+
+  it("restand the lens in one frame, abandoning a hand-over in flight", () => {
     const state = fresh();
     placeRun(state, { x: 100, z: 200, heading: 0 });
     const { rig } = settle(state);
     rig.setMode("nose");
+    rig.update(state, DT, FLAT);
     rig.setMode("chase");
+    // A teleport: there is no framing worth flying across one.
+    rig.restand();
     placeRun(state, { x: 500, z: 900, heading: 2 });
     const pose = rig.update(state, DT, FLAT);
     expect(relative(pose, state).behind).toBeCloseTo(CHASE.dist, 3);

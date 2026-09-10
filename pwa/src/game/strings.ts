@@ -27,9 +27,12 @@ export const STRINGS = {
    * what stands there once the last one is behind the craft. */
   mapToNext: (metres: number): string => `${Math.round(metres)} M`,
   mapAtFinish: "FINISH",
-  /** The RESET button — back to the last gate. */
-  reset: "RESET",
+  /** The two presses on the HUD's action row (hud-actions.tsx). Both are a
+   * MARK rather than a word — the top bar is the one strip that has to stay
+   * out of the way of the water — so these are what a hover, a screen reader
+   * and the keyboard hint get. */
   resetTitle: "Back to the last gate (R)",
+  cameraTitle: "Next camera (C)",
   /** The build corner: which stage and which craft this frame is of. */
   stage: (seed: number): string => `SEED ${seed}`,
   /** ...and the two diagnostics that share it. The frame rate is rounded to
@@ -170,9 +173,14 @@ export const STRINGS = {
   optFps: "SHOW FPS",
   optFpsHint: "Frames a second in the corner, beside the build",
   optRestore: "RESTORE DEFAULTS",
-  /** The camera rows, in the ladder's own order. */
-  cameraChase: "CHASE",
+  /** The camera rows, in the ladder's own order — the handlebars backwards.
+   * Each is one word: the row is six chips wide and read at a glance. */
+  cameraBow: "BOW",
   cameraNose: "NOSE",
+  cameraClose: "CLOSE",
+  cameraChase: "CHASE",
+  cameraFar: "FAR",
+  cameraHeli: "HELI",
 
   /* ── THE DEVELOPER PAGE (menu-dev.tsx) ─────────────────────────────── */
   devSeed: "SEED",

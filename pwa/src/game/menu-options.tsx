@@ -45,8 +45,12 @@ import { STRINGS } from "./strings.ts";
 /** The cameras, in the ladder's own order, so the chips read left to right
  * the way the camera key walks them. */
 const CAMERA_LABELS: Record<CameraMode, string> = {
-  chase: STRINGS.cameraChase,
+  bow: STRINGS.cameraBow,
   nose: STRINGS.cameraNose,
+  close: STRINGS.cameraClose,
+  chase: STRINGS.cameraChase,
+  far: STRINGS.cameraFar,
+  heli: STRINGS.cameraHeli,
 };
 
 const CAMERA_OPTIONS: readonly { id: CameraMode; label: string }[] = CAMERA_MODES.map((id) => ({

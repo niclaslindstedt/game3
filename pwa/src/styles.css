@@ -32,6 +32,13 @@
   /* The minimap's plate, edge to edge. Big enough that a buoy pair is two
      dots with a gap in it, small enough that it never owns the corner. */
   --hud-map: clamp(4.8rem, 16vmin, 7.6rem);
+  /* The gap between the two glyph buttons. Their EDGE is half the map less
+     half of this, so the pair comes to the map's own width — but that sum is
+     written where it is used (`.hud-mini-icon`) rather than stored here: a
+     custom property is resolved against the element it is DECLARED on, and
+     `--hud-map` is re-declared on `.hud` by two media queries, so a size
+     computed here would keep the desktop map's proportions on a phone. */
+  --hud-mini-gap: 0.3rem;
 }
 
 html,
@@ -196,10 +203,20 @@ canvas {
    boxed unless it is a button. Sizes are `vmin`-clamped so the same layout
    reads on a phone held either way and on a desktop. */
 
+/* The run's own corner: the clock and the gate count on one row, the wind
+   vane on the next. All three are facts about how the run is going, and they
+   are read down a single left-aligned column. */
 .hud-top {
   position: absolute;
   top: max(0.6rem, env(safe-area-inset-top));
   left: max(0.8rem, env(safe-area-inset-left));
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.45rem;
+}
+
+.hud-top-row {
   display: flex;
   align-items: flex-start;
   gap: 1rem;
@@ -252,15 +269,26 @@ canvas {
   gap: 0.5rem;
 }
 
+/* The row the new-build mark stands on its own in with the HUD switched off
+   (App.tsx) — the readouts are gone, and the notice is not one of them. */
 .hud-topright-row {
   display: flex;
   align-items: flex-start;
-  gap: 0.8rem;
+  gap: 0.5rem;
+}
+
+/* THE TWO PRESSES, side by side under the map: two targets a thumb finds
+   without leaving the water, hung off the one square in this corner whose
+   size and place the rider already knows (hud-actions.tsx). */
+.hud-action-stack {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--hud-mini-gap);
 }
 
 .hud-wind {
-  align-items: flex-end;
-  text-align: right;
+  align-items: flex-start;
+  text-align: left;
 }
 
 .hud-wind-row {
@@ -295,7 +323,29 @@ canvas {
   padding: 0.3rem 0.6rem;
   cursor: pointer;
   text-shadow: none;
+  /* A button that squashes turns its glyph into a smear. */
   flex: none;
+}
+
+/* A GLYPH BUTTON is square around its mark rather than padded around a word,
+   and it is sized off the MINIMAP rather than off its own glyph — the map
+   below it is the one thing in this corner whose size the rider already
+   knows, and two presses at half its width come to exactly its edge. */
+.hud-mini-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
+  height: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
+  padding: 0;
+}
+
+.hud-glyph {
+  width: 58%;
+  height: 58%;
+  fill: currentcolor;
+  display: block;
+  filter: drop-shadow(0 1px 0 var(--hud-shadow));
 }
 
 /* ── The new-build button ────────────────────────────────────────────────
@@ -1027,6 +1077,10 @@ canvas {
    two clusters keep clear of each other. */
 @media (orientation: portrait) {
   .hud-top {
+    gap: 0.35rem;
+  }
+
+  .hud-top-row {
     gap: 0.7rem;
   }
 
@@ -1052,12 +1106,12 @@ canvas {
     max-width: 46vw;
   }
 
-  /* The new-build button drops out of the top row and hangs UNDER it: 390 px
-     has no width for a fourth thing up here — the mark alone pushes the wind
-     vane into the gate count, and the word it becomes when armed needs sixty
-     more. Anchored to the cluster it left (which is itself absolute), so it
-     follows the vane's height instead of restating it, and arming widens it
-     leftward into empty sky. */
+  /* The new-build button drops out of the top row and hangs UNDER the
+     cluster: 390 px has no width for a third thing beside two touch targets
+     sized off the map, and the word the mark becomes when armed needs sixty
+     px more again. Anchored to the cluster it left (which is itself
+     absolute), so it follows the map's own height instead of restating it,
+     and arming widens it leftward into empty sky. */
   .hud-topright .update-nudge {
     position: absolute;
     top: 100%;

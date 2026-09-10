@@ -41,6 +41,10 @@
 //                  resolved against this coast's own daylight (R13)
 //   ?day=storm     ...and its WEATHER row: fine | windy | storm, which is a
 //                  sky AND the wind that builds the sea under it
+//   ?camera=heli   which rung of the camera ladder the run opens on (bow |
+//                  nose | close | chase | far | heli) — a setting like the
+//                  rows below, so a link lays it over the stored one; the
+//                  camera key still walks the whole ladder from there
 //   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
 //   ?res=low       WATER, RESOLUTION and DETAIL (low | medium | high) and
 //   ?detail=low    SEE INTO THE WATER (?see=0/1). They are settings like
@@ -92,6 +96,7 @@ import {
 } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
+import { CAMERA_MODES, type CameraMode } from "./game/camera.ts";
 import { FPS_UNKNOWN, smoothFps } from "./game/frame-rate.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
 import { UpdateButton } from "./game/update-button.tsx";
@@ -133,6 +138,7 @@ import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
 import { STRINGS } from "./game/strings.ts";
+import { clamp } from "./lib/util.ts";
 
 /** How often the HUD's readouts are refreshed, s. Twelve a second reads
  * as live on a clock and a speedo; the canvas is the sixty-frame surface. */
@@ -176,6 +182,7 @@ type Params = {
   /** The picture rows a link names — the same three ladders and the same
    * switch OPTIONS ▸ VIDEO turns, and settings in the same way: laid over the
    * stored ones, never read straight into the renderer. */
+  camera: CameraMode | undefined;
   water: WaterLevel | undefined;
   resolution: ResolutionLevel | undefined;
   detail: DetailLevel | undefined;
@@ -237,6 +244,7 @@ function readParams(): Params {
     day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
       ? (p.get("day") as Conditions)
       : undefined,
+    camera: stop(CAMERA_MODES, "camera"),
     water: stop(WATER_LEVELS, "water"),
     resolution: stop(RESOLUTION_LEVELS, "res"),
     detail: stop(DETAIL_LEVELS, "detail"),
@@ -291,6 +299,7 @@ function settingsFor(stored: Settings, params: Params): Settings {
     video: { ...stored.video },
     dev: { ...stored.dev },
   };
+  if (params.camera !== undefined) settings.ride.camera = params.camera;
   if (params.water !== undefined) settings.video.water = params.water;
   if (params.resolution !== undefined) settings.video.resolution = params.resolution;
   if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
@@ -663,7 +672,17 @@ export function App() {
     let rate = FPS_UNKNOWN;
     const frame = (now: number): void => {
       raf = requestAnimationFrame(frame);
-      const dtFrame = Math.min(0.1, (now - last) / 1000);
+      // CLAMPED AT BOTH ENDS. The ceiling is the long-frame guard; the FLOOR
+      // is not paranoia — the first callback after a level has been built
+      // carries the timestamp of the frame that was already under way when
+      // the build began, so `now` lands more than a second BEHIND the
+      // `performance.now()` taken after it and the first `dtFrame` of every
+      // run is negative. Everything counted in seconds off this line runs
+      // backwards for as long as it takes to pay that back: the HUD's tick
+      // does not fire, so the readouts are missing for the first seconds of
+      // a run and from every screenshot, and the news column holds its lines
+      // that much longer.
+      const dtFrame = clamp((now - last) / 1000, 0, 0.1);
       frameMs = now - last || frameMs;
       last = now;
       wall += dtFrame;
@@ -789,6 +808,7 @@ export function App() {
           fps={settings.hud.fps ? fps : null}
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
+          onCamera={() => rendererRef.current?.camera.cycle()}
           onPause={() => runRef.current.pause()}
         />
       )}
