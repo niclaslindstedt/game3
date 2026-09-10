@@ -43,10 +43,12 @@ import { SFX_STEP, freshSettings, type Settings } from "./settings.ts";
 import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
+  DISTANCE_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   detailOf,
   type DetailLevel,
+  type DistanceLevel,
   type ResolutionLevel,
   type VideoSettings,
   type WaterLevel,
@@ -74,7 +76,7 @@ export const CAMERA_STOPS: Stop<CameraMode>[] = CAMERA_MODES.map((id) => ({
   label: CAMERA_LABELS[id],
 }));
 
-/** The three picture ladders. Every one of them is cheapest first, left to
+/** The four picture ladders. Every one of them is cheapest first, left to
  * right, so a rider who is looking for frames always walks the same way — and
  * the words come off the strings table like every other word on every other
  * card (§39.1), never off the id. */
@@ -92,6 +94,11 @@ const RESOLUTION_STOPS: Stop<ResolutionLevel>[] = RESOLUTION_LEVELS.map((id) => 
 }));
 
 const DETAIL_STOPS: Stop<DetailLevel>[] = DETAIL_LEVELS.map((id) => ({ id, label: STEPS[id] }));
+
+const DISTANCE_STOPS: Stop<DistanceLevel>[] = DISTANCE_LEVELS.map((id) => ({
+  id,
+  label: STEPS[id],
+}));
 
 /** The one fader, exported because the PAUSE CARD's strip carries it too: a
  * rider who stops mid-run to turn the water down is the fader's commonest
@@ -137,15 +144,15 @@ export function OptionsPage({
     <div class="menu-card menu-card-options" onPointerLeave={() => setHint(null)}>
       <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuOptions} />
       {/* Two columns on anything wide enough, packed by ROW COUNT rather than
-          by subject order — four on the left, four on the right — so a laptop
+          by subject order — five on the left, four on the right — so a laptop
           holds the whole page without scrolling and neither column ends
           short. On a phone the grid collapses and they stack. */}
       <div class="knob-groups">
         <div class="knob-col">
-          {/* Four rows, not one, because they are four different costs: how
-              many pixels, how much sea, how much stuff on it, and how far the
-              eye gets INTO it. A machine can be short of one and rich in
-              another. */}
+          {/* Five rows, not one, because they are five different costs: how
+              many pixels, how much sea, how much stuff on it, how far out
+              there IS any, and how far the eye gets INTO it. A machine can be
+              short of one and rich in another. */}
           <KnobGroup title={STRINGS.optPicture}>
             <StepRow
               label={STRINGS.optResolution}
@@ -165,6 +172,19 @@ export function OptionsPage({
               stops={DETAIL_STOPS}
               value={detailOf(settings.video)}
               onPick={(detail) => setVideo(DETAIL_PRESETS[detail])}
+              onHint={setHint}
+            />
+            {/* DISTANCE sits under DETAIL because they are the same question
+                asked twice — how much world — and a rider hunting frames
+                should find the two of them together. It is also the one row
+                on the page that changes the WEATHER: a shorter view is a
+                hazier day, which is how the cut-off stays out of sight. */}
+            <StepRow
+              label={STRINGS.optDistance}
+              hint={STRINGS.optDistanceHint}
+              stops={DISTANCE_STOPS}
+              value={settings.video.distance}
+              onPick={(distance) => setVideo({ distance })}
               onHint={setHint}
             />
             <StepRow

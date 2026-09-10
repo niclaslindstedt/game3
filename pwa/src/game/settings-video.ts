@@ -10,14 +10,14 @@
 // THE WORDS ON THE CHIPS ARE NOT HERE. Every one of them is `strings.ts`'s
 // (§39.1); this file names the STOPS and the menu looks their labels up.
 
-/** THE PICTURE, AS FOUR QUESTIONS: how much sea, how many pixels, how much
- * world, and whether you can see INTO the water. Every lever below is real and
- * read by the renderer, but a rider does not have an opinion about pine
- * density — they have an opinion about whether the game is smooth, and about
- * which of the things making it unsmooth they would rather keep. Four rows is
- * what lets them answer that.
+/** THE PICTURE, AS FIVE QUESTIONS: how much sea, how many pixels, how much
+ * world, how far that world runs before the haze takes it, and whether you can
+ * see INTO the water. Every lever below is real and read by the renderer, but
+ * a rider does not have an opinion about pine density — they have an opinion
+ * about whether the game is smooth, and about which of the things making it
+ * unsmooth they would rather keep. Five rows is what lets them answer that.
  *
- * The point of the split is that the four costs are NOT the same cost, and a
+ * The point of the split is that the five costs are NOT the same cost, and a
  * machine can be short of one while rich in another:
  *
  *   WATER       is CPU. The grid is the only thing in the frame that calls the
@@ -30,6 +30,11 @@
  *               hull, the sea life under the surface, the tree line behind the
  *               shore, how many sheets of cloud are in the sky (and so in the
  *               sea reflecting it), and whether the rain lands on the water.
+ *   DISTANCE    is how many metres of it there ARE — vertices, and nothing
+ *               else. Where DETAIL thins the wood the rider is riding past,
+ *               DISTANCE decides how much coast is submitted at all, and pulls
+ *               the fog in over the cut so the shore ends in weather rather
+ *               than at an edge.
  *   SEE-THROUGH is the one thing on the page that is a LOOK rather than an
  *               amount — and it is paid twice over, in a transparent pass over
  *               most of the frame and in everything drawn under it.
@@ -46,6 +51,14 @@ export type VideoSettings = {
    * Rebuilds the water grid when it is set, which is a few milliseconds and
    * happens while a card is up. */
   water: WaterLevel;
+  /** HOW FAR THE WORLD RUNS before the haze closes over it — how much shore is
+   * drawn, how far out its cover is planted, and how hard the fog is pulled in
+   * to meet them. Its own row (DISTANCE), and the cheapest frames on the page:
+   * everything it takes away is geometry that was already inside the fog.
+   *
+   * It applies from the next frame with nothing rebuilt — the shore's chunks
+   * and the cover's stands are hidden and shown, never re-planted. */
+  distance: DistanceLevel;
   /** What share of the device's own pixels the frame is drawn at — its own
    * row (RESOLUTION), and it applies the moment it is set. */
   resolution: ResolutionLevel;
@@ -103,6 +116,9 @@ export type VideoSettings = {
 
 export const WATER_LEVELS = ["low", "medium", "high"] as const;
 export type WaterLevel = (typeof WATER_LEVELS)[number];
+
+export const DISTANCE_LEVELS = ["low", "medium", "high"] as const;
+export type DistanceLevel = (typeof DISTANCE_LEVELS)[number];
 
 export const RESOLUTION_LEVELS = ["low", "medium", "high"] as const;
 export type ResolutionLevel = (typeof RESOLUTION_LEVELS)[number];
@@ -210,6 +226,61 @@ export const WATER_LOOK: Record<WaterLevel, WaterLook> = {
   high: { grid: 96, half: 140, cell: 0.85, rippleFade: [120, 460], anisotropy: 16 },
 };
 
+/** What one stop of the DISTANCE row is worth. Two radii and a haze, and the
+ * three are one answer rather than three: the radii say where the world stops
+ * and the haze says how far the eye gets before it stops caring, and a stop
+ * that moved one without the others would be either a visible edge or a
+ * needlessly murky day. */
+export type DistanceLook = {
+  /** How far the SHORE is drawn, m from the lens. A chunk of ground whose
+   * bounding sphere lies wholly beyond this is not submitted. */
+  shore: number;
+  /** How far the COVER is drawn, m from the lens — the trees, the scrub, the
+   * grass, the reed and the loose stone (`flora.ts`). Always inside `shore`:
+   * a stand of pines is a silhouette and the slab under it is not, so cover
+   * that outlived its ground would be a wood standing on the sea. */
+  cover: number;
+  /** What the sky's own fog range is worth here — a multiplier on the
+   * preset's `fogNear` AND `fogFar` (`sky.ts`), applied before whatever is
+   * falling shortens it again (`weather.ts`).
+   *
+   * THIS IS THE HALF THAT MAKES THE ROW HONEST. Hiding geometry is easy; the
+   * hard part is that the rider must not be able to SEE it hidden, and the
+   * only thing that hides a cut-off is air. So every stop pulls the fog in
+   * until it has closed over its own radii — `tests/video_test.ts` holds the
+   * table to it against the clearest sky the ladder can deal — and what the
+   * rider gets for choosing LOW is not a shore that ends, but a hazier day.
+   *
+   * It is also the reference generation's own answer. The 90s jetski racers
+   * ran on machines that could draw a few hundred metres of world, and what
+   * they did about it — every one of them — was to put weather in front of
+   * the edge. A short view here reads as that era rather than as a budget. */
+  haze: number;
+};
+
+/** THE DISTANCE LADDER — how much coast there IS.
+ *
+ * The cheapest frames on the page, because almost everything it takes away was
+ * already invisible: a level is some seventeen hundred metres across and the
+ * clearest sky the game deals closes at under six hundred, so the design point
+ * itself can drop the far half of the shore and the wood on it without
+ * changing one pixel. That is what MEDIUM is — the picture the game was tuned
+ * on, minus the geometry nobody could see.
+ *
+ * LOW is where the row starts costing something, and it costs it in AIR: the
+ * fog comes in to a bit over half its range so the shore can end at four
+ * hundred and sixty metres inside it. The day is hazier. Nothing is missing.
+ *
+ * HIGH spends a fast machine's headroom on the opposite trade — the fog pushed
+ * out a stop past what the sky authored, and the coast drawn out to meet it.
+ * Modestly: the shore's own skirt runs out only so far, and a view long enough
+ * to reach the end of the world is a worse picture than a short one. */
+export const DISTANCE_LOOK: Record<DistanceLevel, DistanceLook> = {
+  low: { shore: 460, cover: 380, haze: 0.55 },
+  medium: { shore: 900, cover: 700, haze: 1 },
+  high: { shore: 1500, cover: 1150, haze: 1.15 },
+};
+
 /** What share of the DEVICE'S OWN pixels each stop draws — a multiplier on the
  * ratio the page has already capped at `MAX_DPR`, not a second ceiling over
  * it.
@@ -305,9 +376,16 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
  * volume down there. It is the first row to turn off on a phone that is
  * struggling, and the last one a machine with headroom should ever give up.
  *
- * DETAIL ships MEDIUM, the design point, for the same reason WATER does. */
+ * DETAIL ships MEDIUM, the design point, for the same reason WATER does.
+ *
+ * DISTANCE ships MEDIUM because MEDIUM is free: at that stop the fog closes
+ * before the shore does on every sky the game deals, so the default picture is
+ * the tuned one and the machine simply stops drawing what was never visible.
+ * A rider only ever moves this row to buy something — frames at LOW, a longer
+ * view at HIGH — never to get back to correct. */
 export const DEFAULT_VIDEO: VideoSettings = {
   water: "medium",
+  distance: "medium",
   resolution: "high",
   seeThrough: true,
   ...DETAIL_PRESETS.medium,

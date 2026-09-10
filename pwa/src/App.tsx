@@ -46,10 +46,10 @@
 //                  rows below, so a link lays it over the stored one; the
 //                  camera key still walks the whole ladder from there
 //   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
-//   ?res=low       WATER, RESOLUTION and DETAIL (low | medium | high) and
-//   ?detail=low    SEE-THROUGH (?see=0/1). They are settings like
-//   ?see=0         the start card's, so a link lays them over the stored
-//                  ones rather than reading them into the run — which is
+//   ?res=low       WATER, RESOLUTION, DETAIL and DISTANCE (low | medium |
+//   ?detail=low    high) and SEE-THROUGH (?see=0/1). They are settings like
+//   ?distance=low  the start card's, so a link lays them over the stored
+//   ?see=0         ones rather than reading them into the run — which is
 //                  what lets the screenshot lab photograph one row of the
 //                  ladder, and a bug report about the water name the
 //                  picture it was seen at
@@ -136,9 +136,11 @@ import {
 import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
+  DISTANCE_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   type DetailLevel,
+  type DistanceLevel,
   type ResolutionLevel,
   type WaterLevel,
 } from "./game/settings-video.ts";
@@ -198,6 +200,7 @@ type Params = {
   water: WaterLevel | undefined;
   resolution: ResolutionLevel | undefined;
   detail: DetailLevel | undefined;
+  distance: DistanceLevel | undefined;
   seeThrough: boolean | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
@@ -260,6 +263,7 @@ function readParams(): Params {
     water: stop(WATER_LEVELS, "water"),
     resolution: stop(RESOLUTION_LEVELS, "res"),
     detail: stop(DETAIL_LEVELS, "detail"),
+    distance: stop(DISTANCE_LEVELS, "distance"),
     seeThrough: see === null ? undefined : see === "1",
     rides: shot || named !== null || paused || p.get("start") === "1",
     paused,
@@ -315,6 +319,7 @@ function settingsFor(stored: Settings, params: Params): Settings {
   if (params.water !== undefined) settings.video.water = params.water;
   if (params.resolution !== undefined) settings.video.resolution = params.resolution;
   if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
+  if (params.distance !== undefined) settings.video.distance = params.distance;
   if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;

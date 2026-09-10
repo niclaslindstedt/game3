@@ -19,6 +19,7 @@ import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
+import { cullByDistance } from "./draw-distance.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
@@ -29,6 +30,7 @@ import { createRider, type Rider } from "./rider.ts";
 import { createRocks } from "./rocks.ts";
 import {
   DEFAULT_VIDEO,
+  DISTANCE_LOOK,
   FLORA_SCALE,
   RAIN_RING_REACH,
   RESOLUTION_SCALE,
@@ -45,7 +47,9 @@ import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
  * weather's ceiling at 2400 m — so nothing in the sky is ever clipped; the
  * near is under the nose camera's own deck. The fog's own range belongs to
  * the sky (`Preset.fogNear` / `fogFar`), because how far a rider can see is
- * a fact about the weather. */
+ * a fact about the weather — and the DISTANCE row scales that range rather
+ * than this plane, because the horizon disc stands out to 4 km and a far
+ * plane inside it would cut the sea off from the sky. */
 const NEAR = 0.2;
 const FAR = 4200;
 
@@ -244,6 +248,10 @@ export function createRenderer(
     }
     spray.setBudget(SPRAY_SCALE[next.spray]);
     flora?.setDensity(FLORA_SCALE[next.flora]);
+    // THE DISTANCE ROW pulls the fog in (or lets it out) to meet the radii the
+    // frame will draw to; the radii themselves are applied per frame, because
+    // they are measured from wherever the lens ends up.
+    sky.setHaze(DISTANCE_LOOK[next.distance].haze);
     // The SKY stop recompiles the dome and, through the shared uniforms, the
     // water's mirror with it — which is why the water is re-toned after it
     // rather than left to the next level.
@@ -272,6 +280,14 @@ export function createRenderer(
     fauna?.update(state, c.x, c.z, reach);
     wake.update(state);
     spray.update(state);
+
+    // HOW MUCH WORLD IS SUBMITTED — from the LENS rather than from the craft,
+    // because the helicopter seat can stand a long way off it and the rider is
+    // looking through the camera either way. Everything dropped here is already
+    // inside the fog the same row thickened (`draw-distance.ts`).
+    const drawn = DISTANCE_LOOK[video.distance];
+    if (terrain) cullByDistance(terrain, pose.x, pose.z, drawn.shore);
+    flora?.setReach(pose.x, pose.z, drawn.cover);
 
     camera.position.set(pose.x, pose.y, pose.z);
     aim.set(pose.aimX, pose.aimY, pose.aimZ);

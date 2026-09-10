@@ -154,13 +154,15 @@ const args = parseArgs(
     water: { kind: "string", help: "the WATER row: low, medium, high" },
     res: { kind: "string", help: "the RESOLUTION row: low, medium, high" },
     detail: { kind: "string", help: "the DETAIL row: low, medium, high" },
+    distance: { kind: "string", help: "the DISTANCE row: low, medium, high" },
     see: { kind: "string", help: "see into the water: 1 or 0" },
     viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
     "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] " +
-    "[--camera c] [--water l] [--res l] [--detail l] [--see 0|1] [--viewport v] [--timeout s]",
+    "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] " +
+    "[--viewport v] [--timeout s]",
 );
 const viewports =
   args.viewport === "all" ? Object.keys(VIEWPORTS) : String(args.viewport).split(",");
@@ -259,6 +261,7 @@ if (args.weather !== undefined) base.weather = String(args.weather);
 if (args.water !== undefined) base.water = String(args.water);
 if (args.res !== undefined) base.res = String(args.res);
 if (args.detail !== undefined) base.detail = String(args.detail);
+if (args.distance !== undefined) base.distance = String(args.distance);
 if (args.see !== undefined) base.see = String(args.see);
 if (args.surface) {
   const names = args.surface === "all" ? Object.keys(SURFACES) : String(args.surface).split(",");

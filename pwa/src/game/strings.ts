@@ -198,6 +198,9 @@ export const STRINGS = {
    * answer; a row that had to be read is a row that has failed. */
   optWater: "WATER",
   optWaterHint: "How far out the sea is drawn properly, and how fine the grid under it is",
+  optDistance: "DISTANCE",
+  optDistanceHint:
+    "How much of the coast is drawn — the shorter the view, the closer the haze that closes over it",
   optResolution: "RESOLUTION",
   optResolutionHint: "How many pixels the water is drawn at before it reaches the screen",
   optDetail: "DETAIL",
