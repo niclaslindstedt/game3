@@ -75,9 +75,8 @@ export type LevelAnalysis = {
     /** R25 — how far out the ocean leg's furthest point stands, m, and how
      * high the mark it rounds is. */
     legOffshore: number;
-    /** R29 — the least water between the line and any shore, m: a
-     * circuit's headline number, and 0 on a coast level, where R1's band
-     * says the same thing at both ends. */
+    /** R29 — how far out a circuit's lap gets, m, and 0 on a coast level,
+     * where R25's own leg is the reading that answers the same question. */
     leastOffshore: number;
     /** R30 — how many times round; 1 on a coast level. */
     laps: number;

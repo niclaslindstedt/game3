@@ -10,20 +10,23 @@
 //
 // The three rules split cleanly:
 //
-//   R29  the line is out at sea. One floor, held every metre of the way,
-//        and the level's own shape asked for it: a circuit that came out
-//        with a shore inside the band is a circuit whose basin was cut in
-//        the wrong place, and the rider meets it as a beach on the exit of
-//        a corner.
+//   R29  the lap runs from the shore out to sea and back. Three readings
+//        of one walk — how near the beach it comes, how far out it gets,
+//        how much of it tracks the coast — because a lap that is not an
+//        out-and-back passes any one of them on its own.
 //   R30  the ride is whole laps of one lap. The gates repeat, the spacing
 //        is even round the seam as well as inside a lap, and the finish
 //        stands on the start line.
-//   R31  the lap goes round rocks. `roundingAbout` is the measure, and it
-//        is the SEARCH's measure — the drawer accepted each mark by asking
-//        this same function, so a rounding the generator built and one the
-//        scoreboard reads are the same thing by construction.
+//   R31  the lap is ridden round lit buoys, one of them out in the open
+//        sea. `roundingAbout` is the measure of a rounding, and it is the
+//        SEARCH's measure — the drawer accepted each buoy by asking this
+//        same function, so a rounding the generator built and one the
+//        scoreboard reads are the same thing by construction. The lights
+//        are checked too: an unlit rounding buoy is a mark nobody can find
+//        at night, which is most of what a buoy is for.
 
 import { sampleField } from "../lib/heightfield.ts";
+import { buoyLightName } from "../game/buoy.ts";
 import { lapTurn, roundingAbout } from "../mapgen/circuit.ts";
 import { cumulative, distanceAlong, walkPolyline } from "../mapgen/course.ts";
 import { LEVEL_RULES as R, withinBand } from "../mapgen/rules.ts";
@@ -32,31 +35,66 @@ import { ANALYSIS as A } from "./budgets.ts";
 import { bandText, fmt, type Report } from "./report.ts";
 
 /** R29, R30, R31 — every check a circuit owes, and nothing a coast level
- * would recognise. Returns the least offshore distance anywhere on the
- * line, which is a circuit's headline number the way the ocean leg's reach
- * is a coast level's. */
+ * would recognise. Returns how far out the lap's furthest station stands,
+ * which is a circuit's headline number the way the ocean leg's reach is a
+ * coast level's. */
 export function analyzeCircuit(level: Level, rep: Report): number {
   const C = R.circuit;
   const path = level.course.path;
   const course = level.course;
 
-  // ── R29 — every metre of it is out at sea ───────────────────────────
+  // ── R29 — the lap runs from the shore out to sea and back ───────────
+  // THREE readings of one walk, because the rule has three halves and any
+  // one of them alone is passed by a lap that is not an out-and-back: how
+  // close it comes to the beach, how far out it gets, and how much of it
+  // is ridden along the coast in between. A ring out at sea passes the
+  // second; a coastal loop passes the first and third.
   let least = Infinity;
+  let furthest = 0;
+  let ashore = 0;
+  let walked = 0;
+  let last = 0;
   let at: { x: number; z: number } | undefined;
-  walkPolyline(path, A.stride, (x, z) => {
+  let apex: { x: number; z: number } | undefined;
+  walkPolyline(path, A.stride, (x, z, d) => {
     const off = sampleField(level.offshore, x, z);
+    const span = d - last;
+    last = d;
+    walked += span;
+    if (off <= R.course.offshore.max) ashore += span;
     if (off < least) {
       least = off;
       at = { x, z };
     }
+    if (off > furthest) {
+      furthest = off;
+      apex = { x, z };
+    }
     return true;
   });
-  if (least < C.offshore.min - A.circuit.offshore) {
+  if (!withinBand(least, C.inshore, A.circuit.offshore)) {
     rep.fail(
       "R29",
-      "offshore",
-      `the line comes ${fmt(least)} m off the shore (rule ${C.offshore.min} m)`,
+      "inshore",
+      `the lap's nearest approach to the shore is ${fmt(least)} m (band ${bandText(C.inshore)} m)`,
       { at, value: least },
+    );
+  }
+  if (!withinBand(furthest, C.reach, A.circuit.offshore)) {
+    rep.fail(
+      "R29",
+      "reach",
+      `the lap gets ${fmt(furthest)} m out to sea (band ${bandText(C.reach)} m)`,
+      { at: apex, value: furthest },
+    );
+  }
+  const share = walked > 0 ? ashore / walked : 0;
+  if (!withinBand(share, C.ashore, A.circuit.ashore)) {
+    rep.fail(
+      "R29",
+      "ashore",
+      `${fmt(share * 100)}% of the lap tracks the shore (band ${fmt(C.ashore.min * 100)}–${fmt(C.ashore.max * 100)}%)`,
+      { value: share },
     );
   }
   // …and it is a LOOP: what the rider rides ends where a lap began.
@@ -121,11 +159,57 @@ export function analyzeCircuit(level: Level, rep: Report): number {
     rep.fail("R30", "finish", `the finish is not on the start line`, { at: finish });
   }
 
-  // ── R31 — the lap goes round rocks ──────────────────────────────────
-  const marks = level.solids.filter((s) => s.kind === "mark");
+  // ── R31 — the lap is ridden round lit buoys ─────────────────────────
+  const marks = level.solids.filter((s) => s.kind === "buoy");
   if (!withinBand(marks.length, C.mark.count)) {
-    rep.fail("R31", "count", `${marks.length} marks (band ${bandText(C.mark.count)})`, {
+    rep.fail("R31", "count", `${marks.length} buoys (band ${bandText(C.mark.count)})`, {
       value: marks.length,
+    });
+  }
+  // …and one of them is OUT THERE. This is the half of R31 that makes the
+  // lap an out-and-back: a lap whose every buoy stands in the shallows is a
+  // coastal loop, whatever its furthest station reached.
+  const offshoreOf = (s: { x: number; z: number }): number => sampleField(level.offshore, s.x, s.z);
+  if (marks.length > 0 && !marks.some((m) => offshoreOf(m) >= C.mark.ocean - A.circuit.offshore)) {
+    rep.fail(
+      "R31",
+      "ocean",
+      `no buoy stands out past ${C.mark.ocean} m (the furthest is ${fmt(
+        Math.max(...marks.map(offshoreOf)),
+      )} m out)`,
+      { at: marks[0] },
+    );
+  }
+  // Every one of them FLASHES, and no two alike on a lap: a rider picks the
+  // corner ahead out of a black sea by counting the flashes, so two buoys
+  // with one character are two marks nobody can tell apart.
+  const characters = new Set<string>();
+  for (const mark of marks) {
+    if (!mark.light) {
+      rep.fail("R31", "unlit", `${mark.id} is a rounding buoy with no light`, { at: mark });
+      continue;
+    }
+    if (!withinBand(mark.light.flashes, C.mark.light.flashes)) {
+      rep.fail(
+        "R31",
+        "flashes",
+        `${mark.id} flashes ${mark.light.flashes} in a group (band ${bandText(C.mark.light.flashes)})`,
+        { at: mark, value: mark.light.flashes },
+      );
+    }
+    if (!withinBand(mark.light.period, C.mark.light.period)) {
+      rep.fail(
+        "R31",
+        "period",
+        `${mark.id} flashes every ${fmt(mark.light.period)} s (band ${bandText(C.mark.light.period)} s)`,
+        { at: mark, value: mark.light.period },
+      );
+    }
+    characters.add(buoyLightName(mark.light));
+  }
+  if (marks.length > 1 && characters.size < Math.min(marks.length, C.mark.light.flashes.max)) {
+    rep.smell("R31", "alike", `${marks.length} buoys carry ${characters.size} characters`, {
+      value: characters.size,
     });
   }
   // Measured over ONE lap of the path. A mark inside the loop is wound a
@@ -170,7 +254,7 @@ export function analyzeCircuit(level: Level, rep: Report): number {
       );
     }
   }
-  return least;
+  return furthest;
 }
 
 /** R29 — how far the line turns going round ONE lap, rad, and the check

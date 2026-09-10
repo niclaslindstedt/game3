@@ -25,6 +25,7 @@ import { cullByDistance } from "./draw-distance.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
+import { createBuoys, type Buoys } from "./buoys.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createFlora, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
@@ -136,6 +137,7 @@ export function createRenderer(
   let fauna: Fauna | null = null;
   let flora: Flora | null = null;
   let gates: Gates | null = null;
+  let buoys: Buoys | null = null;
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
   let lamps: CraftLamps | null = null;
@@ -167,6 +169,7 @@ export function createRenderer(
       level = state.level;
       terrain = createTerrain(level);
       gates = createGates(level);
+      buoys = createBuoys(level);
       // The sea life is under the water rather than in it: an opaque thing
       // at a place, drawn before the transparent surface blends over it,
       // which is what makes a school look like it is being seen THROUGH
@@ -183,6 +186,7 @@ export function createRenderer(
         flora.group,
         createFootprints(level),
         gates.group,
+        buoys.group,
         fauna.group,
       );
       scene.add(world);
@@ -330,6 +334,8 @@ export function createRenderer(
 
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state);
+    buoys?.update(state, camera);
+    if (buoys) water?.setBuoyLamps(buoys.lamps);
     // How far the rider can see into the water is the water mesh's answer, and
     // it is 0 with the window closed — so a closed window is also an empty sea
     // bed rather than a second rule about what to draw down there.
@@ -370,6 +376,7 @@ export function createRenderer(
       water.setLamp(lamps.light);
     }
     gates?.setNight(p.lamps);
+    buoys?.setNight(p.lamps);
 
     // THE WAKE'S PASS: the trail rasterised into the map the water reads,
     // before anything reads it.

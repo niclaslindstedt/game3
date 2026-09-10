@@ -61,6 +61,9 @@ const SOLID = {
   erratic: { fill: [64, 58, 52], edge: [24, 22, 20] },
   stack: { fill: [148, 140, 128], edge: [40, 38, 34] },
   mark: { fill: [214, 206, 190], edge: [30, 28, 24] },
+  // R31 — the rounding buoy: the one solid that is not rock, drawn in its
+  // own paint so a lap's corners read off the plan at a glance.
+  buoy: { fill: [255, 196, 40], edge: [40, 34, 12] },
 };
 
 export const MARK = {
@@ -214,6 +217,13 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
     const r = Math.max(2, s.r * scale);
     canvas.disk(px(s.x), py(s.z), r, ink.fill);
     canvas.circle(px(s.x), py(s.z), r, ink.edge, 1);
+    // R31 — a rounding buoy is two metres across and the thing the whole
+    // corner is about, so it is ringed at the size a rider MINDS it at
+    // rather than at the size it is, and labelled with its light.
+    if (s.kind === "buoy") {
+      canvas.circle(px(s.x), py(s.z), Math.max(7, r + 5), ink.fill, 2);
+      label(canvas, px(s.x) + 10, py(s.z) - 4, s.id, ink.fill, 1);
+    }
   }
 
   // ── The course: the line, then every gate with its id ─────────────────

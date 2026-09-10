@@ -33,7 +33,8 @@
 // the same function the analysis re-checks the finished level with, so the
 // search cannot accept a rounding the scoreboard would refuse.
 
-import { TAU } from "../lib/math.ts";
+import { ANALYSIS } from "../analysis/budgets.ts";
+import { angleDiff, TAU } from "../lib/math.ts";
 import type { Rng } from "../lib/prng.ts";
 import { polylineDistance } from "../lib/polyline.ts";
 import { LEVEL_RULES as R, inBand, solidBerth, withinBand } from "./rules.ts";
@@ -52,33 +53,20 @@ type Shape = {
   readonly k: readonly number[];
   readonly a: readonly number[];
   readonly phase: readonly number[];
+  /** R29 — the first harmonic, phase-locked to the sea: how far the radius
+   * bulges out at θ = 0, which is the seaward direction in this frame. */
+  readonly bulge: number;
 };
 
-/** The unit shape's radius at an angle, with its first two derivatives —
- * everything the polar curvature below asks for, summed once. */
-function radiusAt(shape: Shape, t: number): { r: number; d1: number; d2: number } {
-  let r = 1;
-  let d1 = 0;
-  let d2 = 0;
+/** The unit shape's radius at an angle, measured in the SEA'S OWN FRAME:
+ * θ = 0 points straight out to sea, so the bulge is a plain cosine of it
+ * and the shore leg is the arc round θ = π. */
+function radiusAt(shape: Shape, t: number): number {
+  let r = 1 + shape.bulge * Math.cos(t);
   for (let i = 0; i < shape.k.length; i++) {
-    const k = shape.k[i];
-    const a = shape.a[i];
-    const at = k * t + shape.phase[i];
-    r += a * Math.sin(at);
-    d1 += a * k * Math.cos(at);
-    d2 -= a * k * k * Math.sin(at);
+    r += shape.a[i] * Math.sin(shape.k[i] * t + shape.phase[i]);
   }
-  return { r, d1, d2 };
-}
-
-/** The SIGNED curvature of the unit shape at an angle, 1/m at unit radius:
- * the standard polar form κ = (r² + 2r′² − r·r″) / (r² + r′²)^{3/2}. It
- * goes negative where the curve turns back on itself, which is the counter
- * bend R29 asks for, and the loop's real curvature is this over the scale
- * the shape is drawn at. */
-function curvature(shape: Shape, t: number): number {
-  const { r, d1, d2 } = radiusAt(shape, t);
-  return (r * r + 2 * d1 * d1 - r * d2) / Math.pow(r * r + d1 * d1, 1.5);
+  return r;
 }
 
 /**
@@ -205,57 +193,64 @@ function drawOnce(rng: Rng): Route | null {
     }
   }
   if (k.length === 0) return null;
-  const shape: Shape = { k, a, phase };
+  const shape: Shape = { k, a, phase, bulge: inBand(rng, C.bulge) };
   const lap = inBand(rng, C.lap);
+  const stretch = inBand(rng, C.stretch);
+  const inshore = inBand(rng, C.inshore);
   // R29's own sea heading: a circuit runs every way, so there is nothing to
   // read the open sea's direction off — it is simply which side of the loop
-  // the coast is put on.
+  // the coast is put on, and the shape is drawn against it.
   const seaHeading = rng.range(0, TAU);
+  const sx = Math.sin(seaHeading);
+  const sz = Math.cos(seaHeading);
 
-  // ── The unit shape, and what scaling it to the lap will cost ─────────
-  const unit: Vec2[] = [];
-  let sharpest = 0;
+  // ── The unit shape, in the sea's frame ───────────────────────────────
+  // `u` is seaward, `v` runs along the coast. The stretch is on `v` alone:
+  // that is what turns the point where a round lap meets the shore into a
+  // RUN along it, and it is why the shape is drawn in this frame rather
+  // than in the world's.
+  const u: number[] = [];
+  const v: number[] = [];
   for (let i = 0; i < SAMPLES; i++) {
     const t = (i / SAMPLES) * TAU;
-    const { r } = radiusAt(shape, t);
+    const r = radiusAt(shape, t);
     // A radius that has gone through zero is a shape folded inside out; the
-    // swing band keeps every draw well clear of it, and this is the
-    // arithmetic saying so rather than a lobe drawn through the origin.
+    // bands keep every draw well clear of it, and this is the arithmetic
+    // saying so rather than a lobe drawn through the origin.
     if (r <= 0.2) return null;
-    unit.push({ x: r * Math.cos(t), z: r * Math.sin(t) });
-    sharpest = Math.max(sharpest, Math.abs(curvature(shape, t)));
+    u.push(r * Math.cos(t));
+    v.push(r * Math.sin(t) * stretch);
   }
   let unitLength = 0;
   for (let i = 0; i < SAMPLES; i++) {
-    const p = unit[i];
-    const q = unit[(i + 1) % SAMPLES];
-    unitLength += Math.hypot(q.x - p.x, q.z - p.z);
+    const j = (i + 1) % SAMPLES;
+    unitLength += Math.hypot(u[j] - u[i], v[j] - v[i]);
   }
   const scale = lap / unitLength;
-  // R23 — the tightest corner the finished loop will carry. Both the
-  // perimeter and the curvature scale with the mean radius, so this is the
-  // real answer and not an estimate: a shape whose corners are tighter than
-  // a hull can hold is refused here, before anything is built.
-  if (scale / sharpest < R.course.radius) return null;
+
+  // ── R29 — where the shape puts the lap against the shore ─────────────
+  // The seaward extent is the whole of what makes a lap an out-and-back:
+  // the line's most inshore station stands `inshore` off the water's edge
+  // by construction (`oceanEdge` cuts the edge for it), so every other
+  // station's offshore distance is that plus how much further out it is.
+  let low = Infinity;
+  let high = -Infinity;
+  for (let i = 0; i < SAMPLES; i++) {
+    low = Math.min(low, u[i]);
+    high = Math.max(high, u[i]);
+  }
+  const reach = (high - low) * scale + inshore;
+  if (!withinBand(reach, C.reach)) return null;
 
   // ── The line itself, resampled by arc length ─────────────────────────
-  // The start stands at the STRAIGHTEST point of the lap. It is the line
-  // the race is started behind and crossed on every lap (R30), and a start
-  // line laid across a hairpin is a start nobody can take.
-  let straightest = 0;
-  let flattest = Infinity;
-  for (let i = 0; i < SAMPLES; i++) {
-    const c = Math.abs(curvature(shape, (i / SAMPLES) * TAU));
-    if (c < flattest) {
-      flattest = c;
-      straightest = i;
-    }
-  }
   const fine: Vec2[] = [];
   const fineCum: number[] = [0];
+  const fineOff: number[] = [];
   for (let i = 0; i <= SAMPLES; i++) {
-    const p = unit[(straightest + i) % SAMPLES];
-    fine.push({ x: p.x * scale, z: p.z * scale });
+    const j = i % SAMPLES;
+    // Into the world: `u` along the sea's heading, `v` across it.
+    fine.push({ x: (u[j] * sx + v[j] * sz) * scale, z: (u[j] * sz - v[j] * sx) * scale });
+    fineOff.push((u[j] - low) * scale + inshore);
     if (i > 0) {
       const q = fine[i - 1];
       fineCum.push(fineCum[i - 1] + Math.hypot(fine[i].x - q.x, fine[i].z - q.z));
@@ -263,17 +258,56 @@ function drawOnce(rng: Rng): Route | null {
   }
   const length = fineCum[SAMPLES];
   if (!withinBand(length, C.lap)) return null;
+
+  // R29 — HOW MUCH OF IT TRACKS THE SHORE: the share of the lap ridden
+  // inside R1's own ceiling. Measured on the fine samples by the arc they
+  // carry, not by how many of them there are, because they are not evenly
+  // spaced along a stretched shape.
+  let ashore = 0;
+  for (let i = 0; i < SAMPLES; i++) {
+    if (fineOff[i] <= R.course.offshore.max) ashore += fineCum[i + 1] - fineCum[i];
+  }
+  if (!withinBand(ashore / length, C.ashore)) return null;
+
+  // THE START STANDS ON THE SHORE LEG, at the flattest station of it. The
+  // lap begins at the beach (R29) and the line is crossed on every lap
+  // (R30), so a start laid out at sea is a race that never starts where the
+  // rider is looking — and one laid across a corner is a start nobody can
+  // take.
+  let begin = 0;
+  let flattest = Infinity;
+  for (let i = 0; i < SAMPLES; i++) {
+    if (fineOff[i] > R.course.offshore.max) continue;
+    const p = fine[(i - 8 + SAMPLES) % SAMPLES];
+    const q = fine[(i + 8) % SAMPLES];
+    const bend = Math.abs(
+      angleDiff(
+        Math.atan2(fine[i].x - p.x, fine[i].z - p.z),
+        Math.atan2(q.x - fine[i].x, q.z - fine[i].z),
+      ),
+    );
+    if (bend < flattest) {
+      flattest = bend;
+      begin = i;
+    }
+  }
+
   const count = Math.max(8, Math.round(length / R.route.step));
   const step = length / count;
   const points: Vec2[] = [];
   const along = new Float64Array(count + 1);
   {
-    let j = 0;
+    // Walked from the start station round, so the lap's first point is the
+    // one the start line stands on.
+    const from = fineCum[begin];
     for (let i = 0; i <= count; i++) {
       const at = Math.min(i * step, length);
-      while (j + 1 < SAMPLES && fineCum[j + 1] < at) j++;
+      let want = from + at;
+      if (want >= length) want -= length;
+      let j = 0;
+      while (j + 1 < SAMPLES && fineCum[j + 1] < want) j++;
       const span = fineCum[j + 1] - fineCum[j] || 1;
-      const t = (at - fineCum[j]) / span;
+      const t = (want - fineCum[j]) / span;
       points.push({
         x: fine[j].x + (fine[j + 1].x - fine[j].x) * t,
         z: fine[j].z + (fine[j + 1].z - fine[j].z) * t,
@@ -287,9 +321,14 @@ function drawOnce(rng: Rng): Route | null {
   }
 
   // ── R29 — what the drawn line has to hold ────────────────────────────
-  // A first filter only: `layCircuitCourse` asks the same question again of
-  // the lap that ships, which is the one with an air gate's straight cut
-  // out of it.
+  // R23's corner, measured on the STENCIL the scoreboard reads it with and
+  // on the polyline that ships, because a stretched shape has no curvature
+  // in closed form and a corner measured any other way is a corner nobody
+  // else agrees with.
+  if (tightestRadius(points, step) < R.course.radius) return null;
+  // A first filter only on the turn: `layCircuitCourse` asks the same
+  // question again of the lap that ships, which is the one with an air
+  // gate's straight cut out of it.
   if (!withinBand(lapTurn(points), C.turn)) return null;
   // …and it does not come back on itself. Measured the SHORT way round the
   // loop, because on a closed line two stations a step apart are also a lap
@@ -304,11 +343,59 @@ function drawOnce(rng: Rng): Route | null {
     }
   }
 
-  const marks = layMarks(rng, points, step);
+  // R31 — the buoys, and at least one of them out in the open sea: the
+  // offshore distance of a point is its own seaward reach off the loop's
+  // most inshore station, which is where `oceanEdge` will put the coast.
+  const offshoreAt = (p: Vec2): number => (p.x * sx + p.z * sz) / scale - low;
+  const marks = layMarks(rng, points, step, (p) => offshoreAt(p) * scale + inshore);
   if (marks.length < C.mark.count.min) return null;
 
   const widths = new Float64Array(count + 1).fill(R.route.corridor.max);
-  return { points, along, widths, length, seaHeading, closed: true, marks, leg: null };
+  return {
+    points,
+    along,
+    widths,
+    length,
+    seaHeading,
+    inshore,
+    closed: true,
+    marks,
+    leg: null,
+  };
+}
+
+/**
+ * R23 — the tightest corner a closed line carries, m of radius: the circle
+ * through three stations a stencil apart, taken at every station and
+ * wrapped round the seam.
+ *
+ * The stencil is the SCOREBOARD's (`ANALYSIS.course.stencil`) rather than a
+ * second opinion about it. A polyline's own vertices carry the rounding of
+ * whatever drew them, so a circle through three neighbours measures that
+ * rounding; the stencil is how wide a view of the corner answers the
+ * question, and the search and the check have to take the same view or a
+ * corner one of them calls rideable is one the other refuses.
+ */
+export function tightestRadius(points: readonly Vec2[], step: number): number {
+  const n = points.length - 1;
+  if (n < 3) return Infinity;
+  const stride = Math.max(1, Math.round(ANALYSIS.course.stencil / step));
+  let tightest = Infinity;
+  for (let i = 0; i < n; i++) {
+    const r = circumradius(points[(i - stride + n * 2) % n], points[i], points[(i + stride) % n]);
+    if (r < tightest) tightest = r;
+  }
+  return tightest;
+}
+
+/** The radius of the circle through three plan points — Infinity where they
+ * are collinear. */
+function circumradius(a: Vec2, b: Vec2, c: Vec2): number {
+  const ab = Math.hypot(b.x - a.x, b.z - a.z);
+  const bc = Math.hypot(c.x - b.x, c.z - b.z);
+  const ca = Math.hypot(a.x - c.x, a.z - c.z);
+  const area2 = Math.abs((b.x - a.x) * (c.z - a.z) - (b.z - a.z) * (c.x - a.x));
+  return area2 < 1e-9 ? Infinity : (ab * bc * ca) / (2 * area2);
 }
 
 /**
@@ -326,7 +413,12 @@ function drawOnce(rng: Rng): Route | null {
  * The strongest bends win, and two marks inside `mark.apart` of each other
  * along the lap are one corner counted twice.
  */
-function layMarks(rng: Rng, points: readonly Vec2[], step: number): Mark[] {
+function layMarks(
+  rng: Rng,
+  points: readonly Vec2[],
+  step: number,
+  offshoreAt: (p: Vec2) => number,
+): Mark[] {
   const C = R.circuit;
   const count = points.length - 1;
   const heading = (i: number): number => {
@@ -380,8 +472,20 @@ function layMarks(rng: Rng, points: readonly Vec2[], step: number): Mark[] {
     if (taken.some((t) => Math.min(Math.abs(t - at), lap - Math.abs(t - at)) < C.mark.apart)) {
       continue;
     }
-    const r = inBand(rng, R.solids.mark.r);
-    const top = inBand(rng, R.solids.mark.top);
+    const r = inBand(rng, R.solids.buoy.r);
+    const top = inBand(rng, R.solids.buoy.top);
+    // R31 — the CHARACTER. The flash count walks the chart's own list in
+    // placement order, so no two buoys on a lap carry the same one and a
+    // rider who has seen a group of three knows which corner is ahead; the
+    // period and the phase are drawn, so two of them are never in step even
+    // where the count runs out and repeats.
+    const light = {
+      flashes:
+        C.mark.light.flashes.min +
+        (marks.length % (C.mark.light.flashes.max - C.mark.light.flashes.min + 1)),
+      period: inBand(rng, C.mark.light.period),
+      phase: rng.range(0, C.mark.light.period.max),
+    };
     const round = roundingAbout(points, centre, C.mark.near);
     if (!withinBand(round.stand, C.mark.stand)) continue;
     if (round.stand < r + solidBerth(r) + R.search.marginSlack) continue;
@@ -392,8 +496,14 @@ function layMarks(rng: Rng, points: readonly Vec2[], step: number): Mark[] {
     ) {
       continue;
     }
-    marks.push({ x: centre.x, z: centre.z, r, top, zone: round.stand });
+    marks.push({ kind: "buoy", x: centre.x, z: centre.z, r, top, zone: round.stand, light });
     taken.push(at);
   }
+  // R31 — and at least one of them stands OUT AT SEA. This is the rule that
+  // makes a lap an out-and-back rather than a coastal loop with corners: the
+  // shore leg is what the rider warms up on, and the run out to this buoy is
+  // what it is a warm-up for. A shape whose bends all fall inshore is
+  // redrawn rather than shipped as a race that never leaves the beach.
+  if (!marks.some((m) => offshoreAt(m) >= C.mark.ocean)) return [];
   return marks;
 }

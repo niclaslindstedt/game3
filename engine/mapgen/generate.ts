@@ -123,14 +123,18 @@ const NO_RIVER: River = {
   discharge: 0,
 };
 
+/** R25, R31 — the marks the LINE placed, as the solids they are published
+ * as: `M1…` for the sea stack a coast's ocean leg rounds, `B1…` for the lit
+ * buoys a circuit's lap is ridden round, each carrying its own light. */
 function markSolids(route: Route): Solid[] {
   return route.marks.map((mark, i) => ({
-    id: `M${i + 1}`,
-    kind: "mark" as const,
+    id: `${mark.kind === "buoy" ? "B" : "M"}${i + 1}`,
+    kind: mark.kind,
     x: mark.x,
     z: mark.z,
     r: mark.r,
     top: mark.top,
+    ...(mark.light ? { light: { ...mark.light } } : {}),
   }));
 }
 
@@ -192,9 +196,9 @@ function drawOcean(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string
   // back from the loop's most inshore station by the whole of this level's
   // offshore distance, so the line stands out at sea by construction rather
   // than by a check.
-  const seaOffset = oceanEdge(rng, route);
-  const bounds = circuitBounds(route, seaOffset);
-  const basin = layOceanBasin(rng, route, bounds, seaOffset);
+  const shore = oceanEdge(rng, route);
+  const bounds = circuitBounds(route, shore);
+  const basin = layOceanBasin(route, bounds, shore);
   const geology = createGeology(rng, biome, basin);
   const ground = bakeGround(basin.offshore, geology);
   return {

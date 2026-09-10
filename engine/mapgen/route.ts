@@ -51,12 +51,18 @@ import { angleDiff, clamp, TAU } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import { LEVEL_RULES as R, inBand } from "./rules.ts";
-import type { Vec2 } from "./types.ts";
+import type { BuoyLight, Vec2 } from "./types.ts";
 
-/** R25 — THE MARK: the rock the ocean leg is drawn round, standing in open
- * water where nothing else in the vocabulary stands. It is a `Solid` by the
- * time the level is compiled; this is what the route decided about it. */
+/** R25, R31 — WHAT THE LINE IS DRAWN ROUND: the sea stack at the end of a
+ * coast's ocean leg, or one of the lit buoys a circuit's lap rounds. Both
+ * are `Solid`s by the time the level is compiled; this is what the line
+ * decided about one. */
 export type Mark = {
+  /** Which of the two it is — a rock standing on the bed, or a moored can
+   * riding the swell with a lamp on it. */
+  readonly kind: "mark" | "buoy";
+  /** R31 — the light character, on a buoy and on nothing else. */
+  readonly light?: BuoyLight;
   /** The centre of the rounding — where the rock stands. */
   readonly x: number;
   readonly z: number;
@@ -91,6 +97,11 @@ export type Route = {
    * out is before the water exists. On a circuit (R29) there is nothing to
    * read it off — the loop runs every way — so it is simply drawn. */
   readonly seaHeading: number;
+  /** R29 — how close a circuit's lap comes to the water's edge, m: the
+   * offshore distance of its most INSHORE station, which is what the basin
+   * cuts the coast back for. Zero on a coast route, which makes no such
+   * promise — R1's band is what bounds that one. */
+  readonly inshore: number;
   /** R29 — whether the line CLOSES on itself: a circuit's last point is
    * its first and the race goes round it several times (R30). A coast
    * route runs from a start to a finish and does not. */
@@ -307,6 +318,7 @@ function drawOnce(rng: Rng): CoastRoute | null {
   }
 
   const theMark: Mark = {
+    kind: "mark",
     x: markX,
     z: markZ,
     r: mark.r,
@@ -319,6 +331,7 @@ function drawOnce(rng: Rng): CoastRoute | null {
     widths,
     length: along[along.length - 1],
     seaHeading,
+    inshore: 0,
     closed: false,
     marks: [theMark],
     leg: { from, to, apex: { x: markX + sx * round, z: markZ + sz * round }, mark: theMark },

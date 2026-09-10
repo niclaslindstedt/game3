@@ -159,11 +159,18 @@ export const ANALYSIS = {
   },
   /** R29, R30, R31 — the tolerances a CIRCUIT is read with. */
   circuit: {
-    /** How far inside R29's offshore floor the line may read, m. The basin
-     * cuts the sea's edge for the floor exactly, and the field the check
-     * reads it back off is bilinear over 4 m cells — a cell's worth of
-     * blur, and nothing a rider could find. */
-    offshore: 4,
+    /** How far outside R29's two offshore bands the line may read, m. The
+     * basin cuts the sea's edge for the inshore floor exactly, and the
+     * field the check reads it back off is bilinear over 4 m cells — a
+     * cell's worth of blur, and nothing a rider could find. The seaward
+     * end carries the same allowance for the same reason. */
+    offshore: 6,
+    /** How far outside R29's `ashore` band the share may read, 0..1. The
+     * search measures it on the loop's own fine samples and the check on a
+     * 2 m walk of the published path, which also carries the start's stub
+     * and an air gate's straightened window — a couple of per cent of a
+     * lap between them. */
+    ashore: 0.04,
     /** How far outside `mark.stand`'s band a mark may read, m. The search
      * holds the LAP THAT SHIPS to the band, and this is only the difference
      * between the two walks of it: the course measures on the lap's own 10 m
