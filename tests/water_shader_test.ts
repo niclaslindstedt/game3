@@ -12,9 +12,11 @@ import * as THREE from "three";
 
 import { biomeOf } from "@engine";
 
+import { createSkyUniforms, writeSky } from "../pwa/src/game/sky-glsl.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
 import {
   applyClock,
+  applyRain,
   applySea,
   applySky,
   createWaterMaterial,
@@ -35,7 +37,14 @@ function lightsFor(p: ReturnType<typeof skyAt>): {
 }
 
 describe("the water material", () => {
-  const material = createWaterMaterial();
+  const sky = createSkyUniforms();
+  const material = createWaterMaterial(sky);
+  // Compiled for the deepest stack the picture ladder offers, so the
+  // assertions below cover the sheet loop rather than only the bare
+  // gradient.
+  const noon = skyAt(12, LAT, "clear", 0);
+  const noonLights = lightsFor(noon);
+  applySky(material, noon, noonLights.hemi, noonLights.key, 3);
   const declared = new Set<string>();
   for (const src of [material.vertexShader, material.fragmentShader]) {
     for (const m of src.matchAll(/uniform\s+\w+\s+(\w+)\s*;/g)) declared.add(m[1]);
@@ -52,11 +61,30 @@ describe("the water material", () => {
   it("reads every uniform it carries", () => {
     for (const name of carried) {
       if (FOG.includes(name)) continue;
+      // The SKY bundle is shared with the dome (sky-glsl.ts), and each of
+      // the two takes the part of it its own build needs — the water carries
+      // no sun, a sky with no sheets carries no layer arrays. What holds
+      // there is the identity check below, not this one.
+      if (name.startsWith("uSky")) continue;
       expect(declared, name).toContain(name);
       // …and reads it in the body, not only in the declaration.
       const uses = material.fragmentShader.split(name).length - 1;
       expect(uses, `${name} is declared and never used`).toBeGreaterThan(1);
     }
+  });
+
+  it("reflects the SAME sky object the dome is painted from", () => {
+    // The one thing that keeps the sea from drifting off the sky over it:
+    // the mirror does not get a copy of the sky's colours, it gets the very
+    // uniforms `environment.ts` writes the sky into. A sky written once is
+    // read twice.
+    for (const name of declared) {
+      if (!name.startsWith("uSky")) continue;
+      expect(material.uniforms[name], name).toBe(sky[name]);
+    }
+    // …and it declares no sun of its own: the sun's image on the sea is the
+    // glint, off the real surface normal.
+    expect(declared).not.toContain("uSkyDisc");
   });
 
   it("is fogged and vertex-coloured, like the grids it is drawn on", () => {
@@ -66,7 +94,8 @@ describe("the water material", () => {
 });
 
 describe("what the water is handed for a sky", () => {
-  const material = createWaterMaterial();
+  const sky = createSkyUniforms();
+  const material = createWaterMaterial(sky);
   const u = material.uniforms;
   const glint = (): THREE.Color => u.uGlint.value as THREE.Color;
   const lum = (c: THREE.Color): number => 0.2126 * c.r + 0.7152 * c.g + 0.0722 * c.b;
@@ -74,35 +103,58 @@ describe("what the water is handed for a sky", () => {
   it("glints a clear sun and nothing behind a squall's ceiling", () => {
     const clear = skyAt(12, LAT, "clear", 0);
     const { hemi, key } = lightsFor(clear);
-    applySky(material, clear, hemi, key);
+    applySky(material, clear, hemi, key, 0);
     expect(lum(glint())).toBeGreaterThan(0.5);
     const squall = skyAt(12, LAT, "squall", 1);
     const lit = lightsFor(squall);
-    applySky(material, squall, lit.hemi, lit.key);
+    applySky(material, squall, lit.hemi, lit.key, 2);
     expect(lum(glint())).toBe(0);
   });
 
   it("reflects the ceiling under a lid and the open gradient without one", () => {
+    // Written into the SHARED bundle by the environment, not by the water —
+    // and the water reads that bundle, so this is the same assertion as
+    // "the sea reflects the sky over it".
     const squall = skyAt(12, LAT, "squall", 1);
-    const lit = lightsFor(squall);
-    applySky(material, squall, lit.hemi, lit.key);
+    writeSky(sky, squall);
     if (!squall.deck) throw new Error("a squall has a deck");
-    expect((u.uSkyZenith.value as THREE.Color).getHex()).toBe(squall.deck.overhead);
+    expect((u.uSkyDeckOverhead.value as THREE.Color).getHex()).toBe(squall.deck.overhead);
+    expect((u.uSkyDeckRim.value as THREE.Color).getHex()).toBe(squall.deck.rim);
+    // Under a lid the sky's own horizon IS the ceiling's lit rim.
     expect((u.uSkyHorizon.value as THREE.Color).getHex()).toBe(squall.deck.rim);
-    expect(u.uGlowStrength.value).toBe(0);
     const clear = skyAt(12, LAT, "clear", 0);
-    const { hemi, key } = lightsFor(clear);
-    applySky(material, clear, hemi, key);
+    writeSky(sky, clear);
     expect((u.uSkyZenith.value as THREE.Color).getHex()).toBe(clear.zenith);
     expect((u.uSkyHorizon.value as THREE.Color).getHex()).toBe(clear.horizon);
-    expect(u.uGlowStrength.value).toBe(clear.glowStrength);
+    expect(u.uSkyGlowStrength.value).toBe(clear.glowStrength);
+  });
+
+  it("recompiles the mirror only when the stack it carries changes", () => {
+    const clear = skyAt(12, LAT, "clear", 0);
+    const { hemi, key } = lightsFor(clear);
+    applySky(material, clear, hemi, key, 2);
+    const two = material.fragmentShader;
+    applySky(material, clear, hemi, key, 2);
+    expect(material.fragmentShader).toBe(two);
+    applySky(material, clear, hemi, key, 3);
+    expect(material.fragmentShader).not.toBe(two);
+  });
+
+  it("draws no rain rings at all at the bottom DETAIL stop", () => {
+    applyRain(material, 1, [9, 22]);
+    expect(material.uniforms.uRainFall.value).toBe(1);
+    // OFF is a reach of zero, and it takes the FALL with it — the shader's
+    // whole ring loop is behind that one test, so a level under a clear sky
+    // and a phone at the bottom stop both pay nothing.
+    applyRain(material, 1, [0, 0]);
+    expect(material.uniforms.uRainFall.value).toBe(0);
   });
 
   it("is lit by the lights it is handed, not by the preset", () => {
     const clear = skyAt(12, LAT, "clear", 0);
     const { hemi, key } = lightsFor(clear);
     hemi.intensity = 0.5;
-    applySky(material, clear, hemi, key);
+    applySky(material, clear, hemi, key, 0);
     const sky = u.uHemiSky.value as THREE.Color;
     expect(sky.r).toBeCloseTo(hemi.color.r * 0.5, 6);
     // …and the sun's direction is the key's own, unit length.
@@ -113,7 +165,7 @@ describe("what the water is handed for a sky", () => {
 });
 
 describe("what the water is handed for a sea", () => {
-  const material = createWaterMaterial();
+  const material = createWaterMaterial(createSkyUniforms());
   const u = material.uniforms;
 
   it("turns the ripple tile downwind with a rotation, and roughens it with the wind", () => {

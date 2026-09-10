@@ -155,9 +155,6 @@ export type Preset = Rung & {
    * still bright — only the things a beam does that scattered light cannot,
    * the glint on the water first among them. */
   beam: number;
-  /** How much of the fair-weather cumulus ring this sky flies, 0..1 (see
-   * `OpenLook.cloudShare`). Ignored under a deck: a lid is a lid. */
-  cloudShare: number;
   /** The lid over the sky, or null for an open one. */
   deck: Deck | null;
 };
@@ -232,7 +229,6 @@ function openSky(sun: SunPlace): Preset {
     sunBearing: sun.azimuth,
     daylight: daylightOf(sun),
     beam: 1,
-    cloudShare: 1,
     deck: null,
   };
 }
@@ -247,7 +243,6 @@ export const NOON: Preset = {
   sunBearing: Math.PI,
   daylight: "day",
   beam: 1,
-  cloudShare: 1,
   deck: null,
 };
 
@@ -286,7 +281,7 @@ function opened(p: Preset, look: OpenLook, cover: number): Preset {
   p.sunIntensity *= lerp(look.dim[0], look.dim[1], cover);
   p.hemiSky = greyed(p.hemiSky);
   p.hemiIntensity *= lerp(look.hemi[0], look.hemi[1], cover);
-  p.fog = greyed(p.fog);
+  p.fog = mixHex(greyed(p.fog), p.horizon, FOG_IS_SKY);
   p.fogNear *= lerp(look.fogNear[0], look.fogNear[1], cover);
   p.fogFar *= lerp(look.fogFar[0], look.fogFar[1], cover);
   // A sheet does not hide the sun, it takes its EDGE: the disc swells and
@@ -295,7 +290,6 @@ function opened(p: Preset, look: OpenLook, cover: number): Preset {
   p.haloSize *= lerp(1, 1.5, 1 - through);
   p.haloOpacity *= lerp(0.5, 1, through);
   p.beam = through;
-  p.cloudShare = look.cloudShare;
   return p;
 }
 
@@ -354,9 +348,18 @@ function lidded(p: Preset, look: WeatherLook, cover: number): Preset {
     relief: lerp(look.relief[0], look.relief[1], cover),
   };
   p.deck = deck;
-  // The distance goes the colour of the ceiling, which is what turns a
-  // rainy sea milk-white two hundred metres out and a squally one to soot.
-  p.fog = mixHex(p.fog, deck.overhead, look.fogDeck);
+  // THE DISTANCE GOES THE COLOUR OF THE CEILING A FEW DEGREES UP — which is
+  // neither the underside overhead nor the lit strip at the rim, and the
+  // difference is what a far shore looks like under weather.
+  //
+  // What erases the shore is a few hundred metres of air, and that air is
+  // lit by the piece of ceiling directly over it. Read at the OVERHEAD, a
+  // rain deck (near white up there) turns the far shore into a paper cut-out
+  // brighter than the sky above it. Read at the RIM, a squall's shore comes
+  // back as bright as the gust front's lit strip, which is the one place in
+  // the sky with any daylight in it. `DECK_HAZE` is where between the two
+  // the air actually stands.
+  p.fog = mixHex(p.fog, deckToneAt(deck, RIM_BAND * DECK_HAZE), look.fogDeck);
   // AND THE HORIZON BAND IS THE LIT STRIP. The ceiling is a real surface
   // and its rim stands a fraction of a degree above the eye, so under it
   // there is always a sliver of open dome between the ceiling and the
@@ -372,6 +375,28 @@ function lidded(p: Preset, look: WeatherLook, cover: number): Preset {
   p.zenith = mixHex(p.zenith, deck.overhead, 0.55);
   return p;
 }
+
+/**
+ * HOW MUCH OF THE DISTANCE IS SIMPLY THE SKY BEHIND IT, 0..1.
+ *
+ * The far shore is the one thing in the frame that is not LIT — it is
+ * ERASED, by a few hundred metres of the same air the sky itself is made of.
+ * So what the fog fades it into has to be the sky in THAT DIRECTION, which
+ * at the skyline is the horizon band. A haze colour authored beside the
+ * horizon rather than out of it puts a pale grey headland across a burning
+ * sunset — the distance stops answering to the light, which is the one thing
+ * distance can never do.
+ *
+ * Not all the way, because haze is not exactly the sky: it is a little
+ * paler and a little less saturated, and the rungs' own `fog` is where that
+ * is authored. This is how much of it the horizon wins.
+ */
+const FOG_IS_SKY = 0.78;
+
+/** …and where under a LID the same question is asked, as a share of the
+ * rim band (`RIM_BAND`): the patch of ceiling a few degrees up, which is
+ * what lights the air the shore is seen through. See `lidded`. */
+const DECK_HAZE = 0.35;
 
 /** Whether a sky has a lid — the two shapes `Looks` is written in. */
 function isOpen(weather: Weather): weather is "clear" | "high" {
@@ -496,10 +521,11 @@ export function seaMirror(p: Preset): number {
  * trick, and the reason a low sun lights a quarter of the sky rather than
  * a disc.
  *
- * `sky-dome.ts` paints its vertices with `skyToneAt` below; the water's
- * shader (`water-shader.ts`) has to restate the same formula in GLSL for
- * the sky a wave face reflects, and reads THESE numbers into it, so the
- * sea reflects the dome that is actually over it.
+ * `skyToneAt` below is the model in TypeScript, which is what `sky_test.ts`
+ * holds it to; `sky-glsl.ts` restates the same formula in GLSL off these
+ * same three constants, and BOTH the dome and the water's mirror are painted
+ * with that one function — so the sea reflects the sky that is over it by
+ * construction rather than by two files agreeing.
  */
 export const SKY_CURVE = 0.62;
 export const GLOW_FOCUS = 3;
@@ -513,63 +539,6 @@ export function skyToneAt(p: Preset, up: number, toward: number): number {
   const w =
     Math.pow(clamp01(toward), GLOW_FOCUS) * Math.pow(1 - clamp01(up), GLOW_REACH) * p.glowStrength;
   return mixHex(tone, p.glow, Math.min(1, w));
-}
-
-/**
- * WHAT THE WATER'S SHADER REFLECTS — the sky as a gradient the water can
- * evaluate per pixel, in whichever direction a wave face happens to be
- * pointing: the open sky's own three colours and glow under a clear sky,
- * and under a lid the ceiling's underside overhead with its lit rim at the
- * skyline. `seaMirror` is the same question asked for ONE grazing angle,
- * for anything too far off to be shaded.
- *
- * `band` is the sine of the elevation at which the zenith tone is reached
- * — one for an open sky, and for a deck `DECK_BLUR` times the rim band
- * (`RIM_BAND`, whose gradient runs on the elevation itself; at these
- * sizes the sine is the angle) — and `curve` the exponent the blend runs
- * on. `glint` is how much of the sun arrives as a BEAM: the sparkle on
- * the water is the sun's image in ten thousand facets, and a sun behind a
- * squall's ceiling has no image to give.
- */
-export type SeaLight = {
-  horizon: number;
-  zenith: number;
-  glow: number;
-  glowStrength: number;
-  band: number;
-  curve: number;
-  glint: number;
-};
-
-/** How much wider than the ceiling's own rim band the WATER reads it over.
- * A sea is a rough mirror: every pixel of it reflects the ceiling through a
- * spread of wave slopes, so the strip that is nine degrees tall in the sky
- * is smeared over twenty on the water. Reflected sharp, the strip lands as
- * hard white streaks along every wave back that happens to point at it,
- * and a squall's sea reads as foam it does not have. */
-const DECK_BLUR = 2.5;
-
-export function seaReflection(p: Preset): SeaLight {
-  if (p.deck) {
-    return {
-      horizon: p.deck.rim,
-      zenith: p.deck.overhead,
-      glow: p.deck.rim,
-      glowStrength: 0,
-      band: Math.sin(RIM_BAND * DECK_BLUR),
-      curve: 1.2,
-      glint: p.beam,
-    };
-  }
-  return {
-    horizon: p.horizon,
-    zenith: p.zenith,
-    glow: p.glow,
-    glowStrength: p.glowStrength,
-    band: 1,
-    curve: SKY_CURVE,
-    glint: p.beam,
-  };
 }
 
 /** Direction from the origin TOWARD a light at elevation `el` on world

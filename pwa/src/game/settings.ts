@@ -31,7 +31,9 @@ import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
 import {
   DEFAULT_VIDEO,
   FLORA_LEVELS,
+  RAIN_RING_LEVELS,
   RESOLUTION_LEVELS,
+  SKY_LEVELS,
   SPRAY_LEVELS,
   WATER_LEVELS,
   type VideoSettings,
@@ -291,6 +293,8 @@ export function mergeSettings(parsed: unknown): Settings {
       on(RESOLUTION_LEVELS, video.resolution) ?? settings.video.resolution;
     settings.video.spray = on(SPRAY_LEVELS, video.spray) ?? settings.video.spray;
     settings.video.flora = on(FLORA_LEVELS, video.flora) ?? settings.video.flora;
+    settings.video.sky = on(SKY_LEVELS, video.sky) ?? settings.video.sky;
+    settings.video.rainRings = on(RAIN_RING_LEVELS, video.rainRings) ?? settings.video.rainRings;
     if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
     if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;
   }

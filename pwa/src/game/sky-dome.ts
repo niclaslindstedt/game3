@@ -1,199 +1,207 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE SKY, AS GEOMETRY — the three camera-locked pieces that between them
-// are everything above the horizon that is not cloud:
+// THE SKY, AS ONE SURFACE — a sphere seen from inside, every pixel of it
+// `skyAlong` (sky-glsl.ts): the gradient, the warm bleed round the sun, the
+// sun's disc with its glare and halo, and the cloud SHEETS of
+// `cloud-field.ts` at the real altitudes the cloud chart puts them, each
+// projected onto the view ray in perspective.
 //
-//   THE DOME   a vertex-coloured sphere seen from inside: horizon at the
-//              rim, zenith overhead, and a warm bleed round the sun's
-//              bearing. Repainted whenever the preset moves.
-//   THE DISC   the sun, a hard circle billboarded at the key light's
-//              place, with a tight GLARE round it that is the core too
-//              bright to look at.
-//   THE HALO   the soft bloom around it, which is what actually sells a
-//              low sun: the disc is small and the halo is a third of the
-//              sky at sunset.
+// THAT PERSPECTIVE IS THE WHOLE DIFFERENCE between this and a ring of
+// billboards. A sheet is a plane at an altitude, so the ray pierces it
+// nearer overhead and further out toward the rim: the cells foreshorten,
+// crowd and fade into the haze exactly the way a real sky does, and the
+// horizon fills with cloud instead of ending in a ring of puffs floating on
+// the water. It is also the only way the sky can have DEPTH — a cirrus veil
+// eight kilometres up and cumulus a kilometre over the water, at their own
+// two paces on the same wind — which is what a sky worth looking at is made
+// of.
 //
-// ALL OF IT RIDES THE CAMERA IN ALL THREE AXES, which is what makes it a
-// sky rather than a dome the rider can climb out of: from a hull thrown
-// four metres up off a ramp the horizon band must still be at the eye's
-// height, not four metres under it.
+// IT RIDES THE CAMERA IN ALL THREE AXES, which is what makes it a sky rather
+// than a dome the rider can climb out of: from a hull thrown four metres up
+// off a ramp the horizon band must still be at the eye's height. The sheets
+// do not ride with it — they are things at ALTITUDES, and `skyAlong` is
+// given the eye's real world position so a rider four metres up is four
+// metres nearer the ceiling.
 //
-// All three are BACKDROP (sky-depth.ts) — drawn last in the opaque pass, at
-// the far plane, writing no depth — so a skerry between the rider and the
-// sun occludes it, and the fragments the world already covered are never
-// shaded.
+// It is BACKDROP (sky-depth.ts) — drawn last in the opaque pass, at the far
+// plane, writing no depth — so a skerry between the rider and the sun
+// occludes it, and the pixels the world already covered are never shaded.
+// That matters more here than anywhere else in the frame: this is the
+// dearest fragment shader the game has.
 
 import * as THREE from "three";
 
+import { MAX_LAYERS, type CloudLayer, type SkyDressing } from "./cloud-field.ts";
 import { SKY_ORDER, drawAsBackdrop } from "./sky-depth.ts";
-import { DOME_RADIUS, skyToneAt, sunVector, type Preset } from "./sky.ts";
+import {
+  createSkyUniforms,
+  skyGlsl,
+  writeDrift,
+  writeLayers,
+  writeSky,
+  writeSun,
+  type SkyBuild,
+  type SkyUniforms,
+} from "./sky-glsl.ts";
+import { DOME_RADIUS, RIM_BAND, type Preset } from "./sky.ts";
 
-/** The glare round the disc: its width as a multiple of the disc's, and
- * its strength in full beam. */
-const GLARE_SPREAD = 5;
-const GLARE_OPACITY = 0.85;
+/** How the sky is drawn at each stop of the picture ladder: how many octaves
+ * of noise a sheet is read at, whether the clouds are lit by a second sample
+ * toward the sun, and how many sheets may be stacked at once. */
+export type SkyLook = { octaves: number; sunlit: boolean; layers: number };
 
-/** The glow sprite the halo is drawn with: a radial falloff baked once into
- * a small texture. `pow` rather than a linear ramp because a linear one
- * reads as a hard-edged disc with a gradient painted on it. */
-function glowTexture(): THREE.Texture {
-  const size = 128;
-  const data = new Uint8Array(size * size * 4);
-  const mid = (size - 1) / 2;
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      const r = Math.hypot(x - mid, y - mid) / mid;
-      const a = Math.max(0, 1 - r) ** 2.6;
-      const i = (y * size + x) * 4;
-      data[i] = 255;
-      data[i + 1] = 255;
-      data[i + 2] = 255;
-      data[i + 3] = Math.round(a * 255);
-    }
-  }
-  const tex = new THREE.DataTexture(data, size, size);
-  tex.needsUpdate = true;
-  return tex;
+const VERTEX = /* glsl */ `
+varying vec3 vWorld;
+void main() {
+  vWorld = ( modelMatrix * vec4( position, 1.0 ) ).xyz;
+  gl_Position = projectionMatrix * modelViewMatrix * vec4( position, 1.0 );
+}
+`;
+
+function fragmentFor(build: SkyBuild): string {
+  return /* glsl */ `
+#include <common>
+varying vec3 vWorld;
+${skyGlsl(build)}
+void main() {
+  gl_FragColor = vec4( skyAlong( normalize( vWorld - cameraPosition ), cameraPosition ), 1.0 );
+  // THE SKY IS MIXED IN LINEAR LIGHT AND WRITTEN IN sRGB, exactly the way
+  // three's own materials do it. Every colour that reaches this shader came
+  // out of sky.ts through THREE.Color.set, which converts an sRGB hex to
+  // linear on the way in; writing that straight to the framebuffer skips the
+  // conversion back and hands out a sky about half as bright as the one that
+  // was authored. Everything ELSE in the scene converts — the terrain, the
+  // water, the fog they fade into — so the fault does not read as "the sky
+  // is dark": it reads as a far shore glowing brighter than the sky behind
+  // it, which is the one thing distance can never do.
+  #include <colorspace_fragment>
+}
+`;
 }
 
 export type SkyDome = {
-  /** Everything that rides the camera. Added to the scene by the caller. */
-  group: THREE.Group;
-  /** Repaint for a preset — the gradient, the disc, its glare, the halo.
-   * Costs one pass over the dome's ~600 vertices, so it is cheap enough to
-   * call on a change of sky and far too expensive to call per frame. */
-  apply: (p: Preset) => void;
+  /** The dome. Added to the scene by the caller — it rides the camera, so it
+   * is moved rather than parented. */
+  mesh: THREE.Mesh;
+  /** The uniforms the sky is written into, SHARED with the water's material
+   * so the sea reflects the dome that is actually over it. */
+  uniforms: SkyUniforms;
+  /** Re-dress the sky for this preset, this stack of sheets and this stop of
+   * the picture ladder. Recompiles only when the ladder or the stack has
+   * actually moved. */
+  apply: (p: Preset, dressing: SkyDressing, look: SkyLook) => void;
+  /** Where the real sun and the key stand, and how much of the sun's disc is
+   * getting through whatever is in front of it. */
+  setSun: (sun: THREE.Vector3, key: THREE.Vector3, through: number) => void;
+  /** How lit each drawn sheet is at its own altitude, 0..1 — the sun sets on
+   * the water before it sets on a cirrus eight kilometres up. */
+  setLit: (lit: (layer: CloudLayer) => number) => void;
+  /** Advance the sheets on the wind, m/s. */
+  tick: (windX: number, windZ: number, dt: number) => void;
   /** Follow the lens. */
   update: (eyeX: number, eyeY: number, eyeZ: number) => void;
+  /** The sheets as drawn, with their live offsets — for the CPU to ask the
+   * same field how much cloud is over the sun. */
+  layers: () => { layer: CloudLayer; offsetX: number; offsetZ: number }[];
+  wind: () => { x: number; z: number };
   dispose: () => void;
 };
 
-export function createSkyDome(): SkyDome {
-  const group = new THREE.Group();
-
-  // ── The dome ─────────────────────────────────────────────────────────────
-  const domeGeo = new THREE.SphereGeometry(DOME_RADIUS, 32, 18);
-  const domeColors = new Float32Array(domeGeo.getAttribute("position").count * 3);
-  domeGeo.setAttribute("color", new THREE.BufferAttribute(domeColors, 3));
-  const domeMat = new THREE.MeshBasicMaterial({
-    vertexColors: true,
+export function createSkyDome(uniforms: SkyUniforms = createSkyUniforms()): SkyDome {
+  /** What the source standing in the material was compiled for. One shallow
+   * sheet until the first `apply` says otherwise — the dome is not drawn
+   * before then, and a build nobody renders costs nothing. */
+  let built: SkyBuild = {
+    octaves: 4,
+    layers: 0,
+    sunlit: false,
+    sun: true,
+    rimBand: RIM_BAND,
+    soften: 0,
+  };
+  const material = new THREE.ShaderMaterial({
+    uniforms,
+    vertexShader: VERTEX,
+    fragmentShader: fragmentFor(built),
     side: THREE.BackSide,
     fog: false,
   });
-  drawAsBackdrop(domeMat);
-  const dome = new THREE.Mesh(domeGeo, domeMat);
-  dome.renderOrder = SKY_ORDER - 3;
-  dome.frustumCulled = false;
-  group.add(dome);
+  drawAsBackdrop(material);
+  const mesh = new THREE.Mesh(new THREE.SphereGeometry(DOME_RADIUS, 32, 18), material);
+  mesh.renderOrder = SKY_ORDER - 3;
+  mesh.frustumCulled = false;
 
-  const tone = new THREE.Color();
+  let drawn: CloudLayer[] = [];
+  let cloudOpacity = 1;
+  let lit: (layer: CloudLayer) => number = () => 1;
+  const offsets = Array.from({ length: MAX_LAYERS }, () => ({ x: 0, z: 0 }));
+  const windUnit = { x: 0, z: 1 };
 
-  const paintDome = (p: Preset): void => {
-    const pos = domeGeo.getAttribute("position");
-    const azX = Math.sin(p.sunBearing);
-    const azZ = Math.cos(p.sunBearing);
-    for (let i = 0; i < pos.count; i++) {
-      const x = pos.getX(i);
-      const y = pos.getY(i);
-      const z = pos.getZ(i);
-      const up = Math.max(0, y / DOME_RADIUS);
-      // The gradient and the bleed round the sun's bearing are the sky's
-      // own (`skyToneAt`), so the water reflects this same dome.
-      const len = Math.hypot(x, z) || 1;
-      const toward = Math.max(0, (x / len) * azX + (z / len) * azZ);
-      tone.set(skyToneAt(p, up, toward));
-      // Under the horizon the dome is what a rider sees past the far edge of
-      // the water on a steep camera. A shade darker than the rim so the
-      // waterline still reads as a line.
-      if (y < 0) tone.multiplyScalar(0.9);
-      domeColors[i * 3] = tone.r;
-      domeColors[i * 3 + 1] = tone.g;
-      domeColors[i * 3 + 2] = tone.b;
+  /** Recompile, but only when the look or the stack has actually moved:
+   * three rebuilds the program on `needsUpdate`, and a shader rebuilt every
+   * frame is a stall every frame. */
+  const rebuild = (next: SkyBuild): void => {
+    if (
+      next.octaves === built.octaves &&
+      next.sunlit === built.sunlit &&
+      next.layers === built.layers
+    ) {
+      return;
     }
-    domeGeo.getAttribute("color").needsUpdate = true;
+    built = next;
+    material.fragmentShader = fragmentFor(next);
+    material.needsUpdate = true;
   };
 
-  // ── The disc and its halo ────────────────────────────────────────────────
-  const glowMap = glowTexture();
-  const haloMat = new THREE.MeshBasicMaterial({
-    map: glowMap,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    fog: false,
-  });
-  drawAsBackdrop(haloMat);
-  const halo = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), haloMat);
-  halo.renderOrder = SKY_ORDER - 1;
-  halo.frustumCulled = false;
-  // THE GLARE: the same glow, tight round the disc and nearly opaque — the
-  // hot core the eye cannot look at. The halo is a third of the sky and
-  // pale; without something between it and the disc the sun is a coin
-  // pasted on a gradient, and a coin does not light a sea.
-  const glareMat = new THREE.MeshBasicMaterial({
-    map: glowMap,
-    transparent: true,
-    blending: THREE.AdditiveBlending,
-    depthWrite: false,
-    fog: false,
-  });
-  drawAsBackdrop(glareMat);
-  const glare = new THREE.Mesh(new THREE.PlaneGeometry(1, 1), glareMat);
-  glare.renderOrder = SKY_ORDER - 1;
-  glare.frustumCulled = false;
-  const discMat = new THREE.MeshBasicMaterial({ fog: false, transparent: true });
-  drawAsBackdrop(discMat);
-  const disc = new THREE.Mesh(new THREE.CircleGeometry(1, 24), discMat);
-  disc.renderOrder = SKY_ORDER;
-  disc.frustumCulled = false;
-  group.add(halo, glare, disc);
+  const apply = (p: Preset, dressing: SkyDressing, look: SkyLook): void => {
+    writeSky(uniforms, p);
+    cloudOpacity = p.cloudOpacity;
+    // THE STACK THE LOOK WILL PAY FOR. Every sheet is a whole field of noise
+    // sampled on every sky pixel, so this is the sky's steepest lever after
+    // the depth — and which sheets go is a question about the SKY rather
+    // than about their altitudes, which is what `rank` answers
+    // (cloud-field.ts). Take the lowest ranks, then put them back in
+    // altitude order, because that is the order the loop paints in.
+    drawn = [...dressing.layers]
+      .sort((a, b) => a.rank - b.rank)
+      .slice(0, Math.min(look.layers, MAX_LAYERS))
+      .sort((a, b) => a.altitude - b.altitude);
+    rebuild({ ...built, octaves: look.octaves, sunlit: look.sunlit, layers: drawn.length });
+    writeLayers(uniforms, drawn, cloudOpacity, lit);
+    writeDrift(uniforms, drawn, offsets, windUnit.x, windUnit.z);
+  };
 
-  const at = new THREE.Vector3();
-
-  const apply = (p: Preset): void => {
-    paintDome(p);
-    // The disc and the halo stand at the KEY's place, just inside the dome
-    // so the dome's own gradient is behind them rather than fighting them
-    // at the same depth.
-    const v = sunVector(p.sunElevation, p.sunAzimuth);
-    const r = DOME_RADIUS * 0.97;
-    at.set(v.x * r, v.y * r, v.z * r);
-    for (const mesh of [disc, glare, halo]) {
-      mesh.position.copy(at);
-      // Billboarded by facing the origin, which is the eye: the group rides
-      // the camera, so the origin IS the lens.
-      mesh.lookAt(0, 0, 0);
+  const tick = (windX: number, windZ: number, dt: number): void => {
+    const speed = Math.hypot(windX, windZ);
+    if (speed > 0.05) {
+      windUnit.x = windX / speed;
+      windUnit.z = windZ / speed;
     }
-    disc.scale.setScalar(Math.max(0.001, p.discSize));
-    disc.visible = p.discSize > 0;
-    discMat.color.set(p.disc);
-    // The glare goes with the disc: four times its width, in its colour,
-    // and as strong as the beam — a sun behind a sheet has a patch of
-    // light in its place and no core.
-    glare.scale.setScalar(Math.max(0.001, p.discSize * GLARE_SPREAD));
-    glare.visible = disc.visible && p.beam > 0.01;
-    glareMat.color.set(p.disc);
-    glareMat.opacity = GLARE_OPACITY * p.beam;
-    halo.scale.setScalar(Math.max(0.001, p.haloSize));
-    halo.visible = p.haloOpacity > 0.01;
-    haloMat.color.set(p.halo);
-    haloMat.opacity = p.haloOpacity;
+    // A cloud moves WITH the wind, so the field is read further back along
+    // it as time passes.
+    drawn.forEach((layer, i) => {
+      offsets[i].x -= windX * layer.drift * dt;
+      offsets[i].z -= windZ * layer.drift * dt;
+    });
+    writeDrift(uniforms, drawn, offsets, windUnit.x, windUnit.z);
   };
 
-  const update = (eyeX: number, eyeY: number, eyeZ: number): void => {
-    group.position.set(eyeX, eyeY, eyeZ);
+  return {
+    mesh,
+    uniforms,
+    apply,
+    setSun: (sun, key, through) => writeSun(uniforms, sun, key, through),
+    setLit: (next) => {
+      lit = next;
+      writeLayers(uniforms, drawn, cloudOpacity, lit);
+    },
+    tick,
+    update: (eyeX, eyeY, eyeZ) => mesh.position.set(eyeX, eyeY, eyeZ),
+    layers: () =>
+      drawn.map((layer, i) => ({ layer, offsetX: offsets[i].x, offsetZ: offsets[i].z })),
+    wind: () => ({ x: windUnit.x, z: windUnit.z }),
+    dispose: () => {
+      mesh.geometry.dispose();
+      material.dispose();
+    },
   };
-
-  const dispose = (): void => {
-    domeGeo.dispose();
-    domeMat.dispose();
-    disc.geometry.dispose();
-    discMat.dispose();
-    halo.geometry.dispose();
-    haloMat.dispose();
-    glare.geometry.dispose();
-    glareMat.dispose();
-    glowMap.dispose();
-  };
-
-  return { group, apply, update, dispose };
 }

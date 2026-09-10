@@ -13,10 +13,22 @@
 //                per cent looking straight down and everything at a
 //                grazing angle, so the sea is its own colour under the
 //                rider and sky out toward the horizon. What it reflects is
-//                the sky's OWN gradient (`sky.ts`'s `skyToneAt`, restated
-//                in GLSL) in whichever direction each wave face happens to
-//                point — a sunset lays its orange along the faces turned
-//                toward it and leaves the backs blue.
+//                THE SKY THAT IS ACTUALLY OVER IT — `skyAlong` in
+//                `sky-glsl.ts`, the same function the dome is painted with,
+//                sharing the same uniforms — so a cirrus veil lies along
+//                the crests, a cumulus drifts across the sea under it, and
+//                a squall's black ceiling puts its own black on the water.
+//                Reflected BLURRED (fewer octaves, a wider rim band, softer
+//                edges): a real sea reflects the sky through a spread of
+//                wave slopes, and a sharp reflection lands as hard white
+//                streaks that read as foam the sea does not have.
+//   THE RAIN     the rings a downpour pocks the surface with — a grid of
+//                impacts, each one expanding and dying — perturbing the
+//                normal and lifting a little foam at the core. Drawn out to
+//                a reach the DETAIL row sets and no further: past a few
+//                metres a real ring is under a pixel, and what the eye is
+//                actually reading out there is the sheet in the air and the
+//                fog behind it.
 //   THE GLINT    the sun's image in the surface, in two lobes: a tight one
 //                over the RIPPLES, which is the sparkle, and a broad one
 //                over the swell, which is the road a low sun lays across
@@ -57,7 +69,8 @@ import { valueNoise } from "@engine";
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
-import { GLOW_FOCUS, GLOW_REACH, seaReflection, type Preset } from "./sky.ts";
+import { MIRROR_RIM, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
+import { type Preset } from "./sky.ts";
 
 /** The ripple tile: texels a side, and its edge in metres at the fine
  * scale. The coarse layer is the same tile at `RIPPLE_COARSE` times that,
@@ -181,7 +194,38 @@ const VERTEX = `
     #include <fog_vertex>
   }`;
 
-const FRAGMENT = `
+/** THE SHEETS THE MIRROR CARRIES, and how deep it reads them. Both are well
+ * under the dome's: the water is a rough mirror, so what it wants is the
+ * sky's MASS rather than its edges, and it is a far bigger pass than the sky
+ * is. Two sheets is every stack the cloud chart rolls (a deck and its scud,
+ * a veil and its cumulus); three octaves is the mass and one arm of
+ * erosion. */
+const MIRROR_OCTAVES = 3;
+const MIRROR_SOFTEN = 0.35;
+
+/** THE RAIN'S RINGS. The grid one impact lands per, m — a raindrop's ring
+ * spreads to something like a hand's width before it is gone, and a grid
+ * this size at a fall of one puts a few hundred of them in the near frame,
+ * which is what a downpour on flat water looks like. */
+const RAIN_CELL = 0.4;
+/** How long one ring lives, s, and how far out it gets in that time as a
+ * share of the cell. */
+const RAIN_LIFE = 0.9;
+const RAIN_REACH = 0.42;
+/** How steep a ring's wall is at its steepest, as a surface slope. A ring is
+ * a millimetre high and its whole effect is on the SPECULAR — it is read as
+ * the light turning over, never as relief — so this is well under the wind
+ * chop's own. Driven harder the sea comes out corrugated, which reads as
+ * hammered metal rather than as rain. */
+const RAIN_SLOPE = 0.45;
+
+/** What the gaussian ring's own derivative peaks at, for the wall width
+ * below — so `RAIN_SLOPE` is a slope in the shader rather than a number
+ * somebody has to guess the scale of. */
+const RING_PEAK = 11.4;
+
+function fragmentFor(layers: number): string {
+  return `
   #include <common>
   uniform sampler2D uRipple;
   uniform sampler2D uFoam;
@@ -197,32 +241,65 @@ const FRAGMENT = `
   uniform vec3 uGlint;
   uniform vec3 uScatter;
   uniform float uScatterHeight;
-  uniform vec3 uSkyHorizon;
-  uniform vec3 uSkyZenith;
-  uniform vec3 uSkyGlow;
-  uniform float uGlowStrength;
-  uniform float uSkyBand;
-  uniform float uSkyCurve;
-  uniform vec2 uSunBearing;
   uniform vec3 uFoamColor;
+  uniform float uRainFall;
+  uniform vec2 uRainFade;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec4 vColor;
   varying float vHeight;
   varying float vWindow;
   #include <fog_pars_fragment>
+${skyGlsl({
+  octaves: MIRROR_OCTAVES,
+  layers,
+  sunlit: false,
+  sun: false,
+  rimBand: MIRROR_RIM,
+  soften: MIRROR_SOFTEN,
+})}
 
-  // The sky in direction R — sky.ts's skyToneAt, in GLSL: the gradient on
-  // the sine of the elevation, the glow round the sun's bearing. Below the
-  // skyline a face reflects the sea, which is darker than any sky.
-  vec3 skyToward(vec3 R) {
-    float up = clamp(R.y / uSkyBand, 0.0, 1.0);
-    vec3 tone = mix(uSkyHorizon, uSkyZenith, pow(up, uSkyCurve));
-    vec2 plan = R.xz / max(1e-4, length(R.xz));
-    float toward = max(0.0, dot(plan, uSunBearing));
-    float w = pow(toward, ${GLOW_FOCUS.toFixed(1)}) * pow(1.0 - max(0.0, R.y), ${GLOW_REACH.toFixed(1)}) * uGlowStrength;
-    tone = mix(tone, uSkyGlow, min(1.0, w));
-    return tone * (1.0 - 0.5 * clamp(-R.y * 6.0, 0.0, 1.0));
+  // Three uncorrelated draws for one cell of the rain grid: where in the
+  // cell the drop landed, and where in its own life the ring is.
+  vec3 rainHash(vec2 c) {
+    vec3 p = fract(vec3(c.xyx) * vec3(0.1031, 0.1030, 0.0973));
+    p += dot(p, p.yxz + 33.33);
+    return fract((p.xxy + p.yzz) * p.zyx);
+  }
+
+  /** THE RINGS a downpour pocks the surface with: one impact per cell of a
+   * grid, each expanding from where it landed and dying as it goes. Returns
+   * the slope it adds to the surface; 'crest' comes back as the white the
+   * impact itself throws up. Nine cells, because a ring reaching nearly half
+   * a cell from a centre that can be anywhere in it has to be able to arrive
+   * from any quadrant. */
+  vec2 rainRings(vec2 p, float t, float fall, out float crest) {
+    vec2 slope = vec2(0.0);
+    crest = 0.0;
+    vec2 base = floor(p);
+    for (int j = -1; j <= 1; j++) {
+      for (int i = -1; i <= 1; i++) {
+        vec2 cell = base + vec2(float(i), float(j));
+        vec3 h = rainHash(cell);
+        // Light rain is FEWER impacts, not fainter ones: a ring is a ring.
+        if (h.z > 0.25 + 0.75 * fall) continue;
+        float age = fract(t / ${RAIN_LIFE.toFixed(2)} + h.z * 7.31);
+        vec2 to = p - (cell + h.xy);
+        float d = length(to) + 1e-4;
+        float r = age * ${RAIN_REACH.toFixed(2)};
+        // A gaussian ring, and the slope is its own derivative: up the
+        // outside of the wall and down the inside, which is what turns the
+        // light over as the ring passes.
+        float wall = 0.075;
+        float e = (d - r) / wall;
+        float w = exp(-e * e);
+        float amp = 1.0 - age;
+        slope += (to / d) * (-2.0 * e / wall) * w * amp;
+        // …and the splash at the moment of impact, gone in a blink.
+        crest += exp(-d * d * 45.0) * max(0.0, 1.0 - age * 4.0);
+      }
+    }
+    return slope * ${(RAIN_SLOPE / RING_PEAK).toFixed(5)};
   }
 
   void main() {
@@ -241,7 +318,20 @@ const FRAGMENT = `
     vec2 slope = (texture2D(uRipple, fine).rg * 2.0 - 1.0) * 0.6 + ((texture2D(uRipple, coarse).rg * 2.0 - 1.0) * turn) * 0.4;
     float detail = uRippleStrength * (1.0 - smoothstep(uRippleFade.x, uRippleFade.y, away));
     slope = (slope * detail) * wind;
-    vec3 Nd = normalize(N + vec3(slope.x, 0.0, slope.y));
+
+    // THE RAIN, on the near water only: the rings are a real surface and a
+    // real surface a hundred metres out is under a pixel. uRainFade is the
+    // DETAIL row's reach and it is zero at the bottom stop, which compiles
+    // to nothing being drawn rather than to rings nobody can see.
+    float wet = uRainFall * (1.0 - smoothstep(uRainFade.x, uRainFade.y, away));
+    float splash = 0.0;
+    vec2 rings = vec2(0.0);
+    if (wet > 0.002) {
+      float crest;
+      rings = rainRings(vWorld.xz / ${RAIN_CELL.toFixed(2)}, uTime, uRainFall, crest) * wet;
+      splash = min(1.0, crest) * wet;
+    }
+    vec3 Nd = normalize(N + vec3(slope.x + rings.x, 0.0, slope.y + rings.y));
 
     // THE BODY, lit as three's Lambert lights the hull: the hemisphere by
     // how much the face looks up, the key by its angle to the sun.
@@ -253,11 +343,27 @@ const FRAGMENT = `
     float lift = clamp(vHeight / uScatterHeight, 0.0, 1.0);
     body += uScatter * lift * (0.12 + 0.6 * pow(back, 3.0));
 
-    // THE MIRROR.
+    // THE MIRROR — the whole sky along the reflected ray, clouds and all
+    // (skyAlong, sky-glsl.ts), from the wave face's own place so the sheet
+    // overhead is pierced where it actually is.
+    //
+    // The ray is bent by only a THIRD of the ripple slope. A cloud edge is
+    // the sharpest thing in the sky, and reflected through the full
+    // capillary chop it lands as a field of noise: the reflection is
+    // resolved per pixel while the ripples are a texture, so what comes back
+    // is aliasing rather than sparkle. The full slope stays where it is
+    // read at low frequency — the Fresnel term and the glint — which is
+    // where the ripples are doing their real work anyway.
+    // The RINGS keep their whole slope here where the ripples lose most of
+    // theirs: a ring is resolved geometry a few pixels across, not a texture
+    // being minified, so it turns the reflection over cleanly — and under a
+    // rain deck there is no beam to glint, which makes the mirror the ONLY
+    // place a dimple can show at all.
+    vec3 Nr = normalize(N + vec3(slope.x * 0.35 + rings.x, 0.0, slope.y * 0.35 + rings.y));
     float cosV = clamp(dot(Nd, V), 0.0, 1.0);
     float F = 0.02 + 0.98 * pow(1.0 - cosV, 5.0);
-    vec3 R = reflect(-V, Nd);
-    vec3 col = mix(body, skyToward(R), F);
+    vec3 R = reflect(-V, Nr);
+    vec3 col = mix(body, skyAlong(R, vWorld), F);
 
     // THE GLINT: Fresnel at the half vector, so a low sun's road blazes
     // and a high sun's sparkle stays polite; soft-clipped so the peak
@@ -276,6 +382,10 @@ const FRAGMENT = `
     float share = vColor.a * vColor.a;
     float pattern = texture2D(uFoam, vWorld.xz / ${FOAM_METRES.toFixed(1)}).a;
     float foam = clamp((pattern - (1.0 - share)) / 0.3, 0.0, 1.0) * (0.25 + 0.75 * share);
+    // …and the white a raindrop's own impact throws up. A fraction of the
+    // wake's: a drop is a pinprick of air in the water, not a crest going
+    // over, and driven any harder a downpour turns the sea to porridge.
+    foam = clamp(foam + splash * 0.5, 0.0, 1.0);
     vec3 foamCol = uFoamColor * irradiance * RECIPROCAL_PI;
     col = mix(col + glint, foamCol, foam);
 
@@ -286,15 +396,31 @@ const FRAGMENT = `
     #include <fog_fragment>
     #include <colorspace_fragment>
   }`;
+}
 
 export type WaterMaterial = THREE.ShaderMaterial;
 
 const SHALLOW = new THREE.Color(PALETTE.seaShallow);
 
-export function createWaterMaterial(look: WaterLook = WATER_LOOK.medium): WaterMaterial {
-  return new THREE.ShaderMaterial({
+/** How many cloud sheets each material was COMPILED for. Not on the material
+ * itself, because that is three's object and this is a fact about the source
+ * standing in it. */
+const builtLayers = new WeakMap<WaterMaterial, number>();
+
+/**
+ * The one material both water grids are drawn with. `sky` is the SHARED
+ * uniform bundle `environment.ts` writes the sky into — the very objects the
+ * dome's material holds, so the sea can never reflect a sky that is not the
+ * one over it.
+ */
+export function createWaterMaterial(
+  sky: SkyUniforms,
+  look: WaterLook = WATER_LOOK.medium,
+): WaterMaterial {
+  const material = new THREE.ShaderMaterial({
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
+      ...sky,
       uRipple: { value: rippleTexture() },
       uFoam: { value: foamTexture() },
       uTime: { value: 0 },
@@ -309,17 +435,12 @@ export function createWaterMaterial(look: WaterLook = WATER_LOOK.medium): WaterM
       uGlint: { value: new THREE.Color(0xfff2dc) },
       uScatter: { value: new THREE.Color(0x000000) },
       uScatterHeight: { value: 0.25 },
-      uSkyHorizon: { value: new THREE.Color(0xd7e9f0) },
-      uSkyZenith: { value: new THREE.Color(0x1f6fd8) },
-      uSkyGlow: { value: new THREE.Color(0xfff3c8) },
-      uGlowStrength: { value: 0.35 },
-      uSkyBand: { value: 1 },
-      uSkyCurve: { value: 0.62 },
-      uSunBearing: { value: new THREE.Vector2(0, -1) },
       uFoamColor: { value: new THREE.Color(PALETTE.foam) },
+      uRainFall: { value: 0 },
+      uRainFade: { value: new THREE.Vector2(0, 0) },
     },
     vertexShader: VERTEX,
-    fragmentShader: FRAGMENT,
+    fragmentShader: fragmentFor(0),
     vertexColors: true,
     fog: true,
     // Transparent, and still writing depth. The wake and the spray sit ON
@@ -330,38 +451,51 @@ export function createWaterMaterial(look: WaterLook = WATER_LOOK.medium): WaterM
     transparent: true,
     depthWrite: true,
   });
+  builtLayers.set(material, 0);
+  return material;
 }
 
 /**
  * LIGHT THE WATER FOR A SKY. The two lights are the scene's own, already
  * set for the preset by `environment.ts`, so the sea is lit by exactly what
- * lights the hull; the preset itself says what the wave faces reflect and
- * how much of the sun arrives as a beam to glint.
+ * lights the hull. What the wave faces REFLECT is not passed at all — it is
+ * the shared sky uniforms, which the environment has already written — and
+ * `layers` is the only thing about that sky this material has to be
+ * recompiled for.
  */
 export function applySky(
   m: WaterMaterial,
   p: Preset,
   hemi: THREE.HemisphereLight,
   key: THREE.DirectionalLight,
+  layers: number,
 ): void {
   const u = m.uniforms;
   (u.uHemiSky.value as THREE.Color).copy(hemi.color).multiplyScalar(hemi.intensity);
   (u.uHemiGround.value as THREE.Color).copy(hemi.groundColor).multiplyScalar(hemi.intensity);
   (u.uKey.value as THREE.Color).copy(key.color).multiplyScalar(key.intensity);
   (u.uSunDir.value as THREE.Vector3).copy(key.position).normalize();
-  const sea = seaReflection(p);
-  (u.uSkyHorizon.value as THREE.Color).set(sea.horizon);
-  (u.uSkyZenith.value as THREE.Color).set(sea.zenith);
-  (u.uSkyGlow.value as THREE.Color).set(sea.glow);
-  u.uGlowStrength.value = sea.glowStrength;
-  u.uSkyBand.value = sea.band;
-  u.uSkyCurve.value = sea.curve;
-  (u.uSunBearing.value as THREE.Vector2).set(Math.sin(p.sunBearing), Math.cos(p.sunBearing));
-  // The glint is the sun's own light, at its own strength, for the share
-  // of it that is a beam.
-  (u.uGlint.value as THREE.Color).copy(key.color).multiplyScalar(p.sunIntensity * sea.glint);
+  // The glint is the sun's own light, at its own strength, for the share of
+  // it that is a BEAM: a sun behind a squall's ceiling has no image to give.
+  (u.uGlint.value as THREE.Color).copy(key.color).multiplyScalar(p.sunIntensity * p.beam);
   // What a crest passes: the shallow's green, in the key's light.
   (u.uScatter.value as THREE.Color).copy(SHALLOW).multiply(u.uKey.value as THREE.Color);
+  if (builtLayers.get(m) !== layers) {
+    builtLayers.set(m, layers);
+    m.fragmentShader = fragmentFor(layers);
+    m.needsUpdate = true;
+  }
+}
+
+/**
+ * HOW HARD IT IS RAINING ON THE SEA, and HOW FAR OUT the rings are worth
+ * drawing (the DETAIL row's `rainReach`, m — where they begin to fade and
+ * where they are gone). A reach of zero is the bottom stop, and it is not a
+ * shorter fade: nothing is drawn at all.
+ */
+export function applyRain(m: WaterMaterial, fall: number, reach: readonly [number, number]): void {
+  m.uniforms.uRainFall.value = reach[1] > 0 ? fall : 0;
+  (m.uniforms.uRainFade.value as THREE.Vector2).set(reach[0], reach[1]);
 }
 
 /** Tell the ripples which way the wind blows and how hard, and the scatter

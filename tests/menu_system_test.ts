@@ -511,6 +511,12 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       spray: "off",
       fauna: false,
       flora: "sparse",
+      // A row the stored blob has never heard of — this one was written
+      // before the sky and the rain's rings were levers — comes back at
+      // THIS build's default rather than off, so an old blob is a picture
+      // with a row added to it and not a picture with a row missing.
+      sky: DEFAULT_SETTINGS.video.sky,
+      rainRings: DEFAULT_SETTINGS.video.rainRings,
     });
   });
 

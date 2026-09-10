@@ -61,7 +61,7 @@ the game harder, not more dramatic.
 | Course scale: gate spacing, offshore band, ramp placement | `engine/mapgen/rules.ts` | `mapgen-improvement` |
 | Camera | `pwa/src/game/camera.ts` | (this skill) |
 | Water-contact FX: the chine sheets, the rooster tail, the landing plume, the bow plunge, the foam patch (`spray.ts`); the wake ribbon (`wake.ts`); their textures, made in code (`fx-textures.ts`) | `pwa/src/game/` | (this skill; `visual-effects` reserved) |
-| The water's LIGHT: the sky each wave face reflects, the sun's glint (the sparkle and the road), the wind's ripples, the light through a crest, the foam's texture — per pixel, never moving a vertex | `pwa/src/game/water-shader.ts`, with `sky.ts`'s `seaReflection` | (this skill; `water-feel` for what the grid carries) |
+| The water's LIGHT: the sky each wave face reflects, the sun's glint (the sparkle and the road), the wind's ripples, the rain's rings, the light through a crest, the foam's texture — per pixel, never moving a vertex | `pwa/src/game/water-shader.ts`, through `sky-glsl.ts`'s `skyAlong` | (this skill; `water-feel` for what the grid carries) |
 
 What each contributes:
 
