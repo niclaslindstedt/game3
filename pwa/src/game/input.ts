@@ -9,14 +9,21 @@
 //
 // KEYS (fixed; a rebinding page is future work — `settings.ts` carries
 // everything else the player chooses):
-//   W / ↑        throttle           S / ↓    lean back
-//   A / ←  D / → steer              Shift    lean forward
-//   Space        brake and reverse  R        reset to the last gate (edge)
-//   Enter        restart the run     C       next camera
+//   W            throttle             S / ↓      lean back
+//   A / ←  D / → steer                Shift / ↑  lean forward
+//   Space        brake and reverse    R          reset to the last gate (edge)
+//   Enter        restart the run      C          next camera
 //   Escape       hold the run and put the pause card up (menu-pause.tsx);
 //                pressing it again over the card resumes, because the card's
 //                RESUME row is its `data-nav-back` and menu-nav.ts takes
 //                Escape upstream of this manager
+//
+// THE ARROW CLUSTER IS THE HANDLEBAR, not a left-handed copy of WASD: ← →
+// steer it and ↑ ↓ lean on it, with the same sign the thumb's bar carries
+// (`barLean` in input-model.ts). Pulling toward you — ↓ — is leaning BACK,
+// nose up; pushing away — ↑ — is leaning forward, nose down. Which is why
+// ↑ is not also a throttle key: the throttle is W's, and the arrows are
+// the rider's body.
 //
 // THERE IS NO GEARBOX, and the ONE brake is not a brake pedal: Space drops
 // the reverse BUCKET over the jet, which is the only way a watercraft
@@ -51,11 +58,11 @@ export type InputManager = {
 
 type KeyAction = keyof KeysHeld;
 
-/** Which code does what. Two codes per axis so the arrows and WASD both
- * ride; Shift on either side of the keyboard. */
+/** Which code does what. Steer and lean each answer to two codes so the
+ * arrows and WASD both ride; the throttle answers to W alone, because ↑ is
+ * the handlebar's lean forward. Shift on either side of the keyboard. */
 const KEY_CODES: Record<string, KeyAction> = {
   KeyW: "throttle",
-  ArrowUp: "throttle",
   Space: "reverse",
   KeyS: "leanBack",
   ArrowDown: "leanBack",
@@ -65,6 +72,7 @@ const KEY_CODES: Record<string, KeyAction> = {
   ArrowRight: "right",
   ShiftLeft: "leanForward",
   ShiftRight: "leanForward",
+  ArrowUp: "leanForward",
 };
 
 /** The edges. */

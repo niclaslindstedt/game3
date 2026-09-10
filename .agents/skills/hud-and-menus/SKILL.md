@@ -45,7 +45,7 @@ here, the keys that walk a card are there.
 | Surface | Where |
 | --- | --- |
 | What a key or a touch MEANS, as maths | `pwa/src/game/input-model.ts` — DOM-free: the throttle ramp, the steer ramp, the lever's drag → throttle curve, the handlebar's travel → steer/lean; `tests/input_model_test.ts` reads it |
-| Listening to the DOM | `pwa/src/game/input.ts` — keyboard (W/↑ throttle, S/↓ lean back, A/D ←/→ steer, Shift lean forward, R reset to the last gate, Enter restart, C camera, Escape out to the menu) and the touch zones; nothing here decides, it only feeds the model |
+| Listening to the DOM | `pwa/src/game/input.ts` — keyboard (W throttle, S/↓ lean back, Shift/↑ lean forward, A/D ←/→ steer, R reset to the last gate, Enter restart, C camera, Escape out to the menu) and the touch zones; nothing here decides, it only feeds the model |
 | Touch: the HANDLEBAR overlay | `pwa/src/game/hud-touch.tsx`, LEFT half — thumb travel → steer, vertical travel → lean; drawn as a bar that tilts with the thumb |
 | Touch: the THROTTLE LEVER | `hud-touch.tsx`, RIGHT half — the touch anchors at 0, dragging DOWN opens the throttle (full at ~90 px), analogue, held while the finger is down, released on lift; drawn as a lever that follows the thumb |
 | A zone's grip on a finger | the thumb-guard discipline in `hud-touch.tsx`: a touch belongs to the zone it STARTED in until it lifts, whatever it wanders over; a second finger on the same half is ignored, not merged |
