@@ -44,7 +44,7 @@ describe("the road", () => {
 
   it("outlives its boil and fades into nothing, never negative", () => {
     const s = wakeSection();
-    roadAt(0, 0, 15, 1, s);
+    roadAt(0, 0.3, 15, 1, s);
     const fresh = { ...s };
     roadAt(0, 2 * BOIL_LIFE, 15, 1, s);
     const settled = { ...s };
@@ -69,6 +69,20 @@ describe("the road", () => {
     expect(s.down).toBeGreaterThan(0);
     expect(s.down).toBeLessThan(WAKE_HEIGHT);
     expect(s.up).toBe(0);
+  });
+
+  it("forms its hollow over a moment rather than at a step", () => {
+    // The relief the surface is moved by rises in: nothing at the instant
+    // the transom passes, most of the way in a quarter second, so no vertex
+    // drops its whole depth between one frame and the next.
+    const s = wakeSection();
+    roadAt(0, 0, 15, 1, s);
+    expect(s.down).toBe(0);
+    roadAt(0, 0.05, 15, 1, s);
+    const early = s.down;
+    roadAt(0, 0.3, 15, 1, s);
+    expect(early).toBeGreaterThan(0);
+    expect(s.down).toBeGreaterThan(early * 3);
   });
 });
 
