@@ -43,6 +43,12 @@
 //                past the fade the sea is a smooth sheet with a highlight
 //                on it, which is most of what reads as crude a few metres
 //                out.
+//   THE LAMP     the craft's own lamp after dark: the one spotlight in the
+//                scene, read off the very light three lights the hull and
+//                the buoys with, laid on the water as a pool that falls off
+//                with the square of the distance the way a real lamp's
+//                does, with its own glint in the ripples. By day it is off
+//                and costs the shader a few multiplies.
 //   THE FOAM     the vertex's foam SHARE (the colour attribute's alpha),
 //                broken up by the foam tile the wake is drawn with, so a
 //                whitecap is streaks and holes rather than a white vertex.
@@ -235,6 +241,11 @@ function fragmentFor(layers: number): string {
   uniform vec3 uFoamColor;
   uniform float uRainFall;
   uniform vec2 uRainFade;
+  uniform vec3 uLampPos;
+  uniform vec3 uLampDir;
+  uniform vec3 uLampColor;
+  uniform vec2 uLampCone;
+  uniform float uLampReach;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec4 vColor;
@@ -321,6 +332,20 @@ ${skyGlsl(mirrorBuild(layers))}
     // how much the face looks up, the key by its angle to the sun.
     float upness = N.y * 0.5 + 0.5;
     vec3 irradiance = mix(uHemiGround, uHemiSky, upness) + uKey * max(0.0, dot(N, uSunDir));
+    // THE LAMP: three's own spot — its cone between the two cosines, the
+    // inverse square of the distance, and a cut-off at its reach — so the
+    // pool on the water is the pool on the hull beside it.
+    vec3 toLamp = uLampPos - vWorld;
+    float lampD = length(toLamp);
+    vec3 L = toLamp / max(lampD, 1e-3);
+    float lampCone = smoothstep(uLampCone.x, uLampCone.y, dot(-L, uLampDir));
+    float lampFall = (1.0 / max(lampD * lampD, 0.25)) * (1.0 - smoothstep(uLampReach * 0.6, uLampReach, lampD));
+    vec3 lamp = uLampColor * lampCone * lampFall;
+    // Not Lambert alone: a beam grazing a flat sea would light nothing at
+    // all, and what a lamp on water is actually seen by is what the water
+    // throws back up — the chop's facets, the foam, the silt in it — which
+    // is the floor under the cosine.
+    irradiance += lamp * (0.3 + 0.7 * max(0.0, dot(Nd, L)));
     vec3 body = vColor.rgb * irradiance * RECIPROCAL_PI;
     // …and the light through a crest with the sun behind it.
     float back = max(0.0, dot(-V, uSunDir));
@@ -357,6 +382,10 @@ ${skyGlsl(mirrorBuild(layers))}
     float tight = pow(max(0.0, dot(Nd, H)), 900.0);
     float broad = pow(max(0.0, dot(N, H)), 60.0);
     vec3 glint = 1.0 - exp(-uGlint * Fh * (tight * 40.0 + broad * 1.5));
+    // …and the lamp's own image in the ripples, a scatter of sparks under
+    // the bow: the same tight lobe, off the lamp's direction.
+    vec3 Hl = normalize(L + V);
+    glint += lamp * pow(max(0.0, dot(Nd, Hl)), 400.0) * 0.6;
 
     // THE FOAM: the vertex's share, broken up by the tile — a light share
     // shows only the tile's brightest streaks, and shows them thin; a
@@ -422,6 +451,11 @@ export function createWaterMaterial(
       uFoamColor: { value: new THREE.Color(PALETTE.foam) },
       uRainFall: { value: 0 },
       uRainFade: { value: new THREE.Vector2(0, 0) },
+      uLampPos: { value: new THREE.Vector3(0, -100, 0) },
+      uLampDir: { value: new THREE.Vector3(0, -1, 0) },
+      uLampColor: { value: new THREE.Color(0x000000) },
+      uLampCone: { value: new THREE.Vector2(1, 1) },
+      uLampReach: { value: 1 },
     },
     vertexShader: VERTEX,
     fragmentShader: fragmentFor(0),
@@ -480,6 +514,27 @@ export function applySky(
 export function applyRain(m: WaterMaterial, fall: number, reach: readonly [number, number]): void {
   m.uniforms.uRainFall.value = reach[1] > 0 ? fall : 0;
   (m.uniforms.uRainFade.value as THREE.Vector2).set(reach[0], reach[1]);
+}
+
+/** THE CRAFT'S LAMP, read off the scene's own spotlight so the water is lit
+ * by exactly what lights the hull: its world place and aim, its colour at
+ * its intensity, the two cosines of its cone (the outer edge and where the
+ * penumbra ends, the way three's spot reads them) and its reach. Every
+ * frame — the lamp rides the hull. An invisible lamp is written as black
+ * rather than skipped, so a lamp switched off by day leaves no pool. */
+export function applyLamp(m: WaterMaterial, lamp: THREE.SpotLight): void {
+  const u = m.uniforms;
+  const pos = u.uLampPos.value as THREE.Vector3;
+  const dir = u.uLampDir.value as THREE.Vector3;
+  lamp.getWorldPosition(pos);
+  lamp.target.getWorldPosition(dir).sub(pos).normalize();
+  const lit = lamp.visible ? lamp.intensity : 0;
+  (u.uLampColor.value as THREE.Color).copy(lamp.color).multiplyScalar(lit);
+  (u.uLampCone.value as THREE.Vector2).set(
+    Math.cos(lamp.angle),
+    Math.cos(lamp.angle * (1 - lamp.penumbra)),
+  );
+  u.uLampReach.value = lamp.distance;
 }
 
 /** Tell the ripples which way the wind blows and how hard, and the scatter

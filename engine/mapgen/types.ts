@@ -15,6 +15,7 @@
 
 import type { FaunaId } from "../game/defs/fauna.ts";
 import type { Heightfield } from "../lib/heightfield.ts";
+import type { Season } from "../lib/solar.ts";
 
 /** The countries the shore can belong to. Only `taiga` is built; the rest are
  * the names the campaign will need, reserved so an id never changes. */
@@ -205,8 +206,12 @@ export type Level = {
   readonly start: { readonly x: number; readonly z: number; readonly heading: number };
   readonly wind: Wind;
   readonly water: WaterBody;
-  /** Hour of day, 0..24 (R13) — where the sun stands, which is what the
-   * renderer's atmosphere builds the whole sky out of. */
+  /** The season (R13): with the coast's latitude, what the sun's arc is —
+   * how long the day is, and how dark the night gets. */
+  readonly season: Season;
+  /** Hour of day, 0..24 (R13) — where the sun stands when the run STARTS;
+   * the clock runs on from there (`sunHourAt`), and the renderer's
+   * atmosphere builds the whole sky out of wherever it has got to. */
   readonly hour: number;
   /** The sky over it (R19). */
   readonly weather: Weather;

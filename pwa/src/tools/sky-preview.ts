@@ -29,7 +29,15 @@
 
 import * as THREE from "three";
 
-import { WEATHER_IDS, createGame, generateLevel, step, type Weather } from "@engine";
+import {
+  SEASONS,
+  WEATHER_IDS,
+  createGame,
+  generateLevel,
+  step,
+  type Season,
+  type Weather,
+} from "@engine";
 
 import { createRenderer } from "../game/renderer.ts";
 
@@ -37,10 +45,12 @@ import { createRenderer } from "../game/renderer.ts";
  * compared, so the shore under it must not move. */
 const SEED = 38;
 
-/** The hours the columns stand at, in solar time. The three the start card
- * names, plus the two either side of noon that catch the light on its way
- * up and down — a ladder needs its middle rungs to be read as a ladder. */
-const HOURS = [3.5, 7, 12, 17, 20.5];
+/** The hours the columns stand at, in solar time: every three hours round
+ * the clock, so the sheet is the whole day AND the whole night. Which of
+ * them are dark is the season's: in July the 21:00 column is a sunset and
+ * the 00:00 one a blue twilight, in October both are black under the moon
+ * and the 06:00 one is a dawn. The `--season` flag picks which. */
+const HOURS = [0, 3, 6, 9, 12, 15, 18, 21];
 
 /** One cell, px. Wide enough that the horizon is a horizon rather than a
  * line, and small enough that five columns fit a sheet a person can look at
@@ -55,8 +65,10 @@ const CELL_H = 240;
 const WARM_S = 2;
 
 /** Which of a list this run wants, off the page's own query string, or all
- * of them. `--rows=squall,rain` and `--hours=3.5,12` on the script become
- * `?rows=…&hours=…` here, and THIS file owns what they mean. */
+ * of them. `--rows=squall,rain`, `--hours=0,12` and `--season=autumn` on
+ * the script become `?rows=…&hours=…&season=…` here, and THIS file owns
+ * what they mean. A season that is not one of the four is every season,
+ * of which the sheet draws the first: one coast, one season, one sheet. */
 function chosen<T>(all: readonly T[], param: string, key: (item: T) => string): T[] {
   const asked = new URLSearchParams(location.search).get(param);
   if (!asked) return [...all];
@@ -68,6 +80,8 @@ function chosen<T>(all: readonly T[], param: string, key: (item: T) => string): 
 async function main(): Promise<void> {
   const rows = chosen(WEATHER_IDS, "rows", (w) => w);
   const hours = chosen(HOURS, "hours", (h) => String(h));
+  const asked = new URLSearchParams(location.search).get("season");
+  const season: Season = SEASONS.find((s) => s === asked) ?? "summer";
 
   const sheetCanvas = document.getElementById("stage") as HTMLCanvasElement;
   sheetCanvas.width = CELL_W * hours.length;
@@ -114,7 +128,7 @@ async function main(): Promise<void> {
     const weather: Weather = rows[r];
     for (let c = 0; c < hours.length; c++) {
       const hour = hours[c];
-      const state = createGame({ seed: SEED, level: dealt, hour, weather, quiet: true });
+      const state = createGame({ seed: SEED, level: dealt, hour, season, weather, quiet: true });
       renderer.load(state);
       renderer.camera.restand();
       const steps = Math.round(WARM_S * 120);
@@ -124,7 +138,7 @@ async function main(): Promise<void> {
       }
       renderer.render(state, 1 / 60);
       sheet.drawImage(cell, c * CELL_W, r * CELL_H);
-      addLabel(`${weather.toUpperCase()}  ${clock(hour)}`, c, r);
+      addLabel(`${weather.toUpperCase()}  ${season.toUpperCase()}  ${clock(hour)}`, c, r);
     }
   }
 

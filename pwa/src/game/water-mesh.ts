@@ -74,7 +74,14 @@ import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
-import { applyClock, applyRain, applySea, applySky, createWaterMaterial } from "./water-shader.ts";
+import {
+  applyClock,
+  applyLamp,
+  applyRain,
+  applySea,
+  applySky,
+  createWaterMaterial,
+} from "./water-shader.ts";
 
 /** The grid the game is tuned on, and what the labs and the tests measure:
  * 72 × 72 = 5 184 samples a frame, six to eight milliseconds of `surfaceAt`
@@ -220,6 +227,11 @@ export type WaterMesh = {
   /** How hard it is raining on the sea, 0..1, and how far out the rings are
    * worth drawing (the DETAIL row's reach, m). */
   setRain: (fall: number, reach: readonly [number, number]) => void;
+  /** The craft's lamp, as the one spotlight in the scene: its pool on the
+   * water is this shader's own term, read off the very light that lights
+   * the hull and the buoys beside it. Every frame — the lamp rides the
+   * hull. */
+  setLamp: (lamp: THREE.SpotLight) => void;
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
@@ -590,6 +602,7 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
     far,
     retone,
     setRain: (fall, reach) => applyRain(material, fall, reach),
+    setLamp: (lamp) => applyLamp(material, lamp),
     setWindow: (open) => {
       windowOpen = open;
       // Blending is switched off with it: an opaque surface drawn through the

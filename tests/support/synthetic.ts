@@ -153,6 +153,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     start: { x: 20, z: 40, heading: east },
     wind: { from: opts.windFrom ?? 0, speed: opts.windSpeed ?? 4 },
     water: { density: opts.density ?? 1005, temperature: 14 },
+    season: "summer",
     hour: 11,
     // A clear late morning: nothing a physics test stages should be
     // standing under weather it did not ask for.

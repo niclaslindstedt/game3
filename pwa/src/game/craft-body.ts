@@ -317,6 +317,25 @@ export function cockpitOf(spec: CraftSpec, style: CraftStyle): Cockpit {
   };
 }
 
+/** WHERE THE LAMP IS MOUNTED, in the body frame: on the hood's crown a
+ * little short of the bow, where the deck is still high enough to throw a
+ * beam over the nose, and the two sidelights either side of it at the
+ * rail. Derived off the same layout the loft draws, so a restyle that moves
+ * the hood moves the lamp with it. */
+export function lampOf(
+  spec: CraftSpec,
+  style: CraftStyle,
+): { x: number; y: number; z: number; side: number } {
+  const l = layout(spec, style);
+  const s = 0.9;
+  return {
+    x: 0,
+    y: l.sheerAt(s) + l.deckAt(s).ped + 0.02 * l.H,
+    z: l.zTransom + s * l.L + l.rakeAt(s) * 0.5,
+    side: (l.B / 2) * l.taper(s) * 0.92,
+  };
+}
+
 /** The whole craft, at the origin, ready for a quaternion. `surface` is the
  * material it is drawn with — the renderer hands in the one it shares with
  * the rider, on the sky's own uniforms; anything with no sky to reflect

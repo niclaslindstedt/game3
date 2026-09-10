@@ -2,17 +2,21 @@
 // THE START CARD — the first of the two questions between the front door and
 // the water: WHERE, and WHEN.
 //
-// FOUR ROWS, AND NOT ONE MORE. A card standing between a player and a game
+// FIVE ROWS, AND NOT ONE MORE. A card standing between a player and a game
 // they have already said yes to earns its place only if every row on it
-// changes the ride they are about to have, so it asks the four things that
+// changes the ride they are about to have, so it asks the five things that
 // do and leaves everything else to OPTIONS:
 //
 //   SHORE    which seed, with the coast it makes drawn underneath: the
 //            schematic is the row, because a number nobody can picture is
 //            not a choice.
+//   SEASON   spring, summer, autumn or winter — the sun's arc, which is how
+//            long the day is and how dark the night gets (R13).
 //   TIME     sunrise, day or sunset — resolved by the ENGINE against this
-//            coast's own daylight window (`hourOfDay`), never as three
-//            hours written down here.
+//            coast's own daylight window in that season (`hourOfDay`),
+//            never as three hours written down here. The clock runs on
+//            from there at an hour a minute, so SUNSET is a run that rides
+//            into the night.
 //   WIND     calm, brisk or storm — the wind, and so the SEA, because the
 //            fetch law is what turns one into the other.
 //   WEATHER  the sky over it: R19's own five, off `WEATHER_IDS`.
@@ -57,7 +61,14 @@
 // What the rows WRITE is `settings.ride` — so a run stood up from here and a
 // run stood up from a link are the same run read the same way.
 
-import { TIMES_OF_DAY, WEATHER_IDS, type TimeOfDay, type Weather } from "@engine";
+import {
+  SEASONS,
+  TIMES_OF_DAY,
+  WEATHER_IDS,
+  type Season,
+  type TimeOfDay,
+  type Weather,
+} from "@engine";
 import { useState } from "preact/hooks";
 
 import { MenuHead } from "./menu.tsx";
@@ -86,6 +97,16 @@ const TIME_STOPS: Stop<TimeOfDay>[] = TIMES_OF_DAY.map((id) => ({
   id,
   label: TIME_LABELS[id],
 }));
+
+const SEASON_LABELS: Record<Season, string> = {
+  spring: STRINGS.seasonSpring,
+  summer: STRINGS.seasonSummer,
+  autumn: STRINGS.seasonAutumn,
+  winter: STRINGS.seasonWinter,
+};
+
+/** The seasons in the year's order, which is the engine's. */
+const SEASON_STOPS: Stop<Season>[] = SEASONS.map((id) => ({ id, label: SEASON_LABELS[id] }));
 
 const CONDITION_LABELS: Record<Conditions, string> = {
   fine: STRINGS.windCalm,
@@ -213,6 +234,16 @@ export function StartPage({
         </div>
         <div class="start-col">
           <div class="knob-rows">
+            <StepRow
+              label={STRINGS.startSeason}
+              hint={STRINGS.startSeasonHint}
+              stops={SEASON_STOPS}
+              value={ride.season ?? deal?.season ?? null}
+              dealt={deal?.season ?? null}
+              pending={!chart.fresh}
+              onPick={(season) => setRide({ season: pick(season, deal?.season ?? null) })}
+              onHint={setHint}
+            />
             <StepRow
               label={STRINGS.startTime}
               hint={STRINGS.startTimeHint}

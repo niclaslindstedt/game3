@@ -6,7 +6,10 @@
 //   top left      the run clock and the gate count, with the WIND VANE
 //                 under them — the vane is a fact about the water rather
 //                 than a press, so it belongs beside the two readouts that
-//                 say how the run is going, not on the row of buttons
+//                 say how the run is going, not on the row of buttons —
+//                 and the SUN'S CLOCK under that: the hour the run has
+//                 reached and the word for its light, because a run rides
+//                 an hour a minute into whatever the season has
 //   top right     the MINIMAP — the coast, the gates and the craft on it,
 //                 and the press that holds the run and puts the pause card
 //                 up — with the RESET and CAMERA presses hung under it, and
@@ -29,6 +32,7 @@
 
 import { REPO_URL } from "../identity.ts";
 import { formatTime } from "../lib/util.ts";
+import { hourLabel } from "./daylight.ts";
 import { HudActions } from "./hud-actions.tsx";
 import { RevBar } from "./hud-dial.tsx";
 import { BarZone, LeverZone } from "./hud-touch.tsx";
@@ -127,6 +131,10 @@ export function Hud({
             says where the sea is coming from, and it is read together with
             the time it is costing. */}
         <WindVane angle={snap.windAngle} ms={snap.windMs} />
+        <div class="hud-chip hud-sun" title={STRINGS.sunClockLabel(snap.daylight)}>
+          <span>{hourLabel(snap.hour)}</span>
+          <span class="hud-chip-sub">{STRINGS.sunClockLabel(snap.daylight)}</span>
+        </div>
       </div>
 
       <div class="hud-topright">

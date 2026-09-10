@@ -18,6 +18,7 @@ import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { buildCraft, cockpitOf } from "./craft-body.ts";
+import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { applyCraftSky, craftSurface } from "./craft-surface.ts";
 import { cullByDistance } from "./draw-distance.ts";
@@ -39,6 +40,7 @@ import {
   WATER_LOOK,
   type VideoSettings,
 } from "./settings-video.ts";
+import { dayLight } from "./sky.ts";
 import { createSpray } from "./spray.ts";
 import { createWake } from "./wake.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
@@ -127,6 +129,7 @@ export function createRenderer(
   let gates: Gates | null = null;
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
+  let lamps: CraftLamps | null = null;
   let craftId: CraftId | null = null;
   let level: Level | null = null;
 
@@ -194,6 +197,10 @@ export function createRenderer(
       rider?.dispose();
       rider = createRider(cockpitOf(state.craft.spec, CRAFT_STYLES[id]), surface);
       craft.add(rider.mesh);
+      // …and so are the lamps: the hull's pose aims the beam.
+      lamps?.dispose();
+      lamps = createCraftLamps(state.craft.spec, CRAFT_STYLES[id]);
+      craft.add(lamps.group);
       scene.add(craft);
     }
     wake.reset();
@@ -331,13 +338,24 @@ export function createRenderer(
     // the sun is read at the craft.
     sky.update(state, eye.set(pose.x, pose.y, pose.z), dt);
     // …and the water answers to the light the sky just set. Per frame rather
-    // than per level, because within a run the light MOVES: a sheet drifting
-    // over the sun dims the key, and the sea's glint has to go with it or
-    // the water keeps a sparkle the sky no longer has. The craft's mirror is
-    // compiled for the same sheet count the water's is.
-    water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
+    // than per level, because within a run the light MOVES: the sun goes
+    // down, a sheet drifting over the sun dims the key, and the sea's glint
+    // has to go with it or the water keeps a sparkle the sky no longer has.
+    // The craft's mirror is compiled for the same sheet count the water's is.
+    const p = sky.preset();
+    water.retone(p, sky.hemi, sky.key, sky.cloudLayers());
     applyCraftSky(surface, sky.cloudLayers());
     water.setRain(sky.rainfall(), RAIN_RING_REACH[video.rainRings]);
+    fauna?.retone(p);
+    // THE DARK: the craft's lamps come on with the sky's switch and are
+    // worth what the dark makes them worth; the buoys light their own caps;
+    // and the water reads the headlamp off the very spotlight the hull is
+    // lit by.
+    if (lamps) {
+      lamps.setLit(p.lamps, 1 - dayLight(p));
+      water.setLamp(lamps.light);
+    }
+    gates?.setNight(p.lamps);
 
     renderer.render(scene, camera);
     cost.calls = renderer.info.render.calls;
@@ -384,6 +402,7 @@ export function createRenderer(
       spray.dispose();
       rider?.dispose();
       surface.dispose();
+      lamps?.dispose();
       if (terrain) disposeTerrain(terrain);
       renderer.dispose();
     },

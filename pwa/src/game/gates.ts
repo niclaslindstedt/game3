@@ -37,6 +37,12 @@ export type Gates = {
   group: THREE.Group;
   /** Bob the buoys on this frame's surface and light the next gate. */
   update: (state: GameState) => void;
+  /** How lit the marks' own lamps are, 0..1 — the sky's say
+   * (`Preset.lamps`). A channel buoy carries a light because a channel has
+   * to be found in the dark, and so do these: the caps and the rings glow
+   * once the sun is down, which is what makes a night course a course
+   * rather than a black sea with a minimap. */
+  setNight: (lit: number) => void;
 };
 
 const m = new THREE.Matrix4();
@@ -125,7 +131,20 @@ export function createGates(level: Level): Gates {
   }
 
   let litFor = -1;
+  let night = 0;
   const sample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
+
+  /** The marks' own light: the caps go to their own white, the rings to
+   * their own orange, by how dark it is. Emissive rather than a light in
+   * the scene, because forty buoys are forty lamps and the one thing a
+   * mark's light has to do is be SEEN — it lights nothing but itself. */
+  const applyNight = (): void => {
+    (caps.material as THREE.MeshLambertMaterial).emissive.copy(CAP).multiplyScalar(0.85 * night);
+    for (const r of rings) {
+      r.material.emissive.setHex(r.gate === litFor ? 0x663300 : 0x000000);
+      r.material.emissive.lerp(color.copy(r.material.color).multiplyScalar(0.8), night);
+    }
+  };
 
   const update = (state: GameState): void => {
     const next = state.progress.nextGate;
@@ -155,10 +174,18 @@ export function createGates(level: Level): Gates {
       if (caps.instanceColor) caps.instanceColor.needsUpdate = true;
       for (const r of rings) {
         r.material.color.copy(r.gate === next ? RING_NEXT : r.gate < next ? RING_DONE : RING);
-        r.material.emissive.setHex(r.gate === next ? 0x663300 : 0x000000);
       }
+      applyNight();
     }
   };
 
-  return { group, update };
+  return {
+    group,
+    update,
+    setNight: (lit) => {
+      if (Math.abs(lit - night) < 0.002) return;
+      night = lit;
+      applyNight();
+    },
+  };
 }

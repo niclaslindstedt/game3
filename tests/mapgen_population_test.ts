@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 import {
   LEVEL_RULES as R,
   biomeOf,
+  DECLINATION,
   daylightWindow,
   generateLevel,
   setOutputSink,
@@ -95,11 +96,20 @@ describe("level population", () => {
   it("hours and water temperatures fill their bands", () => {
     const hours = population().map((s) => s.level.hour);
     const temps = population().map((s) => s.level.water.temperature);
-    const daylight = daylightWindow(biomeOf("taiga").latitude, R.day.minSun);
-    if (!daylight) throw new Error("the taiga coast has daylight");
-    for (const h of hours) expect(withinBand(h, daylight, 0.05)).toBe(true);
+    const seasons = new Set(population().map((s) => s.level.season));
+    for (const { level } of population()) {
+      const daylight = daylightWindow(
+        biomeOf("taiga").latitude,
+        R.day.minSun,
+        DECLINATION[level.season],
+      );
+      if (!daylight) throw new Error("the taiga coast has daylight in every season");
+      expect(withinBand(level.hour, daylight, 0.05)).toBe(true);
+    }
     expect(spread(hours).max - spread(hours).min).toBeGreaterThan(6);
     expect(spread(temps).max - spread(temps).min).toBeGreaterThan(4);
+    // The year is dealt whole: a population this size sees every season.
+    expect(seasons.size).toBe(4);
     for (const s of population()) expect(s.level.water.density).toBe(1005);
   });
 

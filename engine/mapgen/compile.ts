@@ -16,6 +16,7 @@ import {
   type Heightfield,
 } from "../lib/heightfield.ts";
 import { lerp } from "../lib/math.ts";
+import type { Season } from "../lib/solar.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Biome } from "./biomes.ts";
 import { traceCoast } from "./basin.ts";
@@ -40,6 +41,7 @@ export type LevelPlan = {
   readonly fauna: readonly Pod[];
   readonly wind: Wind;
   readonly water: WaterBody;
+  readonly season: Season;
   readonly hour: number;
   readonly weather: Weather;
 };
@@ -122,6 +124,7 @@ export function compileLevel(plan: LevelPlan): Level {
     start: { ...plan.course.start },
     wind: { ...plan.wind },
     water: { ...plan.water },
+    season: plan.season,
     hour: plan.hour,
     weather: plan.weather,
   };

@@ -8,7 +8,7 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
-import { WEATHER_IDS } from "@engine";
+import { SEASONS, WEATHER_IDS } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -430,10 +430,20 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       camera: "nose",
       seed: 12,
       time: "sunset",
+      // Not in the blob, so the shore's own — a blob from before the row
+      // existed keeps riding the season it was dealt.
+      season: null,
       conditions: "storm",
       weather: "rain",
     });
     expect(stored.hud.on).toBe(false);
+  });
+
+  it("takes a SEASON off the engine's own four, and only off them", () => {
+    for (const season of SEASONS) {
+      expect(mergeSettings({ ride: { season } }).ride.season).toBe(season);
+    }
+    expect(mergeSettings({ ride: { season: "monsoon" } }).ride.season).toBeNull();
   });
 
   it("takes a SKY off the engine's own ladder, and only off it", () => {

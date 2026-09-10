@@ -5,11 +5,16 @@
 //   wind weights that draw. The rule is that the darkest skies stand over
 //   the biggest seas, and this is what makes it a rule rather than a hope.
 //
-//   THE APP's — the astronomy (`daylight.ts`), the ladder of authored looks
-//   and the lid a weather puts over it (`sky.ts`). Both are plain arithmetic
-//   on numbers, with no renderer under them, which is what lets the model be
-//   asserted here at all; the modules that DRAW it own a mesh apiece and are
-//   judged by looking (`make screenshots`), never here.
+//   THE APP's — the astronomy (`daylight.ts`), the ladder of authored looks,
+//   the season's cast and the lid a weather puts over it (`sky.ts`). Both
+//   are plain arithmetic on numbers, with no renderer under them, which is
+//   what lets the model be asserted here at all; the modules that DRAW it
+//   own a mesh apiece and are judged by looking (`make sky`), never here.
+//
+//   And THE CLOCK between them: the sun moves an hour a minute of riding
+//   (`sunHourAt`), so the ladder has to be CONTINUOUS from a sunset start
+//   down into whatever night the season has — twilight in June, black under
+//   the moon in October — and back up into the dawn.
 //
 // What is NOT asserted here is which colour anything is. A rung is art
 // direction; a test that pins a hex to a number is a test that fails every
@@ -20,7 +25,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  DECLINATION,
   LEVEL_RULES as R,
+  SEASONS,
+  SUN_SECONDS_PER_HOUR,
   TIMES_OF_DAY,
   WEATHER_IDS,
   biomeOf,
@@ -31,10 +39,20 @@ import {
   hourOfDay,
   pickWeather,
   skyCover,
+  sunHourAt,
+  type Season,
 } from "@engine";
 
 import { luminance } from "../pwa/src/lib/colour.ts";
-import { DAY_ABOVE, daylightOf, litAt, sunAt } from "../pwa/src/game/daylight.ts";
+import {
+  DAY_ABOVE,
+  NIGHT_BELOW,
+  daylightOf,
+  lampsAt,
+  litAt,
+  moonAt,
+  sunOver,
+} from "../pwa/src/game/daylight.ts";
 import {
   dayLight,
   deckToneAt,
@@ -47,11 +65,16 @@ import { syntheticLevel } from "./support/synthetic.ts";
 
 const TAIGA = biomeOf("taiga");
 const LAT = TAIGA.latitude;
-/** R13 — the hours a level on this coast can be ridden at. Every claim
- * about the ladder below is a claim about THESE hours: no other hour is
- * reachable, so a rung under the horizon is a rung nobody sees. */
-const DAY = daylightWindow(LAT, R.day.minSun);
-if (!DAY) throw new Error("the taiga coast has daylight");
+const DEG = Math.PI / 180;
+/** The sun over this coast, in a season — the app's own reading. */
+const sunAt = (hour: number, season: Season = "summer") => sunOver(hour, LAT, season);
+/** R13 — the hours a level on this coast can START at, per season. */
+const window = (season: Season): { min: number; max: number } => {
+  const w = daylightWindow(LAT, R.day.minSun, DECLINATION[season]);
+  if (!w) throw new Error(`the taiga coast has daylight in ${season}`);
+  return w;
+};
+const DAY = window("summer");
 
 describe("R19 — the sky is drawn from the coast's chart, weighted by the wind", () => {
   it("reads the wind's place in R12's band as the weather's heaviness", () => {
@@ -99,46 +122,93 @@ describe("R19 — the sky is drawn from the coast's chart, weighted by the wind"
 
 describe("the sun over this coast", () => {
   it("stands highest at noon and lowest at midnight", () => {
-    const noon = sunAt(12, LAT).elevation;
-    const midnight = sunAt(0, LAT).elevation;
+    const noon = sunAt(12).elevation;
+    const midnight = sunAt(0).elevation;
     for (let h = 0; h < 24; h += 0.25) {
-      expect(sunAt(h, LAT).elevation).toBeLessThanOrEqual(noon + 1e-9);
-      expect(sunAt(h, LAT).elevation).toBeGreaterThanOrEqual(midnight - 1e-9);
+      expect(sunAt(h).elevation).toBeLessThanOrEqual(noon + 1e-9);
+      expect(sunAt(h).elevation).toBeGreaterThanOrEqual(midnight - 1e-9);
     }
   });
 
-  it("R13 — the sun is up at every hour a level can be ridden at, and only there", () => {
+  it("R13 — the sun is up at every hour a level can START at, in every season", () => {
     // The window is the rule: inside it the sun is over the horizon at
     // every hour, and the hours either side of it are the ones no level is
-    // ever drawn at. That is what "no night" means in this game.
-    // The window's ends are found by interpolating between three-minute
-    // samples of the arc, so they land within a thousandth of a degree of
-    // the horizon rather than exactly on it.
-    for (let h = DAY.min; h <= DAY.max; h += 0.25) {
-      expect(sunAt(h, LAT).elevation).toBeGreaterThan(-1e-4);
+    // ever dealt. The window's ends are found by interpolating between
+    // three-minute samples of the arc, so they land within a thousandth of
+    // a degree of the horizon rather than exactly on it.
+    for (const season of SEASONS) {
+      const w = window(season);
+      for (let h = w.min; h <= w.max; h += 0.25) {
+        expect(sunAt(h, season).elevation).toBeGreaterThan(-1e-4);
+      }
+      expect(sunAt(w.min - 0.5, season).elevation).toBeLessThan(0);
+      expect(sunAt(w.max + 0.5, season).elevation).toBeLessThan(0);
     }
-    expect(sunAt(DAY.min - 0.5, LAT).elevation).toBeLessThan(0);
-    expect(sunAt(DAY.max + 0.5, LAT).elevation).toBeLessThan(0);
-    // …and the window is most of a High Coast midsummer day.
-    expect(DAY.max - DAY.min).toBeGreaterThan(18);
   });
 
-  it("rises in the small hours and sets late in the evening", () => {
-    expect(sunAt(2, LAT).elevation).toBeLessThan(0);
-    expect(sunAt(4, LAT).elevation).toBeGreaterThan(0);
-    expect(sunAt(21, LAT).elevation).toBeGreaterThan(0);
-    expect(sunAt(22, LAT).elevation).toBeLessThan(0);
+  it("gives each season the day the Bothnian coast actually has", () => {
+    // The facts the table was written against (engine/lib/solar.ts): an
+    // eighteen-hour day in high summer and a six-and-a-half-hour one in
+    // mid-November; sunrise before five in July and after eight in
+    // November; the noon sun nine degrees up in November and near fifty in
+    // July.
+    const length = (s: Season): number => window(s).max - window(s).min;
+    expect(length("summer")).toBeGreaterThan(17);
+    expect(length("summer")).toBeLessThan(19);
+    expect(length("spring")).toBeGreaterThan(15);
+    expect(length("autumn")).toBeGreaterThan(10);
+    expect(length("autumn")).toBeLessThan(12);
+    expect(length("winter")).toBeGreaterThan(6);
+    expect(length("winter")).toBeLessThan(7);
+    expect(window("summer").min).toBeLessThan(5);
+    expect(window("winter").min).toBeGreaterThan(8);
+    expect(sunAt(12, "winter").elevation / DEG).toBeCloseTo(9, 0);
+    expect(sunAt(12, "summer").elevation / DEG).toBeGreaterThan(47);
+  });
+
+  it("never reaches astronomical dark in spring or summer, and always does in autumn and winter", () => {
+    // At 62°N the sun cannot get eighteen degrees under between late April
+    // and the middle of August — which is why a taiga summer night is a
+    // long blue twilight and an October one is black.
+    const midnight = (s: Season): number => sunAt(0, s).elevation / DEG;
+    expect(midnight("spring")).toBeGreaterThan(-18);
+    expect(midnight("summer")).toBeGreaterThan(-18);
+    expect(midnight("autumn")).toBeLessThan(-18);
+    expect(midnight("winter")).toBeLessThan(-18);
+    // …and the summer night is a NIGHT by the sky's word all the same: it
+    // is past civil twilight, if never past nautical.
+    expect(daylightOf(sunAt(0, "summer"))).toBe("night");
+    expect(midnight("summer")).toBeGreaterThan(-12);
   });
 
   it("is rising before noon and setting after it", () => {
-    expect(sunAt(8, LAT).rising).toBe(true);
-    expect(sunAt(16, LAT).rising).toBe(false);
+    expect(sunAt(8).rising).toBe(true);
+    expect(sunAt(16).rising).toBe(false);
   });
 
   it("names the light by the elevation, and dawn and dusk by the way it is going", () => {
     expect(daylightOf({ elevation: DAY_ABOVE + 0.1, rising: true })).toBe("day");
     expect(daylightOf({ elevation: 0.05, rising: true })).toBe("dawn");
     expect(daylightOf({ elevation: 0.05, rising: false })).toBe("dusk");
+    expect(daylightOf({ elevation: NIGHT_BELOW - 0.01, rising: false })).toBe("night");
+  });
+
+  it("puts the full moon opposite the sun", () => {
+    const sun = sunAt(0, "autumn");
+    const moon = moonAt(sun);
+    expect(moon.elevation).toBeCloseTo(-sun.elevation, 9);
+    expect(moon.azimuth).toBeCloseTo(sun.azimuth + Math.PI, 9);
+    // High over the sea at an October midnight.
+    expect(moon.elevation / DEG).toBeGreaterThan(30);
+  });
+
+  it("switches the craft's lamp on as the sun touches the water", () => {
+    expect(lampsAt(20 * DEG)).toBe(0);
+    expect(lampsAt(2 * DEG)).toBe(0);
+    expect(lampsAt(0)).toBeGreaterThan(0);
+    expect(lampsAt(0)).toBeLessThan(1);
+    expect(lampsAt(-2 * DEG)).toBe(1);
+    expect(lampsAt(-30 * DEG)).toBe(1);
   });
 
   it("keeps a cloud in the sun after the water has lost it", () => {
@@ -153,46 +223,136 @@ describe("the sun over this coast", () => {
   });
 });
 
+describe("the sun's clock", () => {
+  it("runs an hour of sun a minute of riding, and wraps", () => {
+    expect(SUN_SECONDS_PER_HOUR).toBe(60);
+    expect(sunHourAt({ hour: 17 }, 60)).toBeCloseTo(18, 9);
+    expect(sunHourAt({ hour: 23.5 }, 120)).toBeCloseTo(1.5, 9);
+    expect(sunHourAt({ hour: 6 }, 0)).toBe(6);
+    expect(sunHourAt({ hour: 6 }, 24 * 60)).toBeCloseTo(6, 9);
+  });
+
+  it("rides a SUNSET start into the night, and how dark a night is the season's", () => {
+    // The start card's own sunset, in each season, four minutes on.
+    const level = syntheticLevel({ windSpeed: 4, noSolids: true });
+    for (const season of SEASONS) {
+      const set = hourOfDay({ biome: level.biome, season }, "sunset");
+      expect(daylightOf(sunAt(set, season))).toBe("dusk");
+      expect(daylightOf(sunAt(sunHourAt({ hour: set }, 4 * 60), season))).toBe("night");
+    }
+    const lateOn = (season: Season): number =>
+      sunAt(
+        sunHourAt({ hour: hourOfDay({ biome: level.biome, season }, "sunset") }, 5 * 60),
+        season,
+      ).elevation / DEG;
+    expect(lateOn("summer")).toBeGreaterThan(lateOn("autumn"));
+    expect(lateOn("autumn")).toBeLessThan(-18);
+  });
+});
+
 describe("the ladder", () => {
-  const clearAt = (hour: number) => skyAt(hour, LAT, "clear", 0);
+  const clearAt = (hour: number, season: Season = "summer") => skyAt(hour, LAT, "clear", 0, season);
 
   it("puts the most light on the water at noon and the least as the sun goes in", () => {
     expect(dayLight(clearAt(12))).toBeGreaterThan(dayLight(clearAt(18)));
     expect(dayLight(clearAt(18))).toBeGreaterThan(dayLight(clearAt(20.5)));
     expect(dayLight(clearAt(20.5))).toBeGreaterThan(dayLight(clearAt(DAY.max)));
+    // …and an October midnight has the least of all: the moon, a tenth of
+    // a noon at most.
+    expect(dayLight(clearAt(0, "autumn"))).toBeLessThan(dayLight(clearAt(DAY.max)));
+    expect(dayLight(clearAt(0, "autumn"))).toBeLessThan(0.12);
+    expect(dayLight(clearAt(0, "autumn"))).toBeGreaterThan(0);
   });
 
-  it("never puts the key light under the horizon", () => {
+  it("never puts the key light under the horizon, at any hour of any season", () => {
     // A key from below the water lights nothing: every face turned to the
     // lens would go black, and the rider would lose the buoys.
+    for (const season of SEASONS) {
+      for (let h = 0; h < 24; h += 0.5) expect(clearAt(h, season).sunElevation).toBeGreaterThan(0);
+    }
+  });
+
+  it("keeps the key on the sun's own side of the sky while the sun is up", () => {
     for (let h = DAY.min; h <= DAY.max; h += 0.5) {
-      expect(clearAt(h).sunElevation).toBeGreaterThan(0);
+      expect(clearAt(h).sunAzimuth).toBe(sunAt(h).azimuth);
     }
   });
 
-  it("keeps the key on the sun's own side of the sky all day", () => {
-    // There is no second key light: no level is ridden dark enough to need
-    // one, so the bearing the world is lit from is always the sun's.
-    for (let h = DAY.min; h <= DAY.max; h += 0.5) {
-      expect(clearAt(h).sunAzimuth).toBe(sunAt(h, LAT).azimuth);
+  it("hands the key over to the moon in the dark", () => {
+    const night = clearAt(0, "autumn");
+    expect(night.sunUp).toBeLessThan(-12 * DEG);
+    expect(night.sunAzimuth).toBeCloseTo(night.sunBearing + Math.PI, 6);
+    expect(night.sunElevation).toBeCloseTo(-night.sunUp, 6);
+    // …and the moon is a cold light where the sun was a warm one.
+    const blue = (hex: number): number => hex & 0xff;
+    const red = (hex: number): number => (hex >> 16) & 0xff;
+    expect(blue(night.sun)).toBeGreaterThan(red(night.sun));
+    expect(night.sunIntensity).toBeLessThan(clearAt(12).sunIntensity);
+  });
+
+  it("brings the stars out only once the sun is well under, and the band only in the dark", () => {
+    expect(clearAt(12).stars).toBe(0);
+    expect(clearAt(DAY.max).stars).toBeLessThan(1e-3);
+    const dusk = clearAt(DAY.max + 1.2);
+    expect(dusk.stars).toBeGreaterThan(0);
+    expect(dusk.stars).toBeLessThan(1);
+    const night = clearAt(0, "autumn");
+    expect(night.stars).toBe(1);
+    expect(night.galaxy).toBe(1);
+    // The band is far steeper than the stars: in the twilight it is a
+    // fraction of what the stars are.
+    expect(dusk.galaxy).toBeLessThan(dusk.stars * 0.5);
+    // A summer midnight, nautical twilight: some stars, little band.
+    const june = clearAt(0, "summer");
+    expect(june.stars).toBeGreaterThan(0);
+    expect(june.galaxy).toBeLessThan(night.galaxy);
+  });
+
+  it("holds its lowest rung under nautical twilight rather than going on down", () => {
+    const dark = clearAt(0, "autumn");
+    const darker = clearAt(0, "winter");
+    expect(luminance(darker.horizon)).toBeCloseTo(luminance(dark.horizon), 2);
+    expect(darker.stars).toBe(dark.stars);
+  });
+
+  it("blends without a cut: no step in the day OR THE NIGHT is a jump in the light", () => {
+    for (const season of SEASONS) {
+      let was = dayLight(clearAt(0, season));
+      let wasStars = clearAt(0, season).stars;
+      for (let h = 0.1; h <= 24; h += 0.1) {
+        const p = clearAt(h, season);
+        expect(Math.abs(dayLight(p) - was)).toBeLessThan(0.06);
+        expect(Math.abs(p.stars - wasStars)).toBeLessThan(0.12);
+        was = dayLight(p);
+        wasStars = p.stars;
+      }
     }
   });
 
-  it("holds its lowest rung under the horizon rather than going on down", () => {
-    // R13 never asks for a sky under a set sun, so the ladder's floor is
-    // the sun ON the water — and anything below simply reads as that.
-    const set = clearAt(DAY.max);
-    const under = skyAt(DAY.max + 1, LAT, "clear", 0);
-    expect(luminance(under.horizon)).toBeCloseTo(luminance(set.horizon), 1);
+  it("lays a mist on the water at dawn and burns it off by mid-morning", () => {
+    const dawn = clearAt(DAY.min - 0.6);
+    const morning = clearAt(10);
+    const dusk = clearAt(DAY.max + 0.6);
+    expect(dawn.mist).toBeGreaterThan(morning.mist);
+    expect(dawn.mist).toBeGreaterThan(dusk.mist);
+    expect(dawn.fogFar).toBeLessThan(dusk.fogFar);
+    // …and the Gulf of Bothnia's spring is its foggiest season.
+    expect(clearAt(window("spring").min - 0.6, "spring").mist).toBeGreaterThan(dawn.mist);
   });
 
-  it("blends without a cut: no step in the day is a jump in the light", () => {
-    let was = dayLight(clearAt(DAY.min));
-    for (let h = DAY.min + 0.1; h <= DAY.max; h += 0.1) {
-      const now = dayLight(clearAt(h));
-      expect(Math.abs(now - was)).toBeLessThan(0.06);
-      was = now;
-    }
+  it("casts the season on the air by day and not by night", () => {
+    // October's air is warmer than July's, and November's colder and
+    // shorter — at noon. At midnight there is no sun to cast anything, and
+    // the same rung is the same dark.
+    const red = (hex: number): number => (hex >> 16) & 0xff;
+    const blue = (hex: number): number => hex & 0xff;
+    const noon = (s: Season) => clearAt(12, s);
+    expect(red(noon("autumn").horizon) - blue(noon("autumn").horizon)).toBeGreaterThan(
+      red(noon("summer").horizon) - blue(noon("summer").horizon),
+    );
+    expect(noon("winter").fogFar).toBeLessThan(noon("summer").fogFar);
+    expect(noon("spring").fogFar).toBeGreaterThan(noon("winter").fogFar);
+    expect(clearAt(0, "autumn").horizon).toBe(clearAt(0, "winter").horizon);
   });
 });
 
@@ -293,10 +453,20 @@ describe("the weather over it", () => {
     // are shown in proportion to the day. Left at full strength, a midnight
     // squall comes out with a bright grey ceiling over black water.
     const noon = skyAt(12, LAT, "squall", 1).deck;
-    const night = skyAt(0, LAT, "squall", 1).deck;
+    const night = skyAt(0, LAT, "squall", 1, "autumn").deck;
     if (!noon || !night) throw new Error("a squall has a deck");
     expect(luminance(night.overhead)).toBeLessThan(luminance(noon.overhead));
     expect(luminance(night.rim)).toBeLessThan(luminance(noon.rim));
+    expect(luminance(night.overhead)).toBeLessThan(0.02);
+  });
+
+  it("takes the stars away under a lid", () => {
+    const clear = skyAt(0, LAT, "clear", 0, "autumn");
+    const sheet = skyAt(0, LAT, "high", 0.5, "autumn");
+    const rain = skyAt(0, LAT, "rain", 1, "autumn");
+    expect(sheet.stars).toBeLessThan(clear.stars);
+    expect(rain.stars).toBe(0);
+    expect(rain.galaxy).toBe(0);
   });
 });
 
@@ -373,6 +543,13 @@ describe("R13 — the named hour a level was dealt (dealtTimeOfDay)", () => {
   it("leaves no hour of the window unnamed", () => {
     for (let h = DAY.min; h <= DAY.max; h += 0.25) expect(TIMES_OF_DAY).toContain(at(h));
   });
+
+  it("reads the window off the level's own season", () => {
+    // A winter sunrise is four hours after a summer one.
+    const june = hourOfDay({ ...level, season: "summer" }, "sunrise");
+    const november = hourOfDay({ ...level, season: "winter" }, "sunrise");
+    expect(november - june).toBeGreaterThan(3.5);
+  });
 });
 
 describe("riding a level under another hour and another sky", () => {
@@ -396,5 +573,20 @@ describe("riding a level under another hour and another sky", () => {
     expect(stormy.level.hour).toBe(level.hour);
     const fair = createGame({ seed: 3, level, quiet: true });
     expect(stormy.sea.hsRef).toBe(fair.sea.hsRef);
+  });
+
+  it("rides the season asked for, and resolves a named hour against it", () => {
+    const winter = createGame({
+      seed: 3,
+      level,
+      season: "winter",
+      timeOfDay: "sunset",
+      quiet: true,
+    });
+    expect(winter.level.season).toBe("winter");
+    expect(winter.level.hour).toBeCloseTo(hourOfDay({ ...level, season: "winter" }, "sunset"), 9);
+    // The water and what swims in it are the level's own still.
+    expect(winter.level.water).toEqual(level.water);
+    expect(winter.level.fauna).toBe(level.fauna);
   });
 });

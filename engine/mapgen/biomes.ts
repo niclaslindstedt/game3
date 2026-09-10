@@ -20,6 +20,7 @@
 // throws, by design: a level on a coast nobody has drawn is not a level.
 
 import type { FaunaId } from "../game/defs/fauna.ts";
+import type { Season } from "../lib/solar.ts";
 import type { Band } from "./rules.ts";
 import type { BiomeId, Weather } from "./types.ts";
 
@@ -27,9 +28,9 @@ export type Biome = {
   readonly id: BiomeId;
   /** The name a menu shows. */
   readonly name: string;
-  /** The water: density kg/m³ and the temperature band °C a level draws
-   * from (R13). */
-  readonly water: { readonly density: number; readonly temperature: Band };
+  /** The water: density kg/m³ and, per season, the temperature band °C a
+   * level draws from (R13). */
+  readonly water: { readonly density: number; readonly temperature: Record<Season, Band> };
   /** How far north the coast lies, degrees (R13) — the one number that
    * turns a level's hour into a place for the sun, and so into a sky. It
    * is a fact about the coast rather than about the run, which is why it
@@ -73,13 +74,28 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
   taiga: {
     id: "taiga",
     name: "Taiga coast",
-    // The Bothnian Sea is nearly fresh — 1005 kg/m³ — and cold even in
-    // high summer: 8 °C in a June morning, 18 °C in a warm August bay.
-    water: { density: 1005, temperature: { min: 8, max: 18 } },
+    // The Bothnian Sea is nearly fresh — 1005 kg/m³ — and cold: the
+    // monthly means of the sea off this coast run from 0.4 °C in February
+    // and March, through 5 °C in May and 11 °C in June, to 16 °C in July
+    // and August, back to 13 °C in September, 9 °C in October and 5 °C in
+    // November, and the shallow bays run a few degrees either side of the
+    // open sea. Each season's band is the months it is dated to (see
+    // `DECLINATION`): May with the ice just out, high summer, the early
+    // October cool-down, and November's last open water before the ice.
+    water: {
+      density: 1005,
+      temperature: {
+        spring: { min: 3, max: 8 },
+        summer: { min: 10, max: 18 },
+        autumn: { min: 7, max: 13 },
+        winter: { min: 2, max: 6 },
+      },
+    },
     // The High Coast, at the top of the Bothnian Sea. Far enough north that
     // the midsummer sun only just sets, which is the whole character of the
-    // light here: long low evenings, a twilight that never finishes, and a
-    // sunrise three hours after midnight.
+    // summer light here: long low evenings, a twilight that never finishes,
+    // and a sunrise three hours after midnight — and far enough north that
+    // the December sun barely clears the water at noon.
     latitude: 62,
     relief: 1,
     rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },

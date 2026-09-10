@@ -84,16 +84,20 @@
 //       against it, which is the one sea this game has no use for. What it
 //       buys is R28 — with the ocean upwind of the whole coast, the sea
 //       reaches every metre of it.
-//   R13 THE DAY AND THE WATER. The run is ridden in DAYLIGHT: the hour is
-//       SOLAR time drawn from the window in which the sun stands at least
-//       `day.minSun` over the horizon at the coast's own latitude
-//       (`Biome.latitude`, 62°N on the taiga coast), which is what decides
-//       where the sun actually stands at it and therefore what sky the run
-//       is under. So a seed can be a sunrise on the water, a noon, or a sun
-//       going down into the sea, and never a night nobody can read the
-//       waves in. The water's temperature comes from the biome's band and
-//       its density is the biome's (brackish 1005 kg/m³ on the taiga
-//       coast).
+//   R13 THE DAY AND THE WATER. The run STARTS in daylight: the level is
+//       dealt a SEASON, and its hour is SOLAR time drawn from the window in
+//       which the sun stands at least `day.minSun` over the horizon at the
+//       coast's own latitude (`Biome.latitude`, 62°N on the taiga coast) in
+//       that season, which is what decides where the sun actually stands at
+//       it and therefore what sky the run is under. So a seed can be a
+//       sunrise on the water, a noon, or a sun going down into the sea —
+//       and the clock runs on from there at an hour a minute (`sunHourAt`),
+//       so a run begun at sunset rides into the twilight and then the
+//       night, and how dark that night gets is the season's: a taiga
+//       midsummer never gets past twilight, a September night is black
+//       under the moon. The water's temperature comes from the biome's band
+//       for the season and its density is the biome's (brackish 1005 kg/m³
+//       on the taiga coast).
 //   R14 THE GRID. Both heightfields sit on `grid.cell` (4 m) cells over the
 //       course's own extent padded `bounds.sea` metres on the seaward sides
 //       and `bounds.land` metres on the landward ones, and the level's
@@ -847,19 +851,14 @@ export const LEVEL_RULES = {
     seaward: 60 * DEG,
   },
 
-  /** R13 — the day: DAYLIGHT, and all of it.
-   *
-   * The window is not stated as hours because it is not a fact about the
-   * clock — it is a fact about the coast. `daylightWindow` reads it off the
-   * biome's own latitude, so the same rule gives a taiga seed the 02:22 to
-   * 21:38 of a High Coast midsummer and would give a southern one its own
-   * shorter day.
-   *
-   * The floor is the horizon itself: a sun sitting ON the water is the best
-   * light this game has and the rider can still read every wave under it,
-   * where the civil twilight half an hour later is a grey sea nobody can
-   * see a rock in. So sunrise and sunset are in and the night is out —
-   * which is the whole of the rule. */
+  /** R13 — the day: it STARTS in daylight. The window is not stated as
+   * hours because it is a fact about the coast and the season, not the
+   * clock: `daylightWindow` reads it off the biome's latitude and the
+   * season's declination (a taiga midsummer's 02:22–21:38, a November's
+   * 08:40–15:20). The floor is the horizon itself — a sun ON the water is
+   * the best light this game has and every wave still reads under it — so
+   * a run never STARTS in the dark; the clock then runs on at an hour a
+   * minute, and a sunset start rides into the night under the moon. */
   day: { minSun: 0 },
 
   /** R19 — the sky. */
