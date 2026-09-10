@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts screenshots sky flora profile hooks shellcheck actionlint changelog bump docs
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora profile hooks shellcheck actionlint changelog bump docs
 
 build:
 	npm run build
@@ -102,6 +102,18 @@ ride:
 # `make crafts` · `make crafts CRAFT=marlin` · `make crafts ARGS="--scale 120"`
 crafts:
 	npm run crafts -- $(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
+
+# THE EAR: the audio review page, previews/audition.html — every sound in
+# the bank on a button beside the sentence it was written against, and the
+# beds (the engine and the pump, the hull, the wind and the sea) under
+# sliders and a row of seats, played by the repo's own synth compiled and
+# inlined. Pure Node to build; a browser to hear. `ARGS=--meter` drives the
+# page in a headless Chromium (same requirements as `screenshots`) and
+# prints every level in dBFS. Required before/after any change under
+# pwa/src/game/audio/ — a sound cannot be judged from a diff.
+# `make audition` · `make audition CRAFT=marlin` · `make audition ARGS=--meter`
+audition:
+	npm run audition -- $(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
 
 # Drive the built app headlessly and screenshot the staged moments at the
 # two reference viewports (desktop landscape, phone portrait). Needs a built

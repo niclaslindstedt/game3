@@ -92,6 +92,11 @@ export type CraftState = {
   planing: number;
   /** How deep the deepest probe sits under the surface, m; 0 when dry. */
   submergedDepth: number;
+  /** The slam the hull took this step, N — the wedge impact of the probes
+   * ENTERING the water (`hull.ts`), capped as the physics caps it. Zero on a
+   * hull that is riding rather than landing. Read by the app's audio for the
+   * slap of the bottom meeting a wave; nothing in the engine reads it back. */
+  slam: number;
   /** |v|, m/s — what the speedo reads. */
   speed: number;
   /** Seconds since the last landing; starts large so nothing reads a

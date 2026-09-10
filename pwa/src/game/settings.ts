@@ -166,9 +166,25 @@ export type DevSettings = {
   cost: boolean;
 };
 
+/**
+ * WHAT THE GAME SOUNDS LIKE, as far as the player may move it: one fader,
+ * 0..1 in twentieths, over every sound effect — the engine bed, the spray,
+ * the splashes and the chimes alike. 0 is OFF. A second fader for the music
+ * arrives with the music (`soundtrack`), never before, because a row the app
+ * ignores is worse than no row.
+ */
+export type AudioSettings = {
+  sfx: number;
+};
+
+/** The fader's own ladder: twentieths, so OFF, a whisper and full are each
+ * a few presses apart on a controller. */
+export const SFX_STEP = 0.05;
+
 export type Settings = {
   hud: HudSettings;
   ride: RideSettings;
+  audio: AudioSettings;
   /** What the picture costs — the rows of OPTIONS ▸ VIDEO. What each one buys
    * is `settings-video.ts`, which is also where the ladders are stated. */
   video: VideoSettings;
@@ -198,6 +214,9 @@ export const DEV_HOLD_MS = 7000;
 export const DEFAULT_SETTINGS: Settings = {
   hud: { on: true, fps: false },
   video: DEFAULT_VIDEO,
+  // Loud enough to be the game, short of full so a landing has somewhere to
+  // go — the bank is mixed at the chase seat with this much headroom.
+  audio: { sfx: 0.8 },
   ride: {
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
@@ -249,6 +268,7 @@ export function freshSettings(): Settings {
     hud: { ...DEFAULT_SETTINGS.hud },
     ride: { ...DEFAULT_SETTINGS.ride },
     video: { ...DEFAULT_SETTINGS.video },
+    audio: { ...DEFAULT_SETTINGS.audio },
     developer: false,
     dev: { ...DEFAULT_SETTINGS.dev },
   };
@@ -298,6 +318,12 @@ export function mergeSettings(parsed: unknown): Settings {
     if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
     if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;
   }
+
+  // The fader is a share, and a share it is not — a percentage from a build
+  // that stored one, a string — is the default rather than a scream.
+  const audio = blob.audio as Partial<Record<keyof AudioSettings, unknown>> | undefined;
+  const sfx = inRange(audio?.sfx, { min: 0, max: 1 });
+  if (sfx !== null) settings.audio.sfx = Math.round(sfx / SFX_STEP) * SFX_STEP;
 
   const ride = blob.ride as Partial<Record<keyof RideSettings, unknown>> | undefined;
   // Checked against the catalog rather than merged: a craft this build

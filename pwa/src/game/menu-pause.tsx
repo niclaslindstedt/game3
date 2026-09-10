@@ -37,7 +37,7 @@
 
 import { craftById, type CraftId } from "@engine";
 
-import { CAMERA_STOPS } from "./menu-options.tsx";
+import { CAMERA_STOPS, SoundRow } from "./menu-options.tsx";
 import { ON_OFF, StepRow, onOff } from "./menu-knobs.tsx";
 import type { Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
@@ -88,10 +88,11 @@ export function PauseMenu({
             <span class="menu-item-name">{STRINGS.pauseResume}</span>
           </button>
         </div>
-        {/* The strip. No caption bar under it: this is three rows a rider
+        {/* The strip. No caption bar under it: this is four rows a rider
             already knows the names of, and a card over a held run is not the
             place to start reading. */}
         <div class="knob-rows menu-pause-knobs">
+          <SoundRow settings={settings} onSettings={onSettings} />
           <StepRow
             label={STRINGS.optCamera}
             stops={CAMERA_STOPS}
