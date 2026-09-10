@@ -55,8 +55,8 @@ import {
   type Level,
 } from "@engine";
 
-import { PALETTE } from "../identity.ts";
 import { seaMirror, type Preset } from "./sky.ts";
+import { waterOpticsOf } from "./water-optics.ts";
 
 /** How a species is PAINTED and PROPORTIONED — everything about an animal
  * that is a look rather than a fact. */
@@ -237,12 +237,14 @@ const SIDES = 6;
 /** How much of the pectoral's outer half a flipper band whitens. */
 const BAND_FROM = 0.45;
 
-/** How deep an animal has to be, m, before the water between it and the
- * eye has taken it entirely: below this it is a patch of sea. Deeper than
- * anything in the catalog holds at, so the deepest animals are ghosts
- * rather than gone. */
-const HAZE_DEPTH = 16;
-/** How far toward the water's colour the haze goes at that depth — well
+/** How deep an animal has to be before the water between it and the eye has
+ * taken it entirely is the COAST's `clarity` (`water-optics.ts`) — the same
+ * depth scale the sea bed fades into the water over, because it is the same
+ * physical fact. It is deeper than anything in the catalog holds at, which
+ * is what keeps the deepest animals ghosts rather than gone, and a clearer
+ * coast will carry its sea life further down.
+ *
+ * How far toward the water's colour the haze goes at that depth — well
  * short of the whole way, so even the deepest shape keeps its own tone and
  * an edge. The per-pixel water is brighter than a flat tint would be, and a
  * body hazed most of the way into it loses the paint that names it. */
@@ -410,6 +412,7 @@ function buildMaterial(
   spec: FaunaSpec,
   style: FaunaStyle,
   haze: { value: THREE.Color },
+  clarity: number,
 ): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial({
     vertexColors: true,
@@ -441,7 +444,7 @@ ${shader.vertexShader}`
 \thazeWorld = instanceMatrix * hazeWorld;
 \t#endif
 \thazeWorld = modelMatrix * hazeWorld;
-\tvColor = mix(vColor, uHaze, clamp(-hazeWorld.y / ${num(HAZE_DEPTH)}, 0.0, 1.0) * ${num(HAZE_MAX)});`,
+\tvColor = mix(vColor, uHaze, clamp(-hazeWorld.y / ${num(clarity)}, 0.0, 1.0) * ${num(HAZE_MAX)});`,
       );
   };
   return material;
@@ -470,7 +473,8 @@ type Shoal = {
 
 export function createFauna(level: Level): Fauna {
   const group = new THREE.Group();
-  const haze = { value: new THREE.Color(PALETTE.seaShallow) };
+  const optics = waterOpticsOf(level.biome);
+  const haze = { value: new THREE.Color(optics.shallow) };
   const shoals = new Map<FaunaId, Shoal>();
   // One mesh per species the level actually placed, sized to hold every
   // animal of it at once — a level's whole roster is a few hundred bodies,
@@ -486,7 +490,11 @@ export function createFauna(level: Level): Fauna {
     const beats = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
     beats.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aBeat", beats);
-    const mesh = new THREE.InstancedMesh(geometry, buildMaterial(spec, style, haze), cap);
+    const mesh = new THREE.InstancedMesh(
+      geometry,
+      buildMaterial(spec, style, haze, optics.clarity),
+      cap,
+    );
     mesh.count = 0;
     // The instances move every frame and the mesh has no fixed extent, so
     // there is nothing for three to cull it against; the range test below
@@ -536,7 +544,7 @@ export function createFauna(level: Level): Fauna {
   return {
     group,
     retone: (preset) => {
-      haze.value.set(PALETTE.seaShallow).lerp(sky.set(seaMirror(preset)), HAZE_SKY);
+      haze.value.set(optics.shallow).lerp(sky.set(seaMirror(preset)), HAZE_SKY);
     },
     update,
     dispose: () => {

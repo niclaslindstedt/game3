@@ -26,7 +26,8 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | `engine/mapgen/compile.ts` | Bakes the ground heightfield and the solids — where every skerry, boulder and reef STANDS, because the craft can hit them (the `collision` skill owns the contact) |
 | `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.materialAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
-| `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground`, so a bed that changes shape changes what the water looks like over it (`water-feel`) |
+| `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF, the app side of a biome row: its three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are all written against. A coast in `BIOMES` without a row here throws on its first level (`tests/water_optics_test.ts`) |
+| `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground` and the same optics row, so a bed that changes shape changes what the water looks like over it (`water-feel`) |
 | `engine/game/defs/fauna.ts` | THE CATALOG (R20): the ten animals, and for each what it is — length, beam, cruising speed, the depth it holds at, the water it needs, its offshore band, its school size, its breathing interval, its temperature band — and `perKm`, how rare it is. `rarityOf` turns that one number into the word; nothing states the word |
 | `engine/mapgen/fauna.ts` | THE PLACER (R20): pods laid along the coast after the rocks, each tried a bounded number of times for a spot with the water its species needs the whole way round the loop it swims, clear of the solids. Its draws come off the END of the seed's stream, after R19's sky, so adding or retuning an animal moves no geometry |
 | `engine/game/fauna.ts` | THE SWIM MODEL: `faunaPose(pod, i, t, out)` — the loop, the formation, the weave, the breath — a pure function of the placement and the clock, the fauna's own `surfaceAt`. Nothing about the sea life is ever stepped |
@@ -55,6 +56,14 @@ water, and that one fact decides everything about the fauna's look:
   pale ghost and a surfacing one is crisp and dark. That is why every animal
   in the catalog holds far shallower than the water it needs: `depth` and
   `water` say different things and neither is the other's slack.
+- **EVERY depth cue rides the THING's depth, never the surface's**, and the
+  one scale they all use is the coast's `clarity`: the animals haze toward
+  the bright shallow tone, the sea bed fades into the coast's flat unlit
+  `bed` tone, and the surface's window merely thickens over the same reach.
+  So "you cannot see the bottom" and "you can see the fish" are one sea
+  rather than two settings — and the corollary is that the window is never
+  the lever for hiding anything, because it hides the sea life by the same
+  share.
 - **A breath is the sighting.** A cetacean rolling its back through the
   surface is the only moment it reads at range, which is why the catalog's
   breathing intervals are the short end of the real ones.

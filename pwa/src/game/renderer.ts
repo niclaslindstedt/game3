@@ -161,6 +161,10 @@ export function createRenderer(
       // weather it was generated under. The water answers to the same sky,
       // which is what keeps a sunset from floating over a teal sea.
       sky.load(level);
+      // …and so is the WATER ITSELF: the coast's tones, its ramp, its window
+      // and how far the rider sees into it (`water-optics.ts`). Set before
+      // the horizon is painted out of it.
+      water.setCoast(level.biome);
       water.retone(sky.preset(), sky.hemi, sky.key);
       fauna.retone(sky.preset());
     }
@@ -216,6 +220,7 @@ export function createRenderer(
     water.dispose();
     water = createWaterMesh(WATER_LOOK[video.water]);
     scene.add(water.mesh, water.far);
+    if (level) water.setCoast(level.biome);
     water.retone(sky.preset(), sky.hemi, sky.key);
   };
 

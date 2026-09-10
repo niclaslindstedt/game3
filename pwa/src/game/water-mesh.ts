@@ -36,8 +36,10 @@
 // - Nothing is allocated per frame: one `SurfaceSample` is reused, the
 //   attribute arrays are written in place and flagged.
 //
-// COLOUR is per vertex, by depth (`level.ground`, the engine's own field):
-// the shallows teal, the deep dark blue, a crest lifted and a trough sunk;
+// COLOUR is per vertex, by depth (`level.ground`, the engine's own field) —
+// and WHICH colours, and how see-through the surface is over them, is the
+// COAST's (`water-optics.ts`, keyed off `level.biome`): the shallows teal,
+// the deep dark blue, a crest lifted and a trough sunk;
 // and a FOAM SHARE in the colour's alpha where the surface is steep or the
 // water is shallow enough to break — the breaking itself is the engine's
 // clip (`TUNING.sea.breakingRatio`), and the tint reads its symptoms rather
@@ -48,12 +50,20 @@
 // ripples, the foam's texture — is per pixel and `water-shader.ts`'s.
 
 import * as THREE from "three";
-import { sampleField, surfaceAt, type GameState, type SurfaceSample } from "@engine";
+import {
+  BIOME_IDS,
+  sampleField,
+  surfaceAt,
+  type BiomeId,
+  type GameState,
+  type SurfaceSample,
+} from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { seaMirror, type Preset } from "./sky.ts";
+import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 import { applyClock, applySea, applySky, createWaterMaterial } from "./water-shader.ts";
 
 /** The grid the game is tuned on, and what the labs and the tests measure:
@@ -87,30 +97,29 @@ const FAR_CELL_WAVES = 3;
  * recomputing it, and the answer is 0 when the rider has turned the window
  * off, so one number carries both the reach and the setting. */
 const FAR_HOLE = 0.82;
-/** THE SEE-THROUGH ITSELF: the water's opacity looking straight down into
- * the shallows, the opacity it has reached by `CLARITY` metres of water
- * under it, and that depth in m. The shader takes it from there. */
-const CLEAR_WINDOW = 0.22;
-const DEEP_WINDOW = 0.62;
-const CLARITY = 18;
-/** HOW BRIGHT THE SEA BED IS, as a share of the water's own colour — the one
+/** THE SEE-THROUGH ITSELF — the window's two stops and the depth scale it
+ * reaches the second over — is the COAST's, not this module's:
+ * `water-optics.ts`, keyed off `level.biome`. What is left here is what the
+ * GRID does with it.
+ *
+ * HOW BRIGHT THE SEA BED IS, as a share of the water's own colour — the one
  * number an OPAQUE sea needs, and the only thing it loses by being opaque.
  *
- * With the window open the surface shows `w` of its own colour (the window
- * value below) and `1 − w` of whatever lies under it, and under it is a bed
- * lit by the skylight through several metres of water. That blend is most of
- * the open sea's tone: making the surface solid without accounting for it
- * hands back a pale, milky sea that reads as a different ocean rather than as
- * a cheaper one, and the foam — which was always solid — stops standing out
- * against it. So a closed window dims the body by exactly what the blend was
- * worth, `w + (1 − w)·CLOSED_BED`, and the shallows come out barely touched
- * because that is where `w` is smallest but the bed is brightest.
+ * With the window open the surface shows `w` of its own colour and `1 − w`
+ * of whatever lies under it, and under it is a bed lit by the skylight
+ * through several metres of water. That blend is most of the INSHORE sea's
+ * tone: making the surface solid without accounting for it hands back a
+ * pale, milky sea that reads as a different ocean rather than as a cheaper
+ * one, and the foam — which was always solid — stops standing out against
+ * it. So a closed window dims the body by exactly what the blend was worth,
+ * `w + (1 − w)·CLOSED_BED`, and the shallows come out barely touched because
+ * that is where `w` is smallest but the bed is brightest.
  *
  * Half is an eye-set figure against the same sea drawn both ways
- * (`--scene cruise --window 0` beside `--window 1`), not a measurement: the
- * bed is a lit surface with its own materials and there is no one number that
- * is right for all of them. It is deliberately short of matching — a rider
- * who turns the window off is giving up the sea as a volume, and the picture
+ * (`--scene cruise --see 0` beside `--see 1`), not a measurement: the bed is
+ * a lit surface with its own materials and there is no one number that is
+ * right for all of them. It is deliberately short of matching — a rider who
+ * turns the window off is giving up the sea as a volume, and the picture
  * says so. */
 const CLOSED_BED = 0.5;
 /** The horizon: a flat RING under both grids out to the far plane, in the
@@ -128,16 +137,7 @@ const FAR_RADIUS = 4000;
 const FAR_SINK = 0.35;
 const SHORT_SINK = 0.7;
 
-/** Depth at which the shallow tint has given way to the sea's own colour,
- * m, and where that has given way to the deep. */
-const SHALLOW_TO = 4;
-const DEEP_FROM = 4;
-const DEEP_TO = 22;
-
 const c = (hex: string): THREE.Color => new THREE.Color(hex);
-const SHALLOW = c(PALETTE.seaShallow);
-const SEA = c(PALETTE.sea);
-const DEEP = c(PALETTE.seaDeep);
 /** WHAT THE HORIZON DISC IS: the sky at the shallowest angle there is,
  * which is all that surface ever shows. The grids reflect the live sky
  * per pixel; the disc is too far off to be shaded and takes the one colour
@@ -192,6 +192,10 @@ export type WaterMesh = {
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
+  /** WHICH COAST'S WATER this is: its tones, its ramp, its window and its
+   * clarity (`water-optics.ts`). Set before the level is drawn and before
+   * `retone`, which paints the horizon out of it. */
+  setCoast: (biome: BiomeId) => void;
   /** How far the rider can see INTO the water, m from the craft — 0 with the
    * window closed. Anything drawn under the surface asks this and nothing
    * else; see `FAR_HOLE`. */
@@ -278,10 +282,6 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
       farPositions[k] = -FAR_HALF + i * farCell;
       farPositions[k + 2] = -FAR_HALF + j * farCell;
       farNormals[k + 1] = 1;
-      const q = (j * FAR_GRID + i) * 4;
-      farColors[q] = DEEP.r;
-      farColors[q + 1] = DEEP.g;
-      farColors[q + 2] = DEEP.b;
     }
   }
   const farIndex: number[] = [];
@@ -299,7 +299,8 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
   const farNormAttr = new THREE.BufferAttribute(farNormals, 3).setUsage(THREE.DynamicDrawUsage);
   farGeometry.setAttribute("position", farPosAttr);
   farGeometry.setAttribute("normal", farNormAttr);
-  farGeometry.setAttribute("color", new THREE.BufferAttribute(farColors, 4));
+  const farColAttr = new THREE.BufferAttribute(farColors, 4);
+  farGeometry.setAttribute("color", farColAttr);
   farGeometry.setAttribute("aWindow", new THREE.BufferAttribute(farWindows, 1));
   farGeometry.setIndex(farIndex);
   farGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FAR_HALF * Math.SQRT2 + 50);
@@ -310,7 +311,7 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
   const reach = HALF * FAR_HOLE;
   const horizon = new THREE.Mesh(
     new THREE.RingGeometry(reach, FAR_RADIUS, 48, 1),
-    new THREE.MeshBasicMaterial({ color: DEEP.clone().lerp(MIRROR, 0.62) }),
+    new THREE.MeshBasicMaterial(),
   );
   horizon.rotation.x = -Math.PI / 2;
   horizon.position.y = -FAR_SINK;
@@ -347,6 +348,36 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
    * rather than by a second rule. */
   let windowOpen = true;
 
+  /** WHICH COAST'S WATER — the first built one until a level says otherwise,
+   * which it does before anything is drawn. */
+  let optics: WaterOptics = waterOpticsOf(BIOME_IDS[0]);
+  /** One colour, rewritten per vertex: the water's body at that depth. */
+  const tone = new THREE.Color();
+
+  /** The disc is the same water seen at the shallowest angle there is, so it
+   * is mostly sky — which is what makes the hand-over from the far grid a
+   * change of DETAIL rather than of colour, under any sky. */
+  const paintHorizon = (): void => {
+    (horizon.material as THREE.MeshBasicMaterial).color
+      .copy(seaTones(optics).deep)
+      .lerp(MIRROR, 0.62);
+  };
+
+  const setCoast = (biome: BiomeId): void => {
+    optics = waterOpticsOf(biome);
+    // The far water is the deep tone whatever is under it: at that range
+    // there is no bed anybody could see through it.
+    const { deep } = seaTones(optics);
+    for (let k = 0; k < farCount; k++) {
+      farColors[k * 4] = deep.r;
+      farColors[k * 4 + 1] = deep.g;
+      farColors[k * 4 + 2] = deep.b;
+    }
+    farColAttr.needsUpdate = true;
+    paintHorizon();
+  };
+  setCoast(BIOME_IDS[0]);
+
   const update = (state: GameState, cx: number, cz: number): number => {
     const t0 = performance.now();
     const sx = Math.round(cx / look.cell) * look.cell;
@@ -354,8 +385,10 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
     mesh.position.set(sx, 0, sz);
     const { sea, level, t } = state;
     const ground = level.ground;
-    // Where the crest tint and the whitecaps stand for this sea.
+    // Where the crest tint and the whitecaps stand for this sea, and the
+    // coast's two end tones a crest and a trough lean toward.
     const crestHeight = Math.max(CREST_MIN, CREST_SHARE * sea.hsRef);
+    const tones = seaTones(optics);
     if (sea !== farSea) {
       farSea = sea;
       farComponents = 0;
@@ -442,18 +475,14 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
         normals[k] = nx * nl;
         normals[k + 1] = ny * nl;
         normals[k + 2] = nz * nl;
-        // Colour by depth, then foam on the steep and the shallow.
+        // Colour by depth, then foam on the steep and the shallow — the
+        // tones, the ramp and the window all the COAST's.
         const depth = -sampleField(ground, wx, wz);
-        const shallow = clamp(depth / SHALLOW_TO, 0, 1);
-        const deep = clamp((depth - DEEP_FROM) / (DEEP_TO - DEEP_FROM), 0, 1);
-        let r = SHALLOW.r + (SEA.r - SHALLOW.r) * shallow;
-        let g = SHALLOW.g + (SEA.g - SHALLOW.g) * shallow;
-        let bl = SHALLOW.b + (SEA.b - SHALLOW.b) * shallow;
-        r += (DEEP.r - r) * deep;
-        g += (DEEP.g - g) * deep;
-        bl += (DEEP.b - bl) * deep;
-        const column = clamp(depth / CLARITY, 0, 1);
-        const w = CLEAR_WINDOW + (DEEP_WINDOW - CLEAR_WINDOW) * column;
+        seaTone(optics, depth, tone);
+        let r = tone.r;
+        let g = tone.g;
+        let bl = tone.b;
+        const w = seaWindow(optics, depth);
         if (!windowOpen) {
           const dim = w + (1 - w) * CLOSED_BED;
           r *= dim;
@@ -464,15 +493,11 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
         // deep: the wave's shape read as colour, which is most of how a
         // low sun over a small sea shows one at all.
         const crest = clamp(sample.height / crestHeight, -1, 1) * CREST_TINT;
-        if (crest > 0) {
-          r += (SHALLOW.r - r) * crest;
-          g += (SHALLOW.g - g) * crest;
-          bl += (SHALLOW.b - bl) * crest;
-        } else {
-          r += (DEEP.r - r) * -crest;
-          g += (DEEP.g - g) * -crest;
-          bl += (DEEP.b - bl) * -crest;
-        }
+        const toward = crest > 0 ? tones.shallow : tones.deep;
+        const lift = Math.abs(crest);
+        r += (toward.r - r) * lift;
+        g += (toward.g - g) * lift;
+        bl += (toward.b - bl) * lift;
         const tilt = 1 - sample.ny;
         // Breaking foam on the steep and the shallow, and whitecaps on the
         // high crests' steep faces once the wind blows them.
@@ -508,11 +533,8 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
     key: THREE.DirectionalLight,
   ): void => {
     applySky(material, preset, hemi, key);
-    // The disc is the same water seen at the shallowest angle there is, so
-    // it is mostly sky — which is what makes the hand-over from the far
-    // grid a change of DETAIL rather than of colour, under any sky.
     MIRROR.set(seaMirror(preset));
-    (horizon.material as THREE.MeshBasicMaterial).color.copy(DEEP).lerp(MIRROR, 0.62);
+    paintHorizon();
   };
 
   return {
@@ -527,6 +549,7 @@ export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
       material.transparent = open;
       material.needsUpdate = true;
     },
+    setCoast,
     seeThrough: () => (windowOpen ? reach : 0),
     update,
     dispose: () => {
