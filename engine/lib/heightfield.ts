@@ -59,6 +59,41 @@ export function sampleField(field: Heightfield, x: number, z: number): number {
   return (a + (b - a) * tx) * (1 - tz) + (c + (e - c) * tx) * tz;
 }
 
+/** Bilinear sample AND its plan gradient at a world point, written into
+ * `out` as [value, d/dx, d/dz] off one set of weights — for a caller that
+ * reads a field's slope thousands of times a frame. The gradient is the
+ * bilinear patch's own, so it is constant across a cell and zero along an
+ * axis the sample is clamped in. */
+export function sampleFieldGradient(
+  field: Heightfield,
+  x: number,
+  z: number,
+  out: Float64Array,
+): void {
+  const fx = (x - field.originX) / field.cell;
+  const fz = (z - field.originZ) / field.cell;
+  const maxC = field.cols - 1;
+  const maxR = field.rows - 1;
+  const cx = fx <= 0 ? 0 : fx >= maxC ? maxC : fx;
+  const cz = fz <= 0 ? 0 : fz >= maxR ? maxR : fz;
+  const c0 = Math.floor(cx);
+  const r0 = Math.floor(cz);
+  const c1 = c0 < maxC ? c0 + 1 : c0;
+  const r1 = r0 < maxR ? r0 + 1 : r0;
+  const tx = cx - c0;
+  const tz = cz - r0;
+  const d = field.data;
+  const cols = field.cols;
+  const a = d[r0 * cols + c0];
+  const b = d[r0 * cols + c1];
+  const c = d[r1 * cols + c0];
+  const e = d[r1 * cols + c1];
+  const inv = 1 / field.cell;
+  out[0] = (a + (b - a) * tx) * (1 - tz) + (c + (e - c) * tx) * tz;
+  out[1] = ((b - a) * (1 - tz) + (e - c) * tz) * inv;
+  out[2] = ((c - a) * (1 - tx) + (e - b) * tx) * inv;
+}
+
 /** Central-difference slope of the field at a world point: the plan-space
  * gradient (dh/dx, dh/dz), in metres per metre. */
 export function fieldGradient(

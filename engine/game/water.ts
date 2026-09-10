@@ -55,11 +55,14 @@
 //   baked current to what it reports. Everything that asks the water how
 //   fast it is going — the hull's drag, the spray, the wake — therefore
 //   feels the river drift the craft without knowing there is a river.
-// - Each component keeps ONE frequency and direction and lets its
-//   wavenumber follow the depth through the dispersion relation
-//   ω² = g·k·tanh(k·d) (Airy; Fenton & McKee 1990's explicit solution),
-//   integrated into a PHASE FIELD over the level's grid at build time so the
-//   wavelength shortens honestly toward the shore.
+// - Each component keeps ONE frequency and lets its wavenumber follow
+//   the depth through the dispersion relation ω² = g·k·tanh(k·d) (Airy;
+//   Fenton & McKee 1990's explicit solution). Its PHASE over the level is
+//   the eikonal |∇φ| = k(d), solved over the grid at build time: the
+//   wavelength shortens toward the shore, the crests turn with the bed
+//   (refraction) and bend in round a headland and through a river mouth
+//   (diffraction's kinematics), and the local wave vector — what the
+//   slope and the orbital motion follow — is that field's gradient.
 // - Amplitude shoals by the linear-theory coefficient Ks = √(cg₀/cg)
 //   (Green's law √√(d₀/d) is its shallow limit) and the sea is clipped
 //   where the bed cannot hold it: the SIGNIFICANT height at the point is
@@ -76,7 +79,12 @@
 // Deterministic: the seed fixes the phases and the directional draws, and
 // t is the only clock.
 
-import { createHeightfield, sampleField, type Heightfield } from "../lib/heightfield.ts";
+import {
+  createHeightfield,
+  sampleField,
+  sampleFieldGradient,
+  type Heightfield,
+} from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
 import { createRng, type Rng } from "../lib/prng.ts";
 import { flowAt } from "../mapgen/flow.ts";
@@ -98,10 +106,12 @@ export type WaveComponent = {
   readonly amp: number;
   /** Seeded phase offset, rad. */
   readonly phase0: number;
-  /** ∫k·ds over the level along the direction of travel, rad — the spatial
-   * phase with the shallows' shortening already in it. Null for the LOCAL
-   * band, whose waves are too short to feel any bed a hull can float over:
-   * those read the deep-water plane wave k₀·(d̂·x) instead. */
+  /** The spatial phase over the level, rad — the eikonal |∇φ| = k(d)
+   * from the plane wave at the rim, so the shallows' shortening and the
+   * turning round the land are both in it, and its gradient is the local
+   * wave vector. Null for the LOCAL band, whose waves are too short to
+   * feel any bed a hull can float over: those read the deep-water plane
+   * wave k₀·(d̂·x) instead. */
   readonly phaseField: Heightfield | null;
   /** Per depth row (`TUNING.sea.tableStep` apart): local wavenumber k
    * (rad/m), shoaling coefficient Ks, and coth(k·d) for the orbital
@@ -221,13 +231,30 @@ function tableAt(table: Float32Array, d: number, out: Float64Array): void {
   }
 }
 
-/** The spatial phase of one component over the level: an upwind sweep in
- * the direction of travel, each cell one step of `k(d)·ds` past its two
- * upwind neighbours. Reproduces the deep-water plane wave k₀·(d̂·x) exactly
- * where the depth is uniform and bends the wavelength with the bed where
- * it is not; refraction (the direction turning toward the shore) is left
- * out, since every component keeps its heading. Cells upwind of the grid
- * read the plane wave, which is where the deep water is. */
+/** How many times the four sweep orders are run. Two rounds settle every
+ * exposed cell of a generated level to a thousandth of a radian of what
+ * eight give; what is still moving after that is deep in a lee, where no
+ * sea stands. */
+const PHASE_ROUNDS = 2;
+
+/** The spatial phase of one component over the level: the EIKONAL
+ * |∇φ| = k(d), solved over the grid by fast sweeping (Zhao 2005) —
+ * Godunov's upwind update at every cell, in each of the four sweep
+ * orders, `PHASE_ROUNDS` times. The deep-water plane wave k₀·(d̂·x) flows
+ * in over the rims the component travels in across; land is impassable
+ * and takes no part. What comes out is the FIRST-ARRIVAL phase, which is what a
+ * wave field does with a bed and a coast: it shortens with the depth,
+ * turns toward the shallows (refraction), and wraps round a headland and
+ * in through a river mouth as arcs about the corner — diffraction's
+ * kinematics; how MUCH gets in is the exposure's question (`fetch.ts`).
+ * Where two arrivals meet in a lee the field creases, as two crossing
+ * trains do.
+ *
+ * Integrating k·ds along a fixed heading instead carries every shoal's
+ * delay forever downwind of it as an offset between neighbouring paths,
+ * and the lateral gradient of that offset is a wavenumber the wave never
+ * had: a swell three times too short, crawling sideways, in the lee of
+ * every reef and either side of every river mouth. */
 function buildPhaseField(
   ground: Heightfield,
   table: Float32Array,
@@ -242,26 +269,118 @@ function buildPhaseField(
     ground.cols,
     ground.rows,
   );
-  const { cols, rows, cell } = field;
-  const ax = Math.abs(dirX);
-  const az = Math.abs(dirZ);
-  const sx = dirX >= 0 ? 1 : -1;
-  const sz = dirZ >= 0 ? 1 : -1;
-  const step = cell / (ax + az);
+  const { cols, rows, cell, data } = field;
+  const n = cols * rows;
+  // What a cell adds to the phase, k(d)·cell — or −1 on land.
+  const stepAt = new Float32Array(n);
   const row = new Float64Array(3);
+  for (let i = 0; i < n; i++) {
+    const depth = -ground.data[i];
+    if (depth <= 0) {
+      stepAt[i] = -1;
+      continue;
+    }
+    tableAt(table, depth, row);
+    stepAt[i] = row[0] * cell;
+  }
+  // The deep-water plane wave at cell (c, r) — the grid's cells and the
+  // ring just outside it alike.
   const plane = (c: number, r: number): number =>
     k0 * (dirX * (field.originX + c * cell) + dirZ * (field.originZ + r * cell));
-  for (let i = 0; i < rows; i++) {
-    const r = sz > 0 ? i : rows - 1 - i;
-    for (let j = 0; j < cols; j++) {
-      const c = sx > 0 ? j : cols - 1 - j;
-      const cu = c - sx;
-      const ru = r - sz;
-      const fromCol = cu >= 0 && cu < cols ? field.data[r * cols + cu] : plane(cu, r);
-      const fromRow = ru >= 0 && ru < rows ? field.data[ru * cols + c] : plane(c, ru);
-      const depth = -ground.data[r * cols + c];
-      tableAt(table, depth, row);
-      field.data[r * cols + c] = (ax * fromCol + az * fromRow) / (ax + az) + row[0] * step;
+  // The phase just past each rim: the plane wave on the sides the wave
+  // comes IN over, nothing on the sides it leaves by — a rim it is
+  // leaving must not hand it an undelayed phase back. The rim is where
+  // the deep water is (R3's bed keeps falling to seaward), so the plane
+  // wave is the wave there; a rim stood in water a component can feel the
+  // bottom of refracts it at the rim itself, which is what the synthetic
+  // level's deep variant is for.
+  const west = new Float64Array(rows);
+  const east = new Float64Array(rows);
+  const south = new Float64Array(cols);
+  const north = new Float64Array(cols);
+  for (let r = 0; r < rows; r++) {
+    west[r] = dirX > 0 ? plane(-1, r) : Infinity;
+    east[r] = dirX < 0 ? plane(cols, r) : Infinity;
+  }
+  for (let c = 0; c < cols; c++) {
+    south[c] = dirZ > 0 ? plane(c, -1) : Infinity;
+    north[c] = dirZ < 0 ? plane(c, rows) : Infinity;
+  }
+  data.fill(Infinity);
+  // The component's own quadrant first: one sweep settles every cell a
+  // wave reaches without turning through more than a right angle, and the
+  // other three orders pick up what bends further round.
+  const sxs = dirX >= 0 ? [1, -1, 1, -1] : [-1, 1, -1, 1];
+  const szs = dirZ >= 0 ? [1, 1, -1, -1] : [-1, -1, 1, 1];
+  for (let round = 0; round < PHASE_ROUNDS; round++) {
+    for (let s = 0; s < 4; s++) {
+      const sx = sxs[s];
+      const sz = szs[s];
+      for (let i = 0; i < rows; i++) {
+        const r = sz > 0 ? i : rows - 1 - i;
+        const base = r * cols;
+        for (let j = 0; j < cols; j++) {
+          const c = sx > 0 ? j : cols - 1 - j;
+          const at = base + c;
+          const step = stepAt[at];
+          if (step < 0) continue;
+          const w = c > 0 ? data[at - 1] : west[r];
+          const e = c < cols - 1 ? data[at + 1] : east[r];
+          const so = r > 0 ? data[at - cols] : south[c];
+          const no = r < rows - 1 ? data[at + cols] : north[c];
+          const a = w < e ? w : e;
+          const b = so < no ? so : no;
+          const lo = a < b ? a : b;
+          if (lo === Infinity) continue;
+          // Godunov: the two-sided solution when both neighbours are close
+          // enough to share the front, the one-sided step when they are not.
+          const diff = a > b ? a - b : b - a;
+          const phi =
+            diff >= step ? lo + step : 0.5 * (a + b + Math.sqrt(2 * step * step - diff * diff));
+          if (phi < data[at]) data[at] = phi;
+        }
+      }
+    }
+  }
+  // What the sweep never reached — the land, and any water no path from
+  // the sea gets to — carries the finished water beside it on, at that
+  // water's own rate along the heading, two cells out: a sample in the
+  // last metres before a beach is bilinear, and mixes the water's cell
+  // with the land's, so it has to find a wave there and not a cliff. Past
+  // that, the deep-water plane wave; nothing rides it.
+  const stepOf = (at: number): number => (stepAt[at] >= 0 ? stepAt[at] : k0 * cell);
+  for (let pass = 0; pass < 2; pass++) {
+    const before = data.slice();
+    for (let r = 0; r < rows; r++) {
+      for (let c = 0; c < cols; c++) {
+        const at = r * cols + c;
+        if (before[at] !== Infinity) continue;
+        let sum = 0;
+        let count = 0;
+        if (c > 0 && before[at - 1] !== Infinity) {
+          sum += before[at - 1] + stepOf(at - 1) * dirX;
+          count++;
+        }
+        if (c < cols - 1 && before[at + 1] !== Infinity) {
+          sum += before[at + 1] - stepOf(at + 1) * dirX;
+          count++;
+        }
+        if (r > 0 && before[at - cols] !== Infinity) {
+          sum += before[at - cols] + stepOf(at - cols) * dirZ;
+          count++;
+        }
+        if (r < rows - 1 && before[at + cols] !== Infinity) {
+          sum += before[at + cols] - stepOf(at + cols) * dirZ;
+          count++;
+        }
+        if (count > 0) data[at] = sum / count;
+      }
+    }
+  }
+  for (let r = 0; r < rows; r++) {
+    for (let c = 0; c < cols; c++) {
+      const at = r * cols + c;
+      if (data[at] === Infinity) data[at] = plane(c, r);
     }
   }
   return field;
@@ -409,6 +528,8 @@ export function seaSummary(sea: SeaState, x: number, z: number): { Hs: number; T
 }
 
 const scratch = new Float64Array(3);
+/** A phase sample and its gradient — the component's local wave vector. */
+const phaseAt = new Float64Array(3);
 /** Three numbers a component — the local wavenumber, the amplitude it
  * actually stands at here, and coth(k·d) — kept between the two passes
  * below so the depth table is read once per component rather than twice. */
@@ -490,12 +611,25 @@ export function surfaceAt(
     const k = held[i * 3];
     const a = held[i * 3 + 1] * clip;
     if (a <= 0) continue;
-    // The ocean band's phase is integrated over the bed so its wavelength
-    // shortens honestly toward the shore; the local band's is the plane
-    // wave, which is the same thing for a wave that never feels a bottom.
-    const spatial = c.phaseField
-      ? sampleField(c.phaseField, x, z)
-      : c.k0 * (c.dirX * x + c.dirZ * z);
+    // The ocean band's phase is the eikonal over the bed, so its
+    // wavelength shortens toward the shore and its crests turn with the
+    // depth and round the land; the LOCAL WAVE VECTOR is that field's
+    // gradient, and it is what the slope and the orbital motion follow.
+    // The local band is the plane wave — the same thing for a wave that
+    // never feels a bottom — and its wave vector is its heading's.
+    let spatial: number;
+    let kx: number;
+    let kz: number;
+    if (c.phaseField) {
+      sampleFieldGradient(c.phaseField, x, z, phaseAt);
+      spatial = phaseAt[0];
+      kx = phaseAt[1];
+      kz = phaseAt[2];
+    } else {
+      spatial = c.k0 * (c.dirX * x + c.dirZ * z);
+      kx = k * c.dirX;
+      kz = k * c.dirZ;
+    }
     const phase = spatial - c.omega * t + c.phase0;
     const sin = Math.sin(phase);
     const cos = Math.cos(phase);
@@ -510,17 +644,20 @@ export function surfaceAt(
     const steep = Math.min(k * a, S.crestMaxSteepness) * S.crestSharpness;
     const peak = 0.5 * steep * a;
     height += a * sin - peak * Math.cos(2 * phase);
-    // Slope from the phase gradient k·d̂ (the amplitude's own gradient is
-    // a shoaling effect too slow to tilt the surface), with the crest
+    // Slope from the wave vector (the amplitude's own gradient is a
+    // shoaling effect too slow to tilt the surface), with the crest
     // correction's own slope on it: d/dφ[−½·k·a²·cos 2φ] = k·a²·sin 2φ.
     const dEta = a * cos + 2 * peak * Math.sin(2 * phase);
-    sx += dEta * k * c.dirX;
-    sz += dEta * k * c.dirZ;
+    sx += dEta * kx;
+    sz += dEta * kz;
     // Orbital velocity at the surface (Airy): horizontal a·ω·coth(kd) in
-    // phase with the height, vertical −a·ω·cos φ (the surface's own rate).
-    const horizontal = a * c.omega * held[i * 3 + 2] * sin;
-    vx += horizontal * c.dirX;
-    vz += horizontal * c.dirZ;
+    // phase with the height, along the wave vector; vertical −a·ω·cos φ
+    // (the surface's own rate). The wave vector is divided by the depth's
+    // own k rather than normalised, so a crease in the field, where two
+    // arrivals meet, carries less water rather than water sent anywhere.
+    const horizontal = (a * c.omega * held[i * 3 + 2] * sin) / k;
+    vx += horizontal * kx;
+    vz += horizontal * kz;
     vy -= a * c.omega * cos;
   }
   // R27 — and the water it is all riding on may itself be going somewhere.

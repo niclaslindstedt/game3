@@ -28,8 +28,8 @@
 // gives the wind a different run at every angle and one ray up the middle
 // cannot say so. Each ray is not marched per point; it is a SWEEP over the
 // whole grid in that ray's direction, one cell at a time, each cell
-// reading its two upwind neighbours — the same upwind scheme the wave
-// model's phase field is integrated with (`buildPhaseField`), at the same
+// reading its two upwind neighbours mixed by the direction cosines — the
+// standard first-order upwind scheme, exact for a run nothing interrupts, at
 // O(cells) cost per direction. Land resets a run to nothing, so shelter
 // falls away behind a headland and up a channel on its own, and the
 // lateral half of the scheme is a cheap stand-in for the way a little wind
