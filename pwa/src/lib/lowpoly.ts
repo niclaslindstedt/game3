@@ -6,6 +6,17 @@
 // brightness per facet, hashed off the facet's index, keeps one big flat
 // colour from reading as plastic under a light with no texture to break it.
 //
+// Every vertex also carries a FINISH (`aShine`, 0..1): how glossy the
+// surface it belongs to is, for a material that puts a highlight and a
+// mirror on what it draws (the craft's surface does; a Lambert material
+// simply ignores the attribute). It is a PEN rather than an argument —
+// `finish` is set between parts, and every triangle drawn from then on
+// carries it — because a part is one material in life, and threading a
+// weight through every quad would be a parameter nobody reads on the
+// hundreds of faces that only want paint. A loft may still name one per
+// panel, because one cross-section can run from gel coat to rubber to
+// vinyl and back.
+//
 // Two ways to use it. Build once and take `geometry()`: what a static part
 // does. Or keep the builder, `reset()` it, re-emit the same shapes in the
 // same order and `refresh()` an existing geometry: what a part that MOVES
@@ -21,14 +32,20 @@ export type P = [number, number, number];
 export class Builder {
   private pos: number[] = [];
   private col: number[] = [];
+  private shn: number[] = [];
   private readonly c = new THREE.Color();
   private n = 0;
+
+  /** The finish every triangle drawn from now on carries, 0 (dead matte)
+   * to 1 (a polished shell). Set it between parts. */
+  finish = 0.5;
 
   /** Forget every triangle, so the next emission starts from the first
    * facet's hash again. */
   reset(): void {
     this.pos.length = 0;
     this.col.length = 0;
+    this.shn.length = 0;
     this.n = 0;
   }
 
@@ -37,19 +54,20 @@ export class Builder {
     return this.pos.length / 3;
   }
 
-  tri(a: P, b: P, c: P, color: number): void {
+  tri(a: P, b: P, c: P, color: number, finish = this.finish): void {
     const jitter = 1 + (((this.n++ * 2654435761) >>> 0) / 4294967296 - 0.5) * 0.08;
     this.c.setHex(color).multiplyScalar(jitter);
     for (const p of [a, b, c]) {
       this.pos.push(p[0], p[1], p[2]);
       this.col.push(this.c.r, this.c.g, this.c.b);
+      this.shn.push(finish);
     }
   }
 
   /** Two triangles, wound a→b→c→d seen from the outside. */
-  quad(a: P, b: P, c: P, d: P, color: number): void {
-    this.tri(a, b, c, color);
-    this.tri(a, c, d, color);
+  quad(a: P, b: P, c: P, d: P, color: number, finish = this.finish): void {
+    this.tri(a, b, c, color, finish);
+    this.tri(a, c, d, color, finish);
   }
 
   /** An axis-aligned box from its two corners. */
@@ -113,10 +131,11 @@ export class Builder {
   }
 
   /** Panels between consecutive rings of equal length, `paint[k]` for the
-   * panel after point k. Rings that turn right-handed about the direction
-   * they advance in wind every panel's outside out. `closed` joins the
-   * last point back to the first. */
-  loft(rings: P[][], paint: readonly number[], closed: boolean): void {
+   * panel after point k, and `finish[k]` likewise (the pen when left out).
+   * Rings that turn right-handed about the direction they advance in wind
+   * every panel's outside out. `closed` joins the last point back to the
+   * first. */
+  loft(rings: P[][], paint: readonly number[], closed: boolean, finish?: readonly number[]): void {
     const n = rings[0].length;
     const segs = closed ? n : n - 1;
     for (let i = 0; i + 1 < rings.length; i++) {
@@ -124,7 +143,7 @@ export class Builder {
       const r1 = rings[i + 1];
       for (let k = 0; k < segs; k++) {
         const k1 = (k + 1) % n;
-        this.quad(r0[k], r0[k1], r1[k1], r1[k], paint[k]);
+        this.quad(r0[k], r0[k1], r1[k1], r1[k], paint[k], finish ? finish[k] : this.finish);
       }
     }
   }
@@ -133,13 +152,14 @@ export class Builder {
     const g = new THREE.BufferGeometry();
     g.setAttribute("position", new THREE.Float32BufferAttribute(this.pos, 3));
     g.setAttribute("color", new THREE.Float32BufferAttribute(this.col, 3));
+    g.setAttribute("aShine", new THREE.Float32BufferAttribute(this.shn, 1));
     g.computeVertexNormals();
     return g;
   }
 
   /** Rewrite a geometry this builder made with the triangles emitted since
    * the last `reset` — the same count, in the same order — and recompute
-   * its normals. The colours are kept. */
+   * its normals. The colours and the finishes are kept. */
   refresh(g: THREE.BufferGeometry): void {
     const attr = g.getAttribute("position") as THREE.BufferAttribute;
     if (attr.count !== this.pos.length / 3) {

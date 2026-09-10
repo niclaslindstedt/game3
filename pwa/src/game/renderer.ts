@@ -19,6 +19,7 @@ import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
+import { applyCraftSky, craftSurface } from "./craft-surface.ts";
 import { cullByDistance } from "./draw-distance.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
@@ -110,6 +111,10 @@ export function createRenderer(
 
   // THE SKY, and with it the fog and both lights (environment.ts).
   const sky: Environment = createEnvironment(scene);
+  // THE CRAFT'S SURFACE (craft-surface.ts): one material for the hull and
+  // the rider, on the sky's own uniforms, so what the gel coat reflects is
+  // the sky the water beside it reflects.
+  const surface = craftSurface(sky.uniforms);
 
   // THE MIRROR (reflection.ts): the shore and the craft drawn from under
   // the water into a texture the sea reads. Made before the water, which
@@ -190,10 +195,10 @@ export function createRenderer(
     if (id !== craftId) {
       if (craft) scene.remove(craft);
       craftId = id;
-      craft = buildCraft(state.craft.spec, CRAFT_STYLES[id]);
+      craft = buildCraft(state.craft.spec, CRAFT_STYLES[id], surface);
       // The rider is a child of the craft: the hull's pose is his.
       rider?.dispose();
-      rider = createRider(cockpitOf(state.craft.spec, CRAFT_STYLES[id]));
+      rider = createRider(cockpitOf(state.craft.spec, CRAFT_STYLES[id]), surface);
       craft.add(rider.mesh);
       scene.add(craft);
     }
@@ -338,8 +343,10 @@ export function createRenderer(
     // …and the water answers to the light the sky just set. Per frame rather
     // than per level, because within a run the light MOVES: a sheet drifting
     // over the sun dims the key, and the sea's glint has to go with it or
-    // the water keeps a sparkle the sky no longer has.
+    // the water keeps a sparkle the sky no longer has. The craft's mirror is
+    // compiled for the same sheet count the water's is.
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
+    applyCraftSky(surface, sky.cloudLayers());
     water.setRain(sky.rainfall(), RAIN_RING_REACH[video.rainRings]);
 
     // THE MIRROR'S PASS, before the picture: everything that stands over the
@@ -401,6 +408,7 @@ export function createRenderer(
       wake.dispose();
       spray.dispose();
       rider?.dispose();
+      surface.dispose();
       if (terrain) disposeTerrain(terrain);
       renderer.dispose();
     },

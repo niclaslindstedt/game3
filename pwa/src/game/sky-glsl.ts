@@ -450,6 +450,40 @@ export function writeDrift(
  * fourteen on the water — with `rimCurve` steepened so the smear is a band
  * along the skyline and not the whole sea. */
 export const MIRROR_RIM = RIM_BAND * 1.6;
+/** How fast a mirror's copy of a ceiling goes from its lit rim to its dark
+ * overhead (`SkyBuild.rimCurve`): steeper than the dome's, so a squall puts
+ * a pale band along the skyline and its black over the rest of the sea
+ * rather than the rim's pink over every wave back. */
+const MIRROR_RIM_CURVE = 2.6;
+/** How far either side of the skyline a mirror's sky fades into the far
+ * water's tone, as a direction's `y` (`SkyBuild.skyline`): the spread of
+ * slopes puts half the reflected rays a few degrees under the horizon,
+ * where they land on the sea. Read sharp the skyline is a ruled line across
+ * every crest. */
+const MIRROR_SKYLINE = 0.09;
+
+/** THE SKY AS A ROUGH MIRROR REFLECTS IT — the build every surface that
+ * mirrors the sky is compiled with: the water (`water-shader.ts`) and the
+ * craft's shell and its rider's helmet (`craft-surface.ts`). Well under the
+ * dome's: a mirror wants the sky's MASS rather than its edges, because an
+ * edge reflected sharp through a spread of wave slopes or across a hull's
+ * facets lands as hard streaks, and it is a far bigger pass than the sky.
+ * Two sheets is every stack the cloud chart rolls (a deck and its scud, a
+ * veil and its cumulus); three octaves is the mass and one arm of erosion;
+ * and no sun, because a surface's own highlight IS the sun's image and a
+ * second one added through the mirror is one sun too many. */
+export function mirrorBuild(layers: number): SkyBuild {
+  return {
+    octaves: 3,
+    layers,
+    sunlit: false,
+    sun: false,
+    rimBand: MIRROR_RIM,
+    soften: 0.35,
+    skyline: MIRROR_SKYLINE,
+    rimCurve: MIRROR_RIM_CURVE,
+  };
+}
 
 function smooth01(t: number): number {
   const x = t < 0 ? 0 : t > 1 ? 1 : t;

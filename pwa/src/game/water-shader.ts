@@ -89,7 +89,7 @@ import { valueNoise } from "@engine";
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
-import { MIRROR_RIM, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
+import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
 
 /** The ripple tile: texels a side, and its edge in metres at the fine
@@ -242,24 +242,6 @@ const VERTEX = `
     #include <fog_vertex>
   }`;
 
-/** THE SHEETS THE MIRROR CARRIES, and how deep it reads them. Both are well
- * under the dome's: the water is a rough mirror, so what it wants is the
- * sky's MASS rather than its edges, and it is a far bigger pass than the sky
- * is. Two sheets is every stack the cloud chart rolls (a deck and its scud,
- * a veil and its cumulus); three octaves is the mass and one arm of
- * erosion. */
-const MIRROR_OCTAVES = 3;
-const MIRROR_SOFTEN = 0.35;
-/** How far either side of the skyline the mirror's sky fades into the far
- * water's tone, as a direction's `y`: the spread of wave slopes puts half
- * the reflected rays a few degrees under the horizon, where they land on
- * the sea. Read sharp the skyline is a ruled line across every crest. */
-const MIRROR_SKYLINE = 0.09;
-/** How fast the mirror's copy of a ceiling goes from its lit rim to its
- * dark overhead (`SkyBuild.rimCurve`): steeper than the dome's, so a squall
- * puts a pale band along the skyline and its black over the rest of the
- * sea rather than the rim's pink over every wave back. */
-const MIRROR_RIM_CURVE = 2.6;
 /** How far the mirror's gradient is averaged either side of the reflected
  * ray, in RMS slopes of the variance the pixel does not resolve. A slope of
  * s bends the reflection by 2s, and the grid already carries the gravity
@@ -325,16 +307,7 @@ function fragmentFor(layers: number): string {
   varying float vHeight;
   varying float vWindow;
   #include <fog_pars_fragment>
-${skyGlsl({
-  octaves: MIRROR_OCTAVES,
-  layers,
-  sunlit: false,
-  sun: false,
-  rimBand: MIRROR_RIM,
-  soften: MIRROR_SOFTEN,
-  skyline: MIRROR_SKYLINE,
-  rimCurve: MIRROR_RIM_CURVE,
-})}
+${skyGlsl(mirrorBuild(layers))}
 
   // Three uncorrelated draws for one cell of the rain grid: where in the
   // cell the drop landed, and where in its own life the ring is.

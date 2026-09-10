@@ -19,13 +19,17 @@
 // and the renderer only has to put the group at `craft.x/y/z` with the
 // state's quaternion. Everything — the loft, the boxes, the tubes — goes
 // into ONE flat-shaded vertex-coloured geometry under one material, so a
-// craft is a single draw call.
+// craft is a single draw call. What each part is FINISHED in — gel coat,
+// rubber, vinyl, chrome — rides the vertices too (`FINISH`, through the
+// builder's pen), and the material (craft-surface.ts) puts the sun and the
+// sky on the parts that are polished and leaves the rubber dead.
 
 import * as THREE from "three";
 import { TUNING, type CraftSpec } from "@engine";
 
 import { Builder, mirror, mirrorPaint, type P } from "../lib/lowpoly.ts";
 import type { CraftStyle } from "./craft-styles.ts";
+import { FINISH, craftSurface } from "./craft-surface.ts";
 
 const DEG = Math.PI / 180;
 
@@ -313,8 +317,15 @@ export function cockpitOf(spec: CraftSpec, style: CraftStyle): Cockpit {
   };
 }
 
-/** The whole craft, at the origin, ready for a quaternion. */
-export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
+/** The whole craft, at the origin, ready for a quaternion. `surface` is the
+ * material it is drawn with — the renderer hands in the one it shares with
+ * the rider, on the sky's own uniforms; anything with no sky to reflect
+ * takes a plain one. */
+export function buildCraft(
+  spec: CraftSpec,
+  style: CraftStyle,
+  surface: THREE.Material = craftSurface(),
+): THREE.Group {
   const { shape } = style;
   const l = layout(spec, style);
   const { L, B, H, dead, zTransom, keelY, railY, rise, taper, sheerAt, rakeAt } = l;
@@ -366,11 +377,26 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     style.deck,
     style.deck,
   ]);
+  // …and what each panel is finished in: the shell's gel coat up to the
+  // rail, the rail's rubber, the deck's paint, the well's mat.
+  const finish = mirrorPaint([
+    FINISH.gelcoat,
+    FINISH.gelcoat,
+    FINISH.rubber,
+    FINISH.paint,
+    FINISH.paint,
+    FINISH.mat,
+    FINISH.paint,
+    FINISH.paint,
+    FINISH.paint,
+  ]);
 
   const b = new Builder();
   const rings = STATIONS.map(ring);
-  b.loft(rings, paint, true);
+  b.loft(rings, paint, true, finish);
+  b.finish = FINISH.gelcoat;
   b.cap(rings[0], style.topside, true);
+  b.finish = FINISH.paint;
   b.cap(rings[rings.length - 1], style.deck, false);
 
   // THE SADDLE on the pedestal, lofted along SEAT_PROFILE. A stand-up's
@@ -392,6 +418,7 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
       false,
     );
   });
+  b.finish = FINISH.vinyl;
   b.loft(seatRings, mirrorPaint([style.seat, style.seat, style.seatTop]), false);
   b.cap(seatRings[0], style.seat, true);
   b.cap(seatRings[seatRings.length - 1], style.seat, false);
@@ -400,12 +427,15 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     const hy = seatBase + seatH - 0.02;
     const hz = seatZ0 + 0.04;
     const hx = 0.12 * B;
+    b.finish = FINISH.chrome;
     b.tube([-hx, hy, hz], [-hx, hy + 0.08, hz], 0.014, style.bar);
     b.tube([hx, hy, hz], [hx, hy + 0.08, hz], 0.014, style.bar);
+    b.finish = FINISH.rubber;
     b.tube([-hx, hy + 0.08, hz], [hx, hy + 0.08, hz], 0.016, style.grip);
   }
 
   // THE BOARDING PLATFORM's rubber bumper along the transom's top edge.
+  b.finish = FINISH.rubber;
   b.box(
     -0.34 * B,
     railY - 0.06,
@@ -418,6 +448,7 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
 
   // THE SPONSONS: a blade either side at the aft chine, standing out from
   // the topside — what the hull banks against in a turn.
+  b.finish = FINISH.moulding;
   {
     const chineY = keelY + hull.chineOut * (B / 2) * dead;
     for (const side of [-1, 1]) {
@@ -448,6 +479,7 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     style.grip,
   );
   // The reboarding step folded up against the transom.
+  b.finish = FINISH.rubber;
   b.box(
     -0.2 * B,
     keelY + 0.5 * H,
@@ -457,7 +489,9 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     zTransom + 0.01,
     style.rail,
   );
+  b.finish = FINISH.moulding;
   b.tube([0, pumpY, zTransom - 0.04], [0, pumpY, zTransom - 0.17], 0.055, style.rail, 8);
+  b.finish = FINISH.mat;
   b.box(
     -0.1 * B,
     keelY - 0.015,
@@ -472,16 +506,20 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
   // it, the bars swept back a little with a grip at each end and a pad
   // over the centre, and a mirror on each flank of the hood.
   const { zPod, podBase, podH, colTop } = l;
+  b.finish = FINISH.paint;
   b.box(-0.14 * B, podBase, zPod - 0.06 * L, 0.14 * B, podBase + podH, zPod + 0.05 * L, style.deck);
+  b.finish = FINISH.moulding;
   b.tube([0, podBase + podH - 0.02, zPod], colTop, 0.036, style.grip);
   for (const side of [-1, 1] as const) {
     const { end } = barOf(l, side);
+    b.finish = FINISH.chrome;
     b.tube(colTop, end, 0.019, style.bar);
     const gripIn: P = [
       side * (l.barW / 2 - 0.13),
       lerp(colTop[1], end[1], 0.7),
       lerp(colTop[2], end[2], 0.7),
     ];
+    b.finish = FINISH.rubber;
     b.tube(gripIn, end, 0.03, style.grip);
   }
   b.box(
@@ -501,7 +539,9 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     for (const side of [-1, 1]) {
       const root: P = [side * (flank - 0.02), my, mz];
       const head: P = [side * (flank + 0.07), my + 0.06, mz];
+      b.finish = FINISH.chrome;
       b.tube(root, head, 0.012, style.bar);
+      b.finish = FINISH.moulding;
       b.box(
         head[0] - 0.045,
         head[1] - 0.03,
@@ -515,11 +555,6 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
   }
 
   const group = new THREE.Group();
-  group.add(
-    new THREE.Mesh(
-      b.geometry(),
-      new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
-    ),
-  );
+  group.add(new THREE.Mesh(b.geometry(), surface));
   return group;
 }

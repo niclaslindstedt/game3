@@ -124,8 +124,9 @@ export function createEnvironment(scene: THREE.Scene): Environment {
   // ── The lights ───────────────────────────────────────────────────────────
   // Two, and no more: a hemisphere for the skylight and the bounce off the
   // water, and one directional for the key. Everything on this coast is
-  // flat-shaded Lambert, so a third light buys nothing a hemisphere colour
-  // cannot say more cheaply.
+  // flat-shaded — Lambert on the shore, Phong on the craft, and the water
+  // and the craft reflect the dome itself for the rest — so a third light
+  // buys nothing a hemisphere colour cannot say more cheaply.
   const hemi = new THREE.HemisphereLight(0xffffff, 0x7f9aa3, 2.3);
   const key = new THREE.DirectionalLight(0xfff2dc, 1.3);
   scene.add(hemi, key);
