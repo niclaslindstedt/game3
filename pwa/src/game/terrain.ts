@@ -7,6 +7,18 @@
 // Flat-shaded, so the low-poly facets read as slabs of rock rather than as
 // a smooth blanket.
 //
+// AND THE BOTTOM GOES OUT WITH THE DEPTH. What hides the sea bed is not the
+// surface above it — that alpha is one number for a patch of sea and knows
+// nothing about how far under it a thing is, so turning it up until the bed
+// is gone at twenty metres hides a fish at two by exactly as much. What hides
+// it is the column of water between it and the eye, which is ITS depth: the
+// bottom fades into the coast's one flat unlit bed tone over `clarity` metres
+// (`water-optics.ts`) and past that has no shape left to give it away. So the
+// surface can stay a window a rider reads fish through while the bottom under
+// the course is simply not there — and the sea keeps the dark it always had,
+// because the tone it fades into is the unlit bottom rather than the bright
+// water over it.
+//
 // A BEACH DOES NOT STOP AT THE WATERLINE, and drawing it as if it did is
 // the single loudest way a sand coast reads as a stripe painted on a rock
 // one. The pale bottom under the shallows in front of a beach is what turns
@@ -26,6 +38,7 @@ import { fieldGradient, hash2, sampleField, type Level, type Surface } from "@en
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
+import { seaHaze, seaTones, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 
 /** Chunk edge, m — big enough that a frame holds a handful, small enough
  * that most of the level is culled behind the camera. */
@@ -46,9 +59,10 @@ const SAND_WET = new THREE.Color(0x8f7345);
 /** The bottom in front of a beach: pale, which is what the shallows over it
  * take their colour from. */
 const SAND_BED = new THREE.Color(0xbda878);
-/** The sea bed: dark olive, going to near-black by the deep. */
+/** The sea bed where the eye still reaches it: dark olive. What it goes to
+ * with depth is the COAST's (`WaterOptics.bed`), and the haze below is the
+ * one place the bottom darkens — there is no second ramp. */
 const BED = new THREE.Color(0x3a4a34);
-const BED_DEEP = new THREE.Color(0x14241c);
 /** The wet band at the waterline, where the rock is darker. */
 const WET = new THREE.Color(0x646a70);
 /** The tree line inland: the forest floor under the pines. */
@@ -80,6 +94,7 @@ const scratch = new THREE.Color();
 /** The colour of the ground at a point, into `out`. */
 function paint(
   level: Level,
+  optics: WaterOptics,
   x: number,
   z: number,
   h: number,
@@ -88,7 +103,7 @@ function paint(
 ): void {
   const offshore = sampleField(level.offshore, x, z);
   if (h < 0) {
-    out.copy(BED).lerp(BED_DEEP, clamp(-h / 14, 0, 1));
+    out.copy(BED);
     if (offshore < BED_REACH && shoreKindOff(level, x, z, offshore) === "sand") {
       // Strongest right off the beach and gone by the time the bottom is
       // out of sight, both across the shallows and down them.
@@ -119,10 +134,16 @@ function paint(
   const { gx, gz } = fieldGradient(level.ground, x, z);
   const grain = kind === "sand" ? 0.03 : 0.09;
   out.offsetHSL(0, 0, n * grain - clamp(Math.hypot(gx, gz) * 0.25, 0, 0.14));
+  // …and then the water takes it, over the depth it stands under, into the
+  // coast's one flat unlit bottom tone. The speckle and the slope shading go
+  // with it, which is the point: what gives a hidden bottom away is its
+  // SHAPE, and one colour has none.
+  if (h < 0) out.lerp(seaTones(optics).bed, seaHaze(optics, -h));
 }
 
 function buildChunk(
   level: Level,
+  optics: WaterOptics,
   x0: number,
   z0: number,
   x1: number,
@@ -143,7 +164,7 @@ function buildChunk(
       positions[k] = x;
       positions[k + 1] = h;
       positions[k + 2] = z;
-      paint(level, x, z, h, h < 0 ? "water" : level.materialAt(x, z), color);
+      paint(level, optics, x, z, h, h < 0 ? "water" : level.materialAt(x, z), color);
       colors[k] = color.r;
       colors[k + 1] = color.g;
       colors[k + 2] = color.b;
@@ -172,11 +193,20 @@ export function createTerrain(level: Level): THREE.Group {
   const group = new THREE.Group();
   const b = level.bounds;
   const cell = level.ground.cell;
+  const optics = waterOpticsOf(level.biome);
   // Inside the bounds, at the level's own cell.
   for (let z = b.minZ; z < b.maxZ; z += CHUNK) {
     for (let x = b.minX; x < b.maxX; x += CHUNK) {
       group.add(
-        buildChunk(level, x, z, Math.min(x + CHUNK, b.maxX), Math.min(z + CHUNK, b.maxZ), cell),
+        buildChunk(
+          level,
+          optics,
+          x,
+          z,
+          Math.min(x + CHUNK, b.maxX),
+          Math.min(z + CHUNK, b.maxZ),
+          cell,
+        ),
       );
     }
   }
@@ -185,10 +215,10 @@ export function createTerrain(level: Level): THREE.Group {
   const X1 = b.maxX + SKIRT;
   const Z0 = b.minZ - SKIRT;
   const Z1 = b.maxZ + SKIRT;
-  group.add(buildChunk(level, X0, Z0, X1, b.minZ, SKIRT_CELL));
-  group.add(buildChunk(level, X0, b.maxZ, X1, Z1, SKIRT_CELL));
-  group.add(buildChunk(level, X0, b.minZ, b.minX, b.maxZ, SKIRT_CELL));
-  group.add(buildChunk(level, b.maxX, b.minZ, X1, b.maxZ, SKIRT_CELL));
+  group.add(buildChunk(level, optics, X0, Z0, X1, b.minZ, SKIRT_CELL));
+  group.add(buildChunk(level, optics, X0, b.maxZ, X1, Z1, SKIRT_CELL));
+  group.add(buildChunk(level, optics, X0, b.minZ, b.minX, b.maxZ, SKIRT_CELL));
+  group.add(buildChunk(level, optics, b.maxX, b.minZ, X1, b.maxZ, SKIRT_CELL));
   return group;
 }
 
