@@ -17,6 +17,12 @@
  * one it can show is a phone at 20 fps. */
 export const MAX_DPR = 2;
 
+/** The floor under whatever the RESOLUTION row asks for. A canvas an eighth
+ * of a CSS pixel across is not a cheap picture, it is a broken one — and a
+ * ratio rounding to zero is a zero-width drawing buffer, which draws nothing
+ * at all until the app is restarted. */
+export const MIN_DPR = 0.25;
+
 /** A canvas's two sizes: the CSS box in whole px, and how many device pixels
  * are drawn per CSS px inside it. */
 export type Viewport = { w: number; h: number; dpr: number };
@@ -29,12 +35,19 @@ export type Viewport = { w: number; h: number; dpr: number };
  * the document — and reads 0 there. A zero-height buffer is an aspect ratio
  * of `Infinity` or `NaN`, which reaches the projection matrix and draws
  * nothing at all until the app is restarted.
+ *
+ * `scale` is the RESOLUTION row's share (`settings-video.ts`), applied AFTER
+ * the cap rather than before it: the cap is the page's own policy about a
+ * dense screen and the row is the rider's about their machine, so a rider who
+ * asks for half gets half of what the page was going to draw anyway, on every
+ * device. A share that is not a positive number is no opinion, which is 1.
  */
-export function viewportOf(cssWidth: number, cssHeight: number, dpr: number): Viewport {
+export function viewportOf(cssWidth: number, cssHeight: number, dpr: number, scale = 1): Viewport {
+  const share = Number.isFinite(scale) && scale > 0 ? scale : 1;
   return {
     w: Math.max(1, Math.round(cssWidth)),
     h: Math.max(1, Math.round(cssHeight)),
-    dpr: Math.min(MAX_DPR, dpr > 0 ? dpr : 1),
+    dpr: Math.max(MIN_DPR, Math.min(MAX_DPR, dpr > 0 ? dpr : 1) * share),
   };
 }
 

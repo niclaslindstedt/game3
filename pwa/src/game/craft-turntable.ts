@@ -9,7 +9,7 @@
 // model on a plinth — and the difference between the heavy touring hull sat
 // deep and the stand-up perched on top of the water is visible before a
 // single bar beside it has been read. The disc is translucent for the same
-// reason the near water is (`SEE_THROUGH` in water-mesh.ts): the V under
+// reason the near water is a window (water-mesh.ts): the V under
 // the chine is half the sculpture, and a hull sliced off at the waterline
 // is a hull with its argument hidden.
 //

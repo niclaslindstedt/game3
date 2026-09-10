@@ -9,11 +9,14 @@
 // phase-field lookup each, about a microsecond a call, and the grid is the
 // only thing in the frame that calls it thousands of times. So:
 //
-// - The grid is STRETCHED rather than uniform: `GRID` vertices a side laid
-//   on a cubic so the cells are `CENTRE_CELL` metres at the craft and about
-//   four times that at the edge, `HALF` metres out. Detail is spent where
-//   the camera is; the far cells carry the long swell, which is all that
-//   survives the distance anyway.
+// - The grid is STRETCHED rather than uniform: `look.grid` vertices a side
+//   laid on a cubic so the cells are `look.cell` metres at the craft and
+//   about four times that at the edge, `look.half` metres out. Detail is
+//   spent where the camera is; the far cells carry the long swell, which is
+//   all that survives the distance anyway. Those three are the RIDER's — the
+//   WATER row of OPTIONS ▸ VIDEO (`settings-video.ts`), because how far out
+//   the sea is still a sea is the biggest CPU bill in the frame and the one
+//   nothing about the GPU makes cheaper. A change of row rebuilds the mesh.
 // - The grid SNAPS to whole centre cells as it follows the craft, so the
 //   sample points do not swim under the surface between frames.
 // - THE FAR WATER is a second, coarse grid (`FAR_GRID` a side over
@@ -49,18 +52,18 @@ import { sampleField, surfaceAt, type GameState, type SurfaceSample } from "@eng
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
+import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { applyClock, applySea, applySky, createWaterMaterial } from "./water-shader.ts";
 
-/** Vertices a side, the grid's reach either side of the craft, m, and the
- * cell at its centre, m. 72 × 72 = 5 184 samples a frame, six to eight
- * milliseconds of `surfaceAt` on a laptop core — the most the water may
- * spend and still leave a 60 Hz frame room for everything else. */
-export const GRID = 72;
-export const HALF = 120;
-export const CENTRE_CELL = 1.5;
+/** The grid the game is tuned on, and what the labs and the tests measure:
+ * 72 × 72 = 5 184 samples a frame, six to eight milliseconds of `surfaceAt`
+ * on a laptop core. The WATER row moves it either side of this
+ * (`WATER_LOOK`); this is the design point it moves around. */
+export const DESIGN_WATER: WaterLook = WATER_LOOK.medium;
 
-/** Where the fade to the far grid begins, as a share of `HALF`. */
+/** Where the fade to the far grid begins, as a share of the near grid's own
+ * reach. */
 const FADE_FROM = 0.78;
 
 /** The far grid: vertices a side and its reach either side of the craft,
@@ -70,30 +73,54 @@ const FADE_FROM = 0.78;
 const FAR_GRID = 40;
 const FAR_HALF = 640;
 const FAR_CELL_WAVES = 3;
-/** The far grid's hole: cells whose centres lie within this share of `HALF`
- * of its own centre are not drawn (the near grid is over them) — inside
- * the near grid by more than the two grids' snapping can differ. */
+/** The far grid's hole: cells whose centres lie within this share of the near
+ * grid's reach of its own centre are not drawn (the near grid is over them) —
+ * inside the near grid by more than the two grids' snapping can differ.
+ *
+ * It is also HOW FAR THE RIDER CAN SEE INTO THE WATER: inside that radius the
+ * only water is the near grid, which is see-through, and what lies under it —
+ * the sea bed, a rock's foot, a school of fish — is drawn and visible. Outside
+ * it the far grid and the horizon ring are opaque water at a grazing angle,
+ * which is what water actually looks like at that range, and nothing beneath
+ * them shows. `WaterMesh.seeThrough` is that radius, and the one place it is
+ * stated: anything drawn under the surface asks the mesh rather than
+ * recomputing it, and the answer is 0 when the rider has turned the window
+ * off, so one number carries both the reach and the setting. */
 const FAR_HOLE = 0.82;
-/** HOW FAR THE RIDER CAN SEE INTO THE WATER, m from the craft. Inside this
- * radius the only water is the near grid, which is see-through, and what
- * lies under it — the sea bed, a rock's foot, a school of fish — is drawn
- * and visible. Outside it the far grid and the horizon ring are opaque
- * water at a grazing angle, which is what water actually looks like at that
- * range, and nothing beneath them shows. Anything that lives under the
- * surface is drawn only inside this radius; `fauna.ts` reads it. */
-export const SEE_THROUGH = HALF * FAR_HOLE;
 /** THE SEE-THROUGH ITSELF: the water's opacity looking straight down into
  * the shallows, the opacity it has reached by `CLARITY` metres of water
  * under it, and that depth in m. The shader takes it from there. */
 const CLEAR_WINDOW = 0.22;
 const DEEP_WINDOW = 0.62;
 const CLARITY = 18;
+/** HOW BRIGHT THE SEA BED IS, as a share of the water's own colour — the one
+ * number an OPAQUE sea needs, and the only thing it loses by being opaque.
+ *
+ * With the window open the surface shows `w` of its own colour (the window
+ * value below) and `1 − w` of whatever lies under it, and under it is a bed
+ * lit by the skylight through several metres of water. That blend is most of
+ * the open sea's tone: making the surface solid without accounting for it
+ * hands back a pale, milky sea that reads as a different ocean rather than as
+ * a cheaper one, and the foam — which was always solid — stops standing out
+ * against it. So a closed window dims the body by exactly what the blend was
+ * worth, `w + (1 − w)·CLOSED_BED`, and the shallows come out barely touched
+ * because that is where `w` is smallest but the bed is brightest.
+ *
+ * Half is an eye-set figure against the same sea drawn both ways
+ * (`--scene cruise --window 0` beside `--window 1`), not a measurement: the
+ * bed is a lit surface with its own materials and there is no one number that
+ * is right for all of them. It is deliberately short of matching — a rider
+ * who turns the window off is giving up the sea as a volume, and the picture
+ * says so. */
+const CLOSED_BED = 0.5;
 /** The horizon: a flat RING under both grids out to the far plane, in the
  * deep colour. A ring rather than a disc because the near water is
  * see-through: a disc would stand a metre under the surface right where the
  * rider is looking down through it and hide the sea bed, the rocks and
- * everything that swims. Its hole is `SEE_THROUGH`, the far grid's own, so
- * the far grid covers the gap. `FAR_SINK` is how far under the near grid's
+ * everything that swims. Its hole is the far grid's own, so the far grid
+ * covers the gap — and it stays a ring whatever the WINDOW row says, because
+ * the hole is about the two grids meeting, not about transparency.
+ * `FAR_SINK` is how far under the near grid's
  * edge the far grid lies, m, plus `SHORT_SINK` times the summed amplitude
  * of the components it does not carry — the chop whose troughs it would
  * otherwise stand up through. */
@@ -162,16 +189,25 @@ export type WaterMesh = {
    * and the two lights the scene has set for it. Called on a change of
    * sky, not per frame. */
   retone: (preset: Preset, hemi: THREE.HemisphereLight, key: THREE.DirectionalLight) => void;
+  /** Open or close the WINDOW — whether the near water is transparent at
+   * all. Applies from the next frame; the grid is not rebuilt. */
+  setWindow: (open: boolean) => void;
+  /** How far the rider can see INTO the water, m from the craft — 0 with the
+   * window closed. Anything drawn under the surface asks this and nothing
+   * else; see `FAR_HOLE`. */
+  seeThrough: () => number;
   /** Re-lay the grid under the craft and displace it for the state's
    * clock. Returns the milliseconds it took — the profile's number. */
   update: (state: GameState, cx: number, cz: number) => number;
   dispose: () => void;
 };
 
-export function createWaterMesh(): WaterMesh {
+export function createWaterMesh(look: WaterLook = DESIGN_WATER): WaterMesh {
+  const GRID = look.grid;
+  const HALF = look.half;
   // The stretched axis: s in [-1, 1] → offset(s) = HALF·(a·s + (1−a)·s³),
-  // with `a` chosen so the centre cell is CENTRE_CELL.
-  const a = (CENTRE_CELL * (GRID - 1)) / (2 * HALF);
+  // with `a` chosen so the centre cell is `look.cell`.
+  const a = (look.cell * (GRID - 1)) / (2 * HALF);
   const offsets = new Float32Array(GRID);
   for (let i = 0; i < GRID; i++) {
     const s = (i / (GRID - 1)) * 2 - 1;
@@ -221,7 +257,7 @@ export function createWaterMesh(): WaterMesh {
   // ONE material for both grids: the light is the same light out to the
   // fog, and a seam in the shading would show where a seam in the height
   // does not.
-  const material = createWaterMaterial();
+  const material = createWaterMaterial(look);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
 
@@ -271,8 +307,9 @@ export function createWaterMesh(): WaterMesh {
   farMesh.frustumCulled = false;
   // The horizon disc under both, unlit, in the colour the far water
   // reaches at the fog: mostly sky.
+  const reach = HALF * FAR_HOLE;
   const horizon = new THREE.Mesh(
-    new THREE.RingGeometry(SEE_THROUGH, FAR_RADIUS, 48, 1),
+    new THREE.RingGeometry(reach, FAR_RADIUS, 48, 1),
     new THREE.MeshBasicMaterial({ color: DEEP.clone().lerp(MIRROR, 0.62) }),
   );
   horizon.rotation.x = -Math.PI / 2;
@@ -304,10 +341,16 @@ export function createWaterMesh(): WaterMesh {
   const sample: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
   const long: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
+  /** Whether the near water is a window at all. Closed, every vertex carries
+   * a full opacity and the shader's `mix(vWindow, 1, F)` is 1 at any angle,
+   * so the sea is solid and everything under it is hidden by the depth test
+   * rather than by a second rule. */
+  let windowOpen = true;
+
   const update = (state: GameState, cx: number, cz: number): number => {
     const t0 = performance.now();
-    const sx = Math.round(cx / CENTRE_CELL) * CENTRE_CELL;
-    const sz = Math.round(cz / CENTRE_CELL) * CENTRE_CELL;
+    const sx = Math.round(cx / look.cell) * look.cell;
+    const sz = Math.round(cz / look.cell) * look.cell;
     mesh.position.set(sx, 0, sz);
     const { sea, level, t } = state;
     const ground = level.ground;
@@ -409,6 +452,14 @@ export function createWaterMesh(): WaterMesh {
         r += (DEEP.r - r) * deep;
         g += (DEEP.g - g) * deep;
         bl += (DEEP.b - bl) * deep;
+        const column = clamp(depth / CLARITY, 0, 1);
+        const w = CLEAR_WINDOW + (DEEP_WINDOW - CLEAR_WINDOW) * column;
+        if (!windowOpen) {
+          const dim = w + (1 - w) * CLOSED_BED;
+          r *= dim;
+          g *= dim;
+          bl *= dim;
+        }
         // A crest lifts toward the shallow tint, a trough sinks toward the
         // deep: the wave's shape read as colour, which is most of how a
         // low sun over a small sea shows one at all.
@@ -441,8 +492,7 @@ export function createWaterMesh(): WaterMesh {
         colors[q + 1] = g;
         colors[q + 2] = bl;
         colors[q + 3] = foam;
-        windows[j * GRID + i] =
-          CLEAR_WINDOW + (DEEP_WINDOW - CLEAR_WINDOW) * clamp(depth / CLARITY, 0, 1);
+        windows[j * GRID + i] = windowOpen ? w : 1;
       }
     }
     posAttr.needsUpdate = true;
@@ -469,6 +519,15 @@ export function createWaterMesh(): WaterMesh {
     mesh,
     far,
     retone,
+    setWindow: (open) => {
+      windowOpen = open;
+      // Blending is switched off with it: an opaque surface drawn through the
+      // transparent pass still pays for the blend and still sorts, which is
+      // most of what the row was turned off to stop paying for.
+      material.transparent = open;
+      material.needsUpdate = true;
+    },
+    seeThrough: () => (windowOpen ? reach : 0),
     update,
     dispose: () => {
       geometry.dispose();

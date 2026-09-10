@@ -21,15 +21,24 @@ import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
+import { setTextureAnisotropy } from "./fx-textures.ts";
 import { createGates, type Gates } from "./gates.ts";
-import { createPines } from "./pines.ts";
+import { createPines, type Pines } from "./pines.ts";
 import { createFootprints } from "./footprints.ts";
 import { createRider, type Rider } from "./rider.ts";
 import { createRocks } from "./rocks.ts";
+import {
+  DEFAULT_VIDEO,
+  FLORA_SCALE,
+  RESOLUTION_SCALE,
+  SPRAY_SCALE,
+  WATER_LOOK,
+  type VideoSettings,
+} from "./settings-video.ts";
 import { createSpray } from "./spray.ts";
 import { createWake } from "./wake.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
-import { createWaterMesh } from "./water-mesh.ts";
+import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
 
 /** Near and far planes, m. The far is past the sky's outermost shell — the
  * weather's ceiling at 2400 m — so nothing in the sky is ever clipped; the
@@ -58,6 +67,12 @@ export type GameRenderer = {
    * you whenever the browser resizes the canvas; exposed for a host that
    * changes the box without the layout noticing. */
   resize: () => void;
+  /** Take the rider's picture settings. Every row applies from the next
+   * frame; the WATER row rebuilds the two water grids on its way, which is a
+   * few milliseconds and always happens with a card up. Called with the whole
+   * blob rather than a diff — this is the one place that knows which rows are
+   * cheap to move and which are not. */
+  setVideo: (video: VideoSettings) => void;
   /** Let the water effects see EVERY engine step — the wake, the spray
    * and the foam read the craft at the step's cadence and are drawn at
    * the frame's — including the steps of a scene pre-rolled for a
@@ -70,7 +85,11 @@ export type GameRenderer = {
   dispose: () => void;
 };
 
-export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
+export function createRenderer(
+  canvas: HTMLCanvasElement,
+  initialVideo: VideoSettings = DEFAULT_VIDEO,
+): GameRenderer {
+  let video = initialVideo;
   const renderer = new THREE.WebGLRenderer({
     canvas,
     antialias: true,
@@ -85,7 +104,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   // THE SKY, and with it the fog and both lights (environment.ts).
   const sky: Environment = createEnvironment(scene);
 
-  const water = createWaterMesh();
+  let water: WaterMesh = createWaterMesh(WATER_LOOK[video.water]);
   scene.add(water.mesh, water.far);
   const wake = createWake();
   const spray = createSpray();
@@ -94,6 +113,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
   let fauna: Fauna | null = null;
+  let pines: Pines | null = null;
   let gates: Gates | null = null;
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
@@ -125,11 +145,13 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       // which is what makes a school look like it is being seen THROUGH
       // the water instead of painted on it.
       fauna = createFauna(level);
+      pines = createPines(level);
+      pines.setDensity(FLORA_SCALE[video.flora]);
       world = new THREE.Group();
       world.add(
         terrain,
         createRocks(level),
-        createPines(level),
+        pines.group,
         createFootprints(level),
         gates.group,
         fauna.group,
@@ -170,6 +192,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
       canvas.clientWidth || window.innerWidth,
       canvas.clientHeight || window.innerHeight,
       window.devicePixelRatio,
+      RESOLUTION_SCALE[video.resolution],
     );
     if (sameViewport(viewport, next)) return;
     viewport = next;
@@ -183,6 +206,35 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     camera.updateProjectionMatrix();
     fovWas = 0;
     renderer.getDrawingBufferSize(bufferSize);
+  };
+
+  /** Stand the two water grids up for the WATER row as it stands. The sky the
+   * old ones were lit for is re-applied on the way out, so a rebuild mid-run
+   * never flashes a noon sea under a squall. */
+  const buildWater = (): void => {
+    scene.remove(water.mesh, water.far);
+    water.dispose();
+    water = createWaterMesh(WATER_LOOK[video.water]);
+    scene.add(water.mesh, water.far);
+    water.retone(sky.preset(), sky.hemi, sky.key);
+  };
+
+  const setVideo = (next: VideoSettings): void => {
+    const was = video;
+    video = next;
+    // The grids are geometry and the only row that has to rebuild anything.
+    if (next.water !== was.water) buildWater();
+    setTextureAnisotropy(WATER_LOOK[next.water].anisotropy);
+    water.setWindow(next.seeThrough);
+    // `viewport` is cleared rather than compared: `resize` short-circuits on a
+    // box it has already measured, and the box has NOT changed — only what it
+    // is worth in device pixels has.
+    if (next.resolution !== was.resolution) {
+      viewport = null;
+      resize();
+    }
+    spray.setBudget(SPRAY_SCALE[next.spray]);
+    pines?.setDensity(FLORA_SCALE[next.flora]);
   };
 
   const render = (state: GameState, dt: number): void => {
@@ -199,7 +251,11 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
     cost.waterMs = water.update(state, c.x, c.z);
     gates?.update(state);
-    fauna?.update(state, c.x, c.z);
+    // How far the rider can see into the water is the water mesh's answer, and
+    // it is 0 with the window closed — so a closed window is also an empty sea
+    // bed rather than a second rule about what to draw down there.
+    const reach = video.fauna ? water.seeThrough() : 0;
+    fauna?.update(state, c.x, c.z, reach);
     wake.update(state);
     spray.update(state);
 
@@ -236,6 +292,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
   };
 
   resize();
+  setVideo(video);
   // A phone turned on its side fires the window's `resize` BEFORE the page
   // has been laid out again, so a listener there measures the box the canvas
   // had in the OLD orientation and the buffer keeps the old shape — a
@@ -255,6 +312,7 @@ export function createRenderer(canvas: HTMLCanvasElement): GameRenderer {
     render,
     load,
     resize,
+    setVideo,
     observe: (state) => {
       wake.observe(state);
       spray.observe(state);

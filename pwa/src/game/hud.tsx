@@ -11,6 +11,12 @@
 //   bottom right  the air time while the hull is off the water, and the
 //                 news column — a split, a missed gate, a dive
 //
+// …and under the minimap, when they have been asked for, the DIAGNOSTICS:
+// the frame rate (OPTIONS ▸ SHOW FPS) and what the frame cost (the developer
+// page's FRAME COST). Neither is a fact about the RUN, so neither joins the
+// readouts that are — and the right edge under the map is the only stretch of
+// this screen with room for a line that appears out of nowhere.
+//
 // The thumb zones it hangs under all that are next door in hud-touch.tsx:
 // they are the one part of this screen that does NOT run off the snapshot
 // (they write into the input manager at pointer rate), and that is a
@@ -23,6 +29,7 @@ import { RevBar } from "./hud-dial.tsx";
 import { BarZone, LeverZone } from "./hud-touch.tsx";
 import type { InputManager } from "./input.ts";
 import { Minimap } from "./minimap.tsx";
+import type { FrameCost } from "./renderer.ts";
 import type { HudSnapshot } from "./snapshot.ts";
 import { STRINGS } from "./strings.ts";
 import { UpdateButton } from "./update-button.tsx";
@@ -65,6 +72,8 @@ export function Hud({
   touch,
   input,
   paused,
+  fps,
+  cost,
   onReset,
 }: {
   snap: HudSnapshot;
@@ -73,6 +82,13 @@ export function Hud({
   touch: boolean;
   input: InputManager;
   paused: boolean;
+  /** The smoothed frame rate, or null with OPTIONS ▸ FPS off. Not part of
+   * the snapshot: it is a fact about the machine rather than about the run,
+   * and `frame-rate.ts` is where it is worked out. */
+  fps: number | null;
+  /** What the last frame cost, or null with the developer page's FRAME COST
+   * row off. */
+  cost: FrameCost | null;
   onReset: () => void;
 }) {
   return (
@@ -114,6 +130,22 @@ export function Hud({
             thing up here that is LOOKED at rather than read, and it wants a
             square of its own clear of the wind chip's baseline. */}
         <Minimap map={snap.minimap} />
+        {/* THE DIAGNOSTICS, under the map: the frame rate (OPTIONS ▸ FPS)
+            and what the frame cost (the developer page's FRAME COST). They
+            hang here rather than in the build corner because that corner is
+            directly under the speed cluster, and a second line there lands
+            across the speedo on a phone. This edge is the one with room —
+            clear of both thumb zones, and nothing under the map wants it. */}
+        {(fps !== null || cost !== null) && (
+          <div class="hud-meters">
+            {fps !== null && <span class="hud-meter">{STRINGS.fps(fps)}</span>}
+            {cost !== null && (
+              <span class="hud-meter">
+                {STRINGS.frameCost(cost.waterMs, cost.calls, cost.triangles)}
+              </span>
+            )}
+          </div>
+        )}
       </div>
 
       <div class="hud-speed">

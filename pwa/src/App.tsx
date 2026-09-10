@@ -38,6 +38,14 @@
 //                  resolved against this coast's own daylight (R13)
 //   ?day=storm     ...and its WEATHER row: fine | windy | storm, which is a
 //                  sky AND the wind that builds the sea under it
+//   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
+//   ?res=low       WATER, RESOLUTION and DETAIL (low | medium | high) and
+//   ?detail=low    SEE INTO THE WATER (?see=0/1). They are settings like
+//   ?see=0         the start card's, so a link lays them over the stored
+//                  ones rather than reading them into the run — which is
+//                  what lets the screenshot lab photograph one row of the
+//                  ladder, and a bug report about the water name the
+//                  picture it was seen at
 //   ?start=1       skip both cards and ride: a pinned run
 //   ?splash=0/1    force the attract card off, or back on
 //   ?menu=start    open the front door ON that page (root | start | craft |
@@ -78,13 +86,14 @@ import {
 } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
+import { FPS_UNKNOWN, smoothFps } from "./game/frame-rate.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
 import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager } from "./game/input.ts";
 import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav } from "./game/menu-nav.ts";
-import { createRenderer } from "./game/renderer.ts";
+import { createRenderer, type FrameCost } from "./game/renderer.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
@@ -103,6 +112,15 @@ import {
   type Conditions,
   type Settings,
 } from "./game/settings.ts";
+import {
+  DETAIL_LEVELS,
+  DETAIL_PRESETS,
+  RESOLUTION_LEVELS,
+  WATER_LEVELS,
+  type DetailLevel,
+  type ResolutionLevel,
+  type WaterLevel,
+} from "./game/settings-video.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
@@ -150,6 +168,13 @@ type Params = {
   time: TimeOfDay | undefined;
   day: Conditions | undefined;
   weather: Weather | undefined;
+  /** The picture rows a link names — the same three ladders and the same
+   * switch OPTIONS ▸ VIDEO turns, and settings in the same way: laid over the
+   * stored ones, never read straight into the renderer. */
+  water: WaterLevel | undefined;
+  resolution: ResolutionLevel | undefined;
+  detail: DetailLevel | undefined;
+  seeThrough: boolean | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
   rides: boolean;
@@ -173,6 +198,13 @@ function readParams(): Params {
   const shot = p.get("shot") === "1";
   const named = isScenarioName(scene) ? scene : null;
   const menu = p.get("menu");
+  /** A stop off one of the picture ladders, or nothing — the same check
+   * `mergeSettings` makes of a stored blob, for the same reason. */
+  const stop = <T extends string>(stops: readonly T[], key: string): T | undefined => {
+    const value = p.get(key);
+    return stops.some((id) => id === value) ? (value as T) : undefined;
+  };
+  const see = p.get("see");
   return {
     // Null rather than the default, so `readParams` says whether the URL
     // ASKED for a seed. A URL that did overrides the stored setting; one
@@ -194,6 +226,10 @@ function readParams(): Params {
     day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
       ? (p.get("day") as Conditions)
       : undefined,
+    water: stop(WATER_LEVELS, "water"),
+    resolution: stop(RESOLUTION_LEVELS, "res"),
+    detail: stop(DETAIL_LEVELS, "detail"),
+    seeThrough: see === null ? undefined : see === "1",
     rides: shot || named !== null || p.get("start") === "1",
     menu:
       menu === "start" ||
@@ -240,8 +276,13 @@ function settingsFor(stored: Settings, params: Params): Settings {
   const settings: Settings = {
     ...stored,
     ride: { ...stored.ride },
+    video: { ...stored.video },
     dev: { ...stored.dev },
   };
+  if (params.water !== undefined) settings.video.water = params.water;
+  if (params.resolution !== undefined) settings.video.resolution = params.resolution;
+  if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
+  if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;
   if (params.time !== undefined) settings.ride.time = params.time;
@@ -275,7 +316,17 @@ export function App() {
     settingsFor(loadSettings(), readParams()),
   );
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
+  const rendererRef = useRef<ReturnType<typeof createRenderer> | null>(null);
   const [touch] = useState(hasTouch);
+  /** The frame rate as the corner reads it — refreshed on the HUD's own tick,
+   * not per frame, so the readout is a React render twelve times a second
+   * rather than sixty. The smoothing itself is `frame-rate.ts` and runs in the
+   * loop, on every frame, whether or not anybody is looking. */
+  const [fps, setFps] = useState(FPS_UNKNOWN);
+  /** ...and what that frame cost, for the developer page's FRAME COST row. A
+   * COPY, because the renderer's own record is one object rewritten in place
+   * every frame and a state holding it would never look changed. */
+  const [cost, setCost] = useState<FrameCost | null>(null);
   /** The two flags the loop raises at most once a frame and React re-renders
    * on. Refs beside the state so the loop can ask "have I already said this?"
    * without waiting for a render to answer. */
@@ -296,13 +347,22 @@ export function App() {
   // being closed. Cheap: a settings change is a press, not a frame.
   useEffect(() => saveSettings(settings), [settings]);
 
+  // THE PICTURE ROWS REACH THE RENDERER THE MOMENT THEY MOVE, and that is the
+  // whole reason OPTIONS is over a live sea rather than over a still: a rider
+  // turning WATER up watches the wave twenty metres out gain its detail
+  // without leaving the card. The renderer decides what a row costs to apply.
+  useEffect(() => {
+    rendererRef.current?.setVideo(settings.video);
+  }, [settings.video]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     connectOutput();
     const input = createInputManager(window);
     inputRef.current = input;
-    const renderer = createRenderer(canvas);
+    const renderer = createRenderer(canvas, settingsRef.current.video);
+    rendererRef.current = renderer;
     const clock = createRunClock(TUNING.physicsHz);
     const nav = createMenuNav();
 
@@ -534,12 +594,14 @@ export function App() {
     let raf = 0;
     let last = performance.now();
     let frameMs = 1000 / 60;
+    let rate = FPS_UNKNOWN;
     const frame = (now: number): void => {
       raf = requestAnimationFrame(frame);
       const dtFrame = Math.min(0.1, (now - last) / 1000);
       frameMs = now - last || frameMs;
       last = now;
       wall += dtFrame;
+      rate = smoothFps(rate, frameMs);
 
       // A LOAD IS PAID FOR BEFORE THE STEPS, and the steps still happen: the
       // sea under the card keeps running, so the card lifts onto water that
@@ -596,6 +658,8 @@ export function App() {
       if (hudClock >= HUD_TICK) {
         hudClock = 0;
         setSnap(takeSnapshot(state));
+        setFps(rate);
+        setCost(settingsRef.current.dev.cost ? { ...renderer.cost() } : null);
         const kept = live.filter((f) => f.until > wall);
         if (kept.length !== live.length) live.splice(0, live.length, ...kept);
         setFlashes(live.map(({ id, text, tone }) => ({ id, text, tone })));
@@ -646,6 +710,8 @@ export function App() {
           touch={touch}
           input={inputRef.current!}
           paused={paused}
+          fps={settings.hud.fps ? fps : null}
+          cost={cost}
           onReset={() => inputRef.current?.requestReset()}
         />
       )}

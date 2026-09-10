@@ -67,10 +67,11 @@ front door comes up over the shore the player was just on.
   stood up from it and a run stood up from a `?craft=` link are one run.
 - **A settings row the app IGNORES is worse than no row.** The player moves
   it, nothing happens, and now nothing else on the page can be trusted
-  either. There is no volume fader while `game/audio/` is a placeholder, no
-  video row while the renderer has no quality ladder, and no bindings while
-  `input.ts` carries a fixed table. Each becomes a row the day the thing
-  behind it exists.
+  either. There is no volume fader while `game/audio/` is a placeholder, and
+  no bindings while `input.ts` carries a fixed table. Each becomes a row the
+  day the thing behind it exists — as the picture rows did, once
+  `settings-video.ts` gave the renderer a ladder and `renderer.setVideo` a
+  place to read it.
 - **The stored blob is merged FIELD BY FIELD and every value is CHECKED**
   against what this build offers (`mergeSettings`). A value off a ladder is
   one the menu has no chip to put the cursor back on, so the player can never

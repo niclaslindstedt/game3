@@ -26,7 +26,11 @@
 //                tile made in code, scrolled downwind at two scales, and
 //                faded with distance where its own mip levels would have
 //                flattened it anyway. It changes the light and never the
-//                surface, so a probe reading the same water agrees.
+//                surface, so a probe reading the same water agrees. HOW FAR
+//                it survives is the WATER row's (`WaterLook.rippleFade`):
+//                past the fade the sea is a smooth sheet with a highlight
+//                on it, which is most of what reads as crude a few metres
+//                out.
 //   THE FOAM     the vertex's foam SHARE (the colour attribute's alpha),
 //                broken up by the foam tile the wake is drawn with, so a
 //                whitecap is streaks and holes rather than a white vertex.
@@ -51,7 +55,8 @@ import * as THREE from "three";
 import { valueNoise } from "@engine";
 
 import { PALETTE } from "../identity.ts";
-import { TEXTURE_ANISOTROPY, foamTexture } from "./fx-textures.ts";
+import { anisotropic, foamTexture } from "./fx-textures.ts";
+import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { GLOW_FOCUS, GLOW_REACH, seaReflection, type Preset } from "./sky.ts";
 
 /** The ripple tile: texels a side, and its edge in metres at the fine
@@ -73,9 +78,6 @@ const RIPPLE_PER_WIND = 0.022;
  * the tile is a texture and a texture at full pace strobes. */
 const RIPPLE_PACE = 0.25;
 const RIPPLE_PACE_PER_WIND = 0.018;
-/** Where the ripples begin to fade, m from the lens, and where they are
- * gone. Past that the broad lobe carries the roughness. */
-const RIPPLE_FADE = [60, 260] as const;
 /** The foam tile's edge, m. */
 const FOAM_METRES = 3.5;
 /** How far the coarse ripple layer is turned off the wind, rad: the two
@@ -150,9 +152,10 @@ function rippleTexture(): THREE.DataTexture {
   ripple.minFilter = THREE.LinearMipmapLinearFilter;
   ripple.magFilter = THREE.LinearFilter;
   ripple.generateMipmaps = true;
-  // Seen along the water: without this the ripples are streaks radiating
-  // from the lens and the sea reads as brushed metal.
-  ripple.anisotropy = TEXTURE_ANISOTROPY;
+  // Seen along the water: without anisotropy the ripples are streaks
+  // radiating from the lens and the sea reads as brushed metal. How many
+  // samples is the WATER row's, so the tile is registered rather than set.
+  anisotropic(ripple);
   ripple.needsUpdate = true;
   return ripple;
 }
@@ -186,6 +189,7 @@ const FRAGMENT = `
   uniform vec4 uWindRot;
   uniform float uRipplePace;
   uniform float uRippleStrength;
+  uniform vec2 uRippleFade;
   uniform vec3 uHemiSky;
   uniform vec3 uHemiGround;
   uniform vec3 uKey;
@@ -235,7 +239,7 @@ const FRAGMENT = `
     vec2 fine = tile / ${RIPPLE_METRES.toFixed(2)} + vec2(0.0, -uTime * uRipplePace);
     vec2 coarse = (turn * tile) / ${(RIPPLE_METRES * RIPPLE_COARSE).toFixed(2)} + vec2(0.13, -uTime * uRipplePace * 0.31);
     vec2 slope = (texture2D(uRipple, fine).rg * 2.0 - 1.0) * 0.6 + ((texture2D(uRipple, coarse).rg * 2.0 - 1.0) * turn) * 0.4;
-    float detail = uRippleStrength * (1.0 - smoothstep(${RIPPLE_FADE[0].toFixed(1)}, ${RIPPLE_FADE[1].toFixed(1)}, away));
+    float detail = uRippleStrength * (1.0 - smoothstep(uRippleFade.x, uRippleFade.y, away));
     slope = (slope * detail) * wind;
     vec3 Nd = normalize(N + vec3(slope.x, 0.0, slope.y));
 
@@ -287,7 +291,7 @@ export type WaterMaterial = THREE.ShaderMaterial;
 
 const SHALLOW = new THREE.Color(PALETTE.seaShallow);
 
-export function createWaterMaterial(): WaterMaterial {
+export function createWaterMaterial(look: WaterLook = WATER_LOOK.medium): WaterMaterial {
   return new THREE.ShaderMaterial({
     uniforms: {
       ...THREE.UniformsUtils.clone(THREE.UniformsLib.fog),
@@ -297,6 +301,7 @@ export function createWaterMaterial(): WaterMaterial {
       uWindRot: { value: new THREE.Vector4(1, 0, 0, 1) },
       uRipplePace: { value: RIPPLE_PACE },
       uRippleStrength: { value: RIPPLE_BASE },
+      uRippleFade: { value: new THREE.Vector2(look.rippleFade[0], look.rippleFade[1]) },
       uHemiSky: { value: new THREE.Color(0xffffff) },
       uHemiGround: { value: new THREE.Color(0x53808c) },
       uKey: { value: new THREE.Color(0xfff2dc) },
