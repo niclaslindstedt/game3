@@ -66,7 +66,7 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 | `make waves`       | The waves lab: the sea on its own to `previews/waves-<seed>.png` — a transect from the shore out at several moments, Hs against offshore distance, the spectrum; a table of Hs, Tp, wavelength and breaking depth                                              |
 | `make ride`        | The ride lab: `SCENARIO=launch` — the craft in profile every sixth of a second over the water it crossed, to `previews/ride-<scenario>.png`, with speed, pitch, wetted share, rpm and air time beside each cell                                                |
 | `make crafts`      | The craft sheet: every craft from the app's own builder in side, bow, stern, plan and chase views, the rest waterline and the buoyancy probes over it, to `previews/crafts.png`; a table of draft, freeboard, bar height and triangle count — `CRAFT=` for one |
-| `make screenshots` | Drive the built app headlessly and screenshot the staged scenes at desktop landscape and phone portrait, to `previews/` (`HOUR=20.5 WEATHER=clear` rides the seed under another light)                                                                         |
+| `make screenshots` | Drive the built app headlessly and screenshot the staged scenes at desktop landscape and phone portrait, to `previews/` (`HOUR=20.5 WEATHER=clear` rides the seed under another light; `CAMERA=heli` stands it on one rung of the camera ladder)               |
 | `make sky`         | The sky lab: every weather against every hour on one coast, as one labelled contact sheet to `previews/sky.png` — the ladder side by side, which is the only way it can be judged (`ARGS="--rows=squall,rain"` for a slice)                                    |
 | `make profile`     | Meter what one frame costs the renderer — draw calls, triangles and binds per scene                                                                                                                                                                            |
 | `make icons`       | Regenerate PWA icons, favicon and the OG image from the app mark                                                                                                                                                                                               |
@@ -77,7 +77,7 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 
 ## Controls
 
-**Keyboard:** W / ↑ throttle (ramps up while held), A D / ← → steer (ramped, so a tap is a nudge and a hold is full lock), S / ↓ lean back (nose up — in the air, pitch up), Shift lean forward (nose down), R reset to the last gate passed, Enter restart the run, C camera, Escape pause. There is no brake and no gear.
+**Keyboard:** W / ↑ throttle (ramps up while held), A D / ← → steer (ramped, so a tap is a nudge and a hold is full lock), S / ↓ lean back (nose up — in the air, pitch up), Shift lean forward (nose down), R reset to the last gate passed, Enter restart the run, C camera (bow, nose, close, chase, far, heli — RESET and CAMERA are buttons under the minimap too), Escape pause. There is no brake and no gear.
 
 **Pausing** holds the run exactly where it stands — Escape, or a press on the minimap, which is the way in on a phone. RESUME comes back on the very frame it left; OPTIONS is the front door's own page over the frozen frame; MAIN MENU hands the craft back to the bot and comes back to the front door over the shore you were just on.
 

@@ -110,11 +110,13 @@ crafts:
 # `make screenshots ARGS=--all` · `make screenshots ARGS="--drive W:4"` ·
 # `make screenshots SCENE=rest ARGS=--update` (the new-build button) ·
 # `make screenshots SCENE=cruise HOUR=20.5 WEATHER=clear` (the level under
-# another hour and another sky — how a sunset is looked at on demand)
+# another hour and another sky — how a sunset is looked at on demand) ·
+# `make screenshots SCENE=carve CAMERA=heli` (one rung of the camera ladder;
+# the shot is named after it, so a sweep leaves one file per camera)
 screenshots:
 	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) \
 		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
-		$(if $(WEATHER),--weather $(WEATHER),) $(ARGS)
+		$(if $(WEATHER),--weather $(WEATHER),) $(if $(CAMERA),--camera $(CAMERA),) $(ARGS)
 
 # EVERY SKY SIDE BY SIDE: one contact sheet, one weather per row, one hour
 # per column, all on one coast — `previews/sky.png`. The sky is the one part

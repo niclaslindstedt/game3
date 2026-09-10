@@ -141,6 +141,14 @@ const args = parseArgs(
     // of its own ladder rather than only at the default. `--water high` beside
     // `--water low` on the same scene is how that row is judged at all: the
     // difference is a wave twenty metres out, and no single frame shows it.
+    // THE CAMERA LADDER, for the same reason: a rung is judged against the
+    // rungs on either side of it, and one frame from the default shows
+    // neither. `--camera` names which one the run opens on; the shot is
+    // named after it, so a sweep leaves one file per rung.
+    camera: {
+      kind: "string",
+      help: "which camera: bow, nose, close, chase, far, heli",
+    },
     water: { kind: "string", help: "the WATER row: low, medium, high" },
     res: { kind: "string", help: "the RESOLUTION row: low, medium, high" },
     detail: { kind: "string", help: "the DETAIL row: low, medium, high" },
@@ -150,7 +158,7 @@ const args = parseArgs(
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
     "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] " +
-    "[--water l] [--res l] [--detail l] [--see 0|1] [--viewport v] [--timeout s]",
+    "[--camera c] [--water l] [--res l] [--detail l] [--see 0|1] [--viewport v] [--timeout s]",
 );
 const viewports =
   args.viewport === "all" ? Object.keys(VIEWPORTS) : String(args.viewport).split(",");
@@ -241,6 +249,7 @@ async function capture(name, params, viewportName, script, surface) {
 
 const base = { seed: String(args.seed), craft: args.craft, shot: "1" };
 if (args.update) base.update = "1";
+if (args.camera !== undefined) base.camera = String(args.camera);
 if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
 if (args.hour !== undefined) base.hour = String(args.hour);
@@ -287,9 +296,12 @@ if (args.surface) {
   for (const scene of scenes) {
     const params = { ...base, scene };
     if (args.t !== undefined) params.t = String(args.t);
-    // Named apart so a forced button never overwrites the plain shot of
-    // the same moment — the pair is what a review compares.
-    const name = `${scene}${args.update ? "-update" : ""}`;
+    // Named apart so a forced button, or a camera off the default rung,
+    // never overwrites the plain shot of the same moment — the pair, or the
+    // ladder, is what a review compares.
+    const name =
+      `${scene}${args.camera !== undefined ? `-${args.camera}` : ""}` +
+      `${args.update ? "-update" : ""}`;
     for (const v of viewports) await capture(name, params, v);
   }
 }

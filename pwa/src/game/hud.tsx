@@ -3,11 +3,14 @@
 // (the app refreshes it ~12×/s — the canvas is the 60 fps surface, the HUD
 // is not) and lays out everything drawn over the sea:
 //
-//   top left      the run clock, the gate count
-//   top right     the wind vane, the RESET button and the new-build mark
-//                 on the days there is one, and under them the MINIMAP —
-//                 the coast, the gates and the craft on it, and the press
-//                 that holds the run and puts the pause card up
+//   top left      the run clock and the gate count, with the WIND VANE
+//                 under them — the vane is a fact about the water rather
+//                 than a press, so it belongs beside the two readouts that
+//                 say how the run is going, not on the row of buttons
+//   top right     the MINIMAP — the coast, the gates and the craft on it,
+//                 and the press that holds the run and puts the pause card
+//                 up — with the RESET and CAMERA presses hung under it, and
+//                 the new-build mark over it on the days there is one
 //   bottom left   the rev bar and the speed
 //   bottom right  the air time while the hull is off the water, and the
 //                 news column — a split, a missed gate, a dive
@@ -26,6 +29,7 @@
 
 import { REPO_URL } from "../identity.ts";
 import { formatTime } from "../lib/util.ts";
+import { HudActions } from "./hud-actions.tsx";
 import { RevBar } from "./hud-dial.tsx";
 import { BarZone, LeverZone } from "./hud-touch.tsx";
 import type { InputManager } from "./input.ts";
@@ -76,6 +80,7 @@ export function Hud({
   fps,
   cost,
   onReset,
+  onCamera,
   onPause,
 }: {
   snap: HudSnapshot;
@@ -95,6 +100,8 @@ export function Hud({
    * row off. */
   cost: FrameCost | null;
   onReset: () => void;
+  /** Walk the camera ladder one rung — the C key's other door. */
+  onCamera: () => void;
   /** Hold the run and put the pause card up. The MINIMAP is what presses
    * it — see minimap.tsx for why that is the button. */
   onPause: () => void;
@@ -106,44 +113,42 @@ export function Hud({
       data-finished={snap.finished ? "1" : undefined}
     >
       <div class="hud-top">
-        <div class="hud-clock">
-          <span class="hud-clock-time">{formatTime(snap.time)}</span>
-          <span class="hud-chip-sub">{STRINGS.clockLabel}</span>
+        <div class="hud-top-row">
+          <div class="hud-clock">
+            <span class="hud-clock-time">{formatTime(snap.time)}</span>
+            <span class="hud-chip-sub">{STRINGS.clockLabel}</span>
+          </div>
+          <div class="hud-chip">
+            <span>{STRINGS.gates(snap.passed, snap.gates)}</span>
+            <span class="hud-chip-sub">{STRINGS.gatesLabel}</span>
+          </div>
         </div>
-        <div class="hud-chip">
-          <span>{STRINGS.gates(snap.passed, snap.gates)}</span>
-          <span class="hud-chip-sub">{STRINGS.gatesLabel}</span>
-        </div>
+        {/* Under the clock rather than across the screen from it: the vane
+            says where the sea is coming from, and it is read together with
+            the time it is costing. */}
+        <WindVane angle={snap.windAngle} ms={snap.windMs} />
       </div>
 
       <div class="hud-topright">
-        <div class="hud-topright-row">
-          <WindVane angle={snap.windAngle} ms={snap.windMs} />
-          <button
-            type="button"
-            class="hud-mini"
-            title={STRINGS.resetTitle}
-            onClick={onReset}
-            // A button that keeps the focus keeps the next Enter, and the
-            // next Enter is the restart.
-            onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
-          >
-            {STRINGS.reset}
-          </button>
-          {/* Nothing on the days there is no new build, which is nearly all
-              of them: it draws itself or it draws nothing. */}
-          <UpdateButton />
-        </div>
-        {/* Under the readouts rather than beside them: the map is the one
-            thing up here that is LOOKED at rather than read, and it wants a
-            square of its own clear of the wind chip's baseline. */}
+        {/* Nothing on the days there is no new build, which is nearly all of
+            them: it draws itself or it draws nothing. Over the map rather
+            than under it, so a mark that appears out of nowhere never moves
+            the two presses a thumb has learned the place of. */}
+        <UpdateButton />
         <Minimap map={snap.minimap} onOpen={onPause} />
-        {/* THE DIAGNOSTICS, under the map: the frame rate (OPTIONS ▸ FPS)
-            and what the frame cost (the developer page's FRAME COST). They
-            hang here rather than in the build corner because that corner is
-            directly under the speed cluster, and a second line there lands
-            across the speedo on a phone. This edge is the one with room —
-            clear of both thumb zones, and nothing under the map wants it. */}
+        {/* THE PRESSES, UNDER THE MAP. The map is the thing in this corner
+            that is LOOKED at, so it takes the top of it, hard against the
+            two edges of the screen; the buttons hang off its bottom, which
+            is the nearer half of the cluster to the thumb that reaches for
+            them and leaves the map's own square unbroken. */}
+        <HudActions onReset={onReset} onCamera={onCamera} />
+        {/* THE DIAGNOSTICS, at the foot of the cluster: the frame rate
+            (OPTIONS ▸ FPS) and what the frame cost (the developer
+            page's FRAME COST). They hang here rather than in the build corner
+            because that corner is directly under the speed cluster, and a
+            second line there lands across the speedo on a phone. This edge is
+            the one with room — clear of both thumb zones, and nothing else
+            wants it. */}
         {(fps !== null || cost !== null) && (
           <div class="hud-meters">
             {fps !== null && <span class="hud-meter">{STRINGS.fps(fps)}</span>}
