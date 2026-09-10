@@ -39,7 +39,11 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const {
   generateLevel,
   createSea,
+  createWind,
+  seaShares,
   seaSummary,
+  surfaceAt,
+  windSpeedAt,
   heightAt,
   wavenumber,
   shoaling,
@@ -75,6 +79,7 @@ const wind = {
 };
 const override = args.hs !== undefined ? { hs: args.hs, tp: args.tp } : undefined;
 const sea = createSea(level, args.seed, wind, override);
+const air = createWind(level, wind, sea.shelter);
 const deg = (rad) => ((rad * 180) / Math.PI + 360) % 360;
 const depthAt = (x, z) => Math.max(0, -sampleField(level.ground, x, z));
 const offshoreAt = (x, z) => sampleField(level.offshore, x, z);
@@ -118,7 +123,10 @@ function station(s) {
   const z = sz + dz * s;
   const depth = depthAt(x, z);
   const offshore = offshoreAt(x, z);
-  const { Hs, Tp } = seaSummary(sea, offshore);
+  const { Hs, Tp } = seaSummary(sea, x, z);
+  const shares = seaShares(sea, x, z);
+  const surface = surfaceAt(sea, level, x, z, 0);
+  const current = Math.hypot(surface.vx, surface.vz);
   // The envelope the field delivers here: the surface over one peak period.
   let lo = Infinity;
   let hi = -Infinity;
@@ -157,6 +165,10 @@ function station(s) {
     z,
     depth,
     offshore,
+    ocean: shares.ocean,
+    local: shares.local,
+    wind: windSpeedAt(air, 2, x, z),
+    current,
     Hs,
     Tp,
     H,
@@ -178,7 +190,8 @@ console.log(
   `waves — engine ${engineVersion} · seed ${args.seed} (${level.biome}) · wind ${wind.speed.toFixed(1)} m/s from ${deg(wind.from).toFixed(0)}°` +
     `${args.wind !== undefined || args.from !== undefined ? ` (level's own ${level.wind.speed.toFixed(1)} m/s from ${deg(level.wind.from).toFixed(0)}°)` : ""}` +
     `${override ? ` · sea quoted at Hs ${override.hs} m` : ""}` +
-    ` · ${sea.components.length} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s`,
+    ` · ocean band ${sea.oceanCount} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s` +
+    ` · local band ${sea.components.length - sea.oceanCount} · Hs ${sea.localHs.toFixed(2)} m · Tp ${sea.localTp.toFixed(2)} s`,
 );
 console.log(
   `dials — height ×${TUNING.sea.heightScale} · period ×${TUNING.sea.periodScale} · γ ${TUNING.sea.peakEnhancement}` +
@@ -196,6 +209,9 @@ console.log(
     pad("out m", 6),
     pad("offshore", 9),
     pad("depth", 7),
+    pad("ocean", 6),
+    pad("local", 6),
+    pad("U m/s", 6),
     pad("Hs", 6),
     pad("Tp", 5),
     pad("H here", 7),
@@ -215,6 +231,9 @@ for (const s of [0, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500,
       pad(st.s, 6),
       pad(st.offshore.toFixed(0), 9),
       pad(st.depth.toFixed(2), 7),
+      pad(st.ocean.toFixed(2), 6),
+      pad(st.local.toFixed(2), 6),
+      pad(st.wind.toFixed(1), 6),
       pad(st.Hs.toFixed(2), 6),
       pad(st.Tp.toFixed(1), 5),
       pad(st.H.toFixed(2), 7),
@@ -235,6 +254,55 @@ for (const c of sea.components) {
       `a ${c.amp.toFixed(3)} m  ak ${(c.amp * c.k0).toFixed(3)}  ` +
       `${rel >= 0 ? "+" : ""}${rel.toFixed(0)}° off the wind`,
   );
+}
+
+// ── R27, R28 — up the river ─────────────────────────────────────────────
+// The other kind of water this level holds. The ocean band should be gone
+// within a few hundred metres of the mouth, the local band should be all
+// that is left, and the current should be quickening the whole way up as
+// the channel closes on it.
+if (level.river.length > 1) {
+  console.log("\nup the river (R26) — the water the ocean's sea does not reach:");
+  console.log(
+    [
+      pad("up m", 6),
+      pad("wide m", 7),
+      pad("depth", 7),
+      pad("ocean", 6),
+      pad("local", 6),
+      pad("U m/s", 6),
+      pad("Hs", 6),
+      pad("Tp", 5),
+      pad("flow", 6),
+    ].join(" "),
+  );
+  const river = level.river;
+  let walked = 0;
+  let next = 0;
+  for (let i = 0; i < river.length; i++) {
+    if (i > 0) {
+      walked += Math.hypot(river[i].x - river[i - 1].x, river[i].z - river[i - 1].z);
+    }
+    if (walked < next && i > 0 && i < river.length - 1) continue;
+    next = walked + 200;
+    const { x, z } = river[i];
+    const shares = seaShares(sea, x, z);
+    const { Hs, Tp } = seaSummary(sea, x, z);
+    const surface = surfaceAt(sea, level, x, z, 0);
+    console.log(
+      [
+        pad(walked.toFixed(0), 6),
+        pad((2 * offshoreAt(x, z)).toFixed(1), 7),
+        pad(depthAt(x, z).toFixed(2), 7),
+        pad(shares.ocean.toFixed(2), 6),
+        pad(shares.local.toFixed(2), 6),
+        pad(windSpeedAt(air, 2, x, z).toFixed(1), 6),
+        pad(Hs.toFixed(2), 6),
+        pad(Tp.toFixed(1), 5),
+        pad(Math.hypot(surface.vx, surface.vz).toFixed(2), 6),
+      ].join(" "),
+    );
+  }
 }
 
 // ── Draw it ─────────────────────────────────────────────────────────────

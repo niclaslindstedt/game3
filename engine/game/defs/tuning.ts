@@ -181,6 +181,51 @@ export const TUNING = {
      * comes out looking like a snowfield. An ARCADE DIAL: the deliberate
      * place the sea is steeper than the Baltic would give. */
     steepness: 0.09,
+    /** THE UPWIND FAN the fetch at a point is measured over: its half
+     * width, rad, and how many rays it is read on. SPM (1984)'s effective
+     * fetch (Saville) averages the over-water reach upwind over ±45° in
+     * 7.5° steps, weighted cos², because a narrow body of water gives the
+     * wind a different run at every angle and one ray up the middle
+     * cannot say so.
+     *
+     * Five rays rather than thirteen: each is a sweep over the whole grid,
+     * and MEASURED over the seed corpus the fan's shape barely moves the
+     * answer — the share of gates standing in near-flat water is 26% at
+     * ±45° and 26% at ±90°, and a river reads zero exposure at every
+     * width. What shelters a piece of water here is that land encloses
+     * it, not the angle it is measured at. */
+    fanSpread: 45 * (Math.PI / 180),
+    fanRays: 5,
+    /** THE LOCAL BAND — the wind chop that grows on water the ocean's own
+     * sea cannot reach: a river, a creek, the far end of a channel. It is
+     * quoted ONCE per level, at the mean wind over `localFetch` metres of
+     * arcade fetch, and a point takes a share of it (`chop`) from its own
+     * sheltered wind and its own upwind reach.
+     *
+     * The reference is deliberately short — a couple of kilometres against
+     * the ocean band's sixty — because what this band is FOR is the shape
+     * of enclosed water: a 1.8 s, five-metre ripple rather than a swell.
+     * `localFetchScale` is the same fiction as `fetchScale` and a
+     * fortieth of its stretch: a river ten metres across is ten real
+     * metres of fetch, and the fiction that the level is a piece of a
+     * longer coast says nothing about water with a bank on both sides. */
+    localComponents: 5,
+    localFetch: 2_000,
+    localFetchScale: 40,
+    /** ...and the band they are laid over, as multiples of their own peak
+     * — narrower than the ocean band's, because chop IS narrow: it is one
+     * wind's answer over one short fetch.
+     *
+     * FIVE of them over that narrow a band is more than the shape needs
+     * and is there for a different reason: a component's share of the
+     * energy carries the cos² directional weight, which VANISHES at the
+     * edge of the spread, so a band with few components can deal one
+     * draw most of the sea. MEASURED over the seed corpus — at three the
+     * steepest local component reached a·k 0.43, on the point of breaking
+     * and a face the renderer paints entirely in foam; at five the worst
+     * is 0.27, in line with the ocean band's own. */
+    localBandLow: 0.8,
+    localBandHigh: 1.8,
   },
 
   /** THE WIND (`wind.ts`). */
@@ -209,6 +254,31 @@ export const TUNING = {
      * three-sigma draw is a strong gust and never a calm or a hurricane. */
     gustMin: 0.55,
     gustMax: 1.6,
+    /** THE WIND IS NOT THE SAME EVERYWHERE. A level is a coast, and a
+     * coast is the one place the wind changes over a few hundred metres:
+     * it blows full strength over the open sea, drops as it crosses the
+     * trees on a headland, and is a fraction of itself over a river a
+     * kilometre inland with country all round it. `shelter` is what a
+     * point's mean wind is multiplied by where nothing upwind is water at
+     * all, and `shelterFetch` is the run of open water, m, over which it
+     * recovers toward the full mean (an internal boundary layer growing
+     * back off a new surface; Stull 1988 §14.5).
+     *
+     * The floor is the taiga's rather than open country's: a boreal
+     * forest is the roughest surface a wind meets short of a town, and
+     * three tenths is what a river in it feels of the wind out at sea. */
+    shelter: 0.3,
+    shelterFetch: 220,
+    /** ...and the cell the shelter is READ on, m. The sea's own exposure
+     * is baked on the level's 4 m grid because a river ten metres across
+     * has to be able to be a river; the WIND is not that fine a thing —
+     * it is a mass of air a hundred metres deep, and a rider crossing a
+     * bank does not meet a wall of it. So the shelter is averaged over
+     * this square (banks, trees and water together, which is exactly the
+     * mixture a hundred metres of coast is) and read back bilinearly, so
+     * what the craft feels changes slowly across the level and never
+     * steps. */
+    cell: 100,
   },
 
   /** THE HULL IN THE WATER (`hull.ts`): buoyancy and the drags. */

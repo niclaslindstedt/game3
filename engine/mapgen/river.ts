@@ -43,6 +43,10 @@ export type River = {
   /** How far the head stands from the mouth in a straight line, m. */
   readonly inland: number;
   readonly length: number;
+  /** R27 — how much water it carries out of its mouth, m³/s. Drawn per
+   * level: a taiga coast has lazy rivers and it has torrents, and which
+   * one this is decides what the current does to a hull. */
+  readonly discharge: number;
 };
 
 /**
@@ -157,7 +161,13 @@ export function drawRiver(rng: Rng, route: Route, seaOffset: number): River | nu
       const t = i / (points.length - 1);
       widths[i] = R.river.head + (mouthWidth - R.river.head) * Math.pow(1 - t, R.river.taper);
     }
-    return { points, widths, inland: reached, length: s };
+    return {
+      points,
+      widths,
+      inland: reached,
+      length: s,
+      discharge: inBand(rng, R.river.discharge),
+    };
   }
   return null;
 }

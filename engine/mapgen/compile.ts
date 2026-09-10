@@ -23,6 +23,7 @@ import { type CoursePlan } from "./course.ts";
 import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { River } from "./river.ts";
+import { layFlow } from "./flow.ts";
 import type { Bounds, Level, Pod, Solid, Surface, WaterBody, Weather, Wind } from "./types.ts";
 
 export type LevelPlan = {
@@ -111,6 +112,7 @@ export function compileLevel(plan: LevelPlan): Level {
     materialAt,
     solids: plan.solids.map((s) => ({ ...s })),
     river: plan.river.points.map((p) => ({ x: p.x, z: p.z })),
+    flow: layFlow(plan.river, ground),
     fauna: plan.fauna.map((f) => ({ ...f })),
     course: {
       gates: plan.course.gates.map((g) => (g.ramp ? { ...g, ramp: { ...g.ramp } } : { ...g })),

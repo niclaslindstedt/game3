@@ -15,6 +15,7 @@ import { craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { identity } from "../lib/quat.ts";
 import { NEUTRAL_INPUT, type CraftInput, type CraftState, type GameState } from "./state.ts";
+import { createShelter } from "./fetch.ts";
 import { createSea, seaSummary, type SeaOverride } from "./water.ts";
 import { createWind, stepWind } from "./wind.ts";
 
@@ -109,7 +110,11 @@ export function createGame(options: CreateGameOptions): GameState {
     (options.windSpeed !== undefined
       ? { from: level.wind.from, speed: Math.max(0, options.windSpeed) }
       : level.wind);
-  const sea = createSea(level, options.seed, wind, options.sea);
+  // What the coast does to that wind — the exposure the sea is dealt out
+  // of and the shelter the rider feels — measured ONCE and handed to both
+  // models, since they are two readings of the same coast.
+  const shelter = createShelter(level, wind);
+  const sea = createSea(level, options.seed, wind, options.sea, shelter);
   const state: GameState = {
     seed: options.seed,
     rng: createRng(options.seed),
@@ -117,7 +122,7 @@ export function createGame(options: CreateGameOptions): GameState {
     tick: 0,
     level,
     sea,
-    wind: createWind(level, wind),
+    wind: createWind(level, wind, shelter),
     craft: freshCraft(spec),
     input: { ...NEUTRAL_INPUT },
     progress: freshProgress(level),
@@ -126,11 +131,11 @@ export function createGame(options: CreateGameOptions): GameState {
   };
   standCraft(state, level.start.x, level.start.z, level.start.heading);
   if (!options.quiet) {
-    const summary = seaSummary(sea, 50);
+    const summary = seaSummary(sea, level.start.x, level.start.z);
     status(
       `Level ${level.seed} (${level.biome}): ${level.course.gates.length} gates over ${Math.round(
         level.course.length,
-      )} m, wind ${wind.speed.toFixed(1)} m/s, Hs ${summary.Hs.toFixed(2)} m at 50 m out, ${spec.name}`,
+      )} m, wind ${wind.speed.toFixed(1)} m/s, Hs ${summary.Hs.toFixed(2)} m at the start, ${spec.name}`,
     );
   }
   return state;

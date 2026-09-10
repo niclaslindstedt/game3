@@ -93,6 +93,22 @@ export const ANALYSIS = {
      * not fail on the estimate's error. */
     direction: 0.09,
   },
+  /** R28 — how much of the OCEAN'S own sea the race has to be ridden in.
+   *
+   * Sheltered water is not a fault: a start up a channel and a finish
+   * behind a headland are most of what makes riding out into the open
+   * worth doing, and the exposure field is what draws that arc. What a
+   * level may not be is a race entirely in the lee. */
+  exposure: {
+    /** The least exposure the most exposed gate on the course may have,
+     * 0..1, before the level is a millpond with buoys on it. */
+    reach: 0.7,
+    /** What counts as standing in the ocean's own sea, and how many gates
+     * have to before the level stops being remarked on. Four is about the
+     * open stretch R25's ocean leg alone is worth. */
+    open: 0.85,
+    gates: 4,
+  },
   course: {
     /** R23 — how far apart the three points the corner's circle is drawn
      * through stand, m. The path is a polyline of 10 m stations and its

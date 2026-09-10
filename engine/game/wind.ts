@@ -10,16 +10,26 @@
 //   ln(z/z₀) / ln(z_ref/z₀), with the sea's roughness length z₀ from
 //   Charnock (1955). A probe in a trough feels less wind than a rider six
 //   metres up off a ramp.
+// - A SHELTER field over the plan (`fetch.ts`): the mean is the wind out
+//   at sea, and a level is a coast, which is the one place a wind changes
+//   over a few hundred metres. It blows full strength over open water,
+//   drops crossing the trees on a headland, and is a third of itself over
+//   a river a kilometre inland — so it is read at the craft's POSITION as
+//   well as its height. Averaged over `wind.cell` squares and read back
+//   bilinearly, because a mass of air a hundred metres deep does not step
+//   at a bank: it changes slowly, and so does what a rider feels.
 // - An ORNSTEIN–UHLENBECK gust factor: a mean-reverting random process
 //   with the turbulence intensity's stationary deviation and the gust
 //   integral time scale's memory, stepped from `state.rng` so a seed
 //   replays its gusts; and a second, slower one wandering the direction.
 //   The Gaussian draws come from Box–Muller over the seeded stream.
 
+import { sampleField } from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
 import type { Rng } from "../lib/prng.ts";
 import type { Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
+import { createShelter, type Shelter } from "./fetch.ts";
 
 const W = TUNING.wind;
 
@@ -32,10 +42,16 @@ export type WindState = {
   gust: number;
   /** How far the direction has wandered off the mean, rad. */
   veer: number;
+  /** What the coast does to that mean, place by place (`fetch.ts`). */
+  readonly shelter: Shelter;
 };
 
-export function createWind(level: Level, wind: Wind = level.wind): WindState {
-  return { meanFrom: wind.from, meanSpeed: wind.speed, gust: 1, veer: 0 };
+export function createWind(
+  level: Level,
+  wind: Wind = level.wind,
+  shelter: Shelter = createShelter(level, wind),
+): WindState {
+  return { meanFrom: wind.from, meanSpeed: wind.speed, gust: 1, veer: 0, shelter };
 }
 
 /** One standard normal draw off the seeded stream (Box–Muller, one of the
@@ -61,17 +77,23 @@ export function stepWind(wind: WindState, rng: Rng, dt: number): void {
   wind.veer = clamp(ou(wind.veer, 0, W.veerTime, W.veer, dt, rng), -3 * W.veer, 3 * W.veer);
 }
 
-/** Wind speed at height `y` above the sea, m/s, gusts included. */
-export function windSpeedAt(wind: WindState, y: number): number {
+/** Wind speed at height `y` above the sea over the plan point (`x`, `z`),
+ * m/s — the height profile, the gust and the place's own shelter. */
+export function windSpeedAt(wind: WindState, y: number, x: number, z: number): number {
   const h = Math.max(y, W.minHeight);
   const profile = Math.log(h / W.roughness) / Math.log(W.referenceHeight / W.roughness);
-  return wind.meanSpeed * wind.gust * profile;
+  return wind.meanSpeed * wind.gust * profile * sampleField(wind.shelter.shelter, x, z);
 }
 
-/** The wind VELOCITY at height `y`, world frame, m/s: it blows toward the
- * opposite of `from`. */
-export function windAt(wind: WindState, y: number): { vx: number; vz: number } {
-  const speed = windSpeedAt(wind, y);
+/** The wind VELOCITY there, world frame, m/s: it blows toward the opposite
+ * of `from`. */
+export function windAt(
+  wind: WindState,
+  y: number,
+  x: number,
+  z: number,
+): { vx: number; vz: number } {
+  const speed = windSpeedAt(wind, y, x, z);
   const toward = wind.meanFrom + wind.veer + Math.PI;
   return { vx: speed * Math.sin(toward), vz: speed * Math.cos(toward) };
 }

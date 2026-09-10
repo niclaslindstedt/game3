@@ -152,6 +152,18 @@ export type WaterBody = {
   readonly temperature: number;
 };
 
+/** R27 — THE CURRENT: the water's own velocity over the plan, m/s, baked
+ * as one field per axis over the RIVER'S own box (it is zero everywhere
+ * else, and a field of zeroes over a whole level is a megabyte spent
+ * saying so). Read through `flowAt`, and summed into the wave model's
+ * orbital velocity so that everything which asks the water how fast it is
+ * going — the hull's drag, the spray, the wake — feels the river without
+ * knowing there is one. */
+export type Flow = {
+  readonly vx: Heightfield;
+  readonly vz: Heightfield;
+};
+
 export type Bounds = {
   readonly minX: number;
   readonly maxX: number;
@@ -183,6 +195,8 @@ export type Level = {
    * it is not a separate body of water: it is stamped into `offshore` with
    * the rest, and the hull only ever reads the field. */
   readonly river: readonly Vec2[];
+  /** R27 — the water in transit down that river and out of its mouth. */
+  readonly flow: Flow;
   /** What swims here (R20), in the order it was placed. Read by the
    * renderer through `faunaPose`; nothing in the physics touches it. */
   readonly fauna: readonly Pod[];

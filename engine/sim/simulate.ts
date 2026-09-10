@@ -11,7 +11,6 @@ import type { CraftId } from "../game/defs/craft.ts";
 import { createGame, step } from "../game/step.ts";
 import type { GameEvent } from "../game/state.ts";
 import { seaSummary } from "../game/water.ts";
-import { sampleField } from "../lib/heightfield.ts";
 import type { Level, Wind } from "../mapgen/types.ts";
 import { botInput, RIDER_BOT, type BotProfile } from "./bot.ts";
 
@@ -120,8 +119,7 @@ export function simulateStage(options: SimOptions): RunReport {
       mix(c.x);
       mix(c.z);
       mix(c.speed);
-      const offshore = sampleField(state.level.offshore, c.x, c.z);
-      const hs = seaSummary(state.sea, offshore).Hs;
+      const hs = seaSummary(state.sea, c.x, c.z).Hs;
       if (hs > maxHs) maxHs = hs;
     }
   }

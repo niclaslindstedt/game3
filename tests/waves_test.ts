@@ -1,22 +1,27 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // The wave field held to the theory it is built from: the dispersion
 // relation in both limits, the shoaling coefficient's growth over a rising
-// bed, the fetch law's growth to seaward, McCowan's breaking cap in the
-// shallows, bounded heights everywhere, and purity — the same point at the
-// same time is the same surface.
+// bed, the fetch law, R28's two bands (the ocean's sea reaching the shore
+// and stopping at the land, the local wind's chop filling what it cannot
+// reach), R27's current, McCowan's breaking cap in the shallows, bounded
+// heights everywhere, and purity — the same point at the same time is the
+// same surface.
 import { describe, expect, it } from "vitest";
 
 import {
   NEUTRAL_INPUT,
   TUNING,
+  LEVEL_RULES as R,
   createGame,
   createSea,
-  fetchGrowth,
+  createShelter,
   fetchHeight,
   fetchPeriod,
   heightAt,
   periodForHeight,
   placeRun,
+  sampleField,
+  seaShares,
   seaSummary,
   shoaling,
   step,
@@ -24,9 +29,32 @@ import {
   wavenumber,
 } from "@engine";
 
+import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 const G = TUNING.g;
+
+/** Crest to trough along a row of the synthetic coast over twenty seconds,
+ * m — what the water ACTUALLY does at that distance out, as against the
+ * height it is quoted at. A row rather than a point, because one station
+ * over one window is a draw from the superposition and not the sea. */
+function swing(
+  sea: Parameters<typeof heightAt>[0],
+  level: Parameters<typeof heightAt>[1],
+  z: number,
+): number {
+  let lo = Infinity;
+  let hi = -Infinity;
+  for (let i = 0; i < 12; i++) {
+    const x = 100 + i * 40;
+    for (let t = 0; t < 20; t += 0.05) {
+      const h = heightAt(sea, level, x, z, t);
+      if (h < lo) lo = h;
+      if (h > hi) hi = h;
+    }
+  }
+  return hi - lo;
+}
 
 describe("dispersion", () => {
   it("reads deep water as ω² = g·k", () => {
@@ -77,41 +105,50 @@ describe("shoaling and fetch", () => {
     expect(fetchHeight(0, 5000)).toBe(0);
   });
 
-  it("the chop builds riding out to sea", () => {
+  it("carries the ocean's own sea all the way in against the shore", () => {
     const level = syntheticLevel({ windSpeed: 6 });
     const sea = createSea(level, 1);
-    // The sea is quoted at the course (the gates stand 40 m out on the
-    // synthetic level): under the quote inshore, past it to seaward.
-    expect(fetchGrowth(sea, 300)).toBeGreaterThan(1);
-    expect(fetchGrowth(sea, 10)).toBeLessThan(1);
-    const near = seaSummary(sea, 30);
-    const far = seaSummary(sea, 300);
-    expect(far.Hs).toBeGreaterThan(near.Hs * 1.25);
+    // R12's wind blows in off the water, so every point of this coast has
+    // the open sea upwind of it — including the water a few metres off the
+    // beach. The quoted sea therefore stands from the seaward bound right
+    // in to the shallows rather than fading toward the land.
+    for (const z of [300, 120, 40, 12]) {
+      expect(seaShares(sea, 400, z).ocean, `${z} m out`).toBeGreaterThan(0.95);
+    }
+    const near = seaSummary(sea, 400, 30);
+    const far = seaSummary(sea, 400, 300);
+    expect(near.Hs).toBeCloseTo(far.Hs, 1);
     // The lightest wind the rule book draws, over the game's fetch and
-    // through `sea.heightScale`: near a metre at the shore and half as
-    // much again at the bound — a sea that stands against a three-metre
-    // hull, not a millpond. (The law alone grows 0.53/0.75 m here; the
-    // dial is what puts the water in the world.)
-    expect(near.Hs).toBeGreaterThan(0.8);
-    expect(far.Hs).toBeGreaterThan(1.1);
+    // through `sea.heightScale`: a sea that stands against a three-metre
+    // hull, not a millpond. (The law alone grows 0.75 m here; the dial is
+    // what puts the water in the world.)
+    expect(far.Hs).toBeGreaterThan(1.0);
     expect(far.Hs).toBeLessThan(1.8);
     expect(far.Tp).toBeGreaterThan(2.5);
     expect(far.Tp).toBeLessThan(6);
+    // ...and what actually ARRIVES does not fade coming in: the bed rises
+    // under it, so linear shoaling holds it up (a little, over a slope
+    // this gentle) right until the depth is what clips it — which is the
+    // breaking cap's own test below, not this one's.
+    const offshore = swing(sea, level, 300);
+    expect(swing(sea, level, 40)).toBeGreaterThan(offshore * 0.9);
+    expect(swing(sea, level, 16)).toBeGreaterThan(offshore * 0.95);
   });
 
   it("a stronger wind is a bigger sea", () => {
     const breeze = createSea(syntheticLevel({ windSpeed: 6 }), 1);
     const gale = createSea(syntheticLevel({ windSpeed: 14 }), 1);
-    expect(seaSummary(gale, 200).Hs).toBeGreaterThan(seaSummary(breeze, 200).Hs * 2);
-    expect(seaSummary(gale, 200).Hs).toBeGreaterThan(1.4);
+    expect(seaSummary(gale, 400, 200).Hs).toBeGreaterThan(seaSummary(breeze, 400, 200).Hs * 2);
+    expect(seaSummary(gale, 400, 200).Hs).toBeGreaterThan(1.4);
   });
 
   it("a sea quoted by its height keeps that height at the course and a period to match", () => {
     const level = syntheticLevel({ windSpeed: 0 });
     const sea = createSea(level, 1, level.wind, { hs: 2 });
-    // No wind to grow it: the quoted sea is uniform.
-    expect(seaSummary(sea, 40).Hs).toBeCloseTo(2, 6);
-    expect(seaSummary(sea, 400).Hs).toBeCloseTo(2, 6);
+    // A quoted sea is the OCEAN's, so it stands wherever the ocean can be
+    // seen — which on an open coast is everywhere in the water.
+    expect(seaSummary(sea, 400, 40).Hs).toBeCloseTo(2, 3);
+    expect(seaSummary(sea, 400, 300).Hs).toBeCloseTo(2, 3);
     expect(sea.tp).toBeCloseTo(periodForHeight(2), 6);
     // `sea.steepness` is the arcade dial, above nature's own: a quoted
     // two-metre sea is a short, steep one — a three-second wave about
@@ -121,10 +158,11 @@ describe("shoaling and fetch", () => {
     expect(sea.tp).toBeLessThan(4);
     const given = createSea(level, 1, level.wind, { hs: 2, tp: 9 });
     expect(given.tp).toBe(9);
-    // With a wind under it the quoted height still grows to seaward.
+    // With a wind under it the quoted height is still the quote: the wind
+    // only decides the CHOP that rides where the swell cannot reach.
     const windy = createSea(syntheticLevel({ windSpeed: 8 }), 1, undefined, { hs: 1 });
-    expect(seaSummary(windy, 40).Hs).toBeCloseTo(1, 1);
-    expect(seaSummary(windy, 300).Hs).toBeGreaterThan(1.1);
+    expect(seaSummary(windy, 400, 40).Hs).toBeCloseTo(1, 1);
+    expect(seaSummary(windy, 400, 300).Hs).toBeCloseTo(1, 1);
   });
 });
 
@@ -142,13 +180,13 @@ describe("the surface", () => {
   });
 
   it("heights stay within the summed amplitudes everywhere", () => {
+    // Every component at its own deep amplitude and all of them cresting
+    // at once — the superposition that essentially never happens. Both
+    // bands, since a point out here is dealt a share of each and the two
+    // partition rather than add. Shoaling can lift a component past its
+    // deep amplitude; the cap on the sum is McCowan's, tested below.
     let bound = 0;
     for (const c of sea.components) bound += c.amp;
-    // The amplitudes are quoted at the course; the sweep runs out to
-    // z = 390, where the fetch has grown them. Shoaling can lift a
-    // component past its deep amplitude too; the cap on the sum is
-    // McCowan's, tested below. Out at sea the grown deep bound holds.
-    bound *= fetchGrowth(sea, 390);
     let max = 0;
     for (let i = 0; i < 400; i++) {
       const x = 100 + (i % 20) * 30;
@@ -227,6 +265,94 @@ describe("the surface", () => {
   });
 });
 
+describe("R28 — two kinds of water", () => {
+  it("gives the river the wind's chop and none of the ocean's sea", () => {
+    for (const seed of LEVEL_SEEDS.slice(0, 4)) {
+      const level = levelFor(seed);
+      const sea = createSea(level, seed);
+      const where = `seed ${seed}`;
+      // The race is out in it: the sea the level is quoted at stands over
+      // the open stretch of the course.
+      const open = level.course.gates.map((g) => seaShares(sea, g.x, g.z).ocean);
+      expect(Math.max(...open), where).toBeGreaterThan(0.9);
+      // The river is not. Land has closed round it by a third of the way
+      // up, and what is left is the local band: short, small, and the
+      // wind's own doing.
+      const river = level.river;
+      const up = river[Math.round(river.length * 0.4)];
+      const head = river[river.length - 1];
+      for (const p of [up, head]) {
+        expect(seaShares(sea, p.x, p.z).ocean, where).toBeLessThan(0.05);
+      }
+      expect(seaSummary(sea, up.x, up.z).Hs, where).toBeLessThan(sea.hsRef * 0.25);
+      expect(seaSummary(sea, head.x, head.z).Tp, where).toBeCloseTo(sea.localTp, 6);
+      expect(sea.localTp, where).toBeLessThan(sea.tp);
+    }
+  });
+
+  it("leaves the mean wind out at sea and takes most of it off a river", () => {
+    const level = levelFor(LEVEL_SEEDS[0]);
+    const shelter = createShelter(level);
+    const at = (p: { x: number; z: number }): number => sampleField(shelter.shelter, p.x, p.z);
+    const gates = level.course.gates.map(at);
+    expect(Math.max(...gates)).toBeGreaterThan(0.95);
+    const head = level.river[level.river.length - 1];
+    expect(at(head)).toBeLessThan(0.45);
+    expect(at(head)).toBeGreaterThanOrEqual(TUNING.wind.shelter);
+  });
+});
+
+describe("R27 — the river runs", () => {
+  it("carries its discharge down the channel, quickening as the banks close", () => {
+    for (const seed of LEVEL_SEEDS.slice(0, 4)) {
+      const level = levelFor(seed);
+      // Read on a level with the wind taken out of it, so the whole of
+      // what the water is doing is the current and none of it is orbital.
+      const sea = createSea(level, seed, { from: level.wind.from, speed: 0 });
+      const river = level.river;
+      const speedAt = (p: { x: number; z: number }): number => {
+        const s = surfaceAt(sea, level, p.x, p.z, 0);
+        return Math.hypot(s.vx, s.vz);
+      };
+      const mouth = speedAt(river[0]);
+      const narrow = speedAt(river[Math.round(river.length * 0.75)]);
+      // Slow across the wide, deep reach at the mouth; quicker where the
+      // banks have closed in, because the same volume has to fit through.
+      expect(mouth, `seed ${seed}`).toBeGreaterThan(0.1);
+      expect(narrow, `seed ${seed}`).toBeGreaterThan(mouth * 1.3);
+      expect(narrow, `seed ${seed}`).toBeLessThan(1.5 * R.flow.max);
+    }
+  });
+
+  it("runs the water DOWN the river, out toward the mouth", () => {
+    const seed = LEVEL_SEEDS[1];
+    const level = levelFor(seed);
+    const sea = createSea(level, seed, { from: level.wind.from, speed: 0 });
+    const river = level.river;
+    const i = Math.round(river.length * 0.5);
+    const s = surfaceAt(sea, level, river[i].x, river[i].z, 0);
+    // Downstream is the way the line was drawn UP, reversed.
+    const dx = river[i - 1].x - river[i + 1].x;
+    const dz = river[i - 1].z - river[i + 1].z;
+    const len = Math.hypot(dx, dz);
+    expect((s.vx * dx + s.vz * dz) / len).toBeGreaterThan(0.2);
+  });
+
+  it("is still water out on the course, where there is no river", () => {
+    const seed = LEVEL_SEEDS[2];
+    const level = levelFor(seed);
+    // A calm sea has no orbital velocity either, so the whole reading at a
+    // gate far from the mouth is what the current is: nothing.
+    const still = createSea(level, seed, { from: level.wind.from, speed: 0 });
+    for (const g of level.course.gates) {
+      const river = level.river[0];
+      if (Math.hypot(g.x - river.x, g.z - river.z) < 300) continue;
+      const s = surfaceAt(still, level, g.x, g.z, 0);
+      expect(Math.hypot(s.vx, s.vz), g.id).toBeLessThan(1e-6);
+    }
+  });
+});
+
 describe("the storm", () => {
   // A twenty-metre sea over deep water: the ceiling the model is sized
   // to carry. Nothing caps it but the depth (McCowan) and the fully
@@ -235,7 +361,7 @@ describe("the storm", () => {
   const sea = createSea(level, 3, level.wind, { hs: 20 });
 
   it("stands twenty metres of significant height with a period that makes a wall", () => {
-    expect(seaSummary(sea, 800).Hs).toBeCloseTo(20, 6);
+    expect(seaSummary(sea, 400, 800).Hs).toBeCloseTo(20, 3);
     // A REAL twenty-metre sea is a five-hundred-metre swell with a
     // ten-degree face — at sea you feel it and from a boat you cannot see
     // it. The dial buys a young storm sea instead: near twelve seconds

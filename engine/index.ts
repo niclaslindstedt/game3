@@ -64,12 +64,9 @@ export { NO_TRICKS, type TrickScore } from "./game/tricks.ts";
 // that describe it.
 export {
   createSea,
-  effectiveFetch,
-  fetchGrowth,
-  fetchHeight,
-  fetchPeriod,
   heightAt,
   periodForHeight,
+  seaShares,
   seaSummary,
   shoaling,
   surfaceAt,
@@ -79,6 +76,20 @@ export {
   type SurfaceSample,
   type WaveComponent,
 } from "./game/water.ts";
+// THE FETCH (fetch.ts): the growth laws, and what every point of a level
+// has upwind of it — its exposure to the open sea, its own run of water,
+// and how much of the mean wind is left by the time it gets there.
+export {
+  createShelter,
+  effectiveFetch,
+  fetchHeight,
+  fetchPeriod,
+  type Shelter,
+} from "./game/fetch.ts";
+// R27 — THE CURRENT (mapgen/flow.ts): how fast the water itself is going
+// at a plan point, and which way. Summed into `surfaceAt`'s velocity, so
+// nothing has to ask unless it wants to draw the river running.
+export { flowAt } from "./mapgen/flow.ts";
 // THE WIND (wind.ts).
 export { createWind, stepWind, windAt, windSpeedAt, type WindState } from "./game/wind.ts";
 // THE HULL (hull.ts): the probes and the rest draft.

@@ -76,10 +76,14 @@
 //   R11 THE START IS BEHIND THE FIRST GATE. The run begins `start.behind`
 //       (40 m) before gate 1 on the path, facing it, and the path is
 //       straight from the start to that gate.
-//   R12 THE WIND BLOWS OFF THE SEA. The mean wind is `wind.speed` m/s, from
-//       a compass direction within `wind.seaward` of the direction the
-//       open sea lies in — so the fetch grows riding out from the shore and
-//       the waves with it.
+//   R12 THE WIND BLOWS OFF THE SEA, ALWAYS. The mean wind is `wind.speed`
+//       m/s, from a compass direction within `wind.seaward` of the
+//       direction the open sea lies in — NEVER off the land. The band is
+//       under a right angle at both ends, so the wind drives at the coast
+//       on every seed: a wind blowing out to sea is a shore with no waves
+//       against it, which is the one sea this game has no use for. What it
+//       buys is R28 — with the ocean upwind of the whole coast, the sea
+//       reaches every metre of it.
 //   R13 THE DAY AND THE WATER. The run is ridden in DAYLIGHT: the hour is
 //       SOLAR time drawn from the window in which the sun stands at least
 //       `day.minSun` over the horizon at the coast's own latitude
@@ -222,6 +226,30 @@
 //       roaming upstream stops. Past its mouth's own run it keeps
 //       `river.clear` off the racing line, so the water a rider can leave
 //       the course by is one mouth and not three.
+//   R27 THE RIVER RUNS, AND WHAT IS CONSERVED IS THE VOLUME. It carries
+//       `river.discharge` cubic metres a second out of its mouth, and the
+//       SPEED is what is left when that volume has to fit through the
+//       channel: v = Q/A over the cross-section the half-width and the
+//       level's own bed make there — slow across the wide, deep reach at
+//       the mouth, quickening as the banks close in, fastest on the
+//       centreline and nothing at the bank. A section further up carries
+//       `flow.gather` power of the mouth's water, because a river's
+//       catchment grows the whole way down and that is why it widens; past
+//       the mouth it fans into the basin over `flow.plume` metres and
+//       dies. The hull reads it as the water's own velocity, so a craft
+//       sitting still on a river is not sitting still.
+//   R28 THE OCEAN'S SEA REACHES WHAT THE OCEAN CAN SEE. A level holds two
+//       kinds of water and they do not carry the same waves. Every point
+//       is measured for what stands UPWIND of it — the effective fetch
+//       over a fan about the wind (SPM 1984) — and is dealt the sea that
+//       measurement earns: water with the open sea upwind carries the
+//       ocean's own swell, which under R12 is the whole coast, so the
+//       waves come in AGAINST the shore; water land has closed round
+//       carries only the chop the local wind grew on the few metres it
+//       crossed, so a river has small, short, wind-made waves and no ocean
+//       in it however wide its mouth. The WIND is read through the same
+//       measurement — full strength over the open water, a fraction of it
+//       over a river a kilometre inland with country all round.
 //   R24 THE ROUTE IS DRAWN FIRST. The racing line is not found along a
 //       coast: it is drawn before there is any land, as a walk in the plane
 //       that turns at up to `route.swing` of the tightest circle R23
@@ -427,6 +455,30 @@ export const LEVEL_RULES = {
      * in seven was thrown away for want of a river, at sixteen it is one in
      * forty, and the walk is a tenth of a millisecond. */
     tries: 16,
+    /** R27 — how much water comes out of the mouth, m³/s. A real taiga
+     * coast's band: the rivers of the Gulf of Bothnia run from a hundred
+     * and something (the Öre) to six hundred (the Ume) in mean annual
+     * flow. A VOLUME and not a speed, which is the whole of R27. */
+    discharge: { min: 120, max: 600 },
+  },
+
+  /** R27 — the current down that river. */
+  flow: {
+    /** How much of the mouth's discharge a section further up carries, as
+     * a power of how much smaller its cross-section is. A pipe would want
+     * 1; a river's catchment grows the whole way down, which is WHY it
+     * widens, and rigid continuity would run the creek at the head at a
+     * thousand times the mouth's speed. Under 1, so v = Q/A still
+     * QUICKENS as A^(gather − 1) where the channel closes — about four
+     * times the mouth's speed at the head of a typical draw. */
+    gather: 0.8,
+    /** The most the water may run, m/s, where the bed thins out past what
+     * the law above was fitted over. The one arcade bound here. */
+    max: 3.5,
+    /** How far the plume carries out of the mouth into the basin, m, and
+     * how much wider it has spread by the end of it. */
+    plume: 90,
+    spread: 0.6,
   },
 
   /** R15 — what a traced coastline has to carry. */
@@ -788,7 +840,10 @@ export const LEVEL_RULES = {
   wind: {
     /** Mean at 10 m, m/s. */
     speed: { min: 6, max: 14 },
-    /** How far the direction may swing from dead offshore, rad. */
+    /** How far the direction may swing from dead offshore, rad. Under a
+     * right angle at both ends, so the wind always has the open water at
+     * its back: half its strength driving at the coast at the very edge
+     * of the draw, all of it in the middle. */
     seaward: 60 * DEG,
   },
 

@@ -46,7 +46,7 @@ export type HudSnapshot = {
 export function takeSnapshot(state: GameState): HudSnapshot {
   const c = state.craft;
   const p = state.progress;
-  const wind = windAt(state.wind, Math.max(0, c.y));
+  const wind = windAt(state.wind, Math.max(0, c.y), c.x, c.z);
   const blowsTo = Math.atan2(wind.vx, wind.vz);
   return {
     speedKmh: c.speed * 3.6,

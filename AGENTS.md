@@ -111,6 +111,8 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Area                                                  | Lives in                                                      | Skill                |
 | ----------------------------------------------------- | ------------------------------------------------------------- | -------------------- |
 | The sea: the wave field, its spectrum, the gusts      | `engine/game/water.ts`, `wind.ts`, `TUNING.sea` / `.wind`     | `water-feel`         |
+| What the wind crossed to get here: fetch, exposure, shelter | `engine/game/fetch.ts`                                  | `water-feel`         |
+| The river's current, and what it drifts (R27)        | `engine/mapgen/flow.ts`, `river.ts`, `R.flow`                 | `water-feel`, `mapgen-improvement` |
 | The hull in the water, planing, slamming, the dive    | `engine/game/hull.ts`, `hydro.ts`, `craft.ts`                 | `craft-physics`      |
 | The pump, the nozzle, the engine                      | `engine/game/propulsion.ts`, `TUNING.pump`                    | `craft-physics`      |
 | Flight, the air, the rider's authority                | `engine/game/flight.ts`, `TUNING.flight`                      | `craft-physics`      |
@@ -182,7 +184,8 @@ Each of these is the one place an answer is written down. Anything that needs it
 - **What a craft CAN do** — `engine/game/limits.ts` (`maxRpm`, `maxNozzle`, `MAX_LEAN`, `jetCeiling`, `airPitchTorque`, `topSpeedOf`), read by the physics AND `sim/bot.ts`. Never restate a ceiling.
 - **What the speedo reads** — `CraftState.speed`: `|v|`, vertical included, written once at the end of `stepCraft`. The HUD, the bot and the sim all read it and none restates it.
 - **Where an animal is** — `faunaPose(pod, i, t, out)` in `engine/game/fauna.ts`: the sea life's `surfaceAt`, a pure function of the pod's loop and the clock. Nothing about the fauna is stepped, stored per frame or replayed, and `pwa/src/game/fauna.ts` reads this and nothing else.
-- **The wave surface** — `surfaceAt(sea, level, x, z, t)` in `engine/game/water.ts`: the height, the normal and the orbital velocity. The hull probes call it at 120 Hz and the renderer's `water-mesh.ts` calls the SAME function to displace its vertices. There is no second wave function anywhere.
+- **The wave surface** — `surfaceAt(sea, level, x, z, t)` in `engine/game/water.ts`: the height, the normal and the water's velocity — the waves' orbital motion AND the river's current (R27), because "how fast is the water going here" is one question. The hull probes call it at 120 Hz and the renderer's `water-mesh.ts` calls the SAME function to displace its vertices. There is no second wave function anywhere.
+- **What the wind crossed to get here** — `createShelter(level, wind)` in `engine/game/fetch.ts`: the effective fetch, the exposure to the open sea and the shelter over the plan, measured ONCE per run and read by both the sea (R28's two bands) and the wind. Nothing else decides whether a piece of water is the ocean's or a river's.
 - **What the shore is made of** — `Level.materialAt(x, z)`; the sea's `surfaceAt` is the WAVE surface, which is why the level's classifier is not called that.
 - **The ramp's anchor** — `rampSurface` in `engine/mapgen/course.ts`: `(x, z)` is the HINGE at the waterline, `length` is the plan footprint, the lip stands `length · tan(angle)` up. The collision engine's `rampDeckY` is the same line, and the search, the analysis and the tests all place a ring off it (`ringPlacement`).
 - **Where a reset stands the craft** — `resetPose` in `engine/game/course.ts`; `standCraft` is how anything puts a craft down afloat at its rest draft (`restY` in `hull.ts` — Archimedes, bisected).
@@ -255,7 +258,7 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 **Craft** (the subject owners):
 
 - **`game-feel`** — how the game FEELS: the hull meeting a wave, the reference (Wave Race 64 with a modern look), the camera, the cross-system levers. Load it whenever the acceptance test is "does it feel right".
-- **`water-feel`** — the sea: the Gerstner sum, the JONSWAP / Pierson–Moskowitz spectrum, dispersion, shoaling, breaking, the fetch law, the gusts; `make waves`.
+- **`water-feel`** — the sea: the Gerstner sum, the JONSWAP / Pierson–Moskowitz spectrum, dispersion, shoaling, breaking, the fetch law and the exposure that decides whether a point is dealt the ocean's sea or a river's chop (R28), the river's current (R27), the gusts and the shelter field; `make waves`.
 - **`craft-physics`** — the hull's answer to the water: the probes and the draft, the drags, Savitsky's planing lift, the slam and the dive, the waterjet and the nozzle, the lean, flight; `make ride`.
 - **`craft-tuning`** — what separates the skiff, the marlin, the otter and the dart; the catalog and its derived expectations; the roster read off `make sim`.
 - **`craft-design`** — how a craft LOOKS: the parametric builder, the styles, the `SCENE=rest` contact sheet.

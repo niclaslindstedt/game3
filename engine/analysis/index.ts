@@ -32,6 +32,7 @@ import { daylightWindow } from "../lib/solar.ts";
 import { CRAFT } from "../game/defs/craft.ts";
 import { faunaById } from "../game/defs/fauna.ts";
 import { topSpeedOf } from "../game/limits.ts";
+import { createShelter } from "../game/fetch.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
 import { podClearance, walkPod } from "../mapgen/fauna.ts";
 import {
@@ -397,6 +398,44 @@ export function analyzeLevel(level: Level): LevelAnalysis {
         {
           value: swing,
         },
+      );
+    }
+    // ...and the half of R12 the band is CHOSEN to give: a quarter turn or
+    // more off the sea is a wind with no push toward the land in it at
+    // all, and a coast with no waves against it. Held separately from the
+    // band above so that a widened band can never quietly take it away.
+    if (swing >= Math.PI / 2) {
+      rep.fail("R12", "onshore", `the wind has no push toward the shore in it`, { value: swing });
+    }
+  }
+  // ── R28 — the race meets the sea ────────────────────────────────────
+  // Every level holds sheltered water, and it should: a start up a channel
+  // and a finish behind a headland are what make riding out into the open
+  // worth doing. What a level may NOT be is a race entirely in the lee —
+  // the ocean's own sea has to reach some of the course, or the seed is a
+  // millpond with buoys on it.
+  {
+    const shelter = createShelter(level);
+    let best = 0;
+    let open = 0;
+    for (const g of gates) {
+      const e = sampleField(shelter.exposure, g.x, g.z);
+      if (e > best) best = e;
+      if (e >= A.exposure.open) open += 1;
+    }
+    if (best < A.exposure.reach) {
+      rep.fail(
+        "R28",
+        "lee",
+        `the ocean's sea reaches no gate (the most exposed stands at ${fmt(best)})`,
+        { value: best },
+      );
+    } else if (open < A.exposure.gates) {
+      rep.smell(
+        "R28",
+        "sheltered",
+        `only ${open} of ${gates.length} gates stand in the ocean's own sea`,
+        { value: open },
       );
     }
   }
