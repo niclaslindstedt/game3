@@ -14,13 +14,17 @@
 // level's own heightfield and the block drawn from there.
 
 import * as THREE from "three";
-import { sampleField, type Level, type Solid } from "@engine";
+import { TAU, hash2, sampleField, type Level, type Solid } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 
 const SKERRY = new THREE.Color(PALETTE.granite);
 const BOULDER = new THREE.Color(PALETTE.graniteDark);
-const REEF = new THREE.Color(0x2c3d32);
+/** A reef is a dark shape UNDER the water, and it has to stay a shape: the
+ * tone here is the sea bed's own olive taken a step down rather than the
+ * near-black it reads as on paper, because three converts a hex swatch to
+ * linear and the darkest thing on the shore has nowhere left to fall. */
+const REEF = new THREE.Color(0x475840);
 /** The erratics: warmer than the slab they sit on, because they came from
  * somewhere else — which is the whole point of an erratic, and what makes
  * one read as an object on the shore rather than as part of it. */
@@ -70,23 +74,30 @@ function instanced(
   mesh.count = solids.length;
   solids.forEach((s, i) => {
     place(s);
-    quat.setFromAxisAngle(pos.set(0, 1, 0), ((s.x * 7 + s.z * 13 + seed) % 6.28) as number);
+    // EVERY DRAW OFF A ROCK'S PLACE GOES THROUGH `hash2`. The obvious
+    // `(s.x * k) % n` is not a hash on this coast: JavaScript's remainder
+    // keeps the sign of its dividend, so every solid west or south of the
+    // origin gets the whole range NEGATED — a one-sided lean and a
+    // one-sided darkening rather than a scatter either side of nothing.
+    quat.setFromAxisAngle(pos.set(0, 1, 0), hash2(Math.round(s.x), Math.round(s.z), seed) * TAU);
     if (tilt > 0) {
       // A block dropped by ice does not sit level. The lean is small — one
       // leaning far reads as a rock that fell over — and deterministic in
       // the solid's own place, so a seed draws the same shore twice.
       lean.setFromAxisAngle(
         axis.set(Math.sin(s.x), 0, Math.cos(s.z)).normalize(),
-        (((s.x * 3 + s.z * 5 + seed) % 1000) / 1000 - 0.5) * 2 * tilt,
+        (hash2(Math.round(s.z), Math.round(s.x), seed) - 0.5) * 2 * tilt,
       );
       quat.multiply(lean);
     }
     m.compose(pos.set(s.x, pos.y, s.z), quat, scale);
     mesh.setMatrixAt(i, m);
     // A touch of variation in the grey so a field of them is not one rock
-    // stamped over and over.
-    const v = (((s.x * 31 + s.z * 17) % 100) / 100 - 0.5) * 0.12;
-    mesh.setColorAt(i, color.copy(tint).offsetHSL(0, 0, v));
+    // stamped over and over. Scaled rather than offset in lightness: an
+    // offset is an absolute step, and a step that size takes the darkest
+    // tone on the shore all the way to black.
+    const v = (hash2(Math.round(s.x * 3), Math.round(s.z * 3), seed) - 0.5) * 0.22;
+    mesh.setColorAt(i, color.copy(tint).multiplyScalar(1 + v));
   });
   mesh.instanceMatrix.needsUpdate = true;
   if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
