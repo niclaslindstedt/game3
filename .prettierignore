@@ -42,6 +42,9 @@ tauri/target/
 tauri/webroot/
 tauri/release/
 tauri/node_modules/
+# Written by scripts/icons.mjs and by tauri-build on every compile.
+tauri/src-tauri/icons/
+tauri/src-tauri/gen/
 native/node_modules/
 native/ios/
 native/android/
