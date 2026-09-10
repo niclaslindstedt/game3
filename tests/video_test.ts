@@ -10,11 +10,16 @@
 // no screenshot would catch either.
 import { describe, expect, it } from "vitest";
 
+import { BIOME_IDS, WEATHER_IDS, biomeOf } from "@engine";
+
 import { FPS_SMOOTHING, FPS_STALL_MS, FPS_UNKNOWN, smoothFps } from "../pwa/src/game/frame-rate.ts";
+import { skyAt } from "../pwa/src/game/sky.ts";
 import {
   DEFAULT_VIDEO,
   DETAIL_LEVELS,
   DETAIL_PRESETS,
+  DISTANCE_LEVELS,
+  DISTANCE_LOOK,
   FLORA_SCALE,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
@@ -69,6 +74,78 @@ describe("the WATER ladder", () => {
     expect(calls("low")).toBeLessThan(calls("medium"));
     expect(calls("high") / calls("medium")).toBeGreaterThan(1.3);
     expect(calls("high") / calls("medium")).toBeLessThan(2);
+  });
+});
+
+/** THE CLEAREST AIR THE GAME CAN DEAL — the longest `fogFar` any level's sky
+ * can be built with, over every coast's latitude, every weather (R19), every
+ * hour (R13) and every cover the wind can raise. It is a search rather than a
+ * constant because the answer is `sky.ts`'s and moves when a rung is retuned;
+ * pinning a number here would be a second copy of it that nothing updates. */
+function longestFog(): number {
+  let far = 0;
+  for (const id of BIOME_IDS) {
+    const lat = biomeOf(id).latitude;
+    for (const weather of WEATHER_IDS) {
+      for (let hour = 0; hour < 24; hour += 0.5) {
+        for (let cover = 0; cover <= 1; cover += 0.1) {
+          far = Math.max(far, skyAt(hour, lat, weather, cover).fogFar);
+        }
+      }
+    }
+  }
+  return far;
+}
+
+describe("the DISTANCE ladder", () => {
+  it("is a real step at every stop, in every direction that matters", () => {
+    // A stop up is more coast, more cover on it, and clearer air to see the
+    // two through. A ladder that moved the radii and not the haze would buy
+    // frames a rider could watch being bought.
+    for (let i = 1; i < DISTANCE_LEVELS.length; i++) {
+      const under = DISTANCE_LOOK[DISTANCE_LEVELS[i - 1]];
+      const over = DISTANCE_LOOK[DISTANCE_LEVELS[i]];
+      expect(over.shore).toBeGreaterThan(under.shore);
+      expect(over.cover).toBeGreaterThan(under.cover);
+      expect(over.haze).toBeGreaterThan(under.haze);
+    }
+  });
+
+  it("never stands a wood on water", () => {
+    // The cover is a silhouette and the slab under it is not, so cover that
+    // outlived its ground would read as trees floating off the shore.
+    for (const look of Object.values(DISTANCE_LOOK)) {
+      expect(look.cover).toBeLessThanOrEqual(look.shore);
+      expect(look.cover).toBeGreaterThan(0);
+    }
+  });
+
+  it("CLOSES THE FOG OVER ITS OWN CUT-OFF, on the clearest sky it can deal", () => {
+    // THE ROW'S ONE PROMISE, and the only one that matters: everything it
+    // stops drawing was already invisible. The fog is complete at `fogFar`, so
+    // a stop is honest exactly when both its radii are at or beyond the
+    // furthest the fog can reach once that stop has pulled it in — and it has
+    // to hold for the CLEAREST sky the generator can deal, because that is the
+    // one level where a dishonest stop shows the shore ending.
+    const clearest = longestFog();
+    expect(clearest).toBeGreaterThan(0);
+    for (const id of DISTANCE_LEVELS) {
+      const look = DISTANCE_LOOK[id];
+      expect(clearest * look.haze).toBeLessThanOrEqual(look.cover);
+      expect(clearest * look.haze).toBeLessThanOrEqual(look.shore);
+    }
+  });
+
+  it("leaves the design point's own air alone", () => {
+    // MEDIUM ships, and it may not change what a level looks like: at haze 1
+    // the fog is the sky's own, and the radii only decline to draw what the
+    // sky had already finished with.
+    expect(DEFAULT_VIDEO.distance).toBe("medium");
+    expect(DISTANCE_LOOK.medium.haze).toBe(1);
+    // …and LOW pays for its frames in air rather than in missing world, while
+    // HIGH stays a stop of headroom rather than a view to the end of the map.
+    expect(DISTANCE_LOOK.low.haze).toBeGreaterThan(0.4);
+    expect(DISTANCE_LOOK.high.haze).toBeLessThan(1.5);
   });
 });
 

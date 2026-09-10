@@ -75,6 +75,15 @@ export type Environment = {
   /** Take the picture ladder's SKY stop — how deep the sheets are read and
    * how many of them are stacked. Recompiles the dome. */
   setLook: (level: SkyLevel) => void;
+  /** Take the picture ladder's DISTANCE stop, as what the sky's own fog range
+   * is worth: `DISTANCE_LOOK.haze`. Under one the air thickens so the world
+   * can end nearer without the rider seeing it end; over one it thins and the
+   * coast is drawn out to meet it.
+   *
+   * It multiplies the PRESET's range rather than replacing it, so the weather
+   * still decides what a day looks like and the row only says how much of that
+   * day is in front of the lens. Applies at once. */
+  setHaze: (haze: number) => void;
   /** The sky as it stands — for anything that has to answer to it. */
   preset: () => Preset;
   /** The shared sky uniforms. The water's material holds these very objects,
@@ -131,11 +140,24 @@ export function createEnvironment(scene: THREE.Scene): Environment {
   let keyFull = 1;
   let fogNear = 140;
   let fogFar = 560;
+  /** What the DISTANCE row makes of that range (`DISTANCE_LOOK.haze`). */
+  let haze = 1;
   let standingFall = 0;
   let fall = 0;
   const sunDir = new THREE.Vector3(0, 1, 0);
   const keyDir = new THREE.Vector3(0, 1, 0);
   const rainTone = new THREE.Color();
+
+  /** THE FOG AS IT STANDS: the sky's own range, pulled in by the DISTANCE row
+   * and again by whatever is falling. One function because the three are
+   * multiplied together and any of them can move on its own — a row pressed
+   * mid-run, a squall thickening, a new level — and a fog set from two places
+   * is a fog that keeps whichever was set last. */
+  const setFog = (): void => {
+    const wet = standingFall > 0 ? precipReach(fall) : 1;
+    fog.near = fogNear * haze * wet;
+    fog.far = fogFar * haze * wet;
+  };
 
   const apply = (p: Preset): void => {
     preset = p;
@@ -163,8 +185,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     fogNear = p.fogNear;
     fogFar = p.fogFar;
     fog.color.set(p.fog);
-    fog.near = fogNear;
-    fog.far = fogFar;
+    setFog();
     // The canvas is cleared to the ZENITH rather than to the fog: the fog is
     // what the far water fades into and the background is what shows where
     // there is no geometry at all, which above the dome's rim is sky.
@@ -198,6 +219,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     apply(p);
     standingFall = fallOf(next.weather, cover);
     fall = standingFall;
+    setFog();
   };
 
   const setLook = (levelName: SkyLevel): void => {
@@ -245,9 +267,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     // and in step.
     if (standingFall > 0) {
       fall = standingFall * (0.55 + 0.45 * squallOf(state.wind.gust));
-      const reach = precipReach(fall);
-      fog.near = fogNear * reach;
-      fog.far = fogFar * reach;
+      setFog();
       rain.setIntensity(fall);
       // The drops hang in the air the sea owns: the live wind carries them,
       // and the camera's own travel is taken back out inside `rain.update`.
@@ -261,6 +281,10 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     load,
     update,
     setLook,
+    setHaze: (next) => {
+      haze = next;
+      setFog();
+    },
     preset: () => preset,
     uniforms,
     cloudLayers: () => dome.layers().length,

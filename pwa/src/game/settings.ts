@@ -30,6 +30,7 @@ import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
 import {
   DEFAULT_VIDEO,
+  DISTANCE_LEVELS,
   FLORA_LEVELS,
   RAIN_RING_LEVELS,
   RESOLUTION_LEVELS,
@@ -309,6 +310,7 @@ export function mergeSettings(parsed: unknown): Settings {
     const on = <T extends string>(stops: readonly T[], value: unknown): T | null =>
       stops.some((id) => id === value) ? (value as T) : null;
     settings.video.water = on(WATER_LEVELS, video.water) ?? settings.video.water;
+    settings.video.distance = on(DISTANCE_LEVELS, video.distance) ?? settings.video.distance;
     settings.video.resolution =
       on(RESOLUTION_LEVELS, video.resolution) ?? settings.video.resolution;
     settings.video.spray = on(SPRAY_LEVELS, video.spray) ?? settings.video.spray;
