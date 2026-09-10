@@ -188,6 +188,31 @@ describe("the nose rig", () => {
   });
 });
 
+/** Throw a craft off the water at pace and ride it back down, reading the
+ * lens every frame. The landing is the moment both rules below are about:
+ * it is where the rod's whole reading goes to nothing in one step. */
+function flyAndLand(): { lens: number[]; behind: number[]; landed: number } {
+  const state = fresh();
+  placeRun(state, { x: 100, z: 200, heading: 0, speed: 18 });
+  const rig = createCameraRig("chase");
+  for (let i = 0; i < 200; i++) rig.update(state, DT, FLAT);
+  placeRun(state, { x: 100, z: 200, heading: 0, speed: 18, height: 7, vy: 9 });
+  const lens: number[] = [];
+  const behind: number[] = [];
+  let landed = -1;
+  for (let f = 0; f < 300; f++) {
+    for (let i = 0; i < 2; i++)
+      step(state, { steer: 0, throttle: 0.6, reverse: 0, lean: 0, reset: false });
+    const pose = rig.update(state, 2 * TUNING.dt, FLAT);
+    // The first frames are the placement itself, not a flight.
+    if (f < 12) continue;
+    lens.push(pose.y);
+    behind.push(relative(pose, state).behind);
+    if (landed < 0 && !state.craft.airborne) landed = lens.length - 1;
+  }
+  return { lens, behind, landed };
+}
+
 describe("the flight rod", () => {
   it("tips the boom onto the flight path without changing its length", () => {
     const level = fresh();
@@ -217,6 +242,46 @@ describe("the flight rod", () => {
     // looks along the flight rather than down at the water it left.
     expect(ra.above).toBeGreaterThan(0);
     expect(rb.above).toBeLessThan(0);
+  });
+
+  it("comes back to the water without snapping the lens through the frame", () => {
+    const { lens } = flyAndLand();
+    // JOLT is the second difference of the lens's height: a pan of any speed
+    // has almost none of it, and a shot that snaps is nothing else. An eased
+    // rod stops dead the frame a probe touches water — the reading it was
+    // holding goes to nothing at once — and that one frame measured metres.
+    // A mass cannot be stopped, so the whole gesture is continuous.
+    let jolt = 0;
+    for (let i = 2; i < lens.length; i++)
+      jolt = Math.max(jolt, Math.abs(lens[i] - 2 * lens[i - 1] + lens[i - 2]));
+    expect(jolt).toBeLessThan(0.5);
+  });
+
+  it("bounces at the landing: the rod dips under its natural angle, then back", () => {
+    const { behind, landed } = flyAndLand();
+    // The rod winds on through the fall and cannot stop at the horizontal,
+    // so it swings THROUGH it: for a moment the boom is angled as if the
+    // craft were CLIMBING, which stands it further back and drops the lens.
+    // The standoff it settles on is its own natural length at that pace.
+    const settled = behind[behind.length - 1];
+    // At the moment a probe touches water the rod is STILL WOUND OVER the
+    // craft — it spent the fall angled to look down the drop, which stands
+    // the lens short and high — because a mass cannot unwind in one frame.
+    // An eased rod is already back at its natural length here, which is the
+    // snap itself; this is the assertion that tells the two apart.
+    expect(behind[landed]).toBeLessThan(settled - 0.5);
+    // Then it swings THROUGH the horizontal rather than arriving at it: for
+    // a moment the boom is angled as if the craft were climbing, which
+    // stands it further back than its natural length and drops the lens
+    // under its natural angle.
+    const bounce = Math.max(...behind.slice(landed, landed + 60));
+    expect(bounce).toBeGreaterThan(settled + 0.05);
+    // ...and it is SUBTLE — a nod, never a lurch away from the craft.
+    expect(bounce).toBeLessThan(settled + 0.6);
+    // ...and it settles back rather than ringing on: the second swing is
+    // well inside the first, and the rod is home before the next wave.
+    const ring = Math.max(...behind.slice(landed + 60));
+    expect(ring - settled).toBeLessThan((bounce - settled) * 0.5);
   });
 });
 

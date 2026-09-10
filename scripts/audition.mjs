@@ -281,9 +281,13 @@ const page = `<!doctype html>
   <p class="sub">
     The engine and the pump: eight layers built once and STEERED by the numbers below. <b>Revs</b>
     is the crank, <b>throttle</b> what the rider is asking for, <b>slip</b> how far the jet is
-    outrunning the hull (1 at a standstill, a third at pace — the cavitation's signal). <b>In the
-    air</b> takes the water away from the pump: the same throttle, nothing to push against.
-    And the <b>seat</b> moves the whole mix.
+    outrunning the hull (1 at a standstill, a third at pace — the cavitation's signal).
+    <b>Wetted</b> is the share of the bottom still in the water, and it is the one to sweep:
+    the exhaust exits BELOW the waterline, so for most of a run the engine is being heard
+    through water — quiet, dark, and carried by the wet blat at the pipe. Dry the hull off and
+    the pipe comes into the air and the whole thing cracks open. <b>In the air</b> is the far
+    end of that, and takes the water away from the pump as well: the same throttle, nothing to
+    push against. And the <b>seat</b> moves the whole mix.
   </p>
   <div class="panel">
     <div class="switches"><button id="craft" class="primary" type="button">Start the engine</button></div>
@@ -399,6 +403,7 @@ const craftSliders = document.getElementById("craftSliders");
 sliderRow(craftSliders, craft, "rev", "Revs", 0.3);
 sliderRow(craftSliders, craft, "throttle", "Throttle", 0.5);
 sliderRow(craftSliders, craft, "slip", "Slip", 0.3);
+sliderRow(craftSliders, craft, "wetted", "Wetted", 0.6);
 toggle(craftSliders, craft, "airborne", "In the air");
 switchRow(craftSliders, "Seat", Object.keys(LISTENERS), "chase", (s) => (seat.view = s));
 craftSliders.append(el("p", "sub", "The rev band is the " + DATA.craft.name + "'s: " +
@@ -426,7 +431,12 @@ craftBtn.addEventListener("click", () => {
   const timer = setInterval(() => {
     if (synth.now() === null) return;
     const ear = listenerFor(seat.view);
-    const wet = craft.airborne ? 0 : 1;
+    // The two readings the bed takes off one wetted share, derived here
+    // exactly as ride-bed.ts derives them — the whole point of the page is
+    // that what it plays is what the run plays. (No backticks in here: this
+    // whole script is one template literal, and one would end it.)
+    const wetted = craft.airborne ? 0 : craft.wetted;
+    const wet = craft.airborne ? 0 : Math.min(1, wetted / INTAKE_WETTED);
     rack.apply(
       engineTargets(
         {
@@ -436,6 +446,7 @@ craftBtn.addEventListener("click", () => {
           load: craft.throttle * wet,
           wet,
           slip: craft.airborne ? 1 : craft.slip,
+          clear: exhaustClear(wetted, craft.airborne, false),
         },
         { engine: ear.engine, exhaust: ear.exhaust, pump: ear.pump, tone: ear.tone },
       ),
@@ -580,27 +591,27 @@ console.log(
 const PRESETS = [
   {
     name: "idle, afloat, a breeze",
-    craft: { rev: 0, throttle: 0, slip: 1, airborne: false },
+    craft: { rev: 0, throttle: 0, slip: 1, wetted: 0.95, airborne: false },
     water: { pace: 0, planing: 0, wetted: 0.3, hs: 0.3, wind: 4, surf: 0.8, shore: 150 },
   },
   {
     name: "launch from rest",
-    craft: { rev: 0.8, throttle: 1, slip: 1, airborne: false },
+    craft: { rev: 0.8, throttle: 1, slip: 1, wetted: 0.9, airborne: false },
     water: { pace: 0.05, planing: 0.1, wetted: 0.6, hs: 0.3, wind: 5, surf: 0.8, shore: 150 },
   },
   {
     name: "cruise",
-    craft: { rev: 0.55, throttle: 0.6, slip: 0.35, airborne: false },
+    craft: { rev: 0.55, throttle: 0.6, slip: 0.35, wetted: 0.69, airborne: false },
     water: { pace: 0.5, planing: 0.8, wetted: 0.4, hs: 0.5, wind: 18, surf: 0.8, shore: 150 },
   },
   {
     name: "flat out",
-    craft: { rev: 1, throttle: 1, slip: 0.32, airborne: false },
+    craft: { rev: 1, throttle: 1, slip: 0.32, wetted: 0.38, airborne: false },
     water: { pace: 1, planing: 1, wetted: 0.3, hs: 0.5, wind: 34, surf: 0.8, shore: 150 },
   },
   {
     name: "in the air",
-    craft: { rev: 1.06, throttle: 1, slip: 1, airborne: true },
+    craft: { rev: 1.06, throttle: 1, slip: 1, wetted: 0, airborne: true },
     water: { pace: 0.9, planing: 1, wetted: 0, airborne: true, hs: 0.5, wind: 30, shore: 150 },
   },
   {

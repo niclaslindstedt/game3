@@ -29,6 +29,7 @@ import { bubbleBurst, bubbleVoice } from "../pwa/src/game/audio/bubbles.ts";
 import {
   ENGINE_LAYERS,
   engineTargets,
+  exhaustClear,
   noteHz,
   revOf,
   rpmAt,
@@ -351,6 +352,10 @@ describe("the engine bed (audio/engine-voice.ts)", () => {
     load: 0.8,
     wet: 1,
     slip: 0.3,
+    // The default is a craft AT PACE with its pipe still in the water —
+    // which is the ordinary state of a run, and the one the mix is judged
+    // against. `exhaustClear` reads about this off a hull on full plane.
+    clear: 0.24,
     ...over,
   });
   const mix = { engine: 1, exhaust: 1, pump: 1, tone: 1 };
@@ -368,9 +373,12 @@ describe("the engine bed (audio/engine-voice.ts)", () => {
   });
 
   it("works harder with the load and runs free in the air", () => {
-    const idle = engineTargets(voice({ rpm: 1500, rev: 0, throttle: 0, load: 0, slip: 1 }), mix);
+    const idle = engineTargets(
+      voice({ rpm: 1500, rev: 0, throttle: 0, load: 0, slip: 1, clear: 0 }),
+      mix,
+    );
     const pulling = engineTargets(voice({}), mix);
-    const flying = engineTargets(voice({ load: 0, wet: 0, slip: 1 }), mix);
+    const flying = engineTargets(voice({ load: 0, wet: 0, slip: 1, clear: 1 }), mix);
     expect(pulling.hum.level).toBeGreaterThan(idle.hum.level);
     expect(pulling.hum.grit!).toBeGreaterThan(idle.hum.grit!);
     // The air: the same throttle, nothing to push against.
@@ -382,6 +390,49 @@ describe("the engine bed (audio/engine-voice.ts)", () => {
     expect(idle.gurgle.level).toBeGreaterThan(0);
     expect(idle.froth.level).toBe(0);
     expect(idle.octave.level).toBeGreaterThan(pulling.octave.level);
+  });
+
+  it("is heard THROUGH the water until the exhaust clears it", () => {
+    // `exhaustClear` off the hull's own measured dry share: at rest almost
+    // nothing is out of the water, at full plane the stern is running dry,
+    // and in the air all of it is.
+    const rest = exhaustClear(0.95, false, false);
+    const plane = exhaustClear(0.38, false, false);
+    expect(rest).toBeLessThan(0.01);
+    expect(plane).toBeGreaterThan(rest);
+    expect(plane).toBeLessThan(0.4);
+    expect(exhaustClear(0, true, false)).toBe(1);
+    // A hull on its back has its bottom in the air and its PIPE under the
+    // surface, so the raw dry share says exactly the wrong thing.
+    expect(exhaustClear(0, false, true)).toBe(0);
+
+    const under = engineTargets(voice({ clear: 0 }), mix);
+    const air = engineTargets(voice({ clear: 1 }), mix);
+    // Out of the water the engine is louder AND brighter — the same revs,
+    // the same throttle, the water simply no longer in the way.
+    expect(air.hum.level).toBeGreaterThan(under.hum.level * 1.5);
+    expect(air.hum.cutoff!).toBeGreaterThan(under.hum.cutoff! * 1.5);
+    // The exhaust's EDGE is the layer the waterline owns outright.
+    expect(air.rasp.level).toBeGreaterThan(under.rasp.level * 4);
+    // ...and the wet blat is the other way round: it IS the engine while the
+    // pipe is under, and it is gone the moment the pipe is out.
+    expect(under.gurgle.level).toBeGreaterThan(0);
+    expect(air.gurgle.level).toBe(0);
+    // The note still comes through the hull's structure with the pipe under
+    // — a submerged engine goes quiet, never silent.
+    expect(under.hum.level).toBeGreaterThan(0);
+    expect(under.bass.level).toBeGreaterThan(air.bass.level * 0.7);
+  });
+
+  it("carries the wet blat right up the rev band, not just at idle", () => {
+    // A pipe exhausting under water does not stop blatting because the revs
+    // came up: it goes from a knock to a hard wet tearing. The layer that
+    // vanished by mid-band left the engine with nothing to be while the
+    // water was holding its note down.
+    const idle = engineTargets(voice({ rev: 0, clear: 0 }), mix);
+    const hard = engineTargets(voice({ rev: 1, clear: 0 }), mix);
+    expect(hard.gurgle.level).toBeGreaterThan(idle.gurgle.level * 0.3);
+    expect(hard.gurgle.cutoff!).toBeGreaterThan(idle.gurgle.cutoff!);
   });
 
   it("froths on a launch from rest and not at pace", () => {
@@ -403,21 +454,24 @@ describe("the engine bed (audio/engine-voice.ts)", () => {
     for (let rev = 0; rev <= 1.06; rev += 0.106) {
       for (const throttle of [0, 0.5, 1]) {
         for (const wet of [0, 1]) {
-          const t = engineTargets(
-            voice({
-              rpm: rpmAt(rev, 1600, 8000),
-              rev,
-              throttle,
-              load: throttle * wet,
-              wet,
-              slip: 1,
-            }),
-            { ...mix, tone: 1 },
-          );
-          for (const name of Object.keys(t) as EngineLayer[]) {
-            const cutoff = t[name].cutoff;
-            if (cutoff !== undefined) expect(cutoff, name).toBeLessThanOrEqual(ceiling);
-            expect(t[name].level, name).toBeGreaterThanOrEqual(0);
+          for (const clear of [0, 0.5, 1]) {
+            const t = engineTargets(
+              voice({
+                rpm: rpmAt(rev, 1600, 8000),
+                rev,
+                throttle,
+                load: throttle * wet,
+                wet,
+                slip: 1,
+                clear,
+              }),
+              { ...mix, tone: 1 },
+            );
+            for (const name of Object.keys(t) as EngineLayer[]) {
+              const cutoff = t[name].cutoff;
+              if (cutoff !== undefined) expect(cutoff, name).toBeLessThanOrEqual(ceiling);
+              expect(t[name].level, name).toBeGreaterThanOrEqual(0);
+            }
           }
         }
       }

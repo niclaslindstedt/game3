@@ -48,11 +48,13 @@
 
 import { angleDiff, rotate, type GameState } from "@engine";
 
+import { createSprung } from "../lib/sprung.ts";
 import { clamp } from "../lib/util.ts";
 import { createViewChange } from "./camera-change.ts";
 import {
   CHASE_RIGS,
   EYE_RIGS,
+  FLIGHT_ROD,
   type ChaseCamera,
   type EyeCamera,
   type EyeRig,
@@ -78,6 +80,8 @@ export type CameraPose = {
   fov: number;
   roll: number;
 };
+
+const DEG = Math.PI / 180;
 
 /** Wrap-safe angle easing. */
 function angleLerp(a: number, b: number, t: number): number {
@@ -140,6 +144,11 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
   let swingV = 0;
   let sprungY = 0;
   let airY = 0;
+  /** The rod's angle out of the horizontal, on its own MASS rather than on
+   * an ease — the one reading here that has to survive the frame the hull
+   * comes back to the water, because that is the frame an eased rod stops
+   * dead in. `FLIGHT_ROD` says why, and owns every number. */
+  const flightRod = createSprung({ damping: FLIGHT_ROD.damping, snap: FLIGHT_ROD.snap });
   let dist = CHASE_RIGS.chase.dist;
   let height = CHASE_RIGS.chase.height;
   let fov = CHASE_RIGS.chase.fov;
@@ -172,6 +181,7 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
       swingV = 0;
       sprungY = c.y;
       airY = 0;
+      flightRod.drop();
     }
     // The yaw follows the nose, loosely in the air. The slip carries the
     // travel direction into the framing while the hull is being carried
@@ -227,13 +237,22 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     // up. Off the water it is turned AS A WHOLE onto the flight path — down
     // under a craft coming off a lip, up over one that is falling — and a
     // rotation does not change a length, so the hull is exactly as big in
-    // the frame off a ramp as it was on the water before it. `gamma` is the
-    // flight path's angle, damped by the rig's share of the read: the
-    // divisor's floor keeps a craft dropping straight down from tipping the
-    // rod through the vertical.
+    // the frame off a ramp as it was on the water before it.
+    //
+    // The angle it is ASKING for is the flight path's own, clamped short of
+    // the vertical at either end and taken at the rig's share; the angle it
+    // is AT is that reading carried on a mass. Both halves matter, and the
+    // second is the one a rider feels: the rod winds on through the flight
+    // instead of arriving in a frame, and at the landing — where the reading
+    // goes to nothing the instant a probe touches water — it cannot stop, so
+    // it swings THROUGH the horizontal, dips the lens under its natural
+    // angle and comes back up. The bounce is a share of what the rod had
+    // wound on to, so it is the flight's own size (`FLIGHT_ROD`).
     const bx = Math.sin(yaw);
     const bz = Math.cos(yaw);
-    const gamma = c.airborne ? Math.atan2(c.vy, Math.max(planSpeed, 1)) * rig.flight : 0;
+    const path = c.airborne ? Math.atan2(c.vy, Math.max(planSpeed, 1)) : 0;
+    const wantRod = clamp(path, -FLIGHT_ROD.down * DEG, FLIGHT_ROD.up * DEG) * rig.flight;
+    const gamma = flightRod.step(wantRod, FLIGHT_ROD.freq, dt);
     const cg = Math.cos(gamma);
     const sg = Math.sin(gamma);
     const rodBack = dist * cg + height * sg;
