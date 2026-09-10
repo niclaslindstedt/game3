@@ -37,7 +37,7 @@ import {
   DISTANCE_LOOK,
   FLORA_SCALE,
   RAIN_LOOK,
-  REFLECTION_SCALE,
+  REFLECTION_LOOK,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
   WAKE_LOOK,
@@ -259,6 +259,7 @@ export function createRenderer(
     water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
     water.setWake(wake.map);
     water.setWakeLook(WAKE_LOOK[video.wake]);
+    water.setMirrorLook(REFLECTION_LOOK[video.reflections]);
     scene.add(water.mesh, water.far);
     if (level) water.setCoast(level.biome);
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
@@ -286,7 +287,8 @@ export function createRenderer(
     water.setWakeLook(WAKE_LOOK[next.wake]);
     sky.setRainSheet(RAIN_LOOK[next.rain].sheet);
     flora?.setDensity(FLORA_SCALE[next.flora]);
-    mirror.setScale(REFLECTION_SCALE[next.reflections]);
+    mirror.setScale(REFLECTION_LOOK[next.reflections].scale);
+    water.setMirrorLook(REFLECTION_LOOK[next.reflections]);
     // THE DISTANCE ROW pulls the fog in (or lets it out) to meet the radii the
     // frame will draw to; the radii themselves are applied per frame, because
     // they are measured from wherever the lens ends up.

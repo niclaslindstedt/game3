@@ -116,7 +116,12 @@ import { valueNoise } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
-import { WATER_LOOK, type WakeLook, type WaterLook } from "./settings-video.ts";
+import {
+  WATER_LOOK,
+  type ReflectionLook,
+  type WakeLook,
+  type WaterLook,
+} from "./settings-video.ts";
 import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
 import { WAKE_HEIGHT, WAKE_MAP } from "./wake-profile.ts";
@@ -186,15 +191,15 @@ const FOAM_STREAK = 2.6;
 const COARSE_TURN = 0.7;
 /** THE MIRROR'S PICTURE, as read: how far across its frame a unit of wave
  * slope shifts the sample (a real slope of s bends the reflected ray by 2s,
- * which on a reflection a few tens of metres off is a shift of metres), and
- * how many mip levels down it is read — a sea is a rough mirror, and a tree
- * line read sharp off it is a second tree line standing on its head. The
+ * which on a reflection a few tens of metres off is a shift of metres). The
  * shift is mostly UP the frame: a face tilting toward or away from the lens
  * moves what it reflects up and down the shore, and sideways only a
- * little. */
+ * little. How many mip levels down the picture is read is the REFLECTION
+ * lever's (`ReflectionLook.blur`, `applyMirrorLook`): a sea is a rough
+ * mirror, and a tree line read sharp off it is a second tree line standing
+ * on its head, so even the top stop reads it down the chain. */
 const MIRROR_WOBBLE_ACROSS = 0.12;
 const MIRROR_WOBBLE_ALONG = 0.32;
-const MIRROR_BLUR = 1.5;
 /** THE WAKE, as read. The foam tile's edge, m, for the road's own mottling
  * — finer than the sea's and read square, in world space, so the foam
  * stands where the water put it as the craft leaves it behind. The churn's
@@ -442,6 +447,7 @@ function fragmentFor(layers: number): string {
   uniform vec3 uMirrorRight;
   uniform vec3 uMirrorForward;
   uniform float uMirrorOn;
+  uniform float uMirrorBlur;
   uniform vec3 uLampPos;
   uniform vec3 uLampDir;
   uniform vec3 uLampColor;
@@ -654,7 +660,7 @@ ${skyGlsl(mirrorBuild(layers))}
       vec2 wobble = vec2(
         dot(tilt, uMirrorRight) * ${MIRROR_WOBBLE_ACROSS.toFixed(3)},
         dot(tilt, uMirrorForward) * ${MIRROR_WOBBLE_ALONG.toFixed(3)});
-      vec4 seen = texture2D(uMirror, seat.xy / seat.w + wobble, ${MIRROR_BLUR.toFixed(2)});
+      vec4 seen = texture2D(uMirror, seat.xy / seat.w + wobble, uMirrorBlur);
       mirror = mix(mirror, seen.rgb, seen.a * uMirrorOn);
     }
     // Schlick on the WAVE's angle, not the ripples' — see the header — and
@@ -807,6 +813,7 @@ export function createWaterMaterial(
       uMirrorRight: { value: mirror?.right ?? new THREE.Vector3(1, 0, 0) },
       uMirrorForward: { value: mirror?.forward ?? new THREE.Vector3(0, 0, 1) },
       uMirrorOn: { value: 0 },
+      uMirrorBlur: { value: 1.5 },
       uBuoyPos: {
         value: Array.from({ length: BUOY_LAMPS }, () => new THREE.Vector3(0, -1000, 0)),
       },
@@ -984,4 +991,10 @@ export function applyClock(m: WaterMaterial, t: number): void {
  * the water reflects the analytic sky alone. Every frame. */
 export function applyMirror(m: WaterMaterial, live: boolean): void {
   m.uniforms.uMirrorOn.value = live ? 1 : 0;
+}
+
+/** HOW BLURRED the mirror's picture is read — the REFLECTION lever's
+ * `blur`, mip levels down. On a change of row, not per frame. */
+export function applyMirrorLook(m: WaterMaterial, look: ReflectionLook): void {
+  m.uniforms.uMirrorBlur.value = look.blur;
 }

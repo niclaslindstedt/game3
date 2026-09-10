@@ -203,15 +203,21 @@ export const FRAME_RATE_CAP: Record<FrameRateLevel, number> = {
  * every sky pixel and again on every sea pixel, and which sheets go is the
  * cloud chart's `rank` rather than their altitudes. One sheet is the sky the
  * level is actually ridden under and nothing over it — a deck with no scud
- * under it, a cirrus veil with no cumulus below. `octaves` is how much
+ * under it, a cirrus veil with no cumulus below; two is every sheet the
+ * chart deals (`cloud-field.ts` stacks a ceiling and its scud, or a veil and
+ * its cumulus, and never a third), which is why the top two stops agree on
+ * it — `tests/video_test.ts` holds the top stop to exactly what the chart
+ * deals, so it can never promise a sheet nobody draws. `octaves` is how much
  * structure each sheet has: three is mass with one arm of erosion, five is a
- * cauliflower edge. `sunlit` takes a second sample toward the sun to find
- * which way a cloud's surface faces, and it is the difference between cloud
- * and cotton wool. */
+ * cauliflower edge, and it is the whole of what the top stop buys over the
+ * design point — one more octave on the erosion arm of every sheet
+ * (`fieldArms`), a modest bill for a finer ragged edge. `sunlit` takes a
+ * second sample toward the sun to find which way a cloud's surface faces,
+ * and it is the difference between cloud and cotton wool. */
 export const SKY_LOOK: Record<SkyLevel, { octaves: number; sunlit: boolean; layers: number }> = {
   low: { octaves: 3, sunlit: false, layers: 1 },
   medium: { octaves: 4, sunlit: true, layers: 2 },
-  high: { octaves: 5, sunlit: true, layers: 3 },
+  high: { octaves: 5, sunlit: true, layers: 2 },
 };
 
 /** What one stop of the RAIN lever draws: how much of the sheet's pool of
@@ -266,15 +272,28 @@ export const WAKE_LOOK: Record<WakeLevel, WakeLook> = {
 export const REFLECTION_LEVELS = ["off", "soft", "sharp"] as const;
 export type ReflectionLevel = (typeof REFLECTION_LEVELS)[number];
 
-/** How big the mirror's picture is, as a share of the frame's own pixels a
- * side; `off` is no picture and no pass. SOFT is enough: the water reads the
- * texture blurred either way, because a sea is a rough mirror, and what the
- * top stop buys is a tree line that keeps its trunks at the waterline
- * rather than one that has gone to a smear a little sooner. */
-export const REFLECTION_SCALE: Record<ReflectionLevel, number> = {
-  off: 0,
-  soft: 0.4,
-  sharp: 0.6,
+/** What one stop of the REFLECTION lever draws: how big the mirror's
+ * picture is, as a share of the frame's own pixels a side, and how many mip
+ * levels down the water reads it. */
+export type ReflectionLook = {
+  scale: number;
+  blur: number;
+};
+
+/** THE REFLECTION LADDER. `off` is no picture and no pass. SOFT is enough:
+ * a sea is a rough mirror, and what it shows of a tree line is its mass.
+ * SHARP is a bigger picture READ LESS BLURRED — the two move together,
+ * because a picture with more pixels in it read down the same number of mip
+ * levels is the same smear at 2.25 times the price (measured: under two per
+ * cent of the sea's pixels moved between the two, until the blur was put on
+ * the ladder too). What the top stop buys is a tree line that keeps its
+ * trunks at the waterline rather than one that has gone to a smear a little
+ * sooner; never a sharp mirror, which on a wave is a second tree line
+ * standing on its head. */
+export const REFLECTION_LOOK: Record<ReflectionLevel, ReflectionLook> = {
+  off: { scale: 0, blur: 1.5 },
+  soft: { scale: 0.4, blur: 1.5 },
+  sharp: { scale: 0.6, blur: 0.75 },
 };
 
 /** What one stop of the WATER row builds. `water-grid.ts` lays the near
@@ -487,9 +506,9 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
     rain: "near",
     reflections: "soft",
   },
-  // A machine with headroom: a thicker shore, a third cloud sheet read a stop
-  // deeper, the whole sheet of rain and its rings out to where the near grid
-  // gives way. The spray is already every droplet the hull throws, the wake
+  // A machine with headroom: a thicker shore, a sharper mirror, the cloud's
+  // edges read a stop deeper, the whole sheet of rain and its rings out to
+  // where the near grid gives way. The spray is already every droplet the hull throws, the wake
   // already everything the map carries and the sea life already every pod
   // the rider can see into, so those have nowhere left to go — a stop that
   // promised more would be the page inventing work to sell.

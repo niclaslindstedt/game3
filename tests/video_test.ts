@@ -10,7 +10,9 @@
 // no screenshot would catch either.
 import { describe, expect, it } from "vitest";
 
-import { BIOME_IDS, WEATHER_IDS, biomeOf } from "@engine";
+import { BIOME_IDS, WEATHER_IDS, biomeOf, skyCover } from "@engine";
+
+import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
 
 import {
   FPS_SMOOTHING,
@@ -19,6 +21,7 @@ import {
   createFrameGate,
   smoothFps,
 } from "../pwa/src/game/frame-rate.ts";
+import { dressSky } from "../pwa/src/game/cloud-field.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
 import {
   DEFAULT_VIDEO,
@@ -31,7 +34,11 @@ import {
   FRAME_RATE_LEVELS,
   RAIN_LEVELS,
   RAIN_LOOK,
+  REFLECTION_LEVELS,
+  REFLECTION_LOOK,
   RESOLUTION_SCALE,
+  SKY_LEVELS,
+  SKY_LOOK,
   SPRAY_SCALE,
   WAKE_LEVELS,
   WAKE_LOOK,
@@ -161,6 +168,38 @@ describe("the DISTANCE ladder", () => {
   });
 });
 
+describe("the SKY ladder", () => {
+  it("is a real step at every stop, in what a sheet costs", () => {
+    // A stop up reads every sheet deeper, and never fewer of them.
+    for (let i = 1; i < SKY_LEVELS.length; i++) {
+      const under = SKY_LOOK[SKY_LEVELS[i - 1]];
+      const over = SKY_LOOK[SKY_LEVELS[i]];
+      expect(over.octaves).toBeGreaterThan(under.octaves);
+      expect(over.layers).toBeGreaterThanOrEqual(under.layers);
+      expect(Number(over.sunlit)).toBeGreaterThanOrEqual(Number(under.sunlit));
+    }
+  });
+
+  it("promises at the top exactly the sheets the chart deals, and no more", () => {
+    // The dome compiles for the sheets actually dealt, so a stop that named a
+    // sheet the chart never stacks would cost nothing and buy nothing — a
+    // row the page could not tell from the one under it. Every weather over
+    // the shared corpus, so a chart that starts dealing a third sheet moves
+    // the ladder with it rather than silently under-drawing it.
+    let most = 0;
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      for (const weather of WEATHER_IDS) {
+        const deck = skyAt(12, biomeOf(level.biome).latitude, weather, 0.5).deck;
+        const dealt = dressSky(level, weather, skyCover(level.wind.speed), deck ? deck.base : null);
+        most = Math.max(most, dealt.layers.length);
+      }
+    }
+    expect(most).toBeGreaterThan(1);
+    expect(SKY_LOOK.high.layers).toBe(most);
+  });
+});
+
 describe("the picture's other ladders", () => {
   it("tops out at the device's own screen and never above it", () => {
     expect(RESOLUTION_SCALE.high).toBe(1);
@@ -180,6 +219,24 @@ describe("the picture's other ladders", () => {
     expect(pixels(RESOLUTION_SCALE.medium) / pixels(RESOLUTION_SCALE.low)).toBeGreaterThanOrEqual(
       1.9,
     );
+  });
+
+  it("reads a bigger mirror LESS blurred, so the top stop is a picture and not a price", () => {
+    // Measured before the blur was on the ladder: under two per cent of the
+    // sea's pixels moved between SOFT and SHARP, because a texture with 2.25
+    // times the pixels read the same number of mip levels down is the same
+    // smear. A stop that grows the picture has to read it sharper too — and
+    // never sharp: a tree line read off a wave at full resolution is a
+    // second tree line standing on its head.
+    expect(REFLECTION_LOOK.off.scale).toBe(0);
+    for (let i = 1; i < REFLECTION_LEVELS.length; i++) {
+      const under = REFLECTION_LOOK[REFLECTION_LEVELS[i - 1]];
+      const over = REFLECTION_LOOK[REFLECTION_LEVELS[i]];
+      expect(over.scale).toBeGreaterThan(under.scale);
+      expect(over.blur).toBeLessThanOrEqual(under.blur);
+    }
+    expect(REFLECTION_LOOK.sharp.blur).toBeLessThan(REFLECTION_LOOK.soft.blur);
+    expect(REFLECTION_LOOK.sharp.blur).toBeGreaterThan(0);
   });
 
   it("lets the wake be turned off outright, and keeps the road under the relief", () => {
