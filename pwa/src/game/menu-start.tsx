@@ -38,25 +38,36 @@
 // EVERY ROW DEFAULTS TO THE SHORE'S OWN, AND THE ROW SAYS WHICH ANSWER THAT
 // IS. A generated level is a whole day, and a card that arrived with an
 // opinion about any of it would quietly take that away from every player who
-// never touched it — but a chip meaning "as dealt" asks a rider to pick an
+// never touched it — but a stop meaning "as dealt" asks a rider to pick an
 // answer nobody has told them. So the seed's own day comes back with its
-// chart (`SeedDeal`), the chip it names is MARKED, and leaving the row alone
-// stands on that chip. Pressing the marked chip is how a row goes back to
-// deferring: it stores null, which is the shore's own hour, wind or sky
-// rather than the rung's figure.
+// chart (`SeedDeal`), the value it names is MARKED — a dot beside the word and
+// a ring round its pip — and leaving the row alone stands on it. Landing back
+// on the marked value is how a row goes back to deferring: it stores null,
+// which is the shore's own hour, wind or sky rather than the rung's figure.
 //
-// The rows are `menu.tsx`'s, shared with OPTIONS and the developer page, and
-// what they WRITE is `settings.ride` — so a run stood up from here and a run
-// stood up from a link are the same run read the same way.
+// THE ROWS ARE THE KNOBS (`menu-knobs.tsx`), the same silhouette OPTIONS, the
+// developer page and the pause strip wear: the name, the value between two
+// arrows, the pips under it. They used to be chips — every answer on screen at
+// once — and the five skies were what broke that: a six-word ladder wraps to
+// two lines on any card narrow enough for a phone, and one row wrapping while
+// the rows above it do not reads as a bug rather than as a tight fit. The pips
+// carry what the chips did (where on the ladder this answer stands, and how
+// many there are) in the width of the value itself.
+//
+// What the rows WRITE is `settings.ride` — so a run stood up from here and a
+// run stood up from a link are the same run read the same way.
 
 import { TIMES_OF_DAY, WEATHER_IDS, type TimeOfDay, type Weather } from "@engine";
+import { useState } from "preact/hooks";
 
-import { MenuBody, MenuHead, OptionRow, StepRow } from "./menu.tsx";
+import { MenuHead } from "./menu.tsx";
+import { Caption, NumberRow, StepRow, type Stop } from "./menu-knobs.tsx";
 import { SeedPreview, useSeedPreview } from "./seed-preview.tsx";
 import {
   CONDITIONS,
   CONDITION_DAY,
   DEFAULT_SEED,
+  SEED_RANGE,
   conditionsFor,
   type Conditions,
   type Settings,
@@ -71,7 +82,7 @@ const TIME_LABELS: Record<TimeOfDay, string> = {
 
 /** The hours in the engine's own order — earliest first, which is the order
  * they read as a ladder. */
-const TIME_OPTIONS: readonly { id: TimeOfDay; label: string }[] = TIMES_OF_DAY.map((id) => ({
+const TIME_STOPS: Stop<TimeOfDay>[] = TIMES_OF_DAY.map((id) => ({
   id,
   label: TIME_LABELS[id],
 }));
@@ -82,7 +93,7 @@ const CONDITION_LABELS: Record<Conditions, string> = {
   storm: STRINGS.windStorm,
 };
 
-const CONDITION_OPTIONS: readonly { id: Conditions; label: string }[] = CONDITIONS.map((id) => ({
+const CONDITION_STOPS: Stop<Conditions>[] = CONDITIONS.map((id) => ({
   id,
   label: CONDITION_LABELS[id],
 }));
@@ -96,9 +107,9 @@ const WEATHER_LABELS: Record<Weather, string> = {
 };
 
 /** The skies in the ENGINE's order, which is lightest first — the order they
- * read as a ladder, and one this card never restates: a sky added to R19 is
- * a chip here the same day. */
-const WEATHER_OPTIONS: readonly { id: Weather; label: string }[] = WEATHER_IDS.map((id) => ({
+ * read as a ladder, and one this card never restates: a sky added to R19 is a
+ * stop here the same day. */
+const WEATHER_STOPS: Stop<Weather>[] = WEATHER_IDS.map((id) => ({
   id,
   label: WEATHER_LABELS[id],
 }));
@@ -115,10 +126,17 @@ export function StartPage({
   /** On to the craft card, which is where RIDE is (see the header). */
   onNext: () => void;
 }) {
+  const [hint, setHint] = useState<string | null>(null);
   const ride = settings.ride;
   const setRide = (patch: Partial<Settings["ride"]>): void =>
     onSettings({ ...settings, ride: { ...ride, ...patch } });
   const seed = ride.seed ?? DEFAULT_SEED;
+  /** THE DEFAULT SHORE IS STILL STORED AS NULL, whether it was arrived at by
+   * never touching the row or by walking back onto it. The two ride the same
+   * coast today, and null is the one that keeps riding the right one the day
+   * {@link DEFAULT_SEED} moves — which is exactly what the row that used to
+   * have a "back to the default shore" press was for. */
+  const setSeed = (next: number): void => setRide({ seed: next === DEFAULT_SEED ? null : next });
 
   // The day this seed deals, off the same reply the chart is drawn from. Null
   // until the first one lands — a level takes hundreds of milliseconds to
@@ -138,69 +156,93 @@ export function StartPage({
     id === dealtId ? null : id;
 
   return (
-    <div class="menu-card">
+    <div class="menu-card menu-card-start" onPointerLeave={() => setHint(null)}>
       <MenuHead
         back={onBack}
         backLabel={STRINGS.menuBack}
         title={STRINGS.startTitle}
         sub={STRINGS.startSub}
       />
-      <MenuBody>
-        <StepRow
-          label={STRINGS.startShore}
-          read={String(seed)}
-          // Never below 1: seed 0 is not a level, and an arrow that walks off
-          // the bottom of the catalog is an arrow that hangs the card.
-          onStep={(by) => setRide({ seed: Math.max(1, seed + by) })}
-          onClear={() => setRide({ seed: null })}
-          clearLabel={STRINGS.startShoreDefault}
-        />
-        {/* The coast that seed makes, cut from the real generated level —
-            the row above is a number, and this is what the number means. */}
-        <SeedPreview chart={chart} />
-        <OptionRow
-          label={STRINGS.startTime}
-          options={TIME_OPTIONS}
-          value={ride.time ?? deal?.time ?? null}
-          dealt={deal?.time ?? null}
-          pending={!chart.fresh}
-          onPick={(time) => setRide({ time: pick(time, deal?.time ?? null) })}
-        />
-        <OptionRow
-          label={STRINGS.startWind}
-          options={CONDITION_OPTIONS}
-          value={ride.conditions ?? dealtWind}
-          dealt={dealtWind}
-          pending={!chart.fresh}
-          onPick={(c) => setRide({ conditions: pick(c, dealtWind) })}
-        />
-        {/* Under the wind, because it defers to it: the marked sky here is
-            the one the row above implies, not a sky of its own. */}
-        <OptionRow
-          label={STRINGS.startWeather}
-          options={WEATHER_OPTIONS}
-          value={ride.weather ?? dealtWeather}
-          dealt={dealtWeather}
-          // A wind CHOSEN implies its sky with no level to wait for; only a
-          // row still deferring to the shore is provisional.
-          pending={ride.conditions === null && !chart.fresh}
-          onPick={(w) => setRide({ weather: pick(w, dealtWeather) })}
-        />
-        {/* The way on, wearing the front door's own START weight so the eye
-            lands on it first — and marked as this surface's `next`, so a
-            controller that walked in here reaches the craft without
-            hunting. */}
-        <button
-          type="button"
-          class="menu-item menu-item-start menu-start-go"
-          data-menu="craft"
-          data-nav-next
-          data-nav-focus
-          onClick={onNext}
-        >
-          <span class="menu-item-name">{STRINGS.startNext}</span>
-        </button>
-      </MenuBody>
+      {/* TWO COLUMNS WHERE THERE IS WIDTH FOR THEM, and the CHART is what
+          they are for. It is square, so every pixel of its width is a pixel
+          of card height — beside the three rows it costs nothing, and it can
+          be drawn half again as big as it could when it stood over them
+          (`.menu-card-start` in styles.css). On a phone the grid collapses
+          and the card is the column it always was. */}
+      <div class="start-cols">
+        <div class="start-col">
+          <div class="knob-rows">
+            <NumberRow
+              label={STRINGS.startShore}
+              hint={STRINGS.startShoreHint}
+              value={seed}
+              // Never below 1: seed 0 is not a level, and an arrow that walks
+              // off the bottom of the catalog is an arrow that hangs the card.
+              min={SEED_RANGE.min}
+              max={SEED_RANGE.max}
+              onValue={setSeed}
+              onHint={setHint}
+            />
+          </div>
+          {/* The coast that seed makes, cut from the real generated level —
+              the row above is a number, and this is what the number means. */}
+          <SeedPreview chart={chart} />
+        </div>
+        <div class="start-col">
+          <div class="knob-rows">
+            <StepRow
+              label={STRINGS.startTime}
+              hint={STRINGS.startTimeHint}
+              stops={TIME_STOPS}
+              value={ride.time ?? deal?.time ?? null}
+              dealt={deal?.time ?? null}
+              pending={!chart.fresh}
+              onPick={(time) => setRide({ time: pick(time, deal?.time ?? null) })}
+              onHint={setHint}
+            />
+            <StepRow
+              label={STRINGS.startWind}
+              hint={STRINGS.startWindHint}
+              stops={CONDITION_STOPS}
+              value={ride.conditions ?? dealtWind}
+              dealt={dealtWind}
+              pending={!chart.fresh}
+              onPick={(c) => setRide({ conditions: pick(c, dealtWind) })}
+              onHint={setHint}
+            />
+            {/* Under the wind, because it defers to it: the marked sky here is the
+            one the row above implies, not a sky of its own. */}
+            <StepRow
+              label={STRINGS.startWeather}
+              hint={STRINGS.startWeatherHint}
+              stops={WEATHER_STOPS}
+              value={ride.weather ?? dealtWeather}
+              dealt={dealtWeather}
+              // A wind CHOSEN implies its sky with no level to wait for; only a
+              // row still deferring to the shore is provisional.
+              pending={ride.conditions === null && !chart.fresh}
+              onPick={(w) => setRide({ weather: pick(w, dealtWeather) })}
+              onHint={setHint}
+            />
+          </div>
+        </div>
+      </div>
+      {/* The mark is explained ONCE, at the foot of the whole card rather than
+          as a tooltip on three rows nobody hovers. */}
+      <Caption text={hint} fallback={STRINGS.startCaption} />
+      {/* The way on, wearing the front door's own START weight so the eye
+          lands on it first — and marked as this surface's `next`, so a
+          controller that walked in here reaches the craft without hunting. */}
+      <button
+        type="button"
+        class="menu-item menu-item-start menu-start-go"
+        data-menu="craft"
+        data-nav-next
+        data-nav-focus
+        onClick={onNext}
+      >
+        <span class="menu-item-name">{STRINGS.startNext}</span>
+      </button>
     </div>
   );
 }

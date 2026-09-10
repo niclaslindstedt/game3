@@ -5,10 +5,11 @@ scope: pwa/src/game/menu-start.tsx, pwa/src/game/menu-options.tsx, pwa/src/style
 concepts: [start-card, options, layout, screenshots, viewports]
 ---
 
-`.menu-card` is `max-height: 100%; overflow-y: auto` and `.menu-row` is
-`flex-wrap: wrap`, so neither budget ever breaks visibly — the card's bottom
-slides past the viewport, or one row silently stacks its chips under its
-label. Both read as a bug and neither shows in a diff.
+`.menu-card` is `max-height: 100%; overflow-y: auto`, so a height overrun
+never breaks visibly — the card's bottom just slides past the viewport. It
+reads as a bug and does not show in a diff. (The WIDTH half below was measured
+against the chip rows the knobs replaced; the numbers are history, the habit
+of shooting before as well as after is not.)
 
 HEIGHT. At the two reference viewports the start card had about 95 CSS px of
 slack (1280×720) and about 129 (390×844); ONE `OptionRow` whose chips wrap to

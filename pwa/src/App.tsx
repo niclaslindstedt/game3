@@ -47,7 +47,7 @@
 //                  camera key still walks the whole ladder from there
 //   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
 //   ?res=low       WATER, RESOLUTION and DETAIL (low | medium | high) and
-//   ?detail=low    SEE INTO THE WATER (?see=0/1). They are settings like
+//   ?detail=low    SEE-THROUGH (?see=0/1). They are settings like
 //   ?see=0         the start card's, so a link lays them over the stored
 //                  ones rather than reading them into the run — which is
 //                  what lets the screenshot lab photograph one row of the
@@ -104,7 +104,7 @@ import { createInputManager } from "./game/input.ts";
 import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav } from "./game/menu-nav.ts";
-import { PauseMenu, type PausePage } from "./game/menu-pause.tsx";
+import { PauseMenu } from "./game/menu-pause.tsx";
 import { createRenderer, type FrameCost } from "./game/renderer.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
@@ -329,7 +329,6 @@ export function App() {
   const [away, setAway] = useState(false);
   const [shell, setShell] = useState<Shell>("splash");
   const [menuPage, setMenuPage] = useState<MenuPage>(() => readParams().menu ?? { page: "root" });
-  const [pausePage, setPausePage] = useState<PausePage>("root");
   const [loadingPhase, setLoadingPhase] = useState<LoadPhase | null>(null);
   const [loadLeaving, setLoadLeaving] = useState(false);
   /** True once the renderer has drawn a frame — what the attract card waits
@@ -631,7 +630,6 @@ export function App() {
     runRef.current = {
       pause: () => {
         if (!canPause(shellRef.current)) return;
-        setPausePage("root");
         setShellNow("pause");
       },
       resume: () => {
@@ -834,12 +832,10 @@ export function App() {
           of question, and one card look beats two. */}
       {shell === "pause" && snap !== null && (
         <PauseMenu
-          page={pausePage}
           seed={snap.seed}
           craft={snap.craft}
           settings={settings}
           onSettings={setSettings}
-          onNavigate={setPausePage}
           onResume={() => runRef.current.resume()}
           onMainMenu={() => runRef.current.toMenu()}
         />

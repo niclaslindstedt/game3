@@ -16,7 +16,7 @@
 //                 news column — a split, a missed gate, a dive
 //
 // …and under the minimap, when they have been asked for, the DIAGNOSTICS:
-// the frame rate (OPTIONS ▸ SHOW FPS) and what the frame cost (the developer
+// the frame rate (OPTIONS ▸ FPS) and what the frame cost (the developer
 // page's FRAME COST). Neither is a fact about the RUN, so neither joins the
 // readouts that are — and the right edge under the map is the only stretch of
 // this screen with room for a line that appears out of nowhere.
