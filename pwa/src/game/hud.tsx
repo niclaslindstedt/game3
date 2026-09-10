@@ -6,7 +6,8 @@
 //   top left      the run clock, the gate count
 //   top right     the wind vane, the RESET button and the new-build mark
 //                 on the days there is one, and under them the MINIMAP —
-//                 the coast, the gates and the craft on it
+//                 the coast, the gates and the craft on it, and the press
+//                 that holds the run and puts the pause card up
 //   bottom left   the rev bar and the speed
 //   bottom right  the air time while the hull is off the water, and the
 //                 news column — a split, a missed gate, a dive
@@ -71,17 +72,21 @@ export function Hud({
   flashes,
   touch,
   input,
-  paused,
+  away,
   fps,
   cost,
   onReset,
+  onPause,
 }: {
   snap: HudSnapshot;
   flashes: HudFlash[];
   /** Draw the thumb zones. */
   touch: boolean;
   input: InputManager;
-  paused: boolean;
+  /** The TAB is away and the clock with it (§37.3) — not the pause card,
+   * which is a surface of its own (`menu-pause.tsx`) and stands over all of
+   * this. The two share a word and nothing else. */
+  away: boolean;
   /** The smoothed frame rate, or null with OPTIONS ▸ FPS off. Not part of
    * the snapshot: it is a fact about the machine rather than about the run,
    * and `frame-rate.ts` is where it is worked out. */
@@ -90,6 +95,9 @@ export function Hud({
    * row off. */
   cost: FrameCost | null;
   onReset: () => void;
+  /** Hold the run and put the pause card up. The MINIMAP is what presses
+   * it — see minimap.tsx for why that is the button. */
+  onPause: () => void;
 }) {
   return (
     <div
@@ -129,7 +137,7 @@ export function Hud({
         {/* Under the readouts rather than beside them: the map is the one
             thing up here that is LOOKED at rather than read, and it wants a
             square of its own clear of the wind chip's baseline. */}
-        <Minimap map={snap.minimap} />
+        <Minimap map={snap.minimap} onOpen={onPause} />
         {/* THE DIAGNOSTICS, under the map: the frame rate (OPTIONS ▸ FPS)
             and what the frame cost (the developer page's FRAME COST). They
             hang here rather than in the build corner because that corner is
@@ -186,7 +194,7 @@ export function Hud({
         </a>
       </div>
 
-      {paused && (
+      {away && (
         <div class="hud-center">
           <div class="hud-card">
             <span class="hud-card-title">{STRINGS.paused}</span>

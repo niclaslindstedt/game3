@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE APP: the shell the game lives inside, and the §37 clock underneath it.
 //
-// FOUR SURFACES, ONE CANVAS, AND THE SEA NEVER STOPS. That last part is the
-// rule everything here is arranged around: the engine is stepping and the
-// renderer is drawing behind every card the app can put up.
+// FIVE SURFACES, ONE CANVAS, AND THE SEA NEVER STOPS — except under the one
+// card that is standing over the PLAYER's own run. `game/shell.ts` names the
+// surfaces and owns that distinction; this file decides when one gives way to
+// the next.
 //
 //   splash   the attract card (`splash-screen.tsx`) — the house's name while
 //            the first shore is built, then the title and an invitation.
@@ -12,12 +13,14 @@
 //            running.
 //   loading  a run being stood up (`loading-screen.tsx` over `run-loader.ts`),
 //            paid for in slices so the page stays a page.
+//   pause    the run HELD (`menu-pause.tsx`), reached by pressing the minimap
+//            or Escape: RESUME, OPTIONS, or out to the front door.
 //   run      the player's hands on it, with the HUD over the top.
 //
 // ONE ENGINE STATE THROUGHOUT, and the mode decides who rides it: `botInput`
-// under a menu, the input manager under a run. Leaving a run (Escape) hands
-// the same craft back to the bot rather than tearing anything down, which is
-// why the menu comes up over the shore the player was just on.
+// under a menu, the input manager under a run. Leaving a run for the front
+// door hands the same craft back to the bot rather than tearing anything
+// down, which is why the menu comes up over the shore the player was just on.
 //
 // URL PARAMS, the whole set (the developer page's REPRO LINK writes exactly
 // these, so a frame is always handed on as a URL):
@@ -47,6 +50,9 @@
 //                  ladder, and a bug report about the water name the
 //                  picture it was seen at
 //   ?start=1       skip both cards and ride: a pinned run
+//   ?paused=1      ...and open with the run HELD under the pause card, which
+//                  is how the screenshot lab photographs that surface and how
+//                  a report about it is handed on
 //   ?splash=0/1    force the attract card off, or back on
 //   ?menu=start    open the front door ON that page (root | start | craft |
 //                  options | developer) — how the screenshot lab
@@ -57,7 +63,7 @@
 //                  the surface can be photographed (read where it is drawn,
 //                  in game/update-button.tsx — it is not part of a repro)
 //
-// A URL that NAMES A RUN (`start`, `scene`, `shot`) boots into one. Anything
+// A URL that NAMES A RUN (`start`, `scene`, `shot`, `paused`) boots into one. Anything
 // else opens the front door, and the URL's seed, craft, time and day become
 // the settings the menu is standing on — so a link still decides what RIDE
 // rides, without deciding that it has already been pressed.
@@ -93,6 +99,7 @@ import { createInputManager } from "./game/input.ts";
 import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav } from "./game/menu-nav.ts";
+import { PauseMenu, type PausePage } from "./game/menu-pause.tsx";
 import { createRenderer, type FrameCost } from "./game/renderer.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
@@ -121,6 +128,7 @@ import {
   type ResolutionLevel,
   type WaterLevel,
 } from "./game/settings-video.ts";
+import { canPause, hudOver, playerRides, simulates, type Shell } from "./game/shell.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
@@ -136,9 +144,6 @@ const AIR_WORTH_A_LINE = 0.6;
 /** How long the loading card takes to fade off the run underneath. Must
  * match the `.loading.leaving` transition in styles.css. */
 const LOAD_FADE_MS = 260;
-
-/** Which surface is up. See this module's header for what each one covers. */
-type Shell = "splash" | "menu" | "loading" | "run";
 
 declare global {
   interface Window {
@@ -178,6 +183,11 @@ type Params = {
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
   rides: boolean;
+  /** ...and this one boots into a run and immediately holds it under the
+   * pause card. A surface the lab can reach is a surface a bug report can
+   * link to, and the pause card is the one surface that has no meaning
+   * without a run standing behind it. */
+  paused: boolean;
   /** The page of the front door to open on, for a link or the screenshot
    * lab that is pointing at one. Null opens the door where it opens. */
   menu: MenuPage | null;
@@ -205,6 +215,7 @@ function readParams(): Params {
     return stops.some((id) => id === value) ? (value as T) : undefined;
   };
   const see = p.get("see");
+  const paused = p.get("paused") === "1";
   return {
     // Null rather than the default, so `readParams` says whether the URL
     // ASKED for a seed. A URL that did overrides the stored setting; one
@@ -230,7 +241,8 @@ function readParams(): Params {
     resolution: stop(RESOLUTION_LEVELS, "res"),
     detail: stop(DETAIL_LEVELS, "detail"),
     seeThrough: see === null ? undefined : see === "1",
-    rides: shot || named !== null || p.get("start") === "1",
+    rides: shot || named !== null || paused || p.get("start") === "1",
+    paused,
     menu:
       menu === "start" ||
       menu === "craft" ||
@@ -303,9 +315,12 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snap, setSnap] = useState<HudSnapshot | null>(null);
   const [flashes, setFlashes] = useState<HudFlash[]>([]);
-  const [paused, setPaused] = useState(false);
+  /** The TAB is away and the clock with it (§37.3). Nothing to do with the
+   * pause card, which is a surface — see `game/shell.ts`. */
+  const [away, setAway] = useState(false);
   const [shell, setShell] = useState<Shell>("splash");
   const [menuPage, setMenuPage] = useState<MenuPage>(() => readParams().menu ?? { page: "root" });
+  const [pausePage, setPausePage] = useState<PausePage>("root");
   const [loadingPhase, setLoadingPhase] = useState<LoadPhase | null>(null);
   const [loadLeaving, setLoadLeaving] = useState(false);
   /** True once the renderer has drawn a frame — what the attract card waits
@@ -331,7 +346,7 @@ export function App() {
    * on. Refs beside the state so the loop can ask "have I already said this?"
    * without waiting for a render to answer. */
   const warmRef = useRef(false);
-  const pausedRef = useRef(false);
+  const awayRef = useRef(false);
 
   /** The frame loop's handle on everything React owns. It reads these every
    * frame and must never re-run because one of them changed — the engine and
@@ -342,6 +357,15 @@ export function App() {
   /** Set by the loop, called by the menu. Boxed rather than passed down so
    * the button that starts a run is not a reason to rebuild the loop. */
   const startRunRef = useRef<() => void>(() => {});
+  /** ...and the same for the presses that move a RUN between surfaces: the
+   * minimap and Escape put the pause card up, and the card takes it down
+   * again — back to the water, or out to the front door. The loop owns the
+   * run, so it owns these. */
+  const runRef = useRef<{ pause: () => void; resume: () => void; toMenu: () => void }>({
+    pause: () => {},
+    resume: () => {},
+    toMenu: () => {},
+  });
 
   // Every change is written through, so a visit's choices survive the tab
   // being closed. Cheap: a settings change is a press, not a frame.
@@ -354,6 +378,16 @@ export function App() {
   useEffect(() => {
     rendererRef.current?.setVideo(settings.video);
   }, [settings.video]);
+
+  // ...AND SO DOES THE CAMERA ROW, for the same reason and one more: the
+  // pause card opens that page over a FROZEN run, and a row worded CAMERA
+  // that only took effect on the next one would be a row the app ignores
+  // exactly where it is most obviously being asked. The C key still walks the
+  // ladder without writing the setting, so the two never argue — this fires
+  // only when the stored choice itself moves.
+  useEffect(() => {
+    rendererRef.current?.camera.setMode(settings.ride.camera);
+  }, [settings.ride.camera]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -415,7 +449,7 @@ export function App() {
      * player's hands after — and the BOT whenever a card is up, because the
      * sea behind a menu is a game that is still being played. */
     const inputFor = (): CraftInput => {
-      if (shellRef.current !== "run") return botInput(state);
+      if (!playerRides(shellRef.current)) return botInput(state);
       if (scenario) {
         const at = state.t - scriptFrom;
         if (at <= scenario.seconds) return scenario.script(at);
@@ -458,9 +492,16 @@ export function App() {
     // they are about to ride.
     stand(params.scene, params.t);
     frozen = params.shot;
-    // A URL that names a run boots into one; one that names a menu page
-    // opens the door on it; anything else gets the attract card first.
-    const opensOn: Shell = params.rides ? "run" : params.menu ? "menu" : "splash";
+    // A URL that names a run boots into one — held under the pause card when
+    // it asked for that; one that names a menu page opens the door on it;
+    // anything else gets the attract card first.
+    const opensOn: Shell = params.rides
+      ? params.paused
+        ? "pause"
+        : "run"
+      : params.menu
+        ? "menu"
+        : "splash";
     setShellNow(splashSkipped(location.search) && opensOn === "splash" ? "menu" : opensOn);
 
     /* ── STANDING A RUN UP ───────────────────────────────────────────────
@@ -571,16 +612,41 @@ export function App() {
     };
     window.addEventListener("keydown", onMenuKey, true);
 
-    input.onAction((action) => {
-      if (action === "menu") {
-        // Out of a run and back to the front door. Nothing is torn down: the
-        // same craft carries on under the bot, which is what keeps the water
-        // moving under the card.
-        if (shellRef.current !== "run") return;
+    /* ── THE PAUSE CARD, AND THE WAY OUT OF A RUN ────────────────────────
+       The card is a SURFACE, so putting it up is a shell change and nothing
+       else: the frame loop reads `simulates()` and stops stepping, the state
+       is left exactly where it stood, and RESUME is one press that lands on
+       the very frame it was left on. Going to the front door instead tears
+       nothing down either — the same craft carries on under the bot, which
+       is what keeps the water moving under the menu. */
+    runRef.current = {
+      pause: () => {
+        if (!canPause(shellRef.current)) return;
+        setPausePage("root");
+        setShellNow("pause");
+      },
+      resume: () => {
+        if (shellRef.current !== "pause") return;
+        setShellNow("run");
+        // The clock is not what held the run — the loop simply stopped
+        // asking it for steps — so there is no debt to forgive, and `last`
+        // moved with every frame. The next frame is one frame long.
+      },
+      toMenu: () => {
         frozen = false;
         clock.resume();
         setMenuPage({ page: "root" });
         setShellNow("menu");
+      },
+    };
+
+    input.onAction((action) => {
+      // Escape over a run. Over the CARD it never reaches here at all:
+      // `onMenuKey` above takes it in the capture phase and presses the
+      // surface's own way back — RESUME on the card, and the head's way out
+      // on the options page under it.
+      if (action === "pause") {
+        runRef.current.pause();
         return;
       }
       if (shellRef.current !== "run") return;
@@ -625,15 +691,22 @@ export function App() {
         }
       }
 
-      if (!frozen) {
+      // THE PAUSE CARD IS THE ONE SURFACE THE ENGINE DOES NOT STEP UNDER
+      // (`shell.ts`), and a held run is a FROZEN one: drawn with no time
+      // passing, so the wave holds, the spray hangs and the camera stops. A
+      // frame's worth of dt handed to the renderer over a state that is not
+      // moving is a craft doing 90 km/h on standing water.
+      const held = !simulates(shellRef.current);
+      if (!frozen && !held) {
         const steps = clock.frame(dtFrame);
         for (let i = 0; i < steps; i++) stepOnce();
       } else {
         // Frozen: the controls are still read, so a banked reset does not
-        // fire the moment the picture thaws.
+        // fire the moment the picture thaws — and a thumb resting on a zone
+        // behind the card does not either.
         input.sample(TUNING.dt);
       }
-      renderer.render(state, clock.paused() ? 0 : dtFrame);
+      renderer.render(state, held || clock.paused() ? 0 : dtFrame);
       window.__SH_COST__ = renderer.cost();
       if (!warmRef.current) {
         warmRef.current = true;
@@ -663,9 +736,9 @@ export function App() {
         const kept = live.filter((f) => f.until > wall);
         if (kept.length !== live.length) live.splice(0, live.length, ...kept);
         setFlashes(live.map(({ id, text, tone }) => ({ id, text, tone })));
-        if (clock.paused() !== pausedRef.current) {
-          pausedRef.current = clock.paused();
-          setPaused(pausedRef.current);
+        if (clock.paused() !== awayRef.current) {
+          awayRef.current = clock.paused();
+          setAway(awayRef.current);
         }
       }
     };
@@ -680,8 +753,8 @@ export function App() {
         clock.resume();
         last = performance.now();
       }
-      pausedRef.current = clock.paused();
-      setPaused(pausedRef.current);
+      awayRef.current = clock.paused();
+      setAway(awayRef.current);
     };
     document.addEventListener("visibilitychange", onVisibility);
     // Nothing here watches the canvas's size: the renderer observes its own
@@ -699,7 +772,10 @@ export function App() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const hudUp = shell === "run" && settings.hud.on && snap !== null && inputRef.current !== null;
+  // The HUD stands under the pause card as well as over a run: the frozen
+  // frame the player stopped to read is still the run, and its clock, its
+  // gate count and its map are part of what they stopped to read.
+  const hudUp = hudOver(shell) && settings.hud.on && snap !== null && inputRef.current !== null;
   return (
     <>
       <canvas ref={canvasRef} />
@@ -709,10 +785,11 @@ export function App() {
           flashes={flashes}
           touch={touch}
           input={inputRef.current!}
-          paused={paused}
+          away={away}
           fps={settings.hud.fps ? fps : null}
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
+          onPause={() => runRef.current.pause()}
         />
       )}
       {/* THE NEW-BUILD NOTICE IS NOT A READOUT, so the HUD's own switch does
@@ -723,7 +800,7 @@ export function App() {
           in the same corner, in the same chrome, on its own. It draws
           itself or it draws nothing, so on nearly every day this is an
           empty box. */}
-      {shell === "run" && !settings.hud.on && (
+      {hudOver(shell) && !settings.hud.on && (
         <div class="hud">
           <div class="hud-topright">
             <div class="hud-topright-row">
@@ -731,6 +808,21 @@ export function App() {
             </div>
           </div>
         </div>
+      )}
+      {/* THE RUN, HELD. Over the HUD and over the frozen frame, wearing the
+          front door's own chrome — it is the same game asking the same kind
+          of question, and one card look beats two. */}
+      {shell === "pause" && snap !== null && (
+        <PauseMenu
+          page={pausePage}
+          seed={snap.seed}
+          craft={snap.craft}
+          settings={settings}
+          onSettings={setSettings}
+          onNavigate={setPausePage}
+          onResume={() => runRef.current.resume()}
+          onMainMenu={() => runRef.current.toMenu()}
+        />
       )}
       {shell === "menu" && (
         <MainMenu

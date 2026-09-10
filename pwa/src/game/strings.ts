@@ -57,7 +57,8 @@ export const STRINGS = {
       ? `New build v${version} ready — reload to install`
       : "New build ready — reload to install",
   updateArmed: "Press again to reload onto the new build",
-  /** The pause card while the tab is away. */
+  /** The card the HUD puts up while the TAB is away (§37.3) — not the pause
+   * menu, which is next door in menu-pause.tsx and shares only the word. */
   paused: "PAUSED",
   pausedNote: "The run waits until you come back",
   /** The boot card, and the word the attract card and the loading card both
@@ -86,9 +87,6 @@ export const STRINGS = {
    * (menu-hold.ts). */
   menuHolding: "KEEP HOLDING…",
   menuUnlocked: "DEVELOPER MENU UNLOCKED",
-  /** The way back to the front door from inside a run (Escape). */
-  menuLeave: "MENU",
-  menuLeaveTitle: "Back to the main menu (Esc)",
 
   /* ── THE START CARD (menu-start.tsx, seed-preview.tsx) ─────────────── */
   /** The card START opens: where this run is and what day it is in, before
@@ -202,4 +200,21 @@ export const STRINGS = {
   /** The phase and where it sits in the plan — a count of PHASES, never of
    * seconds (see `run-loader.ts`). */
   loadStep: (label: string, at: number, of: number): string => `${label}… (${at}/${of})`,
+
+  /* ── THE PAUSE CARD (menu-pause.tsx) ───────────────────────────────── */
+  /** The card a run is held under, and what it bills the held run as — the
+   * same two words the HUD's build corner carries, so the card and the frame
+   * behind it name the run the same way. */
+  pauseTitle: "PAUSED",
+  pauseSub: (seed: number, craft: string): string => `SEED ${seed} · ${craft.toUpperCase()}`,
+  /** The three ways on. RESUME is the way OUT of the card as well as its
+   * first row — see menu-pause.tsx. */
+  pauseResume: "RESUME",
+  pauseMainMenu: "MAIN MENU",
+  /** The way back to the card from the options page under it. Not "MENU":
+   * from here the way back is the run, not the front door. */
+  pauseBack: "PAUSED",
+  /** What the minimap does when it is pressed — the way into the card on a
+   * screen with no Escape key to press. */
+  pauseOpen: "Pause (Esc)",
 } as const;

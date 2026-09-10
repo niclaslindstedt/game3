@@ -417,6 +417,32 @@ canvas {
   /* The schematic fills the whole box and runs off every side of it: the
      plate's own corners are what cut it back to the shape of the frame. */
   overflow: hidden;
+  /* THE PLATE IS A BUTTON — it is the way into the pause card, and on a
+     phone it is the only one (minimap.tsx). It wears no button chrome at
+     all: a border or a background here would be a second frame inside the
+     gauge ring that IS this thing's frame. */
+  appearance: none;
+  border: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Pressable, said the only way a frameless plate can say it: the whole map
+   lifts. `filter` restates the drop shadow because the two compose in one
+   property and the shadow is the plate's own separation from the sea. */
+.hud-minimap:hover,
+.hud-minimap:focus-visible,
+.hud-minimap.nav-cursor {
+  outline: none;
+  filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%)) brightness(1.14);
+}
+
+.hud-minimap:active {
+  transform: translateY(1px);
 }
 
 .hud-minimap-face,
@@ -1409,6 +1435,26 @@ canvas {
   text-align: center;
 }
 
+/* THE PAUSE CARD (menu-pause.tsx): the front door's chrome, narrower, over a
+   run that is standing still. It opens with a head of its own rather than a
+   wordmark — the game's name is not the question here, WHICH RUN IS HELD is —
+   and the rows under it are the front door's, so RESUME wears START's weight
+   and the eye lands on the way back to the water. */
+.menu-card-pause {
+  align-items: stretch;
+  text-align: center;
+  width: min(24rem, 100%);
+}
+
+.menu-pause-head {
+  margin-bottom: 0.3rem;
+}
+
+.menu-pause-head .menu-title {
+  font-size: clamp(1.3rem, 5.5vmin, 1.9rem);
+  color: var(--hud-good);
+}
+
 .menu-brand {
   display: flex;
   flex-direction: column;
@@ -1506,6 +1552,18 @@ canvas {
   border-style: dashed;
   color: var(--hud-info);
   font-size: 0.85rem;
+}
+
+/* The one press on the pause card that ENDS the run, held visibly apart from
+   the two above it and given none of their weight: a thumb aiming for RESUME
+   must not be one row's travel away from throwing the run away. Written after
+   `.menu-item` on purpose — an override placed earlier than its base rule
+   loses the cascade without a word. */
+.menu-item-leave {
+  margin-top: 0.55rem;
+  background: rgb(8 42 56 / 70%);
+  color: var(--hud-info);
+  font-size: 0.88rem;
 }
 
 /* THE HOLD, drawn as the row filling (`menu-hold.ts`). Scaled from the left

@@ -1,39 +1,52 @@
 ---
 name: menu-system
-description: "Use when changing the SHELL the game lives inside — the attract card the app opens on, the front door and its START / OPTIONS / DEVELOPER rows, the seven-second hold that lets the developer menu out, an options or developer row, the loading card over a run being stood up, how a card is walked on the keys, or anything the game REMEMBERS between visits (pwa/src/game/settings.ts). Owns the four-surface state machine in App.tsx, the DOM-free-payload split every card is built on, the rule that the sea never stops behind a card, and the `make screenshots SCENE=… --surface` loop that judges the result. Not the readouts over a run in progress — that is `hud-and-menus`."
+description: "Use when changing the SHELL the game lives inside — the attract card the app opens on, the front door and its START / OPTIONS / DEVELOPER rows, the seven-second hold that lets the developer menu out, an options or developer row, the loading card over a run being stood up, the pause card that holds a run mid-ride, how a card is walked on the keys, or anything the game REMEMBERS between visits (pwa/src/game/settings.ts). Owns the five-surface state machine in shell.ts and App.tsx, the DOM-free-payload split every card is built on, the rule that the sea never stops behind a card and the one card it does not hold for, and the `make screenshots SCENE=… --surface` loop that judges the result. Not the readouts over a run in progress — that is `hud-and-menus`."
 ---
 
 # The menu system: the shell the game lives inside
 
 Everything between opening the page and having hands on a craft, and
-everything the game remembers about the visit before. Four surfaces over one
+everything the game remembers about the visit before. Five surfaces over one
 canvas, and one rule they are all arranged around:
 
-**THE SEA NEVER STOPS.** The engine is stepping and the renderer is drawing
-behind every card the app can put up. A menu that froze the water would
-announce that the game is not running, and it is the first thing to check
-after any change here — `window.__SH_COST__.frameMs` keeps moving while a
-card is up, or the change is wrong.
+**THE SEA NEVER STOPS — EXCEPT UNDER THE PAUSE CARD.** The engine is stepping
+and the renderer is drawing behind every card the app can put up, because
+every one of them stands over a run the BOT has. A menu that froze that water
+would announce that the game is not running, and it is the first thing to
+check after any change here. The pause card is the one exception and the one
+that proves the rule: it stands over the PLAYER's own run, and a run that
+carried on being ridden while its rider read a menu would cost them the gate
+they stopped at. `shell.ts`'s `simulates()` is where that line is drawn, and
+`tests/menu_system_test.ts` holds it.
+
+**Checking it: the PICTURE, not `frameMs`.** `window.__SH_COST__.frameMs` is
+the obvious probe and it is a bad one — under a software rasterizer it
+quantizes to a single value and never moves, so a live loop reads as a dead
+one. Take two screenshots of the same patch of sea half a second apart and
+compare the bytes.
 
 **Read this skill's lessons first** — `node scripts/skill-lessons.mjs
 menu-system --list`. Load **`skill-reflection`** at both ends, **`write-code`**
 beside this one, **`hud-and-menus`** for anything drawn over a RUN, and
 **`ui-review`** for the fit-and-finish sweep at the reference viewports.
 
-## The four surfaces
+## The five surfaces
 
 | Surface | Covers | Where |
 | --- | --- | --- |
 | `splash` | The house's name while the first shore is built, then the title and an invitation | `splash-screen.tsx` over the timing in `splash.ts` |
 | `menu` | The front door, over a bot-ridden sea | `menu-main.tsx` → `menu-start.tsx` → `menu-craft.tsx`, `menu-options.tsx`, `menu-dev.tsx` |
 | `loading` | A run being stood up, paid for in slices | `loading-screen.tsx` over `run-loader.ts` |
+| `pause` | The run HELD, reached from the minimap or Escape: RESUME, OPTIONS, MAIN MENU | `menu-pause.tsx` over the frozen frame and the HUD |
 | `run` | The player's hands on it, with the HUD over the top | `hud.tsx` (`hud-and-menus`) |
 
-The state machine is `Shell` in `App.tsx`, and **one engine state carries
-through all four** — the mode only decides who rides it, `botInput` under a
-card and the input manager under a run. Leaving a run (Escape) hands the same
-craft back to the bot rather than tearing anything down, which is why the
-front door comes up over the shore the player was just on.
+The surfaces and what each one MEANS are `pwa/src/game/shell.ts` — DOM-free,
+four predicates, all four held by the root suite; `App.tsx` decides only WHEN
+one gives way to the next. **One engine state carries through all five** — the
+surface decides who rides it (`botInput` under a card, the input manager under
+a run) and whether it is ridden at all. Leaving a run for the front door hands
+the same craft back to the bot rather than tearing anything down, which is why
+the door comes up over the shore the player was just on.
 
 ## Where each piece lives
 
@@ -45,6 +58,8 @@ front door comes up over the shore the player was just on.
 | The seven-second hold on START | `pwa/src/game/menu-hold.ts` (the rule) + `menu-main.tsx` (the pointer, the key, the clock) |
 | Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
+| Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
+| The run held mid-ride, and its three ways on | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
 | The app's mark, building | `pwa/src/game/mark-wave.tsx` over `app-mark.ts`'s paths |
 | Every word on every card | `pwa/src/game/strings.ts` (§39.1) — no card carries a literal |
 | The chrome | `pwa/src/styles.css`, from `── THE MENU SYSTEM` down |
@@ -54,8 +69,9 @@ front door comes up over the shore the player was just on.
 - **The DOM-free payload split, exactly as `hud-and-menus` states it.** The
   decision is a pure module the root suite reads without a browser
   (`tests/menu_system_test.ts`); the `.tsx` only renders it. `splash.ts`,
-  `menu-hold.ts`, `menu-cursor.ts`, `run-loader.ts` and `settings.ts`'s
-  `mergeSettings` are all on the testable side of that line, and a rule moved
+  `menu-hold.ts`, `menu-cursor.ts`, `run-loader.ts`, `shell.ts` and
+  `settings.ts`'s `mergeSettings` are all on the testable side of that line,
+  and a rule moved
   out of one of them into its component is a rule that stops being checked.
 - **A ROW CANNOT ASK A QUESTION WHOSE ANSWERS ARE SHAPES.** Chips work
   because the answer and everything it was chosen over are on screen
@@ -65,13 +81,28 @@ front door comes up over the shore the player was just on.
   the two, with RIDE on it, so the last thing seen before the water is the
   hull. It writes the same `settings.ride.craft` a chip row would have, so a
   run stood up from it and a run stood up from a `?craft=` link are one run.
+- **THE PAUSE CARD FREEZES; NOTHING ELSE DOES.** It is the only surface
+  standing over a run the PLAYER has, so `simulates("pause")` is false, the
+  frame is rendered with dt 0 and the accumulator is never asked for steps.
+  What must NOT happen on the way back is the absence being paid down — hold
+  a run for three seconds, resume, and the clock has to move by one frame and
+  not by three seconds (§37.2, and the same rule a hidden tab gets).
+- **RESUME IS THE CARD'S `data-nav-back` AND ITS `data-nav-focus`.** A card
+  opened by a thumb aiming for the minimap must cost one press to leave, and
+  the row under it hands the run back to the bot — so Escape, the backdrop and
+  the cursor's landing all have to be the way back to the water. Without the
+  focus mark the cursor skips RESUME (a way OUT is normally a chevron nobody
+  came for) and lands on the first row that is not it.
 - **A settings row the app IGNORES is worse than no row.** The player moves
   it, nothing happens, and now nothing else on the page can be trusted
   either. There is no volume fader while `game/audio/` is a placeholder, and
   no bindings while `input.ts` carries a fixed table. Each becomes a row the
   day the thing behind it exists — as the picture rows did, once
   `settings-video.ts` gave the renderer a ladder and `renderer.setVideo` a
-  place to read it.
+  place to read it. The pause card is where this bites hardest: it opens
+  OPTIONS over a FROZEN run, so every row there has to apply to the frame the
+  player is looking at — which is why `settings.ride.camera` reaches the
+  renderer the moment it moves and not only when the next run is stood up.
 - **The stored blob is merged FIELD BY FIELD and every value is CHECKED**
   against what this build offers (`mergeSettings`). A value off a ladder is
   one the menu has no chip to put the cursor back on, so the player can never
@@ -114,7 +145,7 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=cruise   # the ru
 npx vitest run tests/menu_system_test.ts
 ```
 
-`--surface splash,menu,start,craft,options,developer` photographs the cards at both
+`--surface splash,menu,start,craft,options,developer,pause` photographs the cards at both
 reference viewports; it waits on the card being in the DOM rather than on
 `window.__SH_READY__`, which is a RUN's flag. Then LOOK, and run `ui-review`'s
 audit at 1280×720 and 390×844.
@@ -123,8 +154,12 @@ audit at 1280×720 and 390×844.
 while the shell is broken — the hold bug above passed every screenshot. Drive
 the real flow before calling a change done: attract card → a press → the
 front door → START → the craft card and back → RIDE → the loading card →
-the HUD, then Escape back, and the hold on START twice over (the second press after an
-unlock is the one that breaks). The craft card has its own version of that
+the HUD, then Escape into the pause card and Escape out of it again, and the
+hold on START twice over (the second press after an unlock is the one that
+breaks). The pause card's own version of the trap is that it photographs
+identically whether or not the run under it actually stopped: check the clock
+and the speedo, held, and check that resuming after three seconds does not
+jump the run forward by three seconds. The craft card has its own version of that
 trap: the turntable is a DYNAMIC chunk, so a pick taken before it lands has
 to be waiting for it — which is why the chosen id rides on the canvas's own
 dataset and not only in a ref.

@@ -13,7 +13,10 @@
 //   A / ←  D / → steer              Shift    lean forward
 //   R            reset to the last gate (edge)
 //   Enter        restart the run     C       next camera
-//   Escape       leave for the main menu
+//   Escape       hold the run and put the pause card up (menu-pause.tsx);
+//                pressing it again over the card resumes, because the card's
+//                RESUME row is its `data-nav-back` and menu-nav.ts takes
+//                Escape upstream of this manager
 //
 // THERE IS NO BRAKE, NO HANDBRAKE AND NO GEARBOX. The throttle is the
 // control, and letting go of it is the only way to slow down — which is
@@ -30,7 +33,7 @@ import {
 } from "./input-model.ts";
 
 /** The presses the app reacts to rather than the craft. */
-export type InputAction = "restart" | "camera" | "menu";
+export type InputAction = "restart" | "camera" | "pause";
 
 export type InputManager = {
   /** Produce this step's input; advances the ramps by `dt`. */
@@ -69,7 +72,7 @@ const EDGE_CODES: Record<string, "reset" | InputAction> = {
   // The way out of a run. It is a key the browser and the OS both have
   // opinions about (full screen, pointer lock), which is exactly why it is
   // the one everybody already tries first.
-  Escape: "menu",
+  Escape: "pause",
 };
 
 export function createInputManager(target: Window = window): InputManager {

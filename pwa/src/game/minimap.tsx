@@ -6,7 +6,8 @@
 //
 // The two halves it draws are owned elsewhere: minimap-scene.ts cuts the
 // coast into paths, minimap-view.ts places everything that moves. This file
-// is the DOM and the glyphs.
+// is the DOM and the glyphs — and the PRESS: the whole plate is a button,
+// and it is how a run is paused (see below, and menu-pause.tsx).
 //
 // The schematic travels: it is cut around an anchor and translated to the
 // craft every frame, which is what makes a map that scrolls smoothly while
@@ -17,6 +18,7 @@ import { useRef } from "preact/hooks";
 
 import { VIEW } from "./minimap-scene.ts";
 import type { GateMark, HudMinimap } from "./minimap-view.ts";
+import { STRINGS } from "./strings.ts";
 
 /** The gauge ring's corner radius and stroke width, in the same space.
  * `.hud-minimap` derives its own border-radius from R + SW/2 so the chassis
@@ -139,7 +141,7 @@ function Gate({ gate }: { gate: GateMark }) {
   );
 }
 
-export function Minimap({ map }: { map: HudMinimap }) {
+export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }) {
   const { scene } = map;
   // The one frame a re-cut lands on is the one frame the coast must NOT be
   // tweened onto: the offset, the zoom and the paths all change together and
@@ -149,7 +151,22 @@ export function Minimap({ map }: { map: HudMinimap }) {
   const recut = drawn.current !== scene.cut;
   drawn.current = scene.cut;
   return (
-    <div class="hud-minimap">
+    // THE MAP IS THE WAY INTO THE PAUSE CARD, which is what makes the card
+    // reachable on a phone at all: there is no Escape key there, and a
+    // dedicated button in this corner would be a fourth thing in a top bar
+    // that already carries three. The map is the biggest, calmest target on
+    // the screen and the one nothing is riding on — pressing it says "let me
+    // look at where I am", which is the same sentence as pausing.
+    <button
+      type="button"
+      class="hud-minimap"
+      title={STRINGS.pauseOpen}
+      aria-label={STRINGS.pauseOpen}
+      onClick={onOpen}
+      // A button that keeps the focus keeps the next Enter, and the next
+      // Enter is the restart — the same trap the RESET button dodges.
+      onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
+    >
       <svg class="hud-minimap-face" viewBox={`0 0 ${VIEW} ${VIEW}`} aria-hidden="true">
         {/* The coast, cut around its anchor and slid to where the craft now
             stands. The plate's own ground is the deep water, so what is
@@ -211,6 +228,6 @@ export function Minimap({ map }: { map: HudMinimap }) {
         />
       </svg>
       {map.label !== "" && <span class="hud-minimap-read">{map.label}</span>}
-    </div>
+    </button>
   );
 }

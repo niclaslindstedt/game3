@@ -21,7 +21,10 @@
 // looking at the water twenty metres out, and it is right there behind the
 // card. What each row buys is `settings-video.ts`; this page only asks.
 //
-// The rows themselves are `menu.tsx`'s, shared with the developer page.
+// The rows themselves are `menu.tsx`'s, shared with the developer page. The
+// PAGE is shared too: the pause card (`menu-pause.tsx`) opens this one rather
+// than growing knobs of its own, because a camera picked mid-run and a camera
+// picked on the front door are one setting and must be one row.
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { MenuBody, MenuHead, OptionRow, ToggleRow } from "./menu.tsx";
@@ -79,16 +82,21 @@ export function OptionsPage({
   settings,
   onSettings,
   onBack,
+  backLabel = STRINGS.menuBack,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
   onBack: () => void;
+  /** Where BACK goes, in words. The page is reached from two places — the
+   * front door and the pause card — and the one thing that differs between
+   * them is what the player is stepping back into. */
+  backLabel?: string;
 }) {
   const setVideo = (video: Partial<VideoSettings>): void =>
     onSettings({ ...settings, video: { ...settings.video, ...video } });
   return (
     <div class="menu-card">
-      <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuOptions} />
+      <MenuHead back={onBack} backLabel={backLabel} title={STRINGS.menuOptions} />
       <MenuBody>
         <OptionRow
           label={STRINGS.optCamera}
