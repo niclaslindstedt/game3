@@ -56,6 +56,15 @@ export type Island = {
   readonly seed: number;
 };
 
+/** R29 — WHERE A CIRCUIT'S COAST STANDS: how far along the sea's own
+ * heading its edge is cut, and the seed the edge wanders in and out on.
+ * Worked out before the field is baked, because the level's box has to know
+ * where the land is before there is a field to read it off. */
+export type OceanShore = {
+  readonly offset: number;
+  readonly wander: number;
+};
+
 export type Basin = {
   /** Metres from the water's edge, positive in the water. */
   readonly offshore: Heightfield;
@@ -114,22 +123,40 @@ export function levelBounds(route: Route, river: River): Bounds {
  * R29 — WHERE THE COAST STANDS on a circuit: the offset of the open sea's
  * straight edge along the sea's own heading.
  *
- * Cut back from the loop's most INSHORE station by the offshore distance
- * this level is drawn at AND by the whole amplitude the edge wanders in and
- * out over, so R29's floor holds at the one station where the coast could
- * bulge furthest toward the line. Everywhere else on the loop the water is
- * deeper and the shore further, which is what a circuit is.
+ * Cut back from the loop's most INSHORE station by the distance the LOOP
+ * was drawn to hold off the beach (`route.inshore`) AND by the whole
+ * amplitude the edge wanders in and out over, so that floor holds at the
+ * one station where a bay could bulge furthest toward the line. Every other
+ * station is further out than that by its own seaward reach, which is what
+ * makes a lap an out-and-back rather than a ring.
  *
- * Drawn here rather than inside the basin because the level's own box has
- * to know where the land is before there is a field to read it off — the
- * same reason the coast's `seaEdge` is worked out in the generator.
+ * Worked out here rather than inside the basin because the level's own box
+ * has to know where the land is before there is a field to read it off —
+ * the same reason the coast's `seaEdge` is worked out in the generator.
  */
-export function oceanEdge(rng: Rng, route: Route): number {
+export function oceanEdge(rng: Rng, route: Route): OceanShore {
   const sx = Math.sin(route.seaHeading);
   const sz = Math.cos(route.seaHeading);
-  let inshore = Infinity;
-  for (const p of route.points) inshore = Math.min(inshore, p.x * sx + p.z * sz);
-  return inshore - inBand(rng, R.circuit.offshore) - R.circuit.coast.wander.amplitude;
+  const wander = rng.int(1, 0x7fffffff);
+  // Against the WAVY edge, station by station, rather than against the mean
+  // one. A promise made against the mean is a promise a bay breaks: the
+  // edge swings a whole amplitude either way, so a lap cut to stand 40 m
+  // off the mean line stands anywhere from 40 to 130 off the real one, and
+  // R29's `inshore` stops being a distance and becomes a distribution.
+  let low = Infinity;
+  for (const p of route.points) {
+    low = Math.min(low, p.x * sx + p.z * sz - coastWander(wander, p.x * sz - p.z * sx));
+  }
+  return { offset: low - route.inshore, wander };
+}
+
+/** R29 — how far the open sea's straight edge WANDERS in and out at a point
+ * along the coast, m. One function, read by `oceanEdge` when it decides
+ * where to cut and by `layOceanBasin` when it bakes the cut, so the coast
+ * the lap was measured against is the coast that gets built. */
+export function coastWander(seed: number, along: number): number {
+  const { amplitude, scale } = R.circuit.coast.wander;
+  return (valueNoise(along, 0, scale, seed) - 0.5) * 2 * amplitude;
 }
 
 /**
@@ -143,7 +170,8 @@ export function oceanEdge(rng: Rng, route: Route): number {
  * sea happens to lie: the frame's rectangle covers the coast, and the pad
  * covers the corners the rotation would otherwise cut.
  */
-export function circuitBounds(route: Route, seaOffset: number): Bounds {
+export function circuitBounds(route: Route, shore: OceanShore): Bounds {
+  const seaOffset = shore.offset;
   const sx = Math.sin(route.seaHeading);
   const sz = Math.cos(route.seaHeading);
   let outer = -Infinity;
@@ -411,7 +439,8 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
  * whole amplitude was already cut back out of the offset, so no bay it
  * makes can reach the line.
  */
-export function layOceanBasin(rng: Rng, route: Route, bounds: Bounds, seaOffset: number): Basin {
+export function layOceanBasin(route: Route, bounds: Bounds, shore: OceanShore): Basin {
+  const seaOffset = shore.offset;
   const cell = R.grid.cell;
   const cols = Math.round((bounds.maxX - bounds.minX) / cell) + 1;
   const rows = Math.round((bounds.maxZ - bounds.minZ) / cell) + 1;
@@ -419,14 +448,11 @@ export function layOceanBasin(rng: Rng, route: Route, bounds: Bounds, seaOffset:
   const seaHeading = route.seaHeading;
   const sx = Math.sin(seaHeading);
   const sz = Math.cos(seaHeading);
-  const { amplitude, scale } = R.circuit.coast.wander;
-  const wanderSeed = rng.int(1, 0x7fffffff);
   for (let r = 0; r < rows; r++) {
     const z = bounds.minZ + r * cell;
     for (let c = 0; c < cols; c++) {
       const x = bounds.minX + c * cell;
-      const along = x * sz - z * sx;
-      const wander = (valueNoise(along, 0, scale, wanderSeed) - 0.5) * 2 * amplitude;
+      const wander = coastWander(shore.wander, x * sz - z * sx);
       offshore.data[r * cols + c] = Math.max(FAR_INLAND, x * sx + z * sz - seaOffset - wander);
     }
   }

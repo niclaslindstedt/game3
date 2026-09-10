@@ -64,19 +64,34 @@ export type GenerateOptions = {
  * is comes from the level's wind (`weather.ts`). */
 export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
 
-/** A rock standing in the water or on the shore beside it: a vertical-axis
- * solid the craft can hit. `top` is the rock's height above SEA level
- * (negative for a reef the hull can still touch, and high for an erratic
- * sitting up a beach), `r` its plan radius. The MARK (R25) is the one kind
- * the route places rather than the density: the rock the ocean leg is
- * drawn round. */
+/** R31 — THE LIGHT ON A BUOY, as a chart quotes one: `flashes` of them in
+ * a group, one group every `period` seconds, and a `phase` of its own so
+ * two buoys in sight of each other are never in step. `buoyLightAt` in
+ * `engine/game/buoy.ts` is the character as a pure function of the level's
+ * clock; nothing about it is stepped or stored. */
+export type BuoyLight = {
+  readonly flashes: number;
+  readonly period: number;
+  readonly phase: number;
+};
+
+/** Something standing in the water or on the shore beside it: a
+ * vertical-axis solid the craft can hit. `top` is its height above SEA
+ * level (negative for a reef the hull can still touch, and high for an
+ * erratic sitting up a beach), `r` its plan radius. Two kinds are placed by
+ * the racing LINE rather than by the density — the MARK (R25), the sea
+ * stack a coast level's ocean leg is drawn round, and the BUOY (R31), the
+ * moored, lit can a circuit's lap is ridden round — and the buoy is the one
+ * that floats and the only one that carries a `light`. */
 export type Solid = {
   readonly id: string;
-  readonly kind: "skerry" | "boulder" | "reef" | "erratic" | "stack" | "mark";
+  readonly kind: "skerry" | "boulder" | "reef" | "erratic" | "stack" | "mark" | "buoy";
   readonly x: number;
   readonly z: number;
   readonly r: number;
   readonly top: number;
+  /** R31 — the lamp, on a rounding buoy and on nothing else. */
+  readonly light?: BuoyLight;
 };
 
 /** A GROUP OF ANIMALS placed in the water (R20): a school of herring, a
@@ -86,10 +101,11 @@ export type Solid = {
  * pure function of the pod and the clock exactly as the sea's surface is a
  * pure function of the point and the clock. Nothing about a pod changes
  * during a run, so nothing has to be stepped or replayed. */
-/** R17, R25 — the kinds of rock a coast is STREWN with, at their own
- * density per kilometre. Every kind but the mark, which is not strewn: the
- * route stands one where its ocean leg turns, and there is exactly one. */
-export type ScatteredKind = Exclude<Solid["kind"], "mark">;
+/** R17, R25, R31 — the kinds of rock a coast is STREWN with, at their own
+ * density per kilometre. Every kind but the two the racing line places:
+ * the mark a coast's ocean leg turns round, and the buoys a circuit's lap
+ * is ridden round. */
+export type ScatteredKind = Exclude<Solid["kind"], "mark" | "buoy">;
 
 export type Pod = {
   readonly id: string;

@@ -98,6 +98,7 @@ export {
 // at a plan point, and which way. Summed into `surfaceAt`'s velocity, so
 // nothing has to ask unless it wants to draw the river running.
 export { flowAt } from "./mapgen/flow.ts";
+export { buoyLightAt, buoyLightName } from "./game/buoy.ts";
 // THE WIND (wind.ts).
 export { createWind, stepWind, windAt, windSpeedAt, type WindState } from "./game/wind.ts";
 // THE HULL (hull.ts): the probes and the rest draft.

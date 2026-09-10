@@ -125,6 +125,27 @@ const RIPPLE_SHARE = 0.4;
  * a disc half a degree wide is not a point — an eye-set gain that puts the
  * road's core just past white. */
 const GLINT_GAIN = 0.2;
+
+/** R31 — how many BUOY LAMPS the water can carry at once, and how far one
+ * of them throws, m.
+ *
+ * Four, because that is `circuit.mark.count`'s ceiling: a lap is ridden
+ * round at most four lit marks, and a fixed-size loop with a branch-free
+ * body is a handful of instructions per fragment where an array sized at
+ * runtime would recompile the shader every time a level changed. A lap with
+ * fewer simply carries black lamps, which cost the same and light nothing.
+ *
+ * The reach is what a mark's lantern is worth ON THE WATER rather than how
+ * far off it can be SEEN — the glare carries for kilometres and the pool
+ * does not, and a pool stretched past this reads as a lit sea rather than a
+ * lit buoy. */
+const BUOY_LAMPS = 4;
+const BUOY_REACH = 78;
+/** The lantern's own warm white, and what its pool is worth in the water's
+ * own irradiance units — the craft's headlamp is 640 cd over a cone, and
+ * this is an unshaded lantern of a few tens spreading all round itself. */
+const BUOY_LIGHT = 0xffe6a8;
+const BUOY_POOL = 120;
 /** How fast the ripples travel downwind, tile lengths per second, with no
  * wind and per m/s of it. Slower than a real capillary wave's phase speed:
  * the tile is a texture and a texture at full pace strobes. */
@@ -312,6 +333,9 @@ function fragmentFor(layers: number): string {
   uniform vec3 uLampColor;
   uniform vec2 uLampCone;
   uniform float uLampReach;
+  uniform vec3 uBuoyPos[${BUOY_LAMPS}];
+  uniform vec3 uBuoyColor[${BUOY_LAMPS}];
+  uniform float uBuoyReach;
   varying vec3 vWorld;
   varying vec3 vNormal;
   varying vec4 vColor;
@@ -412,6 +436,25 @@ ${skyGlsl(mirrorBuild(layers))}
     // throws back up — the chop's facets, the foam, the silt in it — which
     // is the floor under the cosine.
     irradiance += lamp * (0.3 + 0.7 * max(0.0, dot(Nd, L)));
+    // R31 — AND THE BUOYS' OWN LAMPS. A lantern on a mark is a POINT light
+    // rather than a beam: it has to be seen from every bearing, so it
+    // throws its pool all round itself and there is no cone to test. The
+    // pool is what says a light is ON THE WATER rather than painted on the
+    // sky behind it, and it pulses with the flash, which is the thing that
+    // makes a rounding mark findable in the dark from a long way off.
+    vec3 buoyGlint = vec3(0.0);
+    for (int i = 0; i < ${BUOY_LAMPS}; i++) {
+      vec3 toB = uBuoyPos[i] - vWorld;
+      float dB = length(toB);
+      vec3 Lb = toB / max(dB, 1e-3);
+      float fallB =
+        (1.0 / max(dB * dB, 1.0)) * (1.0 - smoothstep(uBuoyReach * 0.55, uBuoyReach, dB));
+      vec3 litB = uBuoyColor[i] * fallB;
+      irradiance += litB * (0.3 + 0.7 * max(0.0, dot(Nd, Lb)));
+      // …and its image in the ripples: the column of light under a lamp,
+      // which is most of what the eye actually reads a light on water by.
+      buoyGlint += litB * pow(max(0.0, dot(Nd, normalize(Lb + V))), 300.0) * 0.7;
+    }
     vec3 body = vColor.rgb * irradiance * RECIPROCAL_PI;
     // …and the light through a crest with the sun behind it.
     float back = max(0.0, dot(-V, uSunDir));
@@ -490,6 +533,7 @@ ${skyGlsl(mirrorBuild(layers))}
     // the bow: the same tight lobe, off the lamp's direction.
     vec3 Hl = normalize(L + V);
     glint += lamp * pow(max(0.0, dot(Nd, Hl)), 400.0) * 0.6;
+    glint += buoyGlint;
 
     // THE FOAM: the vertex's share says how much of the face has gone over,
     // the tile says WHERE on it — read in wind space, its long axis laid
@@ -588,6 +632,11 @@ export function createWaterMaterial(
       uMirrorRight: { value: mirror?.right ?? new THREE.Vector3(1, 0, 0) },
       uMirrorForward: { value: mirror?.forward ?? new THREE.Vector3(0, 0, 1) },
       uMirrorOn: { value: 0 },
+      uBuoyPos: {
+        value: Array.from({ length: BUOY_LAMPS }, () => new THREE.Vector3(0, -1000, 0)),
+      },
+      uBuoyColor: { value: Array.from({ length: BUOY_LAMPS }, () => new THREE.Color(0x000000)) },
+      uBuoyReach: { value: BUOY_REACH },
       uLampPos: { value: new THREE.Vector3(0, -100, 0) },
       uLampDir: { value: new THREE.Vector3(0, -1, 0) },
       uLampColor: { value: new THREE.Color(0x000000) },
@@ -672,6 +721,37 @@ export function applyLamp(m: WaterMaterial, lamp: THREE.SpotLight): void {
     Math.cos(lamp.angle * (1 - lamp.penumbra)),
   );
   u.uLampReach.value = lamp.distance;
+}
+
+/** R31 — WHAT A LIT BUOY IS DOING TO THE SEA IT SITS ON: each lantern's
+ * world place and what it is worth this frame, straight onto the water's
+ * own uniforms.
+ *
+ * A mark's lamp is not in the scene as a light — four point lights would
+ * recompile every Lambert material in the level and light a hull nobody is
+ * standing beside — so the WATER carries them itself, which is where the
+ * whole of the effect is anyway: the pool under the lantern and the column
+ * of it down the ripples. Lamps past the fourth are dropped and lamps that
+ * are dark this instant are written black, which costs the same and lights
+ * nothing.
+ *
+ * `pwa/src/game/buoys.ts` owns what the lanterns are worth (the flash
+ * character times the sky's own switch); this only spends it. */
+export function applyBuoyLamps(
+  m: WaterMaterial,
+  lamps: readonly { x: number; y: number; z: number; lit: number }[],
+): void {
+  const pos = m.uniforms.uBuoyPos.value as THREE.Vector3[];
+  const colour = m.uniforms.uBuoyColor.value as THREE.Color[];
+  for (let i = 0; i < BUOY_LAMPS; i++) {
+    const lamp = i < lamps.length ? lamps[i] : null;
+    if (!lamp || lamp.lit <= 0) {
+      colour[i].setRGB(0, 0, 0);
+      continue;
+    }
+    pos[i].set(lamp.x, lamp.y, lamp.z);
+    colour[i].setHex(BUOY_LIGHT).multiplyScalar(lamp.lit * BUOY_POOL);
+  }
 }
 
 /** Tell the ripples which way the wind blows and how hard, and the scatter

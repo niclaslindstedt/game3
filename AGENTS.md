@@ -210,6 +210,7 @@ And the pieces that belong to no skill in particular:
 
 Each of these is the one place an answer is written down. Anything that needs it ASKS; a second copy is a bug the day one of them moves.
 
+- **WHAT A BUOY'S LAMP IS DOING** — `buoyLightAt(light, t)` in `engine/game/buoy.ts`: the flash CHARACTER the generator drew (`Fl(3) 8s` — a group of flashes and how often it comes round), as a pure function of the level's own clock, exactly as the sea life's pose is. Nothing about a lamp is stepped, stored or replayed; `pwa/src/game/buoys.ts` reads this once per buoy per frame for the lens and the bloom, and hands the same number to the water so the pool on the sea pulses with it.
 - **WHICH KIND OF TRACK a level is** — `Level.track` (`coast` or `circuit`), and `Course.laps` / `Course.lapGates` beside it. A lapped course PUBLISHES THE WHOLE RIDE — the lap's gates repeated, with one more crossing of the start line for the finish — so `stepCourse` takes the list in order and never learns a lap exists; `lapGates` is how the renderer draws each buoy once and the HUD counts laps. A coast course is `laps: 1` with `lapGates` the whole gate count, so nothing has to branch to read one.
 - **What a craft CAN do** — `engine/game/limits.ts` (`maxRpm`, `maxNozzle`, `MAX_LEAN`, `jetCeiling`, `airPitchTorque`, `topSpeedOf`), read by the physics AND `sim/bot.ts`. Never restate a ceiling.
 - **What the speedo reads** — `CraftState.speed`: `|v|`, vertical included, written once at the end of `stepCraft`. The HUD, the bot and the sim all read it and none restates it.

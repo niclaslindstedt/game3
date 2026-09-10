@@ -652,7 +652,7 @@ export function layCircuitCourse(
   // straightened across a bend (R9) is the one thing that can cut inside
   // it.
   const legalAt = (x: number, z: number, depth: number): boolean => {
-    if (water.offshoreAt(x, z) < C.offshore.min) return false;
+    if (water.offshoreAt(x, z) < C.inshore.min - R.grid.cell) return false;
     for (const mark of route.marks) {
       const berth = mark.r + solidBerth(mark.r) + S.marginSlack;
       if (Math.hypot(x - mark.x, z - mark.z) < berth) return false;

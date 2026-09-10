@@ -91,6 +91,39 @@ export function foamTexture(): THREE.DataTexture {
   return foam;
 }
 
+/**
+ * R31 — A LAMP'S GLARE: one soft disc, bright in the middle and gone by the
+ * rim, which is what a light at range actually is on the eye.
+ *
+ * The opposite texture to the spray's, and for the opposite reason. Spray
+ * is a handful of separate drops and reads as smoke if it is drawn soft;
+ * a light has no shape at all past a few hundred metres — it is a point
+ * whose glare spreads on the eye — and reads as a painted decal if it is
+ * drawn hard. The falloff is the fourth power of the distance from the
+ * middle, which puts a small bright core inside a wide faint halo rather
+ * than a uniform blob.
+ */
+let glow: THREE.DataTexture | null = null;
+export function glowTexture(): THREE.DataTexture {
+  if (glow) return glow;
+  const n = SPRITE_SIZE;
+  const data = new Uint8Array(n * n * 4);
+  for (let y = 0; y < n; y++) {
+    for (let x = 0; x < n; x++) {
+      const dx = (x + 0.5) / n - 0.5;
+      const dy = (y + 0.5) / n - 0.5;
+      const d = Math.min(1, Math.hypot(dx, dy) * 2);
+      const fade = (1 - d) * (1 - d);
+      const i = (y * n + x) * 4;
+      data[i] = data[i + 1] = data[i + 2] = 255;
+      data[i + 3] = Math.round(255 * fade * fade);
+    }
+  }
+  glow = new THREE.DataTexture(data, n, n, THREE.RGBAFormat);
+  glow.needsUpdate = true;
+  return glow;
+}
+
 /** The spray's droplet: a CLUSTER of small solid drops scattered inside
  * the sprite rather than one soft disc — a soft disc reads as a puff of
  * smoke, a handful of drops as water thrown up. */

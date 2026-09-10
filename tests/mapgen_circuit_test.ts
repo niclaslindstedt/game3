@@ -18,6 +18,8 @@ import { describe, expect, it } from "vitest";
 import {
   LEVEL_RULES as R,
   analyzeLevel,
+  buoyLightAt,
+  buoyLightName,
   generateLevel,
   lapTurn,
   polylineDistance,
@@ -59,15 +61,30 @@ describe("R29 — the circuit is drawn out at sea", () => {
     expect(generateLevel(1).track).toBe("coast");
   });
 
-  it("keeps every metre of the line off the shore", () => {
+  it("runs from the shore out to sea and back", () => {
     for (const seed of CIRCUIT_SEEDS) {
       const level = circuitFor(seed);
+      let least = Infinity;
+      let furthest = 0;
+      let ashore = 0;
       for (const p of level.course.path) {
         const off = sampleField(level.offshore, p.x, p.z);
-        expect(off, `seed ${seed} at ${p.x.toFixed(0)},${p.z.toFixed(0)}`).toBeGreaterThan(
-          C.offshore.min - R.grid.cell,
-        );
+        least = Math.min(least, off);
+        furthest = Math.max(furthest, off);
+        if (off <= R.course.offshore.max) ashore++;
       }
+      // It comes to the beach…
+      expect(withinBand(least, C.inshore, 6), `seed ${seed}: nearest ${least.toFixed(0)} m`).toBe(
+        true,
+      );
+      // …it gets out to sea…
+      expect(withinBand(furthest, C.reach, 6), `seed ${seed}: reach ${furthest.toFixed(0)} m`).toBe(
+        true,
+      );
+      // …and there is a shore leg in between rather than a point of contact.
+      expect(ashore / level.course.path.length, `seed ${seed}`).toBeGreaterThan(
+        C.ashore.min - 0.05,
+      );
     }
   });
 
@@ -171,11 +188,11 @@ describe("R30 — the circuit is lapped", () => {
   });
 });
 
-describe("R31 — every lap goes round something", () => {
-  it("stands marks in the bends, and the line rounds them", () => {
+describe("R31 — every lap is ridden round lit buoys", () => {
+  it("stands buoys in the bends, and the line rounds them", () => {
     for (const seed of CIRCUIT_SEEDS) {
       const level = circuitFor(seed);
-      const marks = level.solids.filter((s) => s.kind === "mark");
+      const marks = level.solids.filter((s) => s.kind === "buoy");
       expect(withinBand(marks.length, C.mark.count), `seed ${seed}: ${marks.length}`).toBe(true);
       for (const mark of marks) {
         const round = roundingAbout(level.course.path, mark, C.mark.near);
@@ -189,6 +206,60 @@ describe("R31 — every lap goes round something", () => {
         ).toBeGreaterThanOrEqual(C.mark.wrap - 0.15);
       }
     }
+  });
+
+  it("lights every one of them, and no two alike on a lap", () => {
+    for (const seed of CIRCUIT_SEEDS) {
+      const buoys = circuitFor(seed).solids.filter((s) => s.kind === "buoy");
+      const characters = new Set<string>();
+      for (const b of buoys) {
+        expect(b.light, `seed ${seed}: ${b.id} is unlit`).toBeDefined();
+        if (!b.light) continue;
+        expect(withinBand(b.light.flashes, C.mark.light.flashes)).toBe(true);
+        expect(withinBand(b.light.period, C.mark.light.period)).toBe(true);
+        characters.add(buoyLightName(b.light));
+      }
+      // Up to the point where the chart's own list runs out and repeats.
+      expect(characters.size, `seed ${seed}`).toBe(
+        Math.min(buoys.length, C.mark.light.flashes.max),
+      );
+    }
+  });
+
+  it("stands at least one of them out in the open sea", () => {
+    for (const seed of CIRCUIT_SEEDS) {
+      const level = circuitFor(seed);
+      const out = level.solids
+        .filter((s) => s.kind === "buoy")
+        .map((s) => sampleField(level.offshore, s.x, s.z));
+      expect(Math.max(...out), `seed ${seed}`).toBeGreaterThanOrEqual(C.mark.ocean - 6);
+    }
+  });
+
+  it("flashes its character on the level's own clock, and replays it", () => {
+    const light = { flashes: 3, period: 8, phase: 0 };
+    // Dark before the first flash of the next group and lit inside the
+    // first: the character is a GROUP and then real darkness, not a lamp
+    // left on.
+    expect(buoyLightAt(light, 0.3)).toBeGreaterThan(0.9);
+    expect(buoyLightAt(light, 4)).toBe(0);
+    expect(buoyLightAt(light, 7.9)).toBe(0);
+    // …and it is a pure function of the clock: one period later is the
+    // same instant of the character.
+    for (const t of [0.3, 1.2, 2.4, 5.5]) {
+      expect(buoyLightAt(light, t + light.period)).toBeCloseTo(buoyLightAt(light, t), 10);
+    }
+    // A group of three is three separate flashes rather than one long one.
+    let edges = 0;
+    let was = 0;
+    for (let t = 0; t < light.period; t += 0.01) {
+      const now = buoyLightAt(light, t) > 0.5 ? 1 : 0;
+      if (now !== was) edges++;
+      was = now;
+    }
+    expect(edges).toBe(6);
+    // Nothing without a light is ever lit.
+    expect(buoyLightAt(undefined, 3)).toBe(0);
   });
 
   it("gives every rock R6's berth from the line", () => {
@@ -277,7 +348,7 @@ describe("the analysis judges a circuit", () => {
 
   it("catches a mark carried out of the bend it stood in (R31)", () => {
     const level = circuitFor(seed);
-    const mark = level.solids.find((s) => s.kind === "mark");
+    const mark = level.solids.find((s) => s.kind === "buoy");
     expect(mark).toBeDefined();
     if (!mark) return;
     // Out to the emptiest water the lap encloses — the point furthest from
@@ -290,7 +361,7 @@ describe("the analysis judges a circuit", () => {
 
   it("catches a mark thrown outside the lap (R31)", () => {
     const level = circuitFor(seed);
-    const mark = level.solids.find((s) => s.kind === "mark");
+    const mark = level.solids.find((s) => s.kind === "buoy");
     if (!mark) return;
     const away = level.solids.map((s) =>
       s === mark ? { ...s, x: level.bounds.minX + 8, z: level.bounds.minZ + 8 } : s,
@@ -300,17 +371,17 @@ describe("the analysis judges a circuit", () => {
 
   it("catches a circuit with no marks at all (R31)", () => {
     const level = circuitFor(seed);
-    const bare = level.solids.filter((s) => s.kind !== "mark");
+    const bare = level.solids.filter((s) => s.kind !== "buoy");
     expect(errors(broken(seed, { solids: bare }))).toContain("R31.count");
   });
 
   it("catches a line carried in toward the shore (R29)", () => {
     const level = circuitFor(seed);
-    // The whole path walked half its own clearance toward the land: the
-    // fault a basin cut in the wrong place would ship.
+    // The whole path walked a long way toward the land: the fault a basin
+    // cut in the wrong place would ship.
     const inland = level.course.path.map((p) => ({
-      x: p.x - Math.sin(level.wind.from) * -C.offshore.min * 0.9,
-      z: p.z - Math.cos(level.wind.from) * -C.offshore.min * 0.9,
+      x: p.x + Math.sin(level.wind.from) * C.reach.min,
+      z: p.z + Math.cos(level.wind.from) * C.reach.min,
     }));
     const found = errors(broken(seed, { course: { ...level.course, path: inland } }));
     expect(found.length, "a line dragged ashore is reported").toBeGreaterThan(0);

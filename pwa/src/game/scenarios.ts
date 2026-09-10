@@ -295,6 +295,12 @@ function nextBreach(level: Level, from: number): { pod: Pod; index: number; at: 
  * rather than a wall filling the frame, and near enough that a rider would
  * already be lining the turn up. */
 const MARK_STANDOFF = 150;
+/** R31 — and how far back a BUOY is judged from, m. A sea stack is thirty
+ * metres of rock and reads as a landmark from a hundred and fifty; a
+ * rounding buoy is two metres across and the question about it is what a
+ * rider sees on the approach to the corner, which is a few boat lengths
+ * out. */
+const BUOY_STANDOFF = 42;
 
 /** How far up the RIVER its shot stands, as a share of the water's own
  * length. A third of the way: past the mouth, where the channel has closed
@@ -530,12 +536,23 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       };
     }
     case "mark": {
-      // R25 — the approach to the MARK: standing on the racing line where
-      // the run out to the rounding begins, pointed at the rock. It is the
-      // one thing in a level taller than the land behind it, and the whole
-      // question this shot asks is whether it reads as a landmark from the
-      // water rather than as a lump on the horizon.
-      const rock = level.solids.find((s) => s.kind === "mark");
+      // R25, R31 — the approach to THE THING THE LINE GOES ROUND: standing
+      // on the racing line where the run out to the rounding begins,
+      // pointed at it. On a coast level that is the sea stack at the end of
+      // the ocean leg, the one thing in a level taller than the land behind
+      // it; on a circuit it is the lit BUOY furthest out to sea, which is
+      // the far end of the run out and back. The question the shot asks is
+      // the same either way — does the mark read from the water as
+      // something to steer at — and on a circuit it is also the only way to
+      // see whether a lantern reads at range, which is what a night run is
+      // ridden by.
+      const rock =
+        level.solids.find((s) => s.kind === "mark") ??
+        level.solids
+          .filter((s) => s.kind === "buoy")
+          .sort(
+            (a, b) => sampleField(level.offshore, b.x, b.z) - sampleField(level.offshore, a.x, a.z),
+          )[0];
       if (!rock) return scenarioFor(state, "offshore");
       const path = level.course.path;
       const cum = cumulative(path);
@@ -548,7 +565,19 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
           at = cum[i];
         }
       }
-      const from = pointAlong(path, cum, Math.max(0, at - MARK_STANDOFF));
+      // Backed off along the line until the MARK ITSELF is a standoff away,
+      // rather than until the line has run that far: a buoy stands at the
+      // centre of the bend it is rounded at, so a station measured along the
+      // path can be a hundred metres from the thing the shot is of.
+      const standoff = rock.kind === "buoy" ? BUOY_STANDOFF : MARK_STANDOFF;
+      let back = at;
+      for (let step = 0; step < 60; step++) {
+        const p = pointAlong(path, cum, Math.max(0, back));
+        if (Math.hypot(p.x - rock.x, p.z - rock.z) >= standoff) break;
+        back -= 5;
+        if (back <= 0) break;
+      }
+      const from = pointAlong(path, cum, Math.max(0, back));
       return {
         moment: {
           x: from.x,

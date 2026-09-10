@@ -47,9 +47,9 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 - **R26** THE RIVER RUNS ON PAST THE RACE. The route's inland end is a MOUTH, and the water does not stop at it: a river carries on from there into the country for `river.length` of walking, meandering under `river.radius` of curvature but pulled inland the whole way, until its head stands at least `river.inland` (1 km) from the mouth. It THINS as it goes — `river.taper` from the corridor's own half-width at the mouth to `river.head` at the head — and because the bed is a function of the distance from the water's edge (R3), a channel that narrows shoals with itself: the last stretch is a creek too thin and too shallow to ride, which is where a rider roaming upstream stops. Past its mouth's own run it keeps `river.clear` off the racing line, so the water a rider can leave the course by is one mouth and not three.
 - **R27** THE RIVER RUNS, AND WHAT IS CONSERVED IS THE VOLUME. It carries `river.discharge` cubic metres a second out of its mouth, and the SPEED is what is left when that volume has to fit through the channel: v = Q/A over the cross-section the half-width and the level's own bed make there — slow across the wide, deep reach at the mouth, quickening as the banks close in, fastest on the centreline and nothing at the bank. A section further up carries `flow.gather` power of the mouth's water, because a river's catchment grows the whole way down and that is why it widens; past the mouth it fans into the basin over `flow.plume` metres and dies. The hull reads it as the water's own velocity, so a craft sitting still on a river is not sitting still.
 - **R28** THE OCEAN'S SEA REACHES WHAT THE OCEAN CAN SEE. A level holds two kinds of water and they do not carry the same waves. Every point is measured for what stands UPWIND of it — the effective fetch over a fan about the wind (SPM 1984) — and is dealt the sea that measurement earns: water with the open sea upwind carries the ocean's own swell, which under R12 is the whole coast, so the waves come in AGAINST the shore; water land has closed round carries only the chop the local wind grew on the few metres it crossed, so a river has small, short, wind-made waves and no ocean in it however wide its mouth. The WIND is read through the same measurement — full strength over the open water, a fraction of it over a river a kilometre inland with country all round.
-- **R29** THE OCEAN CIRCUIT. A level may be drawn as a CIRCUIT rather than as a stretch of coast, and then the race is ridden OUT AT SEA: the racing line is a CLOSED LOOP standing wholly in open water, every metre of it at least `circuit.offshore` from the nearest shore, with the coast a long way off on one side and NO RIVER anywhere: neither R26 nor R27 applies to a circuit, and R1's coastal band gives way to that floor. The loop is a radial walk about a centre — a mean radius warped by `circuit.harmonics` harmonics of it, each swinging it by `circuit.swing` of that radius — so it comes out somewhat circular and never a circle. It holds R23's own turning radius, keeps `circuit.selfClear` between the stretches of itself that stand `circuit.selfSpan` apart along it, and turns `circuit.turn` radians in all going round once, which is what makes a lap a lap with corners in it rather than a ring road: a plain circle turns 2π and nothing else, and only a loop with counter bends in it turns further.
+- **R29** THE OCEAN CIRCUIT: OUT FROM THE SHORE AND BACK. A level may be drawn as a CIRCUIT rather than as a stretch of coast, and then the race is a CLOSED LAP that begins at the beach, tracks the shore for a stretch, turns out into the open sea, rounds what is standing out there and comes back in to cross the line it started on. There is NO RIVER on one: neither R26 nor R27 applies. R1's coastal band gives way to the lap's own two ends — its most inshore station stands `circuit.inshore` off the water's edge, its most seaward one `circuit.reach` out past it, and `circuit.ashore` of the lap's length is ridden inside R1's own ceiling, which is what makes the shore leg a leg rather than a place the line touches once. The shape is polar: a mean radius bulged toward the sea by `circuit.bulge`, stretched ALONG the coast by `circuit.stretch` so the inshore run is flat, and warped by `circuit.harmonics` harmonics of `circuit.swing` for character. It holds R23's own turning radius, keeps `circuit.selfClear` between the stretches of itself that stand `circuit.selfSpan` apart along it, and turns `circuit.turn` radians in all going round once — a plain circle turns 2π and nothing else, so only a loop with counter bends in it turns further.
 - **R30** THE CIRCUIT IS LAPPED. A circuit is ridden `circuit.laps` times round. The gates are measured out ONCE round the loop at a spacing inside R4's band that divides the lap EXACTLY, so the last gate of a lap leads back into the first; the course is that lap repeated, with one more crossing of the line at the end of it, and so the FINISH LINE IS THE START LINE. What a lapped course publishes is the whole ride — every gate of every lap, in the order they are taken — because that is what is ridden, and `Course.laps` and `Course.lapGates` say how to read it back as laps. R10's sprint band gives way to `circuit.length`, which is the whole ride; R7's air gates are counted over that whole ride, so one ramp a lap is the whole of a circuit's air.
-- **R31** EVERY LAP GOES ROUND SOMETHING. `circuit.marks` of the loop's own bends carry a MARK at the centre of the turn — the same sea stack R25's ocean leg rounds (`solids.mark`), twenty metres of rock out of open water — so a lap is ridden round rocks rather than round empty sea. A bend earns one by turning at least `circuit.mark.wrap` radians about the rock with the rock standing `circuit.mark.stand` off the line: nearer than the band's floor there is no room for R6's berth, and further out than its ceiling the rider rides past a rock on the horizon rather than round one. Two marks may not stand within `circuit.mark.apart` of each other along the lap, because one bend measured twice is one mark.
+- **R31** EVERY LAP IS RIDDEN ROUND LIT BUOYS. `circuit.mark.count` of the loop's own bends carry a BUOY at the centre of the turn — a moored steel can (`solids.buoy`) riding the swell with a lantern in a cage over it — and at least one of them stands out past `circuit.mark.ocean` from the shore, so every lap includes a run out into the open sea to round something and back. A bend earns one by turning at least `circuit.mark.wrap` radians about the buoy with the buoy standing `circuit.mark.stand` off the line: nearer than the band's floor there is no room for R6's berth, and further out than its ceiling the rider passes a buoy on the horizon rather than rounding one. Two buoys may not stand within `circuit.mark.apart` of each other along the lap, because one bend measured twice is one buoy. EVERY ONE OF THEM FLASHES, and no two of them alike. A buoy carries a light CHARACTER the way a chart quotes one — `light.flashes` of them in a group, one group every `light.period` seconds, each buoy on its own phase — and `buoyLightAt` is that character as a pure function of the level's clock, so the lamp is never stepped, never stored and replays exactly. What the light is FOR is the dark: a lap ridden at dusk, at dawn or under the moon is read off the buoys, and a rounding mark nobody can see at night is a rounding mark that is not there.
 
 ## What swims here
 
@@ -168,26 +168,35 @@ the sky, the sea life, the bake and the gate — is the same code in the same
 order, because none of it has an opinion about which kind of race is laid.
 
 1. **The loop (R29, R31).** `drawCircuit` draws a CLOSED curve rather than a
-   walk: a polar radius `r(θ) = 1 + Σ aₖ·sin(kθ + φₖ)`, which closes exactly
-   and whose curvature has a closed form, so the tightest corner the loop
-   will carry is known before a point of it is built. The unit shape is
-   scaled to the lap length the level drew — both its perimeter and its
-   curvature scale with the mean radius — and refused where that scale puts
-   a corner under R23's radius, where the loop comes back inside
-   `circuit.selfClear` of itself, or where it turns no further than a circle
-   does. The line is then resampled by arc length into a whole number of
-   steps that closes on its own first point, starting at the FLATTEST point
-   of the lap, because that is where the start line goes. Every bend that
-   turns far enough carries a MARK at the centre of its turn, verified with
-   `roundingAbout` — the analysis's own instrument.
-2. **The ocean (R29, R15).** `oceanEdge` cuts the open sea's straight edge
-   back from the loop's most inshore station by the whole of this level's
-   offshore distance and the whole amplitude the coast wanders over, so R29's
-   floor holds by construction; `circuitBounds` squares off a box holding the
-   loop, the sea outside it and the strip of coast on one side; and
-   `layOceanBasin` fills the offshore field with one expression per cell. No
-   corridor is stamped and no island is cut: a circuit's line stands past
-   every coastal band already, and the rocks a lap goes round are SOLIDS.
+   walk, and it draws it in the SEA'S OWN FRAME — `u` seaward, `v` along the
+   coast — so the shape can be aimed at the shore rather than merely placed
+   near it. The radius is polar, `r(θ) = 1 + bulge·cos θ + Σ aₖ·sin(kθ + φₖ)`
+   with θ = 0 pointing out to sea: the bulge is a first harmonic locked to
+   that heading, which makes the shape a teardrop with its flat side against
+   the beach and its nose out in the ocean, and the `v` axis is stretched by
+   `circuit.stretch`, which turns the point where a round lap would touch the
+   shore into a RUN along it. The unit shape is scaled to the lap length the
+   level drew — its perimeter scales with the mean radius — and refused where
+   the loop does not reach far enough out (`reach`), where too little or too
+   much of it tracks the coast (`ashore`), where a corner comes out under
+   R23's radius, where it comes back inside `circuit.selfClear` of itself, or
+   where it turns no further than a circle does. The line is then resampled
+   by arc length into a whole number of steps that closes on its own first
+   point, starting at the flattest station of the SHORE LEG, because that is
+   where the start line goes. Every bend that turns far enough carries a lit
+   BUOY at the centre of its turn — at least one of them out past
+   `circuit.mark.ocean` — verified with `roundingAbout`, the analysis's own
+   instrument.
+2. **The ocean (R29, R15).** `oceanEdge` cuts the open sea's edge back from
+   the loop's most inshore station by exactly `circuit.inshore`, measured
+   against the WAVY edge station by station rather than against the mean one
+   (a promise made against the mean is a promise a bay breaks); `circuitBounds`
+   squares off a box holding the loop, the sea outside it and the strip of
+   coast on one side; and `layOceanBasin` fills the offshore field with one
+   expression per cell, `coastWander` being the same function both of them
+   read. No corridor is stamped and no island is cut: the sea's own half-plane
+   already carries every metre of the lap, and the things it goes round are
+   SOLIDS.
 3. **The lapped course (R30).** `layCircuitCourse` measures the gates out
    once round at a spacing that DIVIDES the lap, lifts exactly one of them
    into the air with the same window machinery a sprint uses, re-measures the

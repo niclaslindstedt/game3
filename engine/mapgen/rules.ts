@@ -725,6 +725,10 @@ export const LEVEL_RULES = {
       r: { min: 8, max: 14 },
       top: { min: 21, max: 32 },
     },
+    /** R31 — THE ROUNDING BUOY, stated with its rule in the second chapter
+     * (`rules-circuit.ts`) and spliced in here so `solidRule` finds it
+     * beside every other kind. */
+    buoy: CIRCUIT_RULES.buoy,
     /** Minimum open water between two rocks, edge to edge, m. */
     spacing: 6,
     /** A reef's top stands at least this far above the bed under it, m. */

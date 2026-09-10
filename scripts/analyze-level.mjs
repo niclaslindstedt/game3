@@ -78,7 +78,8 @@ const circuit = args.track === "circuit";
 console.log(
   `analyze — engine ${engineVersion} · ${args.track} · seeds ${seeds.join(",")} · ` +
     (circuit
-      ? `rules: offshore ≥ ${R.circuit.offshore.min} m, depth ≥ ${R.course.minDepth} m, ` +
+      ? `rules: ${R.circuit.inshore.min}–${R.circuit.inshore.max} m off the beach, ` +
+        `out to ${R.circuit.reach.min}–${R.circuit.reach.max} m, depth ≥ ${R.course.minDepth} m, ` +
         `gates ${R.gate.spacing.min}–${R.gate.spacing.max} m, ` +
         `ride ${R.circuit.length.min}–${R.circuit.length.max} m over ${R.circuit.laps.min}–${R.circuit.laps.max} laps, ` +
         `run-up ${R.ramp.runUp} m`

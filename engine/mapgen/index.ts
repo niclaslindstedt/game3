@@ -22,10 +22,12 @@ export { drawRoute, type CoastRoute, type Mark, type OceanLeg, type Route } from
 export { drawCircuit, lapTurn, roundingAbout } from "./circuit.ts";
 export {
   circuitBounds,
+  coastWander,
   layBasin,
   layOceanBasin,
   levelBounds,
   oceanEdge,
+  type OceanShore,
   pointOn,
   routeBounds,
   traceCoast,

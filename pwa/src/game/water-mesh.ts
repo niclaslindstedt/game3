@@ -72,6 +72,7 @@ import {
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
+import type { BuoyLamp } from "./buoys.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
@@ -79,6 +80,7 @@ import { layWaterGrid, snapOrigin } from "./water-grid.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 import {
   applyClock,
+  applyBuoyLamps,
   applyLamp,
   applyMirror,
   applyRain,
@@ -255,6 +257,9 @@ export type WaterMesh = {
    * the hull and the buoys beside it. Every frame — the lamp rides the
    * hull. */
   setLamp: (lamp: THREE.SpotLight) => void;
+  /** R31 — the rounding buoys' lanterns, which light the sea round
+   * themselves the way the craft's own lamp lights the sea ahead of it. */
+  setBuoyLamps: (lamps: readonly BuoyLamp[]) => void;
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
@@ -620,6 +625,7 @@ export function createWaterMesh(
     setRain: (fall, reach) => applyRain(material, fall, reach),
     setMirror: (live) => applyMirror(material, live),
     setLamp: (lamp) => applyLamp(material, lamp),
+    setBuoyLamps: (lamps) => applyBuoyLamps(material, lamps),
     setWindow: (open) => {
       windowOpen = open;
       // Blending is switched off with it: an opaque surface drawn through the

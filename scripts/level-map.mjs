@@ -37,6 +37,7 @@ const {
   cumulative,
   craftById,
   topSpeedOf,
+  buoyLightName,
   distanceAlong,
   faunaById,
   polylineDistance,
@@ -215,14 +216,16 @@ for (let i = 0; i + 1 < river.length; i++) {
 const markText = (m) =>
   `${m.id} at (${m.x.toFixed(0)}, ${m.z.toFixed(0)}) — ${m.r.toFixed(1)} m across, ` +
   `${m.top.toFixed(0)} m out of the water, ` +
-  `${polylineDistance(level.course.path, m.x, m.z).toFixed(0)} m off the line`;
+  `${polylineDistance(level.course.path, m.x, m.z).toFixed(0)} m off the line, ` +
+  `${offshoreAt(m.x, m.z).toFixed(0)} m offshore` +
+  (m.light ? `, ${buoyLightName(m.light)}` : "");
 // R31 — a circuit's marks are the corners of the lap, so all of them are
 // named; a coast level rounds exactly one, at the end of its ocean leg
 // (R25), and what matters about that one is how far out it stands.
-const marks = level.solids.filter((s) => s.kind === "mark");
+const marks = level.solids.filter((s) => s.kind === "mark" || s.kind === "buoy");
 const legLine =
   level.track === "circuit"
-    ? [`marks (${marks.length}):`, ...marks.map((m) => `  rounds ${markText(m)}`)].join("\n")
+    ? [`buoys (${marks.length}):`, ...marks.map((m) => `  rounds ${markText(m)}`)].join("\n")
     : mark
       ? `ocean leg: rounds ${mark.id} at (${mark.x.toFixed(0)}, ${mark.z.toFixed(0)}) — ` +
         `${mark.r.toFixed(1)} m across, ${mark.top.toFixed(0)} m out of the water, ` +

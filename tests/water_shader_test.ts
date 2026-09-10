@@ -48,7 +48,12 @@ describe("the water material", () => {
   applySky(material, noon, noonLights.hemi, noonLights.key, 3);
   const declared = new Set<string>();
   for (const src of [material.vertexShader, material.fragmentShader]) {
-    for (const m of src.matchAll(/uniform\s+\w+\s+(\w+)\s*;/g)) declared.add(m[1]);
+    // …including the ARRAY ones (`uniform vec3 uBuoyPos[4];`): an array
+    // uniform is a uniform, and a parser that skips them lets a whole
+    // bundle be carried and never read.
+    for (const m of src.matchAll(/uniform\s+\w+\s+(\w+)\s*(?:\[[^\]]*\])?\s*;/g)) {
+      declared.add(m[1]);
+    }
   }
   const carried = new Set(Object.keys(material.uniforms));
   // The fog's come from three's own chunk, and are carried through
