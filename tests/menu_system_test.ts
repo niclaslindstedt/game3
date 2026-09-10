@@ -8,6 +8,7 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
+import { WEATHER_IDS } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -356,7 +357,14 @@ describe("what survives a stored settings blob (settings.ts)", () => {
 
   it("keeps the choices a build still offers", () => {
     const stored = mergeSettings({
-      ride: { craft: "dart", camera: "nose", seed: 12, time: "sunset", conditions: "storm" },
+      ride: {
+        craft: "dart",
+        camera: "nose",
+        seed: 12,
+        time: "sunset",
+        conditions: "storm",
+        weather: "rain",
+      },
       hud: { on: false },
     });
     expect(stored.ride).toEqual({
@@ -365,8 +373,32 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       seed: 12,
       time: "sunset",
       conditions: "storm",
+      weather: "rain",
     });
     expect(stored.hud.on).toBe(false);
+  });
+
+  it("takes a SKY off the engine's own ladder, and only off it", () => {
+    // The start card's WEATHER row: R19's five, checked against the engine
+    // rather than a copy, so a sky the generator stops dealing is a sky this
+    // build stops carrying.
+    for (const weather of WEATHER_IDS) {
+      expect(mergeSettings({ ride: { weather } }).ride.weather).toBe(weather);
+    }
+    expect(mergeSettings({ ride: { weather: "sleet" } }).ride.weather).toBeNull();
+    expect(mergeSettings({ ride: { weather: 3 } }).ride.weather).toBeNull();
+  });
+
+  it("keeps the WIND and the SKY as separate answers", () => {
+    // They were one row once. The split is only worth having if a stored
+    // blob can carry a sky that does NOT belong over its wind — a downpour
+    // over a calm morning is the ride the bundle could not ask for.
+    const stored = mergeSettings({ ride: { conditions: "fine", weather: "rain" } });
+    expect(stored.ride.conditions).toBe("fine");
+    expect(stored.ride.weather).toBe("rain");
+    // …and a wind with no sky beside it still leaves the sky to the wind:
+    // null here is what `App.tsx` reads as "the one CONDITION_DAY implies".
+    expect(mergeSettings({ ride: { conditions: "storm" } }).ride.weather).toBeNull();
   });
 
   it("keeps the START CARD's rows for a player who never found the developer menu", () => {
@@ -385,7 +417,13 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     // The rule the field-by-field merge exists for: a value off the ladder is
     // one the menu has no chip to put the cursor back on.
     const stored = mergeSettings({
-      ride: { craft: "hovercraft", camera: "orbit", time: "midnight", conditions: "drizzle" },
+      ride: {
+        craft: "hovercraft",
+        camera: "orbit",
+        time: "midnight",
+        conditions: "drizzle",
+        weather: "fog",
+      },
     });
     expect(stored.ride).toEqual(DEFAULT_SETTINGS.ride);
     expect(mergeSettings({ ride: { seed: -4 } }).ride.seed).toBeNull();

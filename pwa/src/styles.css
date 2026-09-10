@@ -1843,10 +1843,16 @@ canvas {
   opacity: 0.45;
 }
 
+/* THE CHART IS AS BIG AS THE CARD CAN AFFORD. It is square, so its width is
+   a height cost, and it is the only thing on the start card big enough to
+   push RIDE — the one press the card exists for — off the bottom of a short
+   window. `14rem` is the size it wants; the `vh` term is what it gives back
+   on a 720-tall desktop or a phone in portrait, where the rows under it are
+   worth more than the last forty pixels of coastline. */
 .seed-preview-map {
   display: block;
   width: 100%;
-  max-width: 14rem;
+  max-width: min(14rem, 22vh);
   aspect-ratio: 1;
   border-radius: 0.3rem;
 }

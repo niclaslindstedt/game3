@@ -89,6 +89,9 @@ export const STRINGS = {
   startSub: "Your craft, your shore, and the day you want it in",
   startShore: "SHORE",
   startTime: "TIME",
+  /** The wind, which is the sea; then the sky over it. Two rows because they
+   * are two questions — see `menu-start.tsx` for why they used to be one. */
+  startWind: "WIND",
   startWeather: "WEATHER",
   /** The chip that leaves a row to the level as it was generated — the same
    * idea as the developer page's AUTO, worded for a player. */
@@ -109,10 +112,20 @@ export const STRINGS = {
   timeSunrise: "SUNRISE",
   timeDay: "DAY",
   timeSunset: "SUNSET",
-  /** The days, calmest first. */
-  weatherFine: "FINE",
-  weatherWind: "WIND",
-  weatherStorm: "STORM",
+  /** The winds, calmest first. Named for the SEA they build rather than for
+   * a number, because a rung of this ladder is something a rider feels
+   * through the hull long before they read it off the vane. */
+  windCalm: "CALM",
+  windBrisk: "BRISK",
+  windStorm: "STORM",
+  /** The skies, lightest first — R19's own five, in the engine's order.
+   * Plain-weather words for ids that are art direction's: `high` is a thin
+   * sheet up there, `overcast` is the dry lid, `rain` is that lid falling. */
+  skyClear: "CLEAR",
+  skyHigh: "HIGH CLOUD",
+  skyOvercast: "CLOUDY",
+  skyRain: "RAINY",
+  skySquall: "SQUALL",
   /** The seed's picture while it is being built, and when the generator
    * refuses the seed outright. */
   seedReading: "READING THE CHART…",

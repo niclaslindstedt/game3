@@ -55,11 +55,12 @@ export function reproQuery(settings: Settings): string {
   const params = new URLSearchParams();
   params.set("seed", String(ride.seed ?? DEFAULT_SEED));
   params.set("craft", ride.craft);
-  // The start card's own two rows travel as well: a link that dropped them
+  // The start card's own three rows travel as well: a link that dropped them
   // would stand the frame up under a different sky from the one it was
   // copied out of, which is the one thing a repro link may never do.
   if (ride.time !== null) params.set("time", ride.time);
   if (ride.conditions !== null) params.set("day", ride.conditions);
+  if (ride.weather !== null) params.set("weather", ride.weather);
   if (dev.scene !== null) params.set("scene", dev.scene);
   if (dev.wind !== null) params.set("wind", String(dev.wind));
   if (dev.hs !== null) params.set("hs", String(dev.hs));

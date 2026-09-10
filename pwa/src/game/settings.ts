@@ -17,7 +17,14 @@
 // against what the build actually offers, and anything that fails the check
 // falls back to the default rather than being carried.
 
-import { CRAFT_IDS, TIMES_OF_DAY, type CraftId, type TimeOfDay, type Weather } from "@engine";
+import {
+  CRAFT_IDS,
+  TIMES_OF_DAY,
+  WEATHER_IDS,
+  type CraftId,
+  type TimeOfDay,
+  type Weather,
+} from "@engine";
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
@@ -31,14 +38,16 @@ export type HudSettings = {
 };
 
 /**
- * THE DAYS A PLAYER MAY ASK FOR — one word covering the sky AND the sea.
+ * THE WINDS A PLAYER MAY ASK FOR — the ladder the SEA is read off.
  *
- * They are one row because on this coast they are one fact. R19 deals a
- * level's sky off the WIND that grew its waves, precisely so that the water
- * and the sky tell the rider about the same weather; a card offering "squall"
- * and "flat calm" as independent answers would hand back the one thing that
- * rule exists to prevent. So each condition names a sky and the wind that
- * belongs under it, and the sea follows from the wind the way it always does.
+ * The wind is what builds the water here: the fetch law grows the waves out
+ * of it and the gusts breathe around it, so asking for a wind is the one way
+ * to ask for a sea. Each rung names a mean wind at 10 m and, with it, the sky
+ * that BELONGS over that wind — which is R19's own agreement (a level's sky
+ * is dealt off the wind that grew its waves) carried onto the card, so a
+ * player who names a wind and leaves the sky AS DEALT still rides a day whose
+ * water and ceiling are telling them the same thing. {@link RideSettings.weather}
+ * is how that agreement is broken on purpose.
  *
  * `windy` rather than `wind` as an id because the value beside it is a wind
  * in m/s and two different things called `wind` in one table is a bug
@@ -47,10 +56,10 @@ export type HudSettings = {
 export const CONDITIONS = ["fine", "windy", "storm"] as const;
 export type Conditions = (typeof CONDITIONS)[number];
 
-/** What each named day IS: the sky to ride under, and the mean wind at 10 m
- * that builds the sea under it. The winds bracket R12's own band (6–14 m/s)
- * — one under it, one at the top of it, one well past it — so the three are
- * a ladder a rider can feel rather than three shades of the same afternoon. */
+/** What each rung IS: the mean wind at 10 m that builds the sea, and the sky
+ * that belongs over it. The winds bracket R12's own band (6–14 m/s) — one
+ * under it, one at the top of it, one well past it — so the three are a
+ * ladder a rider can feel rather than three shades of the same afternoon. */
 export const CONDITION_DAY: Record<Conditions, { weather: Weather; wind: number }> = {
   fine: { weather: "clear", wind: 4 },
   windy: { weather: "overcast", wind: 12 },
@@ -67,9 +76,17 @@ export type RideSettings = {
    * it against the coast's own daylight window (`hourOfDay`). Null rides
    * the hour the level was dealt (R13). */
   time: TimeOfDay | null;
-  /** The day to ride under — sky and sea together, see {@link CONDITIONS}.
+  /** The wind to ride in, and so the sea it builds — see {@link CONDITIONS}.
    * Null rides the shore as it was generated. */
   conditions: Conditions | null;
+  /** The SKY to ride under, off the engine's own ladder (R19's five). Null
+   * takes the sky the wind implies — the chosen rung's, or, where nothing is
+   * chosen, the one the level was dealt — so the row only ever OVERRIDES the
+   * agreement between the water and the ceiling, never states it. That is
+   * the one thing this row can do that the wind row cannot: a downpour over
+   * a flat calm, or a clear noon over a sea that has no business being that
+   * big. */
+  weather: Weather | null;
   /** The camera a run OPENS on. The camera key still walks the whole ladder
    * from wherever the run started; this only decides where it starts. */
   camera: CameraMode;
@@ -134,15 +151,16 @@ export const DEFAULT_SETTINGS: Settings = {
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
     craft: "skiff",
-    // The shore as it was dealt: its own seed, its own hour, its own
-    // weather. A generated level is a whole DAY rather than a backdrop —
-    // the wind that grew the waves is the wind its sky was dealt off (R19)
-    // — and a card that arrived with an opinion about any of the three
-    // would take that agreement away from every player who never touched
-    // it.
+    // The shore as it was dealt: its own seed, its own hour, its own wind
+    // and its own sky. A generated level is a whole DAY rather than a
+    // backdrop — the wind that grew the waves is the wind its sky was dealt
+    // off (R19) — and a card that arrived with an opinion about any of the
+    // four would take that agreement away from every player who never
+    // touched it.
     seed: null,
     time: null,
     conditions: null,
+    weather: null,
     // Behind and above, which is the camera the game is tuned to be read
     // at — the nose view is a thing you go looking for.
     camera: "chase",
@@ -212,6 +230,11 @@ export function mergeSettings(parsed: unknown): Settings {
   if (TIMES_OF_DAY.some((id) => id === ride?.time)) settings.ride.time = ride?.time as TimeOfDay;
   if (CONDITIONS.some((id) => id === ride?.conditions)) {
     settings.ride.conditions = ride?.conditions as Conditions;
+  }
+  // Checked against the ENGINE's ladder, not a copy of it: a sky R19 stops
+  // dealing is a sky this card stops offering, on the same day.
+  if (WEATHER_IDS.some((id) => id === ride?.weather)) {
+    settings.ride.weather = ride?.weather as Weather;
   }
   if (CAMERA_MODES.some((mode) => mode === ride?.camera)) {
     settings.ride.camera = ride?.camera as CameraMode;
