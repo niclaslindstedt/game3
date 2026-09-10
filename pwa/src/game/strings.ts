@@ -91,30 +91,37 @@ export const STRINGS = {
   menuLeaveTitle: "Back to the main menu (Esc)",
 
   /* ── THE START CARD (menu-start.tsx, seed-preview.tsx) ─────────────── */
-  /** The card START opens: what this run is, before it is stood up. */
-  startTitle: "RIDE",
-  startSub: "Your craft, your shore, and the day you want it in",
+  /** The card START opens: where this run is and what day it is in, before
+   * the craft card asks what rides it. */
+  startTitle: "THE RUN",
+  startSub: "Your shore, and the day you want it in",
   startShore: "SHORE",
+  /** The way back to the shore every player who never touched the row gets.
+   * A sentence rather than a chip: it is the readout's own label, read out
+   * loud and nowhere else. */
+  startShoreDefault: "Back to the default shore",
   startTime: "TIME",
   /** The wind, which is the sea; then the sky over it. Two rows because they
    * are two questions — see `menu-start.tsx` for why they used to be one. */
   startWind: "WIND",
   startWeather: "WEATHER",
-  /** The chip that leaves a row to the level as it was generated — the same
-   * idea as the developer page's AUTO, worded for a player. */
-  startOwn: "AS DEALT",
-  /** The press that actually rides. */
+  /** What the mark on a chip means: this is the answer the shore came with,
+   * and the one that rides while the row is left alone. */
+  startDealt: "Dealt by this seed",
+  /** The way on from the start card — the craft, and RIDE with it. */
+  startNext: "CHOOSE YOUR CRAFT",
+  /** The press that actually rides, on the craft card at the end of it. */
   startGo: "RIDE",
 
   /* ── THE CRAFT CARD (menu-craft.tsx, craft-picker.tsx) ─────────────── */
+  /** The second card's own title. */
+  craftTitle: "CRAFT",
   /** The arrows either side of the hull, for a reader who cannot see it. */
   craftPrev: "Previous craft",
   craftNext: "Next craft",
   /** Where this hull stands in the roster — `2 / 4`, so four craft turning
    * one at a time read as a set with edges rather than as a carousel. */
   craftOf: (at: number, of: number): string => `${at} / ${of}`,
-  /** The press that takes this craft and goes back to the rest of the run. */
-  craftTake: "TAKE IT",
   /** The hours, earliest first. */
   timeSunrise: "SUNRISE",
   timeDay: "DAY",
@@ -145,7 +152,6 @@ export const STRINGS = {
     `Seed ${seed}: ${gates} gates over ${Math.round(metres)} metres of coast`,
 
   /* ── OPTIONS (menu-options.tsx) ────────────────────────────────────── */
-  optCraft: "CRAFT",
   optCamera: "CAMERA",
   optHud: "HUD",
   optHudHint: "The readouts over the water — off leaves the sea and nothing else",

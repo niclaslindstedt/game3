@@ -21,11 +21,14 @@ import { describe, expect, it } from "vitest";
 
 import {
   LEVEL_RULES as R,
+  TIMES_OF_DAY,
   WEATHER_IDS,
   biomeOf,
   createGame,
   createRng,
   daylightWindow,
+  dealtTimeOfDay,
+  hourOfDay,
   pickWeather,
   skyCover,
 } from "@engine";
@@ -346,6 +349,31 @@ describe("what a wave face reflects", () => {
     const sheet = seaReflection(skyAt(12, LAT, "high", 1)).glint;
     expect(sheet).toBeGreaterThan(0);
     expect(sheet).toBeLessThan(1);
+  });
+});
+
+describe("R13 — the named hour a level was dealt (dealtTimeOfDay)", () => {
+  // The start card offers three hours and marks the one the seed already
+  // gives, so every hour R13 can deal has to answer to one of the three.
+  const level = syntheticLevel({ windSpeed: 4, noSolids: true });
+  const at = (hour: number) => dealtTimeOfDay({ ...level, hour });
+
+  it("names the hour it is standing exactly on", () => {
+    for (const when of TIMES_OF_DAY) expect(at(hourOfDay(level, when))).toBe(when);
+  });
+
+  it("names the nearest of them for every hour in between", () => {
+    const sunrise = hourOfDay(level, "sunrise");
+    const noon = hourOfDay(level, "day");
+    const sunset = hourOfDay(level, "sunset");
+    expect(at((sunrise + noon) / 2 - 0.1)).toBe("sunrise");
+    expect(at((sunrise + noon) / 2 + 0.1)).toBe("day");
+    expect(at((noon + sunset) / 2 - 0.1)).toBe("day");
+    expect(at((noon + sunset) / 2 + 0.1)).toBe("sunset");
+  });
+
+  it("leaves no hour of the window unnamed", () => {
+    for (let h = DAY.min; h <= DAY.max; h += 0.25) expect(TIMES_OF_DAY).toContain(at(h));
   });
 });
 

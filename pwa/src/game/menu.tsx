@@ -8,11 +8,16 @@
 // options page and a camera picked on the developer page must be one row
 // with one look, or the second one reads as a different setting.
 //
-// FIVE ROWS, AND WHICH ONE TO REACH FOR IS NOT A STYLE CHOICE:
+// FOUR ROWS, AND WHICH ONE TO REACH FOR IS NOT A STYLE CHOICE:
 //
 //   OptionRow  — a choice whose answers have NAMES (chase or nose). Chips,
 //                all of them on screen, so the answer and its alternatives
-//                are read in one look.
+//                are read in one look. Where the game already has an answer
+//                of its own — the hour, the wind and the sky a seed deals —
+//                that chip is MARKED rather than replaced by one more chip
+//                standing for "whichever of these it turns out to be": the
+//                answers are the answers, and the mark says which of them
+//                the shore came with.
 //   SliderRow  — a choice whose answer is A BIT MORE THAN THAT (a wind, a
 //                sea). A fader with the figure beside it, because chips at
 //                five stops are five places a continuous value is allowed
@@ -20,18 +25,18 @@
 //   StepRow    — a choice with too many answers to draw and an ORDER to
 //                them (a seed). An arrow either side of the figure.
 //   ToggleRow  — on or off, with the cost of taking it written underneath.
-//   PageRow    — a choice whose answers CANNOT BE SAID IN WORDS, and so is
-//                not asked here at all: the row reads back what is chosen
-//                and opens the card that chooses it. The craft is the one
-//                (menu-craft.tsx) — four hulls are four shapes, and four
-//                names in a chip row is a rider picking between things they
-//                have never seen.
+//
+// A choice whose answers CANNOT BE SAID IN WORDS is not a row at all: four
+// hulls are four shapes, so the craft takes a card of its own
+// (menu-craft.tsx) rather than a chip row nobody can read.
 //
 // Every one of them is a real `<button>` or `<input>`, which is what makes
 // `menu-nav.ts` able to walk a page written tomorrow with nothing to
 // register: the cursor reads the layout that is on screen.
 
 import type { ComponentChildren } from "preact";
+
+import { STRINGS } from "./strings.ts";
 
 export function MenuHead({
   back,
@@ -71,26 +76,43 @@ export function OptionRow<T extends string>({
   label,
   options,
   value,
+  dealt = null,
+  pending = false,
   onPick,
 }: {
   label: string;
   options: readonly { id: T; label: string }[];
-  value: T;
+  /** The answer in force — null while there is none, which on the start card
+   * is the moment before the seed's own day has been read. */
+  value: T | null;
+  /** The answer the SHORE comes with, marked (see this module's header).
+   * Null on every row nothing deals: OPTIONS and the developer page. */
+  dealt?: T | null;
+  /** The mark belongs to a seed, and the seed on screen may have moved on:
+   * true dims it, exactly as the chart under the row dims, rather than
+   * asserting a deal that is still being worked out. */
+  pending?: boolean;
   onPick: (id: T) => void;
 }) {
   return (
     <div class="menu-row">
       <span class="menu-label">{label}</span>
-      <div class="menu-opts">
+      <div class={`menu-opts${pending ? " menu-opts-waiting" : ""}`}>
         {options.map((opt) => (
           <button
             key={opt.id}
             type="button"
-            class={`menu-opt${opt.id === value ? " menu-opt-active" : ""}`}
+            class={`menu-opt${opt.id === value ? " menu-opt-active" : ""}${
+              opt.id === dealt ? " menu-opt-dealt" : ""
+            }`}
             aria-pressed={opt.id === value}
+            // The mark's meaning in words, for the pointer that hovers it and
+            // the reader that cannot see the dot.
+            title={opt.id === dealt ? STRINGS.startDealt : undefined}
             onClick={() => onPick(opt.id)}
           >
             {opt.label}
+            {opt.id === dealt && <span class="menu-opt-mark" aria-hidden="true" />}
           </button>
         ))}
       </div>
@@ -249,41 +271,6 @@ export function ToggleRow({
         <span class="opt-switch-knob" />
       </span>
     </button>
-  );
-}
-
-/**
- * A ROW THAT IS NOT THE QUESTION — it reads back the answer and opens the
- * card that asks it.
- *
- * For a choice whose alternatives a row cannot show. Chips work because the
- * answer and everything it was chosen over are on screen together; where
- * the answers are SHAPES rather than words that stops being true, and the
- * honest row is one that says what is chosen and hands the choosing to a
- * surface with room for it. The chevron is the promise that pressing goes
- * somewhere, which is the one thing this row must not leave a player to
- * discover.
- */
-export function PageRow({
-  label,
-  read,
-  onOpen,
-}: {
-  label: string;
-  /** The answer as it stands, in the words the card that set it used. */
-  read: string;
-  onOpen: () => void;
-}) {
-  return (
-    <div class="menu-row">
-      <span class="menu-label">{label}</span>
-      <button type="button" class="menu-page-row" onClick={onOpen}>
-        <span class="menu-page-read">{read}</span>
-        <span class="menu-page-more" aria-hidden="true">
-          ›
-        </span>
-      </button>
-    </div>
   );
 }
 

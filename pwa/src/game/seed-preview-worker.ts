@@ -15,7 +15,7 @@
 // here unchanged; `minimap-scene.ts` is DOM-free for the same reason the
 // payload modules are, and cuts the schematic without a document.
 
-import { generateLevel } from "@engine";
+import { dealtTimeOfDay, generateLevel, type TimeOfDay, type Weather } from "@engine";
 
 import { levelSchematic } from "./minimap-scene.ts";
 import type { LevelSchematic } from "./minimap-scene.ts";
@@ -23,14 +23,33 @@ import type { LevelSchematic } from "./minimap-scene.ts";
 /** What the card asks for: one seed. */
 export type PreviewRequest = { seed: number };
 
-/** What comes back — the schematic, and the few figures worth printing
- * beside it. A seed the generator refuses is an answer too: the card says
- * so rather than sitting on a spinner forever. */
+/** THE DAY THIS SEED DEALS — the three answers the start card's own rows
+ * would otherwise have to offer a fourth chip for.
+ *
+ * Every row on that card defaults to the level as it was generated, and the
+ * only honest way to SAY so on a row of named answers is to mark the answer
+ * the seed already gives. That answer is a fact about the generated level,
+ * which is why it comes back with the chart rather than being guessed at
+ * from the number. */
+export type SeedDeal = {
+  /** The named hour the level's own hour (R13) stands nearest to. */
+  time: TimeOfDay;
+  /** The mean wind at 10 m the level was generated with, m/s (R12) — a
+   * figure, which `conditionsFor` turns into one of the card's three rungs. */
+  wind: number;
+  /** The sky R19 dealt over it. */
+  weather: Weather;
+};
+
+/** What comes back — the schematic, the day the seed deals, and the few
+ * figures worth printing beside the picture. A seed the generator refuses is
+ * an answer too: the card says so rather than sitting on a spinner forever. */
 export type PreviewReply =
   | {
       seed: number;
       ok: true;
       schematic: LevelSchematic;
+      deal: SeedDeal;
       gates: number;
       /** The course, m. */
       length: number;
@@ -48,6 +67,11 @@ self.onmessage = (e: MessageEvent<PreviewRequest>) => {
       seed,
       ok: true,
       schematic: levelSchematic(level),
+      deal: {
+        time: dealtTimeOfDay(level),
+        wind: level.wind.speed,
+        weather: level.weather,
+      },
       gates: level.course.gates.length,
       length: level.course.length,
     });

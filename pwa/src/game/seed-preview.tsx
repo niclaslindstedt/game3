@@ -9,6 +9,14 @@
 // by the same code that cuts the minimap, so the picture and the water are
 // never two different opinions about one seed.
 //
+// THE CARD READS THE SAME ANSWER TWICE. What comes back is a chart AND the
+// day the seed deals (`SeedDeal`) — which hour, which wind, which sky — so
+// the rows above the picture can mark the answer the level already gives
+// instead of offering a chip that means "whatever this turns out to be".
+// That is why the worker is driven by a HOOK the start card holds
+// (`useSeedPreview`) rather than by this component: one seed, one level, one
+// answer, read by the picture and by the rows beside it.
+//
 // THE WORK IS THE WORKER'S (`seed-preview-worker.ts`): generating a level
 // costs hundreds of milliseconds and the sea behind this card must not miss
 // a frame for it. What is left here is the DOM, and three rules about how
@@ -39,11 +47,15 @@ const SETTLE_MS = 220;
  * and a player walks tens of them, not thousands. */
 const KEPT = 60;
 
-type Shown = Extract<PreviewReply, { ok: true }> | Extract<PreviewReply, { ok: false }>;
+/** The chart as the card holds it: the last answer that arrived, and whether
+ * it is the answer for the seed on screen. A stale one still draws — dimmed,
+ * and its deal marked as provisional — because a box that emptied on every
+ * press would strobe through a walk down the seeds. */
+export type SeedChart = { shown: PreviewReply | null; fresh: boolean };
 
-export function SeedPreview({ seed }: { seed: number }) {
-  const [shown, setShown] = useState<Shown | null>(null);
-  const cache = useRef(new Map<number, Shown>());
+export function useSeedPreview(seed: number): SeedChart {
+  const [shown, setShown] = useState<PreviewReply | null>(null);
+  const cache = useRef(new Map<number, PreviewReply>());
   const worker = useRef<Worker | null>(null);
   /** The seed the card is on RIGHT NOW, for the reply handler to check
    * itself against — a ref, because the handler outlives the render it was
@@ -82,7 +94,11 @@ export function SeedPreview({ seed }: { seed: number }) {
     return () => window.clearTimeout(timer);
   }, [seed]);
 
-  const fresh = shown !== null && shown.seed === seed;
+  return { shown, fresh: shown !== null && shown.seed === seed };
+}
+
+export function SeedPreview({ chart }: { chart: SeedChart }) {
+  const { shown, fresh } = chart;
   return (
     <div class={`seed-preview${fresh ? "" : " seed-preview-waiting"}`}>
       {shown === null || !shown.ok ? (

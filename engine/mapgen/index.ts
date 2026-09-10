@@ -15,7 +15,7 @@ export {
 export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
-export { TIMES_OF_DAY, hourOfDay, type TimeOfDay } from "./daytime.ts";
+export { TIMES_OF_DAY, dealtTimeOfDay, hourOfDay, type TimeOfDay } from "./daytime.ts";
 export { generateLevel, subSeed } from "./generate.ts";
 export { compileLevel, insideBounds, type LevelPlan } from "./compile.ts";
 export { drawRoute, type Mark, type OceanLeg, type Route } from "./route.ts";
