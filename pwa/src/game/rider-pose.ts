@@ -49,10 +49,10 @@ export type P = [number, number, number];
  * 1.8 m rider on a real 3.1 m runabout — which is what the catalog's
  * dimensions are — is a correct picture that reads WRONG at chase range:
  * sixty pixels of man on three metres of hull, and the machine looks like
- * a small boat somebody is hanging off. Wave Race 64 draws its riders big
- * and heroic on the craft, and that is the game this one is aimed at, so
- * the figure is drawn a head taller than the table and every length in
- * `BODY` and every girth in rider.ts carries this factor.
+ * a small boat somebody is hanging off. The 90s jetski racers drew their
+ * riders big and heroic on the craft, and that is the look this one is
+ * aimed at, so the figure is drawn a head taller than the table and every
+ * length in `BODY` and every girth in rider.ts carries this factor.
  *
  * It is a LOOK, not a measurement: the physics' rider is the spec's
  * `riderMass` and `riderHeight` and knows nothing about this. */
