@@ -29,10 +29,10 @@ name: release
 # explicit patch/minor/major only to override that derivation.
 #
 # The release is created as a DRAFT and made public by the `publish` job at
-# the bottom. Nothing is attached to it today; when the desktop shell
-# (tauri/) arrives, its per-platform packaging matrix slots in between the
-# two, so no player ever finds a release page whose download for their
-# machine is missing.
+# the bottom. Between the two sits the `desktop` matrix, which packages the
+# Tauri shell (tauri/, docs/platforms.md) on a runner per platform and
+# attaches every download — so no player ever finds a release page whose
+# download for their machine is missing.
 
 on:
   workflow_dispatch:
@@ -137,7 +137,12 @@ jobs:
       - name: Collate changelog
         run: node scripts/release/collate-changelog.mjs "${{ steps.bump.outputs.version }}"
 
+      # The macOS paragraph depends on whether this repository is configured
+      # to notarize, which is the same condition the `desktop` job's signing
+      # turns on.
       - name: Extract release-notes body
+        env:
+          NOTARIZED: ${{ secrets.MAC_CSC_LINK != '' && secrets.APPLE_ID != '' }}
         run: |
           node scripts/release/extract-section.mjs "${{ steps.bump.outputs.version }}" > .release-notes.md
           cat >> .release-notes.md <<'NOTES'
@@ -147,7 +152,29 @@ jobs:
           Play this release at https://game3.niclaslindstedt.se/ — it is an
           installable PWA (add it to your home screen) and works offline
           once loaded.
+
+          ### Desktop downloads
+
+          The same game as a desktop app, below: an installer for Windows,
+          a `.dmg` for macOS (`aarch64` for Apple Silicon, `x64` for an
+          Intel Mac), and a `.deb` or `.AppImage` for Linux.
           NOTES
+
+          if [ "$NOTARIZED" = "true" ]; then
+            cat >> .release-notes.md <<'NOTES'
+
+          **macOS:** signed and notarized by Apple — it opens like any other
+          app.
+          NOTES
+          else
+            cat >> .release-notes.md <<'NOTES'
+
+          **macOS:** the app is signed but not notarized, so the first
+          launch is refused. Open **System Settings → Privacy & Security**,
+          scroll to the message about Sea Haven and choose **Open Anyway**.
+          macOS remembers after that.
+          NOTES
+          fi
 
       - name: make build
         run: make build
@@ -188,12 +215,115 @@ jobs:
             gh release create "$TAG" --draft --title "$TAG" --notes-file .release-notes.md
           fi
 
-  # THE RELEASE BECOMES VISIBLE HERE, and nowhere else. Today nothing sits
-  # between this and `release`; when a shell's packaging matrix does, this
-  # job takes `needs: [release, desktop]` and the draft stays a draft until
-  # every platform has attached its download.
-  publish:
+  # The desktop downloads, attached to the draft the job above created. One
+  # runner per platform, because each one packages the shell for its own OS
+  # in the platform's own webview, and the bundle has to be built where the
+  # app will run. `tauri/scripts/package.mjs` names every download
+  # `seahaven-<version>-<os>-<arch>.<ext>`.
+  desktop:
     needs: release
+    name: desktop (${{ matrix.target }})
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            target: windows
+          - os: macos-latest
+            target: macos
+          - os: ubuntu-latest
+            target: linux
+    runs-on: ${{ matrix.os }}
+    # contents: write — the downloads are uploaded onto the GitHub Release.
+    permissions:
+      contents: write
+    env:
+      # The release commit is on the tag, so the build is made from exactly
+      # what was tagged rather than from whatever main looks like by now.
+      TAG: ${{ needs.release.outputs.tag }}
+      # NOTARIZATION. The bundler acts on these three only once the app is
+      # signed with a real Developer ID (the `Apple signing` step below), and
+      # ignores them otherwise — so an unconfigured repo still packages, it
+      # just packages the ad-hoc build. `APPLE_PASSWORD` is the bundler's
+      # name for an app-specific password; the secret keeps the longer name
+      # it has in the sibling repo.
+      APPLE_ID: ${{ secrets.APPLE_ID }}
+      APPLE_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+      APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.release.outputs.tag }}
+      # The website build lives in the root workspace; the shell copies its
+      # output and packages around it.
+      - uses: ./.github/actions/setup
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: tauri
+
+      - name: Linux packaging libraries
+        if: matrix.target == 'linux'
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libwebkit2gtk-4.1-dev libgtk-3-dev \
+            libayatana-appindicator3-dev librsvg2-dev patchelf
+
+      # Turns `package.mjs`'s ad-hoc fallback into a real signature, and
+      # with it unlocks the notarization the env above configures. A no-op
+      # with a warning when the certificate secret is empty.
+      - name: Apple signing
+        if: matrix.target == 'macos'
+        uses: ./.github/actions/apple-signing
+        with:
+          certificate: ${{ secrets.MAC_CSC_LINK }}
+          certificate-password: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          identity: ${{ secrets.MAC_SIGN_IDENTITY }}
+
+      # An Intel Mac cannot run the arm64 bundle, and `macos-latest` is
+      # Apple Silicon, so its slice is a cross-compile — cheap, because the
+      # web build and the icons are already made by then (`--skip-web`), and
+      # `--keep` is what stops the second pass wiping the first one's `.dmg`.
+      - name: An Intel Mac target
+        if: matrix.target == 'macos'
+        run: rustup target add x86_64-apple-darwin
+
+      - name: Package
+        shell: bash
+        run: npm run tauri:package
+
+      - name: Package (macOS, Intel)
+        if: matrix.target == 'macos'
+        shell: bash
+        run: npm run tauri:package -- --target x86_64-apple-darwin --skip-web --keep
+
+      # Whatever this platform's packager produced — a job that listed
+      # filenames would silently upload nothing the day a target changed
+      # its suffix.
+      - name: Attach to the release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          shopt -s nullglob
+          assets=(tauri/release/*)
+          if [ ${#assets[@]} -eq 0 ]; then
+            echo "::error::${{ matrix.target }} produced no downloads"
+            ls -R tauri/release || true
+            exit 1
+          fi
+          printf 'uploading %s\n' "${assets[@]}"
+          gh release upload "$TAG" "${assets[@]}" --clobber
+
+  # THE RELEASE BECOMES VISIBLE HERE, and nowhere else: `needs: desktop`
+  # means every platform in the matrix has packaged AND uploaded before
+  # anybody can see the release page. If one target fails, the draft stays
+  # a draft — a release that is missing a download is a bug report from
+  # every player on that platform, and the fix (re-dispatch, or upload the
+  # file by hand and flip the draft off) is much cheaper while nobody has
+  # seen it yet.
+  publish:
+    needs: [release, desktop]
     runs-on: ubuntu-latest
     # contents: write — this is the flag flip on the release itself.
     permissions:

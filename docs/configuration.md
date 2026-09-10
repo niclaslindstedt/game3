@@ -55,6 +55,32 @@ Every dependency resolves from the public npm registry, so `npm install` needs n
 
 `.env.example` at the root documents the same set; copy it to `.env` (gitignored) to override locally.
 
+## The desktop shell's environment
+
+Read by the Tauri app's own binary (`tauri/`, see [platforms.md](platforms.md)), never by the website's build. All optional — with none of them set the app serves the copy of the site bundled inside it.
+
+| Variable       | Meaning                                                                                                                                         |
+| -------------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `SH_GAME_URL`  | Load a remote URL instead of the bundled site (e.g. `https://game3.niclaslindstedt.se/preview/`), for debugging the shell against live content. |
+| `SH_WEBROOT`   | Serve the site from another directory without rebuilding the app.                                                                               |
+| `SH_VERBOSE=1` | Keep the informational log lines in a release build (a debug build prints them anyway). Warnings and errors are never suppressed.               |
+
+Packaging reads one more: `APPLE_SIGNING_IDENTITY`, the Developer ID a macOS build is signed with. Absent, the app is signed ad hoc — enough to run on Apple Silicon, at the cost of one Gatekeeper prompt the release notes explain.
+
+On a runner nobody sets it by hand: `.github/actions/apple-signing` imports a certificate into a throwaway keychain and reads the identity back out of it, so a renewed certificate is one secret to replace rather than two to keep agreeing. Five repository secrets, all optional:
+
+| Secret                        | Meaning                                                                                     |
+| ----------------------------- | ------------------------------------------------------------------------------------------- |
+| `MAC_CSC_LINK`                | The Developer ID Application certificate as a base64-encoded `.p12` (`base64 -i cert.p12`). |
+| `MAC_CSC_KEY_PASSWORD`        | The password that `.p12` was exported with.                                                 |
+| `APPLE_ID`                    | The Apple ID the notarization request is made as.                                           |
+| `APPLE_APP_SPECIFIC_PASSWORD` | An app-specific password for it, from appleid.apple.com.                                    |
+| `APPLE_TEAM_ID`               | The ten-character Developer Team ID the certificate belongs to.                             |
+
+The first two sign; the last three notarize, and the bundler acts on them only once the app carries a real signature — so half a set signs without notarizing rather than failing. `MAC_SIGN_IDENTITY` overrides the identity read out of the certificate, and is needed only where the keychain holds more than one.
+
+Every launch is written to `launch.log` in the app's own user-data directory — `%APPDATA%\seahaven` on Windows, `~/Library/Application Support/seahaven` on macOS, `~/.local/share/seahaven` on Linux — with the previous launch kept beside it as `launch.log.prev`. The window's remembered geometry (`window-state.json`) is there too. The player's settings are NOT: those are the webview's own origin-keyed storage, exactly as in a browser.
+
 ## The deploy slots
 
 `pages.yml` builds three whole sites and merges them into one Pages artifact served at `game3.niclaslindstedt.se` (the custom domain in `pwa/public/CNAME`; DNS is a CNAME on `niclaslindstedt.github.io`, and the repo's Pages settings must say "GitHub Actions" + that domain):
@@ -67,7 +93,7 @@ Each slot's manifest gets a distinct `id`/`scope`/`start_url` and install name, 
 
 ## Releases
 
-`version-bump.yml` (manual dispatch, and the only entry point) checks the branch and the tree, prints the version it is about to cut, and calls `release.yml`, which derives the bump from `.changes/unreleased/` fragments, rewrites every version string via `scripts/update-versions.sh`, collates the CHANGELOG, commits `chore(release): vX.Y.Z`, tags, creates the GitHub Release, and chains into `pages.yml` so `/` serves the new tag immediately. It is one dispatched run under the default `GITHUB_TOKEN` — no `RELEASE_TOKEN` PAT, because no cross-workflow trigger is needed (both workflow headers say why). Preview locally with `make bump` and `make changelog VERSION=X.Y.Z`.
+`version-bump.yml` (manual dispatch, and the only entry point) checks the branch and the tree, prints the version it is about to cut, and calls `release.yml`, which derives the bump from `.changes/unreleased/` fragments, rewrites every version string via `scripts/update-versions.sh`, collates the CHANGELOG, commits `chore(release): vX.Y.Z`, tags, creates the GitHub Release as a DRAFT, packages the desktop downloads on a runner per platform and attaches them, publishes the release only once all three have landed, and chains into `pages.yml` so `/` serves the new tag immediately. It is one dispatched run under the default `GITHUB_TOKEN` — no `RELEASE_TOKEN` PAT, because no cross-workflow trigger is needed (both workflow headers say why). Preview locally with `make bump` and `make changelog VERSION=X.Y.Z`.
 
 ## Identity
 

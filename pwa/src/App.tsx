@@ -104,12 +104,13 @@ import {
 } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
+import { onShellCommand } from "./shell-host.ts";
 import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
 import { CAMERA_MODES, type CameraMode } from "./game/camera.ts";
 import { FPS_UNKNOWN, smoothFps } from "./game/frame-rate.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
 import { UpdateButton } from "./game/update-button.tsx";
-import { createInputManager } from "./game/input.ts";
+import { createInputManager, type InputAction } from "./game/input.ts";
 import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav } from "./game/menu-nav.ts";
@@ -670,7 +671,8 @@ export function App() {
       },
     };
 
-    input.onAction((action) => {
+    /** One of the game's own buttons, wherever the press came from. */
+    const act = (action: InputAction): void => {
       // Escape over a run. Over the CARD it never reaches here at all:
       // `onMenuKey` above takes it in the capture phase and presses the
       // surface's own way back — RESUME on the card, and the head's way out
@@ -685,6 +687,20 @@ export function App() {
         stand(settingsRef.current.dev.scene, 0);
         clock.resume();
       } else if (action === "camera") renderer.camera.cycle();
+    };
+    input.onAction(act);
+
+    /* ── A MENU ROW, PRESSED ──────────────────────────────────────────────
+       The desktop shell's macOS menu bar reaches the game by NAME, on one
+       event (shell-host.ts, mirrored in tauri/shell/src/menu.rs), and every
+       word it may send is a key the player can already press. So each one
+       lands on the very handler the key lands on rather than on a path of
+       its own: a shell may add a second way to reach a button, never a
+       second button. In a browser nothing ever dispatches the event and
+       this is one listener that never fires. */
+    const stopShellCommands = onShellCommand((command) => {
+      if (command === "reset") input.requestReset();
+      else act(command);
     });
 
     let raf = 0;
@@ -829,6 +845,7 @@ export function App() {
       document.removeEventListener("pointerdown", unlockAudio, unlockOpts);
       document.removeEventListener("keydown", unlockAudio, unlockOpts);
       window.removeEventListener("keydown", onMenuKey, true);
+      stopShellCommands();
       input.dispose();
       renderer.dispose();
     };
