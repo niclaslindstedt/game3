@@ -73,11 +73,12 @@ export type VideoSettings = {
    * half measure worth having: the pods are already culled to what the rider
    * can see into. */
   fauna: boolean;
-  /** HOW THICKLY THE SHORE IS PLANTED — the tree line behind the beach
-   * (`pines.ts`). Part of DETAIL. Two instanced draw calls whatever the count,
-   * so what this buys is vertex work rather than submission, and it applies
-   * the instant it is set: the stand is built once at its thickest and the row
-   * decides how many of it are drawn. */
+  /** HOW THICKLY THE SHORE IS PLANTED — the wood behind the beach, the scrub
+   * on the bank, the grass, the reed in the river's margins and the loose
+   * stone at the waterline (`flora.ts`). Part of DETAIL. One instanced draw
+   * call a SPECIES whatever the count, so what this buys is vertex work rather
+   * than submission, and it applies the instant it is set: the cover is planted
+   * once at its thickest and the row decides how much of it is drawn. */
   flora: FloraLevel;
 };
 
@@ -181,13 +182,13 @@ export const SPRAY_SCALE: Record<SprayLevel, number> = {
   full: 1,
 };
 
-/** How much of the tree line is drawn, as a share of the stand `pines.ts`
- * plants. The stand is planted at `lush` whatever the row says and the row
- * sets the instance count, so moving it costs nothing and shows immediately —
- * and thinning it can never change what the hull hits, because a pine is not a
- * solid. The rocks are never thinned for the same reason in reverse: they ARE
- * solids, and a rock you can hit but cannot see is the worst bug a picture
- * setting could buy. */
+/** How much of the cover is drawn, as a share of what `flora.ts` plants. It
+ * is planted at `lush` whatever the row says and the row sets the instance
+ * count per species, so moving it costs nothing and shows immediately — and
+ * thinning it can never change what the hull hits, because nothing in the
+ * roster is a solid. The rocks in `rocks.ts` are never thinned for the same
+ * reason in reverse: they ARE solids, and a rock you can hit but cannot see is
+ * the worst bug a picture setting could buy. */
 export const FLORA_SCALE: Record<FloraLevel, number> = {
   sparse: 0.4,
   normal: 1,
@@ -216,9 +217,9 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
   low: { spray: "low", fauna: false, flora: "sparse" },
   // The design point — every lever at the number the game was tuned on.
   medium: { spray: "full", fauna: true, flora: "normal" },
-  // A machine with headroom. Only the tree line has anywhere left to go: the
+  // A machine with headroom. Only the cover has anywhere left to go: the
   // spray is already every droplet the hull throws and the sea life is already
-  // every pod the rider can see into, so HIGH is a thicker taiga and nothing
+  // every pod the rider can see into, so HIGH is a thicker shore and nothing
   // else. A stop that promised more than that would be the page inventing work
   // to sell.
   high: { spray: "full", fauna: true, flora: "lush" },

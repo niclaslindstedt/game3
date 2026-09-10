@@ -38,6 +38,7 @@ import { fieldGradient, hash2, sampleField, type Level, type Surface } from "@en
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
+import { TREE_LINE } from "./flora-defs.ts";
 import { seaHaze, seaTones, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 
 /** Chunk edge, m — big enough that a frame holds a handful, small enough
@@ -65,12 +66,11 @@ const SAND_BED = new THREE.Color(0xbda878);
 const BED = new THREE.Color(0x3a4a34);
 /** The wet band at the waterline, where the rock is darker. */
 const WET = new THREE.Color(0x646a70);
-/** The tree line inland: the forest floor under the pines. */
+/** The forest floor under the wood. Held to the same line the trees
+ * themselves stop at (`flora-defs.ts`), because a shore whose paint and
+ * whose trees disagree about where the wood ends is a shore with a green
+ * band of nothing above its treetops. */
 const FLOOR = c(PALETTE.pineDark);
-/** How high the pines get up a hill, m. Over it the rock stands bare, which
- * is what makes a rugged headland (R21) read as rock rather than as a
- * wooded ridge with a stony foot. */
-const TREE_LINE = 20;
 /** How far out from the shore the bed still remembers what the beach in
  * front of it is made of, m. Past this the water is deep enough that its
  * own colour-by-depth is all anybody sees. */
@@ -119,7 +119,7 @@ function paint(
     out.lerp(WET, clamp(1 - h / 0.9, 0, 0.8));
     // The forest floor once the shore is behind, and only up to the tree
     // line: a boulder field stays what it is, and a hill stands bare over
-    // the pines.
+    // the wood.
     if (kind === "bedrock") {
       const inland = -offshore;
       const wooded = clamp((inland - 22) / 40, 0, 0.75) * clamp((h - 1.2) / 3, 0, 1);

@@ -41,6 +41,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
 | The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife` | `nature`, `game-feel`                   |
+| What grows on the shore: the trees, the scrub, the reed | `flora`, `screenshots SCENE=river`, `profile` | `nature`                    |
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
 | The sky, the light, the weather                         | `sky`, `screenshots`           | `game-feel`                                    |
@@ -48,13 +49,14 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots`, `profile` and `sky` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky` builds its own one-off bundle from its harness page and so needs no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots`, `profile`, `sky` and `flora` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky` and `flora` build their own one-off bundle from their harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
-Four of these are worth knowing about even when they are not your subject:
+Five of these are worth knowing about even when they are not your subject:
 
 - **`make level SEED=38`** reasons about ONE level without riding it — every gate numbered with its offshore distance and the depth under it, every ramp, every rock, the wind arrow — in a couple of seconds. A claim about "the second air gate on seed 38" is a claim about a row there.
 - **`make waves SEED=38`** is the sea with nothing riding it: a transect from the shore out, Hs against offshore distance, the spectrum. A wave-model change is judged by the sea it makes, and a screenshot shows one wave.
 - **`make sim`** is CI's `simulate` job and exits non-zero when a craft finishes NO seed. Its digests are where a determinism regression shows first; `docs/simulation.md` says what every column means.
+- **`make flora`** is every species on the shore side by side, each drawn at both ends of its own height band over a metre rule. Same reason as the sky's sheet: a screenshot of a RUN shows whichever species that stretch of coast happened to grow, at whatever range the craft happened to be, against a wood of everything else — so a reed that is too pale comes back looking like a shore that is fine.
 - **`make sky`** is every weather against every hour on ONE coast, as a single labelled sheet. It exists because a seed is dealt one sky (R19) at one hour (R13), so a screenshot of a RUN can only ever say whether that one sky is wrong — and the sky here is a LADDER, which is judged side by side or not at all.
 
 ## How work is done here
@@ -149,6 +151,9 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | What swims here: the catalog, its rarity (R20)        | `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `biomes.ts`'s `fauna` | `nature`     |
 | Where an animal IS at a moment                        | `engine/game/fauna.ts` (`faunaPose`)                          | `nature`             |
 | The sea life as DRAWN, seen through the water         | `pwa/src/game/fauna.ts`, `water-mesh.ts`'s alpha              | `nature`, `game-feel` |
+| What GROWS here: the roster, its habitats (the trees, the scrub, the grass, the reed, the loose stone) | `pwa/src/game/flora-defs.ts` | `nature` |
+| Where every plant STANDS                              | `pwa/src/game/flora-plan.ts` (three-free, so the tests read it) | `nature`             |
+| The cover as DRAWN                                    | `pwa/src/game/flora-shapes.ts`, `flora.ts`                    | `nature`, `game-feel` |
 | The buoys, the rings, the ramps as drawn              | `pwa/src/game/gates.ts`                                       | `collision`          |
 | A staged moment                                       | `pwa/src/game/scenarios.ts`, `engine/game/place.ts`           | `test-scenario`      |
 

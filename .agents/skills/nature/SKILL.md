@@ -32,6 +32,10 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | `engine/mapgen/fauna.ts` | THE PLACER (R20): pods laid along the coast after the rocks, each tried a bounded number of times for a spot with the water its species needs the whole way round the loop it swims, clear of the solids. Its draws come off the END of the seed's stream, after R19's sky, so adding or retuning an animal moves no geometry |
 | `engine/game/fauna.ts` | THE SWIM MODEL: `faunaPose(pod, i, t, out)` — the loop, the formation, the weave, the breath — a pure function of the placement and the clock, the fauna's own `surfaceAt`. Nothing about the sea life is ever stepped |
 | `pwa/src/game/fauna.ts` | THE LOOK: `STYLES` (paint, fin proportions, markings) and the parametric body, one instanced draw call a species, with the tail beat and the depth haze grafted into the vertex shader |
+| `pwa/src/game/flora-defs.ts` | THE ROSTER: the thirteen rows the shore is covered in — for each, what it IS (its form, height band, spread, bark and the two greens of its canopy) and its HABITAT (the ground and inland bands, the surfaces, the slope it holds on, its share, the bigger share it takes on a riverbank, the shelter it needs, the patch it comes in). `TREE_LINE` is stated here and `terrain.ts` paints the forest floor under it |
+| `pwa/src/game/flora-plan.ts` | THE PLACER: candidates thrown along `level.shore` — which the river's banks are part of (R26) — and each point offered to every row, one species picked weighted by share. Three-free, so `tests/flora_test.ts` holds the habitats |
+| `pwa/src/game/flora-shapes.ts` | THE BUILDERS: seven parametric low-poly forms carrying the thirteen rows, each one flat-shaded vertex-coloured geometry off the shared `lowpoly` Builder, with the facet budget that gives a 30 cm plant a bipyramid and a spruce a lump |
+| `pwa/src/game/flora.ts` | The wiring: one instanced mesh a species, the per-instance matrix and tint, and the DETAIL row's thinning |
 
 Biome → material ids are strings on purpose: `biomes.ts` imports nothing from
 the renderer, and the terrain painter throws on an unknown `Surface`, so a new
@@ -72,6 +76,41 @@ water, and that one fact decides everything about the fauna's look:
   prints a seed's roster, `make analyze` the pods and animals per level),
   and check the ladder still reads — commonest several times a ride,
   legendary once in dozens.
+
+## The cover above the waterline
+
+Thirteen rows, and the reason there are thirteen is that a taiga COAST is
+not the taiga. The picture people carry inland — a wall of spruce — is
+wrong at the water, and a shore drawn from it reads as a screensaver:
+
+- **The shore is a LADDER, and the ladder is the design.** Reed in the
+  shallow water, sedge in the wet margin, alder and sallow on the bank,
+  lyme grass on the sand, birch running down to the waterline, Scots pine
+  on the dry slabs with juniper and ling between them, spruce only where
+  the ground behind holds water, bare rock over the tree line. Each rung
+  is a habitat band rather than a place, so it holds on every seed.
+- **The leaf trees are what say NORTHERN.** A white birch trunk against a
+  dark conifer is the single most legible thing on this coast at any
+  distance, and a roster of conifers alone reads as generic forest
+  wherever it is set.
+- **The river is made of its plants.** Three fields do it and not one is a
+  special case in the placer: the riparian rows take a much bigger share
+  within `riverside.within` of the river's line, reed needs a `shelter`
+  ring only a cove or a mouth gives it, and the patchy rows come in
+  patches. A mouth grows a wall of reed with alder behind it; the open
+  coast does not. Retuning `riverside.share` is retuning the delta.
+- **Nothing in the roster is a solid.** The hull rides through a reed bed.
+  That is the deal that lets the renderer place it at all, and it is why
+  the DETAIL row may thin it and may never thin a rock.
+- **A plant's facets come off its height.** A row that never exceeds a
+  metre and a half is a few pixels from the saddle and there are thousands
+  more of them than of the trees, so it gets a bipyramid where a tree gets
+  a lump. Derived rather than stated per row, so a species retuned taller
+  earns its facets on the same edit.
+- **Judge the roster on the sheet, the shore in the app.** `make flora`
+  is the ladder side by side; `make screenshots SCENE=river` is whether
+  the delta reads. And `make profile` before and after, always: the cover
+  is the biggest single block of geometry in the frame.
 
 ## The biome model
 
@@ -157,17 +196,18 @@ materials present in the biome's stated shares).
   palette for the terrain, and eventually a flora roster and a sky look. The
   reserved ids exist so the campaign's level ids never change when the
   country arrives.
-- **The flora above the waterline** (not built): pines and birches on the
-  slabs, juniper and heather in the pockets, reeds in the bays. When it
-  comes, it follows the sibling game's pattern — a species roster of
-  parametric low-poly builders, instanced per variant, placed by the biome's
-  communities, NEVER below the waterline and never inside the hull's margin
-  — and this skill grows the sections for it.
+- **A new species**: a row in `pwa/src/game/flora-defs.ts` — what it looks
+  like and where it grows — and, only if no existing form carries it, a
+  case in `flora-shapes.ts`. Nothing else changes: the placer reads the
+  roster, the lab sheets whatever is in it, and the test asserts the row's
+  own bands. Judge it with `make flora` before you ever look at a shore.
 
 ## What the change obliges elsewhere
 
 - A material or relief change → `make level` at several seeds and
   `make analyze` over a sweep (the depth and clearance checks read the bed).
+- A flora change → `make flora`, `make screenshots SCENE=river` and
+  `SCENE=rest`, and `make profile` before and after.
 - A `biomes.ts` change → the corpus digest, before and after.
 - `docs/level-generator.md` for anything the rules quote; a changeset
   fragment — the shore is what the player looks at.
