@@ -10,7 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { CRAFT, TUNING, createGame, placeRun, step, type GameState } from "@engine";
 
-import { CHASE } from "../pwa/src/game/camera.ts";
+import { CHASE_RIGS } from "../pwa/src/game/camera-rigs.ts";
 import { cockpitOf, type Cockpit } from "../pwa/src/game/craft-body.ts";
 import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import {
@@ -127,12 +127,19 @@ describe("the pose on every craft", () => {
       expect(rest.lean).toBeLessThanOrEqual(STANCE.leanMax);
       expect(rest.chest[1]).toBeGreaterThan(rest.pelvis[1] + 0.15);
       expect(rest.neck[1]).toBeGreaterThan(rest.chest[1]);
-      // Inside the beam, and CLEAR OF THE LENS: the chase camera's eye
-      // rides `CHASE.height` over the craft, so a rider whose crown
-      // reaches it is a rider stood in front of the camera with the water
-      // ahead behind his shoulders.
+      // Inside the beam, and UNDER THE REFERENCE LENS: `chase` is the rung
+      // the whole ladder's framing is derived from, and its eye rides
+      // `height` over the craft. A rider whose crown reaches it has grown
+      // past the envelope that framing was chosen for.
+      //
+      // It is a rail, not a proof of framing: every rung aims metres
+      // AHEAD and above, so the horizon lands far up the frame and a crown
+      // numerically over a tighter rung's `height` still blocks nothing.
+      // Whether he occludes the water is settled by looking at the tight
+      // rungs (`make screenshots SCENE=cruise ARGS="--camera close"`),
+      // never by arithmetic here.
       const crown = rest.neck[1] + BODY.helmet * rest.headUp[1];
-      expect(crown).toBeLessThan(CHASE.height - 0.15);
+      expect(crown).toBeLessThan(CHASE_RIGS.chase.height - 0.1);
       expect(crown - spec.cog.y).toBeGreaterThan(0.7);
       for (const j of [...rest.shoulders, ...rest.elbows, ...rest.knees])
         expect(Math.abs(j[0])).toBeLessThan(spec.beam / 2 + 0.1);
