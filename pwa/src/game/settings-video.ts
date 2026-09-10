@@ -31,7 +31,8 @@
  *   DETAIL      is how much world there is per metre: the spray thrown off the
  *               hull, the sea life under the surface, the tree line behind the
  *               shore, how many sheets of cloud are in the sky (and so in the
- *               sea reflecting it), and whether the rain lands on the water.
+ *               sea reflecting it), whether the rain lands on the water, and
+ *               whether the shore and the craft stand mirrored in it.
  *   DISTANCE    is how many metres of it there ARE — vertices, and nothing
  *               else. Where DETAIL thins the wood the rider is riding past,
  *               DISTANCE decides how much coast is submitted at all, and pulls
@@ -117,6 +118,19 @@ export type VideoSettings = {
    * loop is skipped, so a level under a clear sky pays nothing for it at any
    * stop and a phone in a downpour pays nothing for it at this one. */
   rainRings: RainRingLevel;
+  /** WHETHER THE SHORE STANDS IN THE WATER — the coast, the wood on it, the
+   * rocks, the gates, the craft and the rider, drawn a second time from
+   * under the surface into a texture the water mirrors (`reflection.ts`),
+   * and how big that texture is. Part of DETAIL, and it applies the instant
+   * it is set.
+   *
+   * The dearest thing on the row on a machine that is short of vertices
+   * rather than pixels: the texture is small, but every stand of pines
+   * inside the mirrored lens is submitted again to draw into it. OFF is
+   * genuinely off — no pass, no texture — and the sea reflects the sky
+   * alone, which is the honest picture of open water and a poorer one of
+   * a shore. */
+  reflections: ReflectionLevel;
   /** HOW MANY FRAMES A SECOND THE GAME MAY DRAW — its own row (FRAME RATE),
    * and the one row on the page that is not about the picture at all but
    * about the machine drawing it. A display refreshing at a hundred and
@@ -196,19 +210,36 @@ export const RAIN_RING_REACH: Record<RainRingLevel, readonly [number, number]> =
   far: [20, 48],
 };
 
-/** What one stop of the WATER row builds. `water-mesh.ts` lays its grid out of
- * the first three and `water-shader.ts` reads the last two. */
+export const REFLECTION_LEVELS = ["off", "soft", "sharp"] as const;
+export type ReflectionLevel = (typeof REFLECTION_LEVELS)[number];
+
+/** How big the mirror's picture is, as a share of the frame's own pixels a
+ * side; `off` is no picture and no pass. SOFT is enough: the water reads the
+ * texture blurred either way, because a sea is a rough mirror, and what the
+ * top stop buys is a tree line that keeps its trunks at the waterline
+ * rather than one that has gone to a smear a little sooner. */
+export const REFLECTION_SCALE: Record<ReflectionLevel, number> = {
+  off: 0,
+  soft: 0.4,
+  sharp: 0.6,
+};
+
+/** What one stop of the WATER row builds. `water-grid.ts` lays the near
+ * grid out of the first three and `water-shader.ts` reads the last two. */
 export type WaterLook = {
-  /** Vertices a side of the near grid. Its square is how many times the
-   * engine's `surfaceAt` is called per frame, and that is the whole bill. */
-  grid: number;
-  /** How far the near grid reaches either side of the craft, m. */
-  half: number;
-  /** The cell at the craft, m. The grid is laid on a cubic, so the cell grows
-   * to about four times this at the edge — detail is spent where the camera
-   * is, and the far cells carry the long swell, which is all that survives
-   * the distance anyway. */
+  /** The cell at the craft, m — the finest the sea is sampled. A wave
+   * shorter than two of these cannot be drawn at all, however far the grid
+   * reaches. */
   cell: number;
+  /** Cells a side of the CORE, the square of finest water round the craft;
+   * a multiple of four. Each ring outside it doubles the cell and the reach,
+   * so the core is also the size of every ring in its own cells. */
+  core: number;
+  /** How many rings stand round the core. The reach either side of the
+   * craft is `core / 2 · cell · 2^rings` (`waterReach`) and the vertex count
+   * — the `surfaceAt` calls a frame with nothing culled — is `waterSamples`;
+   * both are stated once, in `water-grid.ts`. */
+  rings: number;
   /** Where the shader's ripples begin to fade and where they are gone, m from
    * the lens. Past that the broad glint lobe carries the roughness on its own,
    * and the sea reads as a smooth sheet with a highlight on it. Pushing this
@@ -230,12 +261,13 @@ export type WaterLook = {
  * either side of it rather than a shade, because a stop that does not visibly
  * buy anything is a stop nobody would move to.
  *
- * The three numbers at the top of each row multiply into the cost: `grid`
- * squared is the call count, and `cell` decides how much of that fineness
- * lands near the rider rather than out at the edge. LOW is about six tenths of
- * the design point's calls, HIGH about one and three quarters — which is the
- * honest price of a sea that is still a sea twenty metres out, and the reason
- * it is a row the player turns rather than a number the game picks.
+ * The three numbers at the top of each row multiply into the cost: the core's
+ * square and the rings round it are the call count (`waterSamples`), and
+ * `cell` decides how fine that count is spent near the rider. LOW is under
+ * four tenths of the design point's calls, HIGH about one and three quarters
+ * — which is the honest price of a sea that is still a sea twenty metres out,
+ * and the reason it is a row the player turns rather than a number the game
+ * picks.
  *
  * HIGH does not simply push the same profile further: it drops the centre cell
  * to well under a metre, which is where the short wind chop stops being two
@@ -245,13 +277,15 @@ export type WaterLook = {
 export const WATER_LOOK: Record<WaterLevel, WaterLook> = {
   // The phone that stutters: a coarser sea over a shorter reach, the ripples
   // given up early, and the cheapest filtering that is still not streaks.
-  low: { grid: 56, half: 110, cell: 2.2, rippleFade: [40, 170], anisotropy: 2 },
-  // The design point.
-  medium: { grid: 72, half: 120, cell: 1.5, rippleFade: [60, 260], anisotropy: 8 },
-  // A machine with headroom: a cell under a metre at the rider, half again the
-  // reach, and the ripples carried out to where the far grid takes over — the
-  // sea the shader was written for, at the distance a rider actually looks.
-  high: { grid: 96, half: 140, cell: 0.85, rippleFade: [120, 460], anisotropy: 16 },
+  low: { cell: 2.2, core: 24, rings: 3, rippleFade: [40, 170], anisotropy: 2 },
+  // The design point: a metre and a half out to thirty metres, three to sixty,
+  // six to a hundred and twenty, twelve to the far water.
+  medium: { cell: 1.5, core: 40, rings: 3, rippleFade: [60, 260], anisotropy: 8 },
+  // A machine with headroom: a cell under a metre at the rider, a fourth ring
+  // for the reach, and the ripples carried out to where the far grid takes
+  // over — the sea the shader was written for, at the distance a rider
+  // actually looks.
+  high: { cell: 0.85, core: 48, rings: 4, rippleFade: [120, 460], anisotropy: 16 },
 };
 
 /** What one stop of the DISTANCE row is worth. Two radii and a haze, and the
@@ -355,7 +389,10 @@ export const FLORA_SCALE: Record<FloraLevel, number> = {
 /** The three levers DETAIL owns. Named as a slice of `VideoSettings` rather
  * than restated, so adding another is a decision about which row it belongs on
  * instead of a silent omission from both. */
-export type DetailSettings = Pick<VideoSettings, "spray" | "fauna" | "flora" | "sky" | "rainRings">;
+export type DetailSettings = Pick<
+  VideoSettings,
+  "spray" | "fauna" | "flora" | "sky" | "rainRings" | "reflections"
+>;
 
 export const DETAIL_LEVELS = ["low", "medium", "high"] as const;
 export type DetailLevel = (typeof DETAIL_LEVELS)[number];
@@ -372,15 +409,36 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
   // The phone that would rather have the frames: under half the spray, an
   // empty sea under the hull, a thin tree line, one cloud sheet read shallow,
   // and a sea the rain does not land on.
-  low: { spray: "low", fauna: false, flora: "sparse", sky: "low", rainRings: "off" },
+  low: {
+    spray: "low",
+    fauna: false,
+    flora: "sparse",
+    sky: "low",
+    rainRings: "off",
+    reflections: "off",
+  },
   // The design point — every lever at the number the game was tuned on.
-  medium: { spray: "full", fauna: true, flora: "normal", sky: "medium", rainRings: "near" },
+  medium: {
+    spray: "full",
+    fauna: true,
+    flora: "normal",
+    sky: "medium",
+    rainRings: "near",
+    reflections: "soft",
+  },
   // A machine with headroom: a thicker shore, a third cloud sheet read a stop
   // deeper, and the rain landing out to where the near grid gives way. The
   // spray is already every droplet the hull throws and the sea life already
   // every pod the rider can see into, so those two have nowhere left to go —
   // a stop that promised more would be the page inventing work to sell.
-  high: { spray: "full", fauna: true, flora: "lush", sky: "high", rainRings: "far" },
+  high: {
+    spray: "full",
+    fauna: true,
+    flora: "lush",
+    sky: "high",
+    rainRings: "far",
+    reflections: "sharp",
+  },
 };
 
 /** Where the rows stand on a first visit — and the answers are not the same

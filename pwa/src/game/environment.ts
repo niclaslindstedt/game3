@@ -100,6 +100,11 @@ export type Environment = {
    * beside it is lit by. */
   hemi: THREE.HemisphereLight;
   key: THREE.DirectionalLight;
+  /** What the sky owns that the water's mirror must NOT draw
+   * (`reflection.ts`): the dome, because the sea reflects the sky as a
+   * function and blurred, and the rain, which is in the air over the
+   * water rather than standing on the shore. */
+  unmirrored: readonly THREE.Object3D[];
   dispose: () => void;
 };
 
@@ -288,6 +293,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     preset: () => preset,
     uniforms,
     cloudLayers: () => dome.layers().length,
+    unmirrored: [dome.mesh, rain.lines],
     rainfall: () => (standingFall > 0 ? fall : 0),
     hemi,
     key,

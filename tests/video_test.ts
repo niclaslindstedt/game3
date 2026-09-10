@@ -35,6 +35,7 @@ import {
   WATER_LOOK,
   detailOf,
 } from "../pwa/src/game/settings-video.ts";
+import { layWaterGrid, waterReach, waterSamples } from "../pwa/src/game/water-grid.ts";
 
 describe("the WATER ladder", () => {
   it("is a real step at every stop, in every direction that matters", () => {
@@ -44,8 +45,8 @@ describe("the WATER ladder", () => {
     for (let i = 1; i < WATER_LEVELS.length; i++) {
       const under = WATER_LOOK[WATER_LEVELS[i - 1]];
       const over = WATER_LOOK[WATER_LEVELS[i]];
-      expect(over.grid).toBeGreaterThan(under.grid);
-      expect(over.half).toBeGreaterThan(under.half);
+      expect(waterSamples(over)).toBeGreaterThan(waterSamples(under));
+      expect(waterReach(over)).toBeGreaterThan(waterReach(under));
       // The CELL goes the other way: smaller is finer.
       expect(over.cell).toBeLessThan(under.cell);
       expect(over.rippleFade[0]).toBeGreaterThan(under.rippleFade[0]);
@@ -60,25 +61,24 @@ describe("the WATER ladder", () => {
     }
   });
 
-  it("leaves the grid coarse enough at the edge to hand over to the far water", () => {
-    // The near grid is laid on a cubic, `offset(s) = half·(a·s + (1−a)·s³)`
-    // with `a` set by the centre cell. `a` above 1 would UNBEND the curve —
-    // cells finest at the RIM — which is the grid spending its budget where
-    // the rider is not looking. It is a fact about the three numbers together,
-    // so a stop cannot be retuned into it by accident.
+  it("keeps the craft on fine water however far off the grid's centre it sits", () => {
+    // The grid snaps to its coarsest cell, so the craft stands up to half of
+    // one — on the diagonal, a little more — off the core's centre. What is
+    // left of the core past that is the fine water round the hull, and it has
+    // to be at least a hull's length or the rider is on the first ring.
     for (const look of Object.values(WATER_LOOK)) {
-      const a = (look.cell * (look.grid - 1)) / (2 * look.half);
-      expect(a).toBeGreaterThan(0);
-      expect(a).toBeLessThan(1);
+      const grid = layWaterGrid(look);
+      const coreHalf = (look.core / 2) * look.cell;
+      expect(coreHalf - grid.snap / 2).toBeGreaterThan(8);
     }
   });
 
   it("prices the top stop honestly against the design point", () => {
-    // The samples-a-frame bill is the grid squared, and it is the whole reason
-    // this is a row rather than a number the game picks. HIGH is under twice
-    // the design point: past that the water alone eats a 60 Hz frame, and the
-    // stop would be one nobody could actually use.
-    const calls = (level: keyof typeof WATER_LOOK): number => WATER_LOOK[level].grid ** 2;
+    // The samples-a-frame bill is the grid's vertex count, and it is the whole
+    // reason this is a row rather than a number the game picks. HIGH is under
+    // twice the design point: past that the water alone eats a 60 Hz frame,
+    // and the stop would be one nobody could actually use.
+    const calls = (level: keyof typeof WATER_LOOK): number => waterSamples(WATER_LOOK[level]);
     expect(calls("low")).toBeLessThan(calls("medium"));
     expect(calls("high") / calls("medium")).toBeGreaterThan(1.3);
     expect(calls("high") / calls("medium")).toBeLessThan(2);

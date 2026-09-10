@@ -26,6 +26,7 @@ import { setTextureAnisotropy } from "./fx-textures.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createFlora, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
+import { createReflection } from "./reflection.ts";
 import { createRider, type Rider } from "./rider.ts";
 import { createRocks } from "./rocks.ts";
 import {
@@ -33,6 +34,7 @@ import {
   DISTANCE_LOOK,
   FLORA_SCALE,
   RAIN_RING_REACH,
+  REFLECTION_SCALE,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
   WATER_LOOK,
@@ -109,7 +111,11 @@ export function createRenderer(
   // THE SKY, and with it the fog and both lights (environment.ts).
   const sky: Environment = createEnvironment(scene);
 
-  let water: WaterMesh = createWaterMesh(sky.uniforms, WATER_LOOK[video.water]);
+  // THE MIRROR (reflection.ts): the shore and the craft drawn from under
+  // the water into a texture the sea reads. Made before the water, which
+  // holds its picture and its matrix for the life of the material.
+  const mirror = createReflection();
+  let water: WaterMesh = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
   scene.add(water.mesh, water.far);
   const wake = createWake();
   const spray = createSpray();
@@ -230,7 +236,7 @@ export function createRenderer(
   const buildWater = (): void => {
     scene.remove(water.mesh, water.far);
     water.dispose();
-    water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water]);
+    water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
     scene.add(water.mesh, water.far);
     if (level) water.setCoast(level.biome);
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
@@ -252,6 +258,7 @@ export function createRenderer(
     }
     spray.setBudget(SPRAY_SCALE[next.spray]);
     flora?.setDensity(FLORA_SCALE[next.flora]);
+    mirror.setScale(REFLECTION_SCALE[next.reflections]);
     // THE DISTANCE ROW pulls the fog in (or lets it out) to meet the radii the
     // frame will draw to; the radii themselves are applied per frame, because
     // they are measured from wherever the lens ends up.
@@ -301,6 +308,9 @@ export function createRenderer(
     camera.updateMatrixWorld();
     viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(viewProjection);
+    // The mirrored lens is posed with the real one, so the cover can cull
+    // against both before either draws.
+    mirror.aim(camera);
 
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state);
@@ -319,7 +329,7 @@ export function createRenderer(
     // cut to the frustum as well, which the fog never does.
     const drawn = DISTANCE_LOOK[video.distance];
     if (terrain) cullByDistance(terrain, pose.x, pose.z, drawn.shore);
-    flora?.update(frustum, pose.x, pose.z, drawn.cover);
+    flora?.update(frustum, pose.x, pose.z, drawn.cover, mirror.live() ? mirror.frustum : undefined);
 
     // The sky follows the lens, because it reads where the lens ended up:
     // the dome rides it, the rain's box wraps around it, and the cloud over
@@ -332,9 +342,23 @@ export function createRenderer(
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
     water.setRain(sky.rainfall(), RAIN_RING_REACH[video.rainRings]);
 
+    // THE MIRROR'S PASS, before the picture: everything that stands over the
+    // water, without the water itself, the wake and the spray on it, the
+    // rain in the air over it or the dome — the sea reflects the sky as a
+    // function (sky-glsl.ts), and a dome drawn sharp into the mirror would
+    // put its cloud edges back on the crests.
+    const pass = mirror.render(renderer, scene, [
+      water.mesh,
+      water.far,
+      wake.mesh,
+      spray.group,
+      ...sky.unmirrored,
+    ]);
+    water.setMirror(mirror.live());
+
     renderer.render(scene, camera);
-    cost.calls = renderer.info.render.calls;
-    cost.triangles = renderer.info.render.triangles;
+    cost.calls = renderer.info.render.calls + pass.calls;
+    cost.triangles = renderer.info.render.triangles + pass.triangles;
     cost.frameMs = performance.now() - t0;
   };
 
@@ -372,6 +396,7 @@ export function createRenderer(
       window.removeEventListener("resize", resize);
       sky.dispose();
       water.dispose();
+      mirror.dispose();
       fauna?.dispose();
       wake.dispose();
       spray.dispose();
