@@ -16,6 +16,7 @@ import { createSkyUniforms, writeSky } from "../pwa/src/game/sky-glsl.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
 import {
   applyClock,
+  applyMirror,
   applyRain,
   applySea,
   applySky,
@@ -194,5 +195,48 @@ describe("what the water is handed for a sea", () => {
   it("takes the engine's clock as it is", () => {
     applyClock(material, 12.5);
     expect(u.uTime.value).toBe(12.5);
+  });
+
+  it("sizes the glint's lobe by Cox and Munk's slope variance for the wind", () => {
+    // σ² = 0.003 + 0.00512·U, the measured mean-square slope of a
+    // wind-roughened sea — one law for the lobe and the ripple tile both.
+    for (const wind of [0, 4, 12]) {
+      applySea(material, 0, wind, 0.4);
+      expect(u.uSlopeVar.value).toBeCloseTo(0.003 + 0.00512 * wind, 9);
+    }
+    // The tile carries a SHARE of it: its strength grows as the root of the
+    // variance and never states a slope the lobe does not know about.
+    applySea(material, 0, 0, 0.4);
+    const calm = u.uRippleStrength.value;
+    applySea(material, 0, 16, 0.4);
+    const fresh = u.uRippleStrength.value;
+    expect(fresh / calm).toBeCloseTo(Math.sqrt((0.003 + 0.00512 * 16) / 0.003), 6);
+  });
+});
+
+describe("what the water is handed for a mirror", () => {
+  it("holds the mirror's own objects, and shows the sky alone when it is off", () => {
+    const seat = {
+      texture: new THREE.Texture(),
+      matrix: new THREE.Matrix4(),
+      right: new THREE.Vector3(1, 0, 0),
+      forward: new THREE.Vector3(0, 0, 1),
+    };
+    const material = createWaterMaterial(createSkyUniforms(), undefined, seat);
+    const u = material.uniforms;
+    // The very objects, not copies: reflection.ts writes them every frame
+    // and the material is never told.
+    expect(u.uMirror.value).toBe(seat.texture);
+    expect(u.uMirrorMatrix.value).toBe(seat.matrix);
+    expect(u.uMirrorRight.value).toBe(seat.right);
+    expect(u.uMirrorForward.value).toBe(seat.forward);
+    expect(u.uMirrorOn.value).toBe(0);
+    applyMirror(material, true);
+    expect(u.uMirrorOn.value).toBe(1);
+    applyMirror(material, false);
+    expect(u.uMirrorOn.value).toBe(0);
+    // Built without one, the read is still defined: one transparent texel.
+    const bare = createWaterMaterial(createSkyUniforms());
+    expect(bare.uniforms.uMirror.value).toBeInstanceOf(THREE.DataTexture);
   });
 });

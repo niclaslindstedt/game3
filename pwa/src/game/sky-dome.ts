@@ -123,6 +123,8 @@ export function createSkyDome(uniforms: SkyUniforms = createSkyUniforms()): SkyD
     sun: true,
     rimBand: RIM_BAND,
     soften: 0,
+    skyline: 0,
+    rimCurve: 1.5,
   };
   const material = new THREE.ShaderMaterial({
     uniforms,

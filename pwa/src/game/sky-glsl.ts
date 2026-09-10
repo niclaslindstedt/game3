@@ -70,6 +70,17 @@ export type SkyBuild = {
    * Zero on the dome, where an edge is an edge; a little on the water for
    * the same reason the rim is widened there. */
   soften: number;
+  /** How fast the ceiling's lit rim gives way to its dark overhead going up
+   * the sky, as the exponent on the rim share: 1.5 on the dome, where the
+   * strip is what the ceiling physically is; steeper on the water, so the
+   * rim smeared over a rough mirror's wider band stays a band along the
+   * skyline rather than painting every wave back the rim's colour. */
+  rimCurve: number;
+  /** How far either side of the skyline the sky fades into what is under it
+   * (`uSkyBelow`), as a ray's `y`. The dome's is a hair, because its skyline
+   * is one; the water's is wide, because a rough mirror reflects the
+   * horizon through a spread of slopes and half of those land on the sea. */
+  skyline: number;
 };
 
 /** How deep the SUNLIT sample reads. Two octaves shallower than the sheet
@@ -210,20 +221,34 @@ vec2 skyCloudUv( vec2 p, vec4 c, float scale, float streak, float seed ) {
 }`
 }
 
-vec3 skyAlong( vec3 ray, vec3 origin ) {
+// \`blur\` is how far either side of the ray's elevation the gradient is
+// AVERAGED, as a direction's y — the water's, for the spread of slopes a
+// pixel of sea reflects the sky through; the dome passes none and reads the
+// gradient sharp.
+vec3 skyAlong( vec3 ray, vec3 origin, float blur ) {
   float up = ray.y;
   float t = max( 0.0, up );
   // THE GRADIENT, and the warm bleed round the sun's bearing — sky.ts's
-  // skyToneAt, in GLSL, off the same three constants.
-  vec3 col = mix( uSkyHorizon, uSkyZenith, pow( t, uSkyBand ) );
+  // skyToneAt, in GLSL, off the same three constants. Blurred, the gradient
+  // is the mean of pow( t, band ) over the window — closed form, so a rough
+  // mirror reads the steep band over the horizon as the soft tone a real
+  // sea shows there rather than as streaks that flip with every face.
+  float lo = clamp( up - blur, 0.0, 1.0 );
+  float hi = clamp( up + blur, 0.0, 1.0 );
+  float k1 = uSkyBand + 1.0;
+  float grade = hi - lo > 1e-4
+    ? ( pow( hi, k1 ) - pow( lo, k1 ) ) / ( k1 * ( hi - lo ) )
+    : pow( t, uSkyBand );
+  vec3 col = mix( uSkyHorizon, uSkyZenith, grade );
   vec2 az = normalize( ray.xz + vec2( 1e-5, 0.0 ) );
   float toward = max( 0.0, dot( az, uSkyAz ) );
   float w = pow( toward, ${GLOW_FOCUS.toFixed(1)} ) * pow( 1.0 - t, ${GLOW_REACH.toFixed(1)} ) * uSkyGlowStrength;
   col = mix( col, uSkyGlow, min( 1.0, w ) );
-  // Under the skyline the sky is the far water, which is fog — and a MIST
-  // on the water stands a few degrees up over the rim as well, a bank the
-  // sky is seen over rather than a line it stops at.
-  col = mix( uSkyBelow, col, smoothstep( - 0.04, 0.05 * uSkyMist, up ) );
+  // Under the skyline the sky is the far water, which is fog — blurred by
+  // the slopes a rough mirror reflects it through, and a MIST on the water
+  // stands a few degrees up over the rim as well, a bank the sky is seen
+  // over rather than a line it stops at.
+  col = mix( uSkyBelow, col, smoothstep( ${(-0.04 - build.skyline).toFixed(3)} - blur, ${build.skyline.toFixed(3)} + blur + 0.05 * uSkyMist, up ) );
 ${
   build.sun
     ? /* glsl */ `
@@ -289,7 +314,7 @@ ${
       // the water and looks along it, so read against distance the whole
       // visible ceiling comes out the rim's colour — a light grey sky in a
       // thunderstorm.
-      vec3 tone = mix( uSkyDeckOverhead, uSkyDeckRim, pow( rim, 1.5 ) );
+      vec3 tone = mix( uSkyDeckOverhead, uSkyDeckRim, pow( rim, ${build.rimCurve.toFixed(2)} ) );
       tone *= 1.0 + 0.22 * uSkyDeckRelief * ( n * 2.0 - 1.0 );
       // How fast the ceiling closes over the sliver of open dome under its
       // base. On the dome that is what it physically is; in a rough mirror
@@ -323,7 +348,7 @@ ${
     // out a flat pale veil over the whole sky, and a squall stops being
     // black.
     if ( E.y > 0.5 ) {
-      vec3 ceiling = mix( uSkyDeckOverhead, uSkyDeckRim, pow( rim, 1.5 ) );
+      vec3 ceiling = mix( uSkyDeckOverhead, uSkyDeckRim, pow( rim, ${build.rimCurve.toFixed(2)} ) );
       sunlit = ceiling * 0.8;
       shade = ceiling * 0.55;
     }
@@ -370,6 +395,10 @@ ${
 `
 }
   return col;
+}
+
+vec3 skyAlong( vec3 ray, vec3 origin ) {
+  return skyAlong( ray, origin, 0.0 );
 }
 `;
 }
@@ -472,8 +501,20 @@ export function writeDrift(
 /** The rim band a rough mirror reads the ceiling's lit strip over — see
  * `SkyBuild.rimBand`. A sea reflects the sky through a spread of wave
  * slopes, so the strip that is nine degrees tall in the sky is smeared over
- * twenty on the water. */
-export const MIRROR_RIM = RIM_BAND * 2.5;
+ * fourteen on the water — with `rimCurve` steepened so the smear is a band
+ * along the skyline and not the whole sea. */
+export const MIRROR_RIM = RIM_BAND * 1.6;
+/** How fast a mirror's copy of a ceiling goes from its lit rim to its dark
+ * overhead (`SkyBuild.rimCurve`): steeper than the dome's, so a squall puts
+ * a pale band along the skyline and its black over the rest of the sea
+ * rather than the rim's pink over every wave back. */
+const MIRROR_RIM_CURVE = 2.6;
+/** How far either side of the skyline a mirror's sky fades into the far
+ * water's tone, as a direction's `y` (`SkyBuild.skyline`): the spread of
+ * slopes puts half the reflected rays a few degrees under the horizon,
+ * where they land on the sea. Read sharp the skyline is a ruled line across
+ * every crest. */
+const MIRROR_SKYLINE = 0.09;
 
 /** THE SKY AS A ROUGH MIRROR REFLECTS IT — the build every surface that
  * mirrors the sky is compiled with: the water (`water-shader.ts`) and the
@@ -486,7 +527,16 @@ export const MIRROR_RIM = RIM_BAND * 2.5;
  * and no sun, because a surface's own highlight IS the sun's image and a
  * second one added through the mirror is one sun too many. */
 export function mirrorBuild(layers: number): SkyBuild {
-  return { octaves: 3, layers, sunlit: false, sun: false, rimBand: MIRROR_RIM, soften: 0.35 };
+  return {
+    octaves: 3,
+    layers,
+    sunlit: false,
+    sun: false,
+    rimBand: MIRROR_RIM,
+    soften: 0.35,
+    skyline: MIRROR_SKYLINE,
+    rimCurve: MIRROR_RIM_CURVE,
+  };
 }
 
 function smooth01(t: number): number {

@@ -9,16 +9,18 @@
 // phase-field lookup each, about a microsecond a call, and the grid is the
 // only thing in the frame that calls it thousands of times. So:
 //
-// - The grid is STRETCHED rather than uniform: `look.grid` vertices a side
-//   laid on a cubic so the cells are `look.cell` metres at the craft and
-//   about four times that at the edge, `look.half` metres out. Detail is
-//   spent where the camera is; the far cells carry the long swell, which is
-//   all that survives the distance anyway. Those three are the RIDER's — the
-//   WATER row of OPTIONS ▸ VIDEO (`settings-video.ts`), because how far out
-//   the sea is still a sea is the biggest CPU bill in the frame and the one
-//   nothing about the GPU makes cheaper. A change of row rebuilds the mesh.
-// - The grid SNAPS to whole centre cells as it follows the craft, so the
-//   sample points do not swim under the surface between frames.
+// - The grid is NESTED RINGS rather than uniform (`water-grid.ts`): a core
+//   of `look.cell` metre cells round the craft and `look.rings` square rings
+//   round it, each with cells twice the size of the ring inside. Detail is
+//   spent where the camera is; the outer cells carry the long swell, which
+//   is all that survives the distance anyway. Those numbers are the
+//   RIDER's — the WATER row of OPTIONS ▸ VIDEO (`settings-video.ts`),
+//   because how far out the sea is still a sea is the biggest CPU bill in
+//   the frame and the one nothing about the GPU makes cheaper. A change of
+//   row rebuilds the mesh.
+// - The grid SNAPS to the COARSEST cell as it follows the craft, which keeps
+//   every ring on its own lattice: a vertex samples the same world point
+//   frame after frame, and the sea does not swim along with the rider.
 // - THE FAR WATER is a second, coarse grid (`FAR_GRID` a side over
 //   `FAR_HALF` metres, cells of tens of metres) displaced by the SAME
 //   function, summing only the components long enough for its cells to
@@ -73,20 +75,24 @@ import { clamp } from "../lib/util.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
+import { layWaterGrid, snapOrigin } from "./water-grid.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 import {
   applyClock,
   applyLamp,
+  applyMirror,
   applyRain,
   applySea,
   applySky,
   createWaterMaterial,
+  type MirrorSeat,
 } from "./water-shader.ts";
 
 /** The grid the game is tuned on, and what the labs and the tests measure:
- * 72 × 72 = 5 184 samples a frame, six to eight milliseconds of `surfaceAt`
- * on a laptop core. The WATER row moves it either side of this
- * (`WATER_LOOK`); this is the design point it moves around. */
+ * some five thousand four hundred samples a frame (`waterSamples`), six to
+ * eight milliseconds of `surfaceAt` on a laptop core. The WATER row moves it
+ * either side of this (`WATER_LOOK`); this is the design point it moves
+ * around. */
 export const DESIGN_WATER: WaterLook = WATER_LOOK.medium;
 
 /** Where the fade to the far grid begins, as a share of the near grid's own
@@ -165,10 +171,11 @@ const MIRROR = c(PALETTE.skyHigh);
  * which the crest tint is full, as a share of the sea's own significant
  * height (floored, so a calm sea still shows its ripples), and how far it
  * goes toward the shallow colour; the trough goes the same way toward the
- * deep. */
+ * deep. A LIGHT touch: a crest is read by what it reflects, and a painted
+ * lift on top of that is a blotch. */
 const CREST_SHARE = 0.55;
 const CREST_MIN = 0.25;
-const CREST_TINT = 0.45;
+const CREST_TINT = 0.18;
 /** THE TILT BANDS ARE RELATIVE TO THE SEA THEY ARE READ IN. A tilt
  * (1 − n_y) of 0.09 is the surface standing at Michell's breaking
  * steepness, so as an ABSOLUTE threshold it is the right place to foam a
@@ -183,13 +190,26 @@ const CREST_TINT = 0.45;
  * FOR ITSELF. */
 const FOAM_REL_FROM = 3.5;
 const FOAM_REL_TO = 8;
+/** A STEEP FACE ALONE DOES NOT FOAM. A swell is steep over its whole face
+ * and rolls in green; what goes white is the TOP going over. So the breaking
+ * foam is gated to the crest — how high a vertex stands, as a share of the
+ * sea's significant height, before its steepness counts — and a twenty-metre
+ * sea comes out white along its crests and dark down its faces rather than
+ * as a snowfield. The shallows keep their own rule: there the bed trips the
+ * wave, and the whole face goes. */
+const BREAK_CREST_FROM = 0.1;
+const BREAK_CREST_TO = 0.45;
 /** WHITECAPS: the wind, m/s, they start blowing at and the wind at which
  * every crest carries one; how high a crest stands, as a share of the
- * significant height, before it caps; and the tilt band (1 − n_y) that
- * says the cap is on the steep face. */
+ * significant height, before it caps (from a quarter — the ordinary crest,
+ * one standard deviation of a sea whose Hs is four — to a half, the crest
+ * of a significant wave; anything higher is a rare event and a rule keyed
+ * to it caps nothing); and the tilt band (1 − n_y) that says the cap is on
+ * the steep face. */
 const WHITECAP_WIND = 7;
 const WHITECAP_WIND_FULL = 14;
-const WHITECAP_CREST = 0.75;
+const WHITECAP_CREST = 0.25;
+const WHITECAP_CREST_FULL = 0.55;
 const WHITECAP_TILT = 0.012;
 const WHITECAP_TILT_FULL = 0.035;
 
@@ -227,6 +247,9 @@ export type WaterMesh = {
   /** How hard it is raining on the sea, 0..1, and how far out the rings are
    * worth drawing (the DETAIL row's reach, m). */
   setRain: (fall: number, reach: readonly [number, number]) => void;
+  /** Whether the mirror handed to `createWaterMesh` has a picture this
+   * frame (`Reflection.live`). Every frame. */
+  setMirror: (live: boolean) => void;
   /** The craft's lamp, as the one spotlight in the scene: its pool on the
    * water is this shader's own term, read off the very light that lights
    * the hull and the buoys beside it. Every frame — the lamp rides the
@@ -251,18 +274,14 @@ export type WaterMesh = {
   dispose: () => void;
 };
 
-export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER): WaterMesh {
-  const GRID = look.grid;
-  const HALF = look.half;
-  // The stretched axis: s in [-1, 1] → offset(s) = HALF·(a·s + (1−a)·s³),
-  // with `a` chosen so the centre cell is `look.cell`.
-  const a = (look.cell * (GRID - 1)) / (2 * HALF);
-  const offsets = new Float32Array(GRID);
-  for (let i = 0; i < GRID; i++) {
-    const s = (i / (GRID - 1)) * 2 - 1;
-    offsets[i] = HALF * (a * s + (1 - a) * s * s * s);
-  }
-  const count = GRID * GRID;
+export function createWaterMesh(
+  sky: SkyUniforms,
+  look: WaterLook = DESIGN_WATER,
+  mirror?: MirrorSeat,
+): WaterMesh {
+  const grid = layWaterGrid(look);
+  const HALF = grid.reach;
+  const count = grid.ox.length;
   const positions = new Float32Array(count * 3);
   const normals = new Float32Array(count * 3);
   // The colour and, in its fourth channel, the foam share.
@@ -270,22 +289,12 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
   // How opaque the water is straight down at each vertex — the window the
   // shader turns into an alpha once it knows the angle.
   const windows = new Float32Array(count);
-  for (let j = 0; j < GRID; j++) {
-    for (let i = 0; i < GRID; i++) {
-      const k = (j * GRID + i) * 3;
-      positions[k] = offsets[i];
-      positions[k + 2] = offsets[j];
-      normals[k + 1] = 1;
-    }
+  for (let k = 0; k < count; k++) {
+    positions[k * 3] = grid.ox[k];
+    positions[k * 3 + 2] = grid.oz[k];
+    normals[k * 3 + 1] = 1;
   }
-  const index: number[] = [];
-  for (let j = 0; j + 1 < GRID; j++) {
-    for (let i = 0; i + 1 < GRID; i++) {
-      const p = j * GRID + i;
-      // Wound so the face normal is +y (three's front face is CCW).
-      index.push(p, p + GRID, p + 1, p + 1, p + GRID, p + GRID + 1);
-    }
-  }
+  const index = grid.index;
   const geometry = new THREE.BufferGeometry();
   const posAttr = new THREE.BufferAttribute(positions, 3);
   const normAttr = new THREE.BufferAttribute(normals, 3);
@@ -298,7 +307,7 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
   geometry.setAttribute("color", colAttr);
   const winAttr = new THREE.BufferAttribute(windows, 1).setUsage(THREE.DynamicDrawUsage);
   geometry.setAttribute("aWindow", winAttr);
-  geometry.setIndex(index);
+  geometry.setIndex(new THREE.BufferAttribute(index, 1));
   // The bounding sphere is the grid's own box, once: recomputing it per
   // frame would walk every vertex again for a number that never changes.
   geometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 0, 0), HALF * Math.SQRT2 + 5);
@@ -306,7 +315,7 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
   // ONE material for both grids: the light is the same light out to the
   // fog, and a seam in the shading would show where a seam in the height
   // does not.
-  const material = createWaterMaterial(sky, look);
+  const material = createWaterMaterial(sky, look, mirror);
   const mesh = new THREE.Mesh(geometry, material);
   mesh.frustumCulled = false;
 
@@ -424,13 +433,12 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
   setCoast(BIOME_IDS[0]);
 
   /** The widest cell of the near grid, at its rim. */
-  let maxCell = 0;
-  for (let i = 1; i < GRID; i++) maxCell = Math.max(maxCell, offsets[i] - offsets[i - 1]);
+  const maxCell = grid.snap;
 
   const update = (state: GameState, cx: number, cz: number, frustum?: THREE.Frustum): number => {
     const t0 = performance.now();
-    const sx = Math.round(cx / look.cell) * look.cell;
-    const sz = Math.round(cz / look.cell) * look.cell;
+    const sx = snapOrigin(cx, grid);
+    const sz = snapOrigin(cz, grid);
     mesh.position.set(sx, 0, sz);
     const { sea, level, t } = state;
     const ground = level.ground;
@@ -498,86 +506,94 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
       0,
       1,
     );
-    for (let j = 0; j < GRID; j++) {
-      const oz = offsets[j];
-      const wz = sz + oz;
-      const fz = Math.abs(oz) / HALF;
-      for (let i = 0; i < GRID; i++) {
-        const ox = offsets[i];
-        const wx = sx + ox;
-        const k = (j * GRID + i) * 3;
-        if (frustum && !seen(frustum, wx, wz, nearMargin)) continue;
-        surfaceAt(sea, level, wx, wz, t, sample);
-        const edge = Math.max(fz, Math.abs(ox) / HALF);
-        const fade = 1 - smoothstep(FADE_FROM, 1, edge);
-        let ny = sample.ny;
-        let nx = sample.nx;
-        let nz = sample.nz;
-        if (fade < 1) {
-          // Toward the far grid: the long components' own surface, read
-          // off the far grid (sunk as it is, so the two meet exactly);
-          // the short ones fade out.
-          const farH = farHeightAt(wx, wz);
-          positions[k + 1] = sample.height * fade + farH * (1 - fade);
-          if (farComponents > 0) {
-            surfaceAt(sea, level, wx, wz, t, long, farComponents);
-            nx = nx * fade + long.nx * (1 - fade);
-            ny = ny * fade + long.ny * (1 - fade);
-            nz = nz * fade + long.nz * (1 - fade);
-          } else {
-            nx *= fade;
-            nz *= fade;
-          }
-        } else positions[k + 1] = sample.height;
-        // Renormalised so the lighting does not brighten toward the edge.
-        const nl = 1 / Math.hypot(nx, ny, nz);
-        normals[k] = nx * nl;
-        normals[k + 1] = ny * nl;
-        normals[k + 2] = nz * nl;
-        // Colour by depth, then foam on the steep and the shallow — the
-        // tones, the ramp and the window all the COAST's.
-        const depth = -sampleField(ground, wx, wz);
-        seaTone(optics, depth, tone);
-        let r = tone.r;
-        let g = tone.g;
-        let bl = tone.b;
-        const w = seaWindow(optics, depth);
-        if (!windowOpen) {
-          const dim = w + (1 - w) * CLOSED_BED;
-          r *= dim;
-          g *= dim;
-          bl *= dim;
+    for (let v = 0; v < count; v++) {
+      const wx = sx + grid.ox[v];
+      const wz = sz + grid.oz[v];
+      const k = v * 3;
+      if (frustum && !seen(frustum, wx, wz, nearMargin)) continue;
+      surfaceAt(sea, level, wx, wz, t, sample);
+      const fade = 1 - smoothstep(FADE_FROM, 1, grid.edge[v]);
+      let ny = sample.ny;
+      let nx = sample.nx;
+      let nz = sample.nz;
+      if (fade < 1) {
+        // Toward the far grid: the long components' own surface, read
+        // off the far grid (sunk as it is, so the two meet exactly);
+        // the short ones fade out.
+        const farH = farHeightAt(wx, wz);
+        positions[k + 1] = sample.height * fade + farH * (1 - fade);
+        if (farComponents > 0) {
+          surfaceAt(sea, level, wx, wz, t, long, farComponents);
+          nx = nx * fade + long.nx * (1 - fade);
+          ny = ny * fade + long.ny * (1 - fade);
+          nz = nz * fade + long.nz * (1 - fade);
+        } else {
+          nx *= fade;
+          nz *= fade;
         }
-        // A crest lifts toward the shallow tint, a trough sinks toward the
-        // deep: the wave's shape read as colour, which is most of how a
-        // low sun over a small sea shows one at all.
-        const crest = clamp(sample.height / crestHeight, -1, 1) * CREST_TINT;
-        const toward = crest > 0 ? tones.shallow : tones.deep;
-        const lift = Math.abs(crest);
-        r += (toward.r - r) * lift;
-        g += (toward.g - g) * lift;
-        bl += (toward.b - bl) * lift;
-        const tilt = 1 - sample.ny;
-        // Breaking foam on the steep and the shallow, and whitecaps on the
-        // high crests' steep faces once the wind blows them.
-        const cap =
-          whitecaps *
-          smoothstep(WHITECAP_CREST * sea.hsRef, 1.15 * sea.hsRef, sample.height) *
-          smoothstep(capTiltFrom, capTiltTo, tilt);
-        const foam = clamp(
-          smoothstep(foamFrom, foamTo, tilt) +
-            smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt) +
-            cap * 0.8,
-          0,
-          1,
-        );
-        const q = (j * GRID + i) * 4;
-        colors[q] = r;
-        colors[q + 1] = g;
-        colors[q + 2] = bl;
-        colors[q + 3] = foam;
-        windows[j * GRID + i] = windowOpen ? w : 1;
+      } else positions[k + 1] = sample.height;
+      // Renormalised so the lighting does not brighten toward the edge.
+      const nl = 1 / Math.hypot(nx, ny, nz);
+      normals[k] = nx * nl;
+      normals[k + 1] = ny * nl;
+      normals[k + 2] = nz * nl;
+      // Colour by depth, then foam on the steep and the shallow — the
+      // tones, the ramp and the window all the COAST's.
+      const depth = -sampleField(ground, wx, wz);
+      seaTone(optics, depth, tone);
+      let r = tone.r;
+      let g = tone.g;
+      let bl = tone.b;
+      const w = seaWindow(optics, depth);
+      if (!windowOpen) {
+        const dim = w + (1 - w) * CLOSED_BED;
+        r *= dim;
+        g *= dim;
+        bl *= dim;
       }
+      // A crest lifts toward the shallow tint, a trough sinks toward the
+      // deep: the wave's shape read as colour, which is most of how a
+      // low sun over a small sea shows one at all.
+      const crest = clamp(sample.height / crestHeight, -1, 1) * CREST_TINT;
+      const toward = crest > 0 ? tones.shallow : tones.deep;
+      const lift = Math.abs(crest);
+      r += (toward.r - r) * lift;
+      g += (toward.g - g) * lift;
+      bl += (toward.b - bl) * lift;
+      const tilt = 1 - sample.ny;
+      // How high a crest stands HERE is judged against the sea that runs
+      // here — the two bands' heights by their shares at this point
+      // (`seaShares`, inlined so nothing is allocated) — and not against
+      // the level's headline height: sheltered water inside a bay runs a
+      // fraction of the open sea, and judged against the open sea's height
+      // its crests would never cap at all.
+      const ocean = clamp(sampleField(sea.shelter.exposure, wx, wz), 0, 1);
+      const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, wx, wz));
+      const hsHere = Math.max(0.05, Math.hypot(sea.hsRef * ocean, sea.localHs * local));
+      // Breaking foam on the steep crests and the shallow, and whitecaps on
+      // the high crests' steep faces once the wind blows them.
+      const cap =
+        whitecaps *
+        smoothstep(WHITECAP_CREST * hsHere, WHITECAP_CREST_FULL * hsHere, sample.height) *
+        smoothstep(capTiltFrom, capTiltTo, tilt);
+      const crestGate = smoothstep(
+        BREAK_CREST_FROM * hsHere,
+        BREAK_CREST_TO * hsHere,
+        sample.height,
+      );
+      const foam = clamp(
+        smoothstep(foamFrom, foamTo, tilt) * crestGate +
+          smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt) +
+          cap * 0.8,
+        0,
+        1,
+      );
+      const q = v * 4;
+      colors[q] = r;
+      colors[q + 1] = g;
+      colors[q + 2] = bl;
+      colors[q + 3] = foam;
+      windows[v] = windowOpen ? w : 1;
     }
     posAttr.needsUpdate = true;
     normAttr.needsUpdate = true;
@@ -602,6 +618,7 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
     far,
     retone,
     setRain: (fall, reach) => applyRain(material, fall, reach),
+    setMirror: (live) => applyMirror(material, live),
     setLamp: (lamp) => applyLamp(material, lamp),
     setWindow: (open) => {
       windowOpen = open;

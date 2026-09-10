@@ -12,16 +12,28 @@
 //   THE MIRROR   Schlick's Fresnel on the real angle: water reflects two
 //                per cent looking straight down and everything at a
 //                grazing angle, so the sea is its own colour under the
-//                rider and sky out toward the horizon. What it reflects is
-//                THE SKY THAT IS ACTUALLY OVER IT — `skyAlong` in
-//                `sky-glsl.ts`, the same function the dome is painted with,
-//                sharing the same uniforms — so a cirrus veil lies along
-//                the crests, a cumulus drifts across the sea under it, and
-//                a squall's black ceiling puts its own black on the water.
-//                Reflected BLURRED (fewer octaves, a wider rim band, softer
-//                edges): a real sea reflects the sky through a spread of
-//                wave slopes, and a sharp reflection lands as hard white
+//                rider and sky out toward the horizon. The angle is the
+//                WAVE's — the grid's normal — and never the ripples': a
+//                rough surface's reflectance is the average over its
+//                slopes, which is smooth, and a Fresnel term read off every
+//                capillary crest flickers at a grazing angle instead.
+//                What it reflects is THE SKY THAT IS ACTUALLY OVER IT —
+//                `skyAlong` in `sky-glsl.ts`, the same function the dome
+//                is painted with, sharing the same uniforms — so a cirrus
+//                veil lies along the crests, a cumulus drifts across the
+//                sea under it, and a squall's black ceiling puts its own
+//                black on the water. Reflected BLURRED (fewer octaves, a
+//                wider rim band, softer edges, a skyline that fades rather
+//                than cuts): a real sea reflects the sky through a spread
+//                of wave slopes, and a sharp reflection lands as hard white
 //                streaks that read as foam the sea does not have.
+//                AND WHAT STANDS OVER IT: the shore, the wood on it, the
+//                rocks, the gates, the craft and the rider — drawn once a
+//                frame from under the water into a small texture
+//                (`reflection.ts`) and laid over the analytic sky wherever
+//                it has a picture, wobbled by the wave's slope and read
+//                blurred, because a tree line in chop is a smear with the
+//                tree's colour in it, not a second tree.
 //   THE RAIN     the rings a downpour pocks the surface with — a grid of
 //                impacts, each one expanding and dying — perturbing the
 //                normal and lifting a little foam at the core. Drawn out to
@@ -29,20 +41,28 @@
 //                metres a real ring is under a pixel, and what the eye is
 //                actually reading out there is the sheet in the air and the
 //                fog behind it.
-//   THE GLINT    the sun's image in the surface, in two lobes: a tight one
-//                over the RIPPLES, which is the sparkle, and a broad one
-//                over the swell, which is the road a low sun lays across
-//                the water toward the rider. Both are the beam's — a sun
-//                behind a squall's ceiling has no image to give.
+//   THE GLINT    the sun's image in the surface: ONE lobe, a Beckmann
+//                distribution of slopes whose variance is Cox and Munk's
+//                measurement of a wind-roughened sea (1954: σ² = 0.003 +
+//                0.00512·U, U in m/s), which is the road a low sun lays
+//                across the water toward the rider and the sparkle in it
+//                at once. Near the lens, where the ripple tile is resolved,
+//                the tile carries part of that variance explicitly and the
+//                lobe is tightened by the same share; where the tile has
+//                faded the whole variance is the lobe's, so the far sea
+//                is shaded by the roughness its geometry cannot show
+//                (Bruneton, Neyret and Holzschuch 2010's transition from
+//                geometry to BRDF, in its cheapest form). The beam's only —
+//                a sun behind a squall's ceiling has no image to give.
 //   THE RIPPLES  the wind's capillary chop, too fine for any grid: a normal
 //                tile made in code, scrolled downwind at two scales, and
 //                faded with distance where its own mip levels would have
 //                flattened it anyway. It changes the light and never the
-//                surface, so a probe reading the same water agrees. HOW FAR
-//                it survives is the WATER row's (`WaterLook.rippleFade`):
-//                past the fade the sea is a smooth sheet with a highlight
-//                on it, which is most of what reads as crude a few metres
-//                out.
+//                surface, so a probe reading the same water agrees. Its
+//                slope is the tile's share of Cox and Munk's variance for
+//                the wind. HOW FAR it survives is the WATER row's
+//                (`WaterLook.rippleFade`): past the fade the glint's lobe
+//                carries the roughness on its own.
 //   THE LAMP     the craft's own lamp after dark: the one spotlight in the
 //                scene, read off the very light three lights the hull and
 //                the buoys with, laid on the water as a pool that falls off
@@ -84,25 +104,53 @@ import { type Preset } from "./sky.ts";
 const RIPPLE_SIZE = 256;
 const RIPPLE_METRES = 2.4;
 const RIPPLE_COARSE = 3.7;
-/** The slope the tile's normals are scaled to, RMS — how steep a ripple is
- * for the light. Set here rather than in the shader so the texture is the
+/** The slope the tile's normals are scaled to, RMS — the shape the texture
+ * is made at; the strength the shader reads it at is set from the wind
+ * (`applySea`). Set here rather than in the shader so the texture is the
  * one place a ripple has a shape. */
 const RIPPLE_RMS_SLOPE = 0.22;
-/** How much of the tile's slope the surface takes with no wind and per
- * m/s of it: a glassy calm still has a skin, a fresh breeze roughens it. */
-const RIPPLE_BASE = 0.2;
-const RIPPLE_PER_WIND = 0.022;
+/** THE SEA'S SLOPE VARIANCE for a wind, Cox and Munk (1954) from the sun's
+ * glitter photographed off Hawaii: the total mean-square slope of a
+ * wind-roughened surface, `σ² = 0.003 + 0.00512·U`, U the wind in m/s. It
+ * is the width of the glint's lobe and the strength of the ripple tile,
+ * so the sparkle and the road come from one measurement. */
+const SLOPE_VAR_CALM = 0.003;
+const SLOPE_VAR_PER_WIND = 0.00512;
+/** How much of that variance the RIPPLE TILE carries where it is resolved;
+ * the rest is under a texel and stays in the lobe. Where the tile has faded
+ * with distance the lobe takes this share back. */
+const RIPPLE_SHARE = 0.4;
+/** What the glint's radiance is scaled by before the soft clip: the sun's
+ * irradiance times Fresnel times the slope density (1/sr) over 4·cosθv, and
+ * a disc half a degree wide is not a point — an eye-set gain that puts the
+ * road's core just past white. */
+const GLINT_GAIN = 0.2;
 /** How fast the ripples travel downwind, tile lengths per second, with no
  * wind and per m/s of it. Slower than a real capillary wave's phase speed:
  * the tile is a texture and a texture at full pace strobes. */
 const RIPPLE_PACE = 0.25;
 const RIPPLE_PACE_PER_WIND = 0.018;
-/** The foam tile's edge, m. */
+/** The foam tile's edge across the wind, m, and how many times longer it
+ * is read DOWNWIND: foam on a sea is streaks the wind lays along its own
+ * direction — the spume lines of a fresh breeze, the drawn-out tails a
+ * broken crest leaves — and a tile read square is a scatter of blobs. */
 const FOAM_METRES = 3.5;
+const FOAM_STREAK = 2.6;
 /** How far the coarse ripple layer is turned off the wind, rad: the two
  * layers share one tile, and laid the same way they tile together into
  * corduroy. */
 const COARSE_TURN = 0.7;
+/** THE MIRROR'S PICTURE, as read: how far across its frame a unit of wave
+ * slope shifts the sample (a real slope of s bends the reflected ray by 2s,
+ * which on a reflection a few tens of metres off is a shift of metres), and
+ * how many mip levels down it is read — a sea is a rough mirror, and a tree
+ * line read sharp off it is a second tree line standing on its head. The
+ * shift is mostly UP the frame: a face tilting toward or away from the lens
+ * moves what it reflects up and down the shore, and sideways only a
+ * little. */
+const MIRROR_WOBBLE_ACROSS = 0.12;
+const MIRROR_WOBBLE_ALONG = 0.32;
+const MIRROR_BLUR = 1.5;
 
 /** The ripple tile: the wind's short chop as a repeating normal map, the
  * slopes in red (east) and green (north), made once. Directional sines
@@ -200,6 +248,18 @@ const VERTEX = `
     #include <fog_vertex>
   }`;
 
+/** How far the mirror's gradient is averaged either side of the reflected
+ * ray, in RMS slopes of the variance the pixel does not resolve. A slope of
+ * s bends the reflection by 2s, and the grid already carries the gravity
+ * waves' share of Cox and Munk's total, so one sigma is the honest window
+ * rather than two. */
+const MIRROR_SPREAD = 1.0;
+/** THE SEA UNDER THE SKYLINE: how far either side of the horizon (a ray's
+ * y) the mirror turns from the sky to the water a reflected ray actually
+ * lands on, and how much sky that other water still carries. */
+const MIRROR_UNDER = 0.06;
+const MIRROR_UNDER_SKY = 0.35;
+
 /** THE RAIN'S RINGS. The grid one impact lands per, m — a raindrop's ring
  * spreads to something like a hand's width before it is gone, and a grid
  * this size at a fall of one puts a few hundred of them in the near frame,
@@ -241,6 +301,12 @@ function fragmentFor(layers: number): string {
   uniform vec3 uFoamColor;
   uniform float uRainFall;
   uniform vec2 uRainFade;
+  uniform float uSlopeVar;
+  uniform sampler2D uMirror;
+  uniform mat4 uMirrorMatrix;
+  uniform vec3 uMirrorRight;
+  uniform vec3 uMirrorForward;
+  uniform float uMirrorOn;
   uniform vec3 uLampPos;
   uniform vec3 uLampDir;
   uniform vec3 uLampColor;
@@ -361,40 +427,82 @@ ${skyGlsl(mirrorBuild(layers))}
     // capillary chop it lands as a field of noise: the reflection is
     // resolved per pixel while the ripples are a texture, so what comes back
     // is aliasing rather than sparkle. The full slope stays where it is
-    // read at low frequency — the Fresnel term and the glint — which is
-    // where the ripples are doing their real work anyway.
+    // read at low frequency — the glint — which is where the ripples are
+    // doing their real work anyway.
     // The RINGS keep their whole slope here where the ripples lose most of
     // theirs: a ring is resolved geometry a few pixels across, not a texture
     // being minified, so it turns the reflection over cleanly — and under a
     // rain deck there is no beam to glint, which makes the mirror the ONLY
     // place a dimple can show at all.
     vec3 Nr = normalize(N + vec3(slope.x * 0.35 + rings.x, 0.0, slope.y * 0.35 + rings.y));
-    float cosV = clamp(dot(Nd, V), 0.0, 1.0);
-    float F = 0.02 + 0.98 * pow(1.0 - cosV, 5.0);
     vec3 R = reflect(-V, Nr);
-    vec3 col = mix(body, skyAlong(R, vWorld), F);
+    // The slope variance this pixel does NOT resolve — Cox and Munk's, less
+    // the share the ripple tile is carrying here. It is the glint's lobe
+    // below, and here it is how far the mirror's sky is blurred: a slope of
+    // s bends the reflected ray by 2s, and a pixel of sea reflects the
+    // gradient through a spread of them.
+    float s2 = uSlopeVar * (1.0 - ${RIPPLE_SHARE.toFixed(2)} * detail);
+    vec3 mirror = skyAlong(R, vWorld, ${MIRROR_SPREAD.toFixed(2)} * sqrt(s2));
+    // A reflected ray that dips under the skyline lands on the SEA, not on
+    // the fog the dome paints under its rim: the next wave's back, which is
+    // dark water under a sky it mostly sees at a grazing angle. Without
+    // this every wave back the lens sees at a grazing angle is the fog's
+    // colour — a twenty-metre sea under a squall comes out as pale sheets
+    // that read as foam, and a wind sea at noon as white bands.
+    float under = 1.0 - smoothstep(${(-MIRROR_UNDER).toFixed(3)}, ${MIRROR_UNDER.toFixed(3)}, R.y);
+    mirror = mix(mirror, mix(body, mirror, ${MIRROR_UNDER_SKY.toFixed(2)}), under);
+    // …and what stands over the water, where the mirror's picture has any:
+    // the flat mirror's own image of this point, shifted by the face's tilt
+    // — a face leaning away from the lens shows what is lower on the shore —
+    // and read a level or two down the mip chain.
+    if (uMirrorOn > 0.0) {
+      vec4 seat = uMirrorMatrix * vec4(vWorld, 1.0);
+      vec3 tilt = vec3(Nr.x, 0.0, Nr.z);
+      vec2 wobble = vec2(
+        dot(tilt, uMirrorRight) * ${MIRROR_WOBBLE_ACROSS.toFixed(3)},
+        dot(tilt, uMirrorForward) * ${MIRROR_WOBBLE_ALONG.toFixed(3)});
+      vec4 seen = texture2D(uMirror, seat.xy / seat.w + wobble, ${MIRROR_BLUR.toFixed(2)});
+      mirror = mix(mirror, seen.rgb, seen.a * uMirrorOn);
+    }
+    // Schlick on the WAVE's angle, not the ripples' — see the header — and
+    // averaged over the slopes the pixel does not resolve: Bruneton, Neyret
+    // and Holzschuch's fit of the mean Fresnel over a Gaussian slope
+    // distribution of variance s2, which lowers and softens the grazing
+    // rise the rougher the sea is.
+    float cosV = clamp(dot(N, V), 0.0, 1.0);
+    float F = 0.02 + 0.98 * pow(1.0 - cosV, 5.0 * exp(-2.69 * s2)) / (1.0 + 22.7 * pow(s2, 1.5));
+    vec3 col = mix(body, mirror, F);
 
-    // THE GLINT: Fresnel at the half vector, so a low sun's road blazes
-    // and a high sun's sparkle stays polite; soft-clipped so the peak
-    // goes white rather than past it.
+    // THE GLINT: Beckmann's slope density at the half vector, over the
+    // variance the pixel cannot resolve — Cox and Munk's, less the share the
+    // ripple tile is carrying here — times Fresnel at the half vector, so a
+    // low sun's road blazes and a high sun's sparkle stays polite; soft-
+    // clipped so the peak goes white rather than past it. The 4·cosθv of the
+    // microfacet form is floored: a grazing pixel is a wide one, not a
+    // brighter one.
     vec3 H = normalize(uSunDir + V);
     float Fh = 0.02 + 0.98 * pow(1.0 - clamp(dot(H, V), 0.0, 1.0), 5.0);
-    float tight = pow(max(0.0, dot(Nd, H)), 900.0);
-    float broad = pow(max(0.0, dot(N, H)), 60.0);
-    vec3 glint = 1.0 - exp(-uGlint * Fh * (tight * 40.0 + broad * 1.5));
+    float cosH = max(dot(Nd, H), 1e-3);
+    float c2 = cosH * cosH;
+    float density = exp(-(1.0 - c2) / (c2 * s2)) / (PI * s2 * c2 * c2);
+    vec3 glint = 1.0 - exp(-uGlint * Fh * density * ${GLINT_GAIN.toFixed(2)} / max(cosV, 0.25));
     // …and the lamp's own image in the ripples, a scatter of sparks under
     // the bow: the same tight lobe, off the lamp's direction.
     vec3 Hl = normalize(L + V);
     glint += lamp * pow(max(0.0, dot(Nd, Hl)), 400.0) * 0.6;
 
-    // THE FOAM: the vertex's share, broken up by the tile — a light share
-    // shows only the tile's brightest streaks, and shows them thin; a
-    // full one is near solid. Squared, because a tint that read as a
-    // faint wash when it was mixed into the vertex reads as a white road
-    // once it is streaks with edges.
-    float share = vColor.a * vColor.a;
-    float pattern = texture2D(uFoam, vWorld.xz / ${FOAM_METRES.toFixed(1)}).a;
-    float foam = clamp((pattern - (1.0 - share)) / 0.3, 0.0, 1.0) * (0.25 + 0.75 * share);
+    // THE FOAM: the vertex's share says how much of the face has gone over,
+    // the tile says WHERE on it — read in wind space, its long axis laid
+    // downwind, so what it draws is streaks the wind has combed. LACE, not
+    // paint: a light share reaches only the tile's brightest streaks and
+    // shows them half see-through, which is aerated water before it is
+    // white; a full share is white with the tile's darkest holes still
+    // open on the water under it. A sheet with no holes is a snowfield.
+    float share = vColor.a;
+    vec2 foamUv = wind * vWorld.xz;
+    float pattern = texture2D(uFoam, vec2(foamUv.y / ${(FOAM_METRES * FOAM_STREAK).toFixed(2)}, foamUv.x / ${FOAM_METRES.toFixed(1)})).a;
+    float lace = smoothstep(1.0 - share, 1.35 - share, pattern);
+    float foam = lace * (0.45 + 0.55 * share);
     // …and the white a raindrop's own impact throws up. A fraction of the
     // wake's: a drop is a pinprick of air in the water, not a crest going
     // over, and driven any harder a downpour turns the sea to porridge.
@@ -413,6 +521,28 @@ ${skyGlsl(mirrorBuild(layers))}
 
 export type WaterMaterial = THREE.ShaderMaterial;
 
+/** WHAT THE MIRROR HANDS THE WATER — the very objects `reflection.ts`
+ * writes each frame, held by the material rather than copied: its picture,
+ * the world-to-texture matrix, and the mirrored lens's right and forward
+ * for the wobble. */
+export type MirrorSeat = {
+  texture: THREE.Texture;
+  matrix: THREE.Matrix4;
+  right: THREE.Vector3;
+  forward: THREE.Vector3;
+};
+
+/** A mirror with nothing in it, for a material built without one: one
+ * transparent texel, so the shader's read is defined and shows the sky. */
+let blank: THREE.DataTexture | null = null;
+function blankMirror(): THREE.DataTexture {
+  if (!blank) {
+    blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
+    blank.needsUpdate = true;
+  }
+  return blank;
+}
+
 const SHALLOW = new THREE.Color(PALETTE.seaShallow);
 
 /** How many cloud sheets each material was COMPILED for. Not on the material
@@ -429,6 +559,7 @@ const builtLayers = new WeakMap<WaterMaterial, number>();
 export function createWaterMaterial(
   sky: SkyUniforms,
   look: WaterLook = WATER_LOOK.medium,
+  mirror?: MirrorSeat,
 ): WaterMaterial {
   const material = new THREE.ShaderMaterial({
     uniforms: {
@@ -439,7 +570,7 @@ export function createWaterMaterial(
       uTime: { value: 0 },
       uWindRot: { value: new THREE.Vector4(1, 0, 0, 1) },
       uRipplePace: { value: RIPPLE_PACE },
-      uRippleStrength: { value: RIPPLE_BASE },
+      uRippleStrength: { value: Math.sqrt(SLOPE_VAR_CALM * RIPPLE_SHARE) / RIPPLE_RMS_SLOPE },
       uRippleFade: { value: new THREE.Vector2(look.rippleFade[0], look.rippleFade[1]) },
       uHemiSky: { value: new THREE.Color(0xffffff) },
       uHemiGround: { value: new THREE.Color(0x53808c) },
@@ -451,6 +582,12 @@ export function createWaterMaterial(
       uFoamColor: { value: new THREE.Color(PALETTE.foam) },
       uRainFall: { value: 0 },
       uRainFade: { value: new THREE.Vector2(0, 0) },
+      uSlopeVar: { value: SLOPE_VAR_CALM },
+      uMirror: { value: mirror?.texture ?? blankMirror() },
+      uMirrorMatrix: { value: mirror?.matrix ?? new THREE.Matrix4() },
+      uMirrorRight: { value: mirror?.right ?? new THREE.Vector3(1, 0, 0) },
+      uMirrorForward: { value: mirror?.forward ?? new THREE.Vector3(0, 0, 1) },
+      uMirrorOn: { value: 0 },
       uLampPos: { value: new THREE.Vector3(0, -100, 0) },
       uLampDir: { value: new THREE.Vector3(0, -1, 0) },
       uLampColor: { value: new THREE.Color(0x000000) },
@@ -552,11 +689,21 @@ export function applySea(
   const dz = -Math.cos(windFrom);
   (u.uWindRot.value as THREE.Vector4).set(dz, dx, -dx, dz);
   u.uRipplePace.value = RIPPLE_PACE + RIPPLE_PACE_PER_WIND * windSpeed;
-  u.uRippleStrength.value = RIPPLE_BASE + RIPPLE_PER_WIND * windSpeed;
+  // Cox and Munk's variance for this wind: the tile's share of it as the
+  // tile's strength, the whole of it to the glint's lobe.
+  const slopeVar = SLOPE_VAR_CALM + SLOPE_VAR_PER_WIND * windSpeed;
+  u.uSlopeVar.value = slopeVar;
+  u.uRippleStrength.value = Math.sqrt(slopeVar * RIPPLE_SHARE) / RIPPLE_RMS_SLOPE;
   u.uScatterHeight.value = crestHeight;
 }
 
 /** The engine's clock, for the ripples' drift. Every frame. */
 export function applyClock(m: WaterMaterial, t: number): void {
   m.uniforms.uTime.value = t;
+}
+
+/** Whether the mirror has a picture this frame (`Reflection.live`): off,
+ * the water reflects the analytic sky alone. Every frame. */
+export function applyMirror(m: WaterMaterial, live: boolean): void {
+  m.uniforms.uMirrorOn.value = live ? 1 : 0;
 }

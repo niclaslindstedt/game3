@@ -36,6 +36,7 @@ import {
   FLORA_LEVELS,
   FRAME_RATE_LEVELS,
   RAIN_RING_LEVELS,
+  REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   SKY_LEVELS,
   SPRAY_LEVELS,
@@ -347,6 +348,8 @@ export function mergeSettings(parsed: unknown): Settings {
     settings.video.flora = on(FLORA_LEVELS, video.flora) ?? settings.video.flora;
     settings.video.sky = on(SKY_LEVELS, video.sky) ?? settings.video.sky;
     settings.video.rainRings = on(RAIN_RING_LEVELS, video.rainRings) ?? settings.video.rainRings;
+    settings.video.reflections =
+      on(REFLECTION_LEVELS, video.reflections) ?? settings.video.reflections;
     settings.video.frameRate = on(FRAME_RATE_LEVELS, video.frameRate) ?? settings.video.frameRate;
     if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
     if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;

@@ -102,7 +102,13 @@ export type Flora = {
    * cover is drawn at all, m — the DISTANCE row's `cover`. Every tile the
    * frustum refuses or that stands further off than the reach is left out of
    * the draw. Applies on this frame. */
-  update: (frustum: THREE.Frustum, eyeX: number, eyeZ: number, reach: number) => void;
+  update: (
+    frustum: THREE.Frustum,
+    eyeX: number,
+    eyeZ: number,
+    reach: number,
+    mirror?: THREE.Frustum,
+  ) => void;
   dispose: () => void;
 };
 
@@ -226,13 +232,16 @@ export function createFlora(level: Level): Flora {
       }
       dirty = true;
     },
-    update: (frustum, eyeX, eyeZ, reach) => {
+    update: (frustum, eyeX, eyeZ, reach, mirror) => {
       for (const stand of stands) {
         for (const t of stand.tiles) {
           const c = t.sphere.center;
+          // In the frame, or in the water: a stand the mirrored lens can see
+          // is drawn into the reflection whether or not the real one can.
           const visible =
             Math.hypot(c.x - eyeX, c.z - eyeZ) - t.sphere.radius <= reach &&
-            frustum.intersectsSphere(t.sphere);
+            (frustum.intersectsSphere(t.sphere) ||
+              (mirror !== undefined && mirror.intersectsSphere(t.sphere)));
           if (visible !== t.visible) {
             t.visible = visible;
             dirty = true;
