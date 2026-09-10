@@ -51,6 +51,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `debug-game` | Deterministic repros, classifying by layer, the failing test first |
 | `simulate-run` | `make sim`: the `RunReport` table, its columns, which movements are regressions |
 | `bot-improvement` | The gate-aiming bot in `engine/sim/bot.ts`, kept minimal, measured with `make sim` |
+| `sound-effects` | Every sound synthesized from parameters — the engine and the pump, the spray, the wind, the sea and the surf as steered layers, every splash as a def — under `pwa/src/game/audio/`; the audition page and its meter |
 
 ## Reserved
 
@@ -61,8 +62,7 @@ row and the `.lessons/` directory land where the next session expects them.
 
 | Future skill | Will own |
 | --- | --- |
-| `sound-effects` | Every sound synthesized from parameters — the engine note, the spray, the slam, the gate's chime — under `pwa/src/game/audio/`; the audition page |
-| `soundtrack` | The tracker scores under `pwa/src/game/audio/scores/`; the listen-with-voices-muted loop |
+| `soundtrack` | The tracker scores under `pwa/src/game/audio/scores/` — a second view of the one synth in `audio/bus.ts`, its own fader; the listen-with-voices-muted loop |
 | `atmosphere` | The sky is BUILT (`pwa/src/game/sky.ts` and kin, `engine/mapgen/weather.ts`) and routed to `game-feel` for now. This skill is still reserved for when it grows the parts that are not there yet — rain and snow on the water, lightning, the mist in the bays, a `make sky` contact sheet — and for the craft of the ladder itself. |
 | `visual-effects` | Transient FX: the spray sheet, the wake, the landing plume, the ring's flash, camera shake — event → effect |
 | `wipeout` | The craft past saving: the capsize, the rider thrown, the recovery — the sibling game's `crash`, for water |

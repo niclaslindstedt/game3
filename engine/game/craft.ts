@@ -398,6 +398,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.roll = e.roll;
   c.speed = Math.hypot(c.vx, c.vy, c.vz);
   c.wetted = hull.wetted;
+  c.slam = hull.slam;
   c.submergedDepth = Math.max(0, hull.submerged);
   c.onRamp = contact.onRamp;
   c.onGround = contact.onGround;

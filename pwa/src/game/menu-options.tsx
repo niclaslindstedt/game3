@@ -4,13 +4,15 @@
 // That second half is the rule this page is written to. A settings screen
 // carrying a row the app ignores is worse than a settings screen without it:
 // the player moves it, nothing happens, and now nothing else on the page can
-// be trusted either. So there is no volume fader here, because `game/audio/`
-// is a placeholder and there is nothing to make quieter; and no key bindings,
-// because `input.ts` carries a fixed table. Each of those becomes a row here
-// on the day the thing behind it exists, and not before.
+// be trusted either. So there is ONE fader here — every sound effect, which is
+// every sound the game makes today — and no MUSIC fader, because there is no
+// score yet; and no key bindings, because `input.ts` carries a fixed table.
+// Each of those becomes a row here on the day the thing behind it exists, and
+// not before.
 //
 // What is left is what a rider chooses ABOUT THE APP: what the picture costs,
-// where the eye rides, and whether the readouts are over the water at all.
+// where the eye rides, how loud the water is, and whether the readouts are
+// over the water at all.
 // What a rider chooses about the RUN — the craft, the shore, the hour, the
 // day — is the start card's (`menu-start.tsx`), asked once on the way to the
 // water rather than twice in two places.
@@ -36,8 +38,8 @@
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { MenuHead } from "./menu.tsx";
-import { Caption, KnobGroup, ON_OFF, StepRow, onOff, type Stop } from "./menu-knobs.tsx";
-import { freshSettings, type Settings } from "./settings.ts";
+import { Caption, FadeRow, KnobGroup, ON_OFF, StepRow, onOff, type Stop } from "./menu-knobs.tsx";
+import { SFX_STEP, freshSettings, type Settings } from "./settings.ts";
 import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
@@ -91,6 +93,34 @@ const RESOLUTION_STOPS: Stop<ResolutionLevel>[] = RESOLUTION_LEVELS.map((id) => 
 
 const DETAIL_STOPS: Stop<DetailLevel>[] = DETAIL_LEVELS.map((id) => ({ id, label: STEPS[id] }));
 
+/** The one fader, exported because the PAUSE CARD's strip carries it too: a
+ * rider who stops mid-run to turn the water down is the fader's commonest
+ * caller, and one row in two places is one setting. */
+export function SoundRow({
+  settings,
+  onSettings,
+  onHint,
+}: {
+  settings: Settings;
+  onSettings: (settings: Settings) => void;
+  onHint?: (hint: string | null) => void;
+}) {
+  return (
+    <FadeRow
+      label={STRINGS.optSound}
+      hint={STRINGS.optSoundHint}
+      value={settings.audio.sfx > 0 ? settings.audio.sfx : null}
+      min={SFX_STEP}
+      max={1}
+      step={SFX_STEP}
+      autoLabel={STRINGS.optSoundOff}
+      read={STRINGS.percent}
+      onChange={(sfx) => onSettings({ ...settings, audio: { sfx: sfx ?? 0 } })}
+      onHint={onHint}
+    />
+  );
+}
+
 export function OptionsPage({
   settings,
   onSettings,
@@ -107,7 +137,7 @@ export function OptionsPage({
     <div class="menu-card menu-card-options" onPointerLeave={() => setHint(null)}>
       <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuOptions} />
       {/* Two columns on anything wide enough, packed by ROW COUNT rather than
-          by subject order — four on the left, three on the right — so a laptop
+          by subject order — four on the left, four on the right — so a laptop
           holds the whole page without scrolling and neither column ends
           short. On a phone the grid collapses and they stack. */}
       <div class="knob-groups">
@@ -165,6 +195,14 @@ export function OptionsPage({
               onPick={(camera) => onSettings({ ...settings, ride: { ...settings.ride, camera } })}
               onHint={setHint}
             />
+          </KnobGroup>
+          {/* THE FADER IS OVER A LIVE SEA TOO: the bus reads it every frame,
+              so the engine under the front door gets quieter as the thumb
+              moves. OFF is the bottom of its travel, spelled by the row's own
+              idea of nothing — a fader at 0 and a fader at AUTO are the same
+              fader, and it is the same row the pause card carries. */}
+          <KnobGroup title={STRINGS.optSoundGroup}>
+            <SoundRow settings={settings} onSettings={onSettings} onHint={setHint} />
           </KnobGroup>
           <KnobGroup title={STRINGS.optHudGroup}>
             <StepRow

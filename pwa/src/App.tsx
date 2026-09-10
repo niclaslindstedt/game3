@@ -77,6 +77,14 @@
 // input (§37.1, once per step) and calls `step`. The renderer draws the state
 // once per frame; the HUD is refreshed from a snapshot at ~12 Hz. A hidden
 // tab pauses the clock (§37.3) and the HUD says so.
+//
+// THE SOUND FOLLOWS THE SAME RULE AS THE SEA: it never stops behind a card,
+// except the pause card's. The beds (`game/audio/`) are fed every frame the
+// engine steps — ducked under the front door, where the bot's run is
+// scenery — and told to be quiet on every frame it does not, because a bed
+// that is merely not fed holds its last note. The run's events make a
+// noise only with the player's hands on the craft: a gate the bot takes
+// under the menu is not news.
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
@@ -96,6 +104,7 @@ import {
 } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
+import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
 import { CAMERA_MODES, type CameraMode } from "./game/camera.ts";
 import { FPS_UNKNOWN, smoothFps } from "./game/frame-rate.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
@@ -150,6 +159,9 @@ const AIR_WORTH_A_LINE = 0.6;
 /** How long the loading card takes to fade off the run underneath. Must
  * match the `.loading.leaving` transition in styles.css. */
 const LOAD_FADE_MS = 260;
+/** How much of the mix the bot's run gets under a card — the front door,
+ * the attract card, the loading card. Half: present, and not the point. */
+const CARD_DUCK = 0.5;
 
 declare global {
   interface Window {
@@ -397,6 +409,13 @@ export function App() {
     rendererRef.current?.camera.setMode(settings.ride.camera);
   }, [settings.ride.camera]);
 
+  // The fader reaches the bus the moment it moves; a layer reads the bus
+  // every frame, so the engine under the card gets quieter as the thumb
+  // does — the same rule the picture rows are held to.
+  useEffect(() => {
+    setAudioVolumes(settings.audio);
+  }, [settings.audio]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -405,6 +424,7 @@ export function App() {
     inputRef.current = input;
     const renderer = createRenderer(canvas, settingsRef.current.video);
     rendererRef.current = renderer;
+    const audio = createRunAudio();
     const clock = createRunClock(TUNING.physicsHz);
     const nav = createMenuNav();
 
@@ -469,6 +489,7 @@ export function App() {
     const stepOnce = (): void => {
       step(state, inputFor());
       renderer.observe(state);
+      if (playerRides(shellRef.current)) audio.events(state.events);
       for (const e of state.events) {
         const line = flashFor(e);
         if (line) live.push({ id: flashId++, ...line, until: wall + FLASH_LIFE });
@@ -482,6 +503,7 @@ export function App() {
       state = newGame();
       scenario = null;
       live.length = 0;
+      audio.reset();
       if (scene) {
         scenario = stageScenario(state, scene);
         scriptFrom = state.t;
@@ -550,6 +572,7 @@ export function App() {
           run: () => {
             if (built) state = built;
             live.length = 0;
+            audio.reset();
             renderer.load(state);
             renderer.camera.setMode(s.ride.camera);
             renderer.camera.restand();
@@ -724,6 +747,14 @@ export function App() {
         input.sample(TUNING.dt);
       }
       renderer.render(state, held || clock.paused() ? 0 : dtFrame);
+      // The beds follow the same frames the engine took: fed whenever the
+      // sea moved, hushed whenever it did not — see this file's header.
+      if (!frozen && !held && !clock.paused()) {
+        audio.setView(renderer.camera.mode());
+        audio.frame(state, dtFrame, shellRef.current === "run" ? 1 : CARD_DUCK);
+      } else {
+        audio.silence();
+      }
       window.__SH_COST__ = renderer.cost();
       if (!warmRef.current) {
         warmRef.current = true;
@@ -765,8 +796,13 @@ export function App() {
     // still on screen keeps riding (the held keys are let go of by the input
     // manager, which is what stops a craft riding off on its own).
     const onVisibility = (): void => {
-      if (document.hidden) clock.pause();
-      else {
+      if (document.hidden) {
+        clock.pause();
+        // The frame loop is what feeds the beds and it stops with the page:
+        // said here, not left to the audio context's own suspend, which iOS
+        // declines when it interrupted the session on the way out.
+        audio.silence();
+      } else {
         clock.resume();
         last = performance.now();
       }
@@ -774,13 +810,24 @@ export function App() {
       setAway(awayRef.current);
     };
     document.addEventListener("visibilitychange", onVisibility);
+    // A browser makes no sound before the player has touched something, and
+    // a context built outside a real gesture is one iOS will never resume:
+    // so the unlock hangs off actual gestures only — any press, any key,
+    // anywhere — captured, so a card that stops propagation cannot swallow
+    // it, and passive, since nothing here prevents a default.
+    const unlockOpts = { capture: true, passive: true } as const;
+    document.addEventListener("pointerdown", unlockAudio, unlockOpts);
+    document.addEventListener("keydown", unlockAudio, unlockOpts);
     // Nothing here watches the canvas's size: the renderer observes its own
     // box and matches the drawing buffer to it, which is the only way a
     // rotation is measured after the browser has laid the page out again.
 
     return () => {
       cancelAnimationFrame(raf);
+      audio.silence();
       document.removeEventListener("visibilitychange", onVisibility);
+      document.removeEventListener("pointerdown", unlockAudio, unlockOpts);
+      document.removeEventListener("keydown", unlockAudio, unlockOpts);
       window.removeEventListener("keydown", onMenuKey, true);
       input.dispose();
       renderer.dispose();

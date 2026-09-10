@@ -205,6 +205,13 @@ export const STRINGS = {
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
   optFps: "FPS",
   optFpsHint: "Frames a second in the corner, beside the build",
+  /** The one fader. It reads OFF at the bottom of its travel and a share
+   * everywhere else; there is no MUSIC row until there is a score. */
+  optSoundGroup: "SOUND",
+  optSound: "EFFECTS",
+  optSoundHint: "The engine, the spray, the sea and every splash — OFF at the bottom of the travel",
+  optSoundOff: "OFF",
+  percent: (share: number): string => `${Math.round(share * 100)}%`,
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order — the handlebars backwards.
    * Each is one word: the row is six chips wide and read at a glance. */
