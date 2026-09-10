@@ -83,6 +83,37 @@ export const STRINGS = {
   menuLeave: "MENU",
   menuLeaveTitle: "Back to the main menu (Esc)",
 
+  /* ── THE START CARD (menu-start.tsx, seed-preview.tsx) ─────────────── */
+  /** The card START opens: what this run is, before it is stood up. */
+  startTitle: "RIDE",
+  startSub: "Your craft, your shore, and the day you want it in",
+  startShore: "SHORE",
+  startTime: "TIME",
+  startWeather: "WEATHER",
+  /** The chip that leaves a row to the level as it was generated — the same
+   * idea as the developer page's AUTO, worded for a player. */
+  startOwn: "AS DEALT",
+  /** The press that actually rides. */
+  startGo: "RIDE",
+  /** The hours, earliest first. */
+  timeSunrise: "SUNRISE",
+  timeDay: "DAY",
+  timeSunset: "SUNSET",
+  /** The days, calmest first. */
+  weatherFine: "FINE",
+  weatherWind: "WIND",
+  weatherStorm: "STORM",
+  /** The seed's picture while it is being built, and when the generator
+   * refuses the seed outright. */
+  seedReading: "READING THE CHART…",
+  seedRefused: "NO COAST AT THIS SEED",
+  /** What the chart says, under it — and the same line as the picture's own
+   * label for a reader who cannot see it. */
+  seedRead: (gates: number, metres: number): string =>
+    `${gates} GATES · ${(metres / 1000).toFixed(1)} KM`,
+  seedChart: (seed: number, gates: number, metres: number): string =>
+    `Seed ${seed}: ${gates} gates over ${Math.round(metres)} metres of coast`,
+
   /* ── OPTIONS (menu-options.tsx) ────────────────────────────────────── */
   optCraft: "CRAFT",
   optCamera: "CAMERA",

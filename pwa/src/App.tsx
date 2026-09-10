@@ -34,9 +34,13 @@
 //   ?hour=20.5     ride at this hour on the clock in place of the level's
 //   ?weather=rain  ...and under this sky (clear | high | overcast | rain |
 //                  squall) — the sea stays the wind's
+//   ?time=sunset   the start card's TIME row: sunrise | day | sunset,
+//                  resolved against this coast's own daylight (R13)
+//   ?day=storm     ...and its WEATHER row: fine | windy | storm, which is a
+//                  sky AND the wind that builds the sea under it
 //   ?start=1       skip both cards and ride: a pinned run
 //   ?splash=0/1    force the attract card off, or back on
-//   ?menu=options  open the front door ON that page — how the screenshot
+//   ?menu=start    open the front door ON that page — how the screenshot
 //                  lab photographs a menu surface, and how a link points at
 //                  one. `developer` lets the developer menu out with it: a
 //                  URL that names the page has, by definition, found it
@@ -45,8 +49,8 @@
 //                  in game/update-button.tsx — it is not part of a repro)
 //
 // A URL that NAMES A RUN (`start`, `scene`, `shot`) boots into one. Anything
-// else opens the front door, and the URL's seed and craft become the
-// settings the menu is standing on — so a link still decides what START
+// else opens the front door, and the URL's seed, craft, time and day become
+// the settings the menu is standing on — so a link still decides what RIDE
 // rides, without deciding that it has already been pressed.
 //
 // THE LOOP: `requestAnimationFrame` hands the clock (run-loop.ts) the wall
@@ -61,12 +65,14 @@ import {
   botInput,
   createGame,
   isCraftId,
+  TIMES_OF_DAY,
   WEATHER_IDS,
   step,
   type CraftId,
   type CraftInput,
   type GameEvent,
   type GameState,
+  type TimeOfDay,
   type Weather,
 } from "@engine";
 
@@ -87,7 +93,15 @@ import {
   type Scenario,
   type ScenarioName,
 } from "./game/scenarios.ts";
-import { DEFAULT_SEED, loadSettings, saveSettings, type Settings } from "./game/settings.ts";
+import {
+  CONDITIONS,
+  CONDITION_DAY,
+  DEFAULT_SEED,
+  loadSettings,
+  saveSettings,
+  type Conditions,
+  type Settings,
+} from "./game/settings.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
@@ -129,6 +143,12 @@ type Params = {
    * settings, so nothing on a menu writes them. */
   hour: number | undefined;
   weather: Weather | undefined;
+  /** The start card's own two rows, as a link carries them: a named hour
+   * and a named day. Unlike `hour` and `weather` these ARE the player's
+   * settings, so they are laid over the stored ones rather than read
+   * straight into the run. */
+  time: TimeOfDay | undefined;
+  day: Conditions | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
   rides: boolean;
@@ -167,8 +187,17 @@ function readParams(): Params {
     weather: (WEATHER_IDS as readonly string[]).includes(p.get("weather") ?? "")
       ? (p.get("weather") as Weather)
       : undefined,
+    time: (TIMES_OF_DAY as readonly string[]).includes(p.get("time") ?? "")
+      ? (p.get("time") as TimeOfDay)
+      : undefined,
+    day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
+      ? (p.get("day") as Conditions)
+      : undefined,
     rides: shot || named !== null || p.get("start") === "1",
-    menu: menu === "options" || menu === "developer" || menu === "root" ? { page: menu } : null,
+    menu:
+      menu === "start" || menu === "options" || menu === "developer" || menu === "root"
+        ? { page: menu }
+        : null,
   };
 }
 
@@ -209,7 +238,9 @@ function settingsFor(stored: Settings, params: Params): Settings {
     dev: { ...stored.dev },
   };
   if (params.craft !== null) settings.ride.craft = params.craft;
-  if (params.seed !== null) settings.dev.seed = params.seed;
+  if (params.seed !== null) settings.ride.seed = params.seed;
+  if (params.time !== undefined) settings.ride.time = params.time;
+  if (params.day !== undefined) settings.ride.conditions = params.day;
   if (params.scene !== null) settings.dev.scene = params.scene;
   // A URL that names the developer page has, by definition, found it — the
   // hold is a way IN, not a lock, and making the lab hold a button for seven
@@ -278,13 +309,20 @@ export function App() {
      * nothing on a menu writes them. */
     const newGame = (): GameState => {
       const s = settingsRef.current;
+      // The start card's DAY is one word covering two of these: the sky to
+      // ride under and the wind that builds the sea under it (R19 keeps the
+      // pair honest, and `CONDITION_DAY` is where the word becomes both).
+      const day = s.ride.conditions === null ? null : CONDITION_DAY[s.ride.conditions];
       return createGame({
-        seed: s.dev.seed ?? DEFAULT_SEED,
+        seed: s.ride.seed ?? DEFAULT_SEED,
         craft: s.ride.craft,
-        windSpeed: s.dev.wind ?? undefined,
+        // The developer's own rows win where they are set: they are the
+        // exact figure, and the card's is a word standing for one.
+        windSpeed: s.dev.wind ?? day?.wind,
         sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
         hour: params.hour,
-        weather: params.weather,
+        timeOfDay: s.ride.time ?? undefined,
+        weather: params.weather ?? day?.weather,
       });
     };
 

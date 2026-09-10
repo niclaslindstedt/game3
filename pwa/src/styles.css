@@ -1759,6 +1759,111 @@ canvas {
   transform: translateX(1.1rem);
 }
 
+/* ── THE SEED'S PICTURE (seed-preview.tsx) ─────────────────────────────────
+   The whole course in a box under the row that picks it, painted out of the
+   minimap's own palette because it is the same cartoon of the same sea: deep
+   water is the plate, shallows a band over it, land a solid mass, a skerry
+   solid and a reef hollow. A rider who has read one has read the other. */
+.seed-preview {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.3rem;
+  padding: 0.4rem;
+  border: 2px solid rgb(242 247 248 / 16%);
+  border-radius: 0.5rem;
+  background: var(--sea-deep, rgb(8 42 56 / 70%));
+  /* The box keeps its height whatever is in it — a chart, a word, or
+     nothing yet — so the rows under it do not jump every time a seed is
+     stepped. */
+  min-height: 9.5rem;
+  justify-content: center;
+}
+
+/* Waiting on the worker: the LAST chart stays up, dimmed, because a box that
+   emptied on every press would strobe through a walk down the seeds and take
+   the thing being compared away at the moment of comparison. */
+.seed-preview-waiting {
+  opacity: 0.45;
+}
+
+.seed-preview-map {
+  display: block;
+  width: 100%;
+  max-width: 14rem;
+  aspect-ratio: 1;
+  border-radius: 0.3rem;
+}
+
+/* What the box says when there is no chart to show. */
+.seed-preview-word {
+  margin: 0;
+  font-size: 0.66rem;
+  letter-spacing: 0.14em;
+  color: var(--hud-info);
+  opacity: 0.8;
+}
+
+.seed-preview-read {
+  margin: 0;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--hud-info);
+}
+
+.seed-preview-shallows {
+  fill: var(--sea-shallow);
+  opacity: 0.42;
+}
+
+.seed-preview-land {
+  fill: rgb(226 220 198 / 92%);
+}
+
+.seed-preview-shore {
+  stroke: rgb(12 44 58 / 70%);
+  stroke-width: 0.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.seed-preview-rocks {
+  fill: rgb(12 44 58 / 88%);
+}
+
+.seed-preview-reefs {
+  fill: rgb(12 44 58 / 22%);
+  stroke: rgb(12 44 58 / 70%);
+  stroke-width: 0.3;
+}
+
+.seed-preview-route {
+  stroke: rgb(242 247 248 / 78%);
+  stroke-width: 1;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.seed-preview-gate {
+  fill: rgb(242 247 248 / 62%);
+}
+
+/* The start line, given the buoy's own orange: the one point on the chart a
+   rider is looking for, which is where the run begins. */
+.seed-preview-start {
+  fill: var(--buoy);
+  stroke: rgb(6 30 42 / 70%);
+  stroke-width: 0.6;
+}
+
+/* The card's own way on, under the rows rather than beside them. */
+.menu-start-go {
+  margin-top: 0.4rem;
+  text-align: center;
+}
+
 /* The page's one blunt press — RESTORE DEFAULTS, COPY REPRO LINK, LOCK. */
 .opt-reset {
   margin-top: 0.2rem;

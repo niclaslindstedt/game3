@@ -307,18 +307,42 @@ describe("what survives a stored settings blob (settings.ts)", () => {
   });
 
   it("keeps the choices a build still offers", () => {
-    const stored = mergeSettings({ ride: { craft: "dart", camera: "nose" }, hud: { on: false } });
-    expect(stored.ride).toEqual({ craft: "dart", camera: "nose" });
+    const stored = mergeSettings({
+      ride: { craft: "dart", camera: "nose", seed: 12, time: "sunset", conditions: "storm" },
+      hud: { on: false },
+    });
+    expect(stored.ride).toEqual({
+      craft: "dart",
+      camera: "nose",
+      seed: 12,
+      time: "sunset",
+      conditions: "storm",
+    });
     expect(stored.hud.on).toBe(false);
+  });
+
+  it("keeps the START CARD's rows for a player who never found the developer menu", () => {
+    // The seed moved out of `dev` and onto `ride` when the start card began
+    // asking for it. A blob that still carried it under `dev` must not
+    // resurrect it there, and the ride's own rows must survive without the
+    // developer flag — they are a player's choices, not a tool.
+    const stored = mergeSettings({ ride: { seed: 7, conditions: "fine" }, dev: { seed: 999 } });
+    expect(stored.ride.seed).toBe(7);
+    expect(stored.ride.conditions).toBe("fine");
+    expect(stored.developer).toBe(false);
+    expect(stored.dev).toEqual(DEFAULT_SETTINGS.dev);
   });
 
   it("DROPS a value this build no longer offers rather than carrying it", () => {
     // The rule the field-by-field merge exists for: a value off the ladder is
     // one the menu has no chip to put the cursor back on.
-    const stored = mergeSettings({ ride: { craft: "hovercraft", camera: "orbit" } });
+    const stored = mergeSettings({
+      ride: { craft: "hovercraft", camera: "orbit", time: "midnight", conditions: "drizzle" },
+    });
     expect(stored.ride).toEqual(DEFAULT_SETTINGS.ride);
+    expect(mergeSettings({ ride: { seed: -4 } }).ride.seed).toBeNull();
+    expect(mergeSettings({ ride: { seed: 2.5 } }).ride.seed).toBeNull();
     expect(mergeSettings({ developer: true, dev: { scene: "moonwalk" } }).dev.scene).toBeNull();
-    expect(mergeSettings({ developer: true, dev: { seed: -4 } }).dev.seed).toBeNull();
     expect(mergeSettings({ developer: true, dev: { wind: 900 } }).dev.wind).toBeNull();
     expect(mergeSettings({ developer: true, dev: { hs: 900 } }).dev.hs).toBeNull();
   });
@@ -329,7 +353,7 @@ describe("what survives a stored settings blob (settings.ts)", () => {
 
   it("clears every developer tool for anyone who never found the menu", () => {
     // A tool nobody can reach is a tool nobody can switch off.
-    const sneaked = mergeSettings({ dev: { seed: 12, cost: true, scene: "dive" } });
+    const sneaked = mergeSettings({ dev: { cost: true, scene: "dive" } });
     expect(sneaked.developer).toBe(false);
     expect(sneaked.dev).toEqual(DEFAULT_SETTINGS.dev);
   });
@@ -337,9 +361,9 @@ describe("what survives a stored settings blob (settings.ts)", () => {
   it("carries a developer's own settings once the menu is out", () => {
     const dev = mergeSettings({
       developer: true,
-      dev: { seed: 12, wind: 14, hs: 3, scene: "dive", cost: true },
+      dev: { wind: 14, hs: 3, scene: "dive", cost: true },
     });
-    expect(dev.dev).toEqual({ seed: 12, wind: 14, hs: 3, scene: "dive", cost: true });
+    expect(dev.dev).toEqual({ wind: 14, hs: 3, scene: "dive", cost: true });
   });
 
   it("ignores settings a build has dropped, rather than choking on them", () => {

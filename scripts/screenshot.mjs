@@ -83,6 +83,10 @@ const SCENES = [
 const SURFACES = {
   splash: { params: { splash: "1" }, wait: ".splash-title", settle: 900 },
   menu: { params: { menu: "root" }, wait: ".menu-card-root", settle: 1000 },
+  // The start card settles slowly on purpose: its chart is a whole level
+  // generated in a worker, and the row waits for the arrows to be still
+  // before it asks. A short settle photographs "READING THE CHART…".
+  start: { params: { menu: "start" }, wait: ".seed-preview", settle: 2600 },
   options: { params: { menu: "options" }, wait: ".menu-card", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
 };

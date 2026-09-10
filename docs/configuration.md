@@ -6,29 +6,31 @@ Sea Haven has no runtime configuration surface (no accounts, no server); everyth
 
 The running game reads its whole situation off the URL, which is what makes a level a link and a bug report a repro:
 
-| Parameter | Meaning                                                                                                                                                                                          |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `seed`    | The level seed. Every shore, sea, gate and ramp is generated from it; the same seed is the same level on every machine.                                                                          |
-| `craft`   | Which craft: `skiff`, `marlin`, `otter` or `dart`.                                                                                                                                               |
-| `scene`   | A staged moment from `pwa/src/game/scenarios.ts` (`cruise`, `chop`, `launch`, `landing`, `dive`, `backflip`…) for labs and shots.                                                                |
-| `t`       | Seconds into the scene to stand at.                                                                                                                                                              |
-| `shot`    | `1` freezes the frame for the screenshot tool and sets `window.__SH_READY__` when it is drawn.                                                                                                   |
-| `wind`    | A wind speed, m/s, in place of the level's own (from the same quarter) — the sea is grown from it too.                                                                                           |
-| `hs`      | A sea quoted by its significant height, m, in place of the one the wind grows: `hs=20` is the storm the model is sized to carry.                                                                 |
-| `hour`    | An hour on the clock (solar time, 0–24) in place of the level's own, so any seed can be ridden at sunrise or sunset. The sun, the sky and what the water reflects follow it; the sea does not.   |
-| `weather` | A sky (`clear`, `high`, `overcast`, `rain`, `squall`) in place of the one the level was dealt. The sea stays the wind's, so a squall asked for this way is a squall's light over a fair sea.     |
-| `start`   | `1` skips both cards and rides — a pinned run.                                                                                                                                                   |
-| `splash`  | `0` clears the attract card off an ordinary visit (what the developer page's repro links carry); `1` forces it back on.                                                                          |
-| `menu`    | Open the front door ON a page: `root`, `options` or `developer`. `developer` lets the developer menu out with it — a URL that names the page has, by definition, found it.                       |
-| `update`  | `1` shows the new-build button as if a newer build were waiting — the only way to look at it before a deploy has landed on a device that already had the app. The second press reloads the page. |
+| Parameter | Meaning                                                                                                                                                                                                   |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `seed`    | The level seed. Every shore, sea, gate and ramp is generated from it; the same seed is the same level on every machine.                                                                                   |
+| `craft`   | Which craft: `skiff`, `marlin`, `otter` or `dart`.                                                                                                                                                        |
+| `scene`   | A staged moment from `pwa/src/game/scenarios.ts` (`cruise`, `chop`, `launch`, `landing`, `dive`, `backflip`…) for labs and shots.                                                                         |
+| `t`       | Seconds into the scene to stand at.                                                                                                                                                                       |
+| `shot`    | `1` freezes the frame for the screenshot tool and sets `window.__SH_READY__` when it is drawn.                                                                                                            |
+| `wind`    | A wind speed, m/s, in place of the level's own (from the same quarter) — the sea is grown from it too.                                                                                                    |
+| `hs`      | A sea quoted by its significant height, m, in place of the one the wind grows: `hs=20` is the storm the model is sized to carry.                                                                          |
+| `hour`    | An hour on the clock (solar time, 0–24) in place of the level's own, so any seed can be ridden at sunrise or sunset. The sun, the sky and what the water reflects follow it; the sea does not.            |
+| `weather` | A sky (`clear`, `high`, `overcast`, `rain`, `squall`) in place of the one the level was dealt. The sea stays the wind's, so a squall asked for this way is a squall's light over a fair sea.              |
+| `time`    | The start card's TIME row: `sunrise`, `day` or `sunset`, resolved by the engine against this coast's own daylight window (R13) rather than as three hours written down. `hour` wins where both are given. |
+| `day`     | The start card's WEATHER row: `fine`, `windy` or `storm` — one word covering the sky AND the wind that builds the sea under it. `weather` and `wind` each win over it, being the exact figure.            |
+| `start`   | `1` skips both cards and rides — a pinned run.                                                                                                                                                            |
+| `splash`  | `0` clears the attract card off an ordinary visit (what the developer page's repro links carry); `1` forces it back on.                                                                                   |
+| `menu`    | Open the front door ON a page: `root`, `start`, `options` or `developer`. `developer` lets the developer menu out with it — a URL that names the page has, by definition, found it.                       |
+| `update`  | `1` shows the new-build button as if a newer build were waiting — the only way to look at it before a deploy has landed on a device that already had the app. The second press reloads the page.          |
 
-A URL that names a RUN (`start`, `scene`, `shot`) boots into one, past the attract card and the front door. Anything else opens the front door, with the URL's seed and craft as the settings it is standing on — so a link decides what START rides without deciding that it has already been pressed. Every one of these except `update` is a row on the developer page, and COPY REPRO LINK there writes them back out.
+A URL that names a RUN (`start`, `scene`, `shot`) boots into one, past the attract card and the front door. Anything else opens the front door, with the URL's seed, craft, time and day as the settings it is standing on — so a link decides what RIDE rides without deciding that it has already been pressed. Every one of these except `update` is a row on the start card or the developer page, and COPY REPRO LINK there writes them back out.
 
 The debug switch the spec asks for (§19.3) is the dev build: `npm run dev` lifts the engine's `debug`-level output onto the console through `pwa/src/output-bridge.ts`, and the same lines are kept in an in-memory ring buffer every build can read back.
 
 ## What the game remembers
 
-Everything the player chooses — the craft, the camera, whether the HUD is drawn, and a developer's own rows once the menu has been let out — is kept in `localStorage` under `sea-haven-settings` and read back through `mergeSettings` (`pwa/src/game/settings.ts`). The merge is field by field and every value is checked against what the build still offers, so a blob written by an older build keeps the choices that still exist and quietly drops the ones that do not. Clearing site data is a first visit again; storage being unavailable is a session on the defaults, which is a perfectly good game.
+Everything the player chooses — the craft, the shore's seed, the hour and the day to ride it in, the camera, whether the HUD is drawn, and a developer's own rows once the menu has been let out — is kept in `localStorage` under `sea-haven-settings` and read back through `mergeSettings` (`pwa/src/game/settings.ts`). The merge is field by field and every value is checked against what the build still offers, so a blob written by an older build keeps the choices that still exist and quietly drops the ones that do not. Clearing site data is a first visit again; storage being unavailable is a session on the defaults, which is a perfectly good game.
 
 The **developer menu** is let out by holding START on the front door for seven seconds, and it stays out. RESTORE DEFAULTS on the options page deliberately leaves it out; LOCK THE DEVELOPER MENU on the developer page is the way back.
 
