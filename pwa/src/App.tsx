@@ -139,17 +139,17 @@ type Params = {
    * significant height, m, in place of the one the wind grows. */
   wind: number | undefined;
   hs: number | undefined;
-  /** An hour on the clock and a sky in place of the level's own. Read off
-   * the URL alone: they are the LEVEL's conditions rather than the player's
-   * settings, so nothing on a menu writes them. */
+  /** An hour on the clock in place of the level's own. Read off the URL
+   * alone: it is the LEVEL's, an exact figure rather than a named hour, so
+   * nothing on a menu writes it. */
   hour: number | undefined;
-  weather: Weather | undefined;
-  /** The start card's own two rows, as a link carries them: a named hour
-   * and a named day. Unlike `hour` and `weather` these ARE the player's
+  /** The start card's own three rows, as a link carries them: a named hour,
+   * a named wind and a named sky. Unlike `hour` these ARE the player's
    * settings, so they are laid over the stored ones rather than read
    * straight into the run. */
   time: TimeOfDay | undefined;
   day: Conditions | undefined;
+  weather: Weather | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
   rides: boolean;
@@ -246,6 +246,7 @@ function settingsFor(stored: Settings, params: Params): Settings {
   if (params.seed !== null) settings.ride.seed = params.seed;
   if (params.time !== undefined) settings.ride.time = params.time;
   if (params.day !== undefined) settings.ride.conditions = params.day;
+  if (params.weather !== undefined) settings.ride.weather = params.weather;
   if (params.scene !== null) settings.dev.scene = params.scene;
   // A URL that names the developer page has, by definition, found it — the
   // hold is a way IN, not a lock, and making the lab hold a button for seven
@@ -309,14 +310,14 @@ export function App() {
      * moment a run is stood up rather than captured, so a seed changed on
      * the developer page is the seed START rides.
      *
-     * The hour and the sky come off the URL instead, because they are not
-     * settings: they say what the LEVEL is, the way the seed does, and
-     * nothing on a menu writes them. */
+     * The HOUR comes off the URL instead, because it is not a setting: an
+     * exact figure says what the LEVEL is, the way the seed does, and
+     * nothing on a menu writes one. */
     const newGame = (): GameState => {
       const s = settingsRef.current;
-      // The start card's DAY is one word covering two of these: the sky to
-      // ride under and the wind that builds the sea under it (R19 keeps the
-      // pair honest, and `CONDITION_DAY` is where the word becomes both).
+      // The start card's WIND row is two of these at once: the wind that
+      // builds the sea, and the sky that belongs over that wind (R19 keeps
+      // the pair honest, and `CONDITION_DAY` is where the rung becomes both).
       const day = s.ride.conditions === null ? null : CONDITION_DAY[s.ride.conditions];
       return createGame({
         seed: s.ride.seed ?? DEFAULT_SEED,
@@ -327,7 +328,10 @@ export function App() {
         sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
         hour: params.hour,
         timeOfDay: s.ride.time ?? undefined,
-        weather: params.weather ?? day?.weather,
+        // The WEATHER row wins over the sky its wind implies — that is the
+        // whole of what it is for. Left AS DEALT it defers, and the pair
+        // stays the one R19 would have dealt.
+        weather: s.ride.weather ?? day?.weather,
       });
     };
 
