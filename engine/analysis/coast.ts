@@ -77,7 +77,14 @@ export function analyzeShore(level: Level, rep: Report): void {
   // in, every basin reads as a canal and the rule stops being about the
   // water the race is in at all — which is the only thing it was ever
   // about.
-  const box = raceBox(level);
+  //
+  // R29 — a circuit inverts that. Its race box holds no land at all by
+  // construction (the line stands past every shore), so the question the
+  // share can still answer there is the level's own: is there a coast in
+  // this level, and has it grown over the sea the race needs? Measured over
+  // the whole level, against the circuit's own band.
+  const circuit = level.track === "circuit";
+  const box = circuit ? level.bounds : raceBox(level);
   let water = 0;
   let cells = 0;
   const o = level.offshore;
@@ -92,11 +99,12 @@ export function analyzeShore(level: Level, rep: Report): void {
     }
   }
   const share = cells > 0 ? water / cells : 0;
-  if (!withinBand(share, R.basin.waterShare)) {
+  const band = circuit ? R.circuit.waterShare : R.basin.waterShare;
+  if (!withinBand(share, band)) {
     rep.fail(
       "R15",
       "share",
-      `${fmt(share * 100)}% of the level is water (band ${fmt(R.basin.waterShare.min * 100)}–${fmt(R.basin.waterShare.max * 100)}%)`,
+      `${fmt(share * 100)}% of the level is water (band ${fmt(band.min * 100)}–${fmt(band.max * 100)}%)`,
       { value: share },
     );
   }
@@ -160,12 +168,17 @@ export function analyzeCharacter(level: Level, rep: Report): number {
   // …and only the waterline the RIDER is ever near (R26): the banks of a
   // creek a kilometre up the country are a coast nobody looks at from a
   // saddle, and a rule about how a coast CHANGES cannot be read off one.
+  //
+  // R29 — on a circuit the whole waterline is the coast the rider looks at:
+  // there is one, it stands off on one side of the loop, and it is in view
+  // from every corner of the lap. Nothing to exclude.
   const box = raceBox(level);
   const near = (x: number, z: number): boolean =>
-    x >= box.minX - A.shore.race &&
-    x <= box.maxX + A.shore.race &&
-    z >= box.minZ - A.shore.race &&
-    z <= box.maxZ + A.shore.race;
+    level.track === "circuit" ||
+    (x >= box.minX - A.shore.race &&
+      x <= box.maxX + A.shore.race &&
+      z >= box.minZ - A.shore.race &&
+      z <= box.maxZ + A.shore.race);
   const runs = new Map<string, number>();
   let longest = 0;
   let longestKind = "";
@@ -239,7 +252,7 @@ export function analyzeSolid(
   depthAt: (x: number, z: number) => number,
   rep: Report,
 ): void {
-  const rule = solidRule(s.kind);
+  const rule = solidRule(s.kind, level.track);
   const off = offshoreAt(s.x, s.z);
   if (!withinBand(off, rule.offshore, R.grid.cell)) {
     rep.fail(

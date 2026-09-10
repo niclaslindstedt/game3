@@ -1,27 +1,36 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE RULE BOOK'S MIRROR. `engine/mapgen/rules.ts` states every generator
-// rule once, as prose in its header, and `docs/level-generator.md` carries
-// the same prose VERBATIM so that a reader of the docs and a reader of the
-// code are told the same thing. Two copies that cannot import each other
-// are a drift bug waiting to happen, and this is the test that makes it a
-// failing test instead: every R-rule in the code is in the doc, every
-// R-rule in the doc is in the code, and the words are the same words.
+// THE RULE BOOK'S MIRROR. The generator states every rule once, as prose in
+// the header of a rule-book file, and `docs/level-generator.md` carries the
+// same prose VERBATIM so that a reader of the docs and a reader of the code
+// are told the same thing. Two copies that cannot import each other are a
+// drift bug waiting to happen, and this is the test that makes it a failing
+// test instead: every R-rule in the code is in the doc, every R-rule in the
+// doc is in the code, and the words are the same words.
 //
-// The ids are read off the code, never listed here — a new rule lands in
-// `rules.ts` and this file asks for its mirror without being edited.
+// The rule book is TWO CHAPTERS — `rules.ts` for a coast sprint, and
+// `rules-circuit.ts` for the ocean circuit that replaces half of it (R29 to
+// R31) — and they are read here as one file in one order, because that is
+// what they are: one rule book, split only because the first chapter is at
+// the 1000-line cap.
+//
+// The ids are read off the code, never listed here — a new rule lands in a
+// chapter and this file asks for its mirror without being edited.
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
-const rules = readFileSync(join(ROOT, "engine", "mapgen", "rules.ts"), "utf8");
+const CHAPTERS = ["rules.ts", "rules-circuit.ts"];
+const rules = CHAPTERS.map((f) => readFileSync(join(ROOT, "engine", "mapgen", f), "utf8")).join(
+  "\n",
+);
 const doc = readFileSync(join(ROOT, "docs", "level-generator.md"), "utf8");
 
 const squash = (s: string): string => s.replace(/\s+/g, " ").trim();
 
-/** The rules as the code states them: `//   R<n>  PROSE…` with the prose
- * continuing on the indented `//` lines that follow. */
+/** The rules as the code states them, over both chapters: `//   R<n>  PROSE…`
+ * with the prose continuing on the indented `//` lines that follow. */
 function rulesInCode(): Map<string, string> {
   const out = new Map<string, string>();
   let current: string | null = null;
@@ -58,7 +67,7 @@ function rulesInDoc(): Map<string, string> {
   return out;
 }
 
-describe("docs/level-generator.md mirrors engine/mapgen/rules.ts", () => {
+describe("docs/level-generator.md mirrors the rule book", () => {
   const code = rulesInCode();
   const mirror = rulesInDoc();
 

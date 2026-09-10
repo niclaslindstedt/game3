@@ -42,7 +42,7 @@ import { clamp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import { riverDistance, type River } from "./river.ts";
-import type { Route } from "./route.ts";
+import type { CoastRoute, Route } from "./route.ts";
 import { LEVEL_RULES as R, inBand } from "./rules.ts";
 import type { Bounds, Vec2 } from "./types.ts";
 
@@ -110,6 +110,78 @@ export function levelBounds(route: Route, river: River): Bounds {
   return padded(minX, minZ, maxX, maxZ, 0);
 }
 
+/**
+ * R29 — WHERE THE COAST STANDS on a circuit: the offset of the open sea's
+ * straight edge along the sea's own heading.
+ *
+ * Cut back from the loop's most INSHORE station by the offshore distance
+ * this level is drawn at AND by the whole amplitude the edge wanders in and
+ * out over, so R29's floor holds at the one station where the coast could
+ * bulge furthest toward the line. Everywhere else on the loop the water is
+ * deeper and the shore further, which is what a circuit is.
+ *
+ * Drawn here rather than inside the basin because the level's own box has
+ * to know where the land is before there is a field to read it off — the
+ * same reason the coast's `seaEdge` is worked out in the generator.
+ */
+export function oceanEdge(rng: Rng, route: Route): number {
+  const sx = Math.sin(route.seaHeading);
+  const sz = Math.cos(route.seaHeading);
+  let inshore = Infinity;
+  for (const p of route.points) inshore = Math.min(inshore, p.x * sx + p.z * sz);
+  return inshore - inBand(rng, R.circuit.offshore) - R.circuit.coast.wander.amplitude;
+}
+
+/**
+ * R14, R29 — a circuit's box: the loop, the open sea outside it, and the
+ * strip of coast the level carries on one side of it.
+ *
+ * Measured in the sea's own frame rather than in the world's — how far out
+ * to sea, how far in past the coast, how far along it — and then squared
+ * off to the grid the level's bounds ARE. The union with the loop's own box
+ * padded all round is what keeps R14's padding rule true whichever way the
+ * sea happens to lie: the frame's rectangle covers the coast, and the pad
+ * covers the corners the rotation would otherwise cut.
+ */
+export function circuitBounds(route: Route, seaOffset: number): Bounds {
+  const sx = Math.sin(route.seaHeading);
+  const sz = Math.cos(route.seaHeading);
+  let outer = -Infinity;
+  let alongMin = Infinity;
+  let alongMax = -Infinity;
+  let minX = Infinity;
+  let minZ = Infinity;
+  let maxX = -Infinity;
+  let maxZ = -Infinity;
+  for (const p of route.points) {
+    outer = Math.max(outer, p.x * sx + p.z * sz);
+    const along = p.x * sz - p.z * sx;
+    alongMin = Math.min(alongMin, along);
+    alongMax = Math.max(alongMax, along);
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minZ = Math.min(minZ, p.z);
+    maxZ = Math.max(maxZ, p.z);
+  }
+  // The inland edge stands past everything the field still measures (R2),
+  // with the land's own pad behind it, so no cell of country is cut off
+  // mid-profile.
+  const inner = seaOffset - R.land.measured - R.bounds.land;
+  const off = outer + R.bounds.sea;
+  const side = R.circuit.coast.run;
+  for (const u of [inner, off]) {
+    for (const v of [alongMin - side, alongMax + side]) {
+      const x = u * sx + v * sz;
+      const z = u * sz - v * sx;
+      minX = Math.min(minX, x);
+      maxX = Math.max(maxX, x);
+      minZ = Math.min(minZ, z);
+      maxZ = Math.max(maxZ, z);
+    }
+  }
+  return padded(minX, minZ, maxX, maxZ, R.bounds.sea);
+}
+
 function padded(minX: number, minZ: number, maxX: number, maxZ: number, pad: number): Bounds {
   const cell = R.grid.cell;
   const snap = (v: number, up: boolean): number =>
@@ -159,7 +231,7 @@ const COARSE_STEP = 20;
 /** How far past the water it is owed the fine pass reaches, m. */
 const FINE_REACH = 40;
 
-export function layBasin(rng: Rng, route: Route, river: River, bounds: Bounds): Basin {
+export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Bounds): Basin {
   const cell = R.grid.cell;
   const cols = Math.round((bounds.maxX - bounds.minX) / cell) + 1;
   const rows = Math.round((bounds.maxZ - bounds.minZ) / cell) + 1;
@@ -316,6 +388,49 @@ export function layBasin(rng: Rng, route: Route, river: River, bounds: Bounds): 
     }
   }
   return { offshore, islands, seaHeading, seaOffset };
+}
+
+/**
+ * R29 — THE OCEAN a circuit is ridden in: the open sea, and one coast a
+ * long way off on one side of it.
+ *
+ * There is no corridor here and there are no islands. A circuit's line
+ * stands out past every coastal band before the water is carved (`oceanEdge`
+ * cut the shore back for it), so a corridor stamped along the loop would
+ * lose to the sea's own distance in every cell it touched and cost the
+ * biggest single price in building a level to say nothing; and an island
+ * cut into the water beside the line would be a shore, which is exactly
+ * what R29 says the line is nowhere near. The rocks a lap goes round are
+ * SOLIDS — the marks (R31) and the stacks strewn out there (R17) — and a
+ * solid is not a hole in the water.
+ *
+ * So the field is one expression per cell: how far past the sea's edge the
+ * cell stands, clamped inland at what the level still measures. The edge
+ * WANDERS — a value noise on the along-shore coordinate — because a coast
+ * that is a straight line at two hundred metres reads as a wall, and its
+ * whole amplitude was already cut back out of the offset, so no bay it
+ * makes can reach the line.
+ */
+export function layOceanBasin(rng: Rng, route: Route, bounds: Bounds, seaOffset: number): Basin {
+  const cell = R.grid.cell;
+  const cols = Math.round((bounds.maxX - bounds.minX) / cell) + 1;
+  const rows = Math.round((bounds.maxZ - bounds.minZ) / cell) + 1;
+  const offshore = createHeightfield(bounds.minX, bounds.minZ, cell, cols, rows);
+  const seaHeading = route.seaHeading;
+  const sx = Math.sin(seaHeading);
+  const sz = Math.cos(seaHeading);
+  const { amplitude, scale } = R.circuit.coast.wander;
+  const wanderSeed = rng.int(1, 0x7fffffff);
+  for (let r = 0; r < rows; r++) {
+    const z = bounds.minZ + r * cell;
+    for (let c = 0; c < cols; c++) {
+      const x = bounds.minX + c * cell;
+      const along = x * sz - z * sx;
+      const wander = (valueNoise(along, 0, scale, wanderSeed) - 0.5) * 2 * amplitude;
+      offshore.data[r * cols + c] = Math.max(FAR_INLAND, x * sx + z * sz - seaOffset - wander);
+    }
+  }
+  return { offshore, islands: [], seaHeading, seaOffset };
 }
 
 /** Where a station of the route stands, the half-width owed there, and the

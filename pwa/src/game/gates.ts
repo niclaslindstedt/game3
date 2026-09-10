@@ -96,7 +96,15 @@ function buildRamp(ramp: Ramp): THREE.Group {
 
 export function createGates(level: Level): Gates {
   const group = new THREE.Group();
-  const gates = level.course.gates;
+  // R30 — ONE LAP of buoys and rings. A lapped course publishes the whole
+  // ride, so the same buoy pair appears in the list once a lap; built from
+  // the list as it stands, a three-lap circuit stands three buoys inside
+  // each other, flickering against themselves and costing three times the
+  // draw. The gate a lit buoy answers to is its own LAP SLOT, which is
+  // what `slotOf` turns the run's `nextGate` into.
+  const lapGates = level.course.lapGates;
+  const gates = level.course.gates.slice(0, lapGates);
+  const slotOf = (gate: number): number => (gate >= lapGates ? gate % lapGates : gate);
   // The buoys, instanced: two per water gate.
   const buoyAt: { gate: number; x: number; z: number }[] = [];
   for (const g of gates)
@@ -147,7 +155,11 @@ export function createGates(level: Level): Gates {
   };
 
   const update = (state: GameState): void => {
-    const next = state.progress.nextGate;
+    // The lap slot the run's next gate stands in, and how many of this
+    // lap's gates are behind it — the finish is the start line again, so on
+    // the last crossing every buoy of the lap is already done.
+    const raw = state.progress.nextGate;
+    const next = raw >= level.course.gates.length ? lapGates : slotOf(raw);
     const { sea, level: lvl, t } = state;
     for (let i = 0; i < buoyAt.length; i++) {
       const b = buoyAt[i];

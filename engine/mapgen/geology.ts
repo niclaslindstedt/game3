@@ -48,7 +48,7 @@ import type { Rng } from "../lib/prng.ts";
 import type { Basin } from "./basin.ts";
 import type { Biome } from "./biomes.ts";
 import { LEVEL_RULES as R, inBand, solidRule } from "./rules.ts";
-import type { Bounds, ScatteredKind, Solid } from "./types.ts";
+import type { Bounds, ScatteredKind, Solid, TrackKind } from "./types.ts";
 
 export type Geology = {
   /** The height the land climbs to before the coast's character has its
@@ -200,16 +200,18 @@ export function laySolids(
   km: number,
   keepOut: KeepOut,
   standing: readonly Solid[] = [],
+  track: TrackKind = "coast",
 ): Solid[] {
-  // R25 — anything already standing (the ocean leg's mark) is in the list
-  // before the placer starts, so the density-placed rocks keep their
-  // spacing from it as they do from each other.
+  // R25, R31 — anything already standing (the mark a coast's ocean leg
+  // rounds, or the marks a circuit's bends carry) is in the list before the
+  // placer starts, so the density-placed rocks keep their spacing from them
+  // as they do from each other.
   const solids: Solid[] = [...standing];
   // Biggest first: a stack is a landmark and wants the open water, and
   // `apart` gives whatever is placed first its pick of the basin.
   const kinds: ScatteredKind[] = ["stack", "skerry", "boulder", "reef", "erratic"];
   for (const kind of kinds) {
-    const rule = solidRule(kind);
+    const rule = solidRule(kind, track);
     const count = Math.round(rule.perKm * biome.rocks[kind] * km * rng.range(0.8, 1.2));
     let placed = 0;
     for (let n = 0; n < count; n++) {

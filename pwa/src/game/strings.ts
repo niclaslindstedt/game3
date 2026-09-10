@@ -16,6 +16,10 @@ export const STRINGS = {
   /** The gate counter, `passed / total`. */
   gates: (passed: number, total: number): string => `${passed} / ${total}`,
   gatesLabel: "GATES",
+  /** R30 — which lap of how many, on a circuit. Nothing to read on a coast
+   * sprint, which is one pass of one course, so the HUD leaves it out. */
+  laps: (lap: number, total: number): string => `${lap} / ${total}`,
+  lapsLabel: "LAP",
   clockLabel: "TIME",
   /** The wind chip: metres per second, one decimal. */
   wind: (ms: number): string => `${ms.toFixed(1)} m/s`,

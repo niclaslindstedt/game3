@@ -17,24 +17,48 @@
 // a coast with no straight long enough for R9's run-up, a chord that cuts
 // the shore: each is a coast that cannot carry a course, and the answer to
 // that is a different coast, not a bent rule.
+//
+// TWO KINDS OF LEVEL come out of this one loop. A COAST (R24–R26) is a
+// sprint along a shore, out to a mark and back, with a river running on
+// inland past it. A CIRCUIT (R29–R31) is a closed lap out at sea, ridden
+// several times round, with no river and the coast a long way off. They
+// differ in the WATER — how the line is drawn and how the basin round it
+// is cut — and in nothing else: the conditions, the rocks, the sea life,
+// the sky and the compile are one path, drawn in one order, because none
+// of them has an opinion about which kind of race is being laid.
 
-import { createRng } from "../lib/prng.ts";
+import { createRng, type Rng } from "../lib/prng.ts";
 import { TAU } from "../lib/math.ts";
 import { DECLINATION, SEASONS, daylightWindow } from "../lib/solar.ts";
 import { analyzeLevel } from "../analysis/index.ts";
 import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
-import { sampleField } from "../lib/heightfield.ts";
+import { sampleField, type Heightfield } from "../lib/heightfield.ts";
 import { bakeGround, compileLevel } from "./compile.ts";
-import { layBasin, levelBounds, routeBounds } from "./basin.ts";
-import { drawRiver } from "./river.ts";
-import { drawRoute } from "./route.ts";
-import { courseKeepOut, layCourse } from "./course.ts";
+import {
+  circuitBounds,
+  layBasin,
+  layOceanBasin,
+  levelBounds,
+  oceanEdge,
+  routeBounds,
+  type Basin,
+} from "./basin.ts";
+import { drawCircuit } from "./circuit.ts";
+import { drawRiver, type River } from "./river.ts";
+import { drawRoute, type Route } from "./route.ts";
+import {
+  courseKeepOut,
+  layCircuitCourse,
+  layCourse,
+  type CoursePlan,
+  type Water,
+} from "./course.ts";
 import { layFauna } from "./fauna.ts";
-import { createGeology, laySolids } from "./geology.ts";
-import { LEVEL_RULES as R, inBand, withinBand, type GenerateOptions } from "./rules.ts";
+import { createGeology, laySolids, type Geology } from "./geology.ts";
+import { LEVEL_RULES as R, inBand, withinBand } from "./rules.ts";
 import { pickWeather, skyCover } from "./weather.ts";
-import type { Level, Solid } from "./types.ts";
+import type { Bounds, GenerateOptions, Level, Solid, TrackKind, Wind } from "./types.ts";
 
 /** R15, R25 — where the open sea's straight edge stands, as a distance
  * along the sea's own heading. `sea.line.edge` short of the route's most
@@ -69,10 +93,134 @@ export function subSeed(seed: number, attempt: number): number {
   return (seed + attempt * 0x9e3779b9) >>> 0;
 }
 
+/** THE WATER AN ATTEMPT DREW: the line the race is ridden on, the basin cut
+ * round it, the ground under both, and the rocks that stood before the
+ * course did. Everything the two kinds of level disagree about, in the one
+ * shape the rest of the attempt reads. */
+type Waters = {
+  readonly route: Route;
+  readonly river: River;
+  readonly bounds: Bounds;
+  readonly basin: Basin;
+  readonly geology: Geology;
+  readonly ground: Heightfield;
+  /** R25, R31 — the marks, as the solids they will be published as. */
+  readonly marks: readonly Solid[];
+  /** The box the rocks and the sea life are scattered over (R17, R20). */
+  readonly strewn: Bounds;
+  /** How much coast that scattering is worth, km. */
+  readonly km: number;
+  readonly lay: (rng: Rng, water: Water, wind: Wind) => CoursePlan | null;
+};
+
+/** R26 — a circuit's river, which is no river: the empty line every reader
+ * of one already treats as "there is none here". */
+const NO_RIVER: River = {
+  points: [],
+  widths: new Float64Array(0),
+  inland: 0,
+  length: 0,
+  discharge: 0,
+};
+
+function markSolids(route: Route): Solid[] {
+  return route.marks.map((mark, i) => ({
+    id: `M${i + 1}`,
+    kind: "mark" as const,
+    x: mark.x,
+    z: mark.z,
+    r: mark.r,
+    top: mark.top,
+  }));
+}
+
+/** R24, R25, R26, R15 — a coast: the route, the river off its most inland
+ * station, and the basin cut round them both. */
+function drawCoast(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string {
+  // R24 — THE ROUTE FIRST. Everything else in a level is built around the
+  // line the race is ridden on, which is the whole inversion: a coast drawn
+  // first can only ever be raced ALONG.
+  const route = drawRoute(rng);
+  if (!route) return "the route folds back on itself";
+  // R26 — the river that runs on inland from the route's own mouth. It is
+  // drawn before the water is carved, because it is part of what gets
+  // carved: the basin stamps the river's line beside the route's.
+  //
+  // Its own sea edge is worked out here rather than asked of the basin,
+  // because the basin needs the river to bake the field it would answer
+  // from. It is the same line the basin cuts (`sea.line.edge` short of the
+  // route's most seaward station outside the ocean leg) — and this is the
+  // ONE place the two have to agree.
+  const river = drawRiver(rng, route, seaEdge(route));
+  if (!river) return "no river will run inland from this route";
+  // R15 — then the water round them both, and the land it is cut out of.
+  const bounds = levelBounds(route, river);
+  const basin = layBasin(rng, route, river, bounds);
+  const geology = createGeology(rng, biome, basin);
+  const ground = bakeGround(basin.offshore, geology);
+  // R25 — and the leg is only an ocean leg if it reached the ocean. Where
+  // the walk strayed further seaward than the leg's own entry, the sea's
+  // edge is cut past the apex and what was drawn as a run out to a mark
+  // comes out as a bulge inside the band. Checked here, on the field, the
+  // moment there is a field to check it on.
+  const apex = sampleField(basin.offshore, route.leg.apex.x, route.leg.apex.z);
+  if (!withinBand(apex, R.leg.offshore)) return `the ocean leg stands ${apex.toFixed(0)} m out`;
+  return {
+    route,
+    river,
+    bounds,
+    basin,
+    geology,
+    ground,
+    marks: markSolids(route),
+    // The ROUTE'S box rather than the level's: the river carries the level
+    // a kilometre inland (R26), and scattering a coast's worth of rock over
+    // that plan by rejection would leave the water the race is actually
+    // ridden through half as strewn as the rule says.
+    strewn: routeBounds(route),
+    km: route.length / 1000,
+    lay: (rng2, water, wind) => layCourse(rng2, route, water, wind),
+  };
+}
+
+/** R29, R31 — a circuit: the closed loop, and the open sea it stands in
+ * with one coast cut a long way off on one side. */
+function drawOcean(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string {
+  const route = drawCircuit(rng);
+  if (!route) return "no loop this seed draws is rideable";
+  // R29 — the coast is put where the loop is not: the sea's edge is cut
+  // back from the loop's most inshore station by the whole of this level's
+  // offshore distance, so the line stands out at sea by construction rather
+  // than by a check.
+  const seaOffset = oceanEdge(rng, route);
+  const bounds = circuitBounds(route, seaOffset);
+  const basin = layOceanBasin(rng, route, bounds, seaOffset);
+  const geology = createGeology(rng, biome, basin);
+  const ground = bakeGround(basin.offshore, geology);
+  return {
+    route,
+    river: NO_RIVER,
+    bounds,
+    basin,
+    geology,
+    ground,
+    marks: markSolids(route),
+    // The loop's own box, opened out to the water beside it: a circuit's
+    // race is ridden round the whole of that box rather than along one edge
+    // of it, so the rocks are strewn over all of it.
+    strewn: routeBounds(route),
+    // A lap ridden two or three times is two or three times the water a
+    // rider passes, and R17 counts rock by the kilometre a rider rides.
+    km: (route.length * R.circuit.laps.max) / 1000,
+    lay: (rng2, water, wind) => layCircuitCourse(rng2, route, water, wind),
+  };
+}
+
 /** Generate a level from a seed. Deterministic; always satisfies the
  * R-rules or throws. */
 export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   const biome = biomeOf(opts.biome ?? "taiga");
+  const track: TrackKind = opts.track ?? "coast";
   const attempts = opts.attempts ?? R.search.attempts;
   // R13 — the hours this coast is in daylight in each season, off its own
   // latitude. A fact about the place rather than about the attempt, so it
@@ -84,48 +232,18 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   let lastReason = "no attempt made";
   for (let attempt = 0; attempt < attempts; attempt++) {
     const rng = createRng(subSeed(seed, attempt));
-    // R24 — THE ROUTE FIRST. Everything else in a level is built around
-    // the line the race is ridden on, which is the whole inversion: a coast
-    // drawn first can only ever be raced ALONG.
-    const route = drawRoute(rng);
-    if (!route) {
-      lastReason = "the route folds back on itself";
-      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
+    const reject = (why: string): void => {
+      lastReason = why;
+      warn(`level ${seed}: attempt ${attempt} rejected — ${why}`);
+    };
+    const drawn = track === "circuit" ? drawOcean(rng, biome) : drawCoast(rng, biome);
+    if (typeof drawn === "string") {
+      reject(drawn);
       continue;
     }
-    // R26 — the river that runs on inland from the route's own mouth. It is
-    // drawn before the water is carved, because it is part of what gets
-    // carved: the basin stamps the river's line beside the route's.
-    //
-    // Its own sea edge is worked out here rather than asked of the basin,
-    // because the basin needs the river to bake the field it would answer
-    // from. It is the same line the basin cuts (`sea.line.edge` short of
-    // the route's most seaward station outside the ocean leg) — and this
-    // is the ONE place the two have to agree.
-    const river = drawRiver(rng, route, seaEdge(route));
-    if (!river) {
-      lastReason = "no river will run inland from this route";
-      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
-      continue;
-    }
-    // R15 — then the water round them both, and the land it is cut out of.
-    const bounds = levelBounds(route, river);
-    const basin = layBasin(rng, route, river, bounds);
-    const geology = createGeology(rng, biome, basin);
-    const ground = bakeGround(basin.offshore, geology);
+    const { river, bounds, basin, geology, ground } = drawn;
     const offshoreAt = (x: number, z: number): number => sampleField(basin.offshore, x, z);
     const depthAt = (x: number, z: number): number => -sampleField(ground, x, z);
-    // R25 — and the leg is only an ocean leg if it reached the ocean. Where
-    // the walk strayed further seaward than the leg's own entry, the sea's
-    // edge is cut past the apex and what was drawn as a run out to a mark
-    // comes out as a bulge inside the band. Checked here, on the field, the
-    // moment there is a field to check it on.
-    const apexOffshore = offshoreAt(route.leg.apex.x, route.leg.apex.z);
-    if (!withinBand(apexOffshore, R.leg.offshore)) {
-      lastReason = `the ocean leg stands ${apexOffshore.toFixed(0)} m out`;
-      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
-      continue;
-    }
     // R12 — off the sea: the open water's own seaward normal, swung by up
     // to `wind.seaward` either way, so the fetch grows riding out from the
     // land whichever way the route wandered.
@@ -147,39 +265,25 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // again before the basin is given up (`search.courseTries`).
     let course = null;
     for (let try_ = 0; try_ < R.search.courseTries && !course; try_++) {
-      course = layCourse(rng, route, { offshoreAt, depthAt }, wind);
+      course = drawn.lay(rng, { offshoreAt, depthAt }, wind);
     }
     if (!course) {
-      lastReason = "the basin cannot carry a course";
-      warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
+      reject("the basin cannot carry a course");
       continue;
     }
-    // R17, R25 — the rocks. The MARK first, where the route put it, and
-    // then the density-placed rocks over the route's own box, kept off the
-    // course and off the mark.
-    //
-    // The ROUTE'S box rather than the level's: the river carries the level
-    // a kilometre inland (R26), and scattering a coast's worth of rock over
-    // that plan by rejection would leave the water the race is actually
-    // ridden through half as strewn as the rule says.
-    const km = route.length / 1000;
-    const mark: Solid = {
-      id: "M1",
-      kind: "mark",
-      x: route.leg.mark.x,
-      z: route.leg.mark.z,
-      r: route.leg.mark.r,
-      top: route.leg.mark.top,
-    };
+    // R17, R25, R31 — the rocks. The MARKS first, where the line put them,
+    // and then the density-placed rocks, kept off the course and off the
+    // marks.
     const solids = laySolids(
       rng,
       biome,
-      routeBounds(route),
+      drawn.strewn,
       offshoreAt,
       geology.groundAt,
-      km,
+      drawn.km,
       courseKeepOut(course),
-      [mark],
+      drawn.marks,
+      track,
     );
     // R19 — the sky, drawn LAST of the things the search judges. It is the
     // one thing about a level the search never judges: no sky makes a basin
@@ -206,16 +310,17 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     const fauna = layFauna(
       rng,
       biome,
-      routeBounds(route),
+      drawn.strewn,
       offshoreAt,
       depthAt,
       solids,
       water.temperature,
-      km,
+      drawn.km,
     );
     const level = compileLevel({
       seed,
       biome,
+      track,
       bounds,
       offshore: basin.offshore,
       ground,
@@ -232,11 +337,12 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     });
     const analysis = analyzeLevel(level);
     if (analysis.ok) return level;
-    lastReason = analysis.findings
-      .filter((f) => f.severity === "error")
-      .map((f) => `${f.code}: ${f.message}`)
-      .join("; ");
-    warn(`level ${seed}: attempt ${attempt} rejected — ${lastReason}`);
+    reject(
+      analysis.findings
+        .filter((f) => f.severity === "error")
+        .map((f) => `${f.code}: ${f.message}`)
+        .join("; "),
+    );
   }
   throw new Error(
     `level generation failed for seed ${seed} after ${attempts} attempts: ${lastReason}`,

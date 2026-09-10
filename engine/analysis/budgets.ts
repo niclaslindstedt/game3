@@ -157,6 +157,38 @@ export const ANALYSIS = {
      * (R9). */
     wrap: 2.1,
   },
+  /** R29, R30, R31 — the tolerances a CIRCUIT is read with. */
+  circuit: {
+    /** How far inside R29's offshore floor the line may read, m. The basin
+     * cuts the sea's edge for the floor exactly, and the field the check
+     * reads it back off is bilinear over 4 m cells — a cell's worth of
+     * blur, and nothing a rider could find. */
+    offshore: 4,
+    /** How far outside `mark.stand`'s band a mark may read, m. The search
+     * holds the LAP THAT SHIPS to the band, and this is only the difference
+     * between the two walks of it: the course measures on the lap's own 10 m
+     * stations, the check on a 2 m walk of the published path, and a coarser
+     * polyline's chords cut a bend by a fifth of a metre. */
+    stand: 3,
+    /** How far short of a full turn the winding about an enclosed mark may
+     * come, rad. It is 2π exactly for any point inside a closed line; this
+     * is the walk's own stride at the seam, where the lap is cut out of the
+     * ride at a station rather than at a vertex. */
+    winding: 0.5,
+    /** How far short of `mark.wrap` the sweep at the rock's own range may
+     * come, rad — one stride's worth of the walk at each end of the window
+     * the sweep is accumulated over. */
+    wrap: 0.15,
+    /** How far outside R29's `turn` band a lap may read, rad. Small,
+     * because the rule is now held against the lap THAT SHIPS — the search
+     * re-asks it once the air gate's window has been cut straight (R9) —
+     * and all that is left is the seam: the check walks the whole ride and
+     * divides, so it counts the join between one lap and the next, which is
+     * one station's turn a lap that the search's walk of a single lap steps
+     * over. A wider tolerance here would put the floor under 2π and the
+     * whole rule would be passed by a circle. */
+    turn: 0.3,
+  },
   river: {
     /** R26 — how far apart the probes along the river are, m. Wider than
      * the path's: what is being asked is whether the water is continuous

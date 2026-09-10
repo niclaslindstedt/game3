@@ -25,11 +25,22 @@ import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { River } from "./river.ts";
 import { layFlow } from "./flow.ts";
-import type { Bounds, Level, Pod, Solid, Surface, WaterBody, Weather, Wind } from "./types.ts";
+import type {
+  Bounds,
+  Level,
+  Pod,
+  Solid,
+  Surface,
+  TrackKind,
+  WaterBody,
+  Weather,
+  Wind,
+} from "./types.ts";
 
 export type LevelPlan = {
   readonly seed: number;
   readonly biome: Biome;
+  readonly track: TrackKind;
   readonly bounds: Bounds;
   /** The two grids, already baked (`layBasin`, `bakeGround`). */
   readonly offshore: Heightfield;
@@ -107,6 +118,7 @@ export function compileLevel(plan: LevelPlan): Level {
   return {
     seed: plan.seed,
     biome: biome.id,
+    track: plan.track,
     bounds,
     ground,
     offshore,
@@ -120,6 +132,8 @@ export function compileLevel(plan: LevelPlan): Level {
       gates: plan.course.gates.map((g) => (g.ramp ? { ...g, ramp: { ...g.ramp } } : { ...g })),
       path: plan.course.path.map((p) => ({ x: p.x, z: p.z })),
       length: plan.course.length,
+      laps: plan.course.laps,
+      lapGates: plan.course.lapGates,
     },
     start: { ...plan.course.start },
     wind: { ...plan.wind },

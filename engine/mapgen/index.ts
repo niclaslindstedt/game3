@@ -18,10 +18,14 @@ export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts
 export { TIMES_OF_DAY, dealtTimeOfDay, hourOfDay, type TimeOfDay } from "./daytime.ts";
 export { generateLevel, subSeed } from "./generate.ts";
 export { compileLevel, insideBounds, type LevelPlan } from "./compile.ts";
-export { drawRoute, type Mark, type OceanLeg, type Route } from "./route.ts";
+export { drawRoute, type CoastRoute, type Mark, type OceanLeg, type Route } from "./route.ts";
+export { drawCircuit, lapTurn, roundingAbout } from "./circuit.ts";
 export {
+  circuitBounds,
   layBasin,
+  layOceanBasin,
   levelBounds,
+  oceanEdge,
   pointOn,
   routeBounds,
   traceCoast,
@@ -42,7 +46,9 @@ export {
   arcHeight,
   courseKeepOut,
   cumulative,
+  distanceAlong,
   gateBuoys,
+  layCircuitCourse,
   layCourse,
   pointAlong,
   polylineDistance,
@@ -84,6 +90,7 @@ export type {
   ScatteredKind,
   Solid,
   Surface,
+  TrackKind,
   Vec2,
   WaterBody,
   Weather,

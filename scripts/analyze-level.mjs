@@ -48,9 +48,14 @@ const args = parseArgs(
     seeds: { kind: "list", help: "several seeds, comma-separated" },
     count: { kind: "number", help: "seeds 1..N — the sweep" },
     findings: { kind: "number", default: 12, help: "findings to print per seed" },
+    track: {
+      kind: "string",
+      default: "coast",
+      help: "coast (a shore sprint) or circuit (a lap at sea)",
+    },
     json: { kind: "string", help: "write every analysis to this file" },
   },
-  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--findings n] [--json path]",
+  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--track coast|circuit] [--findings n] [--json path]",
 );
 const seeds = args.seeds
   ? args.seeds.map(Number)
@@ -65,11 +70,21 @@ const padEnd = (v, n) => String(v).padEnd(n);
 const mark = { error: "!!", warn: " !" };
 const R = LEVEL_RULES;
 
+// The rules quoted are the ones this TRACK was built to: a circuit answers
+// to R29's offshore floor and R30's whole ride, not to R1's coastal band
+// and R10's sprint, and a header quoting the wrong chapter is a reader
+// checking the numbers against a rule the level never had.
+const circuit = args.track === "circuit";
 console.log(
-  `analyze — engine ${engineVersion} · seeds ${seeds.join(",")} · ` +
-    `rules: offshore ${R.course.offshore.min}–${R.course.offshore.max} m, depth ≥ ${R.course.minDepth} m, ` +
-    `gates ${R.gate.spacing.min}–${R.gate.spacing.max} m, length ${R.course.length.min}–${R.course.length.max} m, ` +
-    `run-up ${R.ramp.runUp} m`,
+  `analyze — engine ${engineVersion} · ${args.track} · seeds ${seeds.join(",")} · ` +
+    (circuit
+      ? `rules: offshore ≥ ${R.circuit.offshore.min} m, depth ≥ ${R.course.minDepth} m, ` +
+        `gates ${R.gate.spacing.min}–${R.gate.spacing.max} m, ` +
+        `ride ${R.circuit.length.min}–${R.circuit.length.max} m over ${R.circuit.laps.min}–${R.circuit.laps.max} laps, ` +
+        `run-up ${R.ramp.runUp} m`
+      : `rules: offshore ${R.course.offshore.min}–${R.course.offshore.max} m, depth ≥ ${R.course.minDepth} m, ` +
+        `gates ${R.gate.spacing.min}–${R.gate.spacing.max} m, length ${R.course.length.min}–${R.course.length.max} m, ` +
+        `run-up ${R.ramp.runUp} m`),
 );
 console.log(
   [
@@ -101,7 +116,7 @@ let failed = 0;
 for (const seed of seeds) {
   let level;
   try {
-    level = generateLevel(seed);
+    level = generateLevel(seed, { track: args.track });
   } catch (err) {
     console.log(`${padEnd(seed, 6)}  !! the generator gave up: ${err.message}`);
     failed += 1;

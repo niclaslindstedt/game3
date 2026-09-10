@@ -29,26 +29,22 @@
 import { sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
 import { DECLINATION, daylightWindow } from "../lib/solar.ts";
-import { CRAFT } from "../game/defs/craft.ts";
 import { faunaById } from "../game/defs/fauna.ts";
-import { topSpeedOf } from "../game/limits.ts";
 import { createShelter } from "../game/fetch.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
 import { podClearance, walkPod } from "../mapgen/fauna.ts";
 import {
-  airCorridor,
   cumulative,
+  distanceAlong,
   gateBuoys,
   polylineDistance,
-  ringPlacement,
-  segmentDistance,
   walkPolyline,
 } from "../mapgen/course.ts";
-import { TUNING } from "../game/defs/tuning.ts";
-import { launchSpeedFor } from "../sim/bot.ts";
 import { LEVEL_RULES as R, solidBerth, withinBand } from "../mapgen/rules.ts";
 import { insideBounds } from "../mapgen/compile.ts";
-import type { Gate, Level, Pod, Vec2, Weather } from "../mapgen/types.ts";
+import type { Level, Pod, Vec2, Weather } from "../mapgen/types.ts";
+import { analyzeAirGate, analyzeRunUp } from "./air.ts";
+import { analyzeCircuit, analyzeCircuitTurn } from "./circuit.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import {
   analyzeCharacter,
@@ -79,6 +75,14 @@ export type LevelAnalysis = {
     /** R25 — how far out the ocean leg's furthest point stands, m, and how
      * high the mark it rounds is. */
     legOffshore: number;
+    /** R29 — the least water between the line and any shore, m: a
+     * circuit's headline number, and 0 on a coast level, where R1's band
+     * says the same thing at both ends. */
+    leastOffshore: number;
+    /** R30 — how many times round; 1 on a coast level. */
+    laps: number;
+    /** R25, R31 — how many marks the line goes round. */
+    marks: number;
     markTop: number;
     /** R26 — how far the river reaches inland from its mouth, m. */
     riverInland: number;
@@ -120,7 +124,11 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // be a big number, so it is found FIRST and R1 skips it — and only the
   // longest such stretch, so a course that also wandered out of the band
   // somewhere else still fails R1 for it.
-  const leg = oceanRun(level);
+  // R29 — a circuit never leaves a coast because it was never on one, and
+  // its whole line stands past R1's ceiling by construction. Reading an
+  // ocean run off it would find the entire path and call it a leg.
+  const circuit = level.track === "circuit";
+  const leg = circuit ? null : oceanRun(level);
   const cum = cumulative(path);
 
   // ── R1, R5 — the path's water ───────────────────────────────────────
@@ -142,6 +150,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     if (off > maxOffshore) maxOffshore = off;
     // The worst offender is the one furthest from the band's middle.
     if (
+      !circuit &&
       !withinBand(off, R.course.offshore) &&
       !(inLeg(at) && off > R.course.offshore.max) &&
       (!worstOff || Math.abs(off - bandMid) > Math.abs(worstOff.off - bandMid))
@@ -171,7 +180,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       },
     );
   }
-  for (const g of gates) {
+  for (const g of circuit ? [] : gates) {
     const off = offshoreAt(g.x, g.z);
     if (
       !withinBand(off, R.course.offshore) &&
@@ -270,7 +279,14 @@ export function analyzeLevel(level: Level): LevelAnalysis {
 
   // ── R4, R10, R11 — the gates by distance ────────────────────────────
   const total = cum[cum.length - 1];
-  const gateD = gates.map((gate) => distanceAlong(path, cum, gate.x, gate.z));
+  // R30 — walked in course ORDER, each search starting where the last one
+  // ended: on a lapped course the same buoys are crossed once a lap, and a
+  // search of the whole path would give every copy of a gate the first
+  // lap's distance.
+  const gateD: number[] = [];
+  for (const gate of gates) {
+    gateD.push(distanceAlong(path, cum, gate.x, gate.z, gateD[gateD.length - 1] ?? 0));
+  }
   for (let i = 1; i < gates.length; i++) {
     const spacing = gateD[i] - gateD[i - 1];
     if (!withinBand(spacing, R.gate.spacing, A.distance)) {
@@ -292,11 +308,13 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       });
     }
   }
-  if (!withinBand(level.course.length, R.course.length)) {
+  // R10, R30 — a sprint's band, or a circuit's whole ride.
+  const lengthBand = circuit ? R.circuit.length : R.course.length;
+  if (!withinBand(level.course.length, lengthBand)) {
     rep.fail(
-      "R10",
+      circuit ? "R30" : "R10",
       "length",
-      `the course is ${fmt(level.course.length)} m long (band ${bandText(R.course.length)} m)`,
+      `the course is ${fmt(level.course.length)} m long (band ${bandText(lengthBand)} m)`,
       {
         value: level.course.length,
       },
@@ -372,7 +390,9 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   if (gates.length > 0 && gates[gates.length - 1].kind === "air") {
     rep.fail("R7", "finish", `${gates[gates.length - 1].id} is the finish and in the air`);
   }
-  for (const gate of air) analyzeAirGate(level, gate, path, cum, depthAt, rep);
+  for (let i = 0; i < gates.length; i++) {
+    if (gates[i].kind === "air") analyzeAirGate(level, gates[i], gateD[i], path, cum, depthAt, rep);
+  }
   analyzeRunUp(rep);
   for (const gate of gates) {
     if (gate.kind === "water" && gate.ramp)
@@ -501,11 +521,19 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   const sandShare = analyzeCharacter(level, rep);
 
   // ── R22 — the course winds ──────────────────────────────────────────
-  const winding = analyzeWinding(level, rep);
+  const winding = analyzeWinding(level, circuit, rep);
 
-  // ── R25, R26 — the ocean leg and the river ──────────────────────────
-  analyzeOceanLeg(level, leg, rep);
-  analyzeRiver(level, rep);
+  // ── R25, R26 / R29, R30, R31 — how far the level reaches ────────────
+  // The two chapters' own rules, and a level answers to one set or the
+  // other: a coast goes out to a mark and carries a river on inland, a
+  // circuit is a lap out at sea with neither.
+  let leastOffshore = 0;
+  if (circuit) {
+    leastOffshore = analyzeCircuit(level, rep);
+  } else {
+    analyzeOceanLeg(level, leg, rep);
+    analyzeRiver(level, rep);
+  }
 
   // ── R17 — the rocks themselves ──────────────────────────────────────
   for (const s of level.solids) analyzeSolid(level, s, offshoreAt, depthAt, rep);
@@ -525,6 +553,9 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       minOffshore,
       maxOffshore,
       legOffshore: leg?.offshore ?? 0,
+      leastOffshore,
+      laps: level.course.laps,
+      marks: level.solids.filter((s) => s.kind === "mark").length,
       markTop: level.solids.find((s) => s.kind === "mark")?.top ?? 0,
       riverInland:
         level.river.length > 1
@@ -549,220 +580,6 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     },
     ms: Date.now() - started,
   };
-}
-
-/** Distance along a polyline of the point nearest to (x, z), m. */
-function distanceAlong(
-  path: readonly { x: number; z: number }[],
-  cum: Float64Array,
-  x: number,
-  z: number,
-): number {
-  let best = Infinity;
-  let at = 0;
-  for (let i = 0; i + 1 < path.length; i++) {
-    const a = path[i];
-    const b = path[i + 1];
-    const dx = b.x - a.x;
-    const dz = b.z - a.z;
-    const len2 = dx * dx + dz * dz;
-    const t = len2 > 0 ? Math.max(0, Math.min(1, ((x - a.x) * dx + (z - a.z) * dz) / len2)) : 0;
-    const d = Math.hypot(x - (a.x + dx * t), z - (a.z + dz * t));
-    if (d < best) {
-      best = d;
-      at = cum[i] + Math.sqrt(len2) * t;
-    }
-  }
-  return at;
-}
-
-function analyzeAirGate(
-  level: Level,
-  gate: Gate,
-  path: readonly { x: number; z: number }[],
-  cum: Float64Array,
-  depthAt: (x: number, z: number) => number,
-  rep: Report,
-): void {
-  if (!withinBand(gate.y, R.air.height)) {
-    rep.fail(
-      "R7",
-      "height",
-      `${gate.id}'s ring floats at ${fmt(gate.y)} m (band ${bandText(R.air.height)} m)`,
-      { at: gate, value: gate.y },
-    );
-  }
-  if (Math.abs(gate.width - R.air.width) > A.distance) {
-    rep.fail(
-      "R7",
-      "width",
-      `${gate.id}'s ring is ${fmt(gate.width)} m across (rule ${R.air.width} m)`,
-      { at: gate },
-    );
-  }
-  const ramp = gate.ramp;
-  if (!ramp) {
-    rep.fail("R8", "missing", `${gate.id} is in the air with no ramp before it`, { at: gate });
-    return;
-  }
-  const fx = Math.sin(ramp.heading);
-  const fz = Math.cos(ramp.heading);
-  const px = gate.x - ramp.x;
-  const pz = gate.z - ramp.z;
-  const lead = px * fx + pz * fz;
-  const across = px * fz - pz * fx;
-  if (!withinBand(lead, R.ramp.lead, A.distance)) {
-    rep.fail(
-      "R8",
-      "lead",
-      `${ramp.id} is ${fmt(lead)} m before ${gate.id} (band ${bandText(R.ramp.lead)} m)`,
-      { at: ramp, value: lead },
-    );
-  }
-  if (Math.abs(across) > A.distance) {
-    rep.fail("R8", "axis", `${gate.id}'s ring sits ${fmt(across)} m off ${ramp.id}'s axis`, {
-      at: gate,
-      value: across,
-    });
-  }
-  if (Math.abs(angleDiff(ramp.heading, gate.heading)) > A.heading) {
-    rep.fail("R8", "aligned", `${ramp.id} is not aligned with ${gate.id}`, { at: ramp });
-  }
-  if (!withinBand(ramp.length, R.ramp.length)) {
-    rep.fail(
-      "R8",
-      "length",
-      `${ramp.id} is ${fmt(ramp.length)} m long (band ${bandText(R.ramp.length)} m)`,
-      { at: ramp },
-    );
-  }
-  if (Math.abs(ramp.width - R.ramp.width) > A.distance) {
-    rep.fail("R8", "width", `${ramp.id} is ${fmt(ramp.width)} m wide (rule ${R.ramp.width} m)`, {
-      at: ramp,
-    });
-  }
-  if (!withinBand(ramp.angle, R.ramp.angle)) {
-    rep.fail(
-      "R8",
-      "angle",
-      `${ramp.id} rises at ${fmt((ramp.angle * 180) / Math.PI)}° (band ${fmt((R.ramp.angle.min * 180) / Math.PI)}–${fmt((R.ramp.angle.max * 180) / Math.PI)}°)`,
-      {
-        at: ramp,
-      },
-    );
-  }
-  // R18 — the ring's place is the arc's, and every craft can bring the
-  // speed it asks for.
-  const ring = ringPlacement(ramp.length, ramp.angle);
-  if (Math.abs(lead - ring.lead) > A.ring.place || Math.abs(gate.y - ring.y) > A.ring.place) {
-    rep.fail(
-      "R18",
-      "arc",
-      `${gate.id}'s ring is ${fmt(lead)} m out and ${fmt(gate.y)} m up; the design arc puts it ${fmt(ring.lead)} m out and ${fmt(ring.y)} m up`,
-      { at: gate, value: Math.max(Math.abs(lead - ring.lead), Math.abs(gate.y - ring.y)) },
-    );
-  }
-  let slowest = Infinity;
-  for (const spec of CRAFT) slowest = Math.min(slowest, topSpeedOf(spec));
-  const lip = ramp.length * Math.tan(ramp.angle);
-  // The hinge speed the design band's ends imply, by the bot's own
-  // account of the climb up the deck.
-  const hingeOf = (v: number): number => Math.sqrt(v * v + 2 * TUNING.g * lip);
-  const floor = hingeOf(R.air.lipSpeed.min) * (1 - A.ring.speed);
-  const ceiling = hingeOf(R.air.lipSpeed.max) * (1 + A.ring.speed);
-  for (const spec of CRAFT) {
-    const need = launchSpeedFor(gate, spec.cog.y, topSpeedOf(spec));
-    if (need > slowest * R.air.reach) {
-      rep.fail(
-        "R18",
-        "reach",
-        `${gate.id} asks the ${spec.id} for ${fmt(need * 3.6)} km/h at the hinge; the slowest craft tops out at ${fmt(slowest * 3.6)} km/h`,
-        { at: gate, value: need },
-      );
-    } else if (need < floor || need > ceiling) {
-      rep.fail(
-        "R18",
-        "design",
-        `${gate.id} asks the ${spec.id} for ${fmt(need * 3.6)} km/h at the hinge (design ${fmt(floor * 3.6)}–${fmt(ceiling * 3.6)} km/h)`,
-        { at: gate, value: need },
-      );
-    }
-  }
-  // R9 — the straight: every path vertex inside the corridor's window lies
-  // on its chord, and the water under the run-up and the deck is deep.
-  const c = airCorridor(gate);
-  const from = distanceAlong(path, cum, c.x0, c.z0);
-  const to = distanceAlong(path, cum, c.x1, c.z1);
-  let bent = 0;
-  for (let i = 0; i < path.length; i++) {
-    if (cum[i] <= from + A.distance || cum[i] >= to - A.distance) continue;
-    bent = Math.max(bent, segmentDistance(path[i].x, path[i].z, c.x0, c.z0, c.x1, c.z1));
-  }
-  if (bent > A.straight) {
-    rep.fail("R9", "straight", `the path bends ${fmt(bent)} m inside ${gate.id}'s run-up`, {
-      at: ramp,
-      value: bent,
-    });
-  }
-  // R9 — and it crosses the sea rather than running along it: the waves
-  // travel the way the wind blows to, and a ramp pointed within `ramp.beam`
-  // of a right angle to that is one a hull can arrive at on the plane.
-  const off = Math.abs(angleDiff(level.wind.from + Math.PI, ramp.heading));
-  const fromBeam = Math.abs(off - Math.PI / 2);
-  if (fromBeam > R.ramp.beam + A.heading) {
-    rep.fail(
-      "R9",
-      "beam",
-      `${gate.id}'s run-up lies ${fmt((fromBeam * 180) / Math.PI)}° off the beam (rule ${fmt((R.ramp.beam * 180) / Math.PI)}°)`,
-      { at: ramp, value: fromBeam },
-    );
-  }
-  const runUp = Math.hypot(ramp.x - c.x0, ramp.z - c.z0);
-  const n = Math.ceil(runUp / A.stride);
-  let shallow = Infinity;
-  for (let i = 0; i <= n; i++) {
-    const t = i / n;
-    shallow = Math.min(shallow, depthAt(c.x0 + (ramp.x - c.x0) * t, c.z0 + (ramp.z - c.z0) * t));
-  }
-  if (shallow < R.ramp.runUpDepth) {
-    rep.fail(
-      "R9",
-      "depth",
-      `only ${fmt(shallow)} m of water on ${gate.id}'s run-up (rule ${R.ramp.runUpDepth} m)`,
-      { at: ramp, value: shallow },
-    );
-  }
-  for (const s of level.solids) {
-    const clear = segmentDistance(s.x, s.z, c.x0, c.z0, c.x1, c.z1) - s.r - c.halfWidth;
-    if (clear < 0) {
-      rep.fail("R9", "clear", `${s.id} stands in ${gate.id}'s corridor by ${fmt(-clear)} m`, {
-        at: s,
-        value: clear,
-      });
-    }
-  }
-}
-
-/** R9 — the run-up is long enough for the slowest craft to reach R18's
- * design speed from a standing start: the catalog's own 0–50 km/h
- * expectation, scaled to the band's ceiling, integrated as a straight
- * ramp of speed. Nothing about a level is in this; it holds the rule
- * book to the catalog, and it is here so that a catalog change that
- * makes a ring unreachable fails the generator rather than the player. */
-function analyzeRunUp(rep: Report): void {
-  const v = R.air.lipSpeed.max;
-  for (const spec of CRAFT) {
-    const t = spec.accel0to50 * (v / (50 / 3.6));
-    const dist = 0.5 * v * t;
-    if (dist > R.ramp.runUp) {
-      rep.fail(
-        "R9",
-        "reach",
-        `the ${spec.id} needs ${fmt(dist)} m to reach ${fmt(v * 3.6)} km/h; the run-up is ${R.ramp.runUp} m`,
-        { value: dist },
-      );
-    }
-  }
 }
 
 function analyzeGrid(level: Level, rep: Report): void {
@@ -837,7 +654,11 @@ function circumradius(a: Vec2, b: Vec2, c: Vec2): number {
   return area2 < 1e-9 ? Infinity : (ab * bc * ca) / (2 * area2);
 }
 
-function analyzeWinding(level: Level, rep: Report): { wind: number; turn: number; radius: number } {
+function analyzeWinding(
+  level: Level,
+  circuit: boolean,
+  rep: Report,
+): { wind: number; turn: number; radius: number } {
   const p = level.course.path;
   if (p.length < 3) return { wind: 1, turn: 0, radius: Infinity };
   let length = 0;
@@ -852,18 +673,27 @@ function analyzeWinding(level: Level, rep: Report): { wind: number; turn: number
   }
   const chord = Math.hypot(p[p.length - 1].x - p[0].x, p[p.length - 1].z - p[0].z);
   const wind = chord > 0 ? length / chord : 1;
-  if (wind < R.course.wind) {
-    rep.fail(
-      "R22",
-      "straight",
-      `the path is ${fmt(wind)}× its own chord (rule ${R.course.wind}×)`,
-      { value: wind },
-    );
-  }
-  if (turn < R.course.sweep) {
-    rep.fail("R22", "turn", `the path turns ${fmt(turn)} rad in all (rule ${R.course.sweep})`, {
-      value: turn,
-    });
+  // R22 says nothing about a CLOSED line: a lap's chord is the start's own
+  // setback, so every circuit is forty times it and both halves of the rule
+  // pass on a line that is a perfect circle. R29's own `turn` is what
+  // replaces it — a lap has to turn further than a circle does, which only
+  // a lap with counter bends in it can.
+  if (circuit) {
+    analyzeCircuitTurn(level, rep);
+  } else {
+    if (wind < R.course.wind) {
+      rep.fail(
+        "R22",
+        "straight",
+        `the path is ${fmt(wind)}× its own chord (rule ${R.course.wind}×)`,
+        { value: wind },
+      );
+    }
+    if (turn < R.course.sweep) {
+      rep.fail("R22", "turn", `the path turns ${fmt(turn)} rad in all (rule ${R.course.sweep})`, {
+        value: turn,
+      });
+    }
   }
   // R23 — and no one corner of it is tighter than a hull can hold. Read
   // over a stencil a few stations wide rather than vertex to vertex: the

@@ -8,6 +8,11 @@
 // assert directly against them; a number changed here changes all three at
 // once, which is the point of stating it once.
 //
+// The rule book has a SECOND CHAPTER, `rules-circuit.ts`: R29–R31, the
+// ocean circuit, which replaces R1, R10, R25 and R26 on a level drawn as
+// one. Its table hangs off `LEVEL_RULES.circuit`, and the same doc mirrors
+// its prose.
+//
 // The rules, in prose (each is enforced in the search or realized in the
 // compiler, re-checked by `analyzeLevel`, and asserted across seeds in
 // tests/mapgen_test.ts; docs/level-generator.md carries them verbatim):
@@ -271,11 +276,14 @@
 // the rule it realizes.
 
 import { TAU } from "../lib/math.ts";
-import type { BiomeId, Solid } from "./types.ts";
+import { type SolidRule } from "./bands.ts";
+import { CIRCUIT_RULES } from "./rules-circuit.ts";
+import type { Solid, TrackKind } from "./types.ts";
+
+export { inBand, withinBand, type Band, type SolidRule } from "./bands.ts";
+export type { GenerateOptions, TrackKind } from "./types.ts";
 
 const DEG = TAU / 360;
-
-export type Band = { readonly min: number; readonly max: number };
 
 /** R23's floor, m — the tightest radius the course's line may turn at.
  * Named before the table because two of the table's own entries are stated
@@ -945,39 +953,33 @@ export const LEVEL_RULES = {
      * to either side before the line is smoothed. */
     push: { step: 5, spread: 2 },
   },
+
+  /** R29, R30, R31 — the OCEAN CIRCUIT's numbers, stated in
+   * `rules-circuit.ts` beside the rules they realize. */
+  circuit: CIRCUIT_RULES,
 } as const;
 
 /** A shape-only view for callers that want to write a band without
  * naming the deep type of the rule table. */
 export type LevelRules = typeof LEVEL_RULES;
 
-/** R17 — how one kind of rock is placed. A kind states its size EITHER as
- * a `top` against sea level (the kinds that stand in the water) OR as a
- * `height` above the ground it sits on (the kinds that stand on the
- * shore); everything that places or checks a rock branches on which. */
-export type SolidRule = {
-  readonly perKm: number;
-  readonly offshore: Band;
-  readonly r: Band;
-  readonly top?: Band;
-  readonly height?: Band;
-};
+/** R29 — the kinds of rock that stand in OPEN WATER rather than on the
+ * shore, and so take a circuit's own offshore band out there. */
+const OPEN_WATER: readonly Solid["kind"][] = ["stack", "skerry", "reef", "mark"];
 
-/** The rule row for a kind of rock, as the shared shape rather than as its
- * own literal type — so a placer or a check can read `top` and `height`
- * without knowing which kind it was handed. */
-export function solidRule(kind: Solid["kind"]): SolidRule {
-  return LEVEL_RULES.solids[kind];
+/** R17, R29 — the rule row for a kind of rock on a track of this kind, as
+ * the shared shape rather than its own literal type, so a placer or a
+ * check can read `top` and `height` without knowing which kind it was
+ * handed. A circuit's line stands past every coastal band's ceiling (R29),
+ * so the open-water kinds take the circuit's band out there and the
+ * waterline kinds keep theirs on the far coast. The placer and the
+ * analysis read this one function, so neither can place a rock the other
+ * refuses. */
+export function solidRule(kind: Solid["kind"], track: TrackKind = "coast"): SolidRule {
+  const rule = LEVEL_RULES.solids[kind];
+  if (track !== "circuit" || !OPEN_WATER.includes(kind)) return rule;
+  return { ...rule, offshore: LEVEL_RULES.circuit.rocks.offshore };
 }
-
-/** Which biome to build and how hard to try. */
-export type GenerateOptions = {
-  /** Defaults to the taiga, the one country built. */
-  biome?: BiomeId;
-  /** Bounded sub-seed attempts before the generator throws; defaults to
-   * `LEVEL_RULES.search.attempts`. */
-  attempts?: number;
-};
 
 /** R6 — the open water a rock of radius `r` keeps between its edge and the
  * course's line and buoys, m. Stated here, once, because the placer builds
@@ -986,14 +988,4 @@ export type GenerateOptions = {
  * the size of a hull. */
 export function solidBerth(r: number): number {
   return LEVEL_RULES.course.solidMargin + r * LEVEL_RULES.course.solidBerth;
-}
-
-/** Draw a uniform value inside a band from the seeded stream. */
-export function inBand(rng: { range(min: number, max: number): number }, band: Band): number {
-  return rng.range(band.min, band.max);
-}
-
-/** Is `value` inside a band, with `slack` of tolerance either side? */
-export function withinBand(value: number, band: Band, slack = 0): boolean {
-  return value >= band.min - slack && value <= band.max + slack;
 }

@@ -122,6 +122,15 @@ export function Hud({
             <span class="hud-clock-time">{formatTime(snap.time)}</span>
             <span class="hud-chip-sub">{STRINGS.clockLabel}</span>
           </div>
+          {/* R30 — the lap, on a circuit only. A coast sprint is one pass
+              of one course and a chip reading "1 / 1" is a chip that says
+              nothing. */}
+          {snap.laps > 1 ? (
+            <div class="hud-chip">
+              <span>{STRINGS.laps(snap.lap, snap.laps)}</span>
+              <span class="hud-chip-sub">{STRINGS.lapsLabel}</span>
+            </div>
+          ) : null}
           <div class="hud-chip">
             <span>{STRINGS.gates(snap.passed, snap.gates)}</span>
             <span class="hud-chip-sub">{STRINGS.gatesLabel}</span>

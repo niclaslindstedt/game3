@@ -88,12 +88,27 @@ export type Route = {
   /** R15 — the compass heading the OPEN SEA lies in. Read off the free
    * walk's own overall run, a quarter turn to one side, and drawn here
    * rather than in the basin because the ocean leg has to know which way
-   * out is before the water exists. */
+   * out is before the water exists. On a circuit (R29) there is nothing to
+   * read it off — the loop runs every way — so it is simply drawn. */
   readonly seaHeading: number;
-  readonly leg: OceanLeg;
+  /** R29 — whether the line CLOSES on itself: a circuit's last point is
+   * its first and the race goes round it several times (R30). A coast
+   * route runs from a start to a finish and does not. */
+  readonly closed: boolean;
+  /** R25, R31 — the rocks the line is drawn ROUND. A coast route carries
+   * exactly one, at the end of its ocean leg; a circuit carries one in
+   * each of the bends that earned it. */
+  readonly marks: readonly Mark[];
+  /** R25 — the ocean leg, or null on a circuit, which never leaves a coast
+   * because it was never on one. */
+  readonly leg: OceanLeg | null;
 };
 
-export function drawRoute(rng: Rng): Route | null {
+/** A coast route (R24): the one kind that always carries an ocean leg, so
+ * everything drawn around a coast can read `leg` without asking. */
+export type CoastRoute = Route & { readonly leg: OceanLeg };
+
+export function drawRoute(rng: Rng): CoastRoute | null {
   for (let attempt = 0; attempt < R.route.tries; attempt++) {
     const route = drawOnce(rng);
     if (route) return route;
@@ -101,7 +116,7 @@ export function drawRoute(rng: Rng): Route | null {
   return null;
 }
 
-function drawOnce(rng: Rng): Route | null {
+function drawOnce(rng: Rng): CoastRoute | null {
   const step = R.route.step;
   // The leg's own numbers first: its length is 2π·round + 2·out whatever
   // heading it leaves on, so the free walk can be drawn shorter by exactly
@@ -291,17 +306,21 @@ function drawOnce(rng: Rng): Route | null {
     widths[i] = R.route.corridor.min + (R.route.corridor.max - R.route.corridor.min) * t;
   }
 
+  const theMark: Mark = {
+    x: markX,
+    z: markZ,
+    r: mark.r,
+    top: mark.top,
+    zone: zone + R.leg.zoneSlack,
+  };
   return {
     points,
     along,
     widths,
     length: along[along.length - 1],
     seaHeading,
-    leg: {
-      from,
-      to,
-      apex: { x: markX + sx * round, z: markZ + sz * round },
-      mark: { x: markX, z: markZ, r: mark.r, top: mark.top, zone: zone + R.leg.zoneSlack },
-    },
+    closed: false,
+    marks: [theMark],
+    leg: { from, to, apex: { x: markX + sx * round, z: markZ + sz * round }, mark: theMark },
   };
 }

@@ -38,12 +38,17 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     seeds: { kind: "list", default: DEFAULT_SEEDS, help: "seeds to ride, comma-separated" },
+    track: {
+      kind: "string",
+      default: "coast",
+      help: "coast (a shore sprint) or circuit (a lap at sea)",
+    },
     craft: { kind: "string", default: "all", help: "craft id, a comma list, or all" },
     // The engine states the cap (`SIM_SECONDS`); the flag only overrides it.
     max: { kind: "number", default: SIM_SECONDS, help: "give up after this much run time, s" },
     json: { kind: "string", help: "also write the rows (events dropped) to this file" },
   },
-  "usage: npm run sim -- [--seeds a,b,c] [--craft id] [--max s] [--json path]",
+  "usage: npm run sim -- [--seeds a,b,c] [--track coast|circuit] [--craft id] [--max s] [--json path]",
 );
 const seeds = args.seeds.map(Number);
 if (seeds.some((s) => !Number.isInteger(s))) {
@@ -56,7 +61,7 @@ const pad = (v, n) => String(v).padStart(n);
 const kmh = (ms) => (ms * 3.6).toFixed(0);
 
 console.log(
-  `sim — engine ${engineVersion} at ${TUNING.physicsHz} Hz · seeds ${seeds.join(",")} · ` +
+  `sim — engine ${engineVersion} at ${TUNING.physicsHz} Hz · ${args.track} · seeds ${seeds.join(",")} · ` +
     `crafts ${crafts.join(",")} · max ${args.max} s`,
 );
 console.log(
@@ -82,7 +87,7 @@ console.log(
 const rows = [];
 for (const seed of seeds) {
   for (const craft of crafts) {
-    const r = simulateStage({ seed, craft, maxSeconds: args.max });
+    const r = simulateStage({ seed, craft, track: args.track, maxSeconds: args.max });
     rows.push(r);
     console.log(
       [
