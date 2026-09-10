@@ -208,6 +208,13 @@ export const STRINGS = {
     "The spray, the sea life, what grows on the shore, how much cloud is in the sky, and whether the rain lands on the water",
   optSeeThrough: "SEE-THROUGH",
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
+  /** The one row on the picture page that is about TIME: the two stops are
+   * spelled as the figures they are, and the top of the ladder is whatever
+   * the screen itself does. */
+  optFrameRate: "FRAME RATE",
+  optFrameRateHint:
+    "The most frames a second the game draws — hold it to what this machine can keep, and the ride is even",
+  optFrameRateMax: "MAX",
   optFps: "FPS",
   optFpsHint: "Frames a second in the corner, beside the build",
   /** The one fader. It reads OFF at the bottom of its travel and a share

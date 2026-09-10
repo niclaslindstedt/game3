@@ -15,6 +15,7 @@
 // `make screenshots`.
 import { describe, expect, it } from "vitest";
 
+import { FLORA_TILE, tileSpots } from "../pwa/src/game/flora.ts";
 import { FLORA, TREE_LINE } from "../pwa/src/game/flora-defs.ts";
 import { planFlora } from "../pwa/src/game/flora-plan.ts";
 import { FLORA_SCALE } from "../pwa/src/game/settings-video.ts";
@@ -165,5 +166,49 @@ describe("planting a shore", () => {
       expect(list.length).toBeLessThanOrEqual(lush[s].length);
       for (let i = 0; i < list.length; i++) expect(list[i]).toEqual(lush[s][i]);
     });
+  });
+});
+
+describe("the cover in tiles (flora.ts)", () => {
+  // The renderer stands the cover up one instanced mesh a species per square
+  // of shore, so three's frustum test can refuse the squares behind the lens
+  // and the reach cull the ones past the fog. What that must not do is lose
+  // or double a plant, or hand a tile a plant that stands outside it — a
+  // tile's bounding sphere is built from the plants in it, and a plant a
+  // tile does not know about is a plant that pops.
+  const level = levelFor(LEVEL_SEEDS[0]);
+  const spots = planFlora(level, FLORA_SCALE.lush);
+
+  it("puts every plant in exactly one tile, in roster order, and every tile in one square", () => {
+    spots.forEach((list, s) => {
+      const tiles = tileSpots(list, FLORA_TILE);
+      expect(
+        tiles.reduce((n, t) => n + t.length, 0),
+        FLORA[s].id,
+      ).toBe(list.length);
+      for (const tile of tiles) {
+        expect(tile.length).toBeGreaterThan(0);
+        // The DETAIL row thins by a plant's place on the species' whole
+        // roster, and a tile can only draw its first n — so the order inside
+        // a tile has to be the roster's.
+        for (let i = 1; i < tile.length; i++) {
+          expect(list.indexOf(tile[i])).toBeGreaterThan(list.indexOf(tile[i - 1]));
+        }
+        const ix = Math.floor(tile[0].x / FLORA_TILE);
+        const iz = Math.floor(tile[0].z / FLORA_TILE);
+        for (const p of tile) {
+          expect(Math.floor(p.x / FLORA_TILE)).toBe(ix);
+          expect(Math.floor(p.z / FLORA_TILE)).toBe(iz);
+        }
+      }
+    });
+  });
+
+  it("cuts a coast into enough squares for a frustum test to be worth having", () => {
+    // A tile is the unit the cull works in: one tile a species is the old
+    // picture — every triangle of the coast submitted every frame — and the
+    // whole point is that a chase camera sees a dozen of them out of many.
+    const wood = spots[FLORA.findIndex((spec) => spec.id === "birch")];
+    expect(tileSpots(wood, FLORA_TILE).length).toBeGreaterThan(12);
   });
 });

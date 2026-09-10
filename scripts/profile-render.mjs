@@ -63,10 +63,11 @@ const args = parseArgs(
     detail: { kind: "string", help: "the DETAIL row: low, medium, high" },
     distance: { kind: "string", help: "the DISTANCE row: low, medium, high" },
     see: { kind: "string", help: "see into the water: 1 or 0" },
+    fps: { kind: "string", help: "the FRAME RATE row: 30, 60, max" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/profile-render.mjs [--scene name] [--seed n] [--craft id] [--window s] " +
-    "[--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--timeout s]",
+    "[--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] [--timeout s]",
 );
 const scenes = args.scene ? [args.scene] : SCENES;
 
@@ -162,7 +163,7 @@ for (const scene of scenes) {
     scene,
     shot: "0",
   });
-  for (const row of ["water", "res", "detail", "distance", "see"]) {
+  for (const row of ["water", "res", "detail", "distance", "see", "fps"]) {
     if (args[row] !== undefined) params.set(row, String(args[row]));
   }
   await page.goto(`${site.url}?${params}`, { waitUntil: "load" });

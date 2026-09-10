@@ -12,12 +12,14 @@
 
 /** THE PICTURE, AS FIVE QUESTIONS: how much sea, how many pixels, how much
  * world, how far that world runs before the haze takes it, and whether you can
- * see INTO the water. Every lever below is real and read by the renderer, but
- * a rider does not have an opinion about pine density — they have an opinion
- * about whether the game is smooth, and about which of the things making it
- * unsmooth they would rather keep. Five rows is what lets them answer that.
+ * see INTO the water — and a sixth row that is about the MACHINE rather than
+ * the picture, how many frames a second it is asked for. Every lever below is
+ * real and read by the renderer, but a rider does not have an opinion about
+ * pine density — they have an opinion about whether the game is smooth, and
+ * about which of the things making it unsmooth they would rather keep. Six
+ * rows is what lets them answer that.
  *
- * The point of the split is that the five costs are NOT the same cost, and a
+ * The point of the split is that the costs are NOT the same cost, and a
  * machine can be short of one while rich in another:
  *
  *   WATER       is CPU. The grid is the only thing in the frame that calls the
@@ -38,6 +40,9 @@
  *   SEE-THROUGH is the one thing on the page that is a LOOK rather than an
  *               amount — and it is paid twice over, in a transparent pass over
  *               most of the frame and in everything drawn under it.
+ *   FRAME RATE  is TIME: how often all of the above is asked for. Every other
+ *               row makes a frame cheaper; this one makes fewer of them, on
+ *               a schedule the machine can keep.
  *
  * A phone with a dense screen is the ordinary case of wanting one and not the
  * others: it wants the pixels it paid for and would rather give up the sea
@@ -112,6 +117,17 @@ export type VideoSettings = {
    * loop is skipped, so a level under a clear sky pays nothing for it at any
    * stop and a phone in a downpour pays nothing for it at this one. */
   rainRings: RainRingLevel;
+  /** HOW MANY FRAMES A SECOND THE GAME MAY DRAW — its own row (FRAME RATE),
+   * and the one row on the page that is not about the picture at all but
+   * about the machine drawing it. A display refreshing at a hundred and
+   * twenty asks for a frame every eight milliseconds, and a frame this game
+   * cannot finish in eight is drawn late, unevenly, on a chip that is
+   * heating up to do it; holding the rate at sixty, or at thirty on a phone
+   * that cannot keep sixty, is the same work done on time. The engine never
+   * learns the number: it steps at 120 Hz behind whatever frames are drawn
+   * (`run-loop.ts`), and `frame-rate.ts`'s gate is where a callback is
+   * skipped. MAX is the display's own rate, whatever it is. */
+  frameRate: FrameRateLevel;
 };
 
 export const WATER_LEVELS = ["low", "medium", "high"] as const;
@@ -134,6 +150,18 @@ export type SkyLevel = (typeof SKY_LEVELS)[number];
 
 export const RAIN_RING_LEVELS = ["off", "near", "far"] as const;
 export type RainRingLevel = (typeof RAIN_RING_LEVELS)[number];
+
+export const FRAME_RATE_LEVELS = ["30", "60", "max"] as const;
+export type FrameRateLevel = (typeof FRAME_RATE_LEVELS)[number];
+
+/** What each FRAME RATE stop holds the loop to, frames a second. `max` is no
+ * cap at all — every animation frame the display offers is drawn — and it is
+ * spelled as infinity so a gate built on it never skips. */
+export const FRAME_RATE_CAP: Record<FrameRateLevel, number> = {
+  "30": 30,
+  "60": 60,
+  max: Number.POSITIVE_INFINITY,
+};
 
 /** THE SKY LADDER — what each stop of the SKY lever compiles into the dome
  * and into the water's mirror.
@@ -382,12 +410,18 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
  * before the shore does on every sky the game deals, so the default picture is
  * the tuned one and the machine simply stops drawing what was never visible.
  * A rider only ever moves this row to buy something — frames at LOW, a longer
- * view at HIGH — never to get back to correct. */
+ * view at HIGH — never to get back to correct.
+ *
+ * FRAME RATE ships MAX — the display's own rate, which is what every browser
+ * game a rider has met does without asking. It is the row to reach for on a
+ * phone that draws unevenly, and a cap is a choice about THIS machine that
+ * nothing here can make for it. */
 export const DEFAULT_VIDEO: VideoSettings = {
   water: "medium",
   distance: "medium",
   resolution: "high",
   seeThrough: true,
+  frameRate: "max",
   ...DETAIL_PRESETS.medium,
 };
 

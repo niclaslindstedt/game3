@@ -47,12 +47,13 @@
 //                  camera key still walks the whole ladder from there
 //   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
 //   ?res=low       WATER, RESOLUTION, DETAIL and DISTANCE (low | medium |
-//   ?detail=low    high) and SEE-THROUGH (?see=0/1). They are settings like
-//   ?distance=low  the start card's, so a link lays them over the stored
-//   ?see=0         ones rather than reading them into the run — which is
-//                  what lets the screenshot lab photograph one row of the
-//                  ladder, and a bug report about the water name the
-//                  picture it was seen at
+//   ?detail=low    high), SEE-THROUGH (?see=0/1) and the FRAME RATE cap
+//   ?distance=low  (?fps=30/60/max). They are settings like the start
+//   ?see=0         card's, so a link lays them over the stored ones rather
+//   ?fps=30        than reading them into the run — which is what lets the
+//                  screenshot lab photograph one row of the ladder, and a
+//                  bug report about the water name the picture it was seen
+//                  at
 //   ?start=1       skip both cards and ride: a pinned run
 //   ?paused=1      ...and open with the run HELD under the pause card, which
 //                  is how the screenshot lab photographs that surface and how
@@ -107,7 +108,7 @@ import { connectOutput } from "./output-bridge.ts";
 import { onShellCommand } from "./shell-host.ts";
 import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
 import { CAMERA_MODES, type CameraMode } from "./game/camera.ts";
-import { FPS_UNKNOWN, smoothFps } from "./game/frame-rate.ts";
+import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
 import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager, type InputAction } from "./game/input.ts";
@@ -138,10 +139,13 @@ import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
   DISTANCE_LEVELS,
+  FRAME_RATE_CAP,
+  FRAME_RATE_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   type DetailLevel,
   type DistanceLevel,
+  type FrameRateLevel,
   type ResolutionLevel,
   type WaterLevel,
 } from "./game/settings-video.ts";
@@ -203,6 +207,7 @@ type Params = {
   detail: DetailLevel | undefined;
   distance: DistanceLevel | undefined;
   seeThrough: boolean | undefined;
+  frameRate: FrameRateLevel | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
   rides: boolean;
@@ -266,6 +271,7 @@ function readParams(): Params {
     detail: stop(DETAIL_LEVELS, "detail"),
     distance: stop(DISTANCE_LEVELS, "distance"),
     seeThrough: see === null ? undefined : see === "1",
+    frameRate: stop(FRAME_RATE_LEVELS, "fps"),
     rides: shot || named !== null || paused || p.get("start") === "1",
     paused,
     menu:
@@ -322,6 +328,7 @@ function settingsFor(stored: Settings, params: Params): Settings {
   if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
   if (params.distance !== undefined) settings.video.distance = params.distance;
   if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
+  if (params.frameRate !== undefined) settings.video.frameRate = params.frameRate;
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;
   if (params.time !== undefined) settings.ride.time = params.time;
@@ -373,6 +380,11 @@ export function App() {
    * without waiting for a render to answer. */
   const warmRef = useRef(false);
   const awayRef = useRef(false);
+  /** THE FRAME RATE ROW, applied: the gate every animation frame is asked
+   * past before anything is stepped or drawn (`frame-rate.ts`). Built once
+   * with the loop and re-capped from the effect below, so a cap moved on the
+   * options page takes hold on the next frame. */
+  const [gate] = useState(() => createFrameGate(FRAME_RATE_CAP[settings.video.frameRate]));
 
   /** The frame loop's handle on everything React owns. It reads these every
    * frame and must never re-run because one of them changed — the engine and
@@ -403,7 +415,8 @@ export function App() {
   // without leaving the card. The renderer decides what a row costs to apply.
   useEffect(() => {
     rendererRef.current?.setVideo(settings.video);
-  }, [settings.video]);
+    gate.setCap(FRAME_RATE_CAP[settings.video.frameRate]);
+  }, [settings.video, gate]);
 
   // ...AND SO DOES THE CAMERA ROW, for the same reason and one more: the
   // pause card opens that page over a FROZEN run, and a row worded CAMERA
@@ -714,6 +727,11 @@ export function App() {
     let rate = FPS_UNKNOWN;
     const frame = (now: number): void => {
       raf = requestAnimationFrame(frame);
+      // A FRAME THE CAP REFUSES COSTS NOTHING: no step, no water, no draw.
+      // `last` is left where it was, so the wall time this frame would have
+      // carried arrives with the next one that is drawn — the run clock
+      // takes elapsed time, and a capped loop rides the same seconds.
+      if (!gate.due(now)) return;
       // CLAMPED AT BOTH ENDS. The ceiling is the long-frame guard; the FLOOR
       // is not paranoia — the first callback after a level has been built
       // carries the timestamp of the frame that was already under way when

@@ -132,6 +132,10 @@ export function createRenderer(
   const right = new THREE.Vector3();
   const forward = new THREE.Vector3();
   const bufferSize = new THREE.Vector2();
+  /** The lens's frustum this frame, for the water grid and the cover to
+   * submit only what it can see. */
+  const frustum = new THREE.Frustum();
+  const viewProjection = new THREE.Matrix4();
   let fovWas = 0;
   let viewport: Viewport | null = null;
 
@@ -268,27 +272,11 @@ export function createRenderer(
       craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
     }
     rider?.update(state);
-    // THE CAMERA, applied. The pose is the rig's; the lens is widened for a
-    // narrow viewport so a phone held upright sees the same field across.
+    // THE CAMERA, applied — before the water and the cover, because both
+    // submit only what the lens can see and have to be told where it stands.
+    // The pose is the rig's; the lens is widened for a narrow viewport so a
+    // phone held upright sees the same field across.
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
-    cost.waterMs = water.update(state, c.x, c.z);
-    gates?.update(state);
-    // How far the rider can see into the water is the water mesh's answer, and
-    // it is 0 with the window closed — so a closed window is also an empty sea
-    // bed rather than a second rule about what to draw down there.
-    const reach = video.fauna ? water.seeThrough() : 0;
-    fauna?.update(state, c.x, c.z, reach);
-    wake.update(state);
-    spray.update(state);
-
-    // HOW MUCH WORLD IS SUBMITTED — from the LENS rather than from the craft,
-    // because the helicopter seat can stand a long way off it and the rider is
-    // looking through the camera either way. Everything dropped here is already
-    // inside the fog the same row thickened (`draw-distance.ts`).
-    const drawn = DISTANCE_LOOK[video.distance];
-    if (terrain) cullByDistance(terrain, pose.x, pose.z, drawn.shore);
-    flora?.setReach(pose.x, pose.z, drawn.cover);
-
     camera.position.set(pose.x, pose.y, pose.z);
     aim.set(pose.aimX, pose.aimY, pose.aimZ);
     if (pose.roll !== 0) {
@@ -310,9 +298,32 @@ export function createRenderer(
       fovWas = fov;
       spray.setLens(bufferSize.y, fov);
     }
-    // The sky follows the lens LAST, because it reads where the lens ended
-    // up: the dome rides it, the rain's box wraps around it, and the cloud
-    // over the sun is read at the craft.
+    camera.updateMatrixWorld();
+    viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
+    frustum.setFromProjectionMatrix(viewProjection);
+
+    cost.waterMs = water.update(state, c.x, c.z, frustum);
+    gates?.update(state);
+    // How far the rider can see into the water is the water mesh's answer, and
+    // it is 0 with the window closed — so a closed window is also an empty sea
+    // bed rather than a second rule about what to draw down there.
+    const reach = video.fauna ? water.seeThrough() : 0;
+    fauna?.update(state, c.x, c.z, reach);
+    wake.update(state);
+    spray.update(state);
+
+    // HOW MUCH WORLD IS SUBMITTED — from the LENS rather than from the craft,
+    // because the helicopter seat can stand a long way off it and the rider is
+    // looking through the camera either way. Everything dropped here is already
+    // inside the fog the same row thickened (`draw-distance.ts`); the cover is
+    // cut to the frustum as well, which the fog never does.
+    const drawn = DISTANCE_LOOK[video.distance];
+    if (terrain) cullByDistance(terrain, pose.x, pose.z, drawn.shore);
+    flora?.update(frustum, pose.x, pose.z, drawn.cover);
+
+    // The sky follows the lens, because it reads where the lens ended up:
+    // the dome rides it, the rain's box wraps around it, and the cloud over
+    // the sun is read at the craft.
     sky.update(state, eye.set(pose.x, pose.y, pose.z), dt);
     // …and the water answers to the light the sky just set. Per frame rather
     // than per level, because within a run the light MOVES: a sheet drifting
