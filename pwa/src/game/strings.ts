@@ -114,8 +114,10 @@ export const STRINGS = {
    * explained: a dot on three of four rows needs saying once, not four
    * times. */
   startCaption: "Marked · the answer this shore was dealt. Land back on it to ride the shore's own",
-  /** The way on from the start card — the craft, and RIDE with it. */
-  startNext: "CHOOSE YOUR CRAFT",
+  /** The way on from the start card — the craft, and RIDE with it. One word,
+   * because it stands in the head's corner rather than across the card's
+   * foot, and the card it opens is titled CRAFT. */
+  startNext: "NEXT",
   /** The press that actually rides, on the craft card at the end of it. */
   startGo: "RIDE",
 
