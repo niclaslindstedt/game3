@@ -42,39 +42,64 @@ import type { Cockpit } from "./craft-body.ts";
 
 export type P = [number, number, number];
 
-/** The figure's dimensions, m: a man of about 1.8 m, the segments the way
- * an anthropometric table gives them for one. The rider's mass and where
+/** HOW BIG THE RIDER IS DRAWN, as a multiple of the 1.8 m man the
+ * anthropometric table below describes.
+ *
+ * It is over one on purpose, and the reason is the reference. A real
+ * 1.8 m rider on a real 3.1 m runabout — which is what the catalog's
+ * dimensions are — is a correct picture that reads WRONG at chase range:
+ * sixty pixels of man on three metres of hull, and the machine looks like
+ * a small boat somebody is hanging off. Wave Race 64 draws its riders big
+ * and heroic on the craft, and that is the game this one is aimed at, so
+ * the figure is drawn a head taller than the table and every length in
+ * `BODY` and every girth in rider.ts carries this factor.
+ *
+ * It is a LOOK, not a measurement: the physics' rider is the spec's
+ * `riderMass` and `riderHeight` and knows nothing about this. */
+export const RIDER_SCALE = 2.0 / 1.8;
+
+/** The figure's dimensions, m: an anthropometric table's segments for a
+ * man of 1.8 m, each carrying `RIDER_SCALE`. The rider's mass and where
  * it sits are the spec's (`riderMass`, `riderHeight`), not these. */
+const S = RIDER_SCALE;
 export const BODY = {
   /** The hip joints either side of the pelvis' centre. */
-  hipHalf: 0.1,
+  hipHalf: 0.1 * S,
   /** The pelvis' centre over the seat's surface when sat. */
-  pelvis: 0.1,
+  pelvis: 0.1 * S,
   /** Pelvis centre to shoulder centre, along the spine. */
-  torso: 0.5,
-  shoulderHalf: 0.21,
-  /** Shoulder centre to the helmet's base, and the helmet's height. */
-  neck: 0.07,
-  helmet: 0.28,
-  upperArm: 0.31,
+  torso: 0.5 * S,
+  shoulderHalf: 0.21 * S,
+  /** Shoulder centre to the helmet's base, and the helmet's height — a
+   * racing lid's SHELL, chin rim to crown, not a bare head. */
+  neck: 0.07 * S,
+  helmet: 0.3 * S,
+  upperArm: 0.31 * S,
   /** Elbow to the fist's centre on the grip, and how far short of the
    * grip the wrist is. */
-  forearm: 0.33,
-  fist: 0.06,
-  thigh: 0.44,
-  shin: 0.42,
-  foot: 0.25,
+  forearm: 0.33 * S,
+  fist: 0.06 * S,
+  thigh: 0.44 * S,
+  shin: 0.42 * S,
+  foot: 0.25 * S,
   /** The ankle over the floor the boot stands on. */
-  sole: 0.05,
+  sole: 0.05 * S,
 } as const;
 
 /** The stance, in numbers. */
 export const STANCE = {
   /** The torso's lean forward from the vertical, rad, sat at idle and
    * stood at idle; what opening the throttle adds; what pace adds at top
-   * speed. The reach to the grips may push any of these further. */
-  seatedLean: 0.72,
-  standingLean: 0.82,
+   * speed. The reach to the grips may push any of these further.
+   *
+   * SAT AT IDLE A RIDER IS NEARLY UPRIGHT — 15°, a cruise, elbows bent,
+   * the way anybody actually sits on a runabout — and the racing crouch
+   * is what the throttle and the pace BUY on top of it. A big idle lean
+   * reads as a man permanently bracing for a wave that has not come.
+   * STOOD is the opposite: a stand-up is ridden bent well over its pole
+   * with the hips back, and 45° is that posture at rest. */
+  seatedLean: 0.26,
+  standingLean: 0.78,
   throttleLean: 0.22,
   paceLean: 0.16,
   leanMin: -0.2,
@@ -91,16 +116,24 @@ export const STANCE = {
   rollPerMetre: 1.8,
   headTurnPerMetre: 1.8,
   /** THE FEET, sat: ahead of the pelvis, m, and out from the pedestal's
-   * flank into the footwell, m. */
-  feetAhead: 0.32,
-  feetOut: 0.12,
+   * flank into the footwell, m. Just clear of the flank, not out at the
+   * well's outer edge: a rider's boots sit beside the saddle base with
+   * his shins near vertical, and every centimetre further out splays the
+   * thigh over the saddle instead of down it. */
+  feetAhead: 0.34,
+  feetOut: 0.035,
   /** STANDING: where along the tray the feet go (a share of its length),
-   * how far behind the ankles the pelvis hangs, m, and the crouch — the
-   * standing height as a share of the legs' length — and what the
-   * throttle takes off it. */
-  standAt: 0.5,
-  standBack: 0.12,
-  crouch: 0.78,
+   * how far apart they are (half the gap, m — a stand-up's tray is
+   * ridden with the feet close, roughly hip width, not braced against the
+   * gunwales), how far behind the ankles the pelvis hangs, m, and the
+   * crouch — the standing height as a share of the legs' length — and
+   * what the throttle takes off it. The crouch is deep because that is
+   * how the machine is ridden: knees well bent, hips back over the tray,
+   * the legs taking every wave. */
+  standAt: 0.46,
+  standFeetHalf: 0.16,
+  standBack: 0.2,
+  crouch: 0.76,
   crouchThrottle: 0.08,
   /** THE HEAD: how much of the torso's lean it follows (the rest is the
    * neck looking up), and the up-look on top of that, rad. */
@@ -330,7 +363,10 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     [grip.dx, grip.dy, grip.dz],
   ];
   SIDES.forEach((side, i) => {
-    const pole: P = [side * 1, -0.6, -0.25];
+    // The elbows hang DOWN and only a little out — a relaxed rider's arms
+    // drop off his shoulders, and elbows winged out to the side read as a
+    // man braced against something rather than one riding.
+    const pole: P = [side * 0.35, -1, -0.3];
     const { mid } = solveLimb(shoulders[i], hands[i], BODY.upperArm, BODY.forearm, pole);
     elbows[i] = mid;
     wrists[i] = sub(hands[i], scale(normalize(sub(hands[i], mid)), BODY.fist));
@@ -344,13 +380,19 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   const knees: [P, P] = [pelvis, pelvis];
   const ankles: [P, P] = [pelvis, pelvis];
   const floors: [number, number] = [0, 0];
+  // Stood, the feet come together on the tray; sat, they stand beside the
+  // pedestal's flank. Either way they clear the flank that is drawn.
+  const feetHalf = standUp
+    ? Math.max(STANCE.standFeetHalf, wells.inner + 0.03)
+    : wells.inner + STANCE.feetOut;
   SIDES.forEach((side, i) => {
     const floor = wells.floorAt(ankleZ);
     floors[i] = floor;
-    ankles[i] = [side * (wells.inner + STANCE.feetOut), floor + BODY.sole, ankleZ];
-    // Sat, the knees come up beside the saddle and grip it; stood, they
-    // point forward.
-    const pole: P = standUp ? [side * 0.15, 0.2, 1] : [side * 0.35, 0.8, 0.45];
+    ankles[i] = [side * feetHalf, floor + BODY.sole, ankleZ];
+    // Sat, the knees come forward and up beside the saddle's hump and
+    // grip it, tracking the boots rather than splaying off them; stood,
+    // they break forward over the toes.
+    const pole: P = standUp ? [side * 0.05, 0.1, 1] : [side * 0.03, 0.8, 0.5];
     knees[i] = solveLimb(hips[i], ankles[i], BODY.thigh, BODY.shin, pole).mid;
   });
 

@@ -20,8 +20,8 @@ both ends, `write-code` beside this for any code change, and
 
 | Piece | Role |
 | --- | --- |
-| `pwa/src/game/rider-pose.ts` | `BODY` (a 1.8 m man's segments, from the anthropometric tables), `STANCE` (the lean at idle, what the throttle and pace add, how far the pelvis slides, how the head follows), `DYNAMICS` (the springs: pitch, roll, crush), `poseRider(cockpit, read)` → every joint, `createRiderDynamics()` → the springs stepped per engine step, `riderVisible` |
-| `pwa/src/game/rider.ts` | `createRider(cockpit)`: the figure — the pelvis upright on the seat, the torso with the vest's lighter back and two orange straps, the helmet with its orange crown and peak, bare arms to the grips, the two-tone thighs, the orange shin stripe, the boots — and `observe` / `update` / `pose` |
+| `pwa/src/game/rider-pose.ts` | `RIDER_SCALE` (how big he is DRAWN), `BODY` (an anthropometric table's segments for a 1.8 m man, each carrying that scale), `STANCE` (the lean at idle, what the throttle and pace add, how far the pelvis slides and how wide the feet stand, how the head follows), `DYNAMICS` (the springs: pitch, roll, crush), `poseRider(cockpit, read)` → every joint, `createRiderDynamics()` → the springs stepped per engine step, `riderVisible` |
+| `pwa/src/game/rider.ts` | `createRider(cockpit)`: the figure — the seat and hips as one mass leaning with the torso, the vest's lighter back and two orange straps, the full-face helmet in three bands of livery under a peak, muscled arms to the grips, the two-tone thighs, the orange shin stripe, the boots — and `observe` / `update` / `pose`. `FACETS` is the roundness dial and `k()` carries `RIDER_SCALE` into every girth |
 | `pwa/src/game/craft-body.ts` | `cockpitOf(spec, style)`: the saddle's bucket, the grips, the footwells, from the same `layout` the hull loft reads — the rider reaches what is drawn |
 | `pwa/src/game/renderer.ts` | Builds the rider with the craft and adds his mesh to the craft's group; `observe` steps his springs, `render` poses him |
 | `scripts/craft-preview.mjs` | `make crafts` — he is on every craft on the sheet, at rest, with a `helmet` column beside `bars` |
@@ -65,8 +65,9 @@ the engine's dt, so a pre-rolled screenshot shows the same body.
    screenshots SCENE=rest`, `cruise`, `carve`, `landing` — a bright seed
    (19 is a clear late morning) — and crop the craft at 3× to judge; at
    1280 px he is sixty pixels tall and a pose reads only as a silhouette.
-4. `make profile`: he is one draw call and about 530 triangles; keep him
-   one mesh.
+4. `make profile`: he is one draw call and about 1700 triangles — half a
+   percent of the frame — so roundness is cheap and being ONE mesh is the
+   invariant that matters, not the count.
 
 ## Judging him
 
@@ -79,11 +80,20 @@ the engine's dt, so a pre-rolled screenshot shows the same body.
   tucks. Turn: he hangs in and looks through it. A wave: the knees and the
   back take it, then settle. Nothing snaps — every motion is a spring or
   the engine's own lag.
-- **Proportions are the table's.** `BODY` is a 1.8 m man (upper arm
-  0.31, forearm 0.27 + the fist, thigh 0.44, shin 0.42, shoulders 0.42
-  apart); the craft's bars stand where a real machine's do (1.15–1.25 m
-  keel to bar-top). Fix a reach at the deck or the stance, never by
-  lengthening an arm.
+- **Proportions are the table's; only the SCALE is a choice.** `BODY` is
+  an anthropometric 1.8 m man (upper arm 0.31, forearm 0.27 + the fist,
+  thigh 0.44, shin 0.42, shoulders 0.42 apart) with every segment
+  multiplied by `RIDER_SCALE` — over one on purpose, because a correctly
+  sized man on a correctly sized 3 m runabout reads as a child on a boat
+  at chase range, and the reference draws its riders big. Move the scale
+  to change how big he is; never a single segment. Fix a REACH at the deck
+  or the stance, never by lengthening an arm.
+- **Girth is silhouette.** Nothing is textured and nothing is
+  smooth-shaded, so a limb is read from its outline: a segment lofted as
+  an even taper reads as tubing however it is painted. Every limb is a
+  wide joint, a wider muscle belly at the anatomical place, then a narrow
+  joint — and the contrast between belly and joint is what carries the
+  tone, not the absolute girth.
 
 ## What is not here yet
 

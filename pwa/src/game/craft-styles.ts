@@ -31,6 +31,21 @@ export type CraftShape = {
   /** The steering column from the hood's pod to the bars, m. A stand-up's
    * pole is twice a runabout's column. */
   column: number;
+  /** How deep the footwells are: the floor's drop below the sheer, as a
+   * share of the hull depth. THIS IS WHAT DECIDES HOW A RIDER SITS — with
+   * the floor level with the gunwale his shins have nowhere to hang, so
+   * the knees ride up around the bars and the thighs splay out sideways
+   * over the saddle. On a runabout the gunwale beside the well comes up
+   * to a seated rider's shin; a stand-up's tray is an open deck, barely
+   * sunk at all, because it is stood on rather than sat over. */
+  well: number;
+  /** The pedestal's half-width under the saddle, as a share of the beam:
+   * the saddle base a seated rider straddles, and the wall his boots
+   * stand beside. A stand-up has almost none of it — its tray is flat
+   * from one gunwale to the other so the rider can stand with his feet
+   * together — which is why this is a per-craft number and not one
+   * constant for the whole roster. */
+  pedestal: number;
   /** How far the aft sponsons stand out from the chine, m. */
   sponson: number;
 };
@@ -59,9 +74,11 @@ export type CraftStyle = {
 const RUNABOUT: CraftShape = {
   bowRake: 0.07,
   hood: 0.26,
-  seatLength: 0.5,
-  seatHeight: 0.36,
-  column: 0.18,
+  seatLength: 0.38,
+  seatHeight: 0.26,
+  column: 0.19,
+  well: 0.4,
+  pedestal: 0.215,
   sponson: 0.05,
 };
 
@@ -90,7 +107,7 @@ export const CRAFT_STYLES: Record<CraftId, CraftStyle> = {
     tray: 0x363c42,
     bar: 0xc4c8cc,
     grip: 0x121415,
-    shape: { ...RUNABOUT, hood: 0.22, seatLength: 0.54, seatHeight: 0.3, column: 0.16 },
+    shape: { ...RUNABOUT, hood: 0.22, seatLength: 0.42, seatHeight: 0.23, column: 0.19 },
   },
   // Cream and navy, a touring hull's colours, and a touring hull's tall
   // saddle and high hood.
@@ -104,7 +121,7 @@ export const CRAFT_STYLES: Record<CraftId, CraftStyle> = {
     tray: 0x444a50,
     bar: 0xb5babf,
     grip: 0x1a1c1e,
-    shape: { ...RUNABOUT, hood: 0.3, seatLength: 0.56, seatHeight: 0.42, column: 0.22 },
+    shape: { ...RUNABOUT, hood: 0.3, seatLength: 0.42, seatHeight: 0.24, column: 0.16 },
   },
   // Yellow on white, meant to be seen from the beach: the stand-up, with a
   // tray where the saddle would be and the bars on a pole.
@@ -124,6 +141,8 @@ export const CRAFT_STYLES: Record<CraftId, CraftStyle> = {
       seatLength: 0.1,
       seatHeight: 0.1,
       column: 0.55,
+      well: 0.14,
+      pedestal: 0.09,
       sponson: 0.03,
     },
   },

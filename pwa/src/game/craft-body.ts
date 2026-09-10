@@ -56,15 +56,18 @@ function table(knots: readonly (readonly [number, number])[], x: number): number
  * the pedestal's back wall, a run under the saddle, dense through the
  * hood's swell and the bow's taper. */
 const STATIONS = [
-  0, 0.05, 0.1, 0.105, 0.2, 0.32, 0.45, 0.56, 0.62, 0.67, 0.72, 0.78, 0.84, 0.9, 0.95, 1,
+  0, 0.05, 0.1, 0.105, 0.2, 0.32, 0.45, 0.5, 0.53, 0.56, 0.62, 0.67, 0.72, 0.78, 0.84, 0.9, 0.95, 1,
 ];
 /** Where the boarding platform ends and the pedestal rises. */
 const PLATFORM = 0.1;
-/** The pedestal's half-width under the saddle, as a share of the beam. */
-const PEDESTAL = 0.25;
+/** How far the footwell floor must stay above the chine, as a share of the
+ * hull depth: a floor drawn any lower pokes out through the topside. How
+ * DEEP each craft's wells are is `shape.well`, because a runabout's are
+ * trays you sit over and a stand-up's is an open deck you stand in. */
+const WELL_OVER_CHINE = 0.08;
 /** The saddle's height along it, as a share of its full height: tall at
  * the tail where a passenger sits, a bucket for the rider, rising again
- * ahead of it, its nose dropping to the hood. */
+ * ahead of it (the hump his knees grip), its nose dropping to the hood. */
 const SEAT_PROFILE: [number, number][] = [
   [0, 0.94],
   [0.08, 1],
@@ -74,11 +77,13 @@ const SEAT_PROFILE: [number, number][] = [
   [0.86, 0.9],
   [1, 0.5],
 ];
-/** Where along the saddle a rider's pelvis sits — toward the forward end
- * of the bucket — and how far forward it may slide onto the rise the
- * knees grip when the bars are a long reach. */
-const SEAT_AT = 0.64;
-const SEAT_FORWARD = 0.72;
+/** Where along the saddle a rider's pelvis sits — at the FORWARD end of
+ * the bucket, which is where a solo rider sits and the rear third of the
+ * saddle is the passenger's — and how far forward it may slide onto the
+ * rise the knees grip when the bars are a long reach. Every centimetre
+ * back from here is a centimetre further to stretch to the bars. */
+const SEAT_AT = 0.7;
+const SEAT_FORWARD = 0.9;
 /** The steering column's rake back from the pod, rad. */
 const RAKE_BACK = 22 * DEG;
 
@@ -107,7 +112,10 @@ type Layout = {
   seatLen: number;
   seatH: number;
   seatBase: number;
+  /** The pedestal's half-width under the saddle, m. */
+  pedHalf: number;
   seatW: number;
+  wellFloorAt: (s: number) => number;
   zPod: number;
   podBase: number;
   podH: number;
@@ -148,14 +156,22 @@ function layout(spec: CraftSpec, style: CraftStyle): Layout {
   /** The deck's bow overhangs the keel's tip: the stem's rake. */
   const rakeAt = (s: number) => shape.bowRake * L * smooth((s - 0.7) / 0.3);
 
-  const railH = 0.09 * H;
-  const coamH = 0.08 * H;
-  const pedTop = railH + coamH + 0.06 * H;
-  const hoodPeak = railH + coamH + shape.hood * H;
-  const foreY = railH + coamH + 0.05 * H;
+  // THE TRIM ON THE GUNWALE — the rubber rail and the coaming's lip — and
+  // THE DECK'S OWN HEIGHTS, which are measured over the SHEER and not off
+  // that trim. Keeping them apart matters because the trim is the WALL a
+  // player sees from the side: the sheer plus the trim is how tall the
+  // craft looks against the man on it, and a stack of trim as deep as a
+  // hand turns a 3 m runabout into a small boat and its 1.8 m rider into
+  // a child. On the real machine the gunwale IS about the sheer line,
+  // with a rubber rail and a lip on it and nothing more.
+  const railH = 0.045 * H;
+  const coamH = 0.03 * H;
+  const pedTop = 0.19 * H;
+  const hoodPeak = (0.17 + shape.hood) * H;
+  const foreY = 0.22 * H;
   const seatZone = PLATFORM + shape.seatLength + 0.02;
-  const hoodStart = Math.max(0.6, seatZone);
-  const hoodTop = hoodStart + 0.12;
+  const hoodStart = Math.max(0.5, seatZone);
+  const hoodTop = hoodStart + 0.1;
 
   /** Heights over the sheer of the pedestal's top (the hood, forward),
    * and how open the footwells beside it are, at a station. */
@@ -176,7 +192,17 @@ function layout(spec: CraftSpec, style: CraftStyle): Layout {
   const seatLen = shape.seatLength * L;
   const seatH = shape.seatHeight * H;
   const seatBase = sheerAt(PLATFORM + 0.02) + pedTop - 0.01;
-  const seatW = 1.9 * PEDESTAL * B;
+  const pedHalf = shape.pedestal * B;
+  const seatW = 1.9 * pedHalf;
+  /** The footwell floor at a station, stated ONCE: the loft draws this
+   * line and `cockpitOf` stands the rider's boots on it, so neither can
+   * drift into the other's deck. */
+  const wellFloorAt = (s: number): number => {
+    const half = (B / 2) * taper(s);
+    const sheer = sheerAt(s);
+    const chineY = Math.min(keelY + rise(s) * H + hull.chineOut * half * dead, sheer - 0.2 * H);
+    return Math.max(sheer - shape.well * H, chineY + WELL_OVER_CHINE * H);
+  };
 
   const sPod = hoodTop;
   const zPod = zTransom + sPod * L + rakeAt(sPod);
@@ -211,7 +237,9 @@ function layout(spec: CraftSpec, style: CraftStyle): Layout {
     seatLen,
     seatH,
     seatBase,
+    pedHalf,
     seatW,
+    wellFloorAt,
     zPod,
     podBase,
     podH,
@@ -264,7 +292,7 @@ export function cockpitOf(spec: CraftSpec, style: CraftStyle): Cockpit {
   const sMid = (PLATFORM + l.hoodStart) / 2;
   const floorAt = (z: number): number => {
     const s = Math.min(l.hoodStart, Math.max(PLATFORM, (z - zTransom) / L));
-    return l.sheerAt(s) + l.railH - 0.01;
+    return l.wellFloorAt(s);
   };
   return {
     standUp: style.shape.seatLength <= 0.2,
@@ -277,7 +305,7 @@ export function cockpitOf(spec: CraftSpec, style: CraftStyle): Cockpit {
     grip: { x: grip[0], y: grip[1], z: grip[2], dx: dir.x, dy: dir.y, dz: dir.z },
     wells: {
       floorAt,
-      inner: PEDESTAL * B,
+      inner: l.pedHalf,
       outer: 0.84 * (B / 2) * l.taper(sMid),
       z0: zTransom + PLATFORM * L,
       z1: zTransom + l.hoodStart * L,
@@ -309,8 +337,8 @@ export function buildCraft(spec: CraftSpec, style: CraftStyle): THREE.Group {
     const footOuter = 0.84 * half;
     const { ped, open, crown } = deckAt(s);
     const pedY = sheer + ped;
-    const wellY = s < PLATFORM ? railTop - 0.01 : lerp(coamY, railTop - 0.01, open);
-    const pedHalf = s < PLATFORM ? 0 : lerp(footOuter, PEDESTAL * B, open);
+    const wellY = s < PLATFORM ? railTop - 0.01 : lerp(coamY, l.wellFloorAt(s), open);
+    const pedHalf = s < PLATFORM ? 0 : lerp(footOuter, l.pedHalf, open);
     return mirror(
       [
         [0, ky, z],
