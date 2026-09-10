@@ -69,7 +69,7 @@ import { valueNoise } from "@engine";
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
-import { MIRROR_RIM, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
+import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
 
 /** The ripple tile: texels a side, and its edge in metres at the fine
@@ -194,15 +194,6 @@ const VERTEX = `
     #include <fog_vertex>
   }`;
 
-/** THE SHEETS THE MIRROR CARRIES, and how deep it reads them. Both are well
- * under the dome's: the water is a rough mirror, so what it wants is the
- * sky's MASS rather than its edges, and it is a far bigger pass than the sky
- * is. Two sheets is every stack the cloud chart rolls (a deck and its scud,
- * a veil and its cumulus); three octaves is the mass and one arm of
- * erosion. */
-const MIRROR_OCTAVES = 3;
-const MIRROR_SOFTEN = 0.35;
-
 /** THE RAIN'S RINGS. The grid one impact lands per, m — a raindrop's ring
  * spreads to something like a hand's width before it is gone, and a grid
  * this size at a fall of one puts a few hundred of them in the near frame,
@@ -250,14 +241,7 @@ function fragmentFor(layers: number): string {
   varying float vHeight;
   varying float vWindow;
   #include <fog_pars_fragment>
-${skyGlsl({
-  octaves: MIRROR_OCTAVES,
-  layers,
-  sunlit: false,
-  sun: false,
-  rimBand: MIRROR_RIM,
-  soften: MIRROR_SOFTEN,
-})}
+${skyGlsl(mirrorBuild(layers))}
 
   // Three uncorrelated draws for one cell of the rain grid: where in the
   // cell the drop landed, and where in its own life the ring is.
