@@ -123,7 +123,8 @@ check, because it will be optimised against.
 | `types.ts` | **The level as everyone else sees it.** `Level`, `Gate`, `Ramp`, `Solid`, `Course`, `Wind`, `WaterBody`. Shared with the craft, the collision engine, the renderer and the labs — an exported shape here is changed with the orchestrator told first. |
 | `rules.ts` | **The rule book.** Every constraint and vocabulary number as DATA, each an R-rule stated once and mirrored verbatim in `docs/level-generator.md`. Tuning the generator means editing this file. |
 | `biomes.ts` | **The countries.** One row per `BiomeId`: what the shore is made of, the relief, the water's density and temperature band, the wind band. Only `taiga` is built; the other ids are reserved so a seed never re-rolls when a country is added. Nothing else in `mapgen/` names a country. |
-| `route.ts` | **THE RACING LINE, drawn first (R24).** A free walk in the plane with bounded curvature that turns, doubles back and steers away from itself. Everything else in a level is built around it. |
+| `route.ts` | **THE RACING LINE, drawn first (R24), and the OCEAN LEG in it (R25).** A free walk in the plane with bounded curvature that turns, doubles back and steers away from itself. Everything else in a level is built around it. |
+| `river.ts` | **The water that runs on past the race (R26).** A meandering walk inland from the most inland station of the route, thinning from the corridor's own half-width to a creek nothing can ride. Stamped into the same field as the route, so nothing downstream knows it is not the route. |
 | `basin.ts` | **The water carved round it (R15)** — the corridor, the open sea, the islands cut out of both — baked into ONE signed `offshore` field, plus `traceCoast`, which is where `Level.shore`'s coastlines come from. |
 | `geology.ts` | **The ground under the water and behind the shore.** The bed's profile and the land's step, both as functions of the offshore distance the basin baked; R21's character as a field over the plan. |
 | `course.ts` | **The race, laid ON the route.** Gates by distance, the air gates and their ramps with their windows cut straight, the start behind gate 1. There is no search for a line: the corridor was drawn to hold R1 and R5. |
@@ -139,6 +140,7 @@ And the scoreboard, which is NOT in `mapgen/` on purpose:
 | `engine/analysis/index.ts` | `analyzeLevel(level) → { findings, ok }`, and the checks about the COURSE. It reads `mapgen` AND `game`, so it sits above both — a check about the craft's clearance imports the real hull margin rather than keeping a copy. |
 | `engine/analysis/coast.ts` | The other half: the checks about the SHORE and what stands on it (R15, R16, R17, R21). Split by subject, not by size — none of them knows a gate exists. |
 | `engine/analysis/report.ts` | The `Finding`, the `Report` both halves push onto, and the two formatters. |
+| `engine/analysis/reach.ts` | The two checks about where a level goes BEYOND the coastal band: R25's ocean leg (found by walking the path, not read off a route — a `Level` carries no route) and R26's river. |
 | `engine/analysis/budgets.ts` | **Every threshold, as data.** `rules.ts`'s opposite number: that one says what may be BUILT, this one says what the result has to COME OUT like. |
 
 Keep the splits. A placement decision in `compile.ts`, a geometric fudge in

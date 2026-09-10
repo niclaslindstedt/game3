@@ -18,9 +18,7 @@ waves travel was threaded on 1 run in 36, one within 60° of dead into them on
 median pace was 9.0 m/s against the old shore-first generator's 16.9 — with
 the same median wave height (1.66 m against 1.64), the same median depth
 (10.0 m against 9.8) and the same steering effort (mean |steer| 0.36 against
-0.41). What was five times higher was the dives and the capsizes. The pace
-went into meeting the sea, not into cornering, and the guess that it was the
-corners cost an afternoon.
+0.41). What was five times higher was the dives and the capsizes. The pace went into meeting the sea, not into cornering.
 
 **So R9 gained a beam requirement** — a run-up lies within `ramp.beam` (30°)
 of a right angle to the waves — and the air-gate take rate went from 17% to

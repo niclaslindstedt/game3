@@ -288,13 +288,31 @@ export function layCourse(rng: Rng, route: Route, water: Water, wind: Wind): Cou
   // and a target past the end of it puts every gate after it on the same
   // clamped point. What is left has to still be a course.
   const drawn = inBand(rng, R.course.target);
-  const target = Math.min(drawn, route.length - R.course.station * 4);
+  // R25 — the finish is past the ocean leg, always. A course that stops
+  // half way round the mark is a course whose last gate is out at sea and
+  // whose rider is left to work out that the race is over; the leg is part
+  // of the race or it is not drawn at all.
+  const target = Math.min(
+    Math.max(drawn, route.leg.to + R.gate.spacing.min),
+    route.length - R.course.station * 4,
+  );
   if (target < R.course.length.min) return null;
   const airCount = rng.int(R.air.count.min, R.air.count.max);
 
+  // R25 — the mark, and the two things it does to what "legal" means. The
+  // ceiling on how far out the line may stand is lifted inside the leg's
+  // own zone, because that is the rule the leg is drawn to instead; and the
+  // rock itself is the one solid that exists before the course does, so R6
+  // is held against it here rather than by the placer afterwards.
+  const mark = route.leg.mark;
+  const markBerth = mark.r + solidBerth(mark.r) + S.marginSlack;
   const legalAt = (x: number, z: number, depth: number): boolean => {
     const offshore = water.offshoreAt(x, z);
-    return offshore >= band.min && offshore <= band.max && water.depthAt(x, z) >= depth;
+    if (offshore < band.min) return false;
+    const toMark = Math.hypot(x - mark.x, z - mark.z);
+    if (toMark < markBerth) return false;
+    if (offshore > band.max && toMark > mark.zone) return false;
+    return water.depthAt(x, z) >= depth;
   };
   let points: Vec2[] = route.points.map((p) => ({ x: p.x, z: p.z }));
   // The line the route drew is the line the course rides, so it has to hold
@@ -386,11 +404,21 @@ export function layCourse(rng: Rng, route: Route, water: Water, wind: Wind): Cou
   // R9 — the run-up crosses the sea. The waves travel the way the wind
   // blows TO, and the run-up runs the way the path does at the ring; the
   // angle between them has to be a right angle give or take `ramp.beam`.
+  //
+  // Measured on the CHORD the window is about to become, not on the line
+  // as it stands. Straightening replaces the whole window with that chord,
+  // so the heading the rider actually rides the run-up on is the chord's —
+  // and reading the curve's own heading at the hinge is how a jump comes
+  // out of the search beam-on and out of the analysis forty degrees off
+  // it, which was the commonest reason a basin was thrown away.
   const waveHeading = wind.from + Math.PI;
   const acrossTheSea = (draw: AirDraw, pts: Vec2[]): boolean => {
     const cum = cumulative(pts);
-    const at = pointAlong(pts, cum, gateD[draw.index] - draw.lead);
-    const off = Math.abs(angleDiff(waveHeading, at.heading));
+    const w = straightSpan(draw, pts);
+    const a = pointAlong(pts, cum, w.from);
+    const b = pointAlong(pts, cum, w.to);
+    const heading = Math.atan2(b.x - a.x, b.z - a.z);
+    const off = Math.abs(angleDiff(waveHeading, heading));
     return Math.abs(off - Math.PI / 2) <= R.ramp.beam;
   };
   const chordOk = (draw: AirDraw, pts: Vec2[]): boolean => {
@@ -423,14 +451,24 @@ export function layCourse(rng: Rng, route: Route, water: Water, wind: Wind): Cou
   chosen.sort((a, b) => a.index - b.index);
   for (const draw of chosen) {
     // Re-verified on the path as it stands now — upstream chords shorten
-    // the line a little, and the window is a promise about distances.
+    // the line a little, and the window is a promise about distances. The
+    // BEAM too (R9): straightening one window moves every window after it,
+    // and a jump that was across the sea when it was chosen and is not now
+    // is a rejection the analysis would otherwise make a whole build
+    // later.
     if (!chordOk(draw, points)) return null;
+    if (!acrossTheSea(draw, points)) return null;
     const w = straightSpan(draw, points);
     points = straighten(points, w.from, w.to);
   }
 
   // ── The finished geometry ───────────────────────────────────────────
   const cum = cumulative(points);
+  // Every chord straightened above SHORTENS the line, and the gates were
+  // measured out on the line before it was shortened. A finish past the end
+  // of what is left clamps to the last point — and so does every gate after
+  // it, which is how a course comes out with two gates in the same place.
+  if (finishD > cum[cum.length - 1]) return null;
   const finish = pointAlong(points, cum, finishD);
   const path: Vec2[] = [];
   for (let i = 0; i <= finish.index; i++) path.push(points[i]);

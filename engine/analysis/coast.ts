@@ -11,7 +11,7 @@
 import { sampleField } from "../lib/heightfield.ts";
 import { fieldGradient } from "../lib/heightfield.ts";
 import { LEVEL_RULES as R, solidRule, withinBand } from "../mapgen/rules.ts";
-import type { Level, Solid } from "../mapgen/types.ts";
+import type { Bounds, Level, Solid } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import { bandText, fmt, type Report } from "./report.ts";
 
@@ -71,9 +71,27 @@ export function analyzeShore(level: Level, rep: Report): void {
   if (longest < A.shore.minLength) {
     rep.fail("R15", "coast", `the longest coastline is ${fmt(longest)} m`, { value: longest });
   }
+  // THE SHARE, over the box the RACE is in rather than over the level's.
+  // R26 carries the level a kilometre inland along a creek, and the country
+  // either side of that creek is land nobody was ever going to ride: counted
+  // in, every basin reads as a canal and the rule stops being about the
+  // water the race is in at all — which is the only thing it was ever
+  // about.
+  const box = raceBox(level);
   let water = 0;
-  for (const v of level.offshore.data) if (v > 0) water++;
-  const share = water / level.offshore.data.length;
+  let cells = 0;
+  const o = level.offshore;
+  for (let r = 0; r < o.rows; r++) {
+    const z = o.originZ + r * o.cell;
+    if (z < box.minZ || z > box.maxZ) continue;
+    for (let c = 0; c < o.cols; c++) {
+      const x = o.originX + c * o.cell;
+      if (x < box.minX || x > box.maxX) continue;
+      cells++;
+      if (o.data[r * o.cols + c] > 0) water++;
+    }
+  }
+  const share = cells > 0 ? water / cells : 0;
   if (!withinBand(share, R.basin.waterShare)) {
     rep.fail(
       "R15",
@@ -82,6 +100,25 @@ export function analyzeShore(level: Level, rep: Report): void {
       { value: share },
     );
   }
+}
+
+/** The box the RACE is in: the course's own extent, opened out by R1's
+ * ceiling so the water either side of the line is inside it and the country
+ * behind that is not. What R15's share and R21's quilt are measured over,
+ * because both are rules about where the rider is. */
+function raceBox(level: Level): Bounds {
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const p of level.course.path) {
+    minX = Math.min(minX, p.x);
+    maxX = Math.max(maxX, p.x);
+    minZ = Math.min(minZ, p.z);
+    maxZ = Math.max(maxZ, p.z);
+  }
+  const pad = R.course.offshore.max;
+  return { minX: minX - pad, maxX: maxX + pad, minZ: minZ - pad, maxZ: maxZ + pad };
 }
 
 export function analyzeSurface(level: Level, rep: Report): void {
@@ -120,6 +157,15 @@ export function analyzeSurface(level: Level, rep: Report): void {
  */
 export function analyzeCharacter(level: Level, rep: Report): number {
   const pts = level.shore;
+  // …and only the waterline the RIDER is ever near (R26): the banks of a
+  // creek a kilometre up the country are a coast nobody looks at from a
+  // saddle, and a rule about how a coast CHANGES cannot be read off one.
+  const box = raceBox(level);
+  const near = (x: number, z: number): boolean =>
+    x >= box.minX - A.shore.race &&
+    x <= box.maxX + A.shore.race &&
+    z >= box.minZ - A.shore.race &&
+    z <= box.maxZ + A.shore.race;
   const runs = new Map<string, number>();
   let longest = 0;
   let longestKind = "";
@@ -139,6 +185,11 @@ export function analyzeCharacter(level: Level, rep: Report): number {
       for (let d = 0; d < len; d += A.shore.walk) {
         const t = d / len;
         const on = { x: a.x + dx * t, z: a.z + dz * t };
+        if (!near(on.x, on.z)) {
+          current = "";
+          run = 0;
+          continue;
+        }
         // INLAND is down the offshore field's own gradient — the field
         // grows toward the water, so away from it is into the land. There
         // is no "left of the line" any more: an island's coast has the

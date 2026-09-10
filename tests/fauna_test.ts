@@ -230,8 +230,14 @@ describe("the swim model", () => {
     // whole reason a school does not read as a carousel.
     expect(Math.hypot(b.x - a.x, b.z - a.z)).toBeLessThan(spec.length);
     // And the loop itself is bigger than that wobble, or there is no loop.
+    // Half a period is the far side of it, so what that distance has to
+    // beat is the loop's SHORT diameter — a pod's loop is an ellipse
+    // (`ovality`), and where its phase starts on the short axis, the far
+    // side is `2 · radius · ovality` away and no more.
     const half = faunaPose(pod, 0, pod.period / 2, freshPose());
-    expect(Math.hypot(half.x - a.x, half.z - a.z)).toBeGreaterThan(pod.radius);
+    expect(Math.hypot(half.x - a.x, half.z - a.z)).toBeGreaterThan(
+      2 * pod.radius * pod.ovality - spec.length,
+    );
   });
 
   it("swims where it is pointing", () => {

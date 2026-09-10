@@ -16,9 +16,17 @@ export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
 export { generateLevel, subSeed } from "./generate.ts";
-export { compileLevel, courseBounds, insideBounds, type LevelPlan } from "./compile.ts";
-export { drawRoute, type Route } from "./route.ts";
-export { layBasin, pointOn, routeBounds, traceCoast, type Basin, type Island } from "./basin.ts";
+export { compileLevel, insideBounds, type LevelPlan } from "./compile.ts";
+export { drawRoute, type Mark, type OceanLeg, type Route } from "./route.ts";
+export {
+  layBasin,
+  levelBounds,
+  pointOn,
+  routeBounds,
+  traceCoast,
+  type Basin,
+  type Island,
+} from "./basin.ts";
 export {
   bedDepth,
   createGeology,
@@ -45,9 +53,11 @@ export {
 } from "./course.ts";
 export {
   analyzeLevel,
+  oceanRun,
   ANALYSIS,
   type Finding,
   type LevelAnalysis,
+  type OceanRun,
   type Severity,
 } from "../analysis/index.ts";
 // The fields a level publishes are read through these; they are part of
@@ -59,6 +69,7 @@ export {
   sampleField,
   type Heightfield,
 } from "../lib/heightfield.ts";
+export { drawRiver, type River } from "./river.ts";
 export type {
   BiomeId,
   Bounds,
@@ -67,6 +78,7 @@ export type {
   Level,
   Pod,
   Ramp,
+  ScatteredKind,
   Solid,
   Surface,
   Vec2,

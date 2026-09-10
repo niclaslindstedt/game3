@@ -19,9 +19,10 @@ import { lerp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Biome } from "./biomes.ts";
 import { traceCoast } from "./basin.ts";
-import { airCorridor, gateBuoys, type CoursePlan } from "./course.ts";
+import { type CoursePlan } from "./course.ts";
 import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
+import type { River } from "./river.ts";
 import type { Bounds, Level, Pod, Solid, Surface, WaterBody, Weather, Wind } from "./types.ts";
 
 export type LevelPlan = {
@@ -33,6 +34,7 @@ export type LevelPlan = {
   readonly ground: Heightfield;
   readonly geology: Geology;
   readonly course: CoursePlan;
+  readonly river: River;
   readonly solids: readonly Solid[];
   readonly fauna: readonly Pod[];
   readonly wind: Wind;
@@ -40,41 +42,6 @@ export type LevelPlan = {
   readonly hour: number;
   readonly weather: Weather;
 };
-
-/** R14 — the box a course needs: everything it places, padded seaward
- * (east and south of a north-east coast) and landward, then snapped out
- * to the grid so the bounds are the grid's own edges. */
-export function courseBounds(course: CoursePlan): Bounds {
-  let minX = Infinity;
-  let maxX = -Infinity;
-  let minZ = Infinity;
-  let maxZ = -Infinity;
-  const take = (p: { x: number; z: number }): void => {
-    if (p.x < minX) minX = p.x;
-    if (p.x > maxX) maxX = p.x;
-    if (p.z < minZ) minZ = p.z;
-    if (p.z > maxZ) maxZ = p.z;
-  };
-  for (const p of course.path) take(p);
-  for (const g of course.gates) {
-    take(g);
-    for (const b of gateBuoys(g)) take(b);
-    if (g.kind === "air") {
-      const c = airCorridor(g);
-      take({ x: c.x0, z: c.z0 });
-      take({ x: c.x1, z: c.z1 });
-    }
-  }
-  const cell = R.grid.cell;
-  const snap = (v: number, up: boolean): number =>
-    (up ? Math.ceil(v / cell) : Math.floor(v / cell)) * cell;
-  return {
-    minX: snap(minX - R.bounds.land, false),
-    maxX: snap(maxX + R.bounds.sea, true),
-    minZ: snap(minZ - R.bounds.sea, false),
-    maxZ: snap(maxZ + R.bounds.land, true),
-  };
-}
 
 export function insideBounds(bounds: Bounds, x: number, z: number): boolean {
   return x >= bounds.minX && x <= bounds.maxX && z >= bounds.minZ && z <= bounds.maxZ;
@@ -143,6 +110,7 @@ export function compileLevel(plan: LevelPlan): Level {
     shore,
     materialAt,
     solids: plan.solids.map((s) => ({ ...s })),
+    river: plan.river.points.map((p) => ({ x: p.x, z: p.z })),
     fauna: plan.fauna.map((f) => ({ ...f })),
     course: {
       gates: plan.course.gates.map((g) => (g.ramp ? { ...g, ramp: { ...g.ramp } } : { ...g })),

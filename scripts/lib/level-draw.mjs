@@ -60,6 +60,7 @@ const SOLID = {
   reef: { fill: [230, 90, 70, 90], edge: [200, 60, 50] },
   erratic: { fill: [64, 58, 52], edge: [24, 22, 20] },
   stack: { fill: [148, 140, 128], edge: [40, 38, 34] },
+  mark: { fill: [214, 206, 190], edge: [30, 28, 24] },
 };
 
 export const MARK = {
@@ -70,6 +71,7 @@ export const MARK = {
   start: [30, 168, 72],
   finish: INK,
   shore: [70, 60, 40],
+  river: [60, 130, 190],
   wind: [30, 40, 60],
 };
 
@@ -188,6 +190,20 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       [MARK.shore[0], MARK.shore[1], MARK.shore[2], 140],
       1,
     );
+  }
+
+  // ── R26 — the river's own line, mouth to head ─────────────────────────
+  // Drawn over the water it was stamped into rather than instead of it: the
+  // point of the picture is the water NARROWING, and the line is what says
+  // which of the level's channels is the one that runs on into the country.
+  if (level.river.length > 1) {
+    canvas.polyline(
+      level.river.map((p) => [px(p.x), py(p.z)]),
+      [MARK.river[0], MARK.river[1], MARK.river[2], 190],
+      Math.max(1, scale),
+    );
+    const head = level.river[level.river.length - 1];
+    canvas.text("HEAD", px(head.x) + 6, py(head.z) - 4, MARK.river, 1);
   }
 
   // ── The rocks, by kind ────────────────────────────────────────────────
@@ -327,6 +343,7 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
     key((x, y) => canvas.fillRect(x - 6, y - 5, 12, 10, c), m.toUpperCase());
   }
   key((x, y) => canvas.line(x - 8, y, x + 8, y, MARK.shore), "SHORELINE");
+  key((x, y) => canvas.line(x - 8, y, x + 8, y, MARK.river, 2), "THE RIVER (R26)");
   for (const [k, c] of Object.entries(SOLID)) {
     key((x, y) => {
       canvas.disk(x, y, 5, c.fill);

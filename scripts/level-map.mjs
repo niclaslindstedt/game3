@@ -191,9 +191,37 @@ const statLine =
   `${(b.maxX - b.minX).toFixed(0)} × ${(b.maxZ - b.minZ).toFixed(0)} m on ${level.ground.cell} m cells, ` +
   `start (${level.start.x.toFixed(0)}, ${level.start.z.toFixed(0)}) facing ${deg(level.start.heading).toFixed(0)}°, ` +
   `built in ${built} ms`;
+// R25, R26 — the two things about a level that are not on the gate table:
+// how far out the ocean leg reaches and what it goes round, and how far the
+// river carries the water on past the race.
+const mark = level.solids.find((s) => s.kind === "mark");
+const river = level.river;
+const riverInland =
+  river.length > 1
+    ? Math.hypot(river[river.length - 1].x - river[0].x, river[river.length - 1].z - river[0].z)
+    : 0;
+let riverRun = 0;
+for (let i = 0; i + 1 < river.length; i++) {
+  riverRun += Math.hypot(river[i + 1].x - river[i].x, river[i + 1].z - river[i].z);
+}
+const legLine = mark
+  ? `ocean leg: rounds ${mark.id} at (${mark.x.toFixed(0)}, ${mark.z.toFixed(0)}) — ` +
+    `${mark.r.toFixed(1)} m across, ${mark.top.toFixed(0)} m out of the water, ` +
+    `${sampleField(level.offshore, mark.x, mark.z).toFixed(0)} m offshore ` +
+    `in ${(-sampleField(level.ground, mark.x, mark.z)).toFixed(0)} m of water`
+  : "ocean leg: none";
+const riverLine =
+  river.length > 1
+    ? `river: ${riverRun.toFixed(0)} m of water from its mouth at (${river[0].x.toFixed(0)}, ` +
+      `${river[0].z.toFixed(0)}), reaching ${riverInland.toFixed(0)} m inland to a head ` +
+      `${(2 * sampleField(level.offshore, river[river.length - 1].x, river[river.length - 1].z)).toFixed(1)} m wide ` +
+      `in ${(-sampleField(level.ground, river[river.length - 1].x, river[river.length - 1].z)).toFixed(2)} m of water`
+    : "river: none";
 const lines = [
   heading,
   statLine,
+  legLine,
+  riverLine,
   `sea life: ${rosterLine}`,
   "",
   "  #   ID   KIND   AT (X, Z)        HDG  STATION  FROM PREV  OFFSHORE  DEPTH",
@@ -256,6 +284,7 @@ const canvas = renderLevelMap({
   title: `SEED ${args.seed}  ${level.biome.toUpperCase()}  ${level.weather.toUpperCase()}  WIND ${w.speed.toFixed(1)} M/S FROM ${deg(w.from).toFixed(0)}°  ${hour}`,
   lines: [
     `${(level.course.length / 1000).toFixed(2)} KM, ${gates.length} GATES, ${airCount} IN THE AIR`,
+    `RIVER ${(riverInland / 1000).toFixed(2)} KM INLAND`,
     `${level.solids.length} ROCKS, ${faunaCount(level.fauna)} ANIMALS`,
     `WATER ${level.water.temperature.toFixed(0)}°C`,
     `${args.scale} PX/M`,

@@ -42,6 +42,8 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 - **R22** THE COURSE IS NOT A STRAIGHT LINE. A race down a straight coast is a throttle held open, so a course has to be STEERED: the path's own length is at least `course.wind` times the straight line from the start to the finish, and the heading swings by at least `course.sweep` radians in total over it. Both come from the coast rather than from the line — the path follows the shore into every inlet and out round every headland (R15) — so a coast that cannot carry a winding course is a coast the search rerolls.
 - **R23** EVERY CORNER IS RIDEABLE. No turn on the path is tighter than `course.radius` metres of radius — the tightest circle a planing hull holds at a pace worth riding, and under it a corner stops being a corner and becomes a beach. It is a rule about the SHORE as much as about the line, because the line follows the shore: the head of an inlet is a U the course turns round the INSIDE of, so an inlet's mouth is drawn wide enough (R15) that the radius its head leaves the line is this one.
 - **R24** THE ROUTE IS DRAWN FIRST. The racing line is not found along a coast: it is drawn before there is any land, as a walk in the plane that turns at up to `route.swing` of the tightest circle R23 allows, is bent back toward the middle when it strays past `route.reach` so a level is a place rather than a departure, and steers away from the legs it has already ridden. A line that comes back on itself inside `route.selfClear` — measured only between points `route.selfSpan` apart ALONG it — is refused rather than shipped, because two legs a rider cannot tell apart are two legs whose gates cross each other. The water is then carved around it (R15), and that is what puts a corner in a course rather than a bend in a coastline.
+- **R25** THE COURSE GOES OUT TO THE OCEAN, AND ROUNDS A MARK. One stretch of the route — `leg.span` metres of it, leaving the coast at `leg.at` — turns off the shore, runs out past R1's ceiling into open water and comes back on the heading it left on. It is drawn with one radius (`leg.round`, never under R23's): a quarter turn out, a straight run of `leg.out`, a HALF CIRCLE round the mark, the same run back, and the turn that puts it back on the coast. The MARK stands at the centre of that half circle — the one rock in the vocabulary a course is drawn ROUND rather than past, over twenty metres of it out of the water (`solids.mark`), and the only thing in a level placed by the route rather than by density. The leg's furthest point stands `leg.offshore` from the shore, and inside `mark.zone` of the mark R1's ceiling gives way to this rule: everywhere else on the path it still holds.
+- **R26** THE RIVER RUNS ON PAST THE RACE. The route's inland end is a MOUTH, and the water does not stop at it: a river carries on from there into the country for `river.length` of walking, meandering under `river.radius` of curvature but pulled inland the whole way, until its head stands at least `river.inland` (1 km) from the mouth. It THINS as it goes — `river.taper` from the corridor's own half-width at the mouth to `river.head` at the head — and because the bed is a function of the distance from the water's edge (R3), a channel that narrows shoals with itself: the last stretch is a creek too thin and too shallow to ride, which is where a rider roaming upstream stops. Past its mouth's own run it keeps `river.clear` off the racing line, so the water a rider can leave the course by is one mouth and not three.
 
 ## What swims here
 
@@ -70,64 +72,73 @@ The five fish and the porpoise are the Bothnian Sea's own. The dolphin, the porb
 
 Every band above is a row of `LEVEL_RULES`; these are the ones a tuner reaches for first, with their units. The file is the authority — a number here that disagrees with it is a documentation bug.
 
-| Group    | Knob                          | Value                 | Unit   | Rule    |
-| -------- | ----------------------------- | --------------------- | ------ | ------- |
-| `grid`   | `cell`                        | 4                     | m      | R14     |
-| `bounds` | `sea` / `land`                | 150 / 130             | m      | R14     |
-| `shore`  | `heading`                     | 30–60                 | °      | R15     |
-|          | `wander.broad`                | ±150 over 480         | m      | R15     |
-|          | `wander.fine`                 | ±16 over 170          | m      | R15     |
-|          | `maxSlope`                    | 2.8                   | m/m    | R15     |
-|          | `inlet.count` / `.depth`      | 2–3 / 80–200          | —, m   | R15     |
-|          | `character.run`               | 800                   | m      | R21     |
-| `land`   | `maxHeight` / `reach`         | 45 / 100              | m      | R2      |
-|          | `plateau`                     | 8–20                  | m      | R2      |
-|          | `slab.amplitude`              | 1.6                   | m      | R2      |
-|          | `hill` (× the plateau)        | 0.45–2                | —      | R2, R21 |
-| `sea`    | `depth` / `reach`             | 25 / 250              | m      | R3      |
-| `sea`    | `openDepth` / `openReach`     | 60 / 700              | m      | R3      |
-|          | `shelf.factor`                | 0.55                  | —      | R3      |
-| `course` | `offshore`                    | 15–100                | m      | R1      |
-|          | `aim`                         | 25–90                 | m      | R1      |
-|          | `minDepth`                    | 1.5                   | m      | R5      |
-|          | `solidMargin` / `solidBerth`  | 6 + 0.8 × radius      | m      | R6      |
-|          | `length`                      | 1200–2000             | m      | R10     |
-|          | `wind` / `sweep`              | 1.06 / 3.5            | ×, rad | R22     |
-|          | `radius`                      | 55                    | m      | R23     |
-| `gate`   | `spacing` / `width`           | 80–150 / 12           | m      | R4      |
-| `air`    | `count` / `height` / `width`  | 2–3 / 2.5–5.5 / 6     | —, m   | R7      |
-|          | `lipSpeed`                    | 50–60                 | km/h   | R18     |
-|          | `pastApex` / `thread`         | 1.7 / 0.8             | —, m   | R18     |
-|          | `reach`                       | 0.95 of slowest       | —      | R18     |
-| `ramp`   | `lead` (derived, checked)     | 12–32                 | m      | R8      |
-|          | `length` (plan) / `width`     | 8–10 / 4              | m      | R8      |
-|          | `angle`                       | 15–22                 | °      | R8      |
-|          | `runUp` / `runUpDepth`        | 160 / 2               | m      | R9      |
-|          | `beam`                        | 30                    | °      | R9      |
-| `start`  | `behind`                      | 40                    | m      | R11     |
-| `wind`   | `speed` / `seaward`           | 6–14 / ±60            | m/s,°  | R12     |
-| `day`    | `minSun` (the window's floor) | 0                     | °      | R13     |
-| `sky`    | `spread`                      | 0.32                  | —      | R19     |
-| `solids` | `<kind>.perKm`                | 5 / 14 / 7 / 12 / 2.5 | /km    | R17     |
-|          | `erratic.height`              | 1.2–4 over ground     | m      | R17     |
-|          | `stack.r` / `.top`            | 6–15 / 7–22           | m      | R17     |
-| `search` | `attempts`                    | 24                    | —      |         |
-|          | `depthSlack` / `marginSlack`  | 0.4 / 1.5             | m      |         |
+| Group    | Knob                          | Value                   | Unit   | Rule    |
+| -------- | ----------------------------- | ----------------------- | ------ | ------- |
+| `grid`   | `cell`                        | 4                       | m      | R14     |
+| `bounds` | `sea` / `land`                | 150 / 130               | m      | R14     |
+| `route`  | `length` / `step`             | 1500–2300 / 10          | m      | R24     |
+|          | `corridor`                    | 34–95                   | m      | R15     |
+|          | `swing` / `reach`             | 0.45–0.95 / 520         | —, m   | R24     |
+|          | `selfClear` / `selfSpan`      | 85 / 220                | m      | R24     |
+| `leg`    | `at` / `out` / `round`        | 280–900 / 20–90 / 58–76 | m      | R25     |
+|          | `offshore` (derived, checked) | 130–360                 | m      | R25     |
+|          | `span` (of path, checked)     | 200–620                 | m      | R25     |
+| `river`  | `inland` / `length`           | 1000–1250 / 1000–2600   | m      | R26     |
+|          | `head` / `taper`              | 3 / 1.8                 | m, —   | R26     |
+|          | `sinuosity` (checked)         | 1.12–2.7                | ×      | R26     |
+|          | `clear` / `radius`            | 100 / 38                | m      | R26     |
+| `island` | `count` / `r` / `clear`       | 1–4 / 25–95 / 18        | —, m   | R15     |
+| `shore`  | `character.run`               | 1100                    | m      | R21     |
+| `land`   | `maxHeight` / `reach`         | 45 / 100                | m      | R2      |
+|          | `plateau`                     | 8–20                    | m      | R2      |
+|          | `slab.amplitude`              | 1.6                     | m      | R2      |
+|          | `hill` (× the plateau)        | 0.45–2                  | —      | R2, R21 |
+| `sea`    | `depth` / `reach`             | 25 / 250                | m      | R3      |
+| `sea`    | `openDepth` / `openReach`     | 60 / 700                | m      | R3      |
+|          | `shelf.factor`                | 0.55                    | —      | R3      |
+| `course` | `offshore`                    | 15–100                  | m      | R1      |
+|          | `aim`                         | 25–90                   | m      | R1      |
+|          | `minDepth`                    | 1.5                     | m      | R5      |
+|          | `solidMargin` / `solidBerth`  | 6 + 0.8 × radius        | m      | R6      |
+|          | `length`                      | 1200–2000               | m      | R10     |
+|          | `wind` / `sweep`              | 1.06 / 3.5              | ×, rad | R22     |
+|          | `radius`                      | 55                      | m      | R23     |
+| `gate`   | `spacing` / `width`           | 80–150 / 12             | m      | R4      |
+| `air`    | `count` / `height` / `width`  | 2–3 / 2.5–5.5 / 6       | —, m   | R7      |
+|          | `lipSpeed`                    | 50–60                   | km/h   | R18     |
+|          | `pastApex` / `thread`         | 1.7 / 0.8               | —, m   | R18     |
+|          | `reach`                       | 0.95 of slowest         | —      | R18     |
+| `ramp`   | `lead` (derived, checked)     | 12–32                   | m      | R8      |
+|          | `length` (plan) / `width`     | 8–10 / 4                | m      | R8      |
+|          | `angle`                       | 15–22                   | °      | R8      |
+|          | `runUp` / `runUpDepth`        | 160 / 2                 | m      | R9      |
+|          | `beam`                        | 30                      | °      | R9      |
+| `start`  | `behind`                      | 40                      | m      | R11     |
+| `wind`   | `speed` / `seaward`           | 6–14 / ±60              | m/s,°  | R12     |
+| `day`    | `minSun` (the window's floor) | 0                       | °      | R13     |
+| `sky`    | `spread`                      | 0.32                    | —      | R19     |
+| `solids` | `<kind>.perKm`                | 5 / 14 / 7 / 12 / 2.5   | /km    | R17     |
+|          | `erratic.height`              | 1.2–4 over ground       | m      | R17     |
+|          | `stack.r` / `.top`            | 6–15 / 7–22             | m      | R17     |
+|          | `mark.r` / `.top`             | 8–14 / 21–32            | m      | R25     |
+| `land`   | `measured`                    | 116                     | m      | R2      |
+| `search` | `attempts` / `courseTries`    | 24 / 40                 | —      |         |
+|          | `depthSlack` / `marginSlack`  | 0.4 / 1.5               | m      |         |
 
 The `search` group is the search's own: how many sub-seeds it tries, and the SLACK it builds in over the rules so that the analysis — which reads the baked, bilinear grid rather than the analytic field the search reads — finds the finished level inside the bands.
 
 ## The search
 
-1. **The coast.** `createShore` draws a base heading and four noise seeds; the shore's seaward offset is broad value noise plus a finer grain, less the INLETS — two or three cosine notches, one to a slot along the stretch the course will use, each drawn at the mouth width its own depth needs for its sides to stay under the slope cap (R15) and its head to leave the course a corner it can hold (R23). The line is then capped, smoothed and capped again, so it never doubles back and carries no kink. It also carries a CHARACTER along it (R21), high on the headlands and low in the bays, which everything from the hills to the beaches to the boulder fields reads. The open sea is to the RIGHT of the heading — south-east of a north-east coast, as on the Swedish side of the Bothnian Sea.
-2. **The ground.** `createGeology` draws the height the land climbs to and three more noise seeds. The bed is a concave profile of the shore's distance (steep at first, level by 250 m), scaled shallower where the sediment collects — a bay, or a soft stretch of coast, whichever fills the shelf further, which is what a beach's own foreshore is. The land is a smooth step to the HILL this stretch carries (the drawn height times R21's `land.hill`), with the slabs — deeper on a rugged stretch — faded out at the waterline and at the reach. Nothing here needs a grid.
-3. **The conditions.** Wind from the seaward normal ± 60°, at 6–14 m/s — a fresh breeze most days, a strong one on some; an hour from the coast's own DAYLIGHT window (R13), so a seed is a sunrise, a noon or a sun going down and never a night; a water temperature from the biome's band.
-4. **The path.** A station every 10 m along the shore, each aiming a slow wander inside 25–90 m out. Every station is pushed seaward, 5 m at a time, until the water under it is deep enough (R5 plus the slack) and it is inside R1's band; the line is smoothed with a `[1, 2, 1]` kernel so the pushes are swells rather than kinks; the pushing repeats until nothing moves. A station that cannot be made legal fails the attempt.
-5. **The gates.** Gate 1 at 40 m; then a spacing drawn from 80–150 m, again and again, until the next would pass the target length drawn from 1350–1950 m. The last placed is the finish, and the first 50 m of path are straightened so the start faces gate 1 along it.
-6. **The air.** Two or three gate indices are chosen by a seeded shuffle from those that are neither first nor last. For each, a ramp length and angle are drawn and `ringPlacement` derives the ring's distance and height from the design arc (R18); then the window from 60 m before its ramp's hinge to 50 m past its ring is checked as a chord — depth, band — and the path inside it replaced by that chord, in course order, with the distances recomputed each time. Fewer than two legal windows fails the attempt.
-7. **The rocks.** Sea stacks first (they are the biggest and want the open water), then skerries, boulders, reefs and the erratics on the shore itself, each at its density inside its offshore band, held to the TRUE distance from the shore, required to stand proud of the bed — and, for a kind stated as a height above the ground, to break the surface — kept off the path, the buoys and the air corridors by the course's keep-out with the berth its own radius earns (R6), and kept apart from each other. A rock that finds no legal spot is not placed.
-8. **The sky.** Last of the draws, and deliberately so: no sky makes a coast unrideable, so a rule about the weather has no business moving the shore, the course or the rocks the draws before it made. `pickWeather` reads the wind already drawn as a heaviness (`skyCover`) and picks from the biome's chart with it (R19).
-9. **The bake.** `compileLevel` sizes the grid from the course's extent plus the paddings, fills both heightfields with one shore lookup per cell, closes the classifier, and assembles the level.
-10. **The gate.** `analyzeLevel` re-checks all of it. Clean, and the level ships; not, and the attempt is rejected with its findings in the log, and the next sub-seed goes round again.
+1. **The route (R24, R25).** `drawRoute` walks the racing line in the empty plane: a step every 10 m, turning on a smooth noise inside the tightest circle R23 allows, bent back toward the middle when it strays past `route.reach`, steering away from the legs it has already ridden. Which side the OPEN SEA lies on is drawn with it, and the walk's own most seaward station is where the OCEAN LEG is spliced in — a quarter turn out to sea, a run of `leg.out`, a half circle round the MARK, the run back and the turn that puts the line on the heading it left on. Past the leg the walk is held inshore of that station (a level goes out to the ocean once), and a line that folds back inside `route.selfClear`, or whose furthest point falls where the course could not reach it, is redrawn.
+2. **The river (R26).** `drawRiver` continues the water inland from the most inland station the RACE goes past — a station rather than an end, so the mouth is a bend the rider can turn up mid-run and not a reach behind the finish gate. It meanders under its own curvature bound, pulled toward the way inland lies, until its head stands `river.inland` from the mouth, and its half-width tapers from the corridor's to `river.head`. A walk that wanders back onto the racing line is redrawn.
+3. **The water (R15).** `layBasin` stamps both lines — the route's corridor and the river — into ONE signed offshore field, cuts the open sea past a straight edge `sea.line.edge` short of the route's most seaward station OUTSIDE the leg, and cuts the islands back out of both, keeping them off the leg and off the river. The coastlines are wherever the field crosses zero (`traceCoast`), and there is more than one of them: the mainland, and one round every island.
+4. **The ground (R2, R3, R21).** `createGeology` draws the height the land climbs to and its noise seeds, and the ground is baked from the offshore field alone: seaward, the concave bed profile (steep at first, level by 250 m, on down to the open sea's depth), scaled shallower where the sediment collects; landward, a smooth step to the HILL this stretch of coast carries with the slabs riding on it. Past `land.measured` inland the field stops measuring and the ground is that hill.
+5. **The leg's reach (R25).** The furthest point of the ocean leg is read off the field the moment there is one: a leg that came out inside R1's band is a bulge, not a run to a mark, and the attempt is rejected here rather than after a course has been laid in it.
+6. **The conditions (R12, R13).** Wind from the open sea's own normal ± 60°, at 6–14 m/s; an hour from the coast's own DAYLIGHT window, so a seed is a sunrise, a noon or a sun going down and never a night; a water temperature from the biome's band.
+7. **The course (R1, R4–R11).** `layCourse` measures the gates out along the route by distance — gate 1 at 40 m, then a spacing drawn from 80–150 m until the next would pass the target, with the finish pushed past the ocean leg — straightens the start, and lifts two or three gates into the air: a ramp length and angle drawn, `ringPlacement` deriving the ring from the design arc (R18), the window checked as a chord for depth, for the band and for the BEAM (R9, on the chord the window is about to become), and the path inside it replaced by that chord. The basin is the expensive artefact, so a draw that cannot fit its jumps is re-shuffled `search.courseTries` times before the basin is given up.
+8. **The rocks (R17, R25).** The MARK first, where the route put it. Then sea stacks, skerries, boulders, reefs and the erratics on the shore itself, each at its density inside its offshore band, required to stand proud of the bed, kept off the path, the buoys and the air corridors by the berth its own radius earns (R6), and kept apart from each other and from the mark. Scattered over the ROUTE'S box rather than the level's, so the river's kilometre of country does not thin the coast the race is ridden along.
+9. **The sky and the sea life (R19, R20).** Last of the draws, and deliberately so: no sky and no school makes a basin unrideable, so neither has any business moving the route, the course or the rocks the draws before them made.
+10. **The bake and the gate (R14, R16).** `compileLevel` closes the surface classifier over the two grids, traces the coastlines and assembles the level; `analyzeLevel` re-checks all of it. Clean, and the level ships; not, and the attempt is rejected with its findings in the log, and the next sub-seed goes round again.
 
 Every draw comes off one seeded stream in a fixed order, so the same seed always produces the same level, and the same seed in two different processes agrees to the bit.
 
@@ -145,7 +156,7 @@ A level is a pure function of its seed and its options. The tests hold that firs
 
 ## Looking at the output
 
-- `make level SEED=38` draws one level: depth shading, the shore, every solid by id, the gates numbered, the ramps, the wind arrow, and a listing of every gate with its offshore distance and depth.
+- `make level SEED=38` draws one level: depth shading, the shore, every solid by id, the gates numbered, the ramps, the river from its mouth to its head, the wind arrow, and a listing of every gate with its offshore distance and depth.
 - `make analyze SEED=38` prints the analysis — every finding with its rule, and the stats worth reading when nothing is wrong.
 - `tests/mapgen_population_test.ts` reads the generator as a POPULATION: gate counts, air gates, lengths, winds and build times over thirty seeds, held to bands that are inside the rule book's and wide enough to show the seed is choosing. A rules change moves a distribution, and that file is where the movement shows.
 

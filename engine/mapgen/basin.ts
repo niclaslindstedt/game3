@@ -41,6 +41,7 @@ import { createHeightfield, type Heightfield } from "../lib/heightfield.ts";
 import { clamp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
+import { riverDistance, type River } from "./river.ts";
 import type { Route } from "./route.ts";
 import { LEVEL_RULES as R, inBand } from "./rules.ts";
 import type { Bounds, Vec2 } from "./types.ts";
@@ -67,7 +68,13 @@ export type Basin = {
 };
 
 /** The box a route needs: everything its corridor covers, padded for the
- * land behind it, snapped out to the grid so the bounds ARE the grid's. */
+ * land behind it, snapped out to the grid so the bounds ARE the grid's.
+ *
+ * The ROUTE'S box, not the level's — `levelBounds` adds the river to it.
+ * They are two boxes on purpose: this one is where the race is, and it is
+ * what the rocks and the sea life are scattered over (R17, R20), so a
+ * river running a kilometre inland does not thin the coast the rider
+ * actually rides past by spreading the same count over twice the plan. */
 export function routeBounds(route: Route): Bounds {
   let minX = Infinity;
   let minZ = Infinity;
@@ -79,7 +86,31 @@ export function routeBounds(route: Route): Bounds {
     minZ = Math.min(minZ, p.z);
     maxZ = Math.max(maxZ, p.z);
   }
-  const pad = R.route.corridor.max + R.bounds.land;
+  return padded(minX, minZ, maxX, maxZ, R.route.corridor.max + R.bounds.land);
+}
+
+/** R26 — the level's own box: the route's, opened out to hold the river.
+ * The river's own pad is its own widest water plus the land behind it,
+ * rather than the corridor's — a creek three metres across does not need a
+ * bay's worth of country either side of it. */
+export function levelBounds(route: Route, river: River): Bounds {
+  const box = routeBounds(route);
+  let minX = box.minX;
+  let minZ = box.minZ;
+  let maxX = box.maxX;
+  let maxZ = box.maxZ;
+  for (let i = 0; i < river.points.length; i++) {
+    const p = river.points[i];
+    const pad = river.widths[i] + R.bounds.land;
+    minX = Math.min(minX, p.x - pad);
+    maxX = Math.max(maxX, p.x + pad);
+    minZ = Math.min(minZ, p.z - pad);
+    maxZ = Math.max(maxZ, p.z + pad);
+  }
+  return padded(minX, minZ, maxX, maxZ, 0);
+}
+
+function padded(minX: number, minZ: number, maxX: number, maxZ: number, pad: number): Bounds {
   const cell = R.grid.cell;
   const snap = (v: number, up: boolean): number =>
     (up ? Math.ceil(v / cell) : Math.floor(v / cell)) * cell;
@@ -91,18 +122,44 @@ export function routeBounds(route: Route): Bounds {
   };
 }
 
-/** How far out from the line the stamp reaches, m: past the widest corridor
- * and the whole depth of land the profile shapes, after which the ground is
- * the plateau and one more metre of accuracy buys nothing. */
-const STAMP_REACH = R.route.corridor.max + R.land.reach + R.grid.cell * 4;
+/** How far out from a line of half-width `width` the stamp reaches, m: past
+ * the water it is owed and the whole depth of land the profile shapes,
+ * after which the ground is the plateau and one more metre of accuracy buys
+ * nothing. Read per line rather than once for the level, because the river
+ * thins to a creek and stamping a creek's banks to a bay's reach is most of
+ * a level's build time spent on cells that will read the plateau anyway. */
+function stampReach(width: number): number {
+  return width + R.land.measured;
+}
+
+/** What a cell further from every line than the stamp reaches reads, m: the
+ * field's own inland limit (R2's `land.measured`), which is exactly what a
+ * cell ON the stamp's rim reads, so the field is continuous across it and
+ * carries no infinity for a bilinear sample to turn into a NaN. */
+const FAR_INLAND = -R.land.measured;
 
 /** How finely the line is resampled when it is stamped, m. A stamp reads
  * the distance to a POINT rather than to the segment it lies on, so half a
  * step is the most it can overstate — metres, in the middle of a channel,
- * where the bed is flat and nothing reads it closely. */
+ * where the bed is flat and nothing reads it closely.
+ *
+ * TWICE over every line, and this is the fine pass. The overstatement a
+ * sampled line makes falls away with distance — at 5 m spacing it is 1.7 m
+ * a metre off the line and 0.02 m forty metres off — so only the water and
+ * the shore just behind it need this step. The country beyond is stamped
+ * at `COARSE_STEP` for the same field to a fortieth of a metre, and the
+ * stamp is the biggest single cost in building a level.
+ *
+ * The coarse step is a MULTIPLE of the fine one, which is what makes the
+ * two passes agree rather than merely nearly agree: every coarse sample
+ * stands exactly where a fine one does, so where both reach a cell the
+ * fine pass's distance is the smaller and wins. */
 const STAMP_STEP = 5;
+const COARSE_STEP = 20;
+/** How far past the water it is owed the fine pass reaches, m. */
+const FINE_REACH = 40;
 
-export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
+export function layBasin(rng: Rng, route: Route, river: River, bounds: Bounds): Basin {
   const cell = R.grid.cell;
   const cols = Math.round((bounds.maxX - bounds.minX) / cell) + 1;
   const rows = Math.round((bounds.maxZ - bounds.minZ) / cell) + 1;
@@ -113,19 +170,23 @@ export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
   // half-width the winning sample was owed.
   const near = new Float64Array(cols * rows).fill(Infinity);
   const owed = new Float64Array(cols * rows);
-  const reach2 = STAMP_REACH * STAMP_REACH;
-  const stamp = (x: number, z: number, width: number): void => {
-    const c0 = Math.max(0, Math.floor((x - STAMP_REACH - bounds.minX) / cell));
-    const c1 = Math.min(cols - 1, Math.ceil((x + STAMP_REACH - bounds.minX) / cell));
-    const r0 = Math.max(0, Math.floor((z - STAMP_REACH - bounds.minZ) / cell));
-    const r1 = Math.min(rows - 1, Math.ceil((z + STAMP_REACH - bounds.minZ) / cell));
+  const stamp = (x: number, z: number, width: number, reach: number): void => {
+    const reach2 = reach * reach;
+    const r0 = Math.max(0, Math.ceil((z - reach - bounds.minZ) / cell));
+    const r1 = Math.min(rows - 1, Math.floor((z + reach - bounds.minZ) / cell));
     for (let r = r0; r <= r1; r++) {
       const dz = bounds.minZ + r * cell - z;
+      // The row's own half-width off the circle rather than the box's.
+      // The stamp is the level's single biggest cost and a fifth of a
+      // box's cells are outside the disc inscribed in it — that fifth was
+      // being visited to be rejected, on every sample of every line.
+      const half = Math.sqrt(reach2 - dz * dz);
+      const c0 = Math.max(0, Math.ceil((x - half - bounds.minX) / cell));
+      const c1 = Math.min(cols - 1, Math.floor((x + half - bounds.minX) / cell));
       const row = r * cols;
       for (let c = c0; c <= c1; c++) {
         const dx = bounds.minX + c * cell - x;
         const d2 = dx * dx + dz * dz;
-        if (d2 >= reach2) continue;
         const i = row + c;
         if (d2 < near[i]) {
           near[i] = d2;
@@ -136,8 +197,40 @@ export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
   };
   for (let s = 0; s <= route.length; s += STAMP_STEP) {
     const at = pointOn(route, s);
-    stamp(at.x, at.z, at.width);
+    stamp(at.x, at.z, at.width, at.width + FINE_REACH);
   }
+  for (let s = 0; s <= route.length; s += COARSE_STEP) {
+    const at = pointOn(route, s);
+    stamp(at.x, at.z, at.width, stampReach(at.width));
+  }
+  // R26 — and the river, stamped into the SAME field by the same rule. The
+  // basin does not know a sample of the racing line from a sample of a
+  // watercourse; it knows how far a cell is from the nearest of them and
+  // what that one was owed, which is all a signed offshore field is.
+  const stampRiver = (step: number, reachOf: (width: number) => number): void => {
+    // Walked by ARC LENGTH rather than per segment, so the samples are
+    // evenly spaced across the joins: a river's steps are 12 m and the
+    // stamp's are 5 and 20, and none of them divides the others.
+    let next = 0;
+    let at = 0;
+    for (let i = 0; i + 1 < river.points.length; i++) {
+      const a = river.points[i];
+      const b = river.points[i + 1];
+      const span = Math.hypot(b.x - a.x, b.z - a.z);
+      while (next < at + span) {
+        const t = (next - at) / span;
+        const width = river.widths[i] + (river.widths[i + 1] - river.widths[i]) * t;
+        stamp(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, width, reachOf(width));
+        next += step;
+      }
+      at += span;
+    }
+    const last = river.points.length - 1;
+    const width = river.widths[last];
+    stamp(river.points[last].x, river.points[last].z, width, reachOf(width));
+  };
+  stampRiver(STAMP_STEP, (w) => w + FINE_REACH);
+  stampRiver(COARSE_STEP, stampReach);
 
   // ── The open sea ──────────────────────────────────────────────────────
   // A straight edge just outside the route's most seaward reach: the
@@ -152,17 +245,23 @@ export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
   // more. Set here, the whole route is inside the band by construction: the
   // corridor bounds it where the water is the route's own, and this edge
   // bounds it where the water is the sea's.
-  const a = route.points[0];
-  const b = route.points[route.points.length - 1];
-  const run = Math.atan2(b.x - a.x, b.z - a.z);
-  const seaHeading = run + (rng.chance(0.5) ? Math.PI / 2 : -Math.PI / 2);
+  const seaHeading = route.seaHeading;
   const sx = Math.sin(seaHeading);
   const sz = Math.cos(seaHeading);
   // The edge stands `sea.line.edge` metres SHORT of the route's own most
   // seaward point, so that point is exactly that far out into open water —
   // inside R1 — and everything past it is sea.
+  //
+  // Measured over the route MINUS its ocean leg (R25). The leg is drawn to
+  // stand out past R1's ceiling on purpose; cutting the edge short of ITS
+  // furthest point would put the whole leg back inside the band and leave
+  // the race a coastal one with a bulge in it.
   let highU = -Infinity;
-  for (const p of route.points) highU = Math.max(highU, p.x * sx + p.z * sz);
+  for (let i = 0; i < route.points.length; i++) {
+    if (route.along[i] >= route.leg.from && route.along[i] <= route.leg.to) continue;
+    const p = route.points[i];
+    highU = Math.max(highU, p.x * sx + p.z * sz);
+  }
   const seaOffset = highU - inBand(rng, R.sea.line.edge);
 
   // ── The islands ───────────────────────────────────────────────────────
@@ -173,7 +272,14 @@ export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
       // Placed against the route's own line: a station on it, pushed out to
       // the side by more than the corridor, so an island stands in the
       // water the course runs through rather than out in the empty sea.
-      const at = pointOn(route, rng.range(0, route.length));
+      //
+      // Never against the OCEAN LEG (R25). Out there the level's whole
+      // point is open water with one rock in it, and an island beside the
+      // run to the mark is a coastline where the leg's reach is measured
+      // from — the leg comes out inside R1's band with an island for a
+      // shore, which is not what it was drawn for.
+      const on = rng.range(0, route.length - (route.leg.to - route.leg.from));
+      const at = pointOn(route, on < route.leg.from ? on : on + (route.leg.to - route.leg.from));
       const side = rng.chance(0.5) ? 1 : -1;
       const r = inBand(rng, R.island.r);
       // Measured to the island's WIDEST possible edge, not its mean
@@ -186,6 +292,10 @@ export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
       const x = at.x + Math.sin(head) * out;
       const z = at.z + Math.cos(head) * out;
       if (!insideBox(bounds, x, z, r)) continue;
+      // R26 — and clear of the river: an island cut out of a channel three
+      // metres wider than itself is a dam, and the water above it is a
+      // reach nothing can get to.
+      if (riverDistance(river, x, z) < r * (1 + R.island.warp) + R.island.clear) continue;
       if (islands.some((o) => Math.hypot(o.x - x, o.z - z) < o.r + r + R.island.apart)) continue;
       islands.push({ x, z, r, seed: rng.int(1, 0x7fffffff) });
       break;
@@ -198,7 +308,7 @@ export function layBasin(rng: Rng, route: Route, bounds: Bounds): Basin {
     for (let c = 0; c < cols; c++) {
       const i = r * cols + c;
       const x = bounds.minX + c * cell;
-      const corridor = owed[i] - Math.sqrt(near[i]);
+      const corridor = near[i] === Infinity ? FAR_INLAND : owed[i] - Math.sqrt(near[i]);
       const sea = x * sx + z * sz - seaOffset;
       let water = Math.max(corridor, sea);
       for (const island of islands) water = Math.min(water, -islandAt(island, x, z));

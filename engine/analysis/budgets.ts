@@ -102,6 +102,14 @@ export const ANALYSIS = {
     stencil: 30,
   },
   shore: {
+    /** R21 — how far from the course a stretch of waterline has to be
+     * before the quilt stops asking about it, m. The rule is about what
+     * the RIDER sees on a run; R26 carries the level's water a kilometre
+     * inland, and the banks of a creek in the country are not a coast
+     * anybody looks at from a saddle. Measured against the course's own
+     * box rather than the line, so it is a cell test rather than a
+     * polyline distance per sample. */
+    race: 220,
     /** How long the level's longest coastline has to be, m. A basin whose
      * coast is shorter than the course that runs through it is a level
      * with no land in it worth looking at. */
@@ -116,6 +124,42 @@ export const ANALYSIS = {
      * low coast; ten metres is past that and still on the beach rather
      * than behind it. */
     probe: 10,
+  },
+  leg: {
+    /** R25 — how far off the path the mark may stand beyond the rounding's
+     * own radius, m. The path is a polyline of stations and the rounding is
+     * an arc drawn through them, so the chords cut the corner by a little;
+     * a hull's length is past that and nowhere near the next thing this
+     * could be, which is a mark the line does not go round at all. */
+    stand: 12,
+    /** R25 — how far the path has to swing AROUND the mark, rad, for the
+     * leg to be a rounding. The leg is drawn as a half turn (π) of it; two
+     * thirds of that is clear of what a line merely passing a rock
+     * subtends (a straight past a rock at the rounding's own radius
+     * subtends well under a right angle over the leg's length) and leaves
+     * the arc room to be cut by the straightening an air gate asks for
+     * (R9). */
+    wrap: 2.1,
+  },
+  river: {
+    /** R26 — how far apart the probes along the river are, m. Wider than
+     * the path's: what is being asked is whether the water is continuous
+     * and thinning, and the narrowest reach of it is still wider than
+     * this. */
+    walk: 8,
+    /** Tolerance on the river's reach inland and on its walked length, m.
+     * The walk stops on the step that crosses the rule, so it overshoots
+     * by up to a step; this is the other side of that. */
+    inland: 24,
+    /** How much wider than `river.head` the head's own water may read, m.
+     * The field is bilinear over 4 m cells and the head is the sharpest
+     * corner in it. */
+    head: 3,
+    /** How far the river's mouth may stand off the course, m. The mouth is
+     * a station of the line the course was laid on, so this is slack for
+     * the straightening (R9) and for the finish falling short of it — not
+     * a licence for a river somewhere else in the level. */
+    mouth: 260,
   },
   /** How many cells across the grid the classifier is sampled at for
    * R16 — enough to see every kind of ground, cheap enough to run on every

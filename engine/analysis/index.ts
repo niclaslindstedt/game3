@@ -56,9 +56,11 @@ import {
   analyzeSurface,
   shoreSeaward,
 } from "./coast.ts";
+import { analyzeOceanLeg, analyzeRiver, oceanRun } from "./reach.ts";
 import { createReport, bandText, fmt, type Finding, type Report } from "./report.ts";
 
 export { ANALYSIS } from "./budgets.ts";
+export { oceanRun, type OceanRun } from "./reach.ts";
 export type { Finding, Severity } from "./report.ts";
 
 export type LevelAnalysis = {
@@ -73,6 +75,12 @@ export type LevelAnalysis = {
     minDepth: number;
     minOffshore: number;
     maxOffshore: number;
+    /** R25 — how far out the ocean leg's furthest point stands, m, and how
+     * high the mark it rounds is. */
+    legOffshore: number;
+    markTop: number;
+    /** R26 — how far the river reaches inland from its mouth, m. */
+    riverInland: number;
     minClearance: number;
     maxLand: number;
     maxDepth: number;
@@ -105,6 +113,15 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   const depthAt = (x: number, z: number): number => -sampleField(level.ground, x, z);
   const offshoreAt = (x: number, z: number): number => sampleField(level.offshore, x, z);
 
+  // ── R25 — where the path leaves the coast, before R1 reads it ───────
+  // R1's ceiling and R25 are the same measurement read two ways: how far
+  // out the line stands. The ocean leg is where the answer is allowed to
+  // be a big number, so it is found FIRST and R1 skips it — and only the
+  // longest such stretch, so a course that also wandered out of the band
+  // somewhere else still fails R1 for it.
+  const leg = oceanRun(level);
+  const cum = cumulative(path);
+
   // ── R1, R5 — the path's water ───────────────────────────────────────
   let minDepth = Infinity;
   let minOffshore = Infinity;
@@ -112,7 +129,8 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   let worstDepth: { x: number; z: number } | undefined;
   let worstOff: { x: number; z: number; off: number } | undefined;
   const bandMid = (R.course.offshore.min + R.course.offshore.max) / 2;
-  walkPolyline(path, A.stride, (x, z) => {
+  const inLeg = (d: number): boolean => leg !== null && d >= leg.from && d <= leg.to;
+  walkPolyline(path, A.stride, (x, z, at) => {
     const d = depthAt(x, z);
     const off = offshoreAt(x, z);
     if (d < minDepth) {
@@ -124,6 +142,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     // The worst offender is the one furthest from the band's middle.
     if (
       !withinBand(off, R.course.offshore) &&
+      !(inLeg(at) && off > R.course.offshore.max) &&
       (!worstOff || Math.abs(off - bandMid) > Math.abs(worstOff.off - bandMid))
     ) {
       worstOff = { x, z, off };
@@ -153,7 +172,10 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   }
   for (const g of gates) {
     const off = offshoreAt(g.x, g.z);
-    if (!withinBand(off, R.course.offshore)) {
+    if (
+      !withinBand(off, R.course.offshore) &&
+      !(inLeg(distanceAlong(path, cum, g.x, g.z)) && off > R.course.offshore.max)
+    ) {
       rep.fail(
         "R1",
         "gate",
@@ -192,7 +214,12 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       // the profile climbing at all. What R2 claims is about the profile —
       // the ground rises from the waterline to the hill this stretch of
       // coast carries inside the reach, and past it holds.
-      if (off < 0) {
+      // …but not the cells the field stopped measuring at (R2's
+      // `land.measured`). They carry no inland distance — only "further in
+      // than this level cares" — and binning them puts the whole country
+      // in whichever bin that floor lands in, where they read as the
+      // profile still climbing.
+      if (off < 0 && off > -R.land.measured + A.land.tolerance) {
         const bin = Math.min(PROFILE_BINS - 1, Math.floor(-off / A.land.bin));
         profileSum[bin] += h;
         profileCount[bin]++;
@@ -241,7 +268,6 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   }
 
   // ── R4, R10, R11 — the gates by distance ────────────────────────────
-  const cum = cumulative(path);
   const total = cum[cum.length - 1];
   const gateD = gates.map((gate) => distanceAlong(path, cum, gate.x, gate.z));
   for (let i = 1; i < gates.length; i++) {
@@ -437,6 +463,10 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R22 — the course winds ──────────────────────────────────────────
   const winding = analyzeWinding(level, rep);
 
+  // ── R25, R26 — the ocean leg and the river ──────────────────────────
+  analyzeOceanLeg(level, leg, rep);
+  analyzeRiver(level, rep);
+
   // ── R17 — the rocks themselves ──────────────────────────────────────
   for (const s of level.solids) analyzeSolid(level, s, offshoreAt, depthAt, rep);
 
@@ -454,6 +484,15 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       minDepth,
       minOffshore,
       maxOffshore,
+      legOffshore: leg?.offshore ?? 0,
+      markTop: level.solids.find((s) => s.kind === "mark")?.top ?? 0,
+      riverInland:
+        level.river.length > 1
+          ? Math.hypot(
+              level.river[level.river.length - 1].x - level.river[0].x,
+              level.river[level.river.length - 1].z - level.river[0].z,
+            )
+          : 0,
       minClearance,
       maxLand,
       maxDepth,
