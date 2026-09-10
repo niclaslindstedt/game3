@@ -128,8 +128,12 @@ export type RideSettings = {
    * a flat calm, or a clear noon over a sea that has no business being that
    * big. */
   weather: Weather | null;
-  /** The camera a run OPENS on. The camera key still walks the whole ladder
-   * from wherever the run started; this only decides where it starts. */
+  /** The camera. It decides what a run OPENS on, and moving it moves the
+   * camera NOW as well — the pause card opens OPTIONS over a frozen run, and
+   * a row worded CAMERA that only took effect next time would be a row the
+   * app ignores exactly where it is most obviously being asked (`App.tsx`).
+   * The camera key still walks the whole ladder without writing this, so the
+   * two never argue. */
   camera: CameraMode;
 };
 

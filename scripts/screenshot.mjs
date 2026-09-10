@@ -95,6 +95,10 @@ const SURFACES = {
   craft: { params: { menu: "craft" }, wait: ".craft-pick-canvas", settle: 2200 },
   options: { params: { menu: "options" }, wait: ".menu-card", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
+  // The pause card is the one surface with no meaning without a run behind
+  // it, so `?paused=1` rides one and holds it — the HUD and the frozen sea
+  // under the card are part of the picture, not a backdrop to crop out.
+  pause: { params: { paused: "1" }, wait: ".menu-card-pause", settle: 700 },
 };
 
 /** The two reference viewports (§35.2). */

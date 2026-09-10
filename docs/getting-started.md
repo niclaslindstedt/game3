@@ -29,9 +29,11 @@ The picture is four rows, and they are pressed over the live sea behind the card
 | R         | Reset to the last gate passed                               |
 | Enter     | Restart the run                                             |
 | C         | Camera: next view                                           |
-| Escape    | Leave the run for the main menu                             |
+| Escape    | Pause: hold the run and put the pause card up               |
 
 On a menu card the arrow keys (or WASD) walk the rows, Enter or Space presses one, and Escape goes back a page.
+
+**Pausing.** Press Escape, or press the **minimap** — on a phone the map is the way in, since there is no Escape key to reach for. The run stops exactly where it stands: the wave holds, the spray hangs, the clock waits. The card carries three ways on — **RESUME** (also what Escape and a press on the backdrop do, because a card opened by a thumb aiming for the map has to cost one press to leave), **OPTIONS** (the front door's own page, over the frozen frame — which is where the camera you cannot see out of and the picture rows are actually wanted, with the run still standing behind them), and **MAIN MENU**, which hands the same craft back to the bot and comes back to the front door over the shore you were just on.
 
 There is no brake, no handbrake and no gear: a jet ski has a throttle and a nozzle, and that is the whole of it. Which means the one thing to learn early — **no throttle, almost no steering**. The nozzle turns the thrust; with no thrust there is nothing to turn. Off the throttle the hull keeps going where it was pointed, with only the keel's small say in the matter. To turn, stay on the gas.
 

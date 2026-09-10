@@ -2,8 +2,8 @@
 // THE MENU SYSTEM'S DOM-FREE HALVES — everything the shell decides before a
 // browser is involved: when the attract card may take a press, where the
 // cursor goes next, what a seven-second hold means, what the craft card
-// bills a hull at, how a load is sequenced into phases, and what survives a
-// stored settings blob.
+// bills a hull at, which surface is up and what follows from it, how a load
+// is sequenced into phases, and what survives a stored settings blob.
 //
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
@@ -38,6 +38,7 @@ import {
   freshSettings,
   mergeSettings,
 } from "../pwa/src/game/settings.ts";
+import { SHELLS, canPause, hudOver, playerRides, simulates } from "../pwa/src/game/shell.ts";
 import {
   SPLASH_MIN_MS,
   SPLASH_STUCK_MS,
@@ -210,6 +211,35 @@ describe("where the cursor goes (menu-cursor.ts)", () => {
   it("lands somewhere sensible when the cursor is nowhere", () => {
     expect(pickNeighbour(rows, -1, "down")).toBe(0);
     expect(pickNeighbour([], 0, "down")).toBeNull();
+  });
+});
+
+describe("which surface is up, and what follows from it (shell.ts)", () => {
+  it("hands the craft to the player under a run and to the bot everywhere else", () => {
+    expect(playerRides("run")).toBe(true);
+    for (const shell of SHELLS.filter((s) => s !== "run")) {
+      expect(playerRides(shell)).toBe(false);
+    }
+  });
+
+  it("KEEPS THE SEA MOVING BEHIND EVERY CARD BUT THE PAUSE CARD", () => {
+    for (const shell of SHELLS.filter((s) => s !== "pause")) expect(simulates(shell)).toBe(true);
+    // The one exception, and the whole reason this module exists: the other
+    // cards stand over a run nobody is riding, this one over the player's.
+    expect(simulates("pause")).toBe(false);
+  });
+
+  it("keeps the readouts up under the pause card — the frozen frame IS the run", () => {
+    expect(hudOver("run")).toBe(true);
+    expect(hudOver("pause")).toBe(true);
+    expect(hudOver("menu")).toBe(false);
+    expect(hudOver("loading")).toBe(false);
+    expect(hudOver("splash")).toBe(false);
+  });
+
+  it("lets the pause card be reached from a RUN and from nowhere else", () => {
+    expect(canPause("run")).toBe(true);
+    for (const shell of SHELLS.filter((s) => s !== "run")) expect(canPause(shell)).toBe(false);
   });
 });
 

@@ -17,7 +17,7 @@ Every level is **generated from a seed** by a rules engine, like the sibling ral
 
 Four craft ship, invented names and no real brands, and what separates them is real physics off a data card: the **skiff** (a light runabout — quick, nimble, skittish in chop), the **marlin** (heavy performance — the fastest, and it needs room), the **otter** (stable touring — the heaviest, the softest over waves, slow to turn) and the **dart** (a stand-up — the lightest, the most agile, the least stable). Every hull, every wave and every shore is written in code; the game ships no asset files.
 
-**What exists today is the vertical slice**: the game opens on an attract card, then a front door with START and OPTIONS over a sea the bot is already riding; START stands a run up behind a loading card, one generated taiga level under a sky built from its own hour and weather, one craft to ride it with a rider on the saddle who leans, tucks and takes the waves in his body, and a HUD with a minimap reading the run — free-ride the shore or run the gates. A developer page sits behind a seven-second hold on START. Sound, rain and lightning on the water, damage, the campaign, time trial, heads-up, the map viewer, roam, trick scoring and the fauna are each a placeholder file with a header saying what will live there. The desktop and store shells are one README each.
+**What exists today is the vertical slice**: the game opens on an attract card, then a front door with START and OPTIONS over a sea the bot is already riding; START stands a run up behind a loading card, one generated taiga level under a sky built from its own hour and weather, one craft to ride it with a rider on the saddle who leans, tucks and takes the waves in his body, and a HUD with a minimap reading the run — free-ride the shore or run the gates. Escape or a press on the minimap holds the run under a pause card with RESUME, OPTIONS and MAIN MENU on it. A developer page sits behind a seven-second hold on START. Sound, rain and lightning on the water, damage, the campaign, time trial, heads-up, the map viewer, roam, trick scoring and the fauna are each a placeholder file with a header saying what will live there. The desktop and store shells are one README each.
 
 ## Why
 
@@ -77,7 +77,9 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 
 ## Controls
 
-**Keyboard:** W / ↑ throttle (ramps up while held), A D / ← → steer (ramped, so a tap is a nudge and a hold is full lock), S / ↓ lean back (nose up — in the air, pitch up), Shift lean forward (nose down), R reset to the last gate passed, Enter restart the run, C camera. There is no brake and no gear.
+**Keyboard:** W / ↑ throttle (ramps up while held), A D / ← → steer (ramped, so a tap is a nudge and a hold is full lock), S / ↓ lean back (nose up — in the air, pitch up), Shift lean forward (nose down), R reset to the last gate passed, Enter restart the run, C camera, Escape pause. There is no brake and no gear.
+
+**Pausing** holds the run exactly where it stands — Escape, or a press on the minimap, which is the way in on a phone. RESUME comes back on the very frame it left; OPTIONS is the front door's own page over the frozen frame; MAIN MENU hands the craft back to the bot and comes back to the front door over the shore you were just on.
 
 **Touch:** the LOWER-LEFT of the screen is the handlebar — touch anywhere and move the thumb: sideways travel steers, vertical travel leans. The LOWER-RIGHT is the throttle lever — a touch anchors it at zero and dragging DOWN opens it, full at about ninety pixels, analogue, held while the finger is down and closed the moment it lifts. Both overlays are drawn under the thumb that owns them, and both stop at the lower three fifths of the screen so a press meant for the HUD's own buttons is not read as throttle. Works in portrait and landscape; the HUD re-flows to fit.
 

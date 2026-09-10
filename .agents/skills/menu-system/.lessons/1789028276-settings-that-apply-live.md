@@ -23,6 +23,12 @@ drawing buffer without changing the layout.
 
 Drive it rather than trusting it: a scratch playwright script that walks
 attract → front door → OPTIONS, presses every stop of every row, and reads
-`window.__SH_COST__.frameMs` after each press proves both that nothing threw
-and that the sea never stopped. The WATER row's frameMs (6 / 9 / 14 ms on this
-container) is the row's cost, live.
+`window.__SH_COST__.frameMs` after each press proves nothing threw, and the
+WATER row's frameMs (6 / 9 / 14 ms on this container) is the row's cost, live.
+
+**But frameMs is NOT a liveness probe** — that half of this lesson was wrong.
+Under the software rasterizer these labs run on it quantizes hard: a frozen
+frame and a running sea both report a single unchanging value (5 ms, measured),
+so a live loop reads as a dead one and vice versa. To ask whether the picture
+is MOVING, take two `page.screenshot({ clip })` of the same patch of sea half a
+second apart and compare the bytes.
