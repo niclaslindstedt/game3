@@ -518,7 +518,18 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       sky: DEFAULT_SETTINGS.video.sky,
       rainRings: DEFAULT_SETTINGS.video.rainRings,
       distance: DEFAULT_SETTINGS.video.distance,
+      frameRate: DEFAULT_SETTINGS.video.frameRate,
     });
+  });
+
+  it("keeps a frame-rate cap the rider set and drops one this build does not offer", () => {
+    expect(mergeSettings({ video: { frameRate: "30" } }).video.frameRate).toBe("30");
+    expect(mergeSettings({ video: { frameRate: 30 } }).video.frameRate).toBe(
+      DEFAULT_SETTINGS.video.frameRate,
+    );
+    expect(mergeSettings({ video: { frameRate: "144" } }).video.frameRate).toBe(
+      DEFAULT_SETTINGS.video.frameRate,
+    );
   });
 
   it("drops a picture stop this build no longer has, one row at a time", () => {

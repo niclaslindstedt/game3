@@ -33,6 +33,15 @@
 //   under the near grid's interior and is SUNK a little under it
 //   everywhere — by more the bigger the chop it leaves out — so its coarse
 //   facets never poke up through the near water and hide the hull.
+// - ONLY WHAT THE LENS CAN SEE IS SAMPLED. The grid follows the craft, and
+//   the chase camera stands behind it looking forward, so nearly half of it
+//   is behind the lens and a good deal more is off to the sides. `update` is
+//   handed the camera's frustum and a vertex outside it by more than a
+//   cell and a crest keeps last frame's height and normal — it is not on
+//   screen, and the margin is what keeps a triangle straddling the edge
+//   from ever showing a stale corner. What that skips is the dearest thing
+//   in the frame's JavaScript, `surfaceAt` per vertex, at no cost to the
+//   picture at all.
 // - Nothing is allocated per frame: one `SurfaceSample` is reused, the
 //   attribute arrays are written in place and flagged.
 //
@@ -177,6 +186,17 @@ const WHITECAP_CREST = 0.75;
 const WHITECAP_TILT = 0.012;
 const WHITECAP_TILT_FULL = 0.035;
 
+/** Whether a vertex at the plan point, within `margin` m of the still water
+ * in every direction, can be inside the frustum at all. A sphere test, which
+ * is six plane dots — against the microsecond `surfaceAt` costs, close to
+ * free. */
+const probe = new THREE.Sphere();
+function seen(frustum: THREE.Frustum, x: number, z: number, margin: number): boolean {
+  probe.center.set(x, 0, z);
+  probe.radius = margin;
+  return frustum.intersectsSphere(probe);
+}
+
 function smoothstep(a: number, b: number, x: number): number {
   const t = clamp((x - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
@@ -212,8 +232,10 @@ export type WaterMesh = {
    * else; see `FAR_HOLE`. */
   seeThrough: () => number;
   /** Re-lay the grid under the craft and displace it for the state's
-   * clock. Returns the milliseconds it took — the profile's number. */
-  update: (state: GameState, cx: number, cz: number) => number;
+   * clock, sampling only the vertices `frustum` can see (every one of them
+   * when no frustum is given). Returns the milliseconds it took — the
+   * profile's number. */
+  update: (state: GameState, cx: number, cz: number, frustum?: THREE.Frustum) => number;
   dispose: () => void;
 };
 
@@ -389,7 +411,11 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
   };
   setCoast(BIOME_IDS[0]);
 
-  const update = (state: GameState, cx: number, cz: number): number => {
+  /** The widest cell of the near grid, at its rim. */
+  let maxCell = 0;
+  for (let i = 1; i < GRID; i++) maxCell = Math.max(maxCell, offsets[i] - offsets[i - 1]);
+
+  const update = (state: GameState, cx: number, cz: number, frustum?: THREE.Frustum): number => {
     const t0 = performance.now();
     const sx = Math.round(cx / look.cell) * look.cell;
     const sz = Math.round(cz / look.cell) * look.cell;
@@ -419,12 +445,21 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
     const fsz = Math.round(cz / farCell) * farCell;
     farMesh.position.set(fsx, 0, fsz);
     horizon.position.set(cx, -farSink - 1, cz);
+    // How far outside the frustum a vertex may stand and still be sampled:
+    // the biggest cell it can be a corner of, and the tallest crest the sea
+    // stands up, so nothing a visible triangle touches is ever stale. The
+    // far grid takes two of its cells, because the near grid's edge reads
+    // the far cells round it (`farHeightAt`) and those must be fresh too.
+    const crest = 1 + 1.2 * sea.hsRef;
+    const farMargin = 2 * farCell + crest;
+    const nearMargin = maxCell + crest;
     if (farComponents > 0) {
       for (let j = 0; j < FAR_GRID; j++) {
         const wz = fsz - FAR_HALF + j * farCell;
         for (let i = 0; i < FAR_GRID; i++) {
           const wx = fsx - FAR_HALF + i * farCell;
           const k = (j * FAR_GRID + i) * 3;
+          if (frustum && !seen(frustum, wx, wz, farMargin)) continue;
           surfaceAt(sea, level, wx, wz, t, sample, farComponents);
           farPositions[k + 1] = sample.height - farSink;
           farNormals[k] = sample.nx;
@@ -459,6 +494,7 @@ export function createWaterMesh(sky: SkyUniforms, look: WaterLook = DESIGN_WATER
         const ox = offsets[i];
         const wx = sx + ox;
         const k = (j * GRID + i) * 3;
+        if (frustum && !seen(frustum, wx, wz, nearMargin)) continue;
         surfaceAt(sea, level, wx, wz, t, sample);
         const edge = Math.max(fz, Math.abs(ox) / HALF);
         const fade = 1 - smoothstep(FADE_FROM, 1, edge);

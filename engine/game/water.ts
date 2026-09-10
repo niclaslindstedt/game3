@@ -432,7 +432,11 @@ export function surfaceAt(
   count: number = sea.components.length,
 ): SurfaceSample {
   const depth = Math.max(-sampleField(level.ground, x, z), S.minDepth);
-  const { ocean, local } = seaShares(sea, x, z);
+  // `seaShares`, inlined: this is called thousands of times a frame by the
+  // renderer's water grid and twelve times a step by the hull, and an object
+  // returned per call is an allocation on every one of them.
+  const ocean = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
+  const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, x, z));
   // First pass: the shoaled amplitudes each band's share leaves standing
   // here, and the depth limit the SEA they make together has to stay
   // under. The limit is on the significant height — Hs = 4·√m0 over the

@@ -44,11 +44,13 @@ import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
   DISTANCE_LEVELS,
+  FRAME_RATE_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   detailOf,
   type DetailLevel,
   type DistanceLevel,
+  type FrameRateLevel,
   type ResolutionLevel,
   type VideoSettings,
   type WaterLevel,
@@ -100,6 +102,13 @@ const DISTANCE_STOPS: Stop<DistanceLevel>[] = DISTANCE_LEVELS.map((id) => ({
   label: STEPS[id],
 }));
 
+/** The cap's ladder: two figures and the screen's own rate. Slowest first,
+ * like every other ladder here — the cheap end is on the left. */
+const FRAME_RATE_STOPS: Stop<FrameRateLevel>[] = FRAME_RATE_LEVELS.map((id) => ({
+  id,
+  label: id === "max" ? STRINGS.optFrameRateMax : id,
+}));
+
 /** The one fader, exported because the PAUSE CARD's strip carries it too: a
  * rider who stops mid-run to turn the water down is the fader's commonest
  * caller, and one row in two places is one setting. */
@@ -144,7 +153,7 @@ export function OptionsPage({
     <div class="menu-card menu-card-options" onPointerLeave={() => setHint(null)}>
       <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuOptions} />
       {/* Two columns on anything wide enough, packed by ROW COUNT rather than
-          by subject order — five on the left, four on the right — so a laptop
+          by subject order — six on the left, four on the right — so a laptop
           holds the whole page without scrolling and neither column ends
           short. On a phone the grid collapses and they stack. */}
       <div class="knob-groups">
@@ -152,7 +161,8 @@ export function OptionsPage({
           {/* Five rows, not one, because they are five different costs: how
               many pixels, how much sea, how much stuff on it, how far out
               there IS any, and how far the eye gets INTO it. A machine can be
-              short of one and rich in another. */}
+              short of one and rich in another — and a sixth for how OFTEN all
+              of it is asked for. */}
           <KnobGroup title={STRINGS.optPicture}>
             <StepRow
               label={STRINGS.optResolution}
@@ -201,6 +211,19 @@ export function OptionsPage({
               stops={ON_OFF}
               value={onOff(settings.video.seeThrough)}
               onPick={(id) => setVideo({ seeThrough: id === "on" })}
+              onHint={setHint}
+            />
+            {/* The last row is not a picture cost but a schedule: every row
+                above makes a frame cheaper, this one asks for fewer of them,
+                which on a phone that draws unevenly is the row that makes
+                the ride smooth. `App.tsx`'s loop reads it through the gate in
+                `frame-rate.ts`. */}
+            <StepRow
+              label={STRINGS.optFrameRate}
+              hint={STRINGS.optFrameRateHint}
+              stops={FRAME_RATE_STOPS}
+              value={settings.video.frameRate}
+              onPick={(frameRate) => setVideo({ frameRate })}
               onHint={setHint}
             />
           </KnobGroup>

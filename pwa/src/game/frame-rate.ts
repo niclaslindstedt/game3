@@ -42,3 +42,51 @@ export function smoothFps(reading: number, frameMs: number): number {
   const now = 1000 / frameMs;
   return reading > 0 ? reading + (now - reading) * FPS_SMOOTHING : now;
 }
+
+/** THE GATE — the FRAME RATE row, applied. A display hands the loop a callback
+ * at its own rate; the gate says whether THIS one is worth drawing, and the
+ * ones it refuses cost nothing at all: no step, no water, no draw, and their
+ * wall time simply arrives with the next frame that is drawn (the run clock
+ * takes elapsed time, not frames). Pure and DOM-free, so `tests/video_test.ts`
+ * can hold it to the two things a cap has to get right: a cap at or above the
+ * display's own rate must never skip, and a cap under it must land on the
+ * rate asked for rather than on the nearest multiple of the display's. */
+export type FrameGate = {
+  /** Whether the frame at `now` (ms) should be drawn. */
+  due: (now: number) => boolean;
+  /** Hold the loop to `fps` frames a second; anything non-finite is no cap. */
+  setCap: (fps: number) => void;
+};
+
+export function createFrameGate(fps = Number.POSITIVE_INFINITY): FrameGate {
+  let period = periodOf(fps);
+  /** When the next frame is due, ms. */
+  let next = Number.NEGATIVE_INFINITY;
+  return {
+    due: (now) => {
+      if (period <= 0) return true;
+      // A display at exactly the cap's rate delivers its callbacks a hair
+      // early and a hair late by turns, and a strict comparison would skip
+      // half of them: a frame within a fifth of a period of its time is taken.
+      if (now < next - period * GATE_SLACK) return false;
+      // The next frame is due one period after THIS one was, not after this
+      // one arrived — or a display half again as fast as the cap, whose
+      // callbacks land a third of a period late, would drift the rate up to
+      // its own next divisor. Only a frame a whole period late resyncs the
+      // grid to itself: a machine that cannot keep the cap draws every frame
+      // it gets, and never bursts to make up the ones it missed.
+      next = now - next > period ? now + period : next + period;
+      return true;
+    },
+    setCap: (fps) => {
+      period = periodOf(fps);
+    },
+  };
+}
+
+/** How early a frame may be taken, as a share of the cap's period. */
+const GATE_SLACK = 0.2;
+
+function periodOf(fps: number): number {
+  return Number.isFinite(fps) && fps > 0 ? 1000 / fps : 0;
+}

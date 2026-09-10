@@ -12,7 +12,13 @@ import { describe, expect, it } from "vitest";
 
 import { BIOME_IDS, WEATHER_IDS, biomeOf } from "@engine";
 
-import { FPS_SMOOTHING, FPS_STALL_MS, FPS_UNKNOWN, smoothFps } from "../pwa/src/game/frame-rate.ts";
+import {
+  FPS_SMOOTHING,
+  FPS_STALL_MS,
+  FPS_UNKNOWN,
+  createFrameGate,
+  smoothFps,
+} from "../pwa/src/game/frame-rate.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
 import {
   DEFAULT_VIDEO,
@@ -21,6 +27,8 @@ import {
   DISTANCE_LEVELS,
   DISTANCE_LOOK,
   FLORA_SCALE,
+  FRAME_RATE_CAP,
+  FRAME_RATE_LEVELS,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
   WATER_LEVELS,
@@ -164,6 +172,16 @@ describe("the picture's other ladders", () => {
     expect(SPRAY_SCALE.low).toBeLessThan(SPRAY_SCALE.full);
   });
 
+  it("caps the frame rate slowest first, and not at all at the top", () => {
+    for (let i = 1; i < FRAME_RATE_LEVELS.length; i++) {
+      expect(FRAME_RATE_CAP[FRAME_RATE_LEVELS[i]]).toBeGreaterThan(
+        FRAME_RATE_CAP[FRAME_RATE_LEVELS[i - 1]],
+      );
+    }
+    expect(FRAME_RATE_CAP.max).toBe(Number.POSITIVE_INFINITY);
+    expect(DEFAULT_VIDEO.frameRate).toBe("max");
+  });
+
   it("keeps a tree line at every stop", () => {
     // The stand is planted at `lush` and thinned by count, so nothing may ask
     // for more than that — and a taiga shore with no trees on it is a quarry,
@@ -251,5 +269,55 @@ describe("the frame rate the corner reads (frame-rate.ts)", () => {
     expect(smoothFps(60, -8)).toBe(60);
     expect(smoothFps(60, Number.NaN)).toBe(60);
     expect(smoothFps(60, Number.POSITIVE_INFINITY)).toBe(60);
+  });
+});
+
+describe("the frame gate (frame-rate.ts)", () => {
+  /** How many of a display's callbacks over `seconds` a gate at `cap` lets
+   * through, the callbacks landing every `1000 / hz` ms with `jitter` ms of
+   * alternating early-and-late. */
+  const drawn = (hz: number, cap: number, seconds = 4, jitter = 0): number => {
+    const gate = createFrameGate(cap);
+    let n = 0;
+    const frames = Math.round(hz * seconds);
+    for (let i = 0; i < frames; i++) {
+      const now = (i * 1000) / hz + (i % 2 === 0 ? jitter : -jitter);
+      if (gate.due(now)) n++;
+    }
+    return n / seconds;
+  };
+
+  it("never skips a frame under a cap the display cannot exceed", () => {
+    expect(drawn(60, 60)).toBe(60);
+    expect(drawn(60, 60, 4, 1.5)).toBe(60);
+    expect(drawn(60, Number.POSITIVE_INFINITY)).toBe(60);
+    expect(drawn(30, 60)).toBe(30);
+    // A slow machine delivering twenty a second under a cap of sixty draws
+    // every one it gets — the cap is a ceiling, never a burst.
+    expect(drawn(20, 60)).toBe(20);
+  });
+
+  it("lands on the rate asked for, not on the display's nearest divisor", () => {
+    expect(drawn(120, 60)).toBe(60);
+    expect(drawn(60, 30)).toBe(30);
+    expect(drawn(120, 30)).toBe(30);
+    // The awkward one: a display at half again the cap, whose callbacks
+    // never land on the cap's grid. A gate that started each period from the
+    // frame it took would drift to seventy-two.
+    expect(drawn(144, 60)).toBeCloseTo(60, 0);
+    expect(drawn(90, 60)).toBeCloseTo(60, 0);
+  });
+
+  it("takes a new cap on the next frame", () => {
+    const gate = createFrameGate(Number.POSITIVE_INFINITY);
+    expect(gate.due(0)).toBe(true);
+    expect(gate.due(8)).toBe(true);
+    gate.setCap(30);
+    expect(gate.due(16)).toBe(true);
+    expect(gate.due(24)).toBe(false);
+    expect(gate.due(33)).toBe(false);
+    expect(gate.due(50)).toBe(true);
+    gate.setCap(Number.NaN);
+    expect(gate.due(51)).toBe(true);
   });
 });
