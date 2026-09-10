@@ -5,9 +5,9 @@
 // generator draws a coast and then looks for a line along it, and what it
 // can find is always a line ALONG it: the course is as straight as the
 // coast is, and no amount of wandering in the coast makes a corner the
-// rider has to steer round rather than lean through. Wave Race's maps are
-// the other way about — a basin with a route through it, the land put where
-// the route is not — and so is this.
+// rider has to steer round rather than lean through. The 90s jetski racers
+// went the other way about — a basin with a route through it, the land put
+// where the route is not — and so does this.
 //
 // So the route is a free walk in the plane. It starts at the origin on a
 // drawn heading and steps `route.step` metres at a time, turning by a rate
