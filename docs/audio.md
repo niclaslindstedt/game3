@@ -50,7 +50,7 @@ curve.
 | `pwa/src/game/audio/bubbles.ts`      | The tail every splash gets: Minnaert's bubble, a sine chirping up, in a burst the router sizes.                                                                                                              |
 | `pwa/src/game/audio/route.ts`        | Which sound a `GameEvent` makes, how big, which bubbles it leaves, and how it is heard from the seat it is watched from.                                                                                     |
 | `pwa/src/game/audio/listener.ts`     | What each rung of the camera ladder does to the mix — one row per `CameraMode`.                                                                                                                              |
-| `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as eight layers: where each should be for a set of revs, a throttle, a load, a wet intake and the jet's slip.                                                                       |
+| `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as eight layers: where each should be for a set of revs, a throttle, a load, a wet intake, the jet's slip and how far the exhaust has cleared the water.                            |
 | `pwa/src/game/audio/water-voice.ts`  | The hull in the water, the wind and the sea, as seven layers: the wash, the spray, the chop, the wind, the swell, the surf and its foam.                                                                     |
 | `pwa/src/game/audio/rack.ts`         | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it.                                                                                                                      |
 | `pwa/src/game/audio/ride-bed.ts`     | The scheduler: the state, once a frame, into every layer's target — and the one cue nothing reports, the slap.                                                                                               |
@@ -154,14 +154,38 @@ sound everyone on a beach knows a jet ski by), the FROTH (cavitation — white
 noise at the transom when the pump is asked for more than the water will
 give, fullest on a launch from rest and gone once the hull is running, read
 off the jet's SLIP against the hull's speed) and the GURGLE (the wet exhaust,
-a brown bubbling at idle that the revs blow clear).
+the blat of a pipe that exits below the waterline).
 
 **The load is the throttle with water to push against.** `craft.throttleEff`
-is in the state; the bed multiplies it by how fed the intake is (a quarter
-of the bottom wet), so in the AIR — where the physics unloads the pump and
-runs the crank free to the limiter — the note climbs, the froth and the
-gurgle go, the whine thins to a dry whistle and the hum loses its grit. The
-silence where the water was is what a jump sounds like.
+is in the state; the bed multiplies it by how fed the intake is
+(`INTAKE_WETTED` — a quarter of the bottom wet), so in the AIR, where the
+physics unloads the pump and runs the crank free to the limiter, the froth
+goes, the whine thins to a dry whistle and the hum loses its grit.
+
+**The exhaust exits under the waterline, and it is the loudest fact about
+what a jet ski sounds like.** A runabout's pipe comes out below the boot, so
+for nearly the whole of a run the engine is heard THROUGH WATER — which is an
+attenuator and a lowpass both, and why a machine that is deafening on a
+trailer is a burble from a beach. `exhaustClear(wetted, airborne, capsized)`
+is that reading, 0..1: the share of the bottom that is DRY, cubed, because
+the pipe sits low and aft and is the last thing on the hull to clear the
+surface. Measured, it runs about 0.001 at rest, 0.03 at half throttle, 0.24
+at full plane and 1 in the air; capsized is 0, because a hull on its back has
+its bottom in the air and its pipe under the surface.
+
+Everything either side of the waterline hangs off it. With the pipe under,
+the hum and its octave are held to `SUBMERGED` (0.35) of their level and the
+hum's cutoff to 45% of its brightness, the rasp — the exhaust's own edge, the
+layer the water owns outright — to 15%, and the GURGLE carries the engine
+instead: it is scaled by `1 − clear` rather than by the revs, so a pipe under
+water goes from an idle knock to a hard wet tearing rather than being blown
+clear. The bass is least affected (75% at worst), because the block is bolted
+to a hull and a hull is a drum. Come out of the water and it inverts inside a
+few tenths — the note brightens, the rasp cracks open, the blat stops.
+
+So the engine is not one loudness with the air as an exception. It is **two
+voices either side of the waterline**, and the ordinary state of a run is the
+quiet one: coming out of the water is what makes the engine an event.
 
 ## What the water is made of
 

@@ -98,6 +98,58 @@ export type ChaseRig = {
   clearance: number;
 };
 
+/** THE ROD'S OWN MASS — how the boom's angle out of the horizontal is
+ * carried, shared by every outside rig (each scales the reading by its own
+ * `flight`).
+ *
+ * The angle is not eased onto, it is SPRUNG onto. An ease answers the lip
+ * with a step in its own velocity, so the frame the hull leaves the water is
+ * the frame the whole boom starts swinging, and — far worse — the frame it
+ * comes back is the frame the boom stops dead: a craft that has been falling
+ * with the lens hung out over it lands, the angle it was asking for goes to
+ * nothing at once, and the shot SNAPS through several metres in one frame.
+ * That snap is the whole of what a rider reads as a camera with no weight.
+ *
+ * A mass has to be wound up and cannot be stopped: it winds on through the
+ * flight and, at the landing, swings THROUGH the horizontal before it
+ * settles — the boom dips a little under its natural angle, the lens drops
+ * with it, and it comes back up. That is the bounce, and its size is a share
+ * of whatever the rod had wound on to, so a hop off a chop barely shows it
+ * and a long drop off a ramp gives the landing its punctuation.
+ */
+export const FLIGHT_ROD = {
+  /** Natural frequency, Hz. Low enough that a moment of air only gets part
+   * of the way to the angle it is asking for — which is what makes a hop
+   * read as a nod and a real launch read as the whole gesture — and high
+   * enough that the bounce is over well inside the second after a landing
+   * rather than wallowing. */
+  freq: 1.15,
+  /** Damping ratio. Under 1 on purpose: this IS the bounce. Much under and
+   * the boom rings a second time, which reads as a fault rather than as
+   * weight; at 1 there is no bounce at all and the landing is a stop. */
+  damping: 0.55,
+  /** The two ceilings the reading is clamped to, deg — asymmetric, because
+   * the two ends are not the same shot and neither is the same danger.
+   *
+   * Coming UP off a lip the rod swings under the craft and the shot looks
+   * along the arc into the sky; the ceiling is generous because that is a
+   * good shot and the hull's own climb rarely reaches it.
+   *
+   * Going DOWN it comes over the craft to look down the fall — but the plan
+   * speed under a craft dropping near-vertically goes to nothing, so the raw
+   * flight path angle runs away to the vertical, and a rod stood straight up
+   * over a craft falling straight down puts the lens, the hull and the aim
+   * on ONE LINE with the world's up vector as the only thing left to build a
+   * frame from: the shot tumbles. Short of the vertical there is always a
+   * run of sea left in the bottom of the frame. */
+  up: 50,
+  down: 62,
+  /** A step bigger than this between two frames is a teleport rather than a
+   * flight, rad — past any angle the clamped reading can produce, so only a
+   * rig that has been picked up and put down somewhere else trips it. */
+  snap: 100,
+};
+
 /** Which of the ladder's rungs are stood BEHIND the craft — every camera but
  * the one sat on it. */
 export type ChaseCamera = "close" | "chase" | "far" | "heli";

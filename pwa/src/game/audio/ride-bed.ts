@@ -6,6 +6,12 @@
 // the one place the CUES the simulation never reports are raised from: the
 // slap of the bottom meeting a wave, read off the hull's own slam.
 //
+// Two readings come off the same `wetted` share and mean different things,
+// which is why both are taken here rather than one standing in for the
+// other: whether the PUMP has water to draw on (`wet` — a quarter of the
+// bottom is plenty), and how far the EXHAUST has come out of it (`clear` —
+// the pipe is the last thing on the hull to leave the surface).
+//
 // NOTHING HERE IS BOOKED AHEAD. The layers run on the audio thread and
 // every frame merely tells them where to go next, over a glide; a frame
 // that arrives late — a garbage-collection pause, a phone throttling itself,
@@ -34,7 +40,9 @@ import { RUN_BANK } from "./bank.ts";
 import {
   ENGINE_GLIDE,
   ENGINE_LAYERS,
+  INTAKE_WETTED,
   engineTargets,
+  exhaustClear,
   revOf,
   type EngineLayer,
 } from "./engine-voice.ts";
@@ -65,9 +73,6 @@ const SLAP = { from: 0.35, gap: 0.14 };
  * carries must not ALSO be read as a slap. This long after a landing the
  * slam is the landing's own. */
 const LANDING_OWNS_S = 0.3;
-
-/** A quarter of the bottom wet is a pump with water to draw on. */
-const INTAKE_WETTED = 0.25;
 
 /** One step of a one-pole filter on a time constant. */
 function follow(previous: number, target: number, dt: number, tau: number): number {
@@ -146,11 +151,24 @@ export function createRideBed(synth: Synth): RideBed {
       // pump: in the air the crank runs free and the engine hears it.
       const rev = revOf(c.rpm, spec.idleRpm, maxRpm(spec));
       const wet = afloat ? Math.min(1, c.wetted / INTAKE_WETTED) : 0;
+      // ...and how much of the ENGINE is out of the water to be heard at
+      // all, which is a different question from whether the pump is fed:
+      // the intake is satisfied by a quarter of the bottom, while the pipe
+      // is the last thing on the hull to clear the surface.
+      const clear = exhaustClear(c.wetted, c.airborne, capsized);
       const jet = jetVelocity(spec, c.rpm);
       const slip = jet > 0.5 ? Math.min(1, Math.max(0, (jet - c.speed) / jet)) : 0;
       engine.apply(
         engineTargets(
-          { rpm: c.rpm, rev, throttle: c.throttleEff, load: c.throttleEff * wet, wet, slip },
+          {
+            rpm: c.rpm,
+            rev,
+            throttle: c.throttleEff,
+            load: c.throttleEff * wet,
+            wet,
+            slip,
+            clear,
+          },
           {
             engine: listener.engine * duck,
             exhaust: listener.exhaust * duck,
