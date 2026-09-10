@@ -14,10 +14,12 @@ export default [
       "pwa/node_modules/**",
       "coverage/**",
       "previews/**",
-      // The platform shells (tauri/, native/) are placeholders today. When
-      // they arrive they bring their own toolchains and are checked by their
-      // own targets, never by the root config — the sibling rally repo's
-      // shape, and the reason these are reserved here already.
+      // The platform shells bring their own toolchains and are checked by
+      // their own targets, never by the root config — the sibling rally
+      // repo's shape. `native/` is a self-contained Expo/React Native project
+      // outside the npm workspace, so a root `npm ci` never installs its
+      // plugins or its types; it is typechecked with `make native-typecheck`.
+      // `tauri/` is still a placeholder.
       "tauri/**",
       "native/**",
     ],

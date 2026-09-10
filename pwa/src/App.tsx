@@ -86,6 +86,11 @@
 // that is merely not fed holds its last note. The run's events make a
 // noise only with the player's hands on the craft: a gate the bot takes
 // under the menu is not news.
+//
+// AND THE MOTOR FOLLOWS THE HANDS. The rumble (`game/haptics.ts`) is fed
+// the same events and the same frames the sound is, minus the bot's: a
+// phone buzzing in a pocket while the attract card rides a sea nobody is
+// holding is the one surface that has to know the difference.
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
@@ -109,6 +114,7 @@ import { onShellCommand } from "./shell-host.ts";
 import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
 import { CAMERA_MODES, type CameraMode } from "./game/camera.ts";
 import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
+import { runRumble, setRumble } from "./game/haptics.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
 import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager, type InputAction } from "./game/input.ts";
@@ -435,6 +441,12 @@ export function App() {
     setAudioVolumes(settings.audio);
   }, [settings.audio]);
 
+  // The switch reaches the motor the moment it moves, and turning it off
+  // ends the pulse already running — the same rule as the fader beside it.
+  useEffect(() => {
+    setRumble(settings.rumble);
+  }, [settings.rumble]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -508,7 +520,14 @@ export function App() {
     const stepOnce = (): void => {
       step(state, inputFor());
       renderer.observe(state);
-      if (playerRides(shellRef.current)) audio.events(state.events);
+      if (playerRides(shellRef.current)) {
+        audio.events(state.events);
+        runRumble.events(state.events);
+        // The hull, every STEP: the slam is a spike a couple of steps wide
+        // at 120 Hz, so a frame that sampled it would feel a random fifth of
+        // the chop on a phone that is struggling. `rumble.ts` says why.
+        runRumble.step(state.craft);
+      }
       for (const e of state.events) {
         const line = flashFor(e);
         if (line) live.push({ id: flashId++, ...line, until: wall + FLASH_LIFE });
@@ -523,6 +542,7 @@ export function App() {
       scenario = null;
       live.length = 0;
       audio.reset();
+      runRumble.reset();
       if (scene) {
         scenario = stageScenario(state, scene);
         scriptFrom = state.t;
@@ -592,6 +612,7 @@ export function App() {
             if (built) state = built;
             live.length = 0;
             audio.reset();
+            runRumble.reset();
             renderer.load(state);
             renderer.camera.setMode(s.ride.camera);
             renderer.camera.restand();
@@ -791,6 +812,11 @@ export function App() {
       if (!frozen && !held && !clock.paused()) {
         audio.setView(renderer.camera.mode());
         audio.frame(state, dtFrame, shellRef.current === "run" ? 1 : CARD_DUCK);
+        // …and the sea under it paid out, at most one slap per gap. Only
+        // with the player's hands on the craft: there is no ducking a motor,
+        // so a card is the difference between a pulse and no pulse rather
+        // than a quieter one.
+        if (playerRides(shellRef.current)) runRumble.frame(dtFrame);
       } else {
         audio.silence();
       }

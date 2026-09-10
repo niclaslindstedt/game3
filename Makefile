@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -41,6 +41,41 @@ icons:
 
 check-seo:
 	npm run build && npm run check:seo
+
+# ---------------------------------------------------------------------------
+# THE STORE APP (native/): an Expo WebView over a copy of the site bundled
+# inside the app. OUTSIDE the npm workspace with a dependency tree of its own,
+# so it is installed on its own and typechecked on its own — the root lint
+# never sees it. `native/README.md` is the tree, `native/RELEASING.md` the
+# submission run-through.
+#
+# `native-bundle` builds the website and packs it into the zip the app serves.
+# THE APP SHIPS WHATEVER ZIP IS ON DISK, so a stale one silently installs the
+# last change's game: run it before every device build and every EAS build
+# (`native-iphone` and the npm build scripts do it for you).
+# ---------------------------------------------------------------------------
+native-install:
+	npm run native:install
+
+native-bundle:
+	npm run native:bundle
+
+native-typecheck:
+	npm run native:typecheck
+
+native-ios:
+	npm run native:ios
+
+# THE PHONE: build the store app and put it on a REAL iPhone over USB, then
+# launch it. Bundles the site, regenerates ios/, signs, installs — one command
+# from a clean checkout, and the only way to judge the haptics, which a
+# simulator has none of. `make native-iphone ARGS="--device 'my iPhone'"`
+# picks between several; ARGS="--skip-bundle" reuses the packed site.
+native-iphone:
+	npm run native:ios:device -- $(ARGS)
+
+native-android:
+	npm run native:android
 
 # Headless balance sweep: the bot rides generated levels through the real
 # engine and prints the pace / gates / air / dives table, per seed and craft.

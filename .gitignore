@@ -35,9 +35,9 @@ runs/
 # Release scratch
 .release-notes.md
 
-# THE PLATFORM SHELLS. `tauri/` (the desktop app) and `native/` (the store
-# app) are placeholders today, each a README and nothing else. When either
-# arrives it brings its own build output, its own dependency tree, its
-# generated store metadata and its signing material — every one of which is
-# ignored HERE, at the root, the way the sibling rally repo does it, and none
-# of which may be a personal identifier or a credential in a committed file.
+# THE PLATFORM SHELLS. `native/` (the store app) is built and carries a
+# .gitignore of its own — its dependency tree, its prebuilt ios/ and android/
+# projects, the packed webroot.zip, its .env and every piece of signing
+# material. `tauri/` (the desktop app) is still a placeholder, a README and
+# nothing else; when it arrives it brings the same set. Nothing in either may
+# be a personal identifier or a credential in a committed file.

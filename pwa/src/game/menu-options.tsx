@@ -37,6 +37,7 @@
 // is stop it.
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
+import { canRumble } from "./haptics.ts";
 import { MenuHead } from "./menu.tsx";
 import { Caption, FadeRow, KnobGroup, ON_OFF, StepRow, onOff, type Stop } from "./menu-knobs.tsx";
 import { SFX_STEP, freshSettings, type Settings } from "./settings.ts";
@@ -147,6 +148,10 @@ export function OptionsPage({
   onBack: () => void;
 }) {
   const [hint, setHint] = useState<string | null>(null);
+  // Asked once per opening rather than per render: the answer is a fact
+  // about the machine, and the probe reaches for `navigator` and the
+  // touchscreen.
+  const [rumbleOffered] = useState(canRumble);
   const setVideo = (video: Partial<VideoSettings>): void =>
     onSettings({ ...settings, video: { ...settings.video, ...video } });
   return (
@@ -238,6 +243,22 @@ export function OptionsPage({
               onPick={(camera) => onSettings({ ...settings, ride: { ...settings.ride, camera } })}
               onHint={setHint}
             />
+            {/* THE MOTOR IS OFFERED ONLY WHERE THERE IS ONE. A desktop
+                browser answers `navigator.vibrate` and does nothing with it,
+                so the check is `canRumble()` rather than the API's existence
+                — a row on a laptop that moves and changes nothing is worse
+                than no row. The setting is stored either way, so the phone
+                and the laptop reading the same blob never argue. */}
+            {rumbleOffered && (
+              <StepRow
+                label={STRINGS.optRumble}
+                hint={STRINGS.optRumbleHint}
+                stops={ON_OFF}
+                value={onOff(settings.rumble)}
+                onPick={(id) => onSettings({ ...settings, rumble: id === "on" })}
+                onHint={setHint}
+              />
+            )}
           </KnobGroup>
           {/* THE FADER IS OVER A LIVE SEA TOO: the bus reads it every frame,
               so the engine under the front door gets quieter as the thumb

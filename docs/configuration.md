@@ -38,7 +38,7 @@ The debug switch the spec asks for (§19.3) is the dev build: `npm run dev` lift
 
 ## What the game remembers
 
-Everything the player chooses — the craft, the shore's seed, the hour to ride it at, the wind and the sky to ride it under, the camera, the sound fader, whether the HUD is drawn and whether it shows the frame rate, the four picture rows, and a developer's own rows once the menu has been let out — is kept in `localStorage` under `sea-haven-settings` and read back through `mergeSettings` (`pwa/src/game/settings.ts`). The merge is field by field and every value is checked against what the build still offers, so a blob written by an older build keeps the choices that still exist and quietly drops the ones that do not. Clearing site data is a first visit again; storage being unavailable is a session on the defaults, which is a perfectly good game.
+Everything the player chooses — the craft, the shore's seed, the hour to ride it at, the wind and the sky to ride it under, the camera, the sound fader, the vibration switch, whether the HUD is drawn and whether it shows the frame rate, the four picture rows, and a developer's own rows once the menu has been let out — is kept in `localStorage` under `sea-haven-settings` and read back through `mergeSettings` (`pwa/src/game/settings.ts`). The merge is field by field and every value is checked against what the build still offers, so a blob written by an older build keeps the choices that still exist and quietly drops the ones that do not. Clearing site data is a first visit again; storage being unavailable is a session on the defaults, which is a perfectly good game.
 
 The **developer menu** is let out by holding START on the front door for seven seconds, and it stays out. RESTORE DEFAULTS on the options page deliberately leaves it out; LOCK THE DEVELOPER MENU on the developer page is the way back.
 
@@ -82,6 +82,16 @@ On a runner nobody sets it by hand: `.github/actions/apple-signing` imports a ce
 The first two sign; the last three notarize, and the bundler acts on them only once the app carries a real signature — so half a set signs without notarizing rather than failing. `MAC_SIGN_IDENTITY` overrides the identity read out of the certificate, and is needed only where the keychain holds more than one.
 
 Every launch is written to `launch.log` in the app's own user-data directory — `%APPDATA%\seahaven` on Windows, `~/Library/Application Support/seahaven` on macOS, `~/.local/share/seahaven` on Linux — with the previous launch kept beside it as `launch.log.prev`. The window's remembered geometry (`window-state.json`) is there too. The player's settings are NOT: those are the webview's own origin-keyed storage, exactly as in a browser.
+
+## The store app's environment
+
+The store app (`native/`) has an environment of its own, documented in [`native/.env.example`](../native/.env.example) and read neither by the website's build nor by the desktop shell — `APPLE_TEAM_ID` names the same Apple team in both, and is the one value the two have in common. Every value in it is either a credential or a personal identifier, so all of them come from the environment rather than from a committed file; the one that changes what the app DOES is:
+
+| Variable               | Meaning                                                                                                                                                                                                                                                            |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `EXPO_PUBLIC_GAME_URL` | Point the app's WebView at a deployed slot instead of the copy of the site bundled inside it. **Local debugging only** — a store build that streams the website is the exact shape App Store guideline 4.2 rejects, so it is unset in every profile in `eas.json`. |
+
+The rest (`EXPO_TOKEN`, `EAS_PROJECT_ID`, `APPLE_TEAM_ID`, the App Store Connect key, the Play service account) authenticate a build or a submission and are covered by [`native/RELEASING.md`](../native/RELEASING.md).
 
 ## The deploy slots
 

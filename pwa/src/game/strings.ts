@@ -175,8 +175,9 @@ export const STRINGS = {
   optMore: "more",
 
   /* ── OPTIONS (menu-options.tsx) ────────────────────────────────────── */
-  /** The three groups the page's rows stand under: what the picture costs,
-   * what the ride is watched from, what is drawn over it. */
+  /** The four groups the page's rows stand under: what the picture costs,
+   * how the ride reaches the rider (where it is watched from, and what it
+   * does to the hands), what it sounds like, what is drawn over it. */
   optPicture: "PICTURE",
   optRiding: "RIDING",
   optHudGroup: "HUD",
@@ -223,6 +224,12 @@ export const STRINGS = {
   optSound: "EFFECTS",
   optSoundHint: "The engine, the spray, the sea and every splash — OFF at the bottom of the travel",
   optSoundOff: "OFF",
+  /** The motor. Only drawn on a device that has one, so the words may
+   * assume a phone in two hands — and they name the WATER rather than the
+   * hardware, because what the row switches off is the sea hitting the
+   * hull, not a feature called haptics. */
+  optRumble: "VIBRATION",
+  optRumbleHint: "The sea through the bars — every slap of the bottom, every landing, every rock",
   percent: (share: number): string => `${Math.round(share * 100)}%`,
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order — the handlebars backwards.

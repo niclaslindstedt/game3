@@ -108,6 +108,27 @@ const PWA = filesUnder("pwa/src");
 const TESTS = filesUnder("tests");
 const SCRIPTS = filesUnder("scripts");
 
+/**
+ * THE SEAM THE SUITE IS ALLOWED TO HOLD — the only files in a shell a root
+ * test may import, and the exception to "nothing reaches into a shell".
+ *
+ * A shell states things the page also states and cannot import: the word on
+ * the shell global, the name of a DOM event, the shape of a message. Those
+ * pairs are load-bearing and silent when they drift — a renamed event is a
+ * phone that simply stops buzzing — so the suite holds them from both ends
+ * (`tests/shell_test.ts`, `tests/rumble_test.ts`).
+ *
+ * It stays safe because every file named here IMPORTS NOTHING AT ALL, which
+ * the case below proves: the root suite never installs `native/`'s
+ * dependency tree, and a seam module that grew an `expo-haptics` import
+ * would take the whole suite down with it rather than fail one case.
+ */
+const SHELL_SEAM = new Set([
+  "native/src/injected.ts",
+  "native/src/navigation.ts",
+  "native/src/rumble.ts",
+]);
+
 describe("the dependency direction (§23.7)", () => {
   it("has a graph to walk", () => {
     expect(ENGINE.length).toBeGreaterThan(20);
@@ -168,8 +189,23 @@ describe("the dependency direction (§23.7)", () => {
             "@engine",
           );
         }
-        expect(roleOf(e.to ?? ""), `${e.from} imports a shell`).not.toBe("shell");
+        if (roleOf(e.to ?? "") === "shell") {
+          expect(
+            SHELL_SEAM.has(e.to ?? ""),
+            `${e.from} imports ${e.spec} — a shell module the suite may not hold; see SHELL_SEAM`,
+          ).toBe(true);
+        }
       }
+    }
+  });
+
+  it("every shell module the suite may hold imports nothing at all", () => {
+    for (const rel of SHELL_SEAM) {
+      const edges = edgesOf(join(ROOT, ...rel.split("/")));
+      expect(
+        edges.map((e) => e.spec),
+        `${rel} is in SHELL_SEAM, so the root suite imports it without installing that tree`,
+      ).toEqual([]);
     }
   });
 

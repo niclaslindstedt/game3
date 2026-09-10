@@ -187,6 +187,22 @@ export type Settings = {
   hud: HudSettings;
   ride: RideSettings;
   audio: AudioSettings;
+  /**
+   * WHAT THE RIDE DOES TO THE HAND HOLDING IT: the phone's motor, on or
+   * off. One switch and no fader, because there is nothing honest to put a
+   * fader on — a browser motor has one axis (how long), the device decides
+   * how hard, and a row worded "how much" that a phone rounds back to the
+   * same buzz would be the page pretending to a control it has not got.
+   * What each moment is worth is authored in `rumble.ts`.
+   *
+   * Top-level rather than under `audio` even though the two answer the same
+   * events: a rider who wants the game silent on a train usually still
+   * wants to feel the water, and folding one into the other would take that
+   * away. On a machine with no motor the row is not offered at all
+   * (`haptics.ts`'s `canRumble`) — the setting is still stored, so a phone
+   * and the laptop beside it do not argue over one blob.
+   */
+  rumble: boolean;
   /** What the picture costs — the rows of OPTIONS ▸ VIDEO. What each one buys
    * is `settings-video.ts`, which is also where the ladders are stated. */
   video: VideoSettings;
@@ -219,6 +235,10 @@ export const DEFAULT_SETTINGS: Settings = {
   // Loud enough to be the game, short of full so a landing has somewhere to
   // go — the bank is mixed at the chase seat with this much headroom.
   audio: { sfx: 0.8 },
+  // On, where there is a motor to feel it with. The sea hitting the hull is
+  // half of what riding one of these is, and a rider who does not want it
+  // has one row to find.
+  rumble: true,
   ride: {
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
@@ -271,6 +291,7 @@ export function freshSettings(): Settings {
     ride: { ...DEFAULT_SETTINGS.ride },
     video: { ...DEFAULT_SETTINGS.video },
     audio: { ...DEFAULT_SETTINGS.audio },
+    rumble: DEFAULT_SETTINGS.rumble,
     developer: false,
     dev: { ...DEFAULT_SETTINGS.dev },
   };
@@ -328,6 +349,8 @@ export function mergeSettings(parsed: unknown): Settings {
   const audio = blob.audio as Partial<Record<keyof AudioSettings, unknown>> | undefined;
   const sfx = inRange(audio?.sfx, { min: 0, max: 1 });
   if (sfx !== null) settings.audio.sfx = Math.round(sfx / SFX_STEP) * SFX_STEP;
+
+  if (typeof blob.rumble === "boolean") settings.rumble = blob.rumble;
 
   const ride = blob.ride as Partial<Record<keyof RideSettings, unknown>> | undefined;
   // Checked against the catalog rather than merged: a craft this build

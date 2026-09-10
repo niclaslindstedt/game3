@@ -551,6 +551,17 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings({ video: "high" }).video).toEqual(DEFAULT_SETTINGS.video);
   });
 
+  it("carries the motor's switch, and defaults it ON where there is a motor", () => {
+    // Stored either way, on every machine: a phone and the laptop beside it
+    // read one blob, and a laptop dropping the field would switch the phone's
+    // vibration off the next time it synced. Whether the ROW is offered is a
+    // question about the device (`haptics.ts`), never about the blob.
+    expect(DEFAULT_SETTINGS.rumble).toBe(true);
+    expect(mergeSettings({ rumble: false }).rumble).toBe(false);
+    expect(mergeSettings({ rumble: "off" }).rumble).toBe(true);
+    expect(mergeSettings({ hud: { on: false } }).rumble).toBe(true);
+  });
+
   it("keeps the developer menu OUT once it has been let out", () => {
     expect(mergeSettings({ developer: true }).developer).toBe(true);
   });
