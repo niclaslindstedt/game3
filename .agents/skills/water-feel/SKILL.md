@@ -24,6 +24,7 @@ protects above all else.
 | --- | --- |
 | `craft-physics` | how the hull ANSWERS the surface — buoyancy, slamming, the orbital velocity in the drag |
 | `game-feel` | whether the sea reads as drama — the sensation the numbers are in service of |
+| `water-look` | what the surface LOOKS like once sampled — the grid of rings, the light, the mirror, the foam; anything that is not a height |
 | `mapgen-improvement` | the `offshore` field the fetch reads, the depth the shoaling reads |
 | `nature` | what the bed and the shore are made of under the water the mesh colours |
 
@@ -156,12 +157,13 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
   or keeps a counter. Two calls with the same arguments return the same
   surface, and `tests/determinism_test.ts` digests the whole run on it.
 - **The renderer displaces on the CPU, calling the same function.** The
-  water mesh (`pwa/src/game/water-mesh.ts`) is a grid ~200 m across that
-  follows the craft, its vertices displaced each frame by `surfaceAt` at
-  the frame's interpolated `t`, coloured by depth from `level.ground`, with
-  a simple specular. It allocates nothing per frame — the positions buffer
-  is written in place and flagged. A GPU displacement is a second
-  implementation of the surface, and the rule above says why not.
+  water mesh (`pwa/src/game/water-mesh.ts`) is a lattice of nested rings
+  that follows the craft, its vertices displaced each frame by `surfaceAt`
+  at the frame's interpolated `t`. It allocates nothing per frame — the
+  positions buffer is written in place and flagged. A GPU displacement is a
+  second implementation of the surface, and the rule above says why not.
+  Everything about that grid that is not the height — the rings, the far
+  grid, the colour, the light, the foam — is `water-look`'s.
 
 ## Workflow
 
