@@ -2,33 +2,37 @@
 // THE SPRAY: the water a hull throws. Every event the engine already reads
 // off its probes — the planing bottom shedding a sheet off each chine, the
 // pump's rooster tail, the boil the reverse bucket makes instead of one, a
-// landing's plume, the bow driving into the next
-// face — is turned here into a burst of droplets, one particle cloud
-// drawn as a single point sprite batch (`THREE.Points`, a custom shader
-// so every droplet has its own size), plus a FOAM PATCH laid on the water
-// where a landing came down, spreading and fading behind the craft. The
-// budget is spent where the camera is: everything here happens within a
-// hull length of the craft, and the far water is left to the water mesh.
+// landing's plume, the bow driving into the next face — is turned here
+// into a burst of droplets, one particle cloud drawn as a single point
+// sprite batch (`THREE.Points`, a custom shader so every droplet has its
+// own size). The droplets are lit by the SAME two lights the water is —
+// the hemisphere and the key, handed over each frame — so a plume at dusk
+// is the dusk's colour and not a paler paint over it. The foam a landing
+// leaves ON the water is not drawn here at all: it is stamped into the
+// wake's map (`wake.ts`) through the `stamp` handed in, and the water
+// shader draws it as it draws every other foam. The budget is spent where
+// the camera is: everything here happens within a hull length of the
+// craft, and the far water is left to the water mesh.
 //
 // Two cadences, like the wake. `observe(state)` runs once per ENGINE STEP:
 // it reads the craft (`planing`, `wetted`, `throttleEff`, `bucket`,
-// `airborne`, `submergedDepth` — engine readings, never re-derived), emits, and moves
-// every droplet by the engine's own `dt`, so a scene pre-rolled for a
-// screenshot carries the same spray the player would have seen. `update`
-// runs once per frame and only uploads. The droplets read nothing off the
-// sea after they are born — a splash is over before the water under it
-// has moved — except the foam patches, which ride the surface.
+// `airborne`, `submergedDepth` — engine readings, never re-derived), emits,
+// and moves every droplet by the engine's own `dt`, so a scene pre-rolled
+// for a screenshot carries the same spray the player would have seen.
+// `update` runs once per frame and only uploads. The droplets read nothing
+// off the sea after they are born — a splash is over before the water
+// under it has moved.
 //
 // Renderer-side and stateless toward the engine: nothing here mutates the
 // `GameState`, and the randomness is a local generator reseeded on reset
 // so a staged moment always throws the same water.
 
 import * as THREE from "three";
-import { TUNING, rotate, surfaceAt, type GameState } from "@engine";
+import { TUNING, rotate, type GameState } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
-import { foamTexture, spriteTexture } from "./fx-textures.ts";
+import { spriteTexture } from "./fx-textures.ts";
 
 /** Droplets in the pool. Dead ones cost a vertex and nothing else. */
 const POOL = 2400;
@@ -84,13 +88,12 @@ const PLUME_BURST = 520;
  * of it throws a step. */
 const PLUNGE_RATE = 1.6;
 const PLUNGE_PER_RATE = 5;
-/** THE FOAM PATCHES: how many ride the water at once, how long one lives,
- * s, how fast it spreads, m/s, and how far it stands over the surface. */
-const PATCHES = 6;
-const PATCH_LIFE = 2.6;
-const PATCH_SPREAD = 0.9;
-const PATCH_SEGMENTS = 20;
-const PATCH_LIFT = 0.08;
+/** How a cloud of droplets takes the two lights: the share of the sky
+ * hemisphere it sees against the ground's, and how much of the key it
+ * catches — a sheet in the air is lit from every side at once, so it takes
+ * about half the sun whichever way it faces. */
+const SKY_SHARE = 0.7;
+const KEY_SHARE = 0.5;
 
 const FOAM = new THREE.Color(PALETTE.foam);
 
@@ -107,12 +110,19 @@ function makeRng(seed: number): () => number {
   };
 }
 
+/** Where a landing's foam goes: the wake's `stamp`. */
+export type FoamStamp = (x: number, z: number, t: number, radius: number, strength: number) => void;
+
 export type Spray = {
   group: THREE.Group;
   /** Once per engine step: emit and move. */
   observe: (state: GameState) => void;
   /** Once per frame: upload. */
-  update: (state: GameState) => void;
+  update: () => void;
+  /** Light the droplets for a sky: the scene's two lights, already set for
+   * the preset, so the spray is lit by exactly what lights the water it was
+   * thrown off. Every frame — within a run the light moves. */
+  light: (hemi: THREE.HemisphereLight, key: THREE.DirectionalLight) => void;
   /** The lens the droplets are sized for: the drawing buffer's height,
    * device pixels, and the vertical field of view, degrees. */
   setLens: (pixelHeight: number, fovDeg: number) => void;
@@ -125,7 +135,7 @@ export type Spray = {
   dispose: () => void;
 };
 
-export function createSpray(): Spray {
+export function createSpray(stamp: FoamStamp): Spray {
   const group = new THREE.Group();
   let rng = makeRng(7);
 
@@ -160,6 +170,7 @@ export function createSpray(): Spray {
       uMap: { value: spriteTexture() },
       uColor: { value: FOAM.clone() },
       uScale: { value: 600 },
+      uLight: { value: new THREE.Color(1, 1, 1) },
     },
     vertexShader: `
       attribute float aSize;
@@ -176,13 +187,17 @@ export function createSpray(): Spray {
         vAlpha = aAlpha * smoothstep(${NEAR_FADE_FROM.toFixed(1)}, ${NEAR_FADE_TO.toFixed(1)}, away);
       }`,
     fragmentShader: `
+      #include <common>
       uniform sampler2D uMap;
       uniform vec3 uColor;
+      uniform vec3 uLight;
       varying float vAlpha;
       void main() {
         float a = texture2D(uMap, gl_PointCoord).a * vAlpha;
         if (a < 0.01) discard;
-        gl_FragColor = vec4(uColor, a);
+        // The foam's colour under the frame's irradiance, as the water
+        // shader lights its own foam.
+        gl_FragColor = vec4(uColor * uLight * RECIPROCAL_PI, a);
         #include <colorspace_fragment>
       }`,
     transparent: true,
@@ -221,58 +236,16 @@ export function createSpray(): Spray {
     floor[i] = y - SPLASHDOWN;
   };
 
-  // ── The foam patches ────────────────────────────────────────────────
-  const patchX = new Float32Array(PATCHES);
-  const patchZ = new Float32Array(PATCHES);
-  const patchT = new Float32Array(PATCHES).fill(-1e9);
-  const patchR = new Float32Array(PATCHES);
-  const patchS = new Float32Array(PATCHES);
-  let patchCursor = 0;
-  const ringVerts = PATCH_SEGMENTS + 1;
-  const patchPositions = new Float32Array(PATCHES * ringVerts * 3);
-  const patchColors = new Float32Array(PATCHES * ringVerts * 4);
-  const patchUvs = new Float32Array(PATCHES * ringVerts * 2);
-  const patchIndex: number[] = [];
-  for (let p = 0; p < PATCHES; p++) {
-    const base = p * ringVerts;
-    for (let s = 0; s < PATCH_SEGMENTS; s++) {
-      patchIndex.push(base, base + 1 + ((s + 1) % PATCH_SEGMENTS), base + 1 + s);
-    }
-  }
-  const patchGeometry = new THREE.BufferGeometry();
-  const patchPos = new THREE.BufferAttribute(patchPositions, 3).setUsage(THREE.DynamicDrawUsage);
-  const patchCol = new THREE.BufferAttribute(patchColors, 4).setUsage(THREE.DynamicDrawUsage);
-  const patchUv = new THREE.BufferAttribute(patchUvs, 2).setUsage(THREE.DynamicDrawUsage);
-  patchGeometry.setAttribute("position", patchPos);
-  patchGeometry.setAttribute("color", patchCol);
-  patchGeometry.setAttribute("uv", patchUv);
-  patchGeometry.setIndex(patchIndex);
-  const patchMaterial = new THREE.MeshBasicMaterial({
-    map: foamTexture(),
-    vertexColors: true,
-    transparent: true,
-    depthWrite: false,
-  });
-  const patches = new THREE.Mesh(patchGeometry, patchMaterial);
-  patches.frustumCulled = false;
-  patches.renderOrder = 2;
-  group.add(patches);
-
   /** The DETAIL row's share of the design spawn rate. It multiplies the RATES
    * and the burst counts rather than the pool: a thinner spray is fewer
    * droplets thrown, each living its full life, which reads as a lighter sea
    * — where a shorter-lived droplet would read as spray that evaporates. */
   let budget = 1;
 
+  /** A landing's foam on the water, into the wake's map — unless the
+   * budget is nothing, in which case the sea takes it silently. */
   const patch = (x: number, z: number, t: number, radius: number, strength: number): void => {
-    if (budget <= 0) return;
-    const p = patchCursor;
-    patchCursor = (patchCursor + 1) % PATCHES;
-    patchX[p] = x;
-    patchZ[p] = z;
-    patchT[p] = t;
-    patchR[p] = radius;
-    patchS[p] = strength;
+    if (budget > 0) stamp(x, z, t, radius, strength);
   };
 
   // ── Reading the craft ───────────────────────────────────────────────
@@ -479,9 +452,7 @@ export function createSpray(): Spray {
     }
   }
 
-  const sample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
-
-  const update = (state: GameState): void => {
+  const update = (): void => {
     for (let i = 0; i < POOL; i++) {
       const k = i * 3;
       if (age[i] >= life[i]) {
@@ -499,44 +470,6 @@ export function createSpray(): Spray {
     posAttr.needsUpdate = true;
     sizeAttr.needsUpdate = true;
     alphaAttr.needsUpdate = true;
-
-    // The patches: a disc on this instant's water, spreading and paling.
-    const t = state.t;
-    for (let p = 0; p < PATCHES; p++) {
-      const base = p * ringVerts;
-      const life = (t - patchT[p]) / PATCH_LIFE;
-      const alive = life >= 0 && life < 1;
-      const radius = patchR[p] + PATCH_SPREAD * Math.max(0, t - patchT[p]);
-      const alpha = alive ? patchS[p] * Math.pow(1 - life, 1.6) * 0.3 : 0;
-      for (let v = 0; v < ringVerts; v++) {
-        const k3 = (base + v) * 3;
-        const k4 = (base + v) * 4;
-        const k2 = (base + v) * 2;
-        const ang = v === 0 ? 0 : ((v - 1) / PATCH_SEGMENTS) * Math.PI * 2;
-        const r = v === 0 ? 0 : radius;
-        const x = patchX[p] + Math.cos(ang) * r;
-        const z = patchZ[p] + Math.sin(ang) * r;
-        if (alive) {
-          surfaceAt(state.sea, state.level, x, z, t, sample);
-          patchPositions[k3] = x;
-          patchPositions[k3 + 1] = sample.height + PATCH_LIFT;
-          patchPositions[k3 + 2] = z;
-        } else {
-          patchPositions[k3] = patchX[p];
-          patchPositions[k3 + 1] = -100;
-          patchPositions[k3 + 2] = patchZ[p];
-        }
-        patchColors[k4] = FOAM.r;
-        patchColors[k4 + 1] = FOAM.g;
-        patchColors[k4 + 2] = FOAM.b;
-        patchColors[k4 + 3] = v === 0 ? alpha : 0;
-        patchUvs[k2] = 0.5 + (Math.cos(ang) * r) / 3;
-        patchUvs[k2 + 1] = 0.5 + (Math.sin(ang) * r) / 3;
-      }
-    }
-    patchPos.needsUpdate = true;
-    patchCol.needsUpdate = true;
-    patchUv.needsUpdate = true;
   };
 
   return {
@@ -546,6 +479,13 @@ export function createSpray(): Spray {
     setLens: (pixelHeight, fovDeg) => {
       material.uniforms.uScale.value = pixelHeight / (2 * Math.tan((fovDeg * Math.PI) / 360));
     },
+    light: (hemi, key) => {
+      const lit = material.uniforms.uLight.value as THREE.Color;
+      lit.copy(hemi.groundColor).lerp(hemi.color, SKY_SHARE).multiplyScalar(hemi.intensity);
+      lit.r += key.color.r * key.intensity * KEY_SHARE;
+      lit.g += key.color.g * key.intensity * KEY_SHARE;
+      lit.b += key.color.b * key.intensity * KEY_SHARE;
+    },
     setBudget: (share) => {
       budget = Math.max(0, share);
       group.visible = budget > 0;
@@ -554,7 +494,6 @@ export function createSpray(): Spray {
       rng = makeRng(7);
       age.fill(1);
       life.fill(0);
-      patchT.fill(-1e9);
       prevAirborne = false;
       prevVy = 0;
       prevSub = 0;
@@ -563,8 +502,6 @@ export function createSpray(): Spray {
     dispose: () => {
       geometry.dispose();
       material.dispose();
-      patchGeometry.dispose();
-      patchMaterial.dispose();
     },
   };
 }

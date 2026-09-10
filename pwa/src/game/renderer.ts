@@ -122,11 +122,14 @@ export function createRenderer(
   // the water into a texture the sea reads. Made before the water, which
   // holds its picture and its matrix for the life of the material.
   const mirror = createReflection();
-  let water: WaterMesh = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
-  scene.add(water.mesh, water.far);
+  // THE WAKE (wake.ts): what the craft did to the water, as a map the water
+  // shader reads — nothing of it is in the scene. The spray stamps a
+  // landing's foam into the same map.
   const wake = createWake();
-  const spray = createSpray();
-  scene.add(wake.mesh, spray.group);
+  const spray = createSpray(wake.stamp);
+  let water: WaterMesh = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
+  water.setWake(wake.map);
+  scene.add(water.mesh, water.far, spray.group);
 
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
@@ -249,6 +252,7 @@ export function createRenderer(
     scene.remove(water.mesh, water.far);
     water.dispose();
     water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
+    water.setWake(wake.map);
     scene.add(water.mesh, water.far);
     if (level) water.setCoast(level.biome);
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
@@ -331,8 +335,7 @@ export function createRenderer(
     // bed rather than a second rule about what to draw down there.
     const reach = video.fauna ? water.seeThrough() : 0;
     fauna?.update(state, c.x, c.z, reach);
-    wake.update(state);
-    spray.update(state);
+    spray.update();
 
     // HOW MUCH WORLD IS SUBMITTED — from the LENS rather than from the craft,
     // because the helicopter seat can stand a long way off it and the rider is
@@ -356,6 +359,7 @@ export function createRenderer(
     water.retone(p, sky.hemi, sky.key, sky.cloudLayers());
     applyCraftSky(surface, sky.cloudLayers());
     water.setRain(sky.rainfall(), RAIN_RING_REACH[video.rainRings]);
+    spray.light(sky.hemi, sky.key);
     fauna?.retone(p);
     // THE DARK: the craft's lamps come on with the sky's switch and are
     // worth what the dark makes them worth; the buoys light their own caps;
@@ -367,23 +371,25 @@ export function createRenderer(
     }
     gates?.setNight(p.lamps);
 
+    // THE WAKE'S PASS: the trail rasterised into the map the water reads,
+    // before anything reads it.
+    const marks = wake.render(renderer, state);
     // THE MIRROR'S PASS, before the picture: everything that stands over the
-    // water, without the water itself, the wake and the spray on it, the
-    // rain in the air over it or the dome — the sea reflects the sky as a
-    // function (sky-glsl.ts), and a dome drawn sharp into the mirror would
-    // put its cloud edges back on the crests.
+    // water, without the water itself, the spray over it, the rain in the
+    // air over it or the dome — the sea reflects the sky as a function
+    // (sky-glsl.ts), and a dome drawn sharp into the mirror would put its
+    // cloud edges back on the crests.
     const pass = mirror.render(renderer, scene, [
       water.mesh,
       water.far,
-      wake.mesh,
       spray.group,
       ...sky.unmirrored,
     ]);
     water.setMirror(mirror.live());
 
     renderer.render(scene, camera);
-    cost.calls = renderer.info.render.calls + pass.calls;
-    cost.triangles = renderer.info.render.triangles + pass.triangles;
+    cost.calls = renderer.info.render.calls + pass.calls + marks.calls;
+    cost.triangles = renderer.info.render.triangles + pass.triangles + marks.triangles;
     cost.frameMs = performance.now() - t0;
   };
 
