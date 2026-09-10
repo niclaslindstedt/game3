@@ -41,6 +41,10 @@ export type HudSnapshot = {
   /** Gates passed (missed ones count as reached) and gates in the course. */
   passed: number;
   gates: number;
+  /** R30 — which lap is being ridden and how many there are. Both 1 on a
+   * coast sprint, which is what the HUD reads to leave the chip out. */
+  lap: number;
+  laps: number;
   /** The wind at the craft: the SCREEN angle its arrow points along, rad
    * clockwise from straight up (the direction it blows TO, relative to the
    * craft's nose), and its speed, m/s. */
@@ -73,6 +77,13 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     finished: p.finished,
     passed: gatesReached(p),
     gates: state.level.course.gates.length,
+    // The final crossing of the start line belongs to the last lap rather
+    // than to a lap after it: the race is over on it, not begun.
+    lap: Math.min(
+      state.level.course.laps,
+      Math.floor(p.nextGate / state.level.course.lapGates) + 1,
+    ),
+    laps: state.level.course.laps,
     // Relative to the nose, then onto the screen: the engine's clockwise
     // is the screen's counter-clockwise (input-model.ts).
     windAngle: (blowsTo - c.heading) * SCREEN_TO_ENGINE,

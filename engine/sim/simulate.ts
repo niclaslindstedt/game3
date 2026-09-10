@@ -11,7 +11,7 @@ import type { CraftId } from "../game/defs/craft.ts";
 import { createGame, step } from "../game/step.ts";
 import type { GameEvent } from "../game/state.ts";
 import { seaSummary } from "../game/water.ts";
-import type { Level, Wind } from "../mapgen/types.ts";
+import type { Level, TrackKind, Wind } from "../mapgen/types.ts";
 import { botInput, RIDER_BOT, type BotProfile } from "./bot.ts";
 
 export type SimOptions = {
@@ -19,6 +19,8 @@ export type SimOptions = {
   craft?: CraftId;
   /** A level to ride instead of the seed's own. */
   level?: Level;
+  /** R29 — which chapter the seed is dealt from when no level is given. */
+  track?: TrackKind;
   wind?: Wind;
   profile?: BotProfile;
   /** Give up after this much simulated time, seconds. */
@@ -75,6 +77,7 @@ export function simulateStage(options: SimOptions): RunReport {
     seed: options.seed,
     craft,
     level: options.level,
+    track: options.track,
     wind: options.wind,
     quiet: true,
   });

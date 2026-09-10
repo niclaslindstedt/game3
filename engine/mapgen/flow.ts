@@ -112,8 +112,17 @@ function stations(river: River, ground: Heightfield): Station[] {
 
 /** Bake the current over the river and its plume. */
 export function layFlow(river: River, ground: Heightfield): Flow {
-  const line = stations(river, ground);
   const cell = R.grid.cell;
+  // R29 — a circuit has no river, and so no current: one cell of standing
+  // water, which is what every sample outside a flow field's box already
+  // reads. `flowAt` needs a field, not a special case.
+  if (river.points.length < 2) {
+    return {
+      vx: createHeightfield(0, 0, cell, 1, 1),
+      vz: createHeightfield(0, 0, cell, 1, 1),
+    };
+  }
+  const line = stations(river, ground);
   let minX = Infinity;
   let minZ = Infinity;
   let maxX = -Infinity;

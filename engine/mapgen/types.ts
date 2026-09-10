@@ -24,6 +24,27 @@ export type BiomeId = "taiga" | "archipelago" | "fjord" | "atoll" | "delta" | "a
 /** What the ground is made of where a point of shore stands. */
 export type Surface = "bedrock" | "rock" | "sand" | "water";
 
+/** WHICH KIND OF TRACK a level carries, and so which chapter of the rule
+ * book it was built to. A `coast` level is a sprint along a stretch of
+ * shore, out to a mark and back (R1, R10, R25, R26); a `circuit` is a
+ * closed lap out in open water, ridden several times round, with no river
+ * and no coastal band (R29–R31). Everything downstream that has to tell
+ * the two apart reads `Level.track` — the analysis branches on it, the
+ * level plan labels it, and the HUD counts laps by it. */
+export type TrackKind = "coast" | "circuit";
+
+/** What to build and how hard to try. */
+export type GenerateOptions = {
+  /** Defaults to the taiga, the one country built. */
+  biome?: BiomeId;
+  /** R29 — which chapter of the rule book to build to; defaults to
+   * `coast`. */
+  track?: TrackKind;
+  /** Bounded sub-seed attempts before the generator throws; defaults to
+   * `LEVEL_RULES.search.attempts`. */
+  attempts?: number;
+};
+
 /** THE SKY a level is ridden under (R19). Five, and they are five different
  * skies rather than one sky at five densities: the first two are OPEN — a
  * gradient with cloud floating in it — and the last three have a LID, a
@@ -130,11 +151,27 @@ export type Gate = {
 export type Vec2 = { readonly x: number; readonly z: number };
 
 /** The race path: the gates in order, the ideal line through them as a
- * polyline, and its length in metres. The last gate is the finish. */
+ * polyline, and its length in metres. The last gate is the finish.
+ *
+ * R30 — A LAPPED COURSE IS THE LAP CONCATENATED. On a circuit the gates
+ * listed here are every gate of every lap in the order they are taken, and
+ * the path is the loop ridden `laps` times, because that is what the rider
+ * rides and the run engine takes the gates in order without knowing a lap
+ * exists. `lapGates` is how many of them one lap is worth — the first
+ * `lapGates` entries ARE the lap, and gate `i` and gate `i + lapGates`
+ * stand in the same water — so the HUD can count laps and the renderer can
+ * draw each buoy once. A circuit therefore lists `laps · lapGates + 1`
+ * gates: the one extra is the final crossing of the start line, which is
+ * the finish. A coast course is one pass of everything — `laps` is 1 and
+ * `lapGates` is the whole gate count. */
 export type Course = {
   readonly gates: readonly Gate[];
   readonly path: readonly Vec2[];
   readonly length: number;
+  /** R30 — how many times round; 1 on a coast course. */
+  readonly laps: number;
+  /** R30 — gates in ONE lap. On a coast course this is every gate. */
+  readonly lapGates: number;
 };
 
 /** The wind the level is ridden in: `from` is the compass heading it blows
@@ -175,6 +212,8 @@ export type Bounds = {
 export type Level = {
   readonly seed: number;
   readonly biome: BiomeId;
+  /** R29 — which chapter of the rule book this level was built to. */
+  readonly track: TrackKind;
   readonly bounds: Bounds;
   /** Ground height against sea level: the sea bed under the water, the land
    * above it. Land is only meaningful within ~100 m of the shore. */

@@ -123,11 +123,21 @@ function gateState(state: GameState, index: number): GateMark["state"] {
 
 /** The gates the window holds. A course is a dozen gates, so this walks all
  * of them and keeps the ones on the map — cheaper than any structure that
- * would save the walk, and it never has to be kept in step with one. */
+ * would save the walk, and it never has to be kept in step with one.
+ *
+ * R30 — ONE LAP of them, and the lap being ridden. A lapped course lists
+ * the same buoys once a lap, all at the same place: walked whole, every
+ * mark on the map is drawn over by a later lap's copy of itself, which is
+ * always still ahead, and the map shows a race where nothing has been taken
+ * yet. A coast course is one lap of everything, so this is the same walk it
+ * always was. */
 function gateMarks(state: GameState, span: number): GateMark[] {
   const out: GateMark[] = [];
   const k = VIEW / span;
-  for (const gate of state.level.course.gates) {
+  const { gates, lapGates, laps } = state.level.course;
+  const lap = Math.min(Math.floor(state.progress.nextGate / lapGates), laps - 1);
+  for (let slot = 0; slot < lapGates; slot++) {
+    const gate = gates[lap * lapGates + slot];
     const at = project(state, gate.x, gate.z, span);
     if (!inView(at)) continue;
     out.push({

@@ -37,7 +37,9 @@ const {
   cumulative,
   craftById,
   topSpeedOf,
+  distanceAlong,
   faunaById,
+  polylineDistance,
   faunaCount,
   rarityOf,
   CRAFT_IDS,
@@ -54,19 +56,28 @@ const args = parseArgs(
     seed: { kind: "number", default: 1, help: "the level's seed" },
     scale: { kind: "number", default: 1, help: "pixels per metre" },
     craft: { kind: "string", default: "skiff", help: "hull the launch speeds are quoted for" },
+    track: {
+      kind: "string",
+      default: "coast",
+      help: "coast (a shore sprint) or circuit (a lap at sea)",
+    },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--track coast|circuit] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
   process.exit(2);
 }
+if (args.track !== "coast" && args.track !== "circuit") {
+  console.error(`unknown track "${args.track}" (coast, circuit)`);
+  process.exit(2);
+}
 
 // ── Build it ────────────────────────────────────────────────────────────
 const t0 = Date.now();
-const level = generateLevel(args.seed);
+const level = generateLevel(args.seed, { track: args.track });
 const built = Date.now() - t0;
 const depthAt = (x, z) => -sampleField(level.ground, x, z);
 const offshoreAt = (x, z) => sampleField(level.offshore, x, z);
@@ -74,30 +85,18 @@ const deg = (rad) => ((rad * 180) / Math.PI + 360) % 360;
 
 /** Station along the path, m: the nearest point of the polyline to (x, z)
  * and how far along it that is — so consecutive gates measure the ride
- * between them, not the chord. */
+ * between them, not the chord.
+ *
+ * R30 — walked in COURSE ORDER, each search picking up where the last one
+ * ended. On a lapped circuit the same buoys are crossed once a lap, and a
+ * search of the whole path hands every copy of a gate the first lap's
+ * station, which reads as a table whose spacings go negative. */
 const path = level.course.path;
 const cum = cumulative(path);
+let walked = 0;
 function stationOf(x, z) {
-  let best = Infinity;
-  let station = 0;
-  for (let i = 0; i + 1 < path.length; i++) {
-    const ax = path[i].x;
-    const az = path[i].z;
-    const bx = path[i + 1].x;
-    const bz = path[i + 1].z;
-    const dx = bx - ax;
-    const dz = bz - az;
-    const len2 = dx * dx + dz * dz || 1;
-    const t = Math.max(0, Math.min(1, ((x - ax) * dx + (z - az) * dz) / len2));
-    const qx = ax + dx * t;
-    const qz = az + dz * t;
-    const d = Math.hypot(x - qx, z - qz);
-    if (d < best) {
-      best = d;
-      station = cum[i] + Math.sqrt(len2) * t;
-    }
-  }
-  return station;
+  walked = distanceAlong(path, cum, x, z, walked);
+  return walked;
 }
 
 // ── The listing ─────────────────────────────────────────────────────────
@@ -184,8 +183,16 @@ const pad = (v, n) => String(v).padStart(n);
 const padEnd = (v, n) => String(v).padEnd(n);
 
 const heading = `SEED ${args.seed} — ${level.biome}, ${level.weather} sky, wind ${w.speed.toFixed(1)} m/s from ${deg(w.from).toFixed(0)}°, ${hour}, water ${level.water.temperature.toFixed(1)} °C at ${level.water.density} kg/m³`;
+// R30 — a lapped ride is quoted as what it is: the lap, and how many of
+// them. "2.20 km, 21 gates" of one lap ridden twice is a level nobody can
+// picture from the number.
+const lapText =
+  level.course.laps > 1
+    ? `${((level.course.length - LEVEL_RULES.start.behind) / level.course.laps / 1000).toFixed(2)} km ` +
+      `× ${level.course.laps} laps of ${level.course.lapGates} gates, `
+    : "";
 const statLine =
-  `${(level.course.length / 1000).toFixed(2)} km, ${gates.length} gates (${airCount} in the air), ` +
+  `${lapText}${(level.course.length / 1000).toFixed(2)} km, ${gates.length} gates (${airCount} in the air), ` +
   `${level.solids.length} rocks (${Object.entries(solidsByKind)
     .map(([k, n]) => `${n} ${k}`)
     .join(", ")}), ` +
@@ -205,12 +212,23 @@ let riverRun = 0;
 for (let i = 0; i + 1 < river.length; i++) {
   riverRun += Math.hypot(river[i + 1].x - river[i].x, river[i + 1].z - river[i].z);
 }
-const legLine = mark
-  ? `ocean leg: rounds ${mark.id} at (${mark.x.toFixed(0)}, ${mark.z.toFixed(0)}) — ` +
-    `${mark.r.toFixed(1)} m across, ${mark.top.toFixed(0)} m out of the water, ` +
-    `${sampleField(level.offshore, mark.x, mark.z).toFixed(0)} m offshore ` +
-    `in ${(-sampleField(level.ground, mark.x, mark.z)).toFixed(0)} m of water`
-  : "ocean leg: none";
+const markText = (m) =>
+  `${m.id} at (${m.x.toFixed(0)}, ${m.z.toFixed(0)}) — ${m.r.toFixed(1)} m across, ` +
+  `${m.top.toFixed(0)} m out of the water, ` +
+  `${polylineDistance(level.course.path, m.x, m.z).toFixed(0)} m off the line`;
+// R31 — a circuit's marks are the corners of the lap, so all of them are
+// named; a coast level rounds exactly one, at the end of its ocean leg
+// (R25), and what matters about that one is how far out it stands.
+const marks = level.solids.filter((s) => s.kind === "mark");
+const legLine =
+  level.track === "circuit"
+    ? [`marks (${marks.length}):`, ...marks.map((m) => `  rounds ${markText(m)}`)].join("\n")
+    : mark
+      ? `ocean leg: rounds ${mark.id} at (${mark.x.toFixed(0)}, ${mark.z.toFixed(0)}) — ` +
+        `${mark.r.toFixed(1)} m across, ${mark.top.toFixed(0)} m out of the water, ` +
+        `${sampleField(level.offshore, mark.x, mark.z).toFixed(0)} m offshore ` +
+        `in ${(-sampleField(level.ground, mark.x, mark.z)).toFixed(0)} m of water`
+      : "ocean leg: none";
 const riverLine =
   river.length > 1
     ? `river: ${riverRun.toFixed(0)} m of water from its mouth at (${river[0].x.toFixed(0)}, ` +

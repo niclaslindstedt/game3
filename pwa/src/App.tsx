@@ -110,6 +110,7 @@ import {
   TUNING,
   type TimeOfDay,
   WEATHER_IDS,
+  type TrackKind,
   type Weather,
   botInput,
   createGame,
@@ -205,6 +206,10 @@ type Params = {
    * alone: it is the LEVEL's, an exact figure rather than a named hour, so
    * nothing on a menu writes it. */
   hour: number | undefined;
+  /** R29 — which chapter of the rule book the seed is dealt from: a coast
+   * sprint or an ocean circuit ridden in laps. The LEVEL's, like the hour,
+   * so it comes off the URL and no menu writes one yet. */
+  track: TrackKind | undefined;
   /** The start card's own three rows, as a link carries them: a named hour,
    * a named wind and a named sky. Unlike `hour` these ARE the player's
    * settings, so they are laid over the stored ones rather than read
@@ -271,6 +276,7 @@ function readParams(): Params {
     wind: metres("wind"),
     hs: metres("hs"),
     hour: metres("hour"),
+    track: p.get("track") === "circuit" ? "circuit" : undefined,
     weather: (WEATHER_IDS as readonly string[]).includes(p.get("weather") ?? "")
       ? (p.get("weather") as Weather)
       : undefined,
@@ -488,6 +494,7 @@ export function App() {
       return createGame({
         seed: s.ride.seed ?? DEFAULT_SEED,
         craft: s.ride.craft,
+        track: params.track,
         // The developer's own rows win where they are set: they are the
         // exact figure, and the card's is a word standing for one.
         windSpeed: s.dev.wind ?? day?.wind,

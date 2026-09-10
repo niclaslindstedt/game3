@@ -7,7 +7,7 @@
 
 import { createRng } from "../lib/prng.ts";
 import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
-import type { Level, Weather, Wind } from "../mapgen/types.ts";
+import type { Level, TrackKind, Weather, Wind } from "../mapgen/types.ts";
 import type { Season } from "../lib/solar.ts";
 import { status } from "../output.ts";
 import { stepCraft } from "./craft.ts";
@@ -24,6 +24,10 @@ export type CreateGameOptions = {
   seed: number;
   /** Which craft; defaults to the skiff. */
   craft?: CraftId;
+  /** R29 — which chapter of the rule book the seed is dealt from: a coast
+   * sprint (the default) or an ocean circuit ridden in laps. Ignored when
+   * `level` is given, which already is one or the other. */
+  track?: TrackKind;
   /** A level to ride instead of the one the seed generates (tests, labs). */
   level?: Level;
   /** A wind to ride in instead of the level's own. The sea is built from
@@ -99,7 +103,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
 
 export function createGame(options: CreateGameOptions): GameState {
   const spec = craftById(options.craft ?? "skiff");
-  const dealt = options.level ?? generateLevel(options.seed);
+  const dealt = options.level ?? generateLevel(options.seed, { track: options.track });
   // A named time of day is resolved against the coast that was actually
   // dealt, which is why it is read here rather than by the caller: only the
   // level knows the latitude its daylight window is cut from (R13).

@@ -127,6 +127,9 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
   return {
     seed: 1,
     biome: "taiga",
+    // A coast: a straight shore with a row of gates along it is the sprint
+    // chapter of the rule book (R24), not R29's lap out at sea.
+    track: "coast",
     bounds,
     ground,
     offshore,
@@ -149,7 +152,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // the physics touches the fauna. A test about the sea life stands its
     // own pods (tests/fauna_test.ts).
     fauna: [],
-    course: { gates, path, length: 680 },
+    course: { gates, path, length: 680, laps: 1, lapGates: gates.length },
     start: { x: 20, z: 40, heading: east },
     wind: { from: opts.windFrom ?? 0, speed: opts.windSpeed ?? 4 },
     water: { density: opts.density ?? 1005, temperature: 14 },

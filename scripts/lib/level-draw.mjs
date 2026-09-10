@@ -220,8 +220,17 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
   const path = level.course.path.map((p) => [px(p.x), py(p.z)]);
   canvas.polyline(path, [MARK.path[0], MARK.path[1], MARK.path[2], 210], Math.max(1, scale * 1.5));
 
+  // R30 — one lap's worth of gates is DRAWN. On a circuit the later laps
+  // stand in the same water as the first, so drawing all of them paints
+  // every buoy three times and leaves the last lap's label on top: a plan
+  // whose gates read G12…G21 for a course whose first gate is G1. The
+  // finish is drawn too, because it is the one crossing that is not the
+  // first lap's.
   const gates = level.course.gates;
-  for (const g of gates) {
+  const lap = gates
+    .slice(0, Math.min(level.course.lapGates, gates.length - 1))
+    .concat(gates[gates.length - 1]);
+  for (const g of lap) {
     const rx = Math.cos(g.heading);
     const rz = -Math.sin(g.heading);
     const fx = Math.sin(g.heading);

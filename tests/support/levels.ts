@@ -44,3 +44,32 @@ export function analysisFor(seed: number): LevelAnalysis {
   }
   return hit;
 }
+
+/** R29 — the CIRCUIT corpus, kept apart from the coast one because the two
+ * kinds of level answer to different halves of the rule book and a suite
+ * asserting R1's coastal band over a lap out at sea is asserting nothing.
+ * A different spread of seeds, so the two corpora roll different shapes. */
+export const CIRCUIT_SEEDS: readonly number[] = Array.from({ length: 8 }, (_, i) => i * 23 + 3);
+
+const circuits = new Map<number, Level>();
+const circuitAnalyses = new Map<number, LevelAnalysis>();
+
+/** The circuit for a seed, built once. Read-only, as `levelFor`'s is. */
+export function circuitFor(seed: number): Level {
+  let hit = circuits.get(seed);
+  if (hit === undefined) {
+    hit = generateLevel(seed, { track: "circuit" });
+    circuits.set(seed, hit);
+  }
+  return hit;
+}
+
+/** The analysis of a seed's circuit, run once. */
+export function circuitAnalysisFor(seed: number): LevelAnalysis {
+  let hit = circuitAnalyses.get(seed);
+  if (hit === undefined) {
+    hit = analyzeLevel(circuitFor(seed));
+    circuitAnalyses.set(seed, hit);
+  }
+  return hit;
+}
