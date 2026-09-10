@@ -70,8 +70,24 @@
 //                does, with its own glint in the ripples. By day it is off
 //                and costs the shader a few multiplies.
 //   THE FOAM     the vertex's foam SHARE (the colour attribute's alpha),
-//                broken up by the foam tile the wake is drawn with, so a
-//                whitecap is streaks and holes rather than a white vertex.
+//                broken up by the foam tile, so a whitecap is streaks and
+//                holes rather than a white vertex.
+//   THE WAKE     what the craft did to this water, read off the map
+//                `wake.ts` rasterises round it each frame: a foam share of
+//                its own (the road, drawn by the SAME foam term as a
+//                whitecap, in the same light, off the same tile read finer
+//                and square, because a road is the pump's boil and not the
+//                wind's streaks), a CHURN that bends the mirror and the
+//                glint with a boiling normal, lightens the body toward foam
+//                — the fan either side of a road is water the hull aerated
+//                rather than whitened — and closes the window, and a crest
+//                and a hollow that move the surface itself: the vertex
+//                shader lifts every vertex by the map's height and this
+//                shader lights it by the map's own gradient, so the
+//                transom's trough and the fan's edge are relief the mesh
+//                is too coarse to carry on its own. All of it fades out
+//                over the map's last few metres so its edge is never a line
+//                on the sea.
 //   THE WINDOW   what is LEFT after the mirror has taken its share is what
 //                went through, and the water is drawn transparent by
 //                exactly that much: `alpha = mix(aWindow, 1, F) + foam`.
@@ -97,6 +113,7 @@ import { anisotropic, foamTexture } from "./fx-textures.ts";
 import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
 import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
+import { WAKE_HEIGHT, WAKE_MAP } from "./wake-profile.ts";
 
 /** The ripple tile: texels a side, and its edge in metres at the fine
  * scale. The coarse layer is the same tile at `RIPPLE_COARSE` times that,
@@ -151,6 +168,62 @@ const COARSE_TURN = 0.7;
 const MIRROR_WOBBLE_ACROSS = 0.12;
 const MIRROR_WOBBLE_ALONG = 0.32;
 const MIRROR_BLUR = 1.5;
+/** THE WAKE, as read. The foam tile's edge, m, for the road's own mottling
+ * — finer than the sea's and read square, in world space, so the foam
+ * stands where the water put it as the craft leaves it behind. The churn's
+ * slope at full churn (a boil is broken water, steeper than any wind
+ * ripple), the edge the ripple tile is read at for it, m, and how fast the
+ * boil rolls, tile lengths a second. How far the churn lightens the body
+ * toward foam — aerated water — and how far it closes the window: both a
+ * LIGHT touch, because most of the near sea's tone is the dark bed showing
+ * through it, and a fan that closes the window comes back as a milky white
+ * cone rather than as stirred water. And how
+ * far in from the map's edge the whole of it fades, as a share of the map,
+ * so the map's edge is never a line on the sea. `WAKE_FOAM_GAIN` is what a
+ * full share of the map's foam is worth to the lace — set so a fresh road
+ * is white with the tile's darkest holes still cut into it (past 1.35 the
+ * lace saturates into a flat white blanket, and under about 0.7 the road
+ * is a chain of speckles), breaking into patches as it fades. */
+const WAKE_FOAM_METRES = 1.6;
+const CHURN_SLOPE = 0.35;
+const CHURN_METRES = 0.8;
+const CHURN_PACE = 0.6;
+const CHURN_LIGHTEN = 0.2;
+const CHURN_ALPHA = 0.12;
+const WAKE_FADE = 0.08;
+const WAKE_FOAM_GAIN = 1.0;
+/** How far a vertex is pushed SIDEWAYS along the wake's slope, m per unit
+ * of slope — Gerstner's horizontal term, in which the water piles toward a
+ * crest and drains away from a trough, so the transom's hollow shoves the
+ * surface outward and the bow wave bunches at the fan's edge. The whole
+ * sea pattern bends round the trail with it, which is what the eye reads
+ * as water moved aside. */
+const WAKE_PUSH = 2.0;
+
+/** Where a plan point falls on the wake's map, and how far inside its edge
+ * it is — shared by both shaders, so a vertex is lifted exactly where the
+ * pixel over it is lit. */
+const WAKE_GLSL = `
+  uniform sampler2D uWake;
+  uniform vec3 uWakeBox;
+  vec2 wakeUv(vec2 plan) {
+    return (plan - uWakeBox.xy) / (2.0 * uWakeBox.z) + 0.5;
+  }
+  float wakeEdge(vec2 uv) {
+    vec2 d = abs(uv - 0.5);
+    return 1.0 - smoothstep(${(0.5 - WAKE_FADE).toFixed(2)}, 0.5, max(d.x, d.y));
+  }
+  // The slope of the wake's relief, ∂h/∂x and ∂h/∂z in m/m, off the map's
+  // own gradient: the crest less the hollow, two texels apart.
+  vec2 wakeGrad(vec2 uv, float edge) {
+    float texel = 1.0 / ${WAKE_MAP.toFixed(1)};
+    vec4 e = texture2D(uWake, uv + vec2(texel, 0.0));
+    vec4 w = texture2D(uWake, uv - vec2(texel, 0.0));
+    vec4 n = texture2D(uWake, uv + vec2(0.0, texel));
+    vec4 s = texture2D(uWake, uv - vec2(0.0, texel));
+    float metres = 2.0 * uWakeBox.z * texel;
+    return vec2((e.b - e.a) - (w.b - w.a), (n.b - n.a) - (s.b - s.a)) * (${WAKE_HEIGHT.toFixed(2)} * edge / (2.0 * metres));
+  }`;
 
 /** The ripple tile: the wind's short chop as a repeating normal map, the
  * slopes in red (east) and green (north), made once. Directional sines
@@ -234,9 +307,24 @@ const VERTEX = `
   varying vec4 vColor;
   varying float vHeight;
   varying float vWindow;
+  varying vec2 vWakeUv;
   #include <fog_pars_vertex>
+${WAKE_GLSL}
   void main() {
     vec4 world = modelMatrix * vec4(position, 1.0);
+    // THE WAKE's relief: the crest less the hollow, off the map, on top of
+    // the engine's own surface — a few centimetres, behind the hull, where
+    // no probe reads — and the surface pushed SIDEWAYS up its own slope,
+    // so the water piles on the bow wave's crest and drains from the
+    // transom's trough. The map is read where the vertex STOOD, so the foam
+    // and the churn move with the water they are on.
+    vWakeUv = wakeUv(world.xz);
+    vec4 mark = texture2D(uWake, vWakeUv);
+    float wEdge = wakeEdge(vWakeUv);
+    if (wEdge > 0.001) {
+      world.xz += wakeGrad(vWakeUv, wEdge) * ${WAKE_PUSH.toFixed(2)};
+      world.y += (mark.b - mark.a) * ${WAKE_HEIGHT.toFixed(2)} * wEdge;
+    }
     vWorld = world.xyz;
     // The grids only ever translate, so an object normal is a world one.
     vNormal = normal;
@@ -317,7 +405,9 @@ function fragmentFor(layers: number): string {
   varying vec4 vColor;
   varying float vHeight;
   varying float vWindow;
+  varying vec2 vWakeUv;
   #include <fog_pars_fragment>
+${WAKE_GLSL}
 ${skyGlsl(mirrorBuild(layers))}
 
   // Three uncorrelated draws for one cell of the rain grid: where in the
@@ -367,7 +457,28 @@ ${skyGlsl(mirrorBuild(layers))}
     vec3 toEye = cameraPosition - vWorld;
     float away = length(toEye);
     vec3 V = toEye / max(1e-3, away);
-    vec3 N = normalize(vNormal);
+
+    // THE WAKE: what the craft did to this water (wake.ts's map) — its foam
+    // share, its churn, and the slope of its relief off the map's own
+    // gradient, because the mesh carries the crest and the hollow only at
+    // its vertices and the light has to see the trough between them.
+    vec4 mark = texture2D(uWake, vWakeUv);
+    float wEdge = wakeEdge(vWakeUv);
+    float wakeFoam = mark.r * ${WAKE_FOAM_GAIN.toFixed(2)} * wEdge;
+    float churn = min(1.0, mark.g * wEdge);
+    vec2 wakeSlope = vec2(0.0);
+    vec2 boil = vec2(0.0);
+    if (wEdge > 0.001) {
+      // A height field's normal is (−∂h/∂x, 1, −∂h/∂z).
+      wakeSlope = -wakeGrad(vWakeUv, wEdge);
+      // …and the boil: broken water, the ripple tile read square and fine
+      // and rolling with the clock, as steep as the churn says.
+      vec2 roll = vWorld.xz / ${CHURN_METRES.toFixed(2)} + vec2(uTime * ${CHURN_PACE.toFixed(2)}, -uTime * ${(CHURN_PACE * 0.7).toFixed(2)});
+      boil = (texture2D(uRipple, roll).rg * 2.0 - 1.0) * churn * ${CHURN_SLOPE.toFixed(2)};
+    }
+    // The relief is a real surface, so it goes into the WAVE's normal —
+    // the one Fresnel is read off — and not only the ripples'.
+    vec3 N = normalize(normalize(vNormal) + vec3(wakeSlope.x, 0.0, wakeSlope.y));
 
     // THE RIPPLES: the tile in wind space, the fine layer and the coarse,
     // scrolled downwind, faded with distance.
@@ -392,7 +503,7 @@ ${skyGlsl(mirrorBuild(layers))}
       rings = rainRings(vWorld.xz / ${RAIN_CELL.toFixed(2)}, uTime, uRainFall, crest) * wet;
       splash = min(1.0, crest) * wet;
     }
-    vec3 Nd = normalize(N + vec3(slope.x + rings.x, 0.0, slope.y + rings.y));
+    vec3 Nd = normalize(N + vec3(slope.x + rings.x + boil.x, 0.0, slope.y + rings.y + boil.y));
 
     // THE BODY, lit as three's Lambert lights the hull: the hemisphere by
     // how much the face looks up, the key by its angle to the sun.
@@ -417,6 +528,10 @@ ${skyGlsl(mirrorBuild(layers))}
     float back = max(0.0, dot(-V, uSunDir));
     float lift = clamp(vHeight / uScatterHeight, 0.0, 1.0);
     body += uScatter * lift * (0.12 + 0.6 * pow(back, 3.0));
+    // Foam is air in water, lit as the body is; churned water is on its way
+    // to being foam, and is lightened toward it by how churned it is.
+    vec3 foamCol = uFoamColor * irradiance * RECIPROCAL_PI;
+    body = mix(body, foamCol, churn * ${CHURN_LIGHTEN.toFixed(2)});
 
     // THE MIRROR — the whole sky along the reflected ray, clouds and all
     // (skyAlong, sky-glsl.ts), from the wave face's own place so the sheet
@@ -434,7 +549,10 @@ ${skyGlsl(mirrorBuild(layers))}
     // being minified, so it turns the reflection over cleanly — and under a
     // rain deck there is no beam to glint, which makes the mirror the ONLY
     // place a dimple can show at all.
-    vec3 Nr = normalize(N + vec3(slope.x * 0.35 + rings.x, 0.0, slope.y * 0.35 + rings.y));
+    // The BOIL keeps most of its slope in the mirror too: it is only ever a
+    // few metres from the lens, and a reflection that does not break up over
+    // a boiling road is what gives the road away as paint.
+    vec3 Nr = normalize(N + vec3(slope.x * 0.35 + rings.x + boil.x * 0.7, 0.0, slope.y * 0.35 + rings.y + boil.y * 0.7));
     vec3 R = reflect(-V, Nr);
     // The slope variance this pixel does NOT resolve — Cox and Munk's, less
     // the share the ripple tile is carrying here. It is the glint's lobe
@@ -503,16 +621,31 @@ ${skyGlsl(mirrorBuild(layers))}
     float pattern = texture2D(uFoam, vec2(foamUv.y / ${(FOAM_METRES * FOAM_STREAK).toFixed(2)}, foamUv.x / ${FOAM_METRES.toFixed(1)})).a;
     float lace = smoothstep(1.0 - share, 1.35 - share, pattern);
     float foam = lace * (0.45 + 0.55 * share);
+    // …and the WAKE's, off the map, through the same lace: the tile read
+    // square and fine in world space, so the road's patches stand where the
+    // water put them and the craft leaves them behind, and jogged a hand's
+    // width by the churn so a fresh boil seethes where an old road lies
+    // still. The louder of the two foams wins; they never sum.
+    // Two octaves: the tile, and the tile again a third the size, because
+    // the road is the nearest foam in the frame and at one octave a fresh
+    // road is a flat white blanket rather than broken water.
+    vec2 seethe = vec2(sin(uTime * 3.1), cos(uTime * 2.3)) * churn * 0.06;
+    float wakePattern = mix(
+      texture2D(uFoam, vWorld.xz / ${WAKE_FOAM_METRES.toFixed(2)} + seethe).a,
+      texture2D(uFoam, vWorld.xz / ${(WAKE_FOAM_METRES / 3).toFixed(2)} - seethe).a,
+      0.35);
+    float wakeLace = smoothstep(1.0 - wakeFoam, 1.35 - wakeFoam, wakePattern);
+    foam = max(foam, wakeLace * min(1.0, 0.45 + 0.55 * wakeFoam));
     // …and the white a raindrop's own impact throws up. A fraction of the
     // wake's: a drop is a pinprick of air in the water, not a crest going
     // over, and driven any harder a downpour turns the sea to porridge.
     foam = clamp(foam + splash * 0.5, 0.0, 1.0);
-    vec3 foamCol = uFoamColor * irradiance * RECIPROCAL_PI;
     col = mix(col + glint, foamCol, foam);
 
     // THE WINDOW: opaque by the share the mirror took, by the column's own
-    // opacity straight down, and wherever there is foam.
-    float alpha = clamp(mix(vWindow, 1.0, F) + foam, 0.0, 1.0);
+    // opacity straight down, wherever there is foam, and by how churned the
+    // water is — aerated water is not a window either.
+    float alpha = clamp(mix(vWindow, 1.0, F) + foam + churn * ${CHURN_ALPHA.toFixed(2)}, 0.0, 1.0);
     gl_FragColor = vec4(col, alpha);
     #include <fog_fragment>
     #include <colorspace_fragment>
@@ -532,10 +665,19 @@ export type MirrorSeat = {
   forward: THREE.Vector3;
 };
 
-/** A mirror with nothing in it, for a material built without one: one
- * transparent texel, so the shader's read is defined and shows the sky. */
+/** WHAT THE WAKE HANDS THE WATER — the very objects `wake.ts` writes each
+ * frame, held by the material rather than copied: its map, and the box the
+ * map covers (the centre's plan x and z, and its reach either side, m). */
+export type WakeMap = {
+  texture: THREE.Texture;
+  box: THREE.Vector3;
+};
+
+/** A picture with nothing in it — one transparent black texel — for a
+ * material built without a mirror or a wake: the mirror's read is defined
+ * and shows the sky, the wake's reads as no wake at all. */
 let blank: THREE.DataTexture | null = null;
-function blankMirror(): THREE.DataTexture {
+function blankTexture(): THREE.DataTexture {
   if (!blank) {
     blank = new THREE.DataTexture(new Uint8Array([0, 0, 0, 0]), 1, 1, THREE.RGBAFormat);
     blank.needsUpdate = true;
@@ -583,7 +725,7 @@ export function createWaterMaterial(
       uRainFall: { value: 0 },
       uRainFade: { value: new THREE.Vector2(0, 0) },
       uSlopeVar: { value: SLOPE_VAR_CALM },
-      uMirror: { value: mirror?.texture ?? blankMirror() },
+      uMirror: { value: mirror?.texture ?? blankTexture() },
       uMirrorMatrix: { value: mirror?.matrix ?? new THREE.Matrix4() },
       uMirrorRight: { value: mirror?.right ?? new THREE.Vector3(1, 0, 0) },
       uMirrorForward: { value: mirror?.forward ?? new THREE.Vector3(0, 0, 1) },
@@ -593,6 +735,8 @@ export function createWaterMaterial(
       uLampColor: { value: new THREE.Color(0x000000) },
       uLampCone: { value: new THREE.Vector2(1, 1) },
       uLampReach: { value: 1 },
+      uWake: { value: blankTexture() },
+      uWakeBox: { value: new THREE.Vector3(0, 0, 1) },
     },
     vertexShader: VERTEX,
     fragmentShader: fragmentFor(0),
@@ -695,6 +839,14 @@ export function applySea(
   u.uSlopeVar.value = slopeVar;
   u.uRippleStrength.value = Math.sqrt(slopeVar * RIPPLE_SHARE) / RIPPLE_RMS_SLOPE;
   u.uScatterHeight.value = crestHeight;
+}
+
+/** THE WAKE'S MAP, held: the texture and the box are `wake.ts`'s own
+ * objects, rewritten each frame, so this is called once when the two are
+ * introduced rather than per frame. */
+export function applyWake(m: WaterMaterial, map: WakeMap): void {
+  m.uniforms.uWake.value = map.texture;
+  m.uniforms.uWakeBox.value = map.box;
 }
 
 /** The engine's clock, for the ripples' drift. Every frame. */

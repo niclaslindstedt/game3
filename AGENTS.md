@@ -158,7 +158,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | The water as DRAWN, the terrain, the rocks            | `pwa/src/game/water-mesh.ts`, `terrain.ts`, `rocks.ts`        | `nature`, `water-feel` |
 | What a COAST's water looks like: its tones, its clarity | `pwa/src/game/water-optics.ts`                              | `nature`, `game-feel` |
 | The water as LIT: the glint, the sky it mirrors, the ripples, the rain's rings, the foam's texture | `pwa/src/game/water-shader.ts`   | `game-feel`, `water-feel` |
-| The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `fx-textures.ts`          | `game-feel`            |
+| The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `wake-profile.ts` (the trail's shape, three-free), `fx-textures.ts` | `game-feel` |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
 | What swims here: the catalog, its rarity (R20)        | `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `biomes.ts`'s `fauna` | `nature`     |
 | Where an animal IS at a moment                        | `engine/game/fauna.ts` (`faunaPose`)                          | `nature`             |

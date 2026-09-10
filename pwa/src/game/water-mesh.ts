@@ -84,8 +84,10 @@ import {
   applyRain,
   applySea,
   applySky,
+  applyWake,
   createWaterMaterial,
   type MirrorSeat,
+  type WakeMap,
 } from "./water-shader.ts";
 
 /** The grid the game is tuned on, and what the labs and the tests measure:
@@ -258,6 +260,10 @@ export type WaterMesh = {
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
+  /** THE WAKE's map (`wake.ts`): what the craft did to the water, which the
+   * shader draws as foam, churn and relief. Once — the map's objects are
+   * held, and rewritten by the wake each frame. */
+  setWake: (map: WakeMap) => void;
   /** WHICH COAST'S WATER this is: its tones, its ramp, its window and its
    * clarity (`water-optics.ts`). Set before the level is drawn and before
    * `retone`, which paints the horizon out of it. */
@@ -628,6 +634,7 @@ export function createWaterMesh(
       material.transparent = open;
       material.needsUpdate = true;
     },
+    setWake: (map) => applyWake(material, map),
     setCoast,
     seeThrough: () => (windowOpen ? reach : 0),
     update,

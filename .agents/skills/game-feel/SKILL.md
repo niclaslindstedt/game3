@@ -61,7 +61,7 @@ the game harder, not more dramatic.
 | What separates the four craft | `engine/game/defs/craft.ts` | `craft-tuning` |
 | Course scale: gate spacing, offshore band, ramp placement | `engine/mapgen/rules.ts` | `mapgen-improvement` |
 | Camera | `pwa/src/game/camera.ts` | (this skill) |
-| Water-contact FX: the chine sheets, the rooster tail, the landing plume, the bow plunge, the foam patch (`spray.ts`); the wake ribbon (`wake.ts`); their textures, made in code (`fx-textures.ts`) | `pwa/src/game/` | (this skill; `visual-effects` reserved) |
+| Water-contact FX: the chine sheets, the rooster tail, the landing plume, the bow plunge (`spray.ts`); the wake — the road, the boil, the fan, the transom's hollow, a landing's foam — as a MAP the water shader draws from (`wake.ts`, its shape in `wake-profile.ts`); their textures, made in code (`fx-textures.ts`) | `pwa/src/game/` | (this skill; `visual-effects` reserved) |
 | The water's LIGHT: the sky each wave face reflects, the sun's glint (the sparkle and the road), the wind's ripples, the rain's rings, the light through a crest, the foam's texture — per pixel, never moving a vertex | `pwa/src/game/water-shader.ts`, through `sky-glsl.ts`'s `skyAlong` | (this skill; `water-feel` for what the grid carries) |
 
 What each contributes:
