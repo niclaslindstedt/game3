@@ -71,6 +71,20 @@ const BOIL_HALF_BEAM = 0.6;
 const CHURN_LIFE = 1.6;
 const HOLLOW = 0.22;
 const HOLLOW_LIFE = 1.4;
+/** HOW LONG THE RELIEF TAKES TO FORM, s — the hollow collapsing into the
+ * hole the jet leaves, the bow wave rolling out from the chine. The water
+ * shader moves the surface by this relief, and a trough that stood at full
+ * depth the instant the transom passed would drop every vertex under it
+ * by its whole depth within a few frames: a twitch, where the sea's own
+ * waves, which take seconds to pass, are silk. A quarter of a second is
+ * enough to make the forming a motion rather than a step. */
+const RELIEF_RISE = 0.25;
+
+/** The relief's envelope at an age: rising over `RELIEF_RISE`, then dying
+ * over `life`. */
+function relief(age: number, life: number): number {
+  return (1 - Math.exp(-age / RELIEF_RISE)) * Math.exp(-age / life);
+}
 
 /** How long the fan's aeration lives, s; its half-width at the transom as a
  * share of the beam, and the most it may ever spread to, m. */
@@ -158,7 +172,7 @@ export function roadAt(s: number, age: number, speed: number, strength: number, 
   out.foam = strength * Math.min(1, fade + boil * 0.5);
   out.churn = wash * (0.5 + 0.5 * boil) * Math.exp(-age / CHURN_LIFE);
   out.up = 0;
-  out.down = HOLLOW * wash * Math.exp(-age / HOLLOW_LIFE) * (1 - a * a);
+  out.down = HOLLOW * wash * relief(age, HOLLOW_LIFE) * (1 - a * a);
   out.cover = age < ROAD_LIFE ? edge * edge : 0;
 }
 
@@ -173,7 +187,7 @@ export function fanAt(s: number, age: number, speed: number, strength: number, o
   const trough = smoothstep(TROUGH_FROM, TROUGH_AT, a) * (1 - smoothstep(TROUGH_AT, RIDGE_FROM, a));
   const inside = 0.3 * (1 - a);
   const profile = Math.max(ridge, inside);
-  const wave = wash * wash * Math.exp(-age / CREST_LIFE);
+  const wave = wash * wash * relief(age, CREST_LIFE);
   out.foam = FAN_FOAM * strength * life * profile;
   out.churn = FAN_CHURN * wash * life * profile;
   out.up = CREST * wave * ridge;

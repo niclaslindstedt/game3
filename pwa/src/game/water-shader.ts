@@ -82,10 +82,12 @@
 //                — the fan either side of a road is water the hull aerated
 //                rather than whitened — and closes the window, and a crest
 //                and a hollow that move the surface itself: the vertex
-//                shader lifts every vertex by the map's height and this
-//                shader lights it by the map's own gradient, so the
-//                transom's trough and the fan's edge are relief the mesh
-//                is too coarse to carry on its own. All of it fades out
+//                shader lifts every vertex by the map's height — read
+//                BLURRED to the grid's scale, so the relief is as smooth
+//                as a wave and no vertex jumps as the trail sweeps over it
+//                — and this shader lights it by the same blurred gradient,
+//                so the transom's trough and the fan's edge are relief the
+//                mesh is too coarse to carry on its own. All of it fades out
 //                over the map's last few metres so its edge is never a line
 //                on the sea.
 //   THE WINDOW   what is LEFT after the mirror has taken its share is what
@@ -208,18 +210,27 @@ const MIRROR_BLUR = 1.5;
 const WAKE_FOAM_METRES = 1.6;
 const CHURN_SLOPE = 0.35;
 const CHURN_METRES = 0.8;
-const CHURN_PACE = 0.6;
+const CHURN_PACE = 0.25;
 const CHURN_LIGHTEN = 0.2;
 const CHURN_ALPHA = 0.12;
 const WAKE_FADE = 0.08;
 const WAKE_FOAM_GAIN = 1.0;
+/** THE RELIEF IS READ BLURRED — this many mip levels down the map, so the
+ * crest, the hollow and the slope the surface is pushed along are as smooth
+ * at the grid's scale as a wave is. The map's texel is a quarter metre and
+ * the near grid's cell is a metre and a half: read sharp, a hollow two
+ * metres wide is caught by one vertex at a time, and each vertex jumps as
+ * the trail sweeps over it — a twitch the sea's own waves, several cells
+ * long, never show. Three levels is a two-metre blur. The foam and the
+ * churn keep the sharp map: they are per pixel and want the edge. */
+const WAKE_RELIEF_LOD = 3;
 /** How far a vertex is pushed SIDEWAYS along the wake's slope, m per unit
  * of slope — Gerstner's horizontal term, in which the water piles toward a
  * crest and drains away from a trough, so the transom's hollow shoves the
  * surface outward and the bow wave bunches at the fan's edge. The whole
  * sea pattern bends round the trail with it, which is what the eye reads
  * as water moved aside. */
-const WAKE_PUSH = 2.0;
+const WAKE_PUSH = 1.5;
 
 /** Where a plan point falls on the wake's map, and how far inside its edge
  * it is — shared by both shaders, so a vertex is lifted exactly where the
@@ -234,16 +245,22 @@ const WAKE_GLSL = `
     vec2 d = abs(uv - 0.5);
     return 1.0 - smoothstep(${(0.5 - WAKE_FADE).toFixed(2)}, 0.5, max(d.x, d.y));
   }
-  // The slope of the wake's relief, ∂h/∂x and ∂h/∂z in m/m, off the map's
-  // own gradient: the crest less the hollow, two texels apart.
+  // The wake's relief, m, read off the blurred level of the map: the crest
+  // less the hollow.
+  float wakeRelief(vec2 uv) {
+    vec4 m = textureLod(uWake, uv, ${WAKE_RELIEF_LOD.toFixed(1)});
+    return (m.b - m.a) * ${WAKE_HEIGHT.toFixed(2)};
+  }
+  // The slope of that relief, ∂h/∂x and ∂h/∂z in m/m, off the blurred
+  // level's own gradient, two of ITS texels apart.
   vec2 wakeGrad(vec2 uv, float edge) {
-    float texel = 1.0 / ${WAKE_MAP.toFixed(1)};
-    vec4 e = texture2D(uWake, uv + vec2(texel, 0.0));
-    vec4 w = texture2D(uWake, uv - vec2(texel, 0.0));
-    vec4 n = texture2D(uWake, uv + vec2(0.0, texel));
-    vec4 s = texture2D(uWake, uv - vec2(0.0, texel));
+    float texel = ${(2 ** WAKE_RELIEF_LOD).toFixed(1)} / ${WAKE_MAP.toFixed(1)};
+    float e = wakeRelief(uv + vec2(texel, 0.0));
+    float w = wakeRelief(uv - vec2(texel, 0.0));
+    float n = wakeRelief(uv + vec2(0.0, texel));
+    float s = wakeRelief(uv - vec2(0.0, texel));
     float metres = 2.0 * uWakeBox.z * texel;
-    return vec2((e.b - e.a) - (w.b - w.a), (n.b - n.a) - (s.b - s.a)) * (${WAKE_HEIGHT.toFixed(2)} * edge / (2.0 * metres));
+    return vec2(e - w, n - s) * (edge / (2.0 * metres));
   }`;
 
 /** The ripple tile: the wind's short chop as a repeating normal map, the
@@ -340,11 +357,10 @@ ${WAKE_GLSL}
     // transom's trough. The map is read where the vertex STOOD, so the foam
     // and the churn move with the water they are on.
     vWakeUv = wakeUv(world.xz);
-    vec4 mark = texture2D(uWake, vWakeUv);
     float wEdge = wakeEdge(vWakeUv);
     if (wEdge > 0.001) {
       world.xz += wakeGrad(vWakeUv, wEdge) * ${WAKE_PUSH.toFixed(2)};
-      world.y += (mark.b - mark.a) * ${WAKE_HEIGHT.toFixed(2)} * wEdge;
+      world.y += wakeRelief(vWakeUv) * wEdge;
     }
     vWorld = world.xyz;
     // The grids only ever translate, so an object normal is a world one.
@@ -667,16 +683,15 @@ ${skyGlsl(mirrorBuild(layers))}
     float foam = lace * (0.45 + 0.55 * share);
     // …and the WAKE's, off the map, through the same lace: the tile read
     // square and fine in world space, so the road's patches stand where the
-    // water put them and the craft leaves them behind, and jogged a hand's
-    // width by the churn so a fresh boil seethes where an old road lies
-    // still. The louder of the two foams wins; they never sum.
-    // Two octaves: the tile, and the tile again a third the size, because
-    // the road is the nearest foam in the frame and at one octave a fresh
-    // road is a flat white blanket rather than broken water.
-    vec2 seethe = vec2(sin(uTime * 3.1), cos(uTime * 2.3)) * churn * 0.06;
+    // water put them and the craft leaves them behind. STILL in the world —
+    // a pattern that jogs with the clock reads as jitter, not as a boil;
+    // the boil is the churn's normal. The louder of the two foams wins;
+    // they never sum. Two octaves: the tile, and the tile again a third the
+    // size, because the road is the nearest foam in the frame and at one
+    // octave a fresh road is a flat white blanket rather than broken water.
     float wakePattern = mix(
-      texture2D(uFoam, vWorld.xz / ${WAKE_FOAM_METRES.toFixed(2)} + seethe).a,
-      texture2D(uFoam, vWorld.xz / ${(WAKE_FOAM_METRES / 3).toFixed(2)} - seethe).a,
+      texture2D(uFoam, vWorld.xz / ${WAKE_FOAM_METRES.toFixed(2)}).a,
+      texture2D(uFoam, vWorld.xz / ${(WAKE_FOAM_METRES / 3).toFixed(2)}).a,
       0.35);
     float wakeLace = smoothstep(1.0 - wakeFoam, 1.35 - wakeFoam, wakePattern);
     foam = max(foam, wakeLace * min(1.0, 0.45 + 0.55 * wakeFoam));
