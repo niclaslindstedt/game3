@@ -195,6 +195,11 @@ canvas {
 
 .hud-topright {
   position: absolute;
+  /* Above the thumb zones, which are later siblings and would otherwise
+     win the hit test wherever the two overlap. The zone's top is meant to
+     clear this cluster on its own; this is what keeps a button pressable
+     on the day a new row makes it taller than the clearance allows. */
+  z-index: 1;
   top: max(0.6rem, env(safe-area-inset-top));
   right: max(0.8rem, env(safe-area-inset-right));
   display: flex;
@@ -255,7 +260,8 @@ canvas {
    urgent, so it is offered rather than announced. It stands there because
    every other edge of this screen is spoken for — the instrument panel and
    the build stamp bottom-left, the air time and the news column
-   bottom-right, and on a phone the whole lower half is the two thumb zones.
+   bottom-right, and on a phone the lower three fifths is the two thumb
+   zones.
 
    It wears the RESET button's chrome (`.hud-mini`) so the row reads as one
    row, and is a circle until the first press turns it into a word. Small
@@ -797,8 +803,20 @@ canvas {
 }
 
 /* ── THE TOUCH CONTROLS ──────────────────────────────────────────────────
-   The two thumb zones: the screen's halves below the top bar. The bar or
-   the lever anchors wherever the thumb lands inside its zone. */
+   The two thumb zones: the LOWER 60% of the screen, split down the middle.
+   The bar or the lever anchors wherever the thumb lands inside its zone.
+
+   WHY A PROPORTION, AND WHY THIS ONE. The readouts and their two buttons
+   (RESET, and the new-build mark that hangs under the cluster in portrait)
+   are sized in clamped rem, so the top-right cluster is a FIXED number of
+   pixels tall — about 170 in portrait, 110 in landscape — while the zone's
+   top is a fraction of the viewport. The shorter the screen, the further
+   the zone climbs into that cluster, and a zone that reaches a button eats
+   the press: at 375×667 the lever zone covered the new-build mark
+   completely, so tapping it opened the throttle instead. Two fifths clears
+   the cluster on every viewport the review sweep looks at, with room to
+   spare on the shortest, and the lower three fifths is where a thumb on a
+   held phone can reach anyway. */
 .hud-touch {
   position: absolute;
   inset: 0;
@@ -807,7 +825,7 @@ canvas {
 
 .hud-zone {
   position: absolute;
-  top: 22%;
+  top: 40%;
   bottom: 0;
   width: 50%;
   pointer-events: auto;
