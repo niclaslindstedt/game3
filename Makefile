@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts screenshots profile hooks shellcheck actionlint changelog bump docs
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts screenshots sky profile hooks shellcheck actionlint changelog bump docs
 
 build:
 	npm run build
@@ -115,6 +115,15 @@ screenshots:
 	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) \
 		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
 		$(if $(WEATHER),--weather $(WEATHER),) $(ARGS)
+
+# EVERY SKY SIDE BY SIDE: one contact sheet, one weather per row, one hour
+# per column, all on one coast — `previews/sky.png`. The sky is the one part
+# of the game a screenshot of a RUN cannot review, because a seed is dealt
+# ONE sky at ONE hour and the ladder is only ever judged side by side. Same
+# Chromium requirements as `screenshots`.
+# `make sky` · `make sky ARGS="--rows=squall,rain"` · `make sky ARGS=--skip-build`
+sky:
+	node scripts/sky-preview.mjs $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as

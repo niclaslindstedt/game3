@@ -43,18 +43,19 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife` | `nature`, `game-feel`                   |
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
-| The sky, the light, the weather                         | `screenshots`, `level`         | `game-feel`                                    |
+| The sky, the light, the weather                         | `sky`, `screenshots`           | `game-feel`                                    |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots` and `profile` drive the built site in headless Chromium, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots`, `profile` and `sky` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky` builds its own one-off bundle from its harness page and so needs no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
-Three of these are worth knowing about even when they are not your subject:
+Four of these are worth knowing about even when they are not your subject:
 
 - **`make level SEED=38`** reasons about ONE level without riding it — every gate numbered with its offshore distance and the depth under it, every ramp, every rock, the wind arrow — in a couple of seconds. A claim about "the second air gate on seed 38" is a claim about a row there.
 - **`make waves SEED=38`** is the sea with nothing riding it: a transect from the shore out, Hs against offshore distance, the spectrum. A wave-model change is judged by the sea it makes, and a screenshot shows one wave.
 - **`make sim`** is CI's `simulate` job and exits non-zero when a craft finishes NO seed. Its digests are where a determinism regression shows first; `docs/simulation.md` says what every column means.
+- **`make sky`** is every weather against every hour on ONE coast, as a single labelled sheet. It exists because a seed is dealt one sky (R19) at one hour (R13), so a screenshot of a RUN can only ever say whether that one sky is wrong — and the sky here is a LADDER, which is judged side by side or not at all.
 
 ## How work is done here
 
@@ -170,6 +171,7 @@ And the pieces that belong to no skill in particular:
 | App identity (name, palette, URLs)                 | `pwa/src/identity.ts` — the single source; `tests/identity_test.ts` holds every restatement to it          |
 | A Node script needing an app module                | `aliasEngine` in `scripts/lib/engine-alias.mjs` before the `import()` — never a Vite build to read a table |
 | New CLI tooling                                    | `scripts/*.mjs` (Node, `--experimental-strip-types`, flags through `scripts/lib/cli.mjs`)                   |
+| A lab that has to DRAW to answer its question      | a harness page in `pwa/src/tools/` + its own `pwa/<name>-preview.html`, driven by `scripts/<name>-preview.mjs` — the sibling repo's pattern; vite builds only `index.html`, so a harness never ships |
 | Engine tests                                       | `tests/<topic>_test.ts`                                                                                    |
 
 ### Stated once — never restate these
