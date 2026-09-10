@@ -584,6 +584,17 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings({ hud: { on: false } }).rumble).toBe(true);
   });
 
+  it("remembers that the machine has been measured, and reads an old blob as unmeasured", () => {
+    // Whichever way the first-visit probe went, it went once; a blob from a
+    // build before it existed is measured on its next visit, which is safe
+    // because the promotion only touches an untouched picture.
+    expect(DEFAULT_SETTINGS.probed).toBe(false);
+    expect(mergeSettings({ probed: true }).probed).toBe(true);
+    expect(mergeSettings({ probed: "yes" }).probed).toBe(false);
+    expect(mergeSettings({ hud: { on: false } }).probed).toBe(false);
+    expect(freshSettings().probed).toBe(false);
+  });
+
   it("keeps the developer menu OUT once it has been let out", () => {
     expect(mergeSettings({ developer: true }).developer).toBe(true);
   });

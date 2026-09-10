@@ -281,7 +281,9 @@ if (args.surface) {
       failures += 1;
       continue;
     }
-    const params = { seed: String(args.seed), craft: args.craft, ...surface.params };
+    // `probe=0`: a surface is photographed at the picture the flags name,
+    // and the first-visit probe must not move a row under the camera.
+    const params = { seed: String(args.seed), craft: args.craft, probe: "0", ...surface.params };
     for (const v of viewports) await capture(name, params, v, undefined, surface);
   }
 } else if (args.drive) {

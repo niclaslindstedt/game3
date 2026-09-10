@@ -263,7 +263,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 | Bot, sim harness, the `RunReport`, the sim CLI | `docs/simulation.md`                                                                                |
 | The layers, the step order, the state shape  | `docs/architecture.md`                                                                                |
 | Commands / npm scripts / Make targets        | README Usage table + this file's labs table                                                           |
-| The URL parameters, the deploy slots         | `docs/configuration.md`; `App.tsx`'s URL readers and `scripts/screenshot.mjs` move together           |
+| The URL parameters, the deploy slots         | `docs/configuration.md`; `App.tsx`'s header, `pwa/src/game/url-params.ts`'s readers and `scripts/screenshot.mjs` move together           |
 | A menu surface, a setting, the shell's flow  | `docs/getting-started.md`, `docs/configuration.md` (the `?menu=` and `?start=` readers)               |
 | App identity, domain, deploy slots           | `identity.ts`, README, `docs/configuration.md`, `pwa/public/*`, `pwa/index.html`                      |
 | The craft, the controls, install flow        | README (What/Controls) + `docs/getting-started.md`                                                    |

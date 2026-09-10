@@ -180,7 +180,8 @@ dataset and not only in a ref.
 ## What the change obliges elsewhere
 
 - A new URL parameter or surface → `docs/configuration.md`, `App.tsx`'s
-  header, and `scripts/screenshot.mjs` if the lab should reach it.
+  header, the reader in `url-params.ts`, and `scripts/screenshot.mjs` if the
+  lab should reach it.
 - A word on a card → `strings.ts`, never a literal in the component.
 - A new setting → `mergeSettings` **and** a case in `tests/menu_system_test.ts`
   for what an older blob does to it.

@@ -94,6 +94,15 @@ export type GameRenderer = {
   observe: (state: GameState) => void;
   camera: CameraRig;
   cost: () => FrameCost;
+  /** WAIT FOR THE GPU to finish the frame just submitted, and say how long
+   * that took, ms. `cost.frameMs` is the processor's half of a frame; the
+   * GPU's runs on after `render` returns and nothing on the page can time it
+   * — except by asking for a pixel back, which cannot be answered until
+   * every draw before it has landed. That is what the first-visit probe
+   * (`video-probe.ts`) needs and nothing else does: it stalls the pipeline
+   * the frame would otherwise overlap with the next, so it is called for a
+   * couple of seconds under a card and never during a run. */
+  drain: () => number;
   dispose: () => void;
 };
 
@@ -146,6 +155,8 @@ export function createRenderer(
   let level: Level | null = null;
 
   const cost: FrameCost = { waterMs: 0, frameMs: 0, calls: 0, triangles: 0 };
+  /** The one pixel `drain` reads back, allocated once. */
+  const drained = new Uint8Array(4);
   const eye = new THREE.Vector3();
   const aim = new THREE.Vector3();
   const upVec = new THREE.Vector3();
@@ -439,6 +450,12 @@ export function createRenderer(
     },
     camera: rig,
     cost: () => cost,
+    drain: () => {
+      const t0 = performance.now();
+      const gl = renderer.getContext();
+      gl.readPixels(0, 0, 1, 1, gl.RGBA, gl.UNSIGNED_BYTE, drained);
+      return performance.now() - t0;
+    },
     dispose: () => {
       boxes.disconnect();
       window.removeEventListener("resize", resize);
