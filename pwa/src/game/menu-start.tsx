@@ -162,6 +162,29 @@ export function StartPage({
         backLabel={STRINGS.menuBack}
         title={STRINGS.startTitle}
         sub={STRINGS.startSub}
+        /* THE WAY ON STANDS IN THE HEAD, opposite the way back. It used to be
+           a full-width press under the caption, which put the card's tallest
+           row below the one square element on it — and `.menu-card` scrolls
+           rather than clipping, so on a phone the press the card exists for
+           was the part that hung off the bottom. Up here it costs no height,
+           and back-on-the-left / on-to-the-right is the pair a rider reads
+           without being told. Its word is NEXT for the same reason: a head
+           button is a corner, not a banner, and the card that follows says
+           what it is. Still `menu-item-start`'s orange and still this
+           surface's `next` and its landing, so a controller walking in finds
+           it first. */
+        action={
+          <button
+            type="button"
+            class="menu-item menu-item-start menu-head-go"
+            data-menu="craft"
+            data-nav-next
+            data-nav-focus
+            onClick={onNext}
+          >
+            <span class="menu-item-name">{STRINGS.startNext}</span>
+          </button>
+        }
       />
       {/* TWO COLUMNS WHERE THERE IS WIDTH FOR THEM, and the CHART is what
           they are for. It is square, so every pixel of its width is a pixel
@@ -230,19 +253,6 @@ export function StartPage({
       {/* The mark is explained ONCE, at the foot of the whole card rather than
           as a tooltip on three rows nobody hovers. */}
       <Caption text={hint} fallback={STRINGS.startCaption} />
-      {/* The way on, wearing the front door's own START weight so the eye
-          lands on it first — and marked as this surface's `next`, so a
-          controller that walked in here reaches the craft without hunting. */}
-      <button
-        type="button"
-        class="menu-item menu-item-start menu-start-go"
-        data-menu="craft"
-        data-nav-next
-        data-nav-focus
-        onClick={onNext}
-      >
-        <span class="menu-item-name">{STRINGS.startNext}</span>
-      </button>
     </div>
   );
 }

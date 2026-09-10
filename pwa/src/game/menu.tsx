@@ -17,12 +17,24 @@
 // A choice whose answers CANNOT BE SAID IN WORDS is still not a row at all:
 // four hulls are four shapes, so the craft takes a card of its own
 // (`menu-craft.tsx`) rather than a ladder nobody can picture.
+//
+// THE HEAD IS ALSO WHERE A PAGE'S WAY ON MAY STAND. Back on the left, on to
+// the right: a page whose body is a column of settings reads top to bottom,
+// and a way on parked under the last of them is a row the card has to be tall
+// enough for — on a phone, the row that pushes the card past the viewport and
+// scrolls the answer the player just picked off the screen. In the head it
+// costs the card no height at all and sits where the eye already goes when it
+// is done with a page. It stays OPTIONAL: a page that ends in a press of its
+// own (the craft card's RIDE, standing under the hull it rides) keeps it there.
+
+import type { ComponentChildren } from "preact";
 
 export function MenuHead({
   back,
   backLabel,
   title,
   sub,
+  action,
 }: {
   back: () => void;
   backLabel: string;
@@ -30,6 +42,8 @@ export function MenuHead({
   /** The page's one line of billing. Omitted on pages whose title says it
    * all — the head then holds the title alone, still on one row. */
   sub?: string;
+  /** The page's way ON, standing opposite its way back. */
+  action?: ComponentChildren;
 }) {
   // A head carrying a subtitle is two rows tall and the way out stands level
   // with the TITLE, not floating between the two; a head that is only a
@@ -48,6 +62,7 @@ export function MenuHead({
         <div class="menu-title">{title}</div>
         {sub !== undefined && <div class="menu-sub">{sub}</div>}
       </div>
+      {action}
     </div>
   );
 }

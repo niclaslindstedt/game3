@@ -1686,7 +1686,10 @@ canvas {
    `.menu-card`. */
 .menu-head {
   display: grid;
-  grid-template-columns: auto 1fr;
+  /* Back, the billing, and — on a page that has one — the way ON. The third
+     column is `auto`, so a head with no action collapses it to nothing and
+     looks exactly as it did before there was one. */
+  grid-template-columns: auto 1fr auto;
   align-items: start;
   gap: 0.7rem;
   padding-bottom: 0.6rem;
@@ -1724,6 +1727,21 @@ canvas {
 
 .menu-head-text {
   min-width: 0;
+}
+
+/* A PAGE'S WAY ON, STANDING IN ITS HEAD (menu.tsx's `action`). `.menu-item` is
+   a front-door ROW — full width, the card's whole measure — so everything that
+   made it one is given back here and only its colour and its weight are kept:
+   this is a corner, not a banner. It is the tallest thing in the head and the
+   billing under a title wraps to two lines on a phone, so it is pinned to the
+   head's TOP and stands level with the title and the way back — centred, it
+   drifts down the head by however many lines the subtitle happens to take. */
+.menu-head-go {
+  align-self: start;
+  width: auto;
+  padding: 0.5rem 1.1rem;
+  font-size: 0.86rem;
+  white-space: nowrap;
 }
 
 .menu-title {
@@ -2301,12 +2319,6 @@ canvas {
   fill: var(--buoy);
   stroke: rgb(6 30 42 / 70%);
   stroke-width: 0.6;
-}
-
-/* The card's own way on, under the rows rather than beside them. */
-.menu-start-go {
-  margin-top: 0.4rem;
-  text-align: center;
 }
 
 /* The page's one blunt press — RESTORE DEFAULTS, COPY REPRO LINK, LOCK. */
