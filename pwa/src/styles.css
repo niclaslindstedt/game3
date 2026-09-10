@@ -79,6 +79,50 @@ canvas {
   height: 100%;
 }
 
+/* iOS EDGE TO EDGE. A fixed, non-scrolling shell laid out with `inset: 0`
+   stops at the LAYOUT viewport, which on iOS leaves a dead band along the
+   bottom of the screen — the game paints down to the layout edge and `body`'s
+   own `--sea` fills the rest, a flat blue strip under the instrument panel.
+   Percentage heights (`height: 100%`) land in the same place for the same
+   reason: the document stops at the letterboxed viewport instead of reaching
+   under the home indicator. An explicit viewport height is what carries the
+   shell to the physical bottom — `#root` is over-constrained by it (`top`
+   plus `height` wins, `bottom` is dropped), and the canvas, the HUD's ground
+   and the renderer's `ResizeObserver` all follow the box they sit in. Nothing
+   is pushed out of reach, because every pinned instrument is anchored with
+   `env(safe-area-inset-*)`.
+
+   INSTALLED vs BROWSER TAB is the whole subtlety. `100vh` is the LARGE
+   viewport — the screen as it would be with the toolbars retracted. That is
+   exactly right in an installed PWA, which has no toolbars, and exactly wrong
+   in Safari proper, where the toolbar is ON SCREEN: sized that way the shell
+   hangs past the bottom edge and takes the rev bar, the speed, the build
+   stamp and the throttle lever with it. So a browser tab — and only a browser
+   tab — gets the DYNAMIC viewport (`100dvh`), which is by definition the part
+   visible right now. Matching on `browser` rather than `standalone` is
+   deliberate: an installed app's effective display mode is not reliably
+   `standalone`, and a missed match there would hand it a height it never
+   asked for. Scoped to iOS by the `-webkit-touch-callout` probe (no other
+   engine supports it), so Android and desktop keep the plain viewport-tracking
+   shell; a Safari without `dvh` drops that declaration and falls back to it. */
+@supports (-webkit-touch-callout: none) {
+  :root {
+    --shell-height: 100vh;
+  }
+
+  @media (display-mode: browser) {
+    :root {
+      --shell-height: 100dvh;
+    }
+  }
+
+  html,
+  body,
+  #root {
+    height: var(--shell-height);
+  }
+}
+
 /* The prerendered copy in index.html (OSS_GAME_SPEC §11.3.1). Laid out as a
    readable page for the one reader who ever sees it — a browser with scripts
    off — and otherwise covered by #root. */
