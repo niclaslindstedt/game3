@@ -6,8 +6,9 @@
 //
 // THREE ROWS, AND THE MIDDLE ONE IS THE POINT.
 //
-//   START      → the water. The only way into a run there is: this is a
-//                vertical slice, and a front door offering four modes that
+//   START      → the start card (menu-start.tsx): the craft, the shore, the
+//                hour and the day, then the press that rides. The only way into a run there is: this is
+//                a vertical slice, and a front door offering four modes that
 //                all lead to the same shore would be a door telling four
 //                lies. Campaign, Time Trial and the rest arrive as rows here
 //                on the day `campaign.ts` stops being a placeholder.
@@ -39,9 +40,11 @@ import {
 } from "./menu-hold.ts";
 import { DeveloperPage } from "./menu-dev.tsx";
 import { OptionsPage } from "./menu-options.tsx";
+import { StartPage } from "./menu-start.tsx";
 import { STRINGS } from "./strings.ts";
 
-export type MenuPage = { page: "root" } | { page: "options" } | { page: "developer" };
+export type MenuPage =
+  { page: "root" } | { page: "start" } | { page: "options" } | { page: "developer" };
 
 /** How often the held row redraws its fill, ms. Ten a second is a fill that
  * reads as continuous and a hundredth of the work a frame loop would do —
@@ -78,16 +81,16 @@ function VersionStamp() {
 }
 
 /**
- * START — a press that rides, and a seven-second hold that opens the
- * developer menu (see this module's header for why it is this row).
+ * START — a press that opens the start card, and a seven-second hold that
+ * opens the developer menu (see this module's header for why it is this row).
  *
  * THE PRESS IS TAKEN ON `click`, NOT ON `pointerup`, and that is what makes
  * the row reachable three ways at once. A pointer, a key and `menu-nav.ts`'s
  * cursor all end in a click; only the first of them has pointer events at
  * all. So the pointer and key handlers do nothing but run the HOLD, and the
- * click is where the run actually starts — with `holdRelease` deciding
+ * click is where the card actually opens — with `holdRelease` deciding
  * whether this particular click is one, because a hold that has already
- * unlocked something must not also start a run over the top of it.
+ * unlocked something must not also walk off the page it just unlocked.
  */
 function StartRow({
   unlocked,
@@ -211,12 +214,10 @@ function StartRow({
 
 function RootPage({
   settings,
-  onStart,
   onNavigate,
   onUnlock,
 }: {
   settings: Settings;
-  onStart: () => void;
   onNavigate: (page: MenuPage) => void;
   onUnlock: () => void;
 }) {
@@ -236,7 +237,7 @@ function RootPage({
       <div class="menu-items">
         <StartRow
           unlocked={settings.developer}
-          onStart={onStart}
+          onStart={() => onNavigate({ page: "start" })}
           onUnlock={() => {
             setSaid(true);
             onUnlock();
@@ -288,9 +289,16 @@ export function MainMenu({
       {page.page === "root" && (
         <RootPage
           settings={settings}
-          onStart={onStart}
           onNavigate={onNavigate}
           onUnlock={() => onSettings({ ...settings, developer: true })}
+        />
+      )}
+      {page.page === "start" && (
+        <StartPage
+          settings={settings}
+          onSettings={onSettings}
+          onBack={() => onNavigate({ page: "root" })}
+          onRide={onStart}
         />
       )}
       {page.page === "options" && (

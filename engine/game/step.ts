@@ -6,7 +6,7 @@
 // there is no other way to advance a run.
 
 import { createRng } from "../lib/prng.ts";
-import { generateLevel } from "../mapgen/index.ts";
+import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
 import type { Level, Weather, Wind } from "../mapgen/types.ts";
 import { status } from "../output.ts";
 import { stepCraft } from "./craft.ts";
@@ -37,6 +37,10 @@ export type CreateGameOptions = {
    * seed that came up at noon. The sea is the wind's and does not move. */
   hour?: number;
   weather?: Weather;
+  /** ...or the hour named rather than counted: SUNRISE, DAY or SUNSET,
+   * resolved against THIS coast's own daylight window (`hourOfDay`). An
+   * explicit `hour` wins, being the more exact of the two. */
+  timeOfDay?: TimeOfDay;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
 };
@@ -86,12 +90,18 @@ export function freshCraft(spec: CraftSpec): CraftState {
 export function createGame(options: CreateGameOptions): GameState {
   const spec = craftById(options.craft ?? "skiff");
   const dealt = options.level ?? generateLevel(options.seed);
+  // A named time of day is resolved against the coast that was actually
+  // dealt, which is why it is read here rather than by the caller: only the
+  // level knows the latitude its daylight window is cut from (R13).
+  const asked =
+    options.hour ??
+    (options.timeOfDay === undefined ? undefined : hourOfDay(dealt, options.timeOfDay));
   const level: Level =
-    options.hour === undefined && options.weather === undefined
+    asked === undefined && options.weather === undefined
       ? dealt
       : {
           ...dealt,
-          hour: options.hour === undefined ? dealt.hour : ((options.hour % 24) + 24) % 24,
+          hour: asked === undefined ? dealt.hour : ((asked % 24) + 24) % 24,
           weather: options.weather ?? dealt.weather,
         };
   const wind =

@@ -174,14 +174,19 @@ type Cut = {
   k: number;
   /** How far from the anchor the schematic is built, m. */
   reach: number;
+  /** The ground lattice's cell, m. It rides on the cut rather than on a
+   * module constant because the two customers frame at wildly different
+   * scales: the map's own 300 m window wants six-metre cells, and the whole
+   * course at two kilometres would be a hundred thousand of them. */
+  cell: number;
   /** A world point in this cut's own view space. */
   at: (x: number, z: number) => Pt;
 };
 
-function cutAround(x: number, z: number, span: number): Cut {
+function cutAround(x: number, z: number, span: number, cell = GROUND_CELL): Cut {
   const k = VIEW / span;
   const at = (px: number, pz: number): Pt => [VIEW / 2 + (x - px) * k, VIEW / 2 + (z - pz) * k];
-  return { x, z, k, reach: span / 2 + MARGIN / k, at };
+  return { x, z, k, reach: span / 2 + MARGIN / k, cell, at };
 }
 
 /** WHERE THE CRAFT IS, in the map's screen space. Everything projected for a
@@ -259,13 +264,15 @@ function lines(runs: readonly (readonly Vec2[])[], cut: Cut): string {
 /** What the ground under one cell is: open water, shallows, or land. Cached
  * per world cell, because the window re-cut every twenty metres re-asks for
  * all but one row of the water it asked about last time. */
-function groundAt(level: Level, i: number, j: number): 0 | 1 | 2 {
+function groundAt(level: Level, i: number, j: number, cell: number): 0 | 1 | 2 {
   // Hashed rather than a string key: this runs a few thousand times
-  // per cut and a template literal per cell is the cut's biggest cost.
-  const key = i * 73_856_093 + j * 19_349_663;
+  // per cut and a template literal per cell is the cut's biggest cost. The
+  // CELL is in the key because an index means a different piece of sea bed
+  // at a different lattice, and two framings share this cache.
+  const key = i * 73_856_093 + j * 19_349_663 + cell * 83_492_791;
   const seen = ground.get(key);
   if (seen !== undefined) return seen;
-  const bed = sampleField(level.ground, (i + 0.5) * GROUND_CELL, (j + 0.5) * GROUND_CELL);
+  const bed = sampleField(level.ground, (i + 0.5) * cell, (j + 0.5) * cell);
   const kind: 0 | 1 | 2 = bed >= 0 ? 2 : bed > -SHALLOW_DEPTH ? 1 : 0;
   if (ground.size >= GROUND_MEMORY) ground.clear();
   ground.set(key, kind);
@@ -277,26 +284,27 @@ function groundAt(level: Level, i: number, j: number): 0 | 1 | 2 {
  * bed rather than to the window — without it the whole coast crawls sideways
  * every time the map is re-cut. */
 function groundLayers(level: Level, cut: Cut): { shallows: string; land: string } {
-  const i0 = Math.floor((cut.x - cut.reach) / GROUND_CELL);
-  const i1 = Math.ceil((cut.x + cut.reach) / GROUND_CELL);
-  const j0 = Math.floor((cut.z - cut.reach) / GROUND_CELL);
-  const j1 = Math.ceil((cut.z + cut.reach) / GROUND_CELL);
+  const cell = cut.cell;
+  const i0 = Math.floor((cut.x - cut.reach) / cell);
+  const i1 = Math.ceil((cut.x + cut.reach) / cell);
+  const j0 = Math.floor((cut.z - cut.reach) / cell);
+  const j1 = Math.ceil((cut.z + cut.reach) / cell);
   let shallows = "";
   let land = "";
   for (let j = j0; j <= j1; j++) {
     // The row's own two view-space edges, computed once: the lattice is
     // axis-aligned in world space and the projection is a flip and a scale,
     // so every cell in a row shares them.
-    const [, ya] = cut.at(0, j * GROUND_CELL);
-    const [, yb] = cut.at(0, (j + 1) * GROUND_CELL);
+    const [, ya] = cut.at(0, j * cell);
+    const [, yb] = cut.at(0, (j + 1) * cell);
     const top = Math.min(ya, yb);
     const bottom = Math.max(ya, yb);
     let run = 0 as 0 | 1 | 2;
     let from = i0;
     const flush = (to: number): void => {
       if (run === 0) return;
-      const [xa] = cut.at(from * GROUND_CELL, 0);
-      const [xb] = cut.at(to * GROUND_CELL, 0);
+      const [xa] = cut.at(from * cell, 0);
+      const [xb] = cut.at(to * cell, 0);
       const left = Math.min(xa, xb);
       const right = Math.max(xa, xb);
       const rect = `M ${n(left)} ${n(top)} H ${n(right)} V ${n(bottom)} H ${n(left)} Z `;
@@ -304,7 +312,7 @@ function groundLayers(level: Level, cut: Cut): { shallows: string; land: string 
       else land += rect;
     };
     for (let i = i0; i <= i1; i++) {
-      const kind = groundAt(level, i, j);
+      const kind = groundAt(level, i, j, cell);
       if (kind === run) continue;
       flush(i);
       run = kind;
@@ -334,6 +342,78 @@ function rocks(solids: readonly Solid[], cut: Cut): { rocks: string; reefs: stri
     else under += path;
   }
   return { rocks: over, reefs: under };
+}
+
+/** THE WHOLE COURSE AT ONCE — the second thing this cutter is for.
+ *
+ * The map above frames a travelling window because a rider is asking what is
+ * COMING. Somebody choosing a seed is asking the opposite question — what is
+ * this place — and that one is answered by the whole coast in one box: how
+ * the shore runs, how far out the line stands off it, where the skerries are
+ * and how long the course is. Same paths, same projection, one fixed cut
+ * around the middle of the course instead of around a craft.
+ *
+ * Expensive by the standards of a frame (a coarse lattice over two square
+ * kilometres) and cheap by the standards of the level generation that had to
+ * happen before it, which is why both run in the preview's worker rather
+ * than on the thread the sea is being drawn on.
+ */
+export type LevelSchematic = {
+  shallows: string;
+  land: string;
+  shore: string;
+  rocks: string;
+  reefs: string;
+  route: string;
+  /** The gates, in order, as points in the same `VIEW`-square space. */
+  gates: Pt[];
+  start: Pt;
+};
+
+/** How much of the box the course is drawn into, leaving the rest as the
+ * sea and shore around it — a route pressed against the frame reads as a
+ * route that continues past it. */
+const PREVIEW_FILL = 0.78;
+
+/** How many lattice cells the preview's ground is walked at, across the
+ * box. The map's own six-metre cell over a two-kilometre course would be a
+ * hundred thousand samples for a picture two inches wide. */
+const PREVIEW_CELLS = 150;
+
+export function levelSchematic(level: Level): LevelSchematic {
+  // Framed on the COURSE rather than on the level's bounds: the generator's
+  // water reaches a long way out to sea, and a box that held all of it would
+  // draw the race as a thread down one edge.
+  const path = level.course.path;
+  let minX = Infinity;
+  let maxX = -Infinity;
+  let minZ = Infinity;
+  let maxZ = -Infinity;
+  for (const p of path) {
+    if (p.x < minX) minX = p.x;
+    if (p.x > maxX) maxX = p.x;
+    if (p.z < minZ) minZ = p.z;
+    if (p.z > maxZ) maxZ = p.z;
+  }
+  const span = Math.max(maxX - minX, maxZ - minZ) / PREVIEW_FILL;
+  const cut = cutAround((minX + maxX) / 2, (minZ + maxZ) / 2, span, span / PREVIEW_CELLS);
+  // The lattice is a different one from the map's, and the cache is keyed by
+  // cell — but a preview walks a whole coast the map will never ask about,
+  // so it is dropped rather than left to crowd out the map's own cells.
+  ground = new Map();
+  groundOf = null;
+  const bed = groundLayers(level, cut);
+  const stone = rocks(level.solids, cut);
+  return {
+    shallows: bed.shallows,
+    land: bed.land,
+    shore: lines(level.shore, cut),
+    rocks: stone.rocks,
+    reefs: stone.reefs,
+    route: line(path, cut),
+    gates: level.course.gates.map((g) => cut.at(g.x, g.z)),
+    start: cut.at(level.start.x, level.start.z),
+  };
 }
 
 /** The schematic for this frame — the cached cut, translated to where the

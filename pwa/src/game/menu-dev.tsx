@@ -51,10 +51,15 @@ const SCENE_OPTIONS: readonly { id: ScenarioName | "start"; label: string }[] = 
  * they want to land IN the frame, not on the attract card in front of it.
  */
 export function reproQuery(settings: Settings): string {
-  const dev = settings.dev;
+  const { dev, ride } = settings;
   const params = new URLSearchParams();
-  params.set("seed", String(dev.seed ?? DEFAULT_SEED));
-  params.set("craft", settings.ride.craft);
+  params.set("seed", String(ride.seed ?? DEFAULT_SEED));
+  params.set("craft", ride.craft);
+  // The start card's own two rows travel as well: a link that dropped them
+  // would stand the frame up under a different sky from the one it was
+  // copied out of, which is the one thing a repro link may never do.
+  if (ride.time !== null) params.set("time", ride.time);
+  if (ride.conditions !== null) params.set("day", ride.conditions);
   if (dev.scene !== null) params.set("scene", dev.scene);
   if (dev.wind !== null) params.set("wind", String(dev.wind));
   if (dev.hs !== null) params.set("hs", String(dev.hs));
@@ -75,6 +80,12 @@ export function DeveloperPage({
   const dev = settings.dev;
   const setDev = (patch: Partial<Settings["dev"]>): void =>
     onSettings({ ...settings, dev: { ...dev, ...patch } });
+  // The SEED is the START CARD's row, shown here too because a developer
+  // reaching for a seed should not have to walk back out to the front door
+  // for it. One setting, two places to turn it — never two seeds.
+  const seed = settings.ride.seed ?? DEFAULT_SEED;
+  const setSeed = (next: number | null): void =>
+    onSettings({ ...settings, ride: { ...settings.ride, seed: next } });
 
   return (
     <div class="menu-card">
@@ -87,11 +98,11 @@ export function DeveloperPage({
       <MenuBody>
         <StepRow
           label={STRINGS.devSeed}
-          read={String(dev.seed ?? DEFAULT_SEED)}
+          read={String(seed)}
           // Never below 1: seed 0 is not a level, and an arrow that walks
           // off the bottom of the catalog is an arrow that hangs the page.
-          onStep={(by) => setDev({ seed: Math.max(1, (dev.seed ?? DEFAULT_SEED) + by) })}
-          onClear={() => setDev({ seed: null })}
+          onStep={(by) => setSeed(Math.max(1, seed + by))}
+          onClear={() => setSeed(null)}
           clearLabel={`${STRINGS.devSeed} ${STRINGS.devAuto}`}
         />
         <SliderRow

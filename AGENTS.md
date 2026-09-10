@@ -43,22 +43,27 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife` | `nature`, `game-feel`                   |
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
-| The sky, the light, the weather                         | `screenshots`, `level`         | `game-feel`                                    |
+| The sky, the light, the weather                         | `sky`, `screenshots`           | `game-feel`                                    |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots` and `profile` drive the built site in headless Chromium, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level` and `analyze` are pure Node — no build, no browser, seconds. `screenshots`, `profile` and `sky` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky` builds its own one-off bundle from its harness page and so needs no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
-Three of these are worth knowing about even when they are not your subject:
+Four of these are worth knowing about even when they are not your subject:
 
 - **`make level SEED=38`** reasons about ONE level without riding it — every gate numbered with its offshore distance and the depth under it, every ramp, every rock, the wind arrow — in a couple of seconds. A claim about "the second air gate on seed 38" is a claim about a row there.
 - **`make waves SEED=38`** is the sea with nothing riding it: a transect from the shore out, Hs against offshore distance, the spectrum. A wave-model change is judged by the sea it makes, and a screenshot shows one wave.
 - **`make sim`** is CI's `simulate` job and exits non-zero when a craft finishes NO seed. Its digests are where a determinism regression shows first; `docs/simulation.md` says what every column means.
+- **`make sky`** is every weather against every hour on ONE coast, as a single labelled sheet. It exists because a seed is dealt one sky (R19) at one hour (R13), so a screenshot of a RUN can only ever say whether that one sky is wrong — and the sky here is a LADDER, which is judged side by side or not at all.
 
 ## How work is done here
 
 Rules that apply to every task, before any subject skill has a say. They are restated here from the skills that own them because a session that gets them wrong gets them wrong from its first tool call:
+
+- **LOOK AT THE SIBLING REPO BEFORE BUILDING ANYTHING THAT IS NOT THE WATER.** [`niclaslindstedt/game2`](https://github.com/niclaslindstedt/game2) is the rally game this repo shares [`OSS_GAME_SPEC.md`](OSS_GAME_SPEC.md) with — same spec, same layering, same conventions, same commit and skill machinery — and it is **further along in nearly everything**. It has written skills where this repo only reserves the name (sound, soundtrack, atmosphere, visual effects, crashes, debug tools, level rating, platform shells, store listing and store shots), and a much deeper `scripts/` shelf: a sky lab, a track schematic, per-subject preview labs, tape record-and-replay, store preflight and shot sweeps. **Read its answer first and adapt it; do not reinvent one.** It is public, so a session reaches it read-only with `git clone --depth 1 https://github.com/niclaslindstedt/game2` (this repo cannot push there, and nothing in this tree may import from it — what comes across is the DESIGN, retyped in our vocabulary: a car is a craft, a stage is a shore, tarmac is water).
+  - **What is ours alone, and where the sibling has no answer worth taking:** the sea (`water-feel`), the hull's reply to it (`craft-physics`, `craft-tuning`), the coast and what swims off it (`mapgen-improvement`, `nature`), the rider on the saddle. A rally game's grip model is not a planing hull, and a road is not a wave field — porting a shape from there into any of those is how this game stops being about water.
+  - **What comes across nearly unchanged:** tooling and labs, the menu and shell furniture, the maintenance and release plumbing, store and platform work, and the procedure half of any skill. Adapting one of the sibling's skills is a real port — its subject must exist HERE first (this file's placeholder table is the list of subjects that do not), and it lands with its name and routing added to this file, `.agents/skills/README.md` and the `maintenance` registry, which `tests/skills_test.ts` holds.
 
 - **Lint, typecheck and format ONCE, at the gate — not after every edit.** `make fmt` and `make lint` are the commit's gate (the `commit` skill owns the split). Re-running them between one edit and the next re-checks code nobody touched and tells you nothing; batch the whole coherent change, then check it. Mid-loop, if a specific answer is genuinely needed, check only the files you touched (`npx eslint <paths>`, `npx tsc --noEmit`) — never a whole-repo pass, and never `prettier`, whose every finding `make fmt` fixes at the end for free.
 - **TEST WHAT YOU WROTE; THE PR TESTS THE REST.** Run the suites that cover the change and the ones it plausibly reaches, by file, and push — a red PR is a normal state and a follow-up commit costs nothing. Be honest about reach: a change to `TUNING`, `hull.ts`, `water.ts` or the generator reaches tests three directories away (a hull retune moves `craft_test`, `flight_test`, `simulation_test` and `determinism_test`'s digests at once; a rules change moves `mapgen_test`, `mapgen_population_test`, `analysis_test` and `docs_rules_test`), so name the topics generously for those; and a red PR is work NOW, not something to leave sitting.
@@ -125,6 +130,8 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | Which sky a seed is ridden under (R19)                | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`          | `mapgen-improvement` |
 | HUD, the dial, touch and keys, input                  | `pwa/src/game/hud*.tsx`, `input.ts`, `input-model.ts`         | `hud-and-menus`      |
 | The splash, the main menu, options, the developer page | `pwa/src/game/menu*.ts*`, `splash*.ts*`, `loading-screen.tsx` | `menu-system`       |
+| The start card: craft, shore, time, weather, then RIDE | `pwa/src/game/menu-start.tsx`                                  | `menu-system`       |
+| The seed's chart, and the worker that builds it       | `pwa/src/game/seed-preview.tsx`, `seed-preview-worker.ts`      | `menu-system`       |
 | What the game REMEMBERS between visits                | `pwa/src/game/settings.ts`                                    | `menu-system`        |
 | Standing a run up behind a card                       | `pwa/src/game/run-loader.ts` + the steps in `App.tsx`          | `menu-system`        |
 | The minimap: the coast it cuts, what stands on it     | `pwa/src/game/minimap-scene.ts`, `minimap-view.ts`, `minimap.tsx` | `hud-and-menus`   |
@@ -164,6 +171,7 @@ And the pieces that belong to no skill in particular:
 | App identity (name, palette, URLs)                 | `pwa/src/identity.ts` — the single source; `tests/identity_test.ts` holds every restatement to it          |
 | A Node script needing an app module                | `aliasEngine` in `scripts/lib/engine-alias.mjs` before the `import()` — never a Vite build to read a table |
 | New CLI tooling                                    | `scripts/*.mjs` (Node, `--experimental-strip-types`, flags through `scripts/lib/cli.mjs`)                   |
+| A lab that has to DRAW to answer its question      | a harness page in `pwa/src/tools/` + its own `pwa/<name>-preview.html`, driven by `scripts/<name>-preview.mjs` — the sibling repo's pattern; vite builds only `index.html`, so a harness never ships |
 | Engine tests                                       | `tests/<topic>_test.ts`                                                                                    |
 
 ### Stated once — never restate these

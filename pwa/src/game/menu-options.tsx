@@ -10,24 +10,18 @@
 // because `input.ts` carries a fixed table. Each of those becomes a row here
 // on the day the thing behind it exists, and not before.
 //
-// What is left is what a rider chooses: the craft they ride, the camera they
-// ride it from, and whether the readouts are over the water at all.
+// What is left is what a rider chooses ABOUT THE APP: the camera a run opens
+// on, and whether the readouts are over the water at all. What a rider
+// chooses about the RUN — the craft, the shore, the hour, the day — is the
+// start card's (`menu-start.tsx`), asked once on the way to the water rather
+// than twice in two places.
 //
 // The rows themselves are `menu.tsx`'s, shared with the developer page.
-
-import { CRAFT, type CraftId } from "@engine";
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { MenuBody, MenuHead, OptionRow, ToggleRow } from "./menu.tsx";
 import { freshSettings, type Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
-
-/** The craft, as chips — off the catalog rather than restated, so a craft
- * added to `engine/game/defs/craft.ts` is on this page the same day. */
-const CRAFT_OPTIONS: readonly { id: CraftId; label: string }[] = CRAFT.map((craft) => ({
-  id: craft.id,
-  label: craft.name.toUpperCase(),
-}));
 
 /** The cameras, in the ladder's own order, so the chips read left to right
  * the way the camera key walks them. */
@@ -54,12 +48,6 @@ export function OptionsPage({
     <div class="menu-card">
       <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuOptions} />
       <MenuBody>
-        <OptionRow
-          label={STRINGS.optCraft}
-          options={CRAFT_OPTIONS}
-          value={settings.ride.craft}
-          onPick={(craft) => onSettings({ ...settings, ride: { ...settings.ride, craft } })}
-        />
         <OptionRow
           label={STRINGS.optCamera}
           options={CAMERA_OPTIONS}
