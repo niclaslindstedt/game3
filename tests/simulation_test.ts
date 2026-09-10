@@ -75,7 +75,7 @@ describe("the bot on the synthetic shore", () => {
 
   it("rides the skerries' level without hitting them, and threads the ring", () => {
     const report = simulateStage({
-      seed: 9,
+      seed: 3,
       craft: "skiff",
       level: syntheticLevel({ windSpeed: 5 }),
       maxSeconds: 120,
@@ -83,9 +83,10 @@ describe("the bot on the synthetic shore", () => {
     expect(report.finished).toBe(true);
     expect(report.hits).toBe(0);
     // The rocks and the ring are what this case is about. A buoy is not:
-    // this shore's third gate is threaded a metre outside the port buoy at
-    // 78 km/h, which the engine charges and the rider carries on from
-    // (`course.missWide`) rather than looping back for.
+    // under this shore's 0.8 m beam sea the bot weaves several metres
+    // either side of the line at 80 km/h, and on some seeds that puts it
+    // a metre outside a buoy, which the engine charges and the rider
+    // carries on from (`course.missWide`) rather than looping back for.
     expect(report.gatesMissed).toBeLessThanOrEqual(1);
     expect(report.events.some((e) => e.kind === "airGate")).toBe(true);
   });

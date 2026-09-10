@@ -21,6 +21,7 @@ import {
   periodForHeight,
   placeRun,
   sampleField,
+  sampleFieldGradient,
   seaShares,
   seaSummary,
   shoaling,
@@ -262,6 +263,117 @@ describe("the surface", () => {
     // The first component is the longest.
     for (let i = 1; i < sea.components.length; i++)
       expect(sea.components[i].k0).toBeGreaterThan(sea.components[i - 1].k0);
+  });
+});
+
+describe("the phase field", () => {
+  const grad = new Float64Array(3);
+  /** The length the field carries at a point against the depth's own:
+   * |∇φ| / k(d), 1 where the eikonal holds. */
+  const lengthRatio = (
+    sea: ReturnType<typeof createSea>,
+    ground: Parameters<typeof sampleField>[0],
+    i: number,
+    x: number,
+    z: number,
+  ): number => {
+    const c = sea.components[i];
+    if (!c.phaseField) throw new Error("an ocean component carries a field");
+    sampleFieldGradient(c.phaseField, x, z, grad);
+    return Math.hypot(grad[1], grad[2]) / wavenumber(c.omega, -sampleField(ground, x, z));
+  };
+
+  it("carries the depth's own wavelength wherever the sea stands", () => {
+    // The bug this holds shut: a phase integrated along one heading carries
+    // every shoal's delay downwind as an offset between neighbouring paths,
+    // and the offset's lateral gradient read as a swell three to seven
+    // times too short, crawling sideways, at seven of seed 41's ten gates.
+    for (const seed of LEVEL_SEEDS.slice(0, 4)) {
+      const level = levelFor(seed);
+      const sea = createSea(level, seed);
+      const g = level.ground;
+      for (const gate of level.course.gates) {
+        for (let i = 0; i < sea.oceanCount; i++) {
+          const ratio = lengthRatio(sea, g, i, gate.x, gate.z);
+          expect(ratio, `seed ${seed} gate (${gate.x}, ${gate.z}) component ${i}`).toBeGreaterThan(
+            0.9,
+          );
+          expect(ratio, `seed ${seed} gate (${gate.x}, ${gate.z}) component ${i}`).toBeLessThan(
+            1.15,
+          );
+        }
+      }
+      // ...and over the exposed water at large, to within the creases where
+      // two arrivals meet in a lee.
+      let samples = 0;
+      let held = 0;
+      for (let r = 1; r < g.rows - 1; r += 4) {
+        for (let c = 1; c < g.cols - 1; c += 4) {
+          const x = g.originX + c * g.cell;
+          const z = g.originZ + r * g.cell;
+          if (-sampleField(g, x, z) < 2 || sampleField(sea.shelter.exposure, x, z) < 0.05) continue;
+          for (let i = 0; i < sea.oceanCount; i++) {
+            const ratio = lengthRatio(sea, g, i, x, z);
+            samples++;
+            if (ratio > 0.8 && ratio < 1.25) held++;
+          }
+        }
+      }
+      expect(samples, `seed ${seed}`).toBeGreaterThan(1000);
+      expect(held / samples, `seed ${seed}`).toBeGreaterThan(0.995);
+    }
+  });
+
+  it("turns the crests toward the shore as they come in", () => {
+    // An oblique sea on the synthetic shore: the wind blows in from the
+    // south-west, so the waves travel north-east — toward the shore at
+    // z = 0 and along it. Snell's law falls out of the eikonal: k·sin θ
+    // along the shore is conserved, k grows over the rising bed, so the
+    // angle to the shore's normal closes — by 20° for the longest
+    // component, which feels 10 m of water, and by nothing for the
+    // shortest, which does not. The bed is deepened to 40 m so the water
+    // at the rim is deep for every component: the field is fed the
+    // deep-water plane wave there, and a rim a wave can feel the bottom
+    // of would refract it at the rim itself.
+    const level = syntheticLevel({ windSpeed: 8, windFrom: -Math.PI / 4, depth: 40 });
+    const sea = createSea(level, 1);
+    const x = 400;
+    const deepZ = 300;
+    const shallowZ = 10;
+    const depthAt = (z: number): number => -sampleField(level.ground, x, z);
+    const angleToNormal = (i: number, z: number): number => {
+      const c = sea.components[i];
+      if (!c.phaseField) throw new Error("an ocean component carries a field");
+      sampleFieldGradient(c.phaseField, x, z, grad);
+      // The shore's inward normal is −z.
+      return Math.acos(-grad[2] / Math.hypot(grad[1], grad[2]));
+    };
+    let mostTurned = 0;
+    for (let i = 0; i < sea.oceanCount; i++) {
+      const c = sea.components[i];
+      // Out in the flat 40 m the field IS the plane wave: the gradient points
+      // the component's own way and has its own length.
+      sampleFieldGradient(c.phaseField!, x, deepZ, grad);
+      const along = (grad[1] * c.dirX + grad[2] * c.dirZ) / Math.hypot(grad[1], grad[2]);
+      expect(along, `component ${i} heading`).toBeGreaterThan(Math.cos(0.02));
+      expect(lengthRatio(sea, level.ground, i, x, deepZ), `component ${i} deep`).toBeCloseTo(1, 1);
+      // In 10 m of water the same component has shortened and turned in
+      // by Snell's law. The length's band is wider here because the bed
+      // climbs a metre a metre: k changes by a twentieth across one cell,
+      // and the bilinear gradient read inside a cell is that cell's mean.
+      const shallowRatio = lengthRatio(sea, level.ground, i, x, shallowZ);
+      expect(shallowRatio, `component ${i} shallow`).toBeGreaterThan(0.85);
+      expect(shallowRatio, `component ${i} shallow`).toBeLessThan(1.15);
+      const deep = angleToNormal(i, deepZ);
+      const shallow = angleToNormal(i, shallowZ);
+      const snell =
+        (Math.sin(deep) * wavenumber(c.omega, depthAt(deepZ))) /
+        wavenumber(c.omega, depthAt(shallowZ));
+      expect(Math.sin(shallow), `component ${i} obeys Snell`).toBeCloseTo(snell, 1);
+      expect(shallow, `component ${i} never turns away`).toBeLessThanOrEqual(deep + 0.02);
+      mostTurned = Math.max(mostTurned, deep - shallow);
+    }
+    expect(mostTurned).toBeGreaterThan(0.3);
   });
 });
 

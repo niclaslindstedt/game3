@@ -76,6 +76,7 @@ export {
   fieldGradient,
   fillField,
   sampleField,
+  sampleFieldGradient,
   type Heightfield,
 } from "../lib/heightfield.ts";
 export { drawRiver, type River } from "./river.ts";

@@ -39,6 +39,7 @@ comment's claim has to stay true.
 | Each component's amplitude, from the wind and the fetch | A fetch-limited JONSWAP spectrum (Hasselmann et al. 1973), falling back to Pierson–Moskowitz (1964) for the fully developed sea | `createSea` — the spectrum sampled at N frequencies |
 | The directions, spread about the wind | A cos²ⁿ spreading function about the mean wind direction | `createSea` |
 | Frequency from wavenumber, given the depth | Linear dispersion, ω² = g k tanh(k d), `d` from `level.ground` | `dispersion(k, d)` |
+| The phase of a component over the level — the wavelength shortening ashore, the crests turning toward the shallows and wrapping into a river mouth | The eikonal |∇φ| = k(d), solved once at build time by fast sweeping (Zhao 2005) from the deep-water plane wave at the rim; its gradient is the local wave vector | `buildPhaseField`, read by `surfaceAt` through `sampleFieldGradient` |
 | Amplitude growth coming ashore | The linear-theory shoaling coefficient K_s = √(c_g,deep / c_g), with Green's law (H ∝ d^−¼) as the shallow limit | `shoal(a, k, d)` |
 | The ceiling on height in shallow water | The depth-limited SIGNIFICANT height, Hs/d = 0.55 (Nelson 1994) — never McCowan's 0.78 applied to the summed amplitudes, which saturates every big sea to one value | the clip inside `surfaceAt` |
 | How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is the EFFECTIVE fetch upwind of the point, over a cos-weighted fan (SPM 1984 / Saville) | `engine/game/fetch.ts` — `fetchHeight`, `fetchPeriod`, `createShelter` |
@@ -114,6 +115,17 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
   against the shore. It is the effective fetch over the WATER upwind
   (`engine/game/fetch.ts`), which land cuts: that is what makes a river a
   river and a channel behind a headland a channel.
+- **THE PHASE IS AN EIKONAL, NEVER AN INTEGRAL ALONG A HEADING.** A wave
+  field's crests keep |∇φ| = k(d) everywhere and TURN where the bed or the
+  land asks them to; a phase integrated along one fixed direction keeps the
+  heading and breaks the wavenumber instead, carrying every shoal's delay
+  downwind as an offset between neighbouring paths. That reads as a swell
+  several times too short, standing or crawling sideways, in every lee and
+  either side of every river mouth. The rim is fed the deep-water plane
+  wave on the sides the wave enters by and nothing on the others; the wave
+  vector `surfaceAt` tilts and pushes the water along is the field's own
+  gradient. `tests/waves_test.ts` holds |∇φ|/k at every gate of the corpus
+  and Snell's law on the synthetic shore.
 - **Dispersion reads the DEPTH AT THE POINT, from `level.ground`.** ω² =
   g k tanh(k d): in deep water a wave's period fixes its length; coming in,
   the same period gets shorter and slower, and the crest steepens. A

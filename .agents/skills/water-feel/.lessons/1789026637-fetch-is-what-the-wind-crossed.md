@@ -14,9 +14,10 @@ over a cos-weighted fan upwind.
 
 Do not march a ray per point. One SWEEP per fan ray over the whole grid, each
 cell reading its two upwind neighbours mixed by the direction cosines, is the
-same scheme `buildPhaseField` already uses and the same O(cells) cost; five
-rays is a fraction of what `createSea` spends on eight phase fields
-(measured: +6 ms on a 400 ms level build). Land zeroing a run is the whole
+standard first-order upwind scheme at O(cells) per direction; five rays is a
+fraction of what `createSea` spends on eight phase fields (measured: +6 ms on
+a 400 ms level build). It is the right scheme for the FETCH — a run that land
+resets — and the wrong one for a PHASE (see the eikonal lesson). Land zeroing a run is the whole
 model — shelter behind a headland and up a channel falls out of that one line,
 and the lateral half of the scheme gives a diffraction-like softening for free.
 
