@@ -36,10 +36,11 @@ import {
   DEFAULT_VIDEO,
   DISTANCE_LOOK,
   FLORA_SCALE,
-  RAIN_RING_REACH,
-  REFLECTION_SCALE,
+  RAIN_LOOK,
+  REFLECTION_LOOK,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
+  WAKE_LOOK,
   WATER_LOOK,
   type VideoSettings,
 } from "./settings-video.ts";
@@ -257,6 +258,8 @@ export function createRenderer(
     water.dispose();
     water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
     water.setWake(wake.map);
+    water.setWakeLook(WAKE_LOOK[video.wake]);
+    water.setMirrorLook(REFLECTION_LOOK[video.reflections]);
     scene.add(water.mesh, water.far);
     if (level) water.setCoast(level.biome);
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
@@ -277,8 +280,15 @@ export function createRenderer(
       resize();
     }
     spray.setBudget(SPRAY_SCALE[next.spray]);
+    // THE WAKE is two halves that have to agree: the pass that draws the map
+    // and the shader that reads it. Off is both off; the map is cleared once
+    // on the way out so a stale road is never read back by a later press.
+    wake.setDrawn(WAKE_LOOK[next.wake].map);
+    water.setWakeLook(WAKE_LOOK[next.wake]);
+    sky.setRainSheet(RAIN_LOOK[next.rain].sheet);
     flora?.setDensity(FLORA_SCALE[next.flora]);
-    mirror.setScale(REFLECTION_SCALE[next.reflections]);
+    mirror.setScale(REFLECTION_LOOK[next.reflections].scale);
+    water.setMirrorLook(REFLECTION_LOOK[next.reflections]);
     // THE DISTANCE ROW pulls the fog in (or lets it out) to meet the radii the
     // frame will draw to; the radii themselves are applied per frame, because
     // they are measured from wherever the lens ends up.
@@ -364,7 +374,7 @@ export function createRenderer(
     const p = sky.preset();
     water.retone(p, sky.hemi, sky.key, sky.cloudLayers());
     applyCraftSky(surface, sky.cloudLayers());
-    water.setRain(sky.rainfall(), RAIN_RING_REACH[video.rainRings]);
+    water.setRain(sky.rainfall(), RAIN_LOOK[video.rain].rings);
     spray.light(sky.hemi, sky.key);
     fauna?.retone(p);
     // THE DARK: the craft's lamps come on with the sky's switch and are

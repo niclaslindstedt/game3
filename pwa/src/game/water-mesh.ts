@@ -73,7 +73,12 @@ import {
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import type { BuoyLamp } from "./buoys.ts";
-import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
+import {
+  WATER_LOOK,
+  type ReflectionLook,
+  type WakeLook,
+  type WaterLook,
+} from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { layWaterGrid, snapOrigin } from "./water-grid.ts";
@@ -83,10 +88,12 @@ import {
   applyBuoyLamps,
   applyLamp,
   applyMirror,
+  applyMirrorLook,
   applyRain,
   applySea,
   applySky,
   applyWake,
+  applyWakeLook,
   createWaterMaterial,
   type MirrorSeat,
   type WakeMap,
@@ -254,6 +261,9 @@ export type WaterMesh = {
   /** Whether the mirror handed to `createWaterMesh` has a picture this
    * frame (`Reflection.live`). Every frame. */
   setMirror: (live: boolean) => void;
+  /** How blurred that picture is read — the REFLECTION lever's `blur`. On a
+   * change of row. */
+  setMirrorLook: (look: ReflectionLook) => void;
   /** The craft's lamp, as the one spotlight in the scene: its pool on the
    * water is this shader's own term, read off the very light that lights
    * the hull and the buoys beside it. Every frame — the lamp rides the
@@ -269,6 +279,9 @@ export type WaterMesh = {
    * shader draws as foam, churn and relief. Once — the map's objects are
    * held, and rewritten by the wake each frame. */
   setWake: (map: WakeMap) => void;
+  /** HOW MUCH OF THE WAKE the shader reads off that map — the DETAIL row's
+   * `WAKE_LOOK`. Applies from the next frame; nothing is rebuilt. */
+  setWakeLook: (look: WakeLook) => void;
   /** WHICH COAST'S WATER this is: its tones, its ramp, its window and its
    * clarity (`water-optics.ts`). Set before the level is drawn and before
    * `retone`, which paints the horizon out of it. */
@@ -630,6 +643,7 @@ export function createWaterMesh(
     retone,
     setRain: (fall, reach) => applyRain(material, fall, reach),
     setMirror: (live) => applyMirror(material, live),
+    setMirrorLook: (look) => applyMirrorLook(material, look),
     setLamp: (lamp) => applyLamp(material, lamp),
     setBuoyLamps: (lamps) => applyBuoyLamps(material, lamps),
     setWindow: (open) => {
@@ -641,6 +655,7 @@ export function createWaterMesh(
       material.needsUpdate = true;
     },
     setWake: (map) => applyWake(material, map),
+    setWakeLook: (look) => applyWakeLook(material, look),
     setCoast,
     seeThrough: () => (windowOpen ? reach : 0),
     update,

@@ -29,10 +29,11 @@
  *   RESOLUTION  is pixels — every one of them, every frame, whatever is on
  *               screen. The single biggest lever on a weak GPU.
  *   DETAIL      is how much world there is per metre: the spray thrown off the
- *               hull, the sea life under the surface, the tree line behind the
- *               shore, how many sheets of cloud are in the sky (and so in the
- *               sea reflecting it), whether the rain lands on the water, and
- *               whether the shore and the craft stand mirrored in it.
+ *               hull, the wake it leaves, the sea life under the surface, the
+ *               tree line behind the shore, how many sheets of cloud are in
+ *               the sky (and so in the sea reflecting it), how much rain is in
+ *               the air and whether it lands on the water, and whether the
+ *               shore and the craft stand mirrored in it.
  *   DISTANCE    is how many metres of it there ARE — vertices, and nothing
  *               else. Where DETAIL thins the wood the rider is riding past,
  *               DISTANCE decides how much coast is submitted at all, and pulls
@@ -87,6 +88,17 @@ export type VideoSettings = {
    * sprites right in front of the lens, which is where a fill-bound machine
    * hurts most. */
   spray: SprayLevel;
+  /** WHAT THE CRAFT LEAVES BEHIND IT: the road, the fan, the boil and the
+   * relief the water shader draws off the map `wake.ts` rasterises round
+   * the hull every frame. Part of DETAIL, and it applies the instant it is
+   * set. Three stops because the map is paid for twice — once as a pass of
+   * its own before the picture, and again as texture reads on every pixel
+   * and every vertex of the near sea it covers — and the second bill splits
+   * cleanly: FLAT keeps the foam and the churn, which are what say the craft
+   * is moving, and drops the relief, which is the half that reads the map's
+   * gradient four times over for every pixel and vertex it touches. OFF is
+   * genuinely off: no pass, no map, no reads. */
+  wake: WakeLevel;
   /** WHETHER ANYTHING SWIMS HERE (R20) — the pods under the surface, drawn
    * only inside the see-through radius anyway. Part of DETAIL, and it applies
    * the instant it is set. Two stops rather than three because there is no
@@ -110,14 +122,18 @@ export type VideoSettings = {
    * which reflects the same sheets. That is also why it is worth the most —
    * over open water the sky and its reflection are most of the frame. */
   sky: SkyLevel;
-  /** WHETHER THE RAIN LANDS ON THE SEA — the rings a downpour pocks the
-   * surface with (`water-shader.ts`), and how far out they are drawn. Part of
-   * DETAIL, and it applies the instant it is set.
+  /** HOW MUCH RAIN THERE IS — the sheet of streaks in the air round the lens
+   * (`rain.ts`) and the rings a downpour pocks the sea with
+   * (`water-shader.ts`), and how far out the rings are drawn. Part of DETAIL,
+   * and it applies the instant it is set. The weather itself is the level's
+   * and none of this row's: the fog still closes in with the squall and the
+   * gusts still shove the hull, whatever is drawn falling.
    *
-   * OFF is genuinely off rather than a short fade: the whole nine-cell ring
-   * loop is skipped, so a level under a clear sky pays nothing for it at any
-   * stop and a phone in a downpour pays nothing for it at this one. */
-  rainRings: RainRingLevel;
+   * OFF is genuinely off rather than a short fade: the sheet is not
+   * submitted and the whole nine-cell ring loop is skipped, so a level under
+   * a clear sky pays nothing for it at any stop and a phone in a downpour
+   * pays nothing for it at this one. */
+  rain: RainLevel;
   /** WHETHER THE SHORE STANDS IN THE WATER — the coast, the wood on it, the
    * rocks, the gates, the craft and the rider, drawn a second time from
    * under the surface into a texture the water mirrors (`reflection.ts`),
@@ -156,14 +172,17 @@ export type ResolutionLevel = (typeof RESOLUTION_LEVELS)[number];
 export const SPRAY_LEVELS = ["off", "low", "full"] as const;
 export type SprayLevel = (typeof SPRAY_LEVELS)[number];
 
+export const WAKE_LEVELS = ["off", "flat", "full"] as const;
+export type WakeLevel = (typeof WAKE_LEVELS)[number];
+
 export const FLORA_LEVELS = ["sparse", "normal", "lush"] as const;
 export type FloraLevel = (typeof FLORA_LEVELS)[number];
 
 export const SKY_LEVELS = ["low", "medium", "high"] as const;
 export type SkyLevel = (typeof SKY_LEVELS)[number];
 
-export const RAIN_RING_LEVELS = ["off", "near", "far"] as const;
-export type RainRingLevel = (typeof RAIN_RING_LEVELS)[number];
+export const RAIN_LEVELS = ["off", "near", "far"] as const;
+export type RainLevel = (typeof RAIN_LEVELS)[number];
 
 export const FRAME_RATE_LEVELS = ["30", "60", "max"] as const;
 export type FrameRateLevel = (typeof FRAME_RATE_LEVELS)[number];
@@ -184,44 +203,97 @@ export const FRAME_RATE_CAP: Record<FrameRateLevel, number> = {
  * every sky pixel and again on every sea pixel, and which sheets go is the
  * cloud chart's `rank` rather than their altitudes. One sheet is the sky the
  * level is actually ridden under and nothing over it — a deck with no scud
- * under it, a cirrus veil with no cumulus below. `octaves` is how much
+ * under it, a cirrus veil with no cumulus below; two is every sheet the
+ * chart deals (`cloud-field.ts` stacks a ceiling and its scud, or a veil and
+ * its cumulus, and never a third), which is why the top two stops agree on
+ * it — `tests/video_test.ts` holds the top stop to exactly what the chart
+ * deals, so it can never promise a sheet nobody draws. `octaves` is how much
  * structure each sheet has: three is mass with one arm of erosion, five is a
- * cauliflower edge. `sunlit` takes a second sample toward the sun to find
- * which way a cloud's surface faces, and it is the difference between cloud
- * and cotton wool. */
+ * cauliflower edge, and it is the whole of what the top stop buys over the
+ * design point — one more octave on the erosion arm of every sheet
+ * (`fieldArms`), a modest bill for a finer ragged edge. `sunlit` takes a
+ * second sample toward the sun to find which way a cloud's surface faces,
+ * and it is the difference between cloud and cotton wool. */
 export const SKY_LOOK: Record<SkyLevel, { octaves: number; sunlit: boolean; layers: number }> = {
   low: { octaves: 3, sunlit: false, layers: 1 },
   medium: { octaves: 4, sunlit: true, layers: 2 },
-  high: { octaves: 5, sunlit: true, layers: 3 },
+  high: { octaves: 5, sunlit: true, layers: 2 },
 };
 
-/** Where the rain's rings begin to fade and where they are gone, m from the
- * lens. `off` is both zero, which the shader reads as "draw none".
+/** What one stop of the RAIN lever draws: how much of the sheet's pool of
+ * streaks is in the air, as a share of the design pool, and where the rings
+ * on the sea begin to fade and where they are gone, m from the lens. */
+export type RainLook = {
+  sheet: number;
+  rings: readonly [number, number];
+};
+
+/** THE RAIN LADDER. `off` is no sheet and a ring reach of zero, which the
+ * shader reads as "draw none".
  *
- * NEAR is the honest reach: a raindrop's ring is a hand's width across, and
- * past twenty metres it is under a pixel — what the eye is actually reading
- * out there is the sheet in the air and the fog behind it. FAR carries them
- * out to where the near water grid gives way, which on a machine with the
- * pixels for it is the difference between a shower on the boat and a shower
- * on the bay. */
-export const RAIN_RING_REACH: Record<RainRingLevel, readonly [number, number]> = {
-  off: [0, 0],
-  near: [9, 22],
-  far: [20, 48],
+ * NEAR is the honest reach for the rings: a raindrop's ring is a hand's width
+ * across, and past twenty metres it is under a pixel — what the eye is
+ * actually reading out there is the sheet in the air and the fog behind it —
+ * and half the sheet, which is still weather rather than a scatter of
+ * scratches because the near shell keeps its share of the pool
+ * (`rain.ts` interleaves the two shells, so a prefix of the pool is both).
+ * FAR is the whole pool, and the rings carried out to where the near water
+ * grid gives way, which on a machine with the pixels for it is the
+ * difference between a shower on the boat and a shower on the bay. */
+export const RAIN_LOOK: Record<RainLevel, RainLook> = {
+  off: { sheet: 0, rings: [0, 0] },
+  near: { sheet: 0.5, rings: [9, 22] },
+  far: { sheet: 1, rings: [20, 48] },
+};
+
+/** What one stop of the WAKE lever draws: whether the map is rasterised and
+ * read at all, and whether the RELIEF — the crest and the hollow that move
+ * the surface and bend the light between them — is read off it. The foam
+ * and the churn come with the map; the relief is the expensive half, four
+ * gradient reads on every vertex and every pixel inside the map's box on
+ * top of the map's own read. */
+export type WakeLook = {
+  map: boolean;
+  relief: boolean;
+};
+
+/** THE WAKE LADDER. FLAT is the road and the fan as foam and churn on a sea
+ * that does not bend for them — the arcade generation's own wake, and still
+ * the thing that says the craft is moving rather than the water. FULL adds
+ * the relief. OFF is a sea the craft leaves no mark on, which is the honest
+ * bottom of a lever whose whole subject is a picture: nothing the hull does
+ * changes, only what the water shows of it. */
+export const WAKE_LOOK: Record<WakeLevel, WakeLook> = {
+  off: { map: false, relief: false },
+  flat: { map: true, relief: false },
+  full: { map: true, relief: true },
 };
 
 export const REFLECTION_LEVELS = ["off", "soft", "sharp"] as const;
 export type ReflectionLevel = (typeof REFLECTION_LEVELS)[number];
 
-/** How big the mirror's picture is, as a share of the frame's own pixels a
- * side; `off` is no picture and no pass. SOFT is enough: the water reads the
- * texture blurred either way, because a sea is a rough mirror, and what the
- * top stop buys is a tree line that keeps its trunks at the waterline
- * rather than one that has gone to a smear a little sooner. */
-export const REFLECTION_SCALE: Record<ReflectionLevel, number> = {
-  off: 0,
-  soft: 0.4,
-  sharp: 0.6,
+/** What one stop of the REFLECTION lever draws: how big the mirror's
+ * picture is, as a share of the frame's own pixels a side, and how many mip
+ * levels down the water reads it. */
+export type ReflectionLook = {
+  scale: number;
+  blur: number;
+};
+
+/** THE REFLECTION LADDER. `off` is no picture and no pass. SOFT is enough:
+ * a sea is a rough mirror, and what it shows of a tree line is its mass.
+ * SHARP is a bigger picture READ LESS BLURRED — the two move together,
+ * because a picture with more pixels in it read down the same number of mip
+ * levels is the same smear at 2.25 times the price (measured: under two per
+ * cent of the sea's pixels moved between the two, until the blur was put on
+ * the ladder too). What the top stop buys is a tree line that keeps its
+ * trunks at the waterline rather than one that has gone to a smear a little
+ * sooner; never a sharp mirror, which on a wave is a second tree line
+ * standing on its head. */
+export const REFLECTION_LOOK: Record<ReflectionLevel, ReflectionLook> = {
+  off: { scale: 0, blur: 1.5 },
+  soft: { scale: 0.4, blur: 1.5 },
+  sharp: { scale: 0.6, blur: 0.75 },
 };
 
 /** What one stop of the WATER row builds. `water-grid.ts` lays the near
@@ -355,13 +427,16 @@ export const DISTANCE_LOOK: Record<DistanceLevel, DistanceLook> = {
  * everywhere — HIGH is the screen the device has (up to the cap), and each
  * stop down is a smaller canvas scaled up.
  *
- * The ladder is gentler than a straight halving because `MAX_DPR` has already
- * taken the worst of it: a 3× phone is drawing at 2× before this row is
- * consulted, so LOW here is a quarter of the pixels of the screen rather than
- * a sixteenth, and it is still legible enough to ride. */
+ * Each stop down is HALF THE PIXELS of the one over it — the scale is the
+ * square root of that, so the steps read as 1, 0.7 and 0.5 a side — because
+ * the bill this row pays is per pixel and a stop that did not halve it would
+ * be a stop nobody could feel. `MAX_DPR` has already taken the worst of a
+ * dense screen: a 3× phone is drawing at 2× before this row is consulted, so
+ * LOW here is a quarter of the screen's own pixels rather than a sixteenth,
+ * and it is still legible enough to ride. */
 export const RESOLUTION_SCALE: Record<ResolutionLevel, number> = {
   low: 0.5,
-  medium: 0.75,
+  medium: 0.7,
   high: 1,
 };
 
@@ -386,12 +461,12 @@ export const FLORA_SCALE: Record<FloraLevel, number> = {
   lush: 1.6,
 };
 
-/** The three levers DETAIL owns. Named as a slice of `VideoSettings` rather
- * than restated, so adding another is a decision about which row it belongs on
+/** The levers DETAIL owns. Named as a slice of `VideoSettings` rather than
+ * restated, so adding another is a decision about which row it belongs on
  * instead of a silent omission from both. */
 export type DetailSettings = Pick<
   VideoSettings,
-  "spray" | "fauna" | "flora" | "sky" | "rainRings" | "reflections"
+  "spray" | "wake" | "fauna" | "flora" | "sky" | "rain" | "reflections"
 >;
 
 export const DETAIL_LEVELS = ["low", "medium", "high"] as const;
@@ -406,37 +481,44 @@ export type DetailLevel = (typeof DETAIL_LEVELS)[number];
  * an opinion about the tree line that is not also an opinion about whether
  * there are fish under the boat. */
 export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
-  // The phone that would rather have the frames: under half the spray, an
-  // empty sea under the hull, a thin tree line, one cloud sheet read shallow,
-  // and a sea the rain does not land on.
+  // The phone that would rather have the frames: under half the spray, a
+  // wake that is foam on a sea that does not bend for it, an empty sea under
+  // the hull, a thin tree line, one cloud sheet read shallow, and no rain in
+  // the air or on the water. Nothing OFF that says the craft is moving — the
+  // spray and the road stay, thinned — because a stop that reads as a craft
+  // parked on a painting is a stop nobody would keep, whatever it saved.
   low: {
     spray: "low",
+    wake: "flat",
     fauna: false,
     flora: "sparse",
     sky: "low",
-    rainRings: "off",
+    rain: "off",
     reflections: "off",
   },
   // The design point — every lever at the number the game was tuned on.
   medium: {
     spray: "full",
+    wake: "full",
     fauna: true,
     flora: "normal",
     sky: "medium",
-    rainRings: "near",
+    rain: "near",
     reflections: "soft",
   },
-  // A machine with headroom: a thicker shore, a third cloud sheet read a stop
-  // deeper, and the rain landing out to where the near grid gives way. The
-  // spray is already every droplet the hull throws and the sea life already
-  // every pod the rider can see into, so those two have nowhere left to go —
-  // a stop that promised more would be the page inventing work to sell.
+  // A machine with headroom: a thicker shore, a sharper mirror, the cloud's
+  // edges read a stop deeper, the whole sheet of rain and its rings out to
+  // where the near grid gives way. The spray is already every droplet the hull throws, the wake
+  // already everything the map carries and the sea life already every pod
+  // the rider can see into, so those have nowhere left to go — a stop that
+  // promised more would be the page inventing work to sell.
   high: {
     spray: "full",
+    wake: "full",
     fauna: true,
     flora: "lush",
     sky: "high",
-    rainRings: "far",
+    rain: "far",
     reflections: "sharp",
   },
 };
@@ -484,11 +566,11 @@ export const DEFAULT_VIDEO: VideoSettings = {
 };
 
 /** Which DETAIL stop a set of levers IS: by exact match, else the stop that
- * agrees with the most of the three, ties going to the CHEAPER picture because
- * `DETAIL_PRESETS` is walked cheapest first. So a blob written on another
- * build's ladder lands on the picture it most resembles, and never on a
- * heavier one than it asked for. A blob with none of the three in it is a blob
- * with no opinion, which is MEDIUM: the design point, not the floor. */
+ * agrees with the most of its levers, ties going to the CHEAPER picture
+ * because `DETAIL_PRESETS` is walked cheapest first. So a blob written on
+ * another build's ladder lands on the picture it most resembles, and never on
+ * a heavier one than it asked for. A blob with none of the levers in it is a
+ * blob with no opinion, which is MEDIUM: the design point, not the floor. */
 export function detailOf(video: Partial<VideoSettings>): DetailLevel {
   const keys = Object.keys(DETAIL_PRESETS.medium) as (keyof DetailSettings)[];
   let best: DetailLevel = "medium";

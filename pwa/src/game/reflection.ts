@@ -26,7 +26,7 @@
 // does not reflect itself. The renderer hands those over as `hidden`.
 //
 // How big the texture is — and whether there is one — is the DETAIL row's
-// (`REFLECTION_SCALE`, settings-video.ts): a second pass over the whole
+// (`REFLECTION_LOOK`, settings-video.ts): a second pass over the whole
 // shore is the dearest thing a stop can buy, and OFF draws nothing at all.
 
 import * as THREE from "three";

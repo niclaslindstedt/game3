@@ -522,11 +522,13 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       fauna: false,
       flora: "sparse",
       // A row the stored blob has never heard of — this one was written
-      // before the sky, the rain's rings, the mirror and the draw distance were levers —
-      // comes back at THIS build's default rather than off, so an old blob is
-      // a picture with a row added to it and not a picture with a row missing.
+      // before the wake, the sky, the rain, the mirror and the draw distance
+      // were levers — comes back at THIS build's default rather than off, so
+      // an old blob is a picture with a row added to it and not a picture
+      // with a row missing.
+      wake: DEFAULT_SETTINGS.video.wake,
       sky: DEFAULT_SETTINGS.video.sky,
-      rainRings: DEFAULT_SETTINGS.video.rainRings,
+      rain: DEFAULT_SETTINGS.video.rain,
       reflections: DEFAULT_SETTINGS.video.reflections,
       distance: DEFAULT_SETTINGS.video.distance,
       frameRate: DEFAULT_SETTINGS.video.frameRate,
@@ -548,12 +550,21 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     // back on — but only THAT row falls back, or a renamed stop would take a
     // rider's whole picture with it.
     const stored = mergeSettings({
-      video: { water: "ultra", resolution: "high", spray: "off", flora: "jungle" },
+      video: {
+        water: "ultra",
+        resolution: "high",
+        spray: "off",
+        flora: "jungle",
+        wake: "flat",
+        rain: "sometimes",
+      },
     });
     expect(stored.video.water).toBe(DEFAULT_SETTINGS.video.water);
     expect(stored.video.flora).toBe(DEFAULT_SETTINGS.video.flora);
     expect(stored.video.resolution).toBe("high");
     expect(stored.video.spray).toBe("off");
+    expect(stored.video.wake).toBe("flat");
+    expect(stored.video.rain).toBe(DEFAULT_SETTINGS.video.rain);
   });
 
   it("takes no opinion from a blob written before the picture had rows", () => {

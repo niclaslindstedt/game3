@@ -35,11 +35,12 @@ import {
   DISTANCE_LEVELS,
   FLORA_LEVELS,
   FRAME_RATE_LEVELS,
-  RAIN_RING_LEVELS,
+  RAIN_LEVELS,
   REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   SKY_LEVELS,
   SPRAY_LEVELS,
+  WAKE_LEVELS,
   WATER_LEVELS,
   type VideoSettings,
 } from "./settings-video.ts";
@@ -345,9 +346,10 @@ export function mergeSettings(parsed: unknown): Settings {
     settings.video.resolution =
       on(RESOLUTION_LEVELS, video.resolution) ?? settings.video.resolution;
     settings.video.spray = on(SPRAY_LEVELS, video.spray) ?? settings.video.spray;
+    settings.video.wake = on(WAKE_LEVELS, video.wake) ?? settings.video.wake;
     settings.video.flora = on(FLORA_LEVELS, video.flora) ?? settings.video.flora;
     settings.video.sky = on(SKY_LEVELS, video.sky) ?? settings.video.sky;
-    settings.video.rainRings = on(RAIN_RING_LEVELS, video.rainRings) ?? settings.video.rainRings;
+    settings.video.rain = on(RAIN_LEVELS, video.rain) ?? settings.video.rain;
     settings.video.reflections =
       on(REFLECTION_LEVELS, video.reflections) ?? settings.video.reflections;
     settings.video.frameRate = on(FRAME_RATE_LEVELS, video.frameRate) ?? settings.video.frameRate;
