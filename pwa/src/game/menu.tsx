@@ -8,11 +8,11 @@
 // options page and a camera picked on the developer page must be one row
 // with one look, or the second one reads as a different setting.
 //
-// FOUR ROWS, AND WHICH ONE TO REACH FOR IS NOT A STYLE CHOICE:
+// FIVE ROWS, AND WHICH ONE TO REACH FOR IS NOT A STYLE CHOICE:
 //
-//   OptionRow  — a choice whose answers have NAMES (chase or nose, one of
-//                four craft). Chips, all of them on screen, so the answer
-//                and its alternatives are read in one look.
+//   OptionRow  — a choice whose answers have NAMES (chase or nose). Chips,
+//                all of them on screen, so the answer and its alternatives
+//                are read in one look.
 //   SliderRow  — a choice whose answer is A BIT MORE THAN THAT (a wind, a
 //                sea). A fader with the figure beside it, because chips at
 //                five stops are five places a continuous value is allowed
@@ -20,6 +20,12 @@
 //   StepRow    — a choice with too many answers to draw and an ORDER to
 //                them (a seed). An arrow either side of the figure.
 //   ToggleRow  — on or off, with the cost of taking it written underneath.
+//   PageRow    — a choice whose answers CANNOT BE SAID IN WORDS, and so is
+//                not asked here at all: the row reads back what is chosen
+//                and opens the card that chooses it. The craft is the one
+//                (menu-craft.tsx) — four hulls are four shapes, and four
+//                names in a chip row is a rider picking between things they
+//                have never seen.
 //
 // Every one of them is a real `<button>` or `<input>`, which is what makes
 // `menu-nav.ts` able to walk a page written tomorrow with nothing to
@@ -243,6 +249,41 @@ export function ToggleRow({
         <span class="opt-switch-knob" />
       </span>
     </button>
+  );
+}
+
+/**
+ * A ROW THAT IS NOT THE QUESTION — it reads back the answer and opens the
+ * card that asks it.
+ *
+ * For a choice whose alternatives a row cannot show. Chips work because the
+ * answer and everything it was chosen over are on screen together; where
+ * the answers are SHAPES rather than words that stops being true, and the
+ * honest row is one that says what is chosen and hands the choosing to a
+ * surface with room for it. The chevron is the promise that pressing goes
+ * somewhere, which is the one thing this row must not leave a player to
+ * discover.
+ */
+export function PageRow({
+  label,
+  read,
+  onOpen,
+}: {
+  label: string;
+  /** The answer as it stands, in the words the card that set it used. */
+  read: string;
+  onOpen: () => void;
+}) {
+  return (
+    <div class="menu-row">
+      <span class="menu-label">{label}</span>
+      <button type="button" class="menu-page-row" onClick={onOpen}>
+        <span class="menu-page-read">{read}</span>
+        <span class="menu-page-more" aria-hidden="true">
+          ›
+        </span>
+      </button>
+    </div>
   );
 }
 

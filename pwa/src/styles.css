@@ -1676,6 +1676,43 @@ canvas {
   cursor: pointer;
 }
 
+/* A row that READS BACK an answer and opens the card that asks it — the
+   craft (menu.tsx's `PageRow`). It wears the stepper's readout weight, since
+   what it shows is the same kind of thing: the value as it stands. The
+   chevron is the promise that pressing goes somewhere. */
+.menu-page-row {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.3rem 0.5rem 0.3rem 0.7rem;
+  border: 2px solid rgb(242 247 248 / 22%);
+  border-radius: 0.4rem;
+  background: rgb(8 42 56 / 45%);
+  color: var(--hud-ink);
+  font: inherit;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.menu-page-row:hover,
+.menu-page-row:focus-visible,
+.menu-page-row.nav-cursor {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+.menu-page-read {
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.menu-page-more {
+  font-size: 0.95rem;
+  line-height: 1;
+  color: var(--hud-info);
+}
+
 /* A switch with its cost written under it. */
 .opt-toggles {
   display: flex;
@@ -1891,6 +1928,352 @@ canvas {
 .opt-reset-quiet {
   opacity: 0.65;
   font-size: 0.66rem;
+}
+
+/* ── THE CRAFT CARD (menu-craft.tsx, craft-picker.tsx) ────────────────────
+   THE CRAFT IS THE PAGE. It is the only thing on this card that cannot be
+   said in words, and the one the whole screen exists to choose — so it takes
+   the room, and everything else is sized to be READ rather than to fill.
+   What is left beside it is two figures and four bars (craft-stats.ts).
+
+   Built the way OPTIONS is: a head row, a body that is one column or two,
+   and the card's one sentence — the craft's own billing — standing IN the
+   picture rather than on a row of its own, because a line of prose under
+   every control is height, and height on a phone is the craft getting
+   smaller. */
+
+.menu-card-craft {
+  width: min(52rem, 100%);
+}
+
+.craft-pick-body {
+  display: grid;
+  gap: clamp(0.6rem, 2.4vmin, 1.1rem);
+}
+
+.craft-stage-col {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+/* THE NAME AND THE COUNT stand IN the picture, on one line across the head
+   of the stage: the craft and what it is called are one thing, and a caption
+   on a line of its own below the frame is a line of the card's height spent
+   saying so. At the TOP because that is where the craft is not — the shot
+   sits the hull low with air over the deck (craft-turntable.ts), so the
+   plate goes in the air rather than across the bow. The whole row becomes
+   the stage with both of them out of the flow. */
+.craft-pick-row {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+}
+
+/* The arrows come OFF the row and stand over the water. Flanking it they
+   would be two thumb-widths of the card's width spent on chrome at exactly
+   the moment the card is trying to hand the craft everything it has; over
+   the corners of the picture they cost nothing and read the way the arrows
+   either side of a showroom photograph do. */
+.craft-pick {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: stretch;
+}
+
+/* The pane the hull floats in: the sea's own two tones, so the disc under
+   the craft reads as water rather than as a plinth. Held to roughly four by
+   three on a narrow card — the stand frames the craft to whichever of the
+   pane's two dimensions runs out first (craft-turntable.ts), and on a pane
+   much taller than it is wide that is the WIDTH, so every further pixel of
+   height is scrim under the hull rather than more hull. */
+.craft-pick-stage {
+  position: relative;
+  flex: 1;
+  height: clamp(9rem, 30vh, 15rem);
+  border-radius: 0.7rem;
+  border: 2px solid rgb(242 247 248 / 18%);
+  background: linear-gradient(rgb(63 167 184 / 26%), rgb(11 61 79 / 55%));
+  overflow: hidden;
+}
+
+/* THE CANVAS IS TAKEN OUT OF THE FLOW, and that is load-bearing rather than
+   tidy. A canvas is a REPLACED element: given `height: 100%` against a
+   parent whose own height is indefinite — which is exactly what this stage
+   is on the two-column shape, sized by the grid row — the percentage cannot
+   resolve, so it falls back to the BUFFER's aspect ratio and the picture
+   starts sizing the frame it is supposed to be filling.
+
+   That closes a loop, because the buffer is cut to the frame every frame
+   (craft-turntable.ts): pane height ← buffer ratio ← pane height. Every
+   ratio is a fixed point of it, so the pane keeps whatever shape it had when
+   its height was last definite and no later screen can talk it down. In the
+   flow, a phone turned from upright to sideways carries its PORTRAIT ratio
+   into a landscape pane — which is TAKE IT pushed under the fold.
+
+   Absolute against the stage's own box, the canvas contributes no height to
+   anything: the pane is sized by the stylesheet and the grid, the buffer
+   follows the pane, and the arrow of causation only points one way. */
+.craft-pick-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.craft-pick-step {
+  position: absolute;
+  top: 50%;
+  z-index: 1;
+  min-width: 2.4rem;
+  padding: 0.45rem 0.5rem;
+  border: 2px solid rgb(242 247 248 / 30%);
+  border-radius: 0.5rem;
+  background: rgb(8 42 56 / 60%);
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: clamp(1.1rem, 4vmin, 1.6rem);
+  line-height: 1;
+  cursor: pointer;
+  touch-action: manipulation;
+  transform: translateY(-50%);
+}
+
+.craft-pick-step:hover,
+.craft-pick-step:focus-visible {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+.craft-pick-step[data-nav-step="left"] {
+  left: 0.45rem;
+}
+
+.craft-pick-step[data-nav-step="right"] {
+  right: 0.45rem;
+}
+
+.craft-pick-id {
+  position: absolute;
+  top: 0.55rem;
+  left: 50%;
+  z-index: 1;
+  display: flex;
+  align-items: baseline;
+  gap: 0.55rem;
+  padding: 0.2rem 0.85rem 0.25rem;
+  border-radius: 0.5rem;
+  background: rgb(8 42 56 / 55%);
+  transform: translateX(-50%);
+}
+
+.craft-pick-name {
+  font-size: clamp(0.9rem, 3.2vmin, 1.3rem);
+  font-weight: 700;
+  letter-spacing: 0.16em;
+  color: var(--buoy);
+}
+
+.craft-pick-count {
+  font-size: clamp(0.55rem, 2vmin, 0.72rem);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.18em;
+  color: var(--hud-info);
+}
+
+/* The card's ONE sentence, IN the picture: across the foot of the stage,
+   inside its border, over the water the craft is floating on. Centred,
+   because there is nothing to tie it to but the hull it is sitting under. */
+.craft-blurb {
+  position: absolute;
+  right: 0.55rem;
+  bottom: 0.5rem;
+  left: 0.55rem;
+  z-index: 1;
+  margin: 0;
+  padding: 0.28rem 0.7rem;
+  border-radius: 0.45rem;
+  background: rgb(8 42 56 / 55%);
+  font-size: clamp(0.56rem, 2vmin, 0.7rem);
+  letter-spacing: 0.04em;
+  text-align: center;
+  text-transform: none;
+  text-wrap: balance;
+  color: var(--hud-info);
+}
+
+/* Beside the craft, TWO BLOCKS HELD TOGETHER in the middle of the column.
+   The column is as tall as the picture is and will always have height to
+   spare — the readings are six short lines by design — and there are only
+   two things to spend it between, so pushing them to the ends opens one
+   hole in the middle of the card instead of giving either block anything.
+   Kept together they read as one sheet beside the craft, which is what they
+   are: two figures and what those figures are worth against the roster. */
+.craft-spec {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: clamp(0.45rem, 2vmin, 0.8rem);
+  min-width: 0;
+}
+
+/* THE TWO FIGURES, big — they are what the arrows under them move, and a
+   choice whose consequence is printed in six-point type is a choice nobody
+   notices they have made. */
+.craft-figures {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.4rem;
+}
+
+.craft-figure {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  padding: 0.5rem 0.7rem 0.6rem;
+  border-radius: 0.6rem;
+  background: rgb(242 247 248 / 7%);
+}
+
+.craft-figure-label {
+  font-size: clamp(0.5rem, 1.7vmin, 0.64rem);
+  letter-spacing: 0.16em;
+  color: var(--hud-info);
+}
+
+/* Tabular figures are not a nicety here: the number COUNTS to its new value
+   (menu-craft.tsx), and proportional digits would have the whole readout
+   shuffling sideways all the way there. */
+.craft-figure-value {
+  font-size: clamp(1.05rem, 3.8vmin, 1.6rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  line-height: 1.05;
+  color: var(--buoy);
+}
+
+.craft-figure-unit {
+  margin-left: 0.35em;
+  font-size: 0.6em;
+  letter-spacing: 0.1em;
+  opacity: 0.8;
+}
+
+/* FOUR BARS IN ONE BOX, kept small. They are a comparison, not a readout —
+   what is worth reading off them is which of four hulls is longest, and that
+   is legible at any height. One panel rather than four: they are read
+   TOGETHER, and four boxes is four things to look at where there is one. */
+.craft-bars {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  padding: 0.55rem 0.7rem;
+  border-radius: 0.6rem;
+  background: rgb(242 247 248 / 7%);
+}
+
+.craft-bar {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+/* Fixed, so the tracks start on the same x down the block — which is what
+   makes four bars read as one comparison instead of four. */
+.craft-bar-label {
+  flex: none;
+  width: 6.1rem;
+  font-size: clamp(0.44rem, 1.5vmin, 0.56rem);
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  color: var(--hud-info);
+}
+
+.craft-bar-track {
+  flex: 1;
+  min-width: 0;
+  height: 0.45rem;
+  border-radius: 0.23rem;
+  background: rgb(242 247 248 / 14%);
+  overflow: hidden;
+}
+
+/* The bar TRAVELS to its new length, over the same 420 ms and the same cubic
+   ease-out the figures count over (`lib/count.ts`): press an arrow and the
+   whole sheet moves as one thing, instead of two numbers rolling while four
+   bars jump. */
+.craft-bar-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--buoy);
+  transition: width 420ms cubic-bezier(0.22, 0.61, 0.36, 1);
+}
+
+.craft-done {
+  margin-top: 0.2rem;
+  text-align: center;
+}
+
+/* Two columns, the moment the card is wide enough to read the sheet beside
+   the craft — which on a phone held sideways is every time.
+
+   THE STAGE ABSORBS THE SLACK. The row is as tall as its taller column, and
+   with the pane stretched to fill what it is given, that slack becomes CRAFT
+   rather than a rectangle of empty water under one column or the other. The
+   clamp above stops being a height and becomes the floor under it. */
+@media (min-width: 40rem) {
+  .craft-pick-body {
+    grid-template-columns: minmax(0, 1.4fr) minmax(14rem, 1fr);
+    align-items: stretch;
+  }
+
+  .craft-pick-stage {
+    height: auto;
+    min-height: clamp(9rem, 30vh, 15rem);
+  }
+}
+
+/* A desktop. The extra width goes to the CRAFT — a wider card, a bigger
+   share of it for the stand, and a stand tall enough to use it: a picture of
+   a hull in a 3:1 letterbox is a smaller hull than the same one in a window
+   half the width. */
+@media (min-width: 64rem) {
+  .menu-card-craft {
+    width: min(60rem, 100%);
+  }
+
+  .craft-pick-body {
+    grid-template-columns: minmax(0, 1.7fr) minmax(15rem, 1fr);
+  }
+
+  .craft-pick-stage {
+    min-height: clamp(13rem, 46vh, 24rem);
+  }
+}
+
+/* A phone held sideways — the shape with the least height and the most of it
+   already spoken for. The columns even up (the sheet has no more to say than
+   it does on a laptop, and the craft has everything left over), and the
+   stand takes nearly half the screen's height: the budget is the head, the
+   billing and TAKE IT, and the rest of the card is the craft. */
+@media (orientation: landscape) and (max-height: 34rem) {
+  .craft-pick-body {
+    gap: 0.6rem;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr);
+  }
+
+  .craft-spec {
+    gap: 0.4rem;
+  }
+
+  .craft-pick-stage {
+    min-height: clamp(6rem, 34vh, 11rem);
+  }
 }
 
 /* THE CURSOR'S RING (menu-nav.ts). A class this module owns rather than

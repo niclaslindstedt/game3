@@ -7,7 +7,10 @@
 // THREE ROWS, AND THE MIDDLE ONE IS THE POINT.
 //
 //   START      → the start card (menu-start.tsx): the craft, the shore, the
-//                hour and the day, then the press that rides. The only way into a run there is: this is
+//                hour and the day, then the press that rides. Its CRAFT row
+//                opens a card of its own (menu-craft.tsx), because four
+//                hulls are four shapes and a row of names cannot show one.
+//                The only way into a run there is: this is
 //                a vertical slice, and a front door offering four modes that
 //                all lead to the same shore would be a door telling four
 //                lies. Campaign, Time Trial and the rest arrive as rows here
@@ -38,13 +41,18 @@ import {
   tickHold,
   type HoldState,
 } from "./menu-hold.ts";
+import { CraftPage } from "./menu-craft.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
 import { STRINGS } from "./strings.ts";
 
 export type MenuPage =
-  { page: "root" } | { page: "start" } | { page: "options" } | { page: "developer" };
+  | { page: "root" }
+  | { page: "start" }
+  | { page: "craft" }
+  | { page: "options" }
+  | { page: "developer" };
 
 /** How often the held row redraws its fill, ms. Ten a second is a fill that
  * reads as continuous and a hundredth of the work a frame loop would do —
@@ -298,7 +306,18 @@ export function MainMenu({
           settings={settings}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
+          onCraft={() => onNavigate({ page: "craft" })}
           onRide={onStart}
+        />
+      )}
+      {/* The craft card's only way out is BACK to the start card: it was a
+          row there, and a rider who has just chosen a hull is still in the
+          middle of answering what this run is. */}
+      {page.page === "craft" && (
+        <CraftPage
+          settings={settings}
+          onSettings={onSettings}
+          onBack={() => onNavigate({ page: "start" })}
         />
       )}
       {page.page === "options" && (

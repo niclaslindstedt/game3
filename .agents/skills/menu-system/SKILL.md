@@ -25,7 +25,7 @@ beside this one, **`hud-and-menus`** for anything drawn over a RUN, and
 | Surface | Covers | Where |
 | --- | --- | --- |
 | `splash` | The house's name while the first shore is built, then the title and an invitation | `splash-screen.tsx` over the timing in `splash.ts` |
-| `menu` | The front door, over a bot-ridden sea | `menu-main.tsx` → `menu-options.tsx`, `menu-dev.tsx` |
+| `menu` | The front door, over a bot-ridden sea | `menu-main.tsx` → `menu-start.tsx` → `menu-craft.tsx`, `menu-options.tsx`, `menu-dev.tsx` |
 | `loading` | A run being stood up, paid for in slices | `loading-screen.tsx` over `run-loader.ts` |
 | `run` | The player's hands on it, with the HUD over the top | `hud.tsx` (`hud-and-menus`) |
 
@@ -40,7 +40,8 @@ front door comes up over the shore the player was just on.
 | Piece | Where |
 | --- | --- |
 | What the game REMEMBERS, and the versioned storage round it | `pwa/src/game/settings.ts` |
-| The shared row vocabulary: the head, `OptionRow`, `SliderRow`, `StepRow`, `ToggleRow` | `pwa/src/game/menu.tsx` |
+| The shared row vocabulary: the head, `OptionRow`, `SliderRow`, `StepRow`, `ToggleRow`, `PageRow` | `pwa/src/game/menu.tsx` |
+| The craft on a turntable, and what the card bills it at | `pwa/src/game/craft-picker.tsx` + `craft-turntable.ts` (three.js, a dynamic chunk) over `craft-stats.ts` (DOM-free) |
 | The seven-second hold on START | `pwa/src/game/menu-hold.ts` (the rule) + `menu-main.tsx` (the pointer, the key, the clock) |
 | Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
@@ -56,6 +57,14 @@ front door comes up over the shore the player was just on.
   `menu-hold.ts`, `menu-cursor.ts`, `run-loader.ts` and `settings.ts`'s
   `mergeSettings` are all on the testable side of that line, and a rule moved
   out of one of them into its component is a rule that stops being checked.
+- **A ROW CANNOT ASK A QUESTION WHOSE ANSWERS ARE SHAPES.** Chips work
+  because the answer and everything it was chosen over are on screen
+  together; four craft named in a row asks a rider to choose between four
+  hulls they have never seen, which is the reason the craft came off the
+  start card and took one (`menu-craft.tsx`). The row that is left is a
+  `PageRow` — it reads back the answer and opens the card that asks it — and
+  the card writes the same `settings.ride.craft` the chips wrote, so a run
+  stood up from it and a run stood up from a `?craft=` link are one run.
 - **A settings row the app IGNORES is worse than no row.** The player moves
   it, nothing happens, and now nothing else on the page can be trusted
   either. There is no volume fader while `game/audio/` is a placeholder, no
@@ -104,7 +113,7 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=cruise   # the ru
 npx vitest run tests/menu_system_test.ts
 ```
 
-`--surface splash,menu,options,developer` photographs the cards at both
+`--surface splash,menu,start,craft,options,developer` photographs the cards at both
 reference viewports; it waits on the card being in the DOM rather than on
 `window.__SH_READY__`, which is a RUN's flag. Then LOOK, and run `ui-review`'s
 audit at 1280×720 and 390×844.
@@ -112,9 +121,12 @@ audit at 1280×720 and 390×844.
 **A picture is not the machine.** The surfaces can all photograph correctly
 while the shell is broken — the hold bug above passed every screenshot. Drive
 the real flow before calling a change done: attract card → a press → the
-front door → START → the loading card → the HUD, then Escape back, and the
-hold on START twice over (the second press after an unlock is the one that
-breaks).
+front door → START → CRAFT and back → the loading card → the HUD, then
+Escape back, and the hold on START twice over (the second press after an
+unlock is the one that breaks). The craft card has its own version of that
+trap: the turntable is a DYNAMIC chunk, so a pick taken before it lands has
+to be waiting for it — which is why the chosen id rides on the canvas's own
+dataset and not only in a ref.
 
 ## What the change obliges elsewhere
 

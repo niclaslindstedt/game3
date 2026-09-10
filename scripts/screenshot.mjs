@@ -89,6 +89,10 @@ const SURFACES = {
   // generated in a worker, and the row waits for the arrows to be still
   // before it asks. A short settle photographs "READING THE CHART…".
   start: { params: { menu: "start" }, wait: ".seed-preview", settle: 2600 },
+  // The craft card settles slowly too, and for the opposite reason: its
+  // three.js turntable is a dynamic chunk, and the hull is built on the
+  // frame after that lands. A short settle photographs an empty pane.
+  craft: { params: { menu: "craft" }, wait: ".craft-pick-canvas", settle: 2200 },
   options: { params: { menu: "options" }, wait: ".menu-card", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
 };
