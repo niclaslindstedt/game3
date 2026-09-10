@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts screenshots sky profile hooks shellcheck actionlint changelog bump docs
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts screenshots sky flora profile hooks shellcheck actionlint changelog bump docs
 
 build:
 	npm run build
@@ -126,6 +126,16 @@ screenshots:
 # `make sky` · `make sky ARGS="--rows=squall,rain"` · `make sky ARGS=--skip-build`
 sky:
 	node scripts/sky-preview.mjs $(ARGS)
+
+# EVERY SPECIES ON THE SHORE SIDE BY SIDE: one contact sheet, one cell per
+# row of the flora roster, each drawn at both ends of its own height band
+# over a metre rule — `previews/flora.png`. A screenshot of a run only ever
+# shows whichever species that stretch of coast happened to grow, against a
+# wood of everything else; the roster is a ladder and a ladder is judged
+# side by side. Same Chromium requirements as `screenshots`.
+# `make flora` · `make flora ARGS="--rows=reed,alder"` · `make flora ARGS=--skip-build`
+flora:
+	node scripts/flora-preview.mjs $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as

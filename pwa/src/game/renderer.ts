@@ -23,7 +23,7 @@ import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
 import { createGates, type Gates } from "./gates.ts";
-import { createPines, type Pines } from "./pines.ts";
+import { createFlora, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
 import { createRider, type Rider } from "./rider.ts";
 import { createRocks } from "./rocks.ts";
@@ -113,7 +113,7 @@ export function createRenderer(
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
   let fauna: Fauna | null = null;
-  let pines: Pines | null = null;
+  let flora: Flora | null = null;
   let gates: Gates | null = null;
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
@@ -136,6 +136,7 @@ export function createRenderer(
         scene.remove(world);
         if (terrain) disposeTerrain(terrain);
         fauna?.dispose();
+        flora?.dispose();
       }
       level = state.level;
       terrain = createTerrain(level);
@@ -145,13 +146,15 @@ export function createRenderer(
       // which is what makes a school look like it is being seen THROUGH
       // the water instead of painted on it.
       fauna = createFauna(level);
-      pines = createPines(level);
-      pines.setDensity(FLORA_SCALE[video.flora]);
+      // THE SHORE'S COVER (flora.ts): the trees, the scrub, the grass, the
+      // reed in the river's margins and the loose stone at the waterline.
+      flora = createFlora(level);
+      flora.setDensity(FLORA_SCALE[video.flora]);
       world = new THREE.Group();
       world.add(
         terrain,
         createRocks(level),
-        pines.group,
+        flora.group,
         createFootprints(level),
         gates.group,
         fauna.group,
@@ -239,7 +242,7 @@ export function createRenderer(
       resize();
     }
     spray.setBudget(SPRAY_SCALE[next.spray]);
-    pines?.setDensity(FLORA_SCALE[next.flora]);
+    flora?.setDensity(FLORA_SCALE[next.flora]);
   };
 
   const render = (state: GameState, dt: number): void => {
