@@ -29,8 +29,12 @@ import {
   FLORA_SCALE,
   FRAME_RATE_CAP,
   FRAME_RATE_LEVELS,
+  RAIN_LEVELS,
+  RAIN_LOOK,
   RESOLUTION_SCALE,
   SPRAY_SCALE,
+  WAKE_LEVELS,
+  WAKE_LOOK,
   WATER_LEVELS,
   WATER_LOOK,
   detailOf,
@@ -165,6 +169,58 @@ describe("the picture's other ladders", () => {
     expect(RESOLUTION_SCALE.low).toBeGreaterThan(0);
   });
 
+  it("halves the PIXELS at every stop down, not merely the side", () => {
+    // The bill is per pixel, and the scale is a length: a stop that trimmed
+    // the side by a quarter would trim the bill by under half, which is a
+    // stop a struggling machine could not feel.
+    const pixels = (scale: number): number => scale * scale;
+    expect(pixels(RESOLUTION_SCALE.high) / pixels(RESOLUTION_SCALE.medium)).toBeGreaterThanOrEqual(
+      2,
+    );
+    expect(pixels(RESOLUTION_SCALE.medium) / pixels(RESOLUTION_SCALE.low)).toBeGreaterThanOrEqual(
+      1.9,
+    );
+  });
+
+  it("lets the wake be turned off outright, and keeps the road under the relief", () => {
+    // OFF is no map and no pass; the middle stop keeps the foam and the churn
+    // (the map) and drops the relief, which is the dear half of the read. A
+    // stop that read the relief off no map would be a shader reading nothing
+    // four times over.
+    expect(WAKE_LOOK.off).toEqual({ map: false, relief: false });
+    expect(WAKE_LOOK.full).toEqual({ map: true, relief: true });
+    for (const id of WAKE_LEVELS) {
+      if (WAKE_LOOK[id].relief) expect(WAKE_LOOK[id].map).toBe(true);
+    }
+    // …and the ladder only ever adds: nothing a lower stop draws is missing
+    // from the one over it.
+    for (let i = 1; i < WAKE_LEVELS.length; i++) {
+      const under = WAKE_LOOK[WAKE_LEVELS[i - 1]];
+      const over = WAKE_LOOK[WAKE_LEVELS[i]];
+      expect(Number(over.map)).toBeGreaterThanOrEqual(Number(under.map));
+      expect(Number(over.relief)).toBeGreaterThanOrEqual(Number(under.relief));
+    }
+  });
+
+  it("rains more at every stop up, in the air and on the water, and not at all at the bottom", () => {
+    expect(RAIN_LOOK.off).toEqual({ sheet: 0, rings: [0, 0] });
+    expect(RAIN_LOOK.far.sheet).toBe(1);
+    for (let i = 1; i < RAIN_LEVELS.length; i++) {
+      const under = RAIN_LOOK[RAIN_LEVELS[i - 1]];
+      const over = RAIN_LOOK[RAIN_LEVELS[i]];
+      expect(over.sheet).toBeGreaterThan(under.sheet);
+      expect(over.rings[1]).toBeGreaterThan(under.rings[1]);
+      expect(over.rings[0]).toBeGreaterThanOrEqual(under.rings[0]);
+    }
+    // The rings fade OUT, and the middle stop is about half the sheet: a real
+    // step a machine can feel, and still weather rather than scratches.
+    for (const look of Object.values(RAIN_LOOK)) {
+      expect(look.rings[0]).toBeLessThanOrEqual(look.rings[1]);
+    }
+    expect(RAIN_LOOK.near.sheet).toBeGreaterThanOrEqual(0.4);
+    expect(RAIN_LOOK.near.sheet).toBeLessThanOrEqual(0.6);
+  });
+
   it("lets the spray be turned off outright and never past full", () => {
     expect(SPRAY_SCALE.off).toBe(0);
     expect(SPRAY_SCALE.full).toBe(1);
@@ -209,10 +265,21 @@ describe("the DETAIL row's reverse reading (detailOf)", () => {
   });
 
   it("breaks a tie toward the CHEAPER picture", () => {
-    // `medium` and `high` differ only in the tree line, so a blob that agrees
-    // with neither on it agrees equally with both — and must never be handed
-    // the heavier one.
-    expect(detailOf({ spray: "full", fauna: true })).toBe("medium");
+    // `medium` and `high` agree on the spray, the wake and the sea life, so a
+    // blob that carries only those agrees equally with both — and must never
+    // be handed the heavier one.
+    expect(detailOf({ spray: "full", wake: "full", fauna: true })).toBe("medium");
+  });
+
+  it("never parks a stop on a craft that leaves no mark", () => {
+    // The bottom of DETAIL is a phone that wants frames, not a craft on a
+    // painting: the road and the spray stay at every preset, thinned, and
+    // only the levers a rider cannot see the craft moving by go all the way
+    // off. The WAKE lever's own OFF is for a blob that asks for it by name.
+    for (const id of DETAIL_LEVELS) {
+      expect(DETAIL_PRESETS[id].wake).not.toBe("off");
+      expect(DETAIL_PRESETS[id].spray).not.toBe("off");
+    }
   });
 
   it("calls a blob with no opinion the design point, not the floor", () => {

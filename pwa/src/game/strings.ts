@@ -223,7 +223,7 @@ export const STRINGS = {
   optResolutionHint: "How many pixels the water is drawn at before it reaches the screen",
   optDetail: "DETAIL",
   optDetailHint:
-    "The spray, the sea life, what grows on the shore, how much cloud is in the sky, and whether the rain lands on the water",
+    "The spray and the wake, the sea life, what grows on the shore, how much cloud is in the sky, and how much rain falls out of it",
   optSeeThrough: "SEE-THROUGH",
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
   /** The one row on the picture page that is about TIME: the two stops are

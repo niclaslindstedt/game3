@@ -73,7 +73,7 @@ import {
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import type { BuoyLamp } from "./buoys.ts";
-import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
+import { WATER_LOOK, type WakeLook, type WaterLook } from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { layWaterGrid, snapOrigin } from "./water-grid.ts";
@@ -87,6 +87,7 @@ import {
   applySea,
   applySky,
   applyWake,
+  applyWakeLook,
   createWaterMaterial,
   type MirrorSeat,
   type WakeMap,
@@ -269,6 +270,9 @@ export type WaterMesh = {
    * shader draws as foam, churn and relief. Once — the map's objects are
    * held, and rewritten by the wake each frame. */
   setWake: (map: WakeMap) => void;
+  /** HOW MUCH OF THE WAKE the shader reads off that map — the DETAIL row's
+   * `WAKE_LOOK`. Applies from the next frame; nothing is rebuilt. */
+  setWakeLook: (look: WakeLook) => void;
   /** WHICH COAST'S WATER this is: its tones, its ramp, its window and its
    * clarity (`water-optics.ts`). Set before the level is drawn and before
    * `retone`, which paints the horizon out of it. */
@@ -641,6 +645,7 @@ export function createWaterMesh(
       material.needsUpdate = true;
     },
     setWake: (map) => applyWake(material, map),
+    setWakeLook: (look) => applyWakeLook(material, look),
     setCoast,
     seeThrough: () => (windowOpen ? reach : 0),
     update,

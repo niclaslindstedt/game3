@@ -89,7 +89,11 @@
 //                so the transom's trough and the fan's edge are relief the
 //                mesh is too coarse to carry on its own. All of it fades out
 //                over the map's last few metres so its edge is never a line
-//                on the sea.
+//                on the sea. HOW MUCH OF IT IS READ is the DETAIL row's
+//                (`WAKE_LOOK`): the relief is the dear half — four reads of
+//                the map's gradient on every vertex and pixel it covers —
+//                and a stop can keep the foam and the churn without it, or
+//                read no map at all.
 //   THE WINDOW   what is LEFT after the mirror has taken its share is what
 //                went through, and the water is drawn transparent by
 //                exactly that much: `alpha = mix(aWindow, 1, F) + foam`.
@@ -112,7 +116,7 @@ import { valueNoise } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
-import { WATER_LOOK, type WaterLook } from "./settings-video.ts";
+import { WATER_LOOK, type WakeLook, type WaterLook } from "./settings-video.ts";
 import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
 import { WAKE_HEIGHT, WAKE_MAP } from "./wake-profile.ts";
@@ -238,6 +242,12 @@ const WAKE_PUSH = 1.5;
 const WAKE_GLSL = `
   uniform sampler2D uWake;
   uniform vec3 uWakeBox;
+  // What the WAKE lever reads off the map: 0 nothing, 1 the foam and the
+  // churn, 2 the relief as well (\`applyWakeLook\`). A uniform rather than
+  // a compile: every pixel of a frame takes the same branch, which costs
+  // nothing, where a third copy of this shader would be a stall on the
+  // press.
+  uniform float uWakeMode;
   vec2 wakeUv(vec2 plan) {
     return (plan - uWakeBox.xy) / (2.0 * uWakeBox.z) + 0.5;
   }
@@ -357,7 +367,7 @@ ${WAKE_GLSL}
     // transom's trough. The map is read where the vertex STOOD, so the foam
     // and the churn move with the water they are on.
     vWakeUv = wakeUv(world.xz);
-    float wEdge = wakeEdge(vWakeUv);
+    float wEdge = uWakeMode > 1.5 ? wakeEdge(vWakeUv) : 0.0;
     if (wEdge > 0.001) {
       world.xz += wakeGrad(vWakeUv, wEdge) * ${WAKE_PUSH.toFixed(2)};
       world.y += wakeRelief(vWakeUv) * wEdge;
@@ -502,13 +512,13 @@ ${skyGlsl(mirrorBuild(layers))}
     // share, its churn, and the slope of its relief off the map's own
     // gradient, because the mesh carries the crest and the hollow only at
     // its vertices and the light has to see the trough between them.
-    vec4 mark = texture2D(uWake, vWakeUv);
-    float wEdge = wakeEdge(vWakeUv);
+    float wEdge = uWakeMode > 0.5 ? wakeEdge(vWakeUv) : 0.0;
+    vec4 mark = wEdge > 0.001 ? texture2D(uWake, vWakeUv) : vec4(0.0);
     float wakeFoam = mark.r * ${WAKE_FOAM_GAIN.toFixed(2)} * wEdge;
     float churn = min(1.0, mark.g * wEdge);
     vec2 wakeSlope = vec2(0.0);
     vec2 boil = vec2(0.0);
-    if (wEdge > 0.001) {
+    if (wEdge > 0.001 && uWakeMode > 1.5) {
       // A height field's normal is (−∂h/∂x, 1, −∂h/∂z).
       wakeSlope = -wakeGrad(vWakeUv, wEdge);
       // …and the boil: broken water, the ripple tile read square and fine
@@ -569,18 +579,24 @@ ${skyGlsl(mirrorBuild(layers))}
     // pool is what says a light is ON THE WATER rather than painted on the
     // sky behind it, and it pulses with the flash, which is the thing that
     // makes a rounding mark findable in the dark from a long way off.
+    // The reach is written as nought when no lamp is lit this frame — a
+    // coast sprint has no marks at all, and a circuit by day has dark ones —
+    // and the whole loop goes with it rather than lighting the sea by four
+    // black lamps a pixel.
     vec3 buoyGlint = vec3(0.0);
-    for (int i = 0; i < ${BUOY_LAMPS}; i++) {
-      vec3 toB = uBuoyPos[i] - vWorld;
-      float dB = length(toB);
-      vec3 Lb = toB / max(dB, 1e-3);
-      float fallB =
-        (1.0 / max(dB * dB, 1.0)) * (1.0 - smoothstep(uBuoyReach * 0.55, uBuoyReach, dB));
-      vec3 litB = uBuoyColor[i] * fallB;
-      irradiance += litB * (0.3 + 0.7 * max(0.0, dot(Nd, Lb)));
-      // …and its image in the ripples: the column of light under a lamp,
-      // which is most of what the eye actually reads a light on water by.
-      buoyGlint += litB * pow(max(0.0, dot(Nd, normalize(Lb + V))), 300.0) * 0.7;
+    if (uBuoyReach > 0.0) {
+      for (int i = 0; i < ${BUOY_LAMPS}; i++) {
+        vec3 toB = uBuoyPos[i] - vWorld;
+        float dB = length(toB);
+        vec3 Lb = toB / max(dB, 1e-3);
+        float fallB =
+          (1.0 / max(dB * dB, 1.0)) * (1.0 - smoothstep(uBuoyReach * 0.55, uBuoyReach, dB));
+        vec3 litB = uBuoyColor[i] * fallB;
+        irradiance += litB * (0.3 + 0.7 * max(0.0, dot(Nd, Lb)));
+        // …and its image in the ripples: the column of light under a lamp,
+        // which is most of what the eye actually reads a light on water by.
+        buoyGlint += litB * pow(max(0.0, dot(Nd, normalize(Lb + V))), 300.0) * 0.7;
+      }
     }
     vec3 body = vColor.rgb * irradiance * RECIPROCAL_PI;
     // …and the light through a crest with the sun behind it.
@@ -689,12 +705,14 @@ ${skyGlsl(mirrorBuild(layers))}
     // they never sum. Two octaves: the tile, and the tile again a third the
     // size, because the road is the nearest foam in the frame and at one
     // octave a fresh road is a flat white blanket rather than broken water.
-    float wakePattern = mix(
-      texture2D(uFoam, vWorld.xz / ${WAKE_FOAM_METRES.toFixed(2)}).a,
-      texture2D(uFoam, vWorld.xz / ${(WAKE_FOAM_METRES / 3).toFixed(2)}).a,
-      0.35);
-    float wakeLace = smoothstep(1.0 - wakeFoam, 1.35 - wakeFoam, wakePattern);
-    foam = max(foam, wakeLace * min(1.0, 0.45 + 0.55 * wakeFoam));
+    if (wakeFoam > 0.001) {
+      float wakePattern = mix(
+        texture2D(uFoam, vWorld.xz / ${WAKE_FOAM_METRES.toFixed(2)}).a,
+        texture2D(uFoam, vWorld.xz / ${(WAKE_FOAM_METRES / 3).toFixed(2)}).a,
+        0.35);
+      float wakeLace = smoothstep(1.0 - wakeFoam, 1.35 - wakeFoam, wakePattern);
+      foam = max(foam, wakeLace * min(1.0, 0.45 + 0.55 * wakeFoam));
+    }
     // …and the white a raindrop's own impact throws up. A fraction of the
     // wake's: a drop is a pinprick of air in the water, not a crest going
     // over, and driven any harder a downpour turns the sea to porridge.
@@ -801,6 +819,7 @@ export function createWaterMaterial(
       uLampReach: { value: 1 },
       uWake: { value: blankTexture() },
       uWakeBox: { value: new THREE.Vector3(0, 0, 1) },
+      uWakeMode: { value: 2 },
     },
     vertexShader: VERTEX,
     fragmentShader: fragmentFor(0),
@@ -902,15 +921,20 @@ export function applyBuoyLamps(
 ): void {
   const pos = m.uniforms.uBuoyPos.value as THREE.Vector3[];
   const colour = m.uniforms.uBuoyColor.value as THREE.Color[];
+  let any = false;
   for (let i = 0; i < BUOY_LAMPS; i++) {
     const lamp = i < lamps.length ? lamps[i] : null;
     if (!lamp || lamp.lit <= 0) {
       colour[i].setRGB(0, 0, 0);
       continue;
     }
+    any = true;
     pos[i].set(lamp.x, lamp.y, lamp.z);
     colour[i].setHex(BUOY_LIGHT).multiplyScalar(lamp.lit * BUOY_POOL);
   }
+  // The reach doubles as the switch: nought skips the whole loop in the
+  // shader, so a level with no lit mark on it pays nothing for the four.
+  m.uniforms.uBuoyReach.value = any ? BUOY_REACH : 0;
 }
 
 /** Tell the ripples which way the wind blows and how hard, and the scatter
@@ -942,6 +966,13 @@ export function applySea(
 export function applyWake(m: WaterMaterial, map: WakeMap): void {
   m.uniforms.uWake.value = map.texture;
   m.uniforms.uWakeBox.value = map.box;
+}
+
+/** HOW MUCH OF THE WAKE IS READ — the DETAIL row's `WAKE_LOOK`: whether the
+ * map is read at all, and whether its relief is. On a change of row, not
+ * per frame. */
+export function applyWakeLook(m: WaterMaterial, look: WakeLook): void {
+  m.uniforms.uWakeMode.value = !look.map ? 0 : look.relief ? 2 : 1;
 }
 
 /** The engine's clock, for the ripples' drift. Every frame. */

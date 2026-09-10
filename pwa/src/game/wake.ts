@@ -27,6 +27,13 @@
 // the geometry and draws the map. A scene pre-rolled for a screenshot
 // observes every step and renders once, and gets the same trail the player
 // would see.
+//
+// Whether the map is drawn at all is the DETAIL row's (`WAKE_LOOK.map`,
+// settings-video.ts): switched off, `render` lays nothing and draws nothing,
+// and the water reads nothing either (`applyWakeLook`). The trail is still
+// SAMPLED — `observe` costs a hypot a step — so a rider who turns the row
+// back on mid-run gets the road they have actually laid rather than one
+// that starts at the press.
 
 import * as THREE from "three";
 import { type GameState } from "@engine";
@@ -85,6 +92,10 @@ export type Wake = {
   /** Once per frame: lay the trail and draw the map. Returns the pass's
    * draw calls and triangles, for the frame's own bill. */
   render: (renderer: THREE.WebGLRenderer, state: GameState) => { calls: number; triangles: number };
+  /** Whether the map is rasterised at all — the DETAIL row's `WAKE_LOOK.map`.
+   * Off, `render` is free and the map is cleared once so nothing stale is
+   * ever read off it. */
+  setDrawn: (drawn: boolean) => void;
   reset: () => void;
   dispose: () => void;
 };
@@ -210,6 +221,9 @@ export function createWake(): Wake {
   const lens = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clearColor = new THREE.Color();
   const section = wakeSection();
+  let drawn = true;
+  /** Whether the map holds marks that a switched-off pass should wipe. */
+  let dirty = false;
 
   const push = (
     x: number,
@@ -402,6 +416,7 @@ export function createWake(): Wake {
   };
 
   const render: Wake["render"] = (renderer, state) => {
+    if (!drawn && !dirty) return { calls: 0, triangles: 0 };
     const c = state.craft;
     // The box stands behind the craft, where the wake is, and snaps to its
     // own texel so the marks are rasterised on the same lattice frame after
@@ -409,16 +424,19 @@ export function createWake(): Wake {
     const texel = (2 * WAKE_REACH) / WAKE_MAP;
     box.x = Math.round((c.x - Math.sin(c.heading) * WAKE_MAP_BACK) / texel) * texel;
     box.y = Math.round((c.z - Math.cos(c.heading) * WAKE_MAP_BACK) / texel) * texel;
-    lay(state);
+    if (drawn) lay(state);
     renderer.getClearColor(clearColor);
     const clearAlpha = renderer.getClearAlpha();
     renderer.setClearColor(0x000000, 0);
     renderer.setRenderTarget(target);
     renderer.clear();
-    renderer.render(marks, lens);
-    const cost = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+    if (drawn) renderer.render(marks, lens);
+    const cost = drawn
+      ? { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles }
+      : { calls: 0, triangles: 0 };
     renderer.setRenderTarget(null);
     renderer.setClearColor(clearColor, clearAlpha);
+    dirty = drawn;
     return cost;
   };
 
@@ -427,6 +445,9 @@ export function createWake(): Wake {
     observe,
     stamp,
     render,
+    setDrawn: (next) => {
+      drawn = next;
+    },
     reset: () => {
       head = 0;
       filled = 0;

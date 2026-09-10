@@ -87,6 +87,11 @@ export type Environment = {
    * still decides what a day looks like and the row only says how much of that
    * day is in front of the lens. Applies at once. */
   setHaze: (haze: number) => void;
+  /** Take the picture ladder's RAIN stop, as how much of the sheet's pool is
+   * in the air: `RAIN_LOOK.sheet`. Nought submits no streaks at all. The fog
+   * the squall shortens is not this lever's — the weather is the level's,
+   * and this only says how much of it is drawn falling. Applies at once. */
+  setRainSheet: (share: number) => void;
   /** The sky as it stands — for anything that has to answer to it. */
   preset: () => Preset;
   /** The shared sky uniforms. The water's material holds these very objects,
@@ -157,6 +162,8 @@ export function createEnvironment(scene: THREE.Scene): Environment {
   let haze = 1;
   let standingFall = 0;
   let fall = 0;
+  /** What the RAIN row makes of the sheet (`RAIN_LOOK.sheet`). */
+  let sheet = 1;
   const sunDir = new THREE.Vector3(0, 1, 0);
   const keyDir = new THREE.Vector3(0, 1, 0);
   const rainTone = new THREE.Color();
@@ -295,7 +302,7 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     if (standingFall > 0) {
       fall = standingFall * (0.55 + 0.45 * squallOf(state.wind.gust));
       setFog();
-      rain.setIntensity(fall);
+      rain.setIntensity(fall * sheet);
       // The drops hang in the air the sea owns: the live wind carries them,
       // and the camera's own travel is taken back out inside `rain.update`.
       const live = state.wind.meanSpeed * state.wind.gust;
@@ -311,6 +318,10 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     setHaze: (next) => {
       haze = next;
       setFog();
+    },
+    setRainSheet: (share) => {
+      sheet = share;
+      if (standingFall > 0) rain.setIntensity(fall * sheet);
     },
     preset: () => preset,
     uniforms,
