@@ -73,6 +73,10 @@
 //   ?update=1      show the new-build button as if a build were waiting, so
 //                  the surface can be photographed (read where it is drawn,
 //                  in game/update-button.tsx — it is not part of a repro)
+//   ?probe=0       do not measure the machine on this visit: the first-visit
+//                  probe (game/video-probe.ts) is what may promote an
+//                  untouched picture to HIGH, and a lab photographing a
+//                  surface must not have a row move under its camera
 //
 // A URL that NAMES A RUN (`start`, `scene`, `shot`, `paused`) boots into one. Anything
 // else opens the front door, and the URL's seed, craft, time and day become
@@ -100,28 +104,18 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  type CraftId,
   type CraftInput,
   type GameEvent,
   type GameState,
-  SEASONS,
-  type Season,
-  TIMES_OF_DAY,
   TUNING,
-  type TimeOfDay,
-  WEATHER_IDS,
-  type TrackKind,
-  type Weather,
   botInput,
   createGame,
-  isCraftId,
   step,
 } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
 import { onShellCommand } from "./shell-host.ts";
 import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
-import { CAMERA_MODES, type CameraMode } from "./game/camera.ts";
 import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
 import { runRumble, setRumble } from "./game/haptics.ts";
 import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
@@ -135,36 +129,18 @@ import { createRenderer, type FrameCost } from "./game/renderer.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
+import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
 import {
-  isScenarioName,
-  stageScenario,
-  type Scenario,
-  type ScenarioName,
-} from "./game/scenarios.ts";
-import {
-  CONDITIONS,
   CONDITION_DAY,
   DEFAULT_SEED,
   loadSettings,
   saveSettings,
-  type Conditions,
   type Settings,
 } from "./game/settings.ts";
-import {
-  DETAIL_LEVELS,
-  DETAIL_PRESETS,
-  DISTANCE_LEVELS,
-  FRAME_RATE_CAP,
-  FRAME_RATE_LEVELS,
-  RESOLUTION_LEVELS,
-  WATER_LEVELS,
-  type DetailLevel,
-  type DistanceLevel,
-  type FrameRateLevel,
-  type ResolutionLevel,
-  type WaterLevel,
-} from "./game/settings-video.ts";
+import { FRAME_RATE_CAP } from "./game/settings-video.ts";
 import { canPause, hudOver, playerRides, simulates, type Shell } from "./game/shell.ts";
+import { readParams, settingsFor } from "./game/url-params.ts";
+import { createVideoProbe, promoteVideo } from "./game/video-probe.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
@@ -190,123 +166,6 @@ declare global {
     __SH_READY__?: boolean;
     __SH_COST__?: unknown;
   }
-}
-
-type Params = {
-  seed: number | null;
-  craft: CraftId | null;
-  scene: ScenarioName | null;
-  t: number;
-  shot: boolean;
-  /** A wind speed, m/s, in place of the level's; a sea quoted by its
-   * significant height, m, in place of the one the wind grows. */
-  wind: number | undefined;
-  hs: number | undefined;
-  /** An hour on the clock in place of the level's own. Read off the URL
-   * alone: it is the LEVEL's, an exact figure rather than a named hour, so
-   * nothing on a menu writes it. */
-  hour: number | undefined;
-  /** R29 — which chapter of the rule book the seed is dealt from: a coast
-   * sprint or an ocean circuit ridden in laps. The LEVEL's, like the hour,
-   * so it comes off the URL and no menu writes one yet. */
-  track: TrackKind | undefined;
-  /** The start card's own three rows, as a link carries them: a named hour,
-   * a named wind and a named sky. Unlike `hour` these ARE the player's
-   * settings, so they are laid over the stored ones rather than read
-   * straight into the run. */
-  time: TimeOfDay | undefined;
-  season: Season | undefined;
-  day: Conditions | undefined;
-  weather: Weather | undefined;
-  /** The picture rows a link names — the same three ladders and the same
-   * switch OPTIONS ▸ VIDEO turns, and settings in the same way: laid over the
-   * stored ones, never read straight into the renderer. */
-  camera: CameraMode | undefined;
-  water: WaterLevel | undefined;
-  resolution: ResolutionLevel | undefined;
-  detail: DetailLevel | undefined;
-  distance: DistanceLevel | undefined;
-  seeThrough: boolean | undefined;
-  frameRate: FrameRateLevel | undefined;
-  /** True when the URL names a RUN rather than a visit — a pinned run, a
-   * staged moment, a screenshot. Those boot past both cards. */
-  rides: boolean;
-  /** ...and this one boots into a run and immediately holds it under the
-   * pause card. A surface the lab can reach is a surface a bug report can
-   * link to, and the pause card is the one surface that has no meaning
-   * without a run standing behind it. */
-  paused: boolean;
-  /** The page of the front door to open on, for a link or the screenshot
-   * lab that is pointing at one. Null opens the door where it opens. */
-  menu: MenuPage | null;
-};
-
-function readParams(): Params {
-  const p = new URLSearchParams(location.search);
-  const seed = Number(p.get("seed"));
-  const craft = p.get("craft") ?? "";
-  const scene = p.get("scene") ?? "";
-  const t = Number(p.get("t"));
-  const metres = (key: string): number | undefined => {
-    const v = p.get(key);
-    if (v === null) return undefined;
-    const n = Number(v);
-    return Number.isFinite(n) && n >= 0 ? n : undefined;
-  };
-  const shot = p.get("shot") === "1";
-  const named = isScenarioName(scene) ? scene : null;
-  const menu = p.get("menu");
-  /** A stop off one of the picture ladders, or nothing — the same check
-   * `mergeSettings` makes of a stored blob, for the same reason. */
-  const stop = <T extends string>(stops: readonly T[], key: string): T | undefined => {
-    const value = p.get(key);
-    return stops.some((id) => id === value) ? (value as T) : undefined;
-  };
-  const see = p.get("see");
-  const paused = p.get("paused") === "1";
-  return {
-    // Null rather than the default, so `readParams` says whether the URL
-    // ASKED for a seed. A URL that did overrides the stored setting; one
-    // that did not leaves the player's own choice alone.
-    seed: Number.isFinite(seed) && seed > 0 ? Math.floor(seed) : null,
-    craft: isCraftId(craft) ? craft : null,
-    scene: named,
-    t: Number.isFinite(t) && t > 0 ? t : 0,
-    shot,
-    wind: metres("wind"),
-    hs: metres("hs"),
-    hour: metres("hour"),
-    track: p.get("track") === "circuit" ? "circuit" : undefined,
-    weather: (WEATHER_IDS as readonly string[]).includes(p.get("weather") ?? "")
-      ? (p.get("weather") as Weather)
-      : undefined,
-    time: (TIMES_OF_DAY as readonly string[]).includes(p.get("time") ?? "")
-      ? (p.get("time") as TimeOfDay)
-      : undefined,
-    season: (SEASONS as readonly string[]).includes(p.get("season") ?? "")
-      ? (p.get("season") as Season)
-      : undefined,
-    day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
-      ? (p.get("day") as Conditions)
-      : undefined,
-    camera: stop(CAMERA_MODES, "camera"),
-    water: stop(WATER_LEVELS, "water"),
-    resolution: stop(RESOLUTION_LEVELS, "res"),
-    detail: stop(DETAIL_LEVELS, "detail"),
-    distance: stop(DISTANCE_LEVELS, "distance"),
-    seeThrough: see === null ? undefined : see === "1",
-    frameRate: stop(FRAME_RATE_LEVELS, "fps"),
-    rides: shot || named !== null || paused || p.get("start") === "1",
-    paused,
-    menu:
-      menu === "start" ||
-      menu === "craft" ||
-      menu === "options" ||
-      menu === "developer" ||
-      menu === "root"
-        ? { page: menu }
-        : null,
-  };
 }
 
 /** The line an event earns in the news column, or null for the ones the
@@ -336,40 +195,6 @@ function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null
   }
 }
 
-/** The settings a URL asks for, laid over the stored ones. A repro link
- * carries a seed and a craft, and landing on a menu that says something else
- * would make the link a lie about the run START is about to ride. */
-function settingsFor(stored: Settings, params: Params): Settings {
-  const settings: Settings = {
-    ...stored,
-    ride: { ...stored.ride },
-    video: { ...stored.video },
-    dev: { ...stored.dev },
-  };
-  if (params.camera !== undefined) settings.ride.camera = params.camera;
-  if (params.water !== undefined) settings.video.water = params.water;
-  if (params.resolution !== undefined) settings.video.resolution = params.resolution;
-  if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
-  if (params.distance !== undefined) settings.video.distance = params.distance;
-  if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
-  if (params.frameRate !== undefined) settings.video.frameRate = params.frameRate;
-  if (params.craft !== null) settings.ride.craft = params.craft;
-  if (params.seed !== null) settings.ride.seed = params.seed;
-  if (params.time !== undefined) settings.ride.time = params.time;
-  if (params.season !== undefined) settings.ride.season = params.season;
-  if (params.day !== undefined) settings.ride.conditions = params.day;
-  if (params.weather !== undefined) settings.ride.weather = params.weather;
-  if (params.scene !== null) settings.dev.scene = params.scene;
-  // A URL that names the developer page has, by definition, found it — the
-  // hold is a way IN, not a lock, and making the lab hold a button for seven
-  // seconds to photograph a page would be the harness re-earning a secret it
-  // was handed.
-  if (params.menu?.page === "developer") settings.developer = true;
-  if (params.wind !== undefined) settings.dev.wind = params.wind;
-  if (params.hs !== undefined) settings.dev.hs = params.hs;
-  return settings;
-}
-
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snap, setSnap] = useState<HudSnapshot | null>(null);
@@ -378,15 +203,17 @@ export function App() {
    * pause card, which is a surface — see `game/shell.ts`. */
   const [away, setAway] = useState(false);
   const [shell, setShell] = useState<Shell>("splash");
-  const [menuPage, setMenuPage] = useState<MenuPage>(() => readParams().menu ?? { page: "root" });
+  const [menuPage, setMenuPage] = useState<MenuPage>(
+    () => readParams(location.search).menu ?? { page: "root" },
+  );
   const [loadingPhase, setLoadingPhase] = useState<LoadPhase | null>(null);
   const [loadLeaving, setLoadLeaving] = useState(false);
   /** True once the renderer has drawn a frame — what the attract card waits
    * on before it will take a press (`splash.ts`). */
   const [warm, setWarm] = useState(false);
-  const [params] = useState(readParams);
+  const [params] = useState(() => readParams(location.search));
   const [settings, setSettings] = useState<Settings>(() =>
-    settingsFor(loadSettings(), readParams()),
+    settingsFor(loadSettings(), readParams(location.search)),
   );
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
   const rendererRef = useRef<ReturnType<typeof createRenderer> | null>(null);
@@ -763,6 +590,17 @@ export function App() {
       else act(command);
     });
 
+    /* ── MEASURING THE MACHINE ───────────────────────────────────────────
+       Once, on a visit that has never been measured: the design point is
+       drawn under the card for a couple of seconds with the GPU drained
+       after every frame, and a machine with room to spare is handed the
+       HIGH picture before the rider ever sees OPTIONS (`video-probe.ts`
+       owns the rule; the verdict is written to the settings whichever way
+       it goes, so nobody is measured twice). Only under a card the bot is
+       riding — never a run, where the drain would be a stutter the rider
+       felt, and never the loading card, whose frames are the load's. */
+    let probe = params.probe && !settingsRef.current.probed ? createVideoProbe() : null;
+
     let raf = 0;
     let last = performance.now();
     let frameMs = 1000 / 60;
@@ -842,6 +680,17 @@ export function App() {
         audio.silence();
       }
       window.__SH_COST__ = renderer.cost();
+      if (probe && !playerRides(shellRef.current) && !job && !clock.paused() && !frozen) {
+        const verdict = probe.frame(frameMs, renderer.cost().frameMs + renderer.drain());
+        if (verdict !== null) {
+          probe = null;
+          setSettings((s) => ({
+            ...s,
+            probed: true,
+            video: verdict ? promoteVideo(s.video) : s.video,
+          }));
+        }
+      }
       if (!warmRef.current) {
         warmRef.current = true;
         setWarm(true);

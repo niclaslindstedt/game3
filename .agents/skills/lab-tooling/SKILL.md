@@ -115,8 +115,12 @@ that only shows when ridden.
 - **A scratch probe is a lab you did not register.** Ten lines over
   `serveDir` and `playwright-core` — a `deviceScaleFactor: 3` capture clipped
   to the stern, a `page.evaluate` that reads a counter off `window` — are
-  legitimate and worth writing; keep them in the scratchpad, and if the same
-  probe is written twice, it is a flag on the tool it duplicates.
+  legitimate and worth writing; keep them OUT of the commit — under
+  `previews/`, which is gitignored and inside the tree, because a bare
+  `import "playwright-core"` only resolves from a file under the repo's own
+  `node_modules` (a script in a scratch directory dies with
+  `ERR_MODULE_NOT_FOUND`) — and if the same probe is written twice, it is a
+  flag on the tool it duplicates.
 - **A lab that has to draw the WORLD reuses the renderer's builders**, with
   the game's own hemisphere and key at `environment.ts`'s angles, or the
   sheet lies about what a run will show.

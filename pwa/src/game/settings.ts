@@ -215,6 +215,14 @@ export type Settings = {
   /** What the picture costs — the rows of OPTIONS ▸ VIDEO. What each one buys
    * is `settings-video.ts`, which is also where the ladders are stated. */
   video: VideoSettings;
+  /** True once THIS MACHINE HAS BEEN MEASURED — the first-visit probe
+   * (`video-probe.ts`) has drawn the design point for a couple of seconds
+   * under the attract card and given its verdict, whichever way it went.
+   * It stays true so nobody is measured twice: a rider the probe promoted
+   * who turned a row back down has said what they think, and a probe that
+   * ran again would overrule them. RESTORE DEFAULTS clears it with the rest,
+   * which is the one honest way back to a first visit. */
+  probed: boolean;
   /** True once the developer menu has been let out — the START row held
    * down for {@link DEV_HOLD_MS}. It STAYS out: a player who found it
    * deliberately does not want to find it again every time they open the
@@ -248,6 +256,7 @@ export const DEFAULT_SETTINGS: Settings = {
   // half of what riding one of these is, and a rider who does not want it
   // has one row to find.
   rumble: true,
+  probed: false,
   ride: {
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
@@ -302,6 +311,7 @@ export function freshSettings(): Settings {
     video: { ...DEFAULT_SETTINGS.video },
     audio: { ...DEFAULT_SETTINGS.audio },
     rumble: DEFAULT_SETTINGS.rumble,
+    probed: false,
     developer: false,
     dev: { ...DEFAULT_SETTINGS.dev },
   };
@@ -385,6 +395,11 @@ export function mergeSettings(parsed: unknown): Settings {
   if (CAMERA_MODES.some((mode) => mode === ride?.camera)) {
     settings.ride.camera = ride?.camera as CameraMode;
   }
+
+  // A blob written before the probe existed reads as unmeasured, and that is
+  // safe: the promotion only ever touches a picture with every row at its
+  // default, so an old rider's own choices survive the measuring.
+  if (blob.probed === true) settings.probed = true;
 
   if (blob.developer === true) settings.developer = true;
   const dev = blob.dev as Partial<Record<keyof DevSettings, unknown>> | undefined;

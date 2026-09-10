@@ -46,6 +46,19 @@ import {
   WATER_LOOK,
   detailOf,
 } from "../pwa/src/game/settings-video.ts";
+import {
+  PROBE_HEADROOM,
+  PROBE_KEEPS_MS,
+  PROBE_MISS_SHARE,
+  PROBE_SAMPLES,
+  PROBE_STALLS,
+  PROBE_WARMUP,
+  type ProbeSample,
+  createVideoProbe,
+  judgeHeadroom,
+  promoteVideo,
+  videoUntouched,
+} from "../pwa/src/game/video-probe.ts";
 import { layWaterGrid, waterReach, waterSamples } from "../pwa/src/game/water-grid.ts";
 
 describe("the WATER ladder", () => {
@@ -443,5 +456,128 @@ describe("the frame gate (frame-rate.ts)", () => {
     expect(gate.due(50)).toBe(true);
     gate.setCap(Number.NaN);
     expect(gate.due(51)).toBe(true);
+  });
+});
+
+describe("the first-visit probe (video-probe.ts)", () => {
+  /** `n` frames of a machine keeping a display at `periodMs`, each drawn
+   * in `drawMs` — with `missed` of them arriving two periods late. */
+  const steady = (periodMs: number, drawMs: number, n = PROBE_SAMPLES, missed = 0) =>
+    Array.from({ length: n }, (_, i): ProbeSample => ({
+      elapsedMs: i < missed ? periodMs * 2 : periodMs,
+      drawMs,
+    }));
+  const sixty = 1000 / 60;
+  const oneTwenty = 1000 / 120;
+
+  it("asks for the HIGH picture to fit inside the frame the machine is keeping", () => {
+    // The rule against the display's own period: what fits at sixty is a
+    // draw under a third of the frame, and a display at a hundred and
+    // twenty asks twice as much of the machine for the same promotion.
+    expect(judgeHeadroom(steady(sixty, sixty / PROBE_HEADROOM - 0.1))).toBe(true);
+    expect(judgeHeadroom(steady(sixty, sixty / PROBE_HEADROOM + 0.1))).toBe(false);
+    expect(judgeHeadroom(steady(oneTwenty, oneTwenty / PROBE_HEADROOM - 0.1))).toBe(true);
+    expect(judgeHeadroom(steady(oneTwenty, sixty / PROBE_HEADROOM - 0.1))).toBe(false);
+  });
+
+  it("judges by the worst ordinary frame, not the mean", () => {
+    // Seven frames in eight cheap and the eighth over the line is a machine
+    // that would stutter at every landing on the dearer picture.
+    const samples = steady(sixty, 1);
+    for (let i = 0; i < samples.length; i += 8) samples[i].drawMs = sixty / PROBE_HEADROOM + 1;
+    expect(judgeHeadroom(samples)).toBe(false);
+  });
+
+  it("promotes nothing on a machine already missing frames", () => {
+    const allowed = Math.floor(PROBE_SAMPLES * PROBE_MISS_SHARE);
+    expect(judgeHeadroom(steady(sixty, 1, PROBE_SAMPLES, allowed))).toBe(true);
+    expect(judgeHeadroom(steady(sixty, 1, PROBE_SAMPLES, allowed + 1))).toBe(false);
+  });
+
+  it("promotes nothing on a machine that is not keeping a display's rate at all", () => {
+    // A median period past a sixty-hertz frame is a machine drawing every
+    // other frame of one, however cheap each drawn frame was.
+    expect(judgeHeadroom(steady(PROBE_KEEPS_MS + 1, 1))).toBe(false);
+    expect(judgeHeadroom(steady(25, 1))).toBe(false);
+    expect(judgeHeadroom([])).toBe(false);
+  });
+
+  it("carries a margin over the water ladder's own top stop", () => {
+    // The headroom asked for has to cover what HIGH actually costs; the
+    // water is the one row whose bill is counted, so the constant is held
+    // above its ratio rather than asserted in a comment.
+    expect(PROBE_HEADROOM).toBeGreaterThan(
+      waterSamples(WATER_LOOK.high) / waterSamples(WATER_LOOK.medium),
+    );
+  });
+
+  it("warms up, skips stalls, and gives one verdict on the frame that completes the sample", () => {
+    const probe = createVideoProbe();
+    for (let i = 0; i < PROBE_WARMUP; i++) expect(probe.frame(sixty, 1)).toBeNull();
+    // A stall, a build's backdated frame, and a zero are none of them frames.
+    expect(probe.frame(FPS_STALL_MS + 1, 1)).toBeNull();
+    expect(probe.frame(-4, 1)).toBeNull();
+    expect(probe.frame(0, 1)).toBeNull();
+    for (let i = 0; i < PROBE_SAMPLES - 1; i++) {
+      expect(probe.frame(sixty, 1)).toBeNull();
+      expect(probe.done()).toBe(false);
+    }
+    expect(probe.frame(sixty, 1)).toBe(true);
+    expect(probe.done()).toBe(true);
+    expect(probe.frame(sixty, 1)).toBeNull();
+  });
+
+  it("gives up on a machine that does nothing but stall, with a no", () => {
+    // Every frame a stall is a machine with no headroom, and a probe that
+    // kept waiting for clean frames would drain it on every visit for ever.
+    const probe = createVideoProbe();
+    for (let i = 0; i < PROBE_STALLS - 1; i++) {
+      expect(probe.frame(FPS_STALL_MS * 3, 1)).toBeNull();
+      expect(probe.done()).toBe(false);
+    }
+    expect(probe.frame(FPS_STALL_MS * 3, 1)).toBe(false);
+    expect(probe.done()).toBe(true);
+    // A stall short of that count costs the sample nothing.
+    const patient = createVideoProbe();
+    for (let i = 0; i < PROBE_STALLS - 1; i++) patient.frame(FPS_STALL_MS * 3, 1);
+    let verdict: boolean | null = null;
+    for (let i = 0; i < PROBE_WARMUP + PROBE_SAMPLES; i++) verdict = patient.frame(sixty, 1);
+    expect(verdict).toBe(true);
+  });
+
+  it("the warm-up frames are not in the sample", () => {
+    // Thirty ruinous frames first, then a clean sample: the verdict is the
+    // sample's. Were the warm-up counted, the ninth decile would be ruinous.
+    const probe = createVideoProbe();
+    for (let i = 0; i < PROBE_WARMUP; i++) probe.frame(sixty, sixty);
+    let verdict: boolean | null = null;
+    for (let i = 0; i < PROBE_SAMPLES; i++) verdict = probe.frame(sixty, 1);
+    expect(verdict).toBe(true);
+  });
+
+  it("promotes an untouched picture to the three headroom stops and nothing else", () => {
+    expect(videoUntouched(DEFAULT_VIDEO)).toBe(true);
+    const high = promoteVideo(DEFAULT_VIDEO);
+    expect(high.water).toBe("high");
+    expect(high.distance).toBe("high");
+    expect(detailOf(high)).toBe("high");
+    expect(high.resolution).toBe(DEFAULT_VIDEO.resolution);
+    expect(high.seeThrough).toBe(DEFAULT_VIDEO.seeThrough);
+    expect(high.frameRate).toBe(DEFAULT_VIDEO.frameRate);
+  });
+
+  it("leaves a picture the rider has touched exactly as it is", () => {
+    // Any row moved is an opinion, and the probe has nothing to tell its
+    // owner — the same object comes back, so a caller can tell nothing moved.
+    for (const touched of [
+      { ...DEFAULT_VIDEO, water: "low" as const },
+      { ...DEFAULT_VIDEO, resolution: "medium" as const },
+      { ...DEFAULT_VIDEO, frameRate: "30" as const },
+      { ...DEFAULT_VIDEO, seeThrough: false },
+      { ...DEFAULT_VIDEO, ...DETAIL_PRESETS.high },
+    ]) {
+      expect(videoUntouched(touched)).toBe(false);
+      expect(promoteVideo(touched)).toBe(touched);
+    }
   });
 });
