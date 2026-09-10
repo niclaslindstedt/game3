@@ -771,6 +771,32 @@ canvas {
   pointer-events: auto;
 }
 
+/* THE DIAGNOSTICS, under the minimap: the frame rate and the frame cost.
+   Right-aligned under the map's own edge, stacked rather than in a row —
+   the cost line is long and the map is narrow, and a line that grew leftward
+   across the screen would be a readout wandering over the water.
+
+   Tabular figures because both lines change several times a second: without
+   them a rate crossing from 99 to 100 shifts everything beside it, which is
+   the one thing that makes a corner readout hard to read. */
+.hud-meters {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.1rem;
+  text-align: right;
+  font-size: clamp(0.5rem, 1.5vmin, 0.7rem);
+  letter-spacing: 0.06em;
+}
+
+.hud-meter {
+  color: var(--hud-ink);
+  font-variant-numeric: tabular-nums;
+  opacity: 0.9;
+  text-shadow: 0 1px 2px var(--hud-shadow);
+  white-space: nowrap;
+}
+
 /* The centre: the pause card. */
 .hud-center {
   position: absolute;
@@ -1590,6 +1616,24 @@ canvas {
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
+}
+
+/* A NARROW CARD, where a chip row is decided by a handful of pixels. A row
+   is a label and its stops on one line, and on a phone the longest label
+   this page has (RESOLUTION) plus three stops lands a few pixels over — so
+   THAT row wraps and the ones above and below it do not, which reads as a
+   broken row rather than as a tight fit. The letters are what is given back:
+   the tracking is what makes a chip wide, the tap target is the padding, and
+   only the horizontal padding moves. */
+@media (max-width: 30rem) {
+  .menu-opt {
+    padding-inline: 0.46rem;
+    letter-spacing: 0.06em;
+  }
+
+  .menu-row {
+    column-gap: 0.5rem;
+  }
 }
 
 .menu-opt:hover,

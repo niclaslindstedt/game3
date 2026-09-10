@@ -98,6 +98,11 @@ export type Spray = {
   /** The lens the droplets are sized for: the drawing buffer's height,
    * device pixels, and the vertical field of view, degrees. */
   setLens: (pixelHeight: number, fovDeg: number) => void;
+  /** How much water the hull throws, as a share of the design rate — the
+   * DETAIL row's `SPRAY_SCALE`. At 0 nothing is emitted and the whole group
+   * goes dark; the droplets already in the air fall and expire on their own
+   * rather than vanishing mid-flight. */
+  setBudget: (share: number) => void;
   reset: () => void;
   dispose: () => void;
 };
@@ -235,7 +240,14 @@ export function createSpray(): Spray {
   patches.renderOrder = 2;
   group.add(patches);
 
+  /** The DETAIL row's share of the design spawn rate. It multiplies the RATES
+   * and the burst counts rather than the pool: a thinner spray is fewer
+   * droplets thrown, each living its full life, which reads as a lighter sea
+   * — where a shorter-lived droplet would read as spray that evaporates. */
+  let budget = 1;
+
   const patch = (x: number, z: number, t: number, radius: number, strength: number): void => {
+    if (budget <= 0) return;
     const p = patchCursor;
     patchCursor = (patchCursor + 1) % PATCHES;
     patchX[p] = x;
@@ -278,7 +290,7 @@ export function createSpray(): Spray {
     // from a little aft of the centre of gravity forward to the stagnation
     // line, out and up and a touch back.
     if (afloat && c.planing > 0.1 && c.speed > 4) {
-      sheetAcc += SHEET_RATE * c.planing * pace * dt;
+      sheetAcc += budget * SHEET_RATE * c.planing * pace * dt;
       while (sheetAcc >= 1) {
         sheetAcc -= 1;
         const side = rng() < 0.5 ? -1 : 1;
@@ -310,7 +322,7 @@ export function createSpray(): Spray {
     // transom, thrown up and back with the throttle.
     if (afloat && c.throttleEff > 0.08) {
       const thr = clamp(c.throttleEff, 0, 1);
-      tailAcc += TAIL_RATE * thr * (0.35 + 0.65 * pace) * dt;
+      tailAcc += budget * TAIL_RATE * thr * (0.35 + 0.65 * pace) * dt;
       while (tailAcc >= 1) {
         tailAcc -= 1;
         const p = at(c, (rng() - 0.5) * 0.18, keelY + 0.05, -L / 2 - spec.cog.z);
@@ -336,7 +348,7 @@ export function createSpray(): Spray {
     // thrown out at once, sized by how fast it arrived.
     if (prevAirborne && !c.airborne) {
       const strength = clamp((-prevVy - 1) / (PLUME_VY - 1), 0, 1);
-      burst(c, 40 + PLUME_BURST * strength, strength, -0.45, 0.45);
+      burst(c, budget * (40 + PLUME_BURST * strength), strength, -0.45, 0.45);
       patch(c.x, c.z, state.t, spec.beam * 1.2, 0.5 + 0.5 * strength);
     }
     // THE BOW PLUNGE: the deepest probe going under faster than a hull
@@ -344,11 +356,11 @@ export function createSpray(): Spray {
     const plunge = (c.submergedDepth - prevSub) / dt;
     if (afloat && plunge > PLUNGE_RATE && c.speed > 4) {
       const n = Math.min(60, Math.round(plunge * PLUNGE_PER_RATE));
-      burst(c, n, clamp(plunge / 6, 0.3, 1), 0.15, 0.48);
+      burst(c, budget * n, clamp(plunge / 6, 0.3, 1), 0.15, 0.48);
     }
     for (const e of state.events) {
       if (e.kind === "dive") {
-        burst(c, 220, 1, 0.1, 0.5);
+        burst(c, budget * 220, 1, 0.1, 0.5);
         patch(c.x + fwdX * L * 0.3, c.z + fwdZ * L * 0.3, state.t, spec.beam * 1.4, 1);
       }
     }
@@ -375,7 +387,8 @@ export function createSpray(): Spray {
 
   /** `n` droplets off both chines between two shares of the length, out
    * and up in proportion to `strength`. */
-  function burst(c: GameState["craft"], n: number, strength: number, from: number, to: number) {
+  function burst(c: GameState["craft"], count: number, strength: number, from: number, to: number) {
+    const n = Math.round(count);
     const spec = c.spec;
     const keelY = -spec.cog.y;
     const rightX = Math.cos(c.heading);
@@ -471,6 +484,10 @@ export function createSpray(): Spray {
     update,
     setLens: (pixelHeight, fovDeg) => {
       material.uniforms.uScale.value = pixelHeight / (2 * Math.tan((fovDeg * Math.PI) / 360));
+    },
+    setBudget: (share) => {
+      budget = Math.max(0, share);
+      group.visible = budget > 0;
     },
     reset: () => {
       rng = makeRng(7);

@@ -32,6 +32,13 @@ export const STRINGS = {
   resetTitle: "Back to the last gate (R)",
   /** The build corner: which stage and which craft this frame is of. */
   stage: (seed: number): string => `SEED ${seed}`,
+  /** ...and the two diagnostics that share it. The frame rate is rounded to
+   * a whole frame, because a tenth of one is a figure nobody can act on; the
+   * cost is the water's CPU slice, the draw calls and the triangles, in the
+   * order `make profile` prints them. */
+  fps: (rate: number): string => `${Math.round(rate)} FPS`,
+  frameCost: (waterMs: number, calls: number, triangles: number): string =>
+    `${waterMs.toFixed(1)} ms · ${calls} draws · ${(triangles / 1000).toFixed(0)}k tris`,
   /** The split flash after a gate, and the penalty after a missed one. */
   split: (gate: number, seconds: number): string => `GATE ${gate}  ${formatTime(seconds)}`,
   airGate: (gate: number, seconds: number): string => `RING ${gate}  ${formatTime(seconds)}`,
@@ -142,6 +149,22 @@ export const STRINGS = {
   optCamera: "CAMERA",
   optHud: "HUD",
   optHudHint: "The readouts over the water — off leaves the sea and nothing else",
+  /** The three stops every picture ladder is walked in, cheapest first. One
+   * set of words for all three rows: LOW on one row and MINIMAL on the next
+   * would read as two different kinds of ladder. */
+  optLow: "LOW",
+  optMedium: "MEDIUM",
+  optHigh: "HIGH",
+  /** The picture rows. Each names WHAT it moves, never how much — "how far
+   * out the sea is drawn properly" is the row, and its three stops are the
+   * answer; a row that had to be read is a row that has failed. */
+  optWater: "WATER",
+  optResolution: "RESOLUTION",
+  optDetail: "DETAIL",
+  optSeeThrough: "SEE INTO THE WATER",
+  optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
+  optFps: "SHOW FPS",
+  optFpsHint: "Frames a second in the corner, beside the build",
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order. */
   cameraChase: "CHASE",

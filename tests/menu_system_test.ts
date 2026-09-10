@@ -433,6 +433,48 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings({ developer: true, dev: { hs: 900 } }).dev.hs).toBeNull();
   });
 
+  it("keeps a picture the rider chose", () => {
+    const stored = mergeSettings({
+      hud: { on: true, fps: true },
+      video: {
+        water: "high",
+        resolution: "low",
+        seeThrough: false,
+        spray: "off",
+        fauna: false,
+        flora: "sparse",
+      },
+    });
+    expect(stored.hud.fps).toBe(true);
+    expect(stored.video).toEqual({
+      water: "high",
+      resolution: "low",
+      seeThrough: false,
+      spray: "off",
+      fauna: false,
+      flora: "sparse",
+    });
+  });
+
+  it("drops a picture stop this build no longer has, one row at a time", () => {
+    // A stop off the ladder is a chip the options page cannot put the cursor
+    // back on — but only THAT row falls back, or a renamed stop would take a
+    // rider's whole picture with it.
+    const stored = mergeSettings({
+      video: { water: "ultra", resolution: "high", spray: "off", flora: "jungle" },
+    });
+    expect(stored.video.water).toBe(DEFAULT_SETTINGS.video.water);
+    expect(stored.video.flora).toBe(DEFAULT_SETTINGS.video.flora);
+    expect(stored.video.resolution).toBe("high");
+    expect(stored.video.spray).toBe("off");
+  });
+
+  it("takes no opinion from a blob written before the picture had rows", () => {
+    expect(mergeSettings({ hud: { on: false } }).video).toEqual(DEFAULT_SETTINGS.video);
+    expect(mergeSettings({ hud: { on: false } }).hud.fps).toBe(false);
+    expect(mergeSettings({ video: "high" }).video).toEqual(DEFAULT_SETTINGS.video);
+  });
+
   it("keeps the developer menu OUT once it has been let out", () => {
     expect(mergeSettings({ developer: true }).developer).toBe(true);
   });

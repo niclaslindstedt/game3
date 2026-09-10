@@ -12,11 +12,19 @@ import * as THREE from "three";
 import { createRng, sampleField, type Level } from "@engine";
 
 import { PALETTE } from "../identity.ts";
+import { clamp } from "../lib/util.ts";
+import { FLORA_SCALE } from "./settings-video.ts";
 
-/** How many trees to try for, and the ground they will stand on: at least
- * this high, m, this far inland, m, and no higher than the tree line — a
- * rugged headland (R21) stands as bare rock over the pines, and a wood
- * running to the top of every hill is what would take that away. */
+/** How many trees to try for at the DESIGN density, and the ground they will
+ * stand on: at least this high, m, this far inland, m, and no higher than the
+ * tree line — a rugged headland (R21) stands as bare rock over the pines, and
+ * a wood running to the top of every hill is what would take that away.
+ *
+ * The stand is actually planted at the thickest the DETAIL row can ask for
+ * (`FLORA_SCALE.lush`) and the row then sets the instance count, so moving it
+ * shows on the next frame instead of on the next shore. The rng draws are
+ * sequential, so a thinner row is the same wood with its last trees left out —
+ * never a different wood. */
 const TRIES = 2600;
 const MIN_HEIGHT = 1.4;
 const MIN_INLAND = 14;
@@ -35,12 +43,20 @@ const quat = new THREE.Quaternion();
 const scale = new THREE.Vector3();
 const color = new THREE.Color();
 
-export function createPines(level: Level): THREE.Group {
+export type Pines = {
+  group: THREE.Group;
+  /** How much of the stand is drawn, as a share of the design density — the
+   * DETAIL row's `FLORA_SCALE`. Applies on the next frame. */
+  setDensity: (share: number) => void;
+};
+
+export function createPines(level: Level): Pines {
   const group = new THREE.Group();
   const rng = createRng(level.seed ^ 0x5eed);
   const b = level.bounds;
   const spots: { x: number; z: number; y: number; h: number; tint: number }[] = [];
-  for (let i = 0; i < TRIES; i++) {
+  const tries = Math.round(TRIES * FLORA_SCALE.lush);
+  for (let i = 0; i < tries; i++) {
     const x = rng.range(b.minX, b.maxX);
     const z = rng.range(b.minZ, b.maxZ);
     const y = sampleField(level.ground, x, z);
@@ -76,5 +92,11 @@ export function createPines(level: Level): THREE.Group {
   trunks.instanceMatrix.needsUpdate = true;
   if (crowns.instanceColor) crowns.instanceColor.needsUpdate = true;
   group.add(crowns, trunks);
-  return group;
+  return {
+    group,
+    setDensity: (share) => {
+      const drawn = Math.round(spots.length * (share / FLORA_SCALE.lush));
+      crowns.count = trunks.count = clamp(drawn, 0, spots.length);
+    },
+  };
 }

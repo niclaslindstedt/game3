@@ -13,8 +13,40 @@ import { valueNoise } from "@engine";
  * wake, the water's ripples. Isotropic mip selection at a grazing angle
  * blurs a tile across the view as hard as along it, and what is left is
  * streaks radiating from the lens. Eight is what a phone GPU has; three
- * takes the hardware's maximum where that is less. */
+ * takes the hardware's maximum where that is less.
+ *
+ * The rider moves it with the WATER row (`WaterLook.anisotropy`) — it is the
+ * half of that row that decides whether the picture STAYS legible where the
+ * grid's own detail has been pushed out to. This is the design point it moves
+ * around, and what the tiles are made with before any setting is applied. */
 export const TEXTURE_ANISOTROPY = 8;
+
+/** Every tile that is seen along the water, so a change of row reaches all of
+ * them. They are made once at first use and kept for the life of the page, and
+ * a tile made after a row has been set still gets that row's answer — which is
+ * the whole reason they are registered rather than each setting a number. */
+const tiles: THREE.Texture[] = [];
+let anisotropy = TEXTURE_ANISOTROPY;
+
+/** Give a tile the anisotropy the picture is set to, and keep it on the list.
+ * three clamps the number to what the hardware actually has. */
+export function anisotropic<T extends THREE.Texture>(tile: T): T {
+  tiles.push(tile);
+  tile.anisotropy = anisotropy;
+  return tile;
+}
+
+/** Re-sample every registered tile. `needsUpdate` is what makes the sampler
+ * parameters be written again — anisotropy is set on upload, so a tile already
+ * on the GPU keeps the old number without it. */
+export function setTextureAnisotropy(samples: number): void {
+  if (samples === anisotropy) return;
+  anisotropy = samples;
+  for (const tile of tiles) {
+    tile.anisotropy = samples;
+    tile.needsUpdate = true;
+  }
+}
 
 const FOAM_SIZE = 128;
 const SPRITE_SIZE = 64;
@@ -54,7 +86,7 @@ export function foamTexture(): THREE.DataTexture {
   foam.minFilter = THREE.LinearMipmapLinearFilter;
   foam.magFilter = THREE.LinearFilter;
   foam.generateMipmaps = true;
-  foam.anisotropy = TEXTURE_ANISOTROPY;
+  anisotropic(foam);
   foam.needsUpdate = true;
   return foam;
 }

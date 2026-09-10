@@ -17,9 +17,13 @@
 //
 // ONE DRAW CALL A SPECIES. Every animal of a kind is an instance of one
 // unit-length body — z from −0.5 at the tail to +0.5 at the nose, scaled by
-// the catalog's length — and only the pods within `SEE_THROUGH` of the
-// craft are written at all, because past that the far water is opaque and
-// nothing under it can be seen. Nothing is allocated per frame.
+// the catalog's length — and only the pods within the water's own SEE-THROUGH
+// radius of the craft are written at all, because past that the far water is
+// opaque and nothing under it can be seen. That radius is handed in per frame
+// rather than looked up: it is the water mesh's (`WaterMesh.seeThrough`), it
+// moves with the WATER row, and it is 0 when the rider has closed the window —
+// which is how one number both places the animals and switches them off.
+// Nothing is allocated per frame.
 //
 // THE TAIL BEATS IN THE VERTEX SHADER. A rigid fish is a wooden fish, and
 // a per-animal skeleton is a per-animal draw call. So the body carries its
@@ -53,7 +57,6 @@ import {
 
 import { PALETTE } from "../identity.ts";
 import { seaMirror, type Preset } from "./sky.ts";
-import { SEE_THROUGH } from "./water-mesh.ts";
 
 /** How a species is PAINTED and PROPORTIONED — everything about an animal
  * that is a look rather than a fact. */
@@ -450,9 +453,12 @@ export type Fauna = {
    * same preset the water is, on a change of sky rather than per frame —
    * the sea life answers to the same sky as the sea. */
   retone: (preset: Preset) => void;
-  /** Put every animal within sight of (`cx`, `cz`) where the engine says it
-   * is at the state's clock. */
-  update: (state: GameState, cx: number, cz: number) => void;
+  /** Put every animal within `reach` metres of (`cx`, `cz`) where the engine
+   * says it is at the state's clock. `reach` is how far the rider can see
+   * INTO the water — `WaterMesh.seeThrough` — and a reach of 0 writes no
+   * animals at all, which is what the DETAIL row's bottom stop and a closed
+   * window both come out as. */
+  update: (state: GameState, cx: number, cz: number, reach: number) => void;
   dispose: () => void;
 };
 
@@ -498,18 +504,18 @@ export function createFauna(level: Level): Fauna {
   const written = new Map<FaunaId, number>();
   const sky = new THREE.Color();
 
-  const update = (state: GameState, cx: number, cz: number): void => {
+  const update = (state: GameState, cx: number, cz: number, reach: number): void => {
     for (const id of shoals.keys()) written.set(id, 0);
     for (const pod of level.fauna) {
       // The pod's whole loop, not its centre: a school circling just inside
       // the range must not pop in and out as it goes round.
-      if (Math.hypot(pod.x - cx, pod.z - cz) - pod.radius > SEE_THROUGH) continue;
+      if (Math.hypot(pod.x - cx, pod.z - cz) - pod.radius > reach) continue;
       const shoal = shoals.get(pod.species);
       if (!shoal) continue;
       let n = written.get(pod.species) ?? 0;
       for (let i = 0; i < pod.count && n < shoal.mesh.instanceMatrix.count; i++) {
         faunaPose(pod, i, state.t, pose);
-        if (Math.hypot(pose.x - cx, pose.z - cz) > SEE_THROUGH) continue;
+        if (Math.hypot(pose.x - cx, pose.z - cz) > reach) continue;
         pos.set(pose.x, pose.y, pose.z);
         quat.set(pose.q.x, pose.q.y, pose.q.z, pose.q.w);
         scale.setScalar(shoal.spec.length);

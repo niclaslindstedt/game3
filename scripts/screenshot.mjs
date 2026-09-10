@@ -133,12 +133,20 @@ const args = parseArgs(
       kind: "string",
       help: "ride under this sky (clear, high, overcast, rain, squall) in place of the level's",
     },
+    // THE PICTURE ROWS, so a change to one can be photographed at every stop
+    // of its own ladder rather than only at the default. `--water high` beside
+    // `--water low` on the same scene is how that row is judged at all: the
+    // difference is a wave twenty metres out, and no single frame shows it.
+    water: { kind: "string", help: "the WATER row: low, medium, high" },
+    res: { kind: "string", help: "the RESOLUTION row: low, medium, high" },
+    detail: { kind: "string", help: "the DETAIL row: low, medium, high" },
+    see: { kind: "string", help: "see into the water: 1 or 0" },
     viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
     "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] " +
-    "[--viewport v] [--timeout s]",
+    "[--water l] [--res l] [--detail l] [--see 0|1] [--viewport v] [--timeout s]",
 );
 const viewports =
   args.viewport === "all" ? Object.keys(VIEWPORTS) : String(args.viewport).split(",");
@@ -233,6 +241,10 @@ if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
 if (args.hour !== undefined) base.hour = String(args.hour);
 if (args.weather !== undefined) base.weather = String(args.weather);
+if (args.water !== undefined) base.water = String(args.water);
+if (args.res !== undefined) base.res = String(args.res);
+if (args.detail !== undefined) base.detail = String(args.detail);
+if (args.see !== undefined) base.see = String(args.see);
 if (args.surface) {
   const names = args.surface === "all" ? Object.keys(SURFACES) : String(args.surface).split(",");
   for (const name of names) {

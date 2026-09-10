@@ -4,7 +4,7 @@
 //
 // The module is in two halves and the split is deliberate. `mergeSettings` is
 // a PURE function of a parsed blob — it never touches storage, so the root
-// suite reads it without a browser (`tests/settings_test.ts`) — and
+// suite reads it without a browser (`tests/menu_system_test.ts`) — and
 // `loadSettings` / `saveSettings` are the thin skin over `localStorage` that
 // call it. Everything a test would want to ask about a stored blob is a
 // question about the merge.
@@ -28,13 +28,29 @@ import {
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
+import {
+  DEFAULT_VIDEO,
+  FLORA_LEVELS,
+  RESOLUTION_LEVELS,
+  SPRAY_LEVELS,
+  WATER_LEVELS,
+  type VideoSettings,
+} from "./settings-video.ts";
 
-/** What the HUD draws. One switch today — the whole overlay — because that
- * is the one a player actually reaches for, either to look at the water
- * with nothing over it or to take a picture of it. Per-readout switches are
- * a page of questions nobody asked. */
+/** What the HUD draws. The whole overlay, and one readout that is not part of
+ * it until it is asked for.
+ *
+ * `on` is the switch a rider actually reaches for, either to look at the water
+ * with nothing over it or to take a picture of it. `fps` is the exception to
+ * the rule that per-readout switches are a page of questions nobody asked: it
+ * is not a fact about the RUN like the speed or the gate count, it is a fact
+ * about the machine, and the only reason to want it on screen is that the
+ * picture options next to it are being judged. It rides under `on` all the
+ * same — it is a readout over the water, and a switch worded "the readouts
+ * over the water" has to mean it. */
 export type HudSettings = {
   on: boolean;
+  fps: boolean;
 };
 
 /**
@@ -114,14 +130,17 @@ export type DevSettings = {
    * level's start — the launch off a ramp, the nose-down landing, the chop.
    * Null rides from the start line with the clock running. */
   scene: ScenarioName | null;
-  /** The frame cost in the HUD's corner: the water's CPU time, the draw
-   * calls, the triangles. What `make profile` counts, while playing. */
+  /** The frame cost under the minimap: the water's CPU time, the draw calls,
+   * the triangles. What `make profile` counts, while playing. */
   cost: boolean;
 };
 
 export type Settings = {
   hud: HudSettings;
   ride: RideSettings;
+  /** What the picture costs — the rows of OPTIONS ▸ VIDEO. What each one buys
+   * is `settings-video.ts`, which is also where the ladders are stated. */
+  video: VideoSettings;
   /** True once the developer menu has been let out — the START row held
    * down for {@link DEV_HOLD_MS}. It STAYS out: a player who found it
    * deliberately does not want to find it again every time they open the
@@ -146,7 +165,8 @@ export type Settings = {
 export const DEV_HOLD_MS = 7000;
 
 export const DEFAULT_SETTINGS: Settings = {
-  hud: { on: true },
+  hud: { on: true, fps: false },
+  video: DEFAULT_VIDEO,
   ride: {
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
@@ -190,6 +210,7 @@ export function freshSettings(): Settings {
   return {
     hud: { ...DEFAULT_SETTINGS.hud },
     ride: { ...DEFAULT_SETTINGS.ride },
+    video: { ...DEFAULT_SETTINGS.video },
     developer: false,
     dev: { ...DEFAULT_SETTINGS.dev },
   };
@@ -219,6 +240,24 @@ export function mergeSettings(parsed: unknown): Settings {
 
   const hud = blob.hud as Partial<Record<keyof HudSettings, unknown>> | undefined;
   if (typeof hud?.on === "boolean") settings.hud.on = hud.on;
+  if (typeof hud?.fps === "boolean") settings.hud.fps = hud.fps;
+
+  // Every picture row is checked against the ladder THIS build offers, for the
+  // reason the header gives: a stop that has been renamed or dropped is a chip
+  // the options page cannot put the cursor back on, so the rider would be
+  // stuck on a picture they can see but not choose.
+  const video = blob.video as Partial<Record<keyof VideoSettings, unknown>> | undefined;
+  if (video) {
+    const on = <T extends string>(stops: readonly T[], value: unknown): T | null =>
+      stops.some((id) => id === value) ? (value as T) : null;
+    settings.video.water = on(WATER_LEVELS, video.water) ?? settings.video.water;
+    settings.video.resolution =
+      on(RESOLUTION_LEVELS, video.resolution) ?? settings.video.resolution;
+    settings.video.spray = on(SPRAY_LEVELS, video.spray) ?? settings.video.spray;
+    settings.video.flora = on(FLORA_LEVELS, video.flora) ?? settings.video.flora;
+    if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
+    if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;
+  }
 
   const ride = blob.ride as Partial<Record<keyof RideSettings, unknown>> | undefined;
   // Checked against the catalog rather than merged: a craft this build
