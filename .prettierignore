@@ -46,5 +46,10 @@ tauri/node_modules/
 tauri/src-tauri/icons/
 tauri/src-tauri/gen/
 native/node_modules/
+native/package-lock.json
+native/.expo/
 native/ios/
 native/android/
+native/assets/webroot.zip
+# Generated rasters, copied from the app mark by `make icons`.
+native/assets/*.png

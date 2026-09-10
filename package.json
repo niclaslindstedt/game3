@@ -37,7 +37,14 @@
     "tauri:lint": "npm --prefix tauri run lint",
     "tauri:fmt": "npm --prefix tauri run fmt",
     "tauri:install": "npm --prefix tauri install",
-    "tauri:package": "npm run tauri:install && npm --prefix tauri run package --"
+    "tauri:package": "npm run tauri:install && npm --prefix tauri run package --",
+    "native": "npm --prefix native start",
+    "native:install": "npm --prefix native install",
+    "native:bundle": "npm --prefix native run bundle",
+    "native:typecheck": "npm --prefix native run typecheck",
+    "native:ios": "npm --prefix native run ios",
+    "native:ios:device": "npm --prefix native run ios:device",
+    "native:android": "npm --prefix native run android"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
