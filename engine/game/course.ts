@@ -35,10 +35,12 @@ export function freshProgress(level: Level): Progress {
   };
 }
 
-/** Whether a move from p0 to p1 crossed the gate. Returns the offset from
- * the gate's centre at the crossing (lateral for a water gate, in the
- * ring's plane for an air gate), or null. */
-export function crossedGate(
+/** Whether a move from p0 to p1 crossed the gate's LINE at all, and how
+ * far off centre it did — laterally for a water gate, and in the ring's
+ * own plane for an air gate. `crossedGate` is this with the gate's width
+ * applied; the raw answer is what says a rider went PAST a gate rather
+ * than through it. */
+export function crossedLine(
   gate: Gate,
   x0: number,
   y0: number,
@@ -59,12 +61,38 @@ export function crossedGate(
   const cy = y0 + (y1 - y0) * f;
   const cz = z0 + (z1 - z0) * f;
   const lateral = (cx - gate.x) * rx + (cz - gate.z) * rz;
-  const half = gate.width / 2;
-  if (gate.kind === "water") {
-    return Math.abs(lateral) <= half ? { lateral, vertical: cy } : null;
-  }
-  const vertical = cy - gate.y;
-  return Math.hypot(lateral, vertical) <= half ? { lateral, vertical } : null;
+  return gate.kind === "water" ? { lateral, vertical: cy } : { lateral, vertical: cy - gate.y };
+}
+
+/** How far off the gate's centre a crossing was, in the terms the gate is
+ * judged by: across the line for a water gate, and out from the ring's own
+ * centre for an air gate. */
+function offCentre(gate: Gate, at: { lateral: number; vertical: number }): number {
+  return gate.kind === "water" ? Math.abs(at.lateral) : Math.hypot(at.lateral, at.vertical);
+}
+
+/** Whether a move from p0 to p1 went THROUGH the gate. Returns the offset
+ * from the gate's centre at the crossing, or null. */
+export function crossedGate(
+  gate: Gate,
+  x0: number,
+  y0: number,
+  z0: number,
+  x1: number,
+  y1: number,
+  z1: number,
+): { lateral: number; vertical: number } | null {
+  const at = crossedLine(gate, x0, y0, z0, x1, y1, z1);
+  return at && offCentre(gate, at) <= gate.width / 2 ? at : null;
+}
+
+/** Charge a gate the rider went past. */
+function miss(state: GameState, index: number, events: GameEvent[]): void {
+  const p = state.progress;
+  p.missed.push(index);
+  p.penalty += K.missedPenalty;
+  p.time += K.missedPenalty;
+  events.push({ kind: "missedGate", t: state.t, gate: index, penalty: K.missedPenalty });
 }
 
 function take(state: GameState, index: number, height: number, events: GameEvent[]): void {
@@ -101,12 +129,21 @@ export function stepCourse(
     take(state, n, c.y, events);
     p.nextGate = n + 1;
   } else if (n + 1 < gates.length && crossedGate(gates[n + 1], x0, y0, z0, c.x, c.y, c.z)) {
-    p.missed.push(n);
-    p.penalty += K.missedPenalty;
-    p.time += K.missedPenalty;
-    events.push({ kind: "missedGate", t: state.t, gate: n, penalty: K.missedPenalty });
+    miss(state, n, events);
     take(state, n + 1, c.y, events);
     p.nextGate = n + 2;
+  } else {
+    // …or the craft went PAST this gate, crossing its line outside the
+    // buoys near enough for the crossing to be about this gate (see
+    // `course.missWide`). The rider pays for it and rides on: a gate gone
+    // by is never one to be sent back to, and a course with corners in it
+    // can otherwise leave a rider who misses two in a row with no gate
+    // ahead that will ever count.
+    const wide = crossedLine(gates[n], x0, y0, z0, c.x, c.y, c.z);
+    if (wide && offCentre(gates[n], wide) <= K.missWide) {
+      miss(state, n, events);
+      p.nextGate = n + 1;
+    }
   }
   if (p.nextGate >= gates.length) {
     p.finished = true;
@@ -115,8 +152,15 @@ export function stepCourse(
   }
 }
 
-/** Where a reset stands the craft: behind the last gate taken, or the
- * start, facing the next gate. */
+/** Where a reset stands the craft: behind the last gate it is DONE with —
+ * passed or paid for — or at the start, facing the next gate.
+ *
+ * "Done with" is `nextGate - 1` rather than the last gate in `passed`,
+ * because a missed gate is charged and counted as reached without being
+ * passed. Reading `passed` sends a rider who went by three gates in a row
+ * back to the last one they actually threaded, which on a course with
+ * corners can be half a kilometre astern — and then the idle timer resets
+ * them there again before they can ride back, for ever. */
 export function resetPose(state: GameState): {
   x: number;
   z: number;
@@ -125,7 +169,7 @@ export function resetPose(state: GameState): {
 } {
   const gates = state.level.course.gates;
   const p = state.progress;
-  const last = p.passed.length > 0 ? p.passed[p.passed.length - 1] : -1;
+  const last = p.nextGate - 1;
   const next = gates[Math.min(p.nextGate, gates.length - 1)];
   if (last < 0) {
     const s = state.level.start;

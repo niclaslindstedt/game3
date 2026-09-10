@@ -54,11 +54,24 @@ export type RunReport = {
   digest: string;
 };
 
+/**
+ * How long a run is given before the harness gives up, s.
+ *
+ * MEASURED, and stated once so the CLI, the tests and a caller that names
+ * nothing all give a run the same rope. A course-first level (R24) is 1.3
+ * to 1.9 km of line with corners in it, ridden at 22 to 51 km/h depending
+ * on the wind the seed drew — the slowest four-craft run over seeds 1 to 3
+ * finishes at 316 s, and every one of the twelve finishes. The cap is here
+ * to catch a rider who has STOPPED riding, not to assert a pace; the pace
+ * has its own floor in `tests/simulation_test.ts`.
+ */
+export const SIM_SECONDS = 360;
+
 /** Ride one level headlessly with the bot. */
 export function simulateStage(options: SimOptions): RunReport {
   const craft = options.craft ?? "skiff";
   const profile = options.profile ?? RIDER_BOT;
-  const maxSeconds = options.maxSeconds ?? 240;
+  const maxSeconds = options.maxSeconds ?? SIM_SECONDS;
   const state = createGame({
     seed: options.seed,
     craft,

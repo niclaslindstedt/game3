@@ -40,12 +40,20 @@ export type Biome = {
    * `land.maxHeight` whatever it is. */
   readonly relief: number;
   /** Multipliers on `LEVEL_RULES.solids.<kind>.perKm`. */
-  readonly rocks: { readonly skerry: number; readonly boulder: number; readonly reef: number };
+  readonly rocks: {
+    readonly skerry: number;
+    readonly boulder: number;
+    readonly reef: number;
+    readonly erratic: number;
+    readonly stack: number;
+  };
   /** Multiplier on `LEVEL_RULES.surface.boulder.threshold`'s complement:
    * above 1 the boulder fields are wider, below 1 sparser. */
   readonly boulderField: number;
-  /** Whether a bay's low ground collects sand at all (R16). */
-  readonly sandPockets: boolean;
+  /** Whether this coast's soft stretches carry a sand beach at all
+   * (R16) — a coast of bare rock says no and every waterline on it is
+   * stone. */
+  readonly beaches: boolean;
   /** The skies this coast can be under (R19), lightest first. A coast is
    * partly its weather — a Baltic shore gets the whole range and an atoll
    * will not get a Baltic squall — so the chart is the biome's rather than
@@ -74,9 +82,9 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // sunrise three hours after midnight.
     latitude: 62,
     relief: 1,
-    rocks: { skerry: 1, boulder: 1, reef: 1 },
+    rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },
     boulderField: 1,
-    sandPockets: true,
+    beaches: true,
     // R19 — the Bothnian summer, which is every sky there is. A northern
     // coast in July runs from a windless blue morning to a line squall
     // coming in off the open sea in an afternoon, and the whole point of

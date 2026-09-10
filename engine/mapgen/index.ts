@@ -4,17 +4,21 @@
 export {
   LEVEL_RULES,
   inBand,
+  solidBerth,
+  solidRule,
   withinBand,
   type Band,
   type GenerateOptions,
   type LevelRules,
+  type SolidRule,
 } from "./rules.ts";
 export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
 export { generateLevel, subSeed } from "./generate.ts";
 export { compileLevel, courseBounds, insideBounds, type LevelPlan } from "./compile.ts";
-export { createShore, shoreSpan, type Shore } from "./shore.ts";
+export { drawRoute, type Route } from "./route.ts";
+export { layBasin, pointOn, routeBounds, traceCoast, type Basin, type Island } from "./basin.ts";
 export {
   bedDepth,
   createGeology,

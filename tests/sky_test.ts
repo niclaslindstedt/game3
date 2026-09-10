@@ -25,12 +25,13 @@ import {
   biomeOf,
   createGame,
   createRng,
+  daylightWindow,
   pickWeather,
   skyCover,
 } from "@engine";
 
 import { luminance } from "../pwa/src/lib/colour.ts";
-import { DAY_ABOVE, NIGHT_BELOW, daylightOf, litAt, sunAt } from "../pwa/src/game/daylight.ts";
+import { DAY_ABOVE, daylightOf, litAt, sunAt } from "../pwa/src/game/daylight.ts";
 import {
   dayLight,
   deckToneAt,
@@ -44,6 +45,11 @@ import { syntheticLevel } from "./support/synthetic.ts";
 
 const TAIGA = biomeOf("taiga");
 const LAT = TAIGA.latitude;
+/** R13 — the hours a level on this coast can be ridden at. Every claim
+ * about the ladder below is a claim about THESE hours: no other hour is
+ * reachable, so a rung under the horizon is a rung nobody sees. */
+const DAY = daylightWindow(LAT, R.day.minSun);
+if (!DAY) throw new Error("the taiga coast has daylight");
 
 describe("R19 — the sky is drawn from the coast's chart, weighted by the wind", () => {
   it("reads the wind's place in R12's band as the weather's heaviness", () => {
@@ -99,13 +105,20 @@ describe("the sun over this coast", () => {
     }
   });
 
-  it("never gets dark: a midsummer midnight at 62°N is civil twilight", () => {
-    // 4.6° under the horizon, and NIGHT_BELOW is 6° — which is why the
-    // ladder's DARK rung is a floor this coast never reaches.
-    const midnight = sunAt(0, LAT).elevation;
-    expect(midnight).toBeLessThan(0);
-    expect(midnight).toBeGreaterThan(NIGHT_BELOW);
-    expect(daylightOf(sunAt(0, LAT))).not.toBe("night");
+  it("R13 — the sun is up at every hour a level can be ridden at, and only there", () => {
+    // The window is the rule: inside it the sun is over the horizon at
+    // every hour, and the hours either side of it are the ones no level is
+    // ever drawn at. That is what "no night" means in this game.
+    // The window's ends are found by interpolating between three-minute
+    // samples of the arc, so they land within a thousandth of a degree of
+    // the horizon rather than exactly on it.
+    for (let h = DAY.min; h <= DAY.max; h += 0.25) {
+      expect(sunAt(h, LAT).elevation).toBeGreaterThan(-1e-4);
+    }
+    expect(sunAt(DAY.min - 0.5, LAT).elevation).toBeLessThan(0);
+    expect(sunAt(DAY.max + 0.5, LAT).elevation).toBeLessThan(0);
+    // …and the window is most of a High Coast midsummer day.
+    expect(DAY.max - DAY.min).toBeGreaterThan(18);
   });
 
   it("rises in the small hours and sets late in the evening", () => {
@@ -122,7 +135,6 @@ describe("the sun over this coast", () => {
 
   it("names the light by the elevation, and dawn and dusk by the way it is going", () => {
     expect(daylightOf({ elevation: DAY_ABOVE + 0.1, rising: true })).toBe("day");
-    expect(daylightOf({ elevation: NIGHT_BELOW - 0.1, rising: false })).toBe("night");
     expect(daylightOf({ elevation: 0.05, rising: true })).toBe("dawn");
     expect(daylightOf({ elevation: 0.05, rising: false })).toBe("dusk");
   });
@@ -142,41 +154,43 @@ describe("the sun over this coast", () => {
 describe("the ladder", () => {
   const clearAt = (hour: number) => skyAt(hour, LAT, "clear", 0);
 
-  it("puts the most light on the water at noon and the least at midnight", () => {
+  it("puts the most light on the water at noon and the least as the sun goes in", () => {
     expect(dayLight(clearAt(12))).toBeGreaterThan(dayLight(clearAt(18)));
-    expect(dayLight(clearAt(18))).toBeGreaterThan(dayLight(clearAt(21.5)));
-    expect(dayLight(clearAt(21.5))).toBeGreaterThan(dayLight(clearAt(0)));
+    expect(dayLight(clearAt(18))).toBeGreaterThan(dayLight(clearAt(20.5)));
+    expect(dayLight(clearAt(20.5))).toBeGreaterThan(dayLight(clearAt(DAY.max)));
   });
 
   it("never puts the key light under the horizon", () => {
     // A key from below the water lights nothing: every face turned to the
     // lens would go black, and the rider would lose the buoys.
-    for (let h = 0; h < 24; h += 0.5) expect(clearAt(h).sunElevation).toBeGreaterThan(0);
+    for (let h = DAY.min; h <= DAY.max; h += 0.5) {
+      expect(clearAt(h).sunElevation).toBeGreaterThan(0);
+    }
   });
 
-  it("hands the key over to the moon's side of the sky after dark", () => {
-    // Not on this coast in summer — the sun never gets low enough — so the
-    // hand-over is checked where it happens, at a latitude with a night.
-    const deep = skyAt(0, 40, "clear", 0);
-    const sun = sunAt(0, 40);
-    expect(sun.elevation).toBeLessThan(NIGHT_BELOW);
-    // The key stands opposite the sun, to within the wrap.
-    const apart = Math.abs(((deep.sunAzimuth - sun.azimuth) % (2 * Math.PI)) - Math.PI);
-    expect(apart).toBeLessThan(0.2);
+  it("keeps the key on the sun's own side of the sky all day", () => {
+    // There is no second key light: no level is ridden dark enough to need
+    // one, so the bearing the world is lit from is always the sun's.
+    for (let h = DAY.min; h <= DAY.max; h += 0.5) {
+      expect(clearAt(h).sunAzimuth).toBe(sunAt(h, LAT).azimuth);
+    }
+  });
+
+  it("holds its lowest rung under the horizon rather than going on down", () => {
+    // R13 never asks for a sky under a set sun, so the ladder's floor is
+    // the sun ON the water — and anything below simply reads as that.
+    const set = clearAt(DAY.max);
+    const under = skyAt(DAY.max + 1, LAT, "clear", 0);
+    expect(luminance(under.horizon)).toBeCloseTo(luminance(set.horizon), 1);
   });
 
   it("blends without a cut: no step in the day is a jump in the light", () => {
-    let was = dayLight(clearAt(0));
-    for (let h = 0.1; h <= 24; h += 0.1) {
+    let was = dayLight(clearAt(DAY.min));
+    for (let h = DAY.min + 0.1; h <= DAY.max; h += 0.1) {
       const now = dayLight(clearAt(h));
       expect(Math.abs(now - was)).toBeLessThan(0.06);
       was = now;
     }
-  });
-
-  it("shows the stars only when there is a sky dark enough to show them", () => {
-    expect(clearAt(12).stars).toBe(0);
-    expect(clearAt(0).stars).toBeGreaterThan(0);
   });
 });
 

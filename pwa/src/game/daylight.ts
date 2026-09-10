@@ -1,102 +1,47 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// WHERE THE SUN IS — the one piece of astronomy the whole sky hangs off. A
-// level is not ridden at "dusk"; it is ridden at 20:40 at 62°N, and dusk is
-// what that turns out to be. Two facts decide the sun's place, and both are
-// already the level's: the HOUR (R13) and the coast's LATITUDE (the biome's
-// row). Nothing here is art-directed — the art direction is `sky.ts`'s,
-// keyed on what comes out of here.
+// WHERE THE SUN IS, READ AS A KIND OF LIGHT. A level is not ridden at
+// "dusk"; it is ridden at 20:40 at 62°N, and dusk is what that turns out to
+// be. The astronomy itself is the engine's (`engine/lib/solar.ts`) because
+// the LEVEL GENERATOR needs the same arithmetic to pick an hour at all
+// (R13); what lives here is what the app makes of the answer.
 //
-// The consequences are the point, and they are all real for this coast:
+// THE GAME HAS NO NIGHT. R13 draws every level's hour from the window in
+// which the sun is over the horizon, so the darkest sky a rider is ever
+// under is a sun sitting on the water. That is a rule about the LEVEL, and
+// it is why nothing here has a word, a moon or a star for the dark: on the
+// water there is no ridge line and no street lamp, and a sea nobody can
+// read the waves of is a level nobody can ride.
 //
-//   * the sun rises about 02:40 and sets about 21:20, so most hours on the
-//     clock are ridden in daylight and the ones that are not are twilight;
-//   * it never falls more than 4.6° under the horizon, so a midnight ride
-//     is a blue civil twilight with the northern sky still glowing and the
-//     brightest stars barely showing — the coast never gets a black night;
-//   * a low sun stands in the NORTH at midnight and the north-east at three
-//     in the morning, so where the light comes from is the hour's, and the
-//     glow on the water moves round the rider over a long evening.
-//
-// THE SEASON IS FIXED at high summer (`DECLINATION`). The game is a northern
-// summer — the water is 8–18 °C, the shore is in leaf — and a season dial
-// would be a second clock nobody is asking to set. Where the sun is on a
-// given DAY of that summer is the one thing this simplifies away.
+// THE SEASON IS FIXED at high summer (the engine's `SUMMER_DECLINATION`).
+// The game is a northern summer — the water is 8–18 °C, the shore is in
+// leaf — and a season dial would be a second clock nobody is asking to set.
 //
 // DOM-free and three-free on purpose: `sky.ts` reads it, and the tests read
 // all of it without standing up a renderer.
 
+import { sunAt, type SunPlace } from "@engine";
+
+export { SOUTH, sunAt, hourOfElevation, SUMMER_DECLINATION, type SunPlace } from "@engine";
+
 const DEG = Math.PI / 180;
 
-/** Which of the four kinds of light a moment is — the word for a sky,
+/** Which of the three kinds of daylight a moment is — the word for a sky,
  * for anything that keys on one rather than on a number. The sky itself
  * never reads it: the sky reads the elevation, and this is that elevation
  * binned. */
-export type Daylight = "dawn" | "day" | "dusk" | "night";
+export type Daylight = "dawn" | "day" | "dusk";
 
-/** Where the sun stands at solar noon, as a WORLD HEADING (the engine's
- * convention: 0 along +z, growing clockwise toward +x). The south — and on
- * this coast the shore runs south-west to north-east with the open sea on
- * its seaward side (R15), so a noon sun stands out over the water and an
- * evening one goes down the coast. */
-export const SOUTH = Math.PI;
-
-/** The sun's declination, degrees — the June solstice. See the header: one
- * season, fixed, and it is the one this coast is ridden in. */
-export const DECLINATION = 23.4;
-
-/** Below this the sun is NIGHT: the end of civil twilight, six degrees
- * under, radians — the point a real day stops being usable without a lamp.
- * Above `DAY_ABOVE` it is plain day; between the two the word is dawn or
- * dusk by which way the sun is going. */
-export const NIGHT_BELOW = -6 * DEG;
+/** Above this the sun is plain DAY, radians. Under it the word is dawn or
+ * dusk by which way the sun is going — and there is no fourth word, because
+ * R13 never puts a level under a sun that has gone. */
 export const DAY_ABOVE = 10 * DEG;
-
-export type SunPlace = {
-  /** Radians above the horizon; negative under it. */
-  elevation: number;
-  /** World heading the sun stands at (see `SOUTH`). */
-  azimuth: number;
-  /** Whether it is on its way up — before solar noon. */
-  rising: boolean;
-  /** The hour it was read at, 0..24. */
-  hour: number;
-};
 
 function clamp(v: number, lo: number, hi: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-/**
- * WHERE THE SUN IS at `hour` (solar time, 0..24) at `latitude` degrees
- * north. The textbook solar position: the hour angle runs 15° an hour
- * either side of noon, and the elevation and the azimuth fall out of it
- * with the latitude and the declination.
- */
-export function sunAt(hour: number, latitude: number): SunPlace {
-  const lat = latitude * DEG;
-  const dec = DECLINATION * DEG;
-  const h = ((((hour % 24) + 24) % 24) - 12) * 15 * DEG;
-  const sinEl = Math.sin(lat) * Math.sin(dec) + Math.cos(lat) * Math.cos(dec) * Math.cos(h);
-  const elevation = Math.asin(clamp(sinEl, -1, 1));
-  // Azimuth measured from the south, positive toward the west — so it is
-  // negative all morning and swings through zero at noon.
-  const fromSouth = Math.atan2(
-    Math.sin(h),
-    Math.cos(h) * Math.sin(lat) - Math.tan(dec) * Math.cos(lat),
-  );
-  return { elevation, azimuth: SOUTH + fromSouth, rising: h < 0, hour };
-}
-
-/** The full moon's place — dead opposite the sun, which is what a full moon
- * IS: highest at solar midnight, and the key light of any sky dark enough
- * to need one. */
-export function moonAt(sun: SunPlace): { elevation: number; azimuth: number } {
-  return { elevation: -sun.elevation, azimuth: sun.azimuth + Math.PI };
-}
-
 /** The word for this much sun. */
 export function daylightOf(sun: Pick<SunPlace, "elevation" | "rising">): Daylight {
-  if (sun.elevation < NIGHT_BELOW) return "night";
   if (sun.elevation >= DAY_ABOVE) return "day";
   return sun.rising ? "dawn" : "dusk";
 }
@@ -119,31 +64,10 @@ export function litAt(altitude: number, elevation: number): number {
   return t * t * (3 - 2 * t);
 }
 
-/**
- * The hour at which the sun stands at `elevation`, on its way up (`rising`)
- * or down, to within a few minutes — or null when it never reaches it that
- * day. Both answers happen on this coast: a midsummer night never gets down
- * to −8°, and no hour of it gets up to +60°.
- */
-export function hourOfElevation(
-  elevation: number,
-  rising: boolean,
-  latitude: number,
-): number | null {
-  const from = rising ? 0 : 12;
-  const STEP = 1 / 20;
-  let was = sunAt(from, latitude).elevation - elevation;
-  for (let h = from + STEP; h <= from + 12 + 1e-9; h += STEP) {
-    const now = sunAt(h, latitude).elevation - elevation;
-    if ((rising && was < 0 && now >= 0) || (!rising && was > 0 && now <= 0)) {
-      // Linear between the two samples: the arc is a cosine, and a
-      // twentieth of an hour of it is straight enough.
-      const f = was / (was - now);
-      return h - STEP + f * STEP;
-    }
-    was = now;
-  }
-  return null;
+/** Where the sun stands at an hour on a coast, for callers that already
+ * have the level's own latitude. */
+export function sunOver(hour: number, latitude: number): SunPlace {
+  return sunAt(hour, latitude);
 }
 
 /** "16:00" — and "16:30" for a half, since a level's hour is a real number

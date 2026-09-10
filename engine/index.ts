@@ -115,19 +115,27 @@ export {
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).
 export { boundsPush, onRampDeck, rampDeckY, solidNear } from "./game/collision.ts";
-export { bearingToNext, crossedGate, gatesReached, resetPose } from "./game/course.ts";
+export { bearingToNext, crossedGate, crossedLine, gatesReached, resetPose } from "./game/course.ts";
 
 // The level generator and its analyzer.
 export * from "./mapgen/index.ts";
 
 // The headless simulator and its bot rider.
-export { simulateStage, type RunReport, type SimOptions } from "./sim/simulate.ts";
+export { simulateStage, SIM_SECONDS, type RunReport, type SimOptions } from "./sim/simulate.ts";
 export { botInput, launchSpeedFor, RIDER_BOT, type BotProfile } from "./sim/bot.ts";
 export { type RunTape, type TapeSample } from "./sim/tape.ts";
 
 // Deterministic utilities shared with tooling.
 export { createRng, type Rng } from "./lib/prng.ts";
 export { hash2, smooth, valueNoise } from "./lib/noise.ts";
+export {
+  SOUTH,
+  SUMMER_DECLINATION,
+  daylightWindow,
+  hourOfElevation,
+  sunAt,
+  type SunPlace,
+} from "./lib/solar.ts";
 export { angleDiff, clamp, lerp, TAU } from "./lib/math.ts";
 export {
   fromEuler,

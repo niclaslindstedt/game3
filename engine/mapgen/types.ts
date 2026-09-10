@@ -42,12 +42,13 @@ export type Surface = "bedrock" | "rock" | "sand" | "water";
  * is comes from the level's wind (`weather.ts`). */
 export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
 
-/** A rock standing in (or just out of) the water: a vertical-axis solid the
- * craft can hit. `top` is the rock's height above sea level (negative for a
- * reef the hull can still touch), `r` its plan radius. */
+/** A rock standing in the water or on the shore beside it: a vertical-axis
+ * solid the craft can hit. `top` is the rock's height above SEA level
+ * (negative for a reef the hull can still touch, and high for an erratic
+ * sitting up a beach), `r` its plan radius. */
 export type Solid = {
   readonly id: string;
-  readonly kind: "skerry" | "boulder" | "reef";
+  readonly kind: "skerry" | "boulder" | "reef" | "erratic" | "stack";
   readonly x: number;
   readonly z: number;
   readonly r: number;
@@ -161,8 +162,10 @@ export type Level = {
   /** Metres from the nearest shoreline, positive out to sea, negative
    * inland. The wave model reads it as FETCH; the course rules bound it. */
   readonly offshore: Heightfield;
-  /** The main coast as a polyline, south-west to north-east in course order. */
-  readonly shore: readonly Vec2[];
+  /** THE COASTLINES: the water's edge as polylines, longest first. More
+   * than one, because a basin's edge is not one line — the mainland, and
+   * one round every island in it (R15). */
+  readonly shore: readonly (readonly Vec2[])[];
   /** What the shore is made of at a plan point. (`materialAt`, not
    * `surfaceAt`: the sea's `surfaceAt` is the wave surface.) */
   readonly materialAt: (x: number, z: number) => Surface;

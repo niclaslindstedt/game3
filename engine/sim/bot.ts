@@ -8,6 +8,7 @@
 // Used by the simulation harness, the balance CLI and the tests.
 
 import { angleDiff, clamp } from "../lib/math.ts";
+import { rotate } from "../lib/quat.ts";
 import { onRampDeck, solidNear } from "../game/collision.ts";
 import { fieldGradient, sampleField } from "../lib/heightfield.ts";
 import { TUNING } from "../game/defs/tuning.ts";
@@ -89,6 +90,7 @@ export const RIDER_BOT: BotProfile = {
   airYawDamp: 1.2,
   lookAhead: 40,
   dodge: 9,
+  // Two seconds of water, and never less than half a gate's spacing: far
   easeAngle: 0.9,
   easeTo: 1,
   giveUpPast: 6,
@@ -204,6 +206,43 @@ function pastGate(gate: Gate, x: number, z: number): number {
   return (x - gate.x) * Math.sin(gate.heading) + (z - gate.z) * Math.cos(gate.heading);
 }
 
+/**
+ * WHICH GATE TO RIDE FOR: the first one ahead, and never one behind.
+ *
+ * A gate already past — a ring sailed over, a buoy passed on the wrong
+ * side — is a gate to pay for, not to turn back for: the engine counts it
+ * missed and the next one becomes the target, so the rider carries on. The
+ * walk goes FORWARD until it finds one the craft is not past, and when
+ * every gate left is past it takes the last, because a rider with nothing
+ * ahead rides to the finish rather than round in circles.
+ *
+ * Going back for the nearer of two gates it had passed is what put the bot
+ * into a widening spiral out to sea on a course with corners in it (R22):
+ * a gate's plane is infinite, so a craft well before a corner is already
+ * "past" the plane of the gate after it, and turning back for the first of
+ * them means turning back for ever.
+ */
+function rideFor(gates: readonly Gate[], from: number, x: number, z: number, past: number): Gate {
+  for (let i = from; i < gates.length; i++) {
+    if (pastGate(gates[i], x, z) <= past) return gates[i];
+  }
+  return gates[gates.length - 1];
+}
+
+/** How fast the nose is swinging ACROSS THE WATER, rad/s — the body rate
+ * turned into the world and read about the vertical.
+ *
+ * `wy` alone is the rate about the hull's own mast, and a hull leaned over
+ * on a wave face has its mast pointing sideways: a roll rate reads there as
+ * a yaw rate that is not one. In a metre of sea that borrows enough of the
+ * roll to saturate the damping term on its own, which puts the nozzle hard
+ * over twice a second on a straight — and a jet that is sawing is a jet
+ * that is not driving. A rider reads the swing against the horizon.
+ */
+function yawRate(c: GameState["craft"]): number {
+  return rotate(c.q, { x: c.wx, y: c.wy, z: c.wz }).y;
+}
+
 export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): CraftInput {
   const c = state.craft;
   const gates = state.level.course.gates;
@@ -211,17 +250,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
   if (state.phase !== "running" || n >= gates.length) {
     return { steer: 0, throttle: 0, lean: 0, reset: false };
   }
-  // A gate already BEHIND the craft — a ring sailed over, a buoy passed
-  // on the wrong side — is a gate to pay for, not to turn back for: the
-  // next one counts it as reached (`course.ts`), so aim there. What no
-  // rider does is loop back at speed through a field of skerries. But a
-  // craft that has run past BOTH has nothing ahead that counts, and goes
-  // back for the nearer one.
-  let gate = gates[n];
-  const pastNext = pastGate(gate, c.x, c.z) > profile.giveUpPast;
-  if (pastNext && n + 1 < gates.length && pastGate(gates[n + 1], c.x, c.z) <= profile.giveUpPast) {
-    gate = gates[n + 1];
-  }
+  const gate = rideFor(gates, n, c.x, c.z, profile.giveUpPast);
   const aim = aimFor(gate, c.x, c.z, c.vx, c.vz, c.spec.cog.y, topSpeedOf(c.spec), profile);
   let ax = aim.ax;
   let az = aim.az;
@@ -282,7 +311,7 @@ export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): Cra
       )
     : c.onRamp
       ? 0
-      : clamp(error * profile.steerGain - c.wy * Math.min(profile.yawLead, eta), -1, 1);
+      : clamp(error * profile.steerGain - yawRate(c) * Math.min(profile.yawLead, eta), -1, 1);
   // READING THE WATER. Shallows ahead — the bed within `shoalDepth` of the
   // surface at the point the hull will be in `shoalAhead` seconds — turn
   // the bow toward deeper water, gate or no gate: a rider sees the beach

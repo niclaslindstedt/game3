@@ -39,13 +39,11 @@
 
 import { CRAFT } from "../game/defs/craft.ts";
 import { TUNING } from "../game/defs/tuning.ts";
-import { clamp } from "../lib/math.ts";
-import { valueNoise } from "../lib/noise.ts";
+import { angleDiff, clamp } from "../lib/math.ts";
 import type { Rng } from "../lib/prng.ts";
-import type { Geology } from "./geology.ts";
-import { LEVEL_RULES as R, inBand } from "./rules.ts";
-import type { Shore } from "./shore.ts";
-import type { Gate, Ramp, Vec2 } from "./types.ts";
+import { LEVEL_RULES as R, inBand, solidBerth } from "./rules.ts";
+import type { Route } from "./route.ts";
+import type { Gate, Ramp, Vec2, Wind } from "./types.ts";
 
 export type CoursePlan = {
   readonly gates: Gate[];
@@ -250,90 +248,60 @@ function chordLegal(
 
 /** Lay a course along a shore, or return null when this coast cannot carry
  * one under the rules. */
-export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan | null {
+/** What the course search asks about a plan point: how far it is from the
+ * water's edge and how deep the water is. Read off the fields the basin and
+ * the compiler have already baked — the search no longer has an analytic
+ * shore to interrogate, and does not need one. */
+export type Water = {
+  offshoreAt(x: number, z: number): number;
+  depthAt(x: number, z: number): number;
+};
+
+/**
+ * R1, R4–R11 — the course, laid ON the route.
+ *
+ * The route (R24) is already the racing line: it was drawn first, and the
+ * water was carved around it wide enough that every metre of it stands
+ * inside R1's band over water deep enough for R5. So there is no search for
+ * a line here any more — the station-push loop that used to hunt one along
+ * a coast is gone with the coast's base line. What is left is what the
+ * course is: gates measured out along the line by distance, two or three of
+ * them lifted into the air with their windows cut straight, and the start
+ * put behind the first.
+ *
+ * The chords are still CHECKED rather than trusted. A straight cut across a
+ * bend of the route leaves the corridor that was drawn around the bend, so
+ * it can cross an island or a headland the line went round; a window whose
+ * chord does not hold water is a window this course cannot have.
+ */
+export function layCourse(rng: Rng, route: Route, water: Water, wind: Wind): CoursePlan | null {
   const S = R.search;
   const band = {
     min: R.course.offshore.min + S.offshoreSlack,
-    max: R.course.offshore.max - S.offshoreSlack,
+    max: R.course.offshore.max,
   };
   const needDepth = R.course.minDepth + S.depthSlack;
   const runUpDepth = R.ramp.runUpDepth + S.depthSlack;
 
-  const target = inBand(rng, R.course.target);
-  const aimSeed = rng.int(1, 0x7fffffff);
+  // The finish is aimed inside R10's band, and then held to the line that
+  // actually exists: straightening an air gate's window shortens the path,
+  // and a target past the end of it puts every gate after it on the same
+  // clamped point. What is left has to still be a course.
+  const drawn = inBand(rng, R.course.target);
+  const target = Math.min(drawn, route.length - R.course.station * 4);
+  if (target < R.course.length.min) return null;
   const airCount = rng.int(R.air.count.min, R.air.count.max);
 
-  // ── The stations ────────────────────────────────────────────────────
-  const stationCount =
-    Math.ceil((R.course.length.max + R.start.behind + R.course.station) / R.course.station) + 1;
-  const offs = new Float64Array(stationCount);
-  for (let i = 0; i < stationCount; i++) {
-    const s = i * R.course.station;
-    offs[i] =
-      R.course.aim.min +
-      (R.course.aim.max - R.course.aim.min) * valueNoise(s, 0, R.course.aimScale, aimSeed);
-  }
   const legalAt = (x: number, z: number, depth: number): boolean => {
-    const { ground, offshore } = geology.sample(x, z);
-    return offshore >= band.min && offshore <= band.max && ground <= -depth;
+    const offshore = water.offshoreAt(x, z);
+    return offshore >= band.min && offshore <= band.max && water.depthAt(x, z) >= depth;
   };
-  const stationLegal = (i: number, off: number): boolean => {
-    const s = i * R.course.station;
-    const p = shore.toWorld(s, shore.offsetAt(s) + off);
-    return legalAt(p.x, p.z, needDepth);
-  };
-  // Push seaward until legal; the scan is bounded by the aim band plus
-  // the pushes it could take to reach R1's edge, so a shelf that never
-  // gets deep enough is found out rather than searched for ever.
-  const push = (i: number): boolean => {
-    const ceiling = R.course.offshore.max;
-    let off = offs[i];
-    while (off <= ceiling) {
-      if (stationLegal(i, off)) {
-        if (off !== offs[i]) {
-          offs[i] = off;
-          return true;
-        }
-        return false;
-      }
-      off += S.push.step;
-    }
-    // Nothing seaward works: the shore may be sloping such that the true
-    // distance runs past the band; try pulling in.
-    off = offs[i] - S.push.step;
-    while (off >= R.course.offshore.min) {
-      if (stationLegal(i, off)) {
-        offs[i] = off;
-        return true;
-      }
-      off -= S.push.step;
-    }
-    return false;
-  };
-  for (let iter = 0; iter < 6; iter++) {
-    let moved = false;
-    for (let i = 0; i < stationCount; i++) {
-      if (!stationLegal(i, offs[i])) {
-        if (!push(i)) return null;
-        moved = true;
-      }
-    }
-    if (!moved) break;
-    // A pushed station is a swell, not a step: the [1, 2, 1] smoothing
-    // spreads each push over its neighbours, and the next pass re-pushes
-    // whatever the smoothing lowered below legal.
-    const prev = Float64Array.from(offs);
-    for (let i = 1; i + 1 < stationCount; i++) {
-      offs[i] = Math.max(prev[i], (prev[i - 1] + 2 * prev[i] + prev[i + 1]) / 4);
-    }
-  }
-  for (let i = 0; i < stationCount; i++) if (!stationLegal(i, offs[i]) && !push(i)) return null;
-
-  let points: Vec2[] = [];
-  for (let i = 0; i < stationCount; i++) {
-    const s = i * R.course.station;
-    points.push(shore.toWorld(s, shore.offsetAt(s) + offs[i]));
-  }
+  let points: Vec2[] = route.points.map((p) => ({ x: p.x, z: p.z }));
+  // The line the route drew is the line the course rides, so it has to hold
+  // the rules it was drawn to hold. It usually does by construction; where
+  // the corridor was pinched by an island the basin cut into it, the whole
+  // route is refused and the next sub-seed drawn.
+  for (const p of points) if (!legalAt(p.x, p.z, needDepth)) return null;
 
   // ── The start straight (R11) ────────────────────────────────────────
   const startStraight = R.start.behind + R.course.station;
@@ -380,11 +348,60 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
     from: gateD[draw.index] - draw.lead - R.ramp.runUp,
     to: gateD[draw.index] + R.air.landing,
   });
+  /**
+   * The stretch of path actually cut straight for a corridor: the window,
+   * with its FAR end pushed out until the chord is at least as long as the
+   * corridor is.
+   *
+   * A chord is shorter than the arc it replaces. Straightening exactly the
+   * window leaves a straight run shorter than the corridor that has to sit
+   * in it, so the landing — and, once the compression is a few metres, the
+   * run-up too — starts in the bend beyond the straight's end. On a gently
+   * curved coast that is centimetres and invisible; on one with inlets in
+   * it (R15) it is several metres over a 135 m window.
+   *
+   * Only the far end moves. The near end is where the run-up begins, and
+   * the run-up is measured back from the hinge, so pushing it out would
+   * spend straight water nobody rides.
+   */
+  const straightSpan = (draw: AirDraw, pts: Vec2[]): { from: number; to: number } => {
+    const w = windowOf(draw);
+    const cum = cumulative(pts);
+    const need = w.to - w.from;
+    const a = pointAlong(pts, cum, w.from);
+    let to = w.to;
+    // Extending the far end by the shortfall only closes the part of it
+    // the bend does not eat again, so the step overshoots and the walk
+    // runs until it has actually converged rather than a fixed few times.
+    // Where the bend is sharp enough that it never does, `chordOk` refuses
+    // the candidate outright.
+    for (let pass = 0; pass < 10; pass++) {
+      const b = pointAlong(pts, cum, to);
+      const short = need - Math.hypot(b.x - a.x, b.z - a.z);
+      if (short <= 0.05) break;
+      to += short * 1.6 + 0.2;
+    }
+    return { from: w.from, to };
+  };
+  // R9 — the run-up crosses the sea. The waves travel the way the wind
+  // blows TO, and the run-up runs the way the path does at the ring; the
+  // angle between them has to be a right angle give or take `ramp.beam`.
+  const waveHeading = wind.from + Math.PI;
+  const acrossTheSea = (draw: AirDraw, pts: Vec2[]): boolean => {
+    const cum = cumulative(pts);
+    const at = pointAlong(pts, cum, gateD[draw.index] - draw.lead);
+    const off = Math.abs(angleDiff(waveHeading, at.heading));
+    return Math.abs(off - Math.PI / 2) <= R.ramp.beam;
+  };
   const chordOk = (draw: AirDraw, pts: Vec2[]): boolean => {
     const cum = cumulative(pts);
-    const w = windowOf(draw);
+    const w = straightSpan(draw, pts);
     const a = pointAlong(pts, cum, w.from);
     const b = pointAlong(pts, cum, w.to);
+    // The straight this leaves has to be at least as long as the corridor
+    // that sits in it: a bend too sharp for the span to widen its way out
+    // of is a place with no room for a jump, not a jump to be squeezed in.
+    if (Math.hypot(b.x - a.x, b.z - a.z) < windowOf(draw).to - w.from - 0.05) return false;
     // The run-up and the deck want R9's depth; the landing wants R5's.
     const ringD = gateD[draw.index] - w.from;
     return chordLegal(a.x, a.z, b.x, b.z, (x, z, d) =>
@@ -395,9 +412,10 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
     if (chosen.length >= airCount) break;
     const draw = drawAir(index);
     if (!draw) continue;
-    const w = windowOf(draw);
+    const w = straightSpan(draw, points);
     if (w.from < startStraight || w.to > finishD) continue;
     if (chosen.some((c) => windowOf(c).from < w.to && w.from < windowOf(c).to)) continue;
+    if (!acrossTheSea(draw, points)) continue;
     if (!chordOk(draw, points)) continue;
     chosen.push(draw);
   }
@@ -407,7 +425,7 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
     // Re-verified on the path as it stands now — upstream chords shorten
     // the line a little, and the window is a promise about distances.
     if (!chordOk(draw, points)) return null;
-    const w = windowOf(draw);
+    const w = straightSpan(draw, points);
     points = straighten(points, w.from, w.to);
   }
 
@@ -470,10 +488,10 @@ export function layCourse(rng: Rng, shore: Shore, geology: Geology): CoursePlan 
  * Kept `search.marginSlack` clear beyond the rule, so the finished level
  * holds the rule with room. */
 export function courseKeepOut(plan: CoursePlan): (x: number, z: number, r: number) => boolean {
-  const margin = R.course.solidMargin + R.search.marginSlack;
   const buoys = plan.gates.flatMap(gateBuoys);
   const corridors = plan.gates.filter((g) => g.kind === "air").map(airCorridor);
   return (x, z, r) => {
+    const margin = solidBerth(r) + R.search.marginSlack;
     if (polylineDistance(plan.path, x, z) < r + margin) return false;
     for (const b of buoys) if (Math.hypot(b.x - x, b.z - z) < r + margin) return false;
     for (const c of corridors) {

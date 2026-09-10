@@ -123,10 +123,11 @@ check, because it will be optimised against.
 | `types.ts` | **The level as everyone else sees it.** `Level`, `Gate`, `Ramp`, `Solid`, `Course`, `Wind`, `WaterBody`. Shared with the craft, the collision engine, the renderer and the labs — an exported shape here is changed with the orchestrator told first. |
 | `rules.ts` | **The rule book.** Every constraint and vocabulary number as DATA, each an R-rule stated once and mirrored verbatim in `docs/level-generator.md`. Tuning the generator means editing this file. |
 | `biomes.ts` | **The countries.** One row per `BiomeId`: what the shore is made of, the relief, the water's density and temperature band, the wind band. Only `taiga` is built; the other ids are reserved so a seed never re-rolls when a country is added. Nothing else in `mapgen/` names a country. |
-| `shore.ts` | **The coastline.** The shoreline polyline for the biome — the taiga's low bedrock slabs, boulder fields, sand pockets and the skerries offshore — and the classifier behind `level.materialAt`. |
-| `geology.ts` | **The ground under the water and behind the shore.** The sea bed's slope to the seaward bound, the land's rise to its plateau, the noise that makes either read as rock rather than a ramp. |
-| `course.ts` | **The race.** Gates along the shore in the offshore band, the air gates and their ramps, the start behind gate 1, the ideal path. |
-| `generate.ts` | **The search.** Draws a shore, then a course, validates against the rules, retries bounded, rejects a whole attempt and re-rolls a sub-seed rather than ever shipping a violation. `generateLevel(seed, opts?) → Level`. |
+| `route.ts` | **THE RACING LINE, drawn first (R24).** A free walk in the plane with bounded curvature that turns, doubles back and steers away from itself. Everything else in a level is built around it. |
+| `basin.ts` | **The water carved round it (R15)** — the corridor, the open sea, the islands cut out of both — baked into ONE signed `offshore` field, plus `traceCoast`, which is where `Level.shore`'s coastlines come from. |
+| `geology.ts` | **The ground under the water and behind the shore.** The bed's profile and the land's step, both as functions of the offshore distance the basin baked; R21's character as a field over the plan. |
+| `course.ts` | **The race, laid ON the route.** Gates by distance, the air gates and their ramps with their windows cut straight, the start behind gate 1. There is no search for a line: the corridor was drawn to hold R1 and R5. |
+| `generate.ts` | **The search.** Draws a route, the basin round it, then a course, validates against the rules, retries bounded, rejects a whole attempt and re-rolls a sub-seed rather than ever shipping a violation. `generateLevel(seed, opts?) → Level`. |
 | `compile.ts` | **The geometry.** Bakes the two heightfields (`ground`, `offshore`; cell 4 m), the surface classifier, the solids and the course into the `Level` — the single geometric truth read by physics, renderer, bot and labs alike. |
 | `index.ts` | The block `engine/index.ts` re-exports. |
 | `fauna.ts`, `weather.ts` | Placeholders with a header comment: what will live there. Not this session's. |
@@ -135,7 +136,9 @@ And the scoreboard, which is NOT in `mapgen/` on purpose:
 
 | File | Job |
 | --- | --- |
-| `engine/analysis/index.ts` | `analyzeLevel(level) → { findings, ok }`. It reads `mapgen` AND `game`, so it sits above both — a check about the craft's clearance imports the real hull margin rather than keeping a copy. |
+| `engine/analysis/index.ts` | `analyzeLevel(level) → { findings, ok }`, and the checks about the COURSE. It reads `mapgen` AND `game`, so it sits above both — a check about the craft's clearance imports the real hull margin rather than keeping a copy. |
+| `engine/analysis/coast.ts` | The other half: the checks about the SHORE and what stands on it (R15, R16, R17, R21). Split by subject, not by size — none of them knows a gate exists. |
+| `engine/analysis/report.ts` | The `Finding`, the `Report` both halves push onto, and the two formatters. |
 | `engine/analysis/budgets.ts` | **Every threshold, as data.** `rules.ts`'s opposite number: that one says what may be BUILT, this one says what the result has to COME OUT like. |
 
 Keep the splits. A placement decision in `compile.ts`, a geometric fudge in

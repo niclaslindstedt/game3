@@ -9,29 +9,28 @@
 //
 // The level is read-only from here on. Nothing regenerates any of it.
 
-import { createHeightfield, fieldGradient, sampleField } from "../lib/heightfield.ts";
+import {
+  createHeightfield,
+  fieldGradient,
+  sampleField,
+  type Heightfield,
+} from "../lib/heightfield.ts";
+import { lerp } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Biome } from "./biomes.ts";
+import { traceCoast } from "./basin.ts";
 import { airCorridor, gateBuoys, type CoursePlan } from "./course.ts";
 import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
-import type { Shore } from "./shore.ts";
-import type {
-  Bounds,
-  Level,
-  Pod,
-  Solid,
-  Surface,
-  Vec2,
-  WaterBody,
-  Weather,
-  Wind,
-} from "./types.ts";
+import type { Bounds, Level, Pod, Solid, Surface, WaterBody, Weather, Wind } from "./types.ts";
 
 export type LevelPlan = {
   readonly seed: number;
   readonly biome: Biome;
-  readonly shore: Shore;
+  readonly bounds: Bounds;
+  /** The two grids, already baked (`layBasin`, `bakeGround`). */
+  readonly offshore: Heightfield;
+  readonly ground: Heightfield;
   readonly geology: Geology;
   readonly course: CoursePlan;
   readonly solids: readonly Solid[];
@@ -81,57 +80,59 @@ export function insideBounds(bounds: Bounds, x: number, z: number): boolean {
   return x >= bounds.minX && x <= bounds.maxX && z >= bounds.minZ && z <= bounds.maxZ;
 }
 
-export function compileLevel(plan: LevelPlan): Level {
-  const bounds = courseBounds(plan.course);
-  const cell = R.grid.cell;
-  const cols = Math.round((bounds.maxX - bounds.minX) / cell) + 1;
-  const rows = Math.round((bounds.maxZ - bounds.minZ) / cell) + 1;
-  const ground = createHeightfield(bounds.minX, bounds.minZ, cell, cols, rows);
-  const offshore = createHeightfield(bounds.minX, bounds.minZ, cell, cols, rows);
-  // One shore lookup per cell feeds both grids: the lookup is the cost.
+/** The GROUND, baked over the offshore field the basin already laid. Two
+ * grids on the same cells, and the second is read from the first: how far
+ * a point is from the water's edge is the only thing the ground's profile
+ * asks about. */
+export function bakeGround(offshore: Heightfield, geology: Geology): Heightfield {
+  const { originX, originZ, cell, cols, rows } = offshore;
+  const ground = createHeightfield(originX, originZ, cell, cols, rows);
   for (let r = 0; r < rows; r++) {
-    const z = bounds.minZ + r * cell;
+    const z = originZ + r * cell;
     for (let c = 0; c < cols; c++) {
-      const sample = plan.geology.sample(bounds.minX + c * cell, z);
-      ground.data[r * cols + c] = sample.ground;
-      offshore.data[r * cols + c] = sample.offshore;
+      const i = r * cols + c;
+      ground.data[i] = geology.groundAt(originX + c * cell, z, offshore.data[i]);
     }
   }
+  return ground;
+}
 
-  const { shore, biome } = plan;
-  const boulderThreshold = 1 - (1 - R.surface.boulder.threshold) * biome.boulderField;
-  // R16 — the classifier, in the rule's order.
+export function compileLevel(plan: LevelPlan): Level {
+  const { bounds, offshore, ground, biome, geology } = plan;
+  const { boulder, sand } = R.surface;
+  // R16, R21 — the classifier, in the rule's order. Everything but the
+  // slope is a question about the STRETCH of coast a point belongs to, so
+  // the one thing it works out first is which stretch that is.
   const materialAt = (x: number, z: number): Surface => {
     const h = sampleField(ground, x, z);
     if (h < 0) return "water";
     const { gx, gz } = fieldGradient(ground, x, z);
     const slope = Math.hypot(gx, gz);
     if (slope >= R.surface.bedrockSlope) return "bedrock";
-    if (valueNoise(x, z, R.surface.boulder.scale, plan.geology.boulderSeed) >= boulderThreshold) {
-      return "rock";
-    }
-    if (biome.sandPockets && slope < R.surface.sand.slope) {
+    const rugged = geology.ruggedAt(x, z);
+    // THE BEACH, before the boulder field rather than after it: a beach is
+    // a CONTINUOUS run of sand at the waterline, and a field allowed to
+    // speckle it is a beach nobody would walk on. It reaches furthest up
+    // the softest stretches and narrows away rather than ending at a line,
+    // so a coast does not step from sand to slab in one cell.
+    if (biome.beaches && rugged <= sand.rugged && slope < sand.slope) {
+      const soft = 1 - rugged / sand.rugged;
       const inland = -sampleField(offshore, x, z);
-      if (
-        inland <= R.surface.sand.reach &&
-        shore.bayAt(shore.toLocal(x, z).s) >= R.surface.sand.bay
-      ) {
-        return "sand";
-      }
+      if (inland <= sand.reach * (sand.floor + (1 - sand.floor) * soft)) return "sand";
     }
+    // The field thickens with the coast: a moraine headland is mostly
+    // boulder, the ground behind a beach carries none.
+    const spread = biome.boulderField * lerp(boulder.rugged.low, boulder.rugged.high, rugged);
+    const threshold = Math.max(0, 1 - (1 - boulder.threshold) * spread);
+    if (valueNoise(x, z, boulder.scale, plan.geology.boulderSeed) >= threshold) return "rock";
     return "bedrock";
   };
 
-  // The published shore is the stretch inside the level, with one vertex
-  // past each edge so the line leaves the box rather than stopping in it.
-  const shorePoints: Vec2[] = [];
-  const pts = shore.points;
-  for (let i = 0; i < pts.length; i++) {
-    const here = insideBounds(bounds, pts[i].x, pts[i].z);
-    const before = i > 0 && insideBounds(bounds, pts[i - 1].x, pts[i - 1].z);
-    const after = i + 1 < pts.length && insideBounds(bounds, pts[i + 1].x, pts[i + 1].z);
-    if (here || before || after) shorePoints.push({ x: pts[i].x, z: pts[i].z });
-  }
+  // The published coastlines: the water's edge traced out of the field it
+  // was baked into. There is more than one — the mainland, and one round
+  // every island the basin cut — which is the whole difference between a
+  // coast that is a function of a base line and a coast that is a place.
+  const shore = traceCoast(offshore);
 
   return {
     seed: plan.seed,
@@ -139,7 +140,7 @@ export function compileLevel(plan: LevelPlan): Level {
     bounds,
     ground,
     offshore,
-    shore: shorePoints,
+    shore,
     materialAt,
     solids: plan.solids.map((s) => ({ ...s })),
     fauna: plan.fauna.map((f) => ({ ...f })),

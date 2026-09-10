@@ -7,7 +7,15 @@
 // is only as honest as the findings it rejects on.
 import { describe, expect, it } from "vitest";
 
-import { LEVEL_RULES as R, analyzeLevel, type Gate, type Level, type Solid } from "@engine";
+import {
+  LEVEL_RULES as R,
+  analyzeLevel,
+  polylineDistance,
+  solidBerth,
+  type Gate,
+  type Level,
+  type Solid,
+} from "@engine";
 
 import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
 
@@ -40,6 +48,12 @@ describe("level analysis", () => {
       expect(a.stats.airGates).toBeGreaterThanOrEqual(R.air.count.min);
       expect(a.stats.minDepth).toBeGreaterThanOrEqual(R.course.minDepth);
       expect(a.stats.minClearance).toBeGreaterThanOrEqual(R.course.solidMargin);
+      // …and the biggest rock on it keeps the berth its own size earns.
+      for (const s of levelFor(seed).solids) {
+        expect(polylineDistance(levelFor(seed).course.path, s.x, s.z) - s.r).toBeGreaterThanOrEqual(
+          solidBerth(s.r),
+        );
+      }
       expect(a.stats.length).toBe(levelFor(seed).course.length);
       expect(a.ms).toBeLessThan(1000);
     }
@@ -155,7 +169,10 @@ describe("level analysis", () => {
   it("R4 — flags a water gate lifted off the water and a gate moved along the path", () => {
     const seed = LEVEL_SEEDS[6];
     const lifted = withGates(seed, (gates) => {
-      gates[2] = { ...gates[2], y: 2 };
+      // A WATER gate lifted off the water: which index that is moves with
+      // the generator, so it is found rather than counted to.
+      const i = gates.findIndex((g) => g.kind === "water" && g.index > 0);
+      gates[i] = { ...gates[i], y: 2 };
       return gates;
     });
     expect(errors(lifted)).toContain("R4.afloat");

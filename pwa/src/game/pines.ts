@@ -14,10 +14,13 @@ import { createRng, sampleField, type Level } from "@engine";
 import { PALETTE } from "../identity.ts";
 
 /** How many trees to try for, and the ground they will stand on: at least
- * this high, m, and this far inland, m. */
+ * this high, m, this far inland, m, and no higher than the tree line — a
+ * rugged headland (R21) stands as bare rock over the pines, and a wood
+ * running to the top of every hill is what would take that away. */
 const TRIES = 2600;
 const MIN_HEIGHT = 1.4;
 const MIN_INLAND = 14;
+const TREE_LINE = 20;
 /** Tree height range, m. */
 const HEIGHT_MIN = 7;
 const HEIGHT_MAX = 15;
@@ -41,8 +44,11 @@ export function createPines(level: Level): THREE.Group {
     const x = rng.range(b.minX, b.maxX);
     const z = rng.range(b.minZ, b.maxZ);
     const y = sampleField(level.ground, x, z);
-    if (y < MIN_HEIGHT) continue;
+    if (y < MIN_HEIGHT || y > TREE_LINE) continue;
     if (-sampleField(level.offshore, x, z) < MIN_INLAND) continue;
+    // Nothing grows on the beach or on a boulder field: a pine standing in
+    // the sand is the one thing that would stop a beach reading as one.
+    if (level.materialAt(x, z) !== "bedrock") continue;
     spots.push({ x, z, y, h: rng.range(HEIGHT_MIN, HEIGHT_MAX), tint: rng.range(-0.5, 0.5) });
   }
   const n = Math.max(1, spots.length);

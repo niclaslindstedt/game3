@@ -526,5 +526,16 @@ export const TUNING = {
     /** Where a reset stands the craft: this far behind the gate it goes
      * back to, m, so the line is crossed by a MOVE. */
     resetBack: 6,
+    /** How far off a gate's centre a crossing still counts as having gone
+     * PAST that gate, m — five gate-widths.
+     *
+     * A gate's line is infinite, and a craft crossing it half a level away
+     * has not passed the gate, it has passed somewhere else. Inside this,
+     * a crossing outside the buoys is a rider who went by the gate on the
+     * wrong side, and the run carries on with the miss charged; outside it
+     * the crossing means nothing and the gate is still ahead. Without it a
+     * course with corners in it (R22) can deadlock — a rider who misses
+     * two gates in a row is never given a third. */
+    missWide: 60,
   },
 } as const;

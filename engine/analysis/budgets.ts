@@ -37,9 +37,23 @@ export const ANALYSIS = {
      * is bilinear over 4 m cells and the reach falls between two of them,
      * so a cell straddling it blends the step's last rise into the flat. */
     margin: 12,
-    /** How much the plateau may vary once it is judged, m. Flat means
-     * flat; this is float noise. */
-    flatness: 0.05,
+    /** How steeply the land's MEAN PROFILE may still be climbing inland
+     * past the reach, m per m.
+     *
+     * Not float noise. The hills vary ALONG the coast (R21) and the inland
+     * direction this walks is the shore's own normal, which beside an
+     * inlet runs almost entirely along the base line — so a step "inland"
+     * there reads a different stretch of coast, and its hills a different
+     * height. The character changes by about 0.003 per metre of coast at
+     * its fastest and the hill by `land.plateau · land.hill` times that,
+     * which is a tenth of a metre per metre of apparent climb in the worst
+     * place on the worst seed. A fifth is clear of it and still three
+     * times under the 0.6 m/m the land's own step (R2) climbs at, which is
+     * the failure this is here to catch. */
+    rise: 0.08,
+    /** How wide a bin of R2's inland profile is, m — a few cells, so a bin
+     * holds enough of the level to average its hills out. */
+    bin: 12,
   },
   sea: {
     /** How far under `sea.depth` the bed may go, m — the detail's
@@ -64,6 +78,12 @@ export const ANALYSIS = {
      * for the deck's friction. */
     speed: 0.08,
   },
+  day: {
+    /** Tolerance on R13's daylight window, h. The window is found by
+     * stepping the sun's arc in three-minute samples and interpolating
+     * between the last two, so its ends are worth a minute either way. */
+    hour: 0.05,
+  },
   wind: {
     /** Tolerance on R12's swing off the sea, rad (about five degrees).
      * The analyzer has no base line to read the sea's direction from —
@@ -73,10 +93,29 @@ export const ANALYSIS = {
      * not fail on the estimate's error. */
     direction: 0.09,
   },
+  course: {
+    /** R23 — how far apart the three points the corner's circle is drawn
+     * through stand, m. The path is a polyline of 10 m stations and its
+     * vertices carry the search's own rounding, so a circle through three
+     * neighbours measures that rounding rather than the corner; three
+     * stations apart is a stencil the size of a hull's turn. */
+    stencil: 30,
+  },
   shore: {
-    /** How sharply the shore polyline may turn at a vertex, rad — R15's
-     * slope cap read as an angle, with a little room. */
-    turn: 0.6,
+    /** How long the level's longest coastline has to be, m. A basin whose
+     * coast is shorter than the course that runs through it is a level
+     * with no land in it worth looking at. */
+    minLength: 900,
+    /** R21 — how far apart the walk along the waterline samples the
+     * material, m. Under a hull's length, so a patch a rider would ride
+     * past is a patch the walk sees. */
+    walk: 8,
+    /** …and how far in from the line it stands to read it, m. The zero
+     * contour wanders a few metres either side of the polyline where the
+     * slabs ride over it, so a probe closer in reads water on a third of a
+     * low coast; ten metres is past that and still on the beach rather
+     * than behind it. */
+    probe: 10,
   },
   /** How many cells across the grid the classifier is sampled at for
    * R16 — enough to see every kind of ground, cheap enough to run on every

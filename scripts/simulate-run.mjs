@@ -26,7 +26,7 @@ import process from "node:process";
 import { parseArgs, craftList } from "./lib/cli.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { simulateStage, CRAFT_IDS, engineVersion, TUNING } = await import(
+const { simulateStage, SIM_SECONDS, CRAFT_IDS, engineVersion, TUNING } = await import(
   join(root, "engine/index.ts")
 );
 
@@ -39,7 +39,8 @@ const args = parseArgs(
   {
     seeds: { kind: "list", default: DEFAULT_SEEDS, help: "seeds to ride, comma-separated" },
     craft: { kind: "string", default: "all", help: "craft id, a comma list, or all" },
-    max: { kind: "number", default: 240, help: "give up after this much run time, s" },
+    // The engine states the cap (`SIM_SECONDS`); the flag only overrides it.
+    max: { kind: "number", default: SIM_SECONDS, help: "give up after this much run time, s" },
     json: { kind: "string", help: "also write the rows (events dropped) to this file" },
   },
   "usage: npm run sim -- [--seeds a,b,c] [--craft id] [--max s] [--json path]",
