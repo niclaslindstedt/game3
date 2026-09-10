@@ -115,12 +115,46 @@ skill for any code change.
   through the water on every wave for nothing the physics did.
 - **The rider reaches what is drawn.** `cockpitOf` reports the saddle's
   bucket, the grips and the footwells from the same `layout` the loft
-  reads, and the rider's hands are solved onto those grips. Keep the bars
-  where a man sat in the bucket can reach them — a runabout stands about
-  1.15 m keel to bar-top, a touring hull up to 1.25 — and read the sheet's
-  `helmet` column and his arms after any change to the hood, the column,
-  the saddle or the pod: arms at full stretch at rest mean the grips have
-  moved out of reach.
+  reads, and the rider's hands are solved onto those grips. Read the
+  sheet's `helmet` column and his arms after any change to the hood, the
+  column, the saddle, the wells or the pod: arms at full stretch at rest
+  mean the grips have moved out of reach, and `tests/rider_test.ts` fails
+  before the picture shows it.
+
+### The cockpit is measured, not eyeballed
+
+**The deck decides how the rider SITS.** A hunched, splay-legged rider is
+almost never a stance number — it is a footwell level with the gunwale, a
+saddle too low over it, or bars a metre ahead. So before touching `STANCE`,
+measure the deck against the machine it is imitating. Every manufacturer
+prints overall height; the rest is a tape measure on any PWC.
+
+| Measure, from `cockpitOf` | A real runabout |
+| --- | --- |
+| saddle over the footwell floor | 0.47–0.56 m |
+| keel to the footwell floor | 0.30–0.45 m |
+| keel to the saddle | 0.85–1.00 m |
+| keel to bar-top (the printed overall height) | 1.15–1.30 m |
+| grips over the saddle | 0.30–0.40 m |
+| grips ahead of the seating point | 0.50–0.68 m |
+| boots apart (a stand-up's tray: 0.30–0.36) | 0.56–0.64 m |
+
+The levers, in the order they bite: `shape.well` (the wells' depth — the
+big one, and the only fix for knees up around the bars), `shape.pedestal`
+(how far apart the boots must stand, hence the thighs' splay),
+`shape.seatHeight` with the pedestal's top (the saddle's height),
+`hoodStart`/`hoodTop` with `SEAT_AT` (how far ahead the bars are), and
+`shape.column` (their height). The hull's own `length`, `beam`, `height`
+and `deadrise` are the PHYSICS' and never move for a look — which is why a
+craft whose deck still reads too tall after all of the above is a
+`craft-tuning` conversation, not this skill's.
+
+Two traps in the drawn section itself: the footwell floor must stay above
+the chine or it pokes out through the topside (`wellFloorAt` clamps it,
+and is the ONE line both the loft and `cockpitOf` read — the boots sink
+into the deck the day they disagree); and the rail-plus-coaming stack sits
+on top of the sheer, so it is the WALL a player sees — a stack as deep as
+a hand turns a 3 m runabout into a small boat and its rider into a child.
 
 ## Adding a craft
 

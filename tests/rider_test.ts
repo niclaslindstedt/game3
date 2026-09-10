@@ -10,6 +10,7 @@ import { describe, expect, it } from "vitest";
 
 import { CRAFT, TUNING, createGame, placeRun, step, type GameState } from "@engine";
 
+import { CHASE_RIGS } from "../pwa/src/game/camera-rigs.ts";
 import { cockpitOf, type Cockpit } from "../pwa/src/game/craft-body.ts";
 import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import {
@@ -77,11 +78,38 @@ describe("the pose on every craft", () => {
       }
     });
 
+    it(`${id}: the legs hang DOWN off the hips, knees ahead and below`, () => {
+      // The posture the footwells' depth buys, and the one thing that
+      // separates a rider from a man straddling a barrel: the wells are
+      // sunk far enough below the saddle that the thighs slope DOWN to
+      // the knees instead of out sideways with the knees up around the
+      // bars. It is a rule about the deck as much as the pose, which is
+      // why it is asserted on every craft the builder makes.
+      for (let i = 0; i < 2; i++) {
+        expect(rest.knees[i][1]).toBeLessThan(rest.hips[i][1]);
+        expect(rest.knees[i][2]).toBeGreaterThan(rest.hips[i][2] + 0.15);
+        // The boots are beside the saddle's base, not braced against the
+        // outer wall: the thigh's splay off the centreline stays inside
+        // what a man can sit at without doing the splits.
+        const splay = Math.abs(rest.knees[i][0] - rest.hips[i][0]);
+        const along = Math.hypot(
+          rest.knees[i][1] - rest.hips[i][1],
+          rest.knees[i][2] - rest.hips[i][2],
+        );
+        expect(Math.atan2(splay, along)).toBeLessThan(0.6);
+      }
+      if (!cockpit.standUp)
+        expect(cockpit.seat.y - cockpit.wells.floorAt(cockpit.seat.z)).toBeGreaterThan(0.4);
+    });
+
     it(`${id}: the pelvis is ${cockpit.standUp ? "stood over the tray" : "on the saddle"}`, () => {
       if (cockpit.standUp) {
+        // Stood, at a real crouch: the hips are well up off the tray but
+        // the legs are bent hard, which is how the machine is ridden.
         const floor = cockpit.wells.floorAt(rest.ankles[1][2]);
-        expect(rest.pelvis[1] - floor).toBeGreaterThan(0.6);
-        expect(rest.pelvis[1] - floor).toBeLessThan(BODY.thigh + BODY.shin);
+        const legs = BODY.thigh + BODY.shin;
+        expect(rest.pelvis[1] - floor).toBeGreaterThan(legs * 0.55);
+        expect(rest.pelvis[1] - floor).toBeLessThan(legs * 0.95);
       } else {
         expect(rest.pelvis[1]).toBeCloseTo(cockpit.seat.y + BODY.pelvis, 6);
         expect(rest.pelvis[2]).toBeGreaterThanOrEqual(cockpit.seat.z);
@@ -91,14 +119,27 @@ describe("the pose on every craft", () => {
     });
 
     it(`${id}: the torso leans forward to the bars and the head sits over the shoulders`, () => {
-      expect(rest.lean).toBeGreaterThan(0.3);
+      // At idle a SEATED rider is nearly upright — a cruise, not a racing
+      // crouch, which is what the throttle and the pace buy on top of it
+      // — and a stand-up is ridden bent well over its pole.
+      expect(rest.lean).toBeGreaterThan(cockpit.standUp ? 0.6 : 0.15);
+      expect(rest.lean).toBeLessThan(cockpit.standUp ? STANCE.leanMax : 0.55);
       expect(rest.lean).toBeLessThanOrEqual(STANCE.leanMax);
       expect(rest.chest[1]).toBeGreaterThan(rest.pelvis[1] + 0.15);
       expect(rest.neck[1]).toBeGreaterThan(rest.chest[1]);
-      // Inside the beam, under a metre and a half over the centre of
-      // gravity: the camera's framing counts on it.
+      // Inside the beam, and UNDER THE REFERENCE LENS: `chase` is the rung
+      // the whole ladder's framing is derived from, and its eye rides
+      // `height` over the craft. A rider whose crown reaches it has grown
+      // past the envelope that framing was chosen for.
+      //
+      // It is a rail, not a proof of framing: every rung aims metres
+      // AHEAD and above, so the horizon lands far up the frame and a crown
+      // numerically over a tighter rung's `height` still blocks nothing.
+      // Whether he occludes the water is settled by looking at the tight
+      // rungs (`make screenshots SCENE=cruise ARGS="--camera close"`),
+      // never by arithmetic here.
       const crown = rest.neck[1] + BODY.helmet * rest.headUp[1];
-      expect(crown).toBeLessThan(cockpit.standUp ? 1.7 : 1.5);
+      expect(crown).toBeLessThan(CHASE_RIGS.chase.height - 0.1);
       expect(crown - spec.cog.y).toBeGreaterThan(0.7);
       for (const j of [...rest.shoulders, ...rest.elbows, ...rest.knees])
         expect(Math.abs(j[0])).toBeLessThan(spec.beam / 2 + 0.1);
