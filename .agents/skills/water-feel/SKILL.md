@@ -41,10 +41,13 @@ comment's claim has to stay true.
 | Frequency from wavenumber, given the depth | Linear dispersion, ω² = g k tanh(k d), `d` from `level.ground` | `dispersion(k, d)` |
 | Amplitude growth coming ashore | The linear-theory shoaling coefficient K_s = √(c_g,deep / c_g), with Green's law (H ∝ d^−¼) as the shallow limit | `shoal(a, k, d)` |
 | The ceiling on height in shallow water | The depth-limited SIGNIFICANT height, Hs/d = 0.55 (Nelson 1994) — never McCowan's 0.78 applied to the summed amplitudes, which saturates every big sea to one value | the clip inside `surfaceAt` |
-| How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is `level.offshore` | `fetchScale(offshore, U)` |
+| How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is the EFFECTIVE fetch upwind of the point, over a cos-weighted fan (SPM 1984 / Saville) | `engine/game/fetch.ts` — `fetchHeight`, `fetchPeriod`, `createShelter` |
+| Which of a level's two seas a point is dealt (R28) | Its EXPOSURE — the share of that fan reaching the open sea. Ocean band × exposure, local wind chop × (1 − exposure) × the chop it grows on its own water | `seaShares(sea, x, z)` |
+| How much of the mean wind reaches a place | The same measurement, averaged onto `wind.cell` squares: full over open water, `wind.shelter` of it behind the land | `createShelter`'s `shelter` field |
+| What the water itself is doing, where a river runs (R27) | v = Q/A over the channel's cross-section, summed into the wave model's own velocity | `engine/mapgen/flow.ts` — `flowAt` |
 | What the water under the surface is doing | The orbital velocity of the same components (the tangent of the water particle's circle) | `surfaceAt`'s `vx, vy, vz` |
-| The mean wind, and the gusts on it | A log-law height profile, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y)` |
-| The summary a level or a lab quotes | Hs = 4√m₀ over the sampled spectrum, Tp at the peak | `seaSummary(sea, offshore) → { Hs, Tp }` |
+| The mean wind, and the gusts on it | A log-law height profile, the shelter field over the plan, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y, x, z)` |
+| The summary a level or a lab quotes | Hs = 4√m₀ over the two bands at their shares, Tp of whichever is carrying it there | `seaSummary(sea, x, z) → { Hs, Tp }` |
 
 The knobs are `TUNING.sea` (`engine/game/defs/tuning.ts`): the component
 count, the spectrum's peak-enhancement γ (3.3 is JONSWAP's), the spreading
@@ -103,12 +106,14 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
   compounds — is a sea that eventually throws the craft into orbit, on a
   seed nobody rendered. `tests/waves_test.ts`'s bounded-heights case
   sweeps for it.
-- **THE SPECTRUM READS THE FETCH.** `Hs ∝ U √F` is the whole reason a level
-  gets rougher riding out and calmer riding in, and the reason the wind is
-  drawn with a seaward bias. A spectrum that reads the wind alone gives the
-  same sea at the shore and at the seaward bound, and every course reads
-  as flat or as violent with nothing in between. `offshore` is the fetch;
-  it is negative inland, where the sea is nothing.
+- **THE SPECTRUM READS THE FETCH, AND THE FETCH IS WHAT THE WIND CROSSED.**
+  `Hs ∝ U √F` is the whole reason one stretch of a level is rougher than
+  another, and the reason R12 draws the wind off the sea. `F` is NOT the
+  distance from the shore — with an onshore wind a point a few metres off
+  a beach has the whole ocean upwind of it, which is why the waves come IN
+  against the shore. It is the effective fetch over the WATER upwind
+  (`engine/game/fetch.ts`), which land cuts: that is what makes a river a
+  river and a channel behind a headland a channel.
 - **Dispersion reads the DEPTH AT THE POINT, from `level.ground`.** ω² =
   g k tanh(k d): in deep water a wave's period fixes its length; coming in,
   the same period gets shorter and slower, and the crest steepens. A

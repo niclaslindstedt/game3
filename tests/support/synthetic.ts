@@ -20,8 +20,11 @@ import {
 const CELL = 4;
 
 export type SyntheticOptions = {
-  /** Mean wind, m/s at 10 m, and where it blows from (default: from the
-   * land, out to sea). */
+  /** Mean wind, m/s at 10 m, and where it blows from (default: off the
+   * sea, in against the shore — R12, which the exposure model in
+   * `fetch.ts` reads as literally as the generator states it: a synthetic
+   * coast with the wind at its back is a synthetic coast with no sea on
+   * it). */
   windSpeed?: number;
   windFrom?: number;
   /** Water density, kg/m³ (default brackish 1005). */
@@ -136,13 +139,19 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     materialAt: (_x, z) => (z > 0 ? "water" : z > -20 ? "sand" : "bedrock"),
     solids,
     river: [],
+    // No river on the synthetic bed, so no current: two one-cell fields of
+    // standing water, which is what `flowAt` reads outside a real one.
+    flow: {
+      vx: createHeightfield(bounds.minX, bounds.minZ, CELL, 2, 2),
+      vz: createHeightfield(bounds.minX, bounds.minZ, CELL, 2, 2),
+    },
     // Empty water: the synthetic level stages the PHYSICS, and nothing in
     // the physics touches the fauna. A test about the sea life stands its
     // own pods (tests/fauna_test.ts).
     fauna: [],
     course: { gates, path, length: 680 },
     start: { x: 20, z: 40, heading: east },
-    wind: { from: opts.windFrom ?? Math.PI, speed: opts.windSpeed ?? 4 },
+    wind: { from: opts.windFrom ?? 0, speed: opts.windSpeed ?? 4 },
     water: { density: opts.density ?? 1005, temperature: 14 },
     hour: 11,
     // A clear late morning: nothing a physics test stages should be

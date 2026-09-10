@@ -278,7 +278,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // THE AIR: drag always; the plate, the rider's authority and the air's
   // damping in proportion to how much of the hull is out of the water.
   {
-    const wind = windAt(state.wind, c.y);
+    const wind = windAt(state.wind, c.y, c.x, c.z);
     const airShare = c.airborne ? 1 : clamp(1 - hull.wetted * 3, 0, 1);
     aeroForces(
       spec,

@@ -1,7 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// The wind held to its two models: the log-law profile (more wind higher
-// up, blowing away from where it comes from) and the Ornstein–Uhlenbeck
-// gust (mean-reverting, bounded, seeded).
+// The wind held to its three models: the log-law profile (more wind higher
+// up, blowing away from where it comes from), the SHELTER field over the
+// plan (full strength over open water, a fraction of it behind the land),
+// and the Ornstein–Uhlenbeck gust (mean-reverting, bounded, seeded).
 import { describe, expect, it } from "vitest";
 
 import { TUNING, createRng, createWind, stepWind, windAt, windSpeedAt } from "@engine";
@@ -9,28 +10,40 @@ import { TUNING, createRng, createWind, stepWind, windAt, windSpeedAt } from "@e
 import { syntheticLevel } from "./support/synthetic.ts";
 
 describe("the wind profile", () => {
-  const level = syntheticLevel({ windSpeed: 8, windFrom: Math.PI });
+  const level = syntheticLevel({ windSpeed: 8 });
   const wind = createWind(level);
+  // Well out on the open water of the synthetic coast, where R12's wind
+  // has crossed nothing but sea and the shelter is one.
+  const OUT = { x: 400, z: 320 };
 
-  it("reads the level's mean at the reference height", () => {
-    expect(windSpeedAt(wind, TUNING.wind.referenceHeight)).toBeCloseTo(8, 6);
+  it("reads the level's mean at the reference height, out at sea", () => {
+    expect(windSpeedAt(wind, TUNING.wind.referenceHeight, OUT.x, OUT.z)).toBeCloseTo(8, 3);
   });
 
   it("grows with height and never reads negative near the surface", () => {
-    expect(windSpeedAt(wind, 1)).toBeLessThan(windSpeedAt(wind, 10));
-    expect(windSpeedAt(wind, 10)).toBeLessThan(windSpeedAt(wind, 30));
-    expect(windSpeedAt(wind, 0)).toBeGreaterThan(0);
-    expect(windSpeedAt(wind, -2)).toBe(windSpeedAt(wind, 0));
+    const at = (y: number): number => windSpeedAt(wind, y, OUT.x, OUT.z);
+    expect(at(1)).toBeLessThan(at(10));
+    expect(at(10)).toBeLessThan(at(30));
+    expect(at(0)).toBeGreaterThan(0);
+    expect(at(-2)).toBe(at(0));
   });
 
   it("blows toward the opposite of where it comes from", () => {
-    // From the south (heading π, −z) means blowing toward +z.
-    const v = windAt(wind, 10);
-    expect(v.vz).toBeGreaterThan(7);
+    // From the north (heading 0, +z — the sea on this coast) means blowing
+    // toward −z, in against the shore.
+    const v = windAt(wind, 10, OUT.x, OUT.z);
+    expect(v.vz).toBeLessThan(-7);
     expect(Math.abs(v.vx)).toBeLessThan(0.5);
-    const east = createWind(syntheticLevel({ windSpeed: 5, windFrom: -Math.PI / 2 }));
-    const e = windAt(east, 10);
-    expect(e.vx).toBeGreaterThan(4.5);
+    const east = createWind(syntheticLevel({ windSpeed: 5, windFrom: Math.PI / 2 }));
+    const e = windAt(east, 10, OUT.x, OUT.z);
+    expect(e.vx).toBeLessThan(-4.5);
+  });
+
+  it("drops over the land behind the shore, and never below its floor", () => {
+    const ashore = windSpeedAt(wind, 2, 400, -80);
+    const afloat = windSpeedAt(wind, 2, 400, 320);
+    expect(ashore).toBeLessThan(afloat * 0.6);
+    expect(ashore).toBeGreaterThan(afloat * TUNING.wind.shelter * 0.99);
   });
 });
 

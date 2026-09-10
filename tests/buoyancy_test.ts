@@ -163,7 +163,7 @@ describe("stability", () => {
         quiet: true,
       });
       placeRun(state, { x: 150, z: 200, heading: 1, roll: 3, speed: 4 });
-      for (let i = 0; i < 4 * TUNING.physicsHz; i++) step(state, NEUTRAL_INPUT);
+      for (let i = 0; i < 6 * TUNING.physicsHz; i++) step(state, NEUTRAL_INPUT);
       return [state.craft.x, state.craft.z, state.craft.roll, state.craft.heading];
     });
     expect(runs[0]).toEqual(runs[1]);

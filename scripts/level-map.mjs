@@ -32,6 +32,7 @@ import { renderLevelMap } from "./lib/level-draw.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const {
   generateLevel,
+  flowAt,
   sampleField,
   cumulative,
   craftById,
@@ -217,11 +218,26 @@ const riverLine =
       `${(2 * sampleField(level.offshore, river[river.length - 1].x, river[river.length - 1].z)).toFixed(1)} m wide ` +
       `in ${(-sampleField(level.ground, river[river.length - 1].x, river[river.length - 1].z)).toFixed(2)} m of water`
     : "river: none";
+// R27 — and what that water is DOING. Read off the level's own baked field
+// rather than recomputed, at the mouth and at the reach where the channel
+// has closed to a quarter of the plan it started on.
+const flow = { x: 0, z: 0 };
+const currentAt = (p) => {
+  flowAt(level.flow, p.x, p.z, flow);
+  return Math.hypot(flow.x, flow.z);
+};
+const flowLine =
+  river.length > 1
+    ? `current: ${currentAt(river[0]).toFixed(2)} m/s at the mouth, ` +
+      `${currentAt(river[Math.round((river.length - 1) * 0.75)]).toFixed(2)} m/s three quarters up, ` +
+      `${currentAt(river[river.length - 1]).toFixed(2)} m/s at the head`
+    : "current: none";
 const lines = [
   heading,
   statLine,
   legLine,
   riverLine,
+  flowLine,
   `sea life: ${rosterLine}`,
   "",
   "  #   ID   KIND   AT (X, Z)        HDG  STATION  FROM PREV  OFFSHORE  DEPTH",
