@@ -22,15 +22,17 @@ The picture is six rows, and they are pressed over the live sea behind the card 
 
 | Key       | Action                                                      |
 | --------- | ----------------------------------------------------------- |
-| ↑ / W     | Throttle — analogue in spirit: it ramps up while held       |
+| W         | Throttle — analogue in spirit: it ramps up while held       |
 | ← → / A D | Steer — ramped, so a tap is a nudge and a hold is full lock |
 | ↓ / S     | Lean back — nose up; in the air, pitch the nose up          |
-| Shift     | Lean forward — nose down; in the air, pitch the nose down   |
+| ↑ / Shift | Lean forward — nose down; in the air, pitch the nose down   |
 | Space     | Brake and reverse — the bucket over the jet                 |
 | R         | Reset to the last gate passed                               |
 | Enter     | Restart the run                                             |
 | C         | Camera: the next rung of the ladder (also the HUD button)   |
 | Escape    | Pause: hold the run and put the pause card up               |
+
+The arrow cluster is the handlebar: ← → steer it, ↑ ↓ lean on it, the same way the thumb's bar on a phone does — pull toward you for nose up, push away for nose down.
 
 On a menu card the arrow keys (or WASD) walk the rows, Enter or Space presses one, and Escape goes back a page.
 
