@@ -99,7 +99,11 @@ export const STRINGS = {
   startShore: "SHORE",
   startShoreHint: "The seed the whole coast is built from — type one in to ride somebody else's",
   startTime: "TIME",
-  startTimeHint: "The hour to ride at, set against this coast's own daylight rather than a clock",
+  startTimeHint:
+    "The hour to start at, set against this coast's own daylight in the season — the clock runs on from there, an hour a minute",
+  startSeason: "SEASON",
+  startSeasonHint:
+    "The sun's arc: how long the day is, and how dark the night gets — a summer night here never gets past twilight",
   /** The wind, which is the sea; then the sky over it. Two rows because they
    * are two questions — see `menu-start.tsx` for why they used to be one. */
   startWind: "WIND",
@@ -134,6 +138,15 @@ export const STRINGS = {
   timeSunrise: "SUNRISE",
   timeDay: "DAY",
   timeSunset: "SUNSET",
+  /** The seasons, in the year's order. */
+  seasonSpring: "SPRING",
+  seasonSummer: "SUMMER",
+  seasonAutumn: "AUTUMN",
+  seasonWinter: "WINTER",
+  /** The HUD's sun clock: the hour the run has reached, and the word for
+   * its light under it. */
+  sunClockLabel: (daylight: "dawn" | "day" | "dusk" | "night"): string =>
+    ({ dawn: "DAWN", day: "DAY", dusk: "DUSK", night: "NIGHT" })[daylight],
   /** The winds, calmest first. Named for the SEA they build rather than for
    * a number, because a rung of this ladder is something a rider feels
    * through the hull long before they read it off the vane. */

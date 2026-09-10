@@ -39,8 +39,10 @@
 //   moving. A fish (neither beat set) never comes up.
 //
 //   THE BREACH. And a bull — only a bull (`isMale`), of the one species
-//   the catalog gives a `breach` to at all — throws itself clear. That one is not a bump but a BALLISTIC ARC: it drives up from
-//   its holding depth under a constant acceleration chosen to bring it
+//   the catalog gives a `breach` to at all — throws itself clear. That one
+//   is not a bump but a BALLISTIC ARC, thrown in place of one of his
+//   breaths: it drives up from the holding depth under a constant
+//   acceleration chosen to bring it
 //   through the surface at exactly the launch speed a leap of
 //   `BREACH_APEX` body lengths needs, flies the parabola gravity gives it,
 //   and decelerates back down to depth on the mirror of the climb. There
@@ -254,8 +256,30 @@ export function faunaPose(pod: Pod, i: number, t: number, out: FaunaPose, waterY
     const v0 = Math.sqrt(2 * GRAVITY * apex);
     const air = (2 * v0) / GRAVITY;
     const drive = (2 * hold) / v0;
-    const cycle = t / spec.breach + jitter(pod, i, 9);
-    const tau = (cycle - Math.floor(cycle)) * spec.breach;
+    // A BREACH IS ONE OF THE BREATHS, thrown higher: it starts where a
+    // rise would have started, at the depth, and it REPLACES that rise —
+    // so the arc leaves the hold and comes back to it with nothing else
+    // moving the animal, and the rise's own cosine is not still halfway
+    // up when the arc ends. Run on a clock of its own, the two overlapped
+    // and the end of a breach was a step of a metre.
+    let tau: number;
+    if (every > 0) {
+      const perBreach = Math.max(1, Math.round(spec.breach / every));
+      const cycle = t / every + jitter(pod, i, 6);
+      const k = Math.floor(cycle);
+      const turn = Math.floor(jitter(pod, i, 9) * perBreach);
+      const breaching = ((k % perBreach) + perBreach) % perBreach === turn;
+      tau = breaching ? (cycle - k) * every : Infinity;
+      if (breaching) {
+        // The rise this cycle would have been is the arc instead.
+        surfacing = 0;
+        height = -hold;
+        climb = 0;
+      }
+    } else {
+      const cycle = t / spec.breach + jitter(pod, i, 9);
+      tau = (cycle - Math.floor(cycle)) * spec.breach;
+    }
     if (tau < 2 * drive + air) {
       if (tau < drive) {
         height = -hold + (0.5 * v0 * tau * tau) / drive;

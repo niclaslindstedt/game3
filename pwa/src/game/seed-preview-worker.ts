@@ -15,7 +15,7 @@
 // here unchanged; `minimap-scene.ts` is DOM-free for the same reason the
 // payload modules are, and cuts the schematic without a document.
 
-import { dealtTimeOfDay, generateLevel, type TimeOfDay, type Weather } from "@engine";
+import { dealtTimeOfDay, generateLevel, type Season, type TimeOfDay, type Weather } from "@engine";
 
 import { levelSchematic } from "./minimap-scene.ts";
 import type { LevelSchematic } from "./minimap-scene.ts";
@@ -32,8 +32,10 @@ export type PreviewRequest = { seed: number };
  * which is why it comes back with the chart rather than being guessed at
  * from the number. */
 export type SeedDeal = {
-  /** The named hour the level's own hour (R13) stands nearest to. */
+  /** The named hour the level's own hour (R13) stands nearest to, in the
+   * season it was dealt. */
   time: TimeOfDay;
+  season: Season;
   /** The mean wind at 10 m the level was generated with, m/s (R12) — a
    * figure, which `conditionsFor` turns into one of the card's three rungs. */
   wind: number;
@@ -69,6 +71,7 @@ self.onmessage = (e: MessageEvent<PreviewRequest>) => {
       schematic: levelSchematic(level),
       deal: {
         time: dealtTimeOfDay(level),
+        season: level.season,
         wind: level.wind.speed,
         weather: level.weather,
       },

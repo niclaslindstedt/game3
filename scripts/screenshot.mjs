@@ -134,7 +134,11 @@ const args = parseArgs(
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
-    hour: { kind: "number", help: "ride at this hour on the clock in place of the level's" },
+    hour: { kind: "number", help: "start at this hour on the clock in place of the level's" },
+    season: {
+      kind: "string",
+      help: "ride in this season (spring, summer, autumn, winter) in place of the level's",
+    },
     weather: {
       kind: "string",
       help: "ride under this sky (clear, high, overcast, rain, squall) in place of the level's",
@@ -161,7 +165,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
-    "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--weather w] " +
+    "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
     "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );
@@ -258,6 +262,7 @@ if (args.camera !== undefined) base.camera = String(args.camera);
 if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
 if (args.hour !== undefined) base.hour = String(args.hour);
+if (args.season !== undefined) base.season = String(args.season);
 if (args.weather !== undefined) base.weather = String(args.weather);
 if (args.water !== undefined) base.water = String(args.water);
 if (args.res !== undefined) base.res = String(args.res);

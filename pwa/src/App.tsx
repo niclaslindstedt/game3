@@ -38,7 +38,13 @@
 //   ?weather=rain  ...and under this sky (clear | high | overcast | rain |
 //                  squall) — the sea stays the wind's
 //   ?time=sunset   the start card's TIME row: sunrise | day | sunset,
-//                  resolved against this coast's own daylight (R13)
+//                  resolved against this coast's own daylight (R13) in the
+//                  season being ridden
+//   ?season=autumn ...and its SEASON row: spring | summer | autumn | winter
+//                  — the sun's arc, and so the day's length and the
+//                  night's dark; the clock runs an hour a minute from the
+//                  start, so a sunset start rides into whatever night the
+//                  season has
 //   ?day=storm     ...and its WEATHER row: fine | windy | storm, which is a
 //                  sky AND the wind that builds the sea under it
 //   ?camera=heli   which rung of the camera ladder the run opens on (bow |
@@ -94,19 +100,21 @@
 
 import { useEffect, useRef, useState } from "preact/hooks";
 import {
-  TUNING,
-  botInput,
-  createGame,
-  isCraftId,
-  TIMES_OF_DAY,
-  WEATHER_IDS,
-  step,
   type CraftId,
   type CraftInput,
   type GameEvent,
   type GameState,
+  SEASONS,
+  type Season,
+  TIMES_OF_DAY,
+  TUNING,
   type TimeOfDay,
+  WEATHER_IDS,
   type Weather,
+  botInput,
+  createGame,
+  isCraftId,
+  step,
 } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
@@ -202,6 +210,7 @@ type Params = {
    * settings, so they are laid over the stored ones rather than read
    * straight into the run. */
   time: TimeOfDay | undefined;
+  season: Season | undefined;
   day: Conditions | undefined;
   weather: Weather | undefined;
   /** The picture rows a link names — the same three ladders and the same
@@ -267,6 +276,9 @@ function readParams(): Params {
       : undefined,
     time: (TIMES_OF_DAY as readonly string[]).includes(p.get("time") ?? "")
       ? (p.get("time") as TimeOfDay)
+      : undefined,
+    season: (SEASONS as readonly string[]).includes(p.get("season") ?? "")
+      ? (p.get("season") as Season)
       : undefined,
     day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
       ? (p.get("day") as Conditions)
@@ -338,6 +350,7 @@ function settingsFor(stored: Settings, params: Params): Settings {
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;
   if (params.time !== undefined) settings.ride.time = params.time;
+  if (params.season !== undefined) settings.ride.season = params.season;
   if (params.day !== undefined) settings.ride.conditions = params.day;
   if (params.weather !== undefined) settings.ride.weather = params.weather;
   if (params.scene !== null) settings.dev.scene = params.scene;
@@ -481,6 +494,7 @@ export function App() {
         sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
         hour: params.hour,
         timeOfDay: s.ride.time ?? undefined,
+        season: s.ride.season ?? undefined,
         // The WEATHER row wins over the sky its wind implies — that is the
         // whole of what it is for. Left alone (null) it defers, and the pair
         // stays the one R19 would have dealt.

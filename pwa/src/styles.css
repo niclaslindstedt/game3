@@ -291,6 +291,12 @@ canvas {
   text-align: left;
 }
 
+/* The sun's clock, under the vane: the same chip, left-aligned like it. */
+.hud-sun {
+  align-items: flex-start;
+  text-align: left;
+}
+
 .hud-wind-row {
   display: flex;
   align-items: center;

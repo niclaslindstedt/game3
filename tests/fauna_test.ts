@@ -15,8 +15,11 @@ import { describe, expect, it } from "vitest";
 import {
   FAUNA,
   FAUNA_IDS,
+  type FaunaId,
   LEVEL_RULES as R,
+  type Level,
   POD_LAYER,
+  type Pod,
   biomeOf,
   faunaById,
   faunaCount,
@@ -31,9 +34,6 @@ import {
   sampleField,
   walkPod,
   withinBand,
-  type FaunaId,
-  type Level,
-  type Pod,
 } from "@engine";
 
 import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
@@ -219,23 +219,54 @@ describe("the rarity a level actually delivers", () => {
   });
 
   it("puts the common fish ahead of the rare visitors, every rung of the ladder", () => {
-    expect(pods("herring")).toBeGreaterThan(pods("pike"));
-    // Adjacent rungs may tie over a corpus this size — the ladder is a
-    // rule about `perKm`, and a dozen levels is a sample, not a census.
-    // What it may never do is invert.
-    expect(pods("pike")).toBeGreaterThanOrEqual(pods("dolphin"));
-    expect(pods("dolphin")).toBeGreaterThanOrEqual(pods("porpoise"));
-    expect(pods("porpoise")).toBeGreaterThanOrEqual(pods("minke"));
+    // Counted PER LEVEL THE SPECIES IS IN SEASON FOR: R13 deals the corpus
+    // its seasons, and a pike needs eight-degree water it only meets in
+    // summer where a dolphin is in the sea from May to November — so the
+    // ladder is a rule about `perKm` in the water the animal is in, and
+    // that is what is compared.
+    const inSeason = (id: FaunaId): number =>
+      LEVEL_SEEDS.filter((seed) =>
+        withinBand(levelFor(seed).water.temperature, faunaById(id).temperature),
+      ).length;
+    const rate = (id: FaunaId): number => pods(id) / Math.max(1, inSeason(id));
+    // The ladder itself is the catalog's, and it is monotone rung by rung.
+    const ladder: FaunaId[] = ["herring", "pike", "dolphin", "porpoise", "minke"];
+    for (let i = 1; i < ladder.length; i++) {
+      expect(faunaById(ladder[i - 1]).perKm).toBeGreaterThan(faunaById(ladder[i]).perKm);
+    }
+    // What the corpus delivers is a Poisson sample of it, and a dozen levels
+    // is a sample, not a census: adjacent rungs may swap. What it may never
+    // do is put the ends the wrong way round — a school of herring on every
+    // in-season level, a whale on hardly any.
+    expect(rate("herring")).toBeGreaterThan(1);
+    expect(rate("herring")).toBeGreaterThan(rate("pike"));
+    expect(rate("pike")).toBeGreaterThan(rate("minke"));
+    expect(rate("dolphin")).toBeGreaterThan(rate("minke"));
+    expect(rate("minke")).toBeLessThan(0.5);
   });
 });
 
 describe("the swim model", () => {
+  /** A pod of the species: the corpus's own where it dealt one, and where
+   * the corpus's seasons put every level's water outside the species' band
+   * (a shark wants a summer sea), the corpus's first pod re-cast as that
+   * species at its own catalog depth and school — the swim model reads the
+   * loop and the spec, and nothing about a loop is a species'. */
   const podOf = (id: FaunaId): Pod => {
     for (const seed of LEVEL_SEEDS) {
       const hit = levelFor(seed).fauna.find((p) => p.species === id);
       if (hit) return hit;
     }
-    throw new Error(`no ${id} in the corpus`);
+    const spec = faunaById(id);
+    const template = levelFor(LEVEL_SEEDS[0]).fauna[0];
+    if (!template) throw new Error("no pod in the corpus at all");
+    return {
+      ...template,
+      id: `${template.id}-${id}`,
+      species: id,
+      count: spec.school.min,
+      depth: (spec.depth.min + spec.depth.max) / 2,
+    };
   };
 
   it("is a pure function of the pod and the clock", () => {
@@ -342,12 +373,15 @@ describe("the swim model", () => {
   it("brings every finned animal's back awash and keeps its body in the water", () => {
     const pose = freshPose();
     for (const id of ["porpoise", "dolphin", "shark", "orca"] as const) {
-      const pod = podOf(id);
+      // A COW's breath: a bull's may be the one he throws a breach on, and
+      // a breach leaves the water by design.
+      const pod: Pod = { ...podOf(id), count: 40 };
+      const cow = [...Array(pod.count).keys()].find((i) => !isMale(pod, i)) as number;
       const spec = faunaById(id);
       const every = spec.breath > 0 ? spec.breath : spec.bask;
       let highest = -Infinity;
       for (let t = 0; t < every; t += every / 600) {
-        faunaPose(pod, 0, t, pose);
+        faunaPose(pod, cow, t, pose);
         highest = Math.max(highest, pose.y);
       }
       // Against y = 0 here because the datum is 0: on a real sea it is the

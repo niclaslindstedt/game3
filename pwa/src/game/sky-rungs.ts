@@ -1,8 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE DAY'S RUNGS. The sky is authored as a LADDER of complete looks — the
-// two sunrises-and-sets, the two low suns, morning and full day — each one a
-// whole palette rather than a curve per colour, and the hour blends between
-// the two rungs the sun stands between.
+// dark, the two twilights, the two sunrises-and-sets, the two low suns,
+// morning and full day — each one a whole palette rather than a curve per
+// colour, and the hour blends between the two rungs the sun stands between.
 //
 // Authoring them whole is what keeps a sunset a sunset. Every colour in one
 // of these rows was chosen against the others in the same row: the horizon
@@ -19,13 +19,117 @@
 // green-teal by day — which is why everything on this coast has a cold
 // underside where a car in a forest has a warm one.
 //
-// THE LADDER'S FLOOR IS THE HORIZON. R13 draws every level's hour from the
-// coast's daylight, so no rider is ever under a sun that has set and there
-// is no twilight or dark rung to blend toward: under `SET` the ladder simply
-// holds. A sun on the water is as dramatic as this game's sky gets, and it
-// is a sky the sea can still be read through.
+// THE LADDER GOES ON DOWN INTO THE NIGHT. The clock runs an hour a minute
+// (`sunHourAt`), so a run started at sunset slides down through the set,
+// the twilight and into the dark without a cut anywhere — and which of
+// those rungs a night actually reaches is the season's: a taiga midsummer
+// bottoms out in the twilight, a September night sits on DARK for hours.
+//
+// DARK is nautical twilight and everything under it: moonlit, the moon the
+// key, the stars out and the Milky Way behind them. TWILIGHT is the civil
+// kind, the sun six degrees under — the afterglow on the horizon, the first
+// stars, the world lit by the sky alone. Under those two the `sun` and its
+// intensity are not the sun's — it is under the water — but the KEY's: the
+// afterglow's skylight given a direction so the sea still has a lit side,
+// handing over to the moon as the dark comes down (`sky.ts`).
+//
+// MIST is the sea's own: a dawn over cold water is the mistiest moment of
+// the day, a bank lying on the surface that the first sun burns off by
+// mid-morning, where the evening air has the whole day's heat in it and
+// stays clear to the last. It shortens the fog and lifts a veil off the
+// horizon (`sky.ts`, `sky-glsl.ts`).
 
 import type { Rung } from "./sky.ts";
+
+/** THE DARK — a moonlit sea. The zenith near black with the faintest blue
+ * in it, the horizon a deep slate where the air is thickest, the glow the
+ * moon's own cold sky glow, and the key the moon: blue-white, and a
+ * fraction of the sun. The moon's disc is small and hard, its halo the
+ * ring a full moon stands in over water. Stars and the band, all of it. */
+export const DARK: Rung = {
+  zenith: 0x060a1c,
+  horizon: 0x16223c,
+  glow: 0x8fa8e0,
+  glowStrength: 0.45,
+  sun: 0xb4c8ff,
+  sunIntensity: 0.5,
+  hemiSky: 0x2e4468,
+  hemiGround: 0x101a26,
+  hemiIntensity: 0.5,
+  fog: 0x0c1628,
+  fogNear: 90,
+  fogFar: 400,
+  disc: 0xf0f4ff,
+  discSize: 13,
+  halo: 0xaac0f0,
+  haloSize: 90,
+  haloOpacity: 0.42,
+  stars: 1,
+  galaxy: 1,
+  mist: 0.08,
+  cloud: 0x26344e,
+  cloudShade: 0x141c2e,
+  cloudOpacity: 0.85,
+};
+
+/** Civil twilight going down: the afterglow a band of dull orange on the
+ * sea's rim under a violet sky, the water gone to pewter, the first stars
+ * over the dark half of the sky. No disc — the sun is under the water. */
+export const DUSK_TWILIGHT: Rung = {
+  zenith: 0x171a44,
+  horizon: 0x5c4468,
+  glow: 0xe8663f,
+  glowStrength: 1.4,
+  sun: 0xd0a8b8,
+  sunIntensity: 0.2,
+  hemiSky: 0x40447c,
+  hemiGround: 0x1c2230,
+  hemiIntensity: 0.48,
+  fog: 0x40405c,
+  fogNear: 80,
+  fogFar: 380,
+  disc: 0xffb36a,
+  discSize: 0,
+  halo: 0xff6a4a,
+  haloSize: 280,
+  haloOpacity: 0.3,
+  stars: 0.55,
+  galaxy: 0.4,
+  mist: 0.1,
+  cloud: 0xd8828a,
+  cloudShade: 0x32304e,
+  cloudOpacity: 1,
+};
+
+/** …and the same six degrees on the way up: cooler and greyer, the glow a
+ * peach smear low in the north-east, and the mist already lying on the
+ * water — the sea is colder than the air over it, and this is the hour the
+ * bank stands thickest. */
+export const DAWN_TWILIGHT: Rung = {
+  zenith: 0x1e2a58,
+  horizon: 0x7c7488,
+  glow: 0xf8a070,
+  glowStrength: 1.1,
+  sun: 0xc8bcc8,
+  sunIntensity: 0.2,
+  hemiSky: 0x525c8c,
+  hemiGround: 0x22282e,
+  hemiIntensity: 0.48,
+  fog: 0x686478,
+  fogNear: 45,
+  fogFar: 300,
+  disc: 0xffe0b8,
+  discSize: 0,
+  halo: 0xffa060,
+  haloSize: 240,
+  haloOpacity: 0.28,
+  stars: 0.5,
+  galaxy: 0.34,
+  mist: 0.7,
+  cloud: 0xe8a898,
+  cloudShade: 0x3e3c56,
+  cloudOpacity: 1,
+};
 
 /** THE SUN ON THE WATER — the disc a swollen orange coin sitting on the
  * horizon with its track laid across the sea toward the rider. The sky over
@@ -52,6 +156,9 @@ export const DUSK_SET: Rung = {
   haloOpacity: 0.62,
   cloud: 0xff9a74,
   cloudShade: 0x745a80,
+  stars: 0,
+  galaxy: 0,
+  mist: 0.12,
   cloudOpacity: 1,
 };
 
@@ -77,6 +184,9 @@ export const DAWN_SET: Rung = {
   haloOpacity: 0.58,
   cloud: 0xffc0a8,
   cloudShade: 0x84808f,
+  stars: 0,
+  galaxy: 0,
+  mist: 0.55,
   cloudOpacity: 1,
 };
 
@@ -102,6 +212,9 @@ export const DUSK_LOW: Rung = {
   haloOpacity: 0.5,
   cloud: 0xffd0b0,
   cloudShade: 0x9a8898,
+  stars: 0,
+  galaxy: 0,
+  mist: 0.06,
   cloudOpacity: 1,
 };
 
@@ -127,6 +240,9 @@ export const DAWN_LOW: Rung = {
   haloOpacity: 0.54,
   cloud: 0xffd9c0,
   cloudShade: 0xa09aa8,
+  stars: 0,
+  galaxy: 0,
+  mist: 0.35,
   cloudOpacity: 1,
 };
 
@@ -152,6 +268,9 @@ export const MORNING: Rung = {
   haloOpacity: 0.4,
   cloud: 0xfff4ea,
   cloudShade: 0xc2ccd8,
+  stars: 0,
+  galaxy: 0,
+  mist: 0.1,
   cloudOpacity: 1,
 };
 
@@ -178,13 +297,18 @@ export const DAY: Rung = {
   haloOpacity: 0.35,
   cloud: 0xffffff,
   cloudShade: 0xd6e0ec,
+  stars: 0,
+  galaxy: 0,
+  mist: 0,
   cloudOpacity: 1,
 };
 
 /** The rungs in order of the sun's elevation, degrees, for each half of the
- * day. Below the first — the sun ON the horizon, which R13 makes the lowest
- * a level can be ridden at — and above the last, the ladder simply holds. */
+ * day. Below the first — nautical twilight, past which a night is only
+ * more of the same dark — and above the last, the ladder simply holds. */
 export const KEYS: readonly { at: number; dawn: Rung; dusk: Rung }[] = [
+  { at: -12, dawn: DARK, dusk: DARK },
+  { at: -5, dawn: DAWN_TWILIGHT, dusk: DUSK_TWILIGHT },
   { at: 0, dawn: DAWN_SET, dusk: DUSK_SET },
   { at: 8, dawn: DAWN_LOW, dusk: DUSK_LOW },
   { at: 22, dawn: MORNING, dusk: MORNING },

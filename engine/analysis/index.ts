@@ -28,7 +28,7 @@
 
 import { sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
-import { daylightWindow } from "../lib/solar.ts";
+import { DECLINATION, daylightWindow } from "../lib/solar.ts";
 import { CRAFT } from "../game/defs/craft.ts";
 import { faunaById } from "../game/defs/fauna.ts";
 import { topSpeedOf } from "../game/limits.ts";
@@ -440,13 +440,13 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     }
   }
   const biome = biomeOf(level.biome);
-  // R13 — the hour is one of this coast's DAYLIGHT hours. Re-derived from
-  // the latitude rather than compared against a band somebody wrote down:
-  // the rule is about where the sun stands, and the window is what that
-  // works out to on this coast.
-  const daylight = daylightWindow(biome.latitude, R.day.minSun);
+  // R13 — the hour is one of this coast's DAYLIGHT hours in the level's
+  // own season. Re-derived from the latitude rather than compared against
+  // a band somebody wrote down: the rule is about where the sun stands,
+  // and the window is what that works out to on this coast in this season.
+  const daylight = daylightWindow(biome.latitude, R.day.minSun, DECLINATION[level.season]);
   if (!daylight) {
-    rep.fail("R13", "sun", `the sun never rises on the ${biome.name}`);
+    rep.fail("R13", "sun", `the sun never rises on the ${biome.name} in ${level.season}`);
   } else if (!withinBand(level.hour, daylight, A.day.hour)) {
     rep.fail(
       "R13",
@@ -472,11 +472,12 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       `water density ${level.water.density} (biome ${biome.water.density})`,
     );
   }
-  if (!withinBand(level.water.temperature, biome.water.temperature)) {
+  const waterBand = biome.water.temperature[level.season];
+  if (!withinBand(level.water.temperature, waterBand)) {
     rep.fail(
       "R13",
       "temperature",
-      `water ${fmt(level.water.temperature)} °C (band ${bandText(biome.water.temperature)})`,
+      `water ${fmt(level.water.temperature)} °C (${level.season} band ${bandText(waterBand)})`,
     );
   }
 

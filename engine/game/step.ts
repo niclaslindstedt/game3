@@ -8,6 +8,7 @@
 import { createRng } from "../lib/prng.ts";
 import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
 import type { Level, Weather, Wind } from "../mapgen/types.ts";
+import type { Season } from "../lib/solar.ts";
 import { status } from "../output.ts";
 import { stepCraft } from "./craft.ts";
 import { freshProgress, resetCraft, standCraft, stepCourse } from "./course.ts";
@@ -33,14 +34,19 @@ export type CreateGameOptions = {
   /** A sea quoted outright — a swell of this significant height, m, sent
    * in from beyond the fetch law — in place of the one the wind grows. */
   sea?: SeaOverride;
-  /** The hour on the clock and the sky to ride the level under in place of
-   * the ones it was dealt (R13, R19) — how a lab photographs a sunset on a
-   * seed that came up at noon. The sea is the wind's and does not move. */
+  /** The hour on the clock the run starts at, the season and the sky to
+   * ride the level under in place of the ones it was dealt (R13, R19) —
+   * how a lab photographs a sunset on a seed that came up at noon, or a
+   * winter night on one dealt in July. The sea is the wind's and does not
+   * move, and neither does the water's temperature or what swims in it: a
+   * season asked for here moves the SUN, not the level. */
   hour?: number;
+  season?: Season;
   weather?: Weather;
   /** ...or the hour named rather than counted: SUNRISE, DAY or SUNSET,
-   * resolved against THIS coast's own daylight window (`hourOfDay`). An
-   * explicit `hour` wins, being the more exact of the two. */
+   * resolved against THIS coast's own daylight window in the season being
+   * ridden (`hourOfDay`). An explicit `hour` wins, being the more exact of
+   * the two. */
   timeOfDay?: TimeOfDay;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
@@ -97,14 +103,18 @@ export function createGame(options: CreateGameOptions): GameState {
   // A named time of day is resolved against the coast that was actually
   // dealt, which is why it is read here rather than by the caller: only the
   // level knows the latitude its daylight window is cut from (R13).
+  const season = options.season ?? dealt.season;
   const asked =
     options.hour ??
-    (options.timeOfDay === undefined ? undefined : hourOfDay(dealt, options.timeOfDay));
+    (options.timeOfDay === undefined
+      ? undefined
+      : hourOfDay({ biome: dealt.biome, season }, options.timeOfDay));
   const level: Level =
-    asked === undefined && options.weather === undefined
+    asked === undefined && options.weather === undefined && season === dealt.season
       ? dealt
       : {
           ...dealt,
+          season,
           hour: asked === undefined ? dealt.hour : ((asked % 24) + 24) % 24,
           weather: options.weather ?? dealt.weather,
         };

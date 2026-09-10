@@ -19,7 +19,8 @@
 // page is not part of the app's build and is never deployed.
 //
 //   node scripts/sky-preview.mjs
-//   node scripts/sky-preview.mjs --rows=squall,rain --hours=3.5,12
+//   node scripts/sky-preview.mjs --rows=squall,rain --hours=0,12
+//   node scripts/sky-preview.mjs --season=autumn   # the October night
 //   node scripts/sky-preview.mjs --skip-build      # reuse the last bundle
 
 import { existsSync, mkdirSync } from "node:fs";
@@ -43,12 +44,17 @@ const args = parseArgs(
       default: "",
       help: "only these weathers (clear,high,overcast,rain,squall)",
     },
-    hours: { kind: "string", default: "", help: "only these hours (e.g. 3.5,12,20.5)" },
+    hours: { kind: "string", default: "", help: "only these hours (e.g. 0,12,21)" },
+    season: {
+      kind: "string",
+      default: "summer",
+      help: "which season the coast is in (spring, summer, autumn, winter)",
+    },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
     out: { kind: "string", default: join(outDir, "sky.png"), help: "where the sheet is written" },
   },
-  "usage: node scripts/sky-preview.mjs [--rows=…] [--hours=…] [--skip-build]",
+  "usage: node scripts/sky-preview.mjs [--rows=…] [--hours=…] [--season=…] [--skip-build]",
 );
 
 mkdirSync(outDir, { recursive: true });
@@ -123,10 +129,12 @@ page.on("console", (msg) => {
 });
 
 const query = new URLSearchParams(
-  Object.entries({ rows: args.rows, hours: args.hours }).filter(([, v]) => v),
+  Object.entries({ rows: args.rows, hours: args.hours, season: args.season }).filter(([, v]) => v),
 ).toString();
 const url = `http://127.0.0.1:${port}/sky-preview.html${query ? `?${query}` : ""}`;
-console.log(`sky — seed 38, ${args.rows || "every weather"} × ${args.hours || "every hour"}`);
+console.log(
+  `sky — seed 38, ${args.season}, ${args.rows || "every weather"} × ${args.hours || "every three hours"}`,
+);
 // The harness draws all twenty-five cells synchronously before the page's
 // load event can fire, so the NAVIGATION is as long as the sheet — the
 // `--timeout` flag has to cover it too. Left at Playwright's own 30 s default

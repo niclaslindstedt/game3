@@ -153,13 +153,16 @@ export { type RunTape, type TapeSample } from "./sim/tape.ts";
 export { createRng, type Rng } from "./lib/prng.ts";
 export { hash2, smooth, valueNoise } from "./lib/noise.ts";
 export {
+  DECLINATION,
+  SEASONS,
   SOUTH,
-  SUMMER_DECLINATION,
   daylightWindow,
   hourOfElevation,
   sunAt,
+  type Season,
   type SunPlace,
 } from "./lib/solar.ts";
+export { SUN_SECONDS_PER_HOUR, sunHourAt } from "./game/clock.ts";
 export { angleDiff, clamp, lerp, TAU } from "./lib/math.ts";
 export {
   fromEuler,
