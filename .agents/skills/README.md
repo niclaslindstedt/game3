@@ -33,7 +33,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 
 | Skill | One line |
 | --- | --- |
-| `game-feel` | How the game FEELS: the hull meeting a wave, the reference (Wave Race 64), the camera, the cross-system levers |
+| `game-feel` | How the game FEELS: the hull meeting a wave, the reference (the 90s jetski racers), the camera, the cross-system levers |
 | `water-feel` | The sea: the Gerstner sum, the JONSWAP/PM spectrum, dispersion, shoaling, breaking, fetch, the gusts; `make waves` |
 | `craft-physics` | The hull's answer: probes, buoyancy, planing (Savitsky), slamming, the waterjet, nozzle steering, lean, flight; `make ride` |
 | `craft-tuning` | What separates the skiff, the marlin, the otter and the dart; the catalog; the roster read off `make sim` |

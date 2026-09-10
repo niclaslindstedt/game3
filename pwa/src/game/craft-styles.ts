@@ -20,8 +20,7 @@ export type CraftShape = {
   bowRake: number;
   /** The hood's peak over the coaming, as a share of the hull depth.
    * With the column it sets where the bars stand: a runabout is about
-   * 1.15 m tall keel to bar-top (a Sea-Doo GTI is 1.14, a Yamaha VX
-   * 1.15), a touring hull up to 1.25. */
+   * 1.15 m tall keel to bar-top, a touring hull up to 1.25. */
   hood: number;
   /** The saddle: its length as a share of the hull length, its height
    * over the pedestal as a share of the hull depth. A stand-up carries a

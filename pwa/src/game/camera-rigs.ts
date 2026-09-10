@@ -16,8 +16,8 @@
 // The heights are a jet ski's, not a car's: the hull is a metre tall and it
 // is ridden on water that is itself moving, so a lens two metres over it is
 // already looking DOWN on the swell it is supposed to be riding. `chase` is
-// the reference — the Wave Race read, where the wave coming at the hull
-// fills the bottom of the frame and the horizon rides high — and every
+// the reference — the 90s jetski-racer read, where the wave coming at the
+// hull fills the bottom of the frame and the horizon rides high — and every
 // other row is that shot moved rather than a shot of its own.
 
 /** A lens behind the craft, as a set of numbers. The standoff and the height

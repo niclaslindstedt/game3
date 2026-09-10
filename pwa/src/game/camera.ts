@@ -11,9 +11,10 @@
 //           nobody can read.
 //   close — a boom over the transom: the wake fills the bottom of the frame
 //           and a wave arriving is a wall.
-//   chase — behind and above the craft, LOW: the Wave Race read, where a
-//           swell coming at the hull fills the bottom of the frame and the
-//           horizon rides high. THE REFERENCE the other four are moved from.
+//   chase — behind and above the craft, LOW: the 90s jetski-racer read,
+//           where a swell coming at the hull fills the bottom of the frame
+//           and the horizon rides high. THE REFERENCE the other four are
+//           moved from.
 //   far   — stood back and a little higher: less drama, more warning.
 //   heli  — the shot a chase helicopter would fly, and the furthest back the
 //           ladder goes. There is no view from over the deck: straight down

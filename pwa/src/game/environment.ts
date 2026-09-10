@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE ATMOSPHERE — the sky a level is ridden under, built out of the colours
 // `sky.ts` works out for its hour and its weather (R19) and the cloud stack
-// `cloud-field.ts` dresses it in. The target look is Wave Race 64's chunky
-// saturated water sitting inside a modern northern air: a sky whose horizon
-// glows around the sun, real cloud at real altitudes with the light coming
-// through it, coloured distance fog, and — under weather — a ceiling with
-// the daylight arriving under its rim and rain falling out of it.
+// `cloud-field.ts` dresses it in. The target look is the 90s jetski racers'
+// chunky saturated water sitting inside a modern northern air: a sky whose
+// horizon glows around the sun, real cloud at real altitudes with the light
+// coming through it, coloured distance fog, and — under weather — a ceiling
+// with the daylight arriving under its rim and rain falling out of it.
 //
 // This module owns everything about the scene that is AIR: the two lights,
 // the fog, the background, the dome and what falls out of it. It reads

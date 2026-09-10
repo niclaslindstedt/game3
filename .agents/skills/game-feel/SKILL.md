@@ -1,6 +1,6 @@
 ---
 name: game-feel
-description: "Use when the task is about how the game FEELS to ride — the sensation of a hull meeting a wave (the lift, the slam, the spray, the air), the sense of speed over water, the camera's framing, how pace and danger read on screen. The feeling of riding IS the core product; this skill owns the reference (Wave Race 64), the levers that create the sensation across the wave field, the hull's probes, the camera and the FX, how they interact, and the look-first verification loop. Load it for any change whose acceptance test is 'does it feel like riding water', alongside the skill that owns the specific subsystem being edited."
+description: "Use when the task is about how the game FEELS to ride — the sensation of a hull meeting a wave (the lift, the slam, the spray, the air), the sense of speed over water, the camera's framing, how pace and danger read on screen. The feeling of riding IS the core product; this skill owns the reference (the 90s jetski racers), the levers that create the sensation across the wave field, the hull's probes, the camera and the FX, how they interact, and the look-first verification loop. Load it for any change whose acceptance test is 'does it feel like riding water', alongside the skill that owns the specific subsystem being edited."
 ---
 
 # Game feel — the hull meeting the wave
@@ -14,10 +14,11 @@ skill owns that judgement and the levers behind it.
 `node scripts/skill-lessons.mjs game-feel`. Record what a tuning session
 learns at the end (`skill-reflection` owns the format).
 
-## The reference: Wave Race 64 (1996)
+## The reference: the 90s jetski racers
 
-The N64 original is the north star for how water and a craft on it should
-read. What it got right, and what every lever below is measured against:
+The arcade jetski racers of the nineties are the north star for how water
+and a craft on it should read. What they got right, and what every lever
+below is measured against:
 
 - **The water is a PARTICIPANT, not a floor.** Every wave lifts the craft,
   every trough drops it, and the rider is fighting the sea as much as the
@@ -43,9 +44,9 @@ read. What it got right, and what every lever below is measured against:
 - **Buoys are the course.** Gates read from a distance, the next one is
   always findable, and missing one COSTS.
 
-Reference frames: search the web for "Wave Race 64 Sunny Beach" and "Wave
-Race 64 Drake Lake" screenshots — the first for chop and spray at speed, the
-second for glassy water and the reflection the craft breaks.
+Two frames to hold in mind: a bright choppy bay ridden at speed, for the
+chop and the spray sheet; and a glassy inland lake, for the still water and
+the reflection the craft breaks. `SCENE=chop` and `SCENE=cruise` are ours.
 
 ## The levers, and who owns each
 

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // The camera rigs as maths (pwa/src/game/camera.ts): the outside lenses
-// stand behind and above the craft, low enough for the Wave Race read, keep
+// stand behind and above the craft, low enough for the 90s-racer read, keep
 // their horizon level whatever the hull does, pull back and widen with pace,
 // look through a turn, swing to the outside of a carve, hang their rod along
 // the flight path in the air, and never go under the sea. The nose rig sits
