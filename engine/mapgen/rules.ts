@@ -144,8 +144,11 @@
 //       with a `height` band stands that far above the GROUND it sits on,
 //       which is the only way to put a rock up a beach, and it must break
 //       the surface — a block whose top is under the water is a reef, and
-//       there is a kind for that. A reef's own top stands proud of the bed
-//       under it, or it is not a reef.
+//       there is a kind for that. And a SEA STACK stands in the OPEN SEA:
+//       its band is read against the sea's own straight edge (R15) as well
+//       as against the nearest water, because `offshore` is the distance
+//       from the NEAREST edge and cannot tell the middle of a 190 m channel
+//       from open water — and a drum of rock up a river is a chimney.
 //   R18 THE RING IS REACHABLE. A ring stands where a hull that leaves the
 //       lip at the DESIGN LIP SPEED passes — never where a hull would have
 //       to be faster than it can be. The design speed is a band,
