@@ -148,6 +148,47 @@ describe("the ramp", () => {
     expect(highest).toBeGreaterThan(1);
     expect(pitchOnRamp).toBeGreaterThan(0.15);
   });
+
+  // The wedge's walls. Ridden at from anywhere but the hinge, a ramp is a
+  // wall — the deck's normal points UP, so a hull that met the deck two
+  // metres over its head through the lip's end face would be thrown the
+  // height of the lip's penetration rather than stopped by it.
+  it("is a wall from the wrong side, not a launch pad", () => {
+    const ramp = LEVEL.course.gates.find((g) => g.kind === "air")!.ramp!;
+    const lip = ramp.length * Math.tan(ramp.angle);
+    const sh = Math.sin(ramp.heading);
+    const ch = Math.cos(ramp.heading);
+    for (const speed of [10, 20, 30]) {
+      // Head-on at the raised end, riding back down the ramp's axis...
+      const head = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+      placeRun(head, {
+        x: ramp.x + sh * (ramp.length + 25),
+        z: ramp.z + ch * (ramp.length + 25),
+        heading: ramp.heading + Math.PI,
+        speed,
+      });
+      // ...and square into a flank.
+      const flank = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+      placeRun(flank, {
+        x: ramp.x + sh * ramp.length * 0.5 + ch * 25,
+        z: ramp.z + ch * ramp.length * 0.5 - sh * 25,
+        heading: ramp.heading - Math.PI / 2,
+        speed,
+      });
+      for (const state of [head, flank]) {
+        let highest = -Infinity;
+        for (let i = 0; i < 6 * TUNING.physicsHz; i++) {
+          step(state, COAST);
+          highest = Math.max(highest, state.craft.y);
+          expect(state.craft.onRamp).toBe(false);
+        }
+        // Stopped at the wall: never so much as the lip's own height up,
+        // let alone the tens of metres the deck's normal would give.
+        expect(highest).toBeLessThan(lip);
+        expect(state.craft.speed).toBeLessThan(speed);
+      }
+    }
+  });
 });
 
 describe("the bounds", () => {

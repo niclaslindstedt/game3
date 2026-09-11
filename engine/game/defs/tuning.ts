@@ -804,13 +804,17 @@ export const TUNING = {
      * ramp's wet deck. */
     groundFriction: 0.45,
     rampFriction: 0.08,
-    /** A probe further under a ramp's deck than this, m, and within
-     * `rampFlankBand` m of the deck's edge, did not sink through the deck
-     * — it came in through the flank, and is pushed back out sideways. A
-     * deep probe in the MIDDLE of the deck is a hull slammed onto it, and
-     * the deck pushes back, up to `rampDeckCap` N a probe. */
-    rampFlankBelow: 0.3,
-    rampFlankBand: 0.6,
+    /** A probe further under a ramp's deck than this, m (measured normal
+     * to it), did not sink through the deck — it came in through one of
+     * the wedge's walls, and is pushed back out through whichever wall is
+     * the shallowest way out. Under it, the probe is riding the deck: it
+     * is what lets a hull grazing the ramp near its hinge, where the deck
+     * stands centimetres up, climb aboard instead of being deflected. */
+    rampWallBelow: 0.3,
+    /** ...and the most the DECK may then push back on one probe, N. A
+     * wall's push is uncapped — it has to stop a hull — but a probe deep
+     * in the MIDDLE of the deck is a hull slammed onto it, and this is
+     * what holds that push to a landing rather than a launch. */
     rampDeckCap: 20_000,
     /** Restitution against a solid rock, and how much of the tangential
      * speed a glancing hit keeps. */
