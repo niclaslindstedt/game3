@@ -36,6 +36,7 @@ import {
   type HullResult,
   type ProbeSample,
 } from "./hull.ts";
+import { topSpeedOf } from "./limits.ts";
 import {
   bucketVector,
   stepBucket,
@@ -247,19 +248,31 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   const throughWater =
     hull.flowFwd > 0 ? hull.flowFwd : Math.max(0, unrotate(c.q, { x: c.vx, y: c.vy, z: c.vz }).z);
   const push = thrust(spec, density, c.rpm, throughWater, wet);
+  // THE HIGH-SPEED STEER: an ARCADE DIAL over everything the nozzle is
+  // worth, and the reason it is needed is geometry rather than the pump. A
+  // turn rate is the lateral acceleration over the speed, so the same force
+  // on the same hull swings it half as fast at twice the speed, and a
+  // runabout flat out answers the bars about as well as a bus. It ramps in
+  // with the SQUARE of the craft's own top speed, so the bottom half of the
+  // range is untouched and only the end a rider is fighting moves.
+  const steerGain = 1 + T.pump.steerHighSpeed * Math.min(1, (throughWater / topSpeedOf(spec)) ** 2);
   if (push > 0) {
     // The jet leaves the transom turned by the nozzle; the reaction on the
     // hull is the jet's opposite. A nozzle swung for a clockwise turn
     // throws the jet to the right-rear, pushing the stern LEFT.
     //
     // The BUCKET is downstream of it: what the gate catches goes forward
-    // and under instead, so `axial` is what is left driving the hull —
-    // still turned by the nozzle, which is why a craft in reverse steers
-    // the other way round. The TRIM aims what still leaves through the
-    // nozzle above or below the axis.
+    // and under instead, so `axial` is what is left driving the hull along
+    // its own line — while `lateral` is the whole flow the nozzle is still
+    // aiming SIDEWAYS, which the gate cannot flip because it sends what it
+    // catches forward on the side the nozzle threw it (`propulsion.ts`). So
+    // the brake steers the way the bars point, and what inverts in reverse
+    // is the hull's direction of travel, not this. The TRIM aims what still
+    // leaves through the nozzle above or below the axis.
     const gate = bucketVector(spec, c.bucket);
     const along = push * gate.axial * Math.cos(c.trim);
-    const bx = -along * Math.sin(c.nozzle);
+    const side = push * gate.lateral * Math.cos(c.trim) * steerGain;
+    const bx = -side * Math.sin(c.nozzle);
     const bz = along * Math.cos(c.nozzle);
     // Aimed up, the jet leaves upward and the reaction is DOWNWARD; what
     // the bucket spills leaves DOWNWARD under the transom and its reaction
@@ -280,7 +293,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // ...and the little the hull turns with the throttle shut: the sponsons
   // and the keel answering the nozzle's attitude, not its thrust.
   const wetShare = clamp(hull.wetted * 2, 0, 1);
-  tby += T.pump.keelYaw * c.nozzle * throughWater * throughWater * wetShare;
+  tby += T.pump.keelYaw * steerGain * c.nozzle * throughWater * throughWater * wetShare;
   // THE CARVE: a banked bottom turns toward its bank (roll right, right
   // side down, is positive and a clockwise yaw is +y). Nothing below
   // `carveDead` of bank — a hull wobbling a couple of degrees in chop or

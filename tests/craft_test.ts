@@ -149,9 +149,13 @@ describe("the pump", () => {
 });
 
 describe("steering", () => {
-  function turned(id: string, throttle: number): { heading: number; radius: number; roll: number } {
+  function turned(
+    id: string,
+    throttle: number,
+    speed = 20,
+  ): { heading: number; radius: number; roll: number } {
     const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
-    placeRun(state, { x: 100, z: 700, heading: Math.PI / 2, speed: 20 });
+    placeRun(state, { x: 100, z: 700, heading: Math.PI / 2, speed });
     let last = state.craft.heading;
     // ACCUMULATED, step by step, not the endpoint difference: the tightest
     // hull here comes round further than half a circle inside the window,
@@ -192,6 +196,22 @@ describe("steering", () => {
       // over the way its riders do.
       expect(on.roll).toBeGreaterThan(0.05);
       expect(on.roll).toBeLessThan(spec.id === "dart" ? 1.6 : 0.9);
+    });
+  }
+
+  for (const spec of CRAFT) {
+    it(`${spec.id} still comes round at the top of its range`, () => {
+      // THE HIGH-SPEED STEER (`pump.steerHighSpeed`). A turn rate is the
+      // lateral acceleration over the speed, so an honest hull answers the
+      // bars worst exactly where a course needs it most. These are the radii
+      // the dial buys at 0.95 of each craft's top speed, with a quarter of
+      // slack over the measured numbers in its comment — a floor under the
+      // feel, not a restatement of the tuning.
+      const top = topSpeedOf(spec);
+      const fast = turned(spec.id, 1, top * 0.95);
+      expect(fast.heading, `${spec.id} comes round`).toBeGreaterThan(1.2);
+      const ceiling = spec.id === "otter" ? 54 : 48;
+      expect(fast.radius, `${spec.id} radius at the top`).toBeLessThan(ceiling);
     });
   }
 
@@ -286,6 +306,29 @@ describe("the reverse bucket", () => {
     };
   }
 
+  /** Degrees of heading turned, full right lock held for three seconds from
+   * `speed`, with whatever else the thumb is doing. */
+  function withLock(id: string, speed: number, given: Partial<CraftInput>): number {
+    const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x: 100, z: 700, heading: Math.PI / 2, speed });
+    const input: CraftInput = {
+      steer: 1,
+      throttle: 0,
+      reverse: 0,
+      lean: 0,
+      reset: false,
+      ...given,
+    };
+    let last = state.craft.heading;
+    let heading = 0;
+    for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
+      step(state, input);
+      heading += angleDiff(last, state.craft.heading);
+      last = state.craft.heading;
+    }
+    return (heading * 180) / Math.PI;
+  }
+
   it("stops a craft that has one, and backs it up at walking pace", () => {
     for (const spec of CRAFT) {
       const r = onTheBrake(spec.id, 14);
@@ -304,6 +347,52 @@ describe("the reverse bucket", () => {
       // reverse thrust acts below the centre of gravity, and both agree.
       expect(r.lowestPitch, `${spec.id} bow down`).toBeLessThan(-0.02);
     }
+  });
+
+  it("brakes INTO the turn the bars are pointing, and harder than a coast", () => {
+    // The gate is downstream of the nozzle and its side walls send what it
+    // catches forward on the side the nozzle threw it, so the steering
+    // reaction keeps one sign however far down the gate is. A brake pulled
+    // with way still on therefore turns the way the bars point — and turns
+    // BETTER than a coast, because the gate is holding the throttle open
+    // (`pump.bucketThrottle`) and burying the bow into its own sponsons.
+    for (const spec of CRAFT) {
+      const speed = topSpeedOf(spec) * 0.7;
+      const brake = withLock(spec.id, speed, { reverse: 1 });
+      const coast = withLock(spec.id, speed, {});
+      if (spec.bucket.reverse <= 0) {
+        // Nothing fitted, nothing to tell apart: the stand-up coasts.
+        expect(brake, `${spec.id} has no gate`).toBeCloseTo(coast, 6);
+        continue;
+      }
+      // Clockwise, as positive steer says — the bug this holds shut turned
+      // the skiff 20° the OTHER way over the same three seconds.
+      expect(brake, `${spec.id} brakes into the turn`).toBeGreaterThan(0);
+      expect(brake / coast, `${spec.id} brake over coast`).toBeGreaterThan(1.8);
+    }
+  });
+
+  it("backs the craft the other way round, travelling stern-first", () => {
+    // ...and THAT is the inversion a rider feels in reverse: not a flipped
+    // moment, a hull going backwards. Full right lock from rest swings the
+    // bow right and walks the craft astern to the LEFT.
+    const state = createGame({ seed: 1, craft: "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x: 100, z: 700, heading: Math.PI / 2, speed: 0 });
+    const x0 = state.craft.x;
+    const z0 = state.craft.z;
+    let bow = 0;
+    let last = state.craft.heading;
+    for (let i = 0; i < 2 * TUNING.physicsHz; i++) {
+      step(state, { steer: 1, throttle: 0, reverse: 1, lean: 0, reset: false });
+      bow += angleDiff(last, state.craft.heading);
+      last = state.craft.heading;
+    }
+    // Heading east: +z is to the left of the hull, +x is ahead of it.
+    const along = state.craft.x - x0;
+    const across = state.craft.z - z0;
+    expect(bow, "the bow swings right").toBeGreaterThan(0.1);
+    expect(along, "it goes astern").toBeLessThan(-0.5);
+    expect(across, "and walks to the left").toBeGreaterThan(0.2);
   });
 
   it("does nothing at all on a craft with no bucket fitted", () => {

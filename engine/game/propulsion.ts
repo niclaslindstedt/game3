@@ -41,6 +41,19 @@
 //   BOW DOWN, which is what a watercraft does under braking. The reverse
 //   thrust itself acts below the centre of gravity and pushes the same
 //   way, so the two agree.
+//
+//   WHAT THE GATE DOES NOT DO IS SWAP THE HULL'S SIDES. The nozzle is
+//   UPSTREAM of it, so the gate catches a jet already thrown to one side
+//   and its side walls send it forward on that same side: what the gate
+//   reverses is the flow's axial sense, not which side of the transom it
+//   leaves from. So the steering reaction keeps ONE sign however far down
+//   the gate is, and `lateral` is the whole flow the nozzle is aiming —
+//   what still goes aft plus what the gate turns forward. The inversion a
+//   rider feels in reverse is not a flipped moment: it is a hull travelling
+//   STERN-FIRST, where a bow swung right walks the craft left. It therefore
+//   needs no model of its own, and the brake pulled with way still on
+//   steers the way the bars are pointing, which is the only thing a rider
+//   braking into a turn can use.
 // - THE TRIM: the nozzle pivots vertically, so the thrust line leaves the
 //   axis. Aimed UP, the reaction is downward at the transom, and a
 //   downward force behind the centre of gravity lifts the bow.
@@ -209,16 +222,21 @@ export function stepBucket(spec: CraftSpec, bucket: number, reverse: number, dt:
 /** What the gate does to the jet, given how far down it is: the share
  * still leaving THROUGH the nozzle (which is the only share the trim can
  * aim), the share of the thrust still acting ALONG the hull (negative once
- * the gate is past its neutral), and the share thrown DOWNWARD under the
- * transom. The nozzle is upstream of the gate and steers what it catches
- * too, so applying the nozzle's angle to a negative axial is what makes a
- * craft steer backwards in reverse — as a real one does. */
+ * the gate is past its neutral), the share the nozzle is still steering
+ * SIDEWAYS (always positive — the gate turns the flow's axial sense, not
+ * the side of the hull it leaves from), and the share thrown DOWNWARD
+ * under the transom. */
 export function bucketVector(
   spec: CraftSpec,
   bucket: number,
-): { through: number; axial: number; down: number } {
+): { through: number; axial: number; lateral: number; down: number } {
   const d = clamp(bucket, 0, 1);
   const authority = spec.bucket.reverse;
-  if (d <= 0 || authority <= 0) return { through: 1, axial: 1, down: 0 };
-  return { through: 1 - d, axial: 1 - d - d * authority, down: d * authority * PUMP.bucketDown };
+  if (d <= 0 || authority <= 0) return { through: 1, axial: 1, lateral: 1, down: 0 };
+  return {
+    through: 1 - d,
+    axial: 1 - d - d * authority,
+    lateral: 1 - d + d * authority,
+    down: d * authority * PUMP.bucketDown,
+  };
 }
