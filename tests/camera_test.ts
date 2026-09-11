@@ -260,17 +260,61 @@ describe("the nose rig", () => {
   });
 });
 
+/** WHERE A POINT SITS IN THE FRAME, vertically: 0 the middle of the
+ * picture, ±1 its top and bottom edges, past ±1 outside it altogether.
+ *
+ * Every outside rig keeps its horizon level (`roll` is 0), so the frame's up
+ * is the world's up taken square to the view axis, and a place in the
+ * picture is the angle off that axis over the half field. This is the one
+ * reading that says whether the RIDER IS STILL ON SCREEN — the standoff and
+ * the lens height cannot, because a lens can hold both and still be pointed
+ * over his head. */
+function framedY(pose: CameraPose, p: { x: number; y: number; z: number }): number {
+  const ax = pose.aimX - pose.x;
+  const ay = pose.aimY - pose.y;
+  const az = pose.aimZ - pose.z;
+  const al = Math.hypot(ax, ay, az);
+  const f = { x: ax / al, y: ay / al, z: az / al };
+  // right = worldUp × forward, and up = forward × right, which with a level
+  // horizon comes out as the view axis tipped a quarter turn in its own
+  // vertical plane.
+  const rl = Math.hypot(f.z, f.x) || 1;
+  const u = { x: (-f.x * f.y) / rl, y: rl, z: (-f.y * f.z) / rl };
+  const d = { x: p.x - pose.x, y: p.y - pose.y, z: p.z - pose.z };
+  const along = d.x * f.x + d.y * f.y + d.z * f.z;
+  const up = d.x * u.x + d.y * u.y + d.z * u.z;
+  return up / along / Math.tan((pose.fov * Math.PI) / 360);
+}
+
+/** How far the lens is tilted out of the horizontal, deg, down negative. */
+function viewPitch(pose: CameraPose): number {
+  const ax = pose.aimX - pose.x;
+  const ay = pose.aimY - pose.y;
+  const az = pose.aimZ - pose.z;
+  return (Math.asin(ay / Math.hypot(ax, ay, az)) * 180) / Math.PI;
+}
+
 /** Throw a craft off the water at pace and ride it back down, reading the
- * lens every frame. The landing is the moment both rules below are about:
- * it is where the rod's whole reading goes to nothing in one step. */
-function flyAndLand(): { lens: number[]; behind: number[]; landed: number } {
+ * lens every frame. The landing is the moment three of the rules below are
+ * about: it is where the rod's whole reading goes to nothing in one step. */
+function flyAndLand(mode: ChaseCamera = "chase"): {
+  lens: number[];
+  behind: number[];
+  framed: number[];
+  pitch: number[];
+  fall: number[];
+  landed: number;
+} {
   const state = fresh();
   placeRun(state, { x: 100, z: 200, heading: 0, speed: 18 });
-  const rig = createCameraRig("chase");
+  const rig = createCameraRig(mode);
   for (let i = 0; i < 200; i++) rig.update(state, DT, FLAT);
   placeRun(state, { x: 100, z: 200, heading: 0, speed: 18, height: 7, vy: 9 });
   const lens: number[] = [];
   const behind: number[] = [];
+  const framed: number[] = [];
+  const pitch: number[] = [];
+  const fall: number[] = [];
   let landed = -1;
   for (let f = 0; f < 300; f++) {
     for (let i = 0; i < 2; i++)
@@ -278,11 +322,15 @@ function flyAndLand(): { lens: number[]; behind: number[]; landed: number } {
     const pose = rig.update(state, 2 * TUNING.dt, FLAT);
     // The first frames are the placement itself, not a flight.
     if (f < 12) continue;
+    const c = state.craft;
     lens.push(pose.y);
     behind.push(relative(pose, state).behind);
-    if (landed < 0 && !state.craft.airborne) landed = lens.length - 1;
+    framed.push(framedY(pose, c));
+    pitch.push(viewPitch(pose));
+    fall.push(c.vy);
+    if (landed < 0 && !c.airborne) landed = lens.length - 1;
   }
-  return { lens, behind, landed };
+  return { lens, behind, framed, pitch, fall, landed };
 }
 
 describe("the flight rod", () => {
@@ -354,6 +402,51 @@ describe("the flight rod", () => {
     // well inside the first, and the rod is home before the next wave.
     const ring = Math.max(...behind.slice(landed + 60));
     expect(ring - settled).toBeLessThan((bounce - settled) * 0.5);
+  });
+
+  it("tilts the whole shot with the boom, so the rider never falls out of the frame", () => {
+    for (const mode of OUTSIDE) {
+      const { framed, pitch, fall, landed } = flyAndLand(mode);
+      const where = `the ${mode} rig`;
+      // Where the rider sits in the picture once the lens is home again:
+      // low in the frame, which is the 90s-racer read — the craft along the
+      // bottom and the horizon riding high.
+      const rest = framed[framed.length - 1];
+      expect(rest, where).toBeLessThan(0);
+      expect(rest, where).toBeGreaterThan(-0.6);
+      // THE WHOLE FLIGHT IS FRAMED THE SAME WAY. The boom turning onto the
+      // path is a rotation of the whole shot about the craft — lens AND aim
+      // — so what a flight moves is where the HORIZON sits, never where the
+      // rider sits. Turning only the lens, as this did before, walked him
+      // down the picture as the drop steepened and off the bottom edge of
+      // it at the landing.
+      for (let i = 0; i < framed.length; i++) {
+        expect(Math.abs(framed[i]), `${where} at ${i}`).toBeLessThan(0.9);
+        expect(Math.abs(framed[i] - rest), `${where} at ${i}`).toBeLessThan(0.25);
+      }
+      // ...and the lens gets there by LOOKING DOWN at him rather than by
+      // standing further off: at the bottom of the drop the shot is pitched
+      // well under the horizontal, which is the picture of a fall.
+      const deepest = fall.indexOf(Math.min(...fall.slice(0, landed)));
+      expect(pitch[deepest], where).toBeLessThan(-20);
+    }
+  });
+
+  it("bounces the horizon back at the landing, not just the boom", () => {
+    const { pitch, landed } = flyAndLand();
+    const settled = pitch[pitch.length - 1];
+    // The rod spent the fall wound over the craft with the shot pitched
+    // down the drop...
+    expect(pitch[landed]).toBeLessThan(settled - 20);
+    // ...and cannot stop at the horizontal, so it swings THROUGH the angle
+    // it settles on: the lens comes up past its natural pitch, the horizon
+    // drops back down the frame, and it settles. That nod is the landing's
+    // punctuation, and it is now something the PICTURE does rather than
+    // something only the boom does.
+    const nod = Math.max(...pitch.slice(landed, landed + 90));
+    expect(nod).toBeGreaterThan(settled + 1);
+    // ...and it is a nod, never a lurch up into the sky.
+    expect(nod).toBeLessThan(settled + 12);
   });
 });
 

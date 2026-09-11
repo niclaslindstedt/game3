@@ -34,7 +34,10 @@
 // world, not on the deck, and their height is sprung so a wave under the
 // craft is not a wave under the lens), and in the air they hang the boom
 // along the FLIGHT PATH rather than along the horizontal — its length
-// unchanged, so the hull is the same size off a ramp as it was on the water.
+// unchanged, so the hull is the same size off a ramp as it was on the water,
+// and the aim swings with it, so a rider dropping off a lip is held in the
+// frame by a lens that tilts down to watch him fall rather than left to slide
+// out of the bottom of it.
 //
 // WALKING THE LADDER IS A MOVE, NEVER A CUT: the lens is flown from where it
 // was standing to where the new rig has stood it (`camera-change.ts`).
@@ -237,7 +240,13 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     // The sprung height: the craft's own y, followed slowly afloat and
     // quickly in the air, so a chop is smoothed out and a launch is not.
     sprungY += (c.y - sprungY) * ease(c.airborne ? rig.heightFollowAir : rig.heightFollow);
-    const wantAir = c.airborne ? Math.max(0, c.y - sprungY) : 0;
+    // ...and the excursion off that line, which a flight is read as. SIGNED,
+    // because a FALL IS AN EXCURSION TOO: clamped at zero this caught a
+    // craft climbing and let go of one dropping, so the lens hung at the
+    // height of the launch while the rider went down past it. What is left
+    // uncompensated is the sprung line's own lag, which is what makes a
+    // drop read as a drop rather than as the world rising.
+    const wantAir = c.airborne ? c.y - sprungY : 0;
     airY += (wantAir - airY) * ease(rig.heightFollowAir);
 
     // Pace lives in the standoff, the height and the lens.
@@ -295,6 +304,20 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     const sg = Math.sin(gamma);
     const rodBack = dist * cg + height * sg;
     const rodUp = height * cg - dist * sg;
+    // THE AIM SWINGS WITH THE ROD, and that is what keeps the rider in the
+    // picture. The boom alone turning over a falling craft only moves the
+    // LENS: it climbs to look down the drop while the aim stays out on the
+    // water ahead at the height the sea was, so the shot points over the
+    // rider's head and he leaves the bottom of the frame — measured at the
+    // bottom edge and past it on every rung of the ladder for a drop off a
+    // ramp. Turning the aim through the same angle makes the rod a rotation
+    // of the WHOLE shot about the craft, so what the flight changes is where
+    // the horizon sits, never where the rider sits: the lens tilts down to
+    // hold him as he falls, and at the landing the rod's own swing back
+    // through the horizontal tilts the frame up again — the bounce, now
+    // something the picture does rather than something only the boom does.
+    const aimOut = rig.aimAhead * cg - rig.aimHeight * sg;
+    const aimUp = rig.aimAhead * sg + rig.aimHeight * cg;
     const camX = c.x - bx * rodBack + rx * swing;
     const camZ = c.z - bz * rodBack + rz * swing;
     let camY = sprungY + rodUp + airY * rig.airLift;
@@ -304,9 +327,9 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     pose.x = camX;
     pose.y = camY;
     pose.z = camZ;
-    pose.aimX = c.x + fx * rig.aimAhead + rx * look;
-    pose.aimY = sprungY + rig.aimHeight + airY * rig.airAim;
-    pose.aimZ = c.z + fz * rig.aimAhead + rz * look;
+    pose.aimX = c.x + fx * aimOut + rx * look;
+    pose.aimY = sprungY + aimUp + airY * rig.airAim;
+    pose.aimZ = c.z + fz * aimOut + rz * look;
     pose.fov = fov;
     pose.roll = 0;
   };

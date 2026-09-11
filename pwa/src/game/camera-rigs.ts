@@ -85,9 +85,11 @@ export type ChaseRig = {
    * and a fall is followed down. */
   heightFollow: number;
   heightFollowAir: number;
-  /** In the air the aim and the lens climb toward the craft itself, this
-   * share of its height over the sprung water line — the flight is the shot,
-   * and the shot stays on the craft. */
+  /** In the air the aim and the lens go WITH the craft, this share of its
+   * height off the sprung water line — the flight is the shot, and the shot
+   * stays on the craft. The reading is SIGNED, so the same share that
+   * carries them up after a climb takes them down after a drop: a lens left
+   * hanging at the height of the launch is a rider going down past it. */
   airAim: number;
   airLift: number;
   /** Share of the FLIGHT read this rig's rod takes, 0..1 — how far the boom
@@ -148,7 +150,13 @@ export const FLIGHT_ROD = {
    * over a craft falling straight down puts the lens, the hull and the aim
    * on ONE LINE with the world's up vector as the only thing left to build a
    * frame from: the shot tumbles. Short of the vertical there is always a
-   * run of sea left in the bottom of the frame. */
+   * run of sea left in the bottom of the frame.
+   *
+   * The aim swings with the rod (`camera.ts`), so both ceilings are also the
+   * most THE PICTURE ITSELF tilts: at the bottom of a long drop the horizon
+   * is up against the top of the frame and the sea he is falling into fills
+   * the rest of it. That is the shot — a good deal further and it would be a
+   * lens over the deck, which shows no waves at all. */
   up: 50,
   down: 62,
   /** A step bigger than this between two frames is a teleport rather than a
