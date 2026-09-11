@@ -207,17 +207,31 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
       airY = 0;
       flightRod.drop();
     }
-    // The yaw follows the nose, loosely in the air. The slip carries the
+    // The yaw follows the nose, and HARDER in the air (`rig.followAir`)
+    // rather than looser: a hull off the lip is being flown, and the rider
+    // winding it round with the bars has to be able to see which way its
+    // front is pointing to aim where it comes down. The slip carries the
     // travel direction into the framing while the hull is being carried
     // sideways across the water — never in the air, where the nose and the
-    // travel come apart on purpose and the shot's job is the landing.
+    // travel come apart on purpose.
     const planSpeed = Math.hypot(c.vx, c.vz);
     const travel = planSpeed > 3 ? Math.atan2(c.vx, c.vz) : c.heading;
     const wantSlip = c.airborne
       ? 0
       : soften(angleDiff(c.heading, travel) * rig.slipWeight, rig.slipMax);
     slip += (wantSlip - slip) * ease(rig.followRate);
-    yaw = angleLerp(yaw, c.heading, ease(c.airborne ? rig.followRate * 0.5 : rig.followRate));
+    // ...but a HEADING IS ONLY A HEADING WHILE THE NOSE IS ON THE HORIZON.
+    // It is the craft's forward axis projected onto the plan, and half way
+    // up a backflip that projection is a point: the reading is noise, and
+    // over the top it swings a clean 180° in one frame. So the follow is
+    // weighted by how much of the nose is left in the plan, and a lens
+    // watching a hull pointed at the sky simply holds the yaw it had —
+    // which is also the shot a rider wants, the flip turning in a steady
+    // frame rather than the world spinning round a steady craft.
+    const nose = rotate(c.q, { x: 0, y: 0, z: 1 });
+    const level = Math.hypot(nose.x, nose.z);
+    const follow = c.airborne ? rig.followRate * rig.followAir * level : rig.followRate;
+    yaw = angleLerp(yaw, c.heading, ease(follow));
     const aimYaw = yaw + slip;
 
     // The sprung height: the craft's own y, followed slowly afloat and

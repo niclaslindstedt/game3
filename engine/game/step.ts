@@ -109,6 +109,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     onGround: false,
     hitCooldown: 0,
     groundCooldown: 0,
+    tornadoCooldown: 0,
     launchVy: 0,
     dived: false,
     launchPending: false,

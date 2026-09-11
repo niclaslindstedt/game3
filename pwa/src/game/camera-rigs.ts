@@ -43,9 +43,16 @@ export type ChaseRig = {
   fovPerSpeed: number;
   fovMax: number;
   /** How briskly the yaw follows the nose, 1/s — the one knob for how heavy
-   * the rig is. Halved in the air, so the framing goes loose while the craft
-   * is ballistic. */
+   * the rig is. */
   followRate: number;
+  /** ...and what the AIR does to that rate. Over 1 because a hull in the air
+   * is a hull being STEERED: the rider is winding it round with the bars,
+   * and a lens that went loose while he did it would be asking him to fly
+   * something he cannot see the front of. So the framing tightens onto the
+   * nose off the lip and stays there through the whole flight, which is what
+   * makes an air trick something a rider can aim rather than something that
+   * happens to him. */
+  followAir: number;
   /** How much of the slip angle (travel against nose) the framing carries,
    * 0..1, and the ceiling it eases onto, rad. A hull carried sideways across
    * the water shows across the frame; past the ceiling the shot would be
@@ -171,6 +178,7 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
     fovPerSpeed: 0.7,
     fovMax: 86,
     followRate: 4.5,
+    followAir: 1.6,
     slipWeight: 0.6,
     slipMax: 0.35,
     lookThrough: 2.6,
@@ -200,6 +208,7 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
     fovPerSpeed: 0.75,
     fovMax: 84,
     followRate: 4.5,
+    followAir: 1.6,
     slipWeight: 0.6,
     slipMax: 0.35,
     lookThrough: 3.2,
@@ -229,6 +238,7 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
     fovPerSpeed: 0.6,
     fovMax: 80,
     followRate: 3.2,
+    followAir: 1.6,
     slipWeight: 0.7,
     slipMax: 0.42,
     lookThrough: 4,
@@ -259,6 +269,7 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
     fovPerSpeed: 0.3,
     fovMax: 64,
     followRate: 2.2,
+    followAir: 1.6,
     slipWeight: 0.9,
     slipMax: 0.7,
     lookThrough: 5,

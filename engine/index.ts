@@ -119,6 +119,25 @@ export {
   stormAt,
   stormRamp,
 } from "./game/ocean.ts";
+// THE TORNADO (tornado.ts): the wall of weather past the far edge of that
+// ocean, which blows a rider who kept going back toward the start line and
+// throws him into the air the moment a wave lets go of him.
+export {
+  CLIMB,
+  TORNADO_EDGE,
+  columnFade,
+  hoverSpeed,
+  tornadoAt,
+  tornadoBand,
+  tornadoBlow,
+  tornadoColumn,
+  tornadoEdge,
+  tornadoHome,
+  tornadoInflow,
+  tornadoLift,
+  tornadoRamp,
+  updraftFor,
+} from "./game/tornado.ts";
 // R27 — THE CURRENT (mapgen/flow.ts): how fast the water itself is going
 // at a plan point, and which way. Summed into `surfaceAt`'s velocity, so
 // nothing has to ask unless it wants to draw the river running.
@@ -165,7 +184,14 @@ export {
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).
 export { boundsPush, onRampDeck, rampDeckY, solidNear } from "./game/collision.ts";
-export { bearingToNext, crossedGate, crossedLine, gatesReached, resetPose } from "./game/course.ts";
+export {
+  bearingToNext,
+  crossedGate,
+  crossedLine,
+  gatesReached,
+  resetPose,
+  standCraft,
+} from "./game/course.ts";
 
 // The level generator and its analyzer.
 export * from "./mapgen/index.ts";

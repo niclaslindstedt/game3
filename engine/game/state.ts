@@ -106,9 +106,12 @@ export type CraftState = {
    * ramp ride reading as flight until the lip. */
   onRamp: boolean;
   onGround: boolean;
-  /** Cooldowns, s, so a contact held over several steps reports once. */
+  /** Cooldowns, s, so a contact held over several steps reports once — and
+   * so the tornado past the ocean's far edge (`tornado.ts`) reports once a
+   * throw rather than once a step. */
   hitCooldown: number;
   groundCooldown: number;
+  tornadoCooldown: number;
   /** The launch's vertical speed, m/s, remembered for the `land` event. */
   launchVy: number;
   /** Whether the landing in progress has already been reported as a dive,
@@ -164,6 +167,16 @@ export type GameEvent =
   | { kind: "ground"; t: number; speed: number }
   /** The hull has lain on its back long enough: the rider is righting it. */
   | { kind: "capsize"; t: number; speed: number }
+  /** THE TORNADO HAS THE RIDER — he rode out past the far edge of the open
+   * ocean and a wave has just thrown him clear of the water inside it
+   * (`tornado.ts`). `grip` is how much of the tornado stands there, 0..1 —
+   * the reading a presentation wants, because it means the same thing at
+   * every speed class where a wind in m/s does not (`tornadoBlow` is quoted
+   * against what the craft can do). `wind` is that wind all the same, m/s,
+   * and `speed` the craft's own. He is about to go some twenty-five metres up and a long
+   * way back toward the start; nothing in the run is reset, and he is free
+   * to ride straight back out and be thrown again. */
+  | { kind: "tornado"; t: number; grip: number; wind: number; speed: number }
   | { kind: "reset"; t: number; gate: number }
   | { kind: "finish"; t: number; time: number };
 

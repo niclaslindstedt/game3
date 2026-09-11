@@ -223,6 +223,79 @@ The `ocean` scenario stands the craft out there; `make ride SCENARIO=ocean` ride
 
 **What the RENDERER had to learn.** Every threshold that says how high or how steep a wave is standing was written against `sea.hsRef`, the coast's own swell — a crest tint, a frustum margin, the relative tilt bands, the whitecap and breaking gates. Judged against a one-metre coastal sea, a storm many times it is above every one of them at every vertex and comes out solid white. `pwa/src/game/water-mesh.ts` reads `stormSeaAt` once a frame at the craft (the storm alone, both numbers 0 inside a level, so nothing a course is ridden over changes) and takes the bigger of the two seas for each threshold. The storm is uniform to a fraction of a percent across a mesh two hundred metres wide, so once a frame is enough.
 
+## The tornado past the far edge (`engine/game/tornado.ts`)
+
+The storm stops building at `sea.open.reach`. Past there the ocean is a ceiling sea, the same every kilometre, over a bed nobody can touch, with no coast, no course and nothing built — and a rider holding the throttle open out there is riding away from the game rather than into more of it. **So there is something out there instead.**
+
+`tornadoEdge(level.pace)` is where it stands: `sea.open.reach` plus `wind.tornado.grace` = 60 s of riding at the roster's fastest craft, which at the shipped class is **4 300 m past the rim**.
+
+**Three of the dials read `Level.pace`, and three deliberately do not.** R32 made the speed class a per-RUN option (`createGame({ speedClass })`, which derives the hull through `craftAtClass` and lays the course to it), and the split follows what each dial is quoted against. The edge, the band and the blow are quoted against what the CRAFT can do, so they read the run's own class — otherwise a rider on a hull twice as quick gets half the grace and a wall he rides straight out through. The climb and the column are quoted against the SEA, and `createSea` deals its storm against `STORM_CEILING` off the catalog, so the sea past the rim is the same height at any per-run class and the throw holds still with it. Turning the BUILD's `TUNING.pump.speedClass` moves both together, which is the case the class sweep below measures. It stands past **every** rim the bounds let a rider out of (`collision.ts`), not only the seaward one: a rider who followed the coast too far out of the level along `x` meets the same weather as one who turned his back on the whole thing and rode out to sea.
+
+`tornadoRamp(out)` eases it in over `wind.tornado.band` = 500 m, so crossing the line is a freshening over a few seconds rather than a pane of glass. Inside a level, and anywhere in the storm short of the edge, it is exactly 0 — `tests/tornado_test.ts` holds it at 0 at every gate of every seed in the corpus.
+
+| What                                           | Answers                                                                                                          |
+| ---------------------------------------------- | ---------------------------------------------------------------------------------------------------------------- |
+| `TORNADO_EDGE`                                 | how far past the rim it stands, m — derived off the storm's reach and the roster's top speed                     |
+| `tornadoRamp(out)` / `tornadoAt(bounds, x, z)` | how much of it stands there: 0 at the edge, 1 a `band` further out                                               |
+| `tornadoInflow(grip, home, x, z, out)`         | the horizontal wind it adds, m/s — toward the level's start line, spiralled cyclonically by `swirl`              |
+| `tornadoColumn(level, x, z)`                   | how tall the updraft's column is there, m over the water — the shore's over the shallows, the ocean's out at sea |
+| `columnFade(height, top)` / `tornadoLift(…)`   | what is left of the column `height` metres up, and the force it puts on the hull, N                              |
+
+### The wind, and the column
+
+**The wind** blows toward `level.start` at `tornado.blow` = 2.17 × the roster's top speed — 65 m/s at the shipped class, EF3 on the enhanced Fujita scale and the bottom of what throws vehicles — spiralled `tornado.swirl` = 0.6 rad (34°) off the straight line home, cyclonically, the way a tornado's surface inflow crosses in at a large angle rather than running at the core. It is added to the level's own mean **as a vector** in `windAt`, under the same height profile and the same gust factor as any other wind, so it is felt through the one aero term in `flight.ts` and nothing had to learn a new force. It blows toward the START rather than toward the nearest rim on purpose: the rim tells a rider where the edge was, the start tells him where the game is.
+
+Against the roster's `cdA` that is some **9 m/s² of push** on a craft afloat, which is most of what a hull can make — which is why nobody rides out through it.
+
+**The column** is the updraft, and it is the point. It cannot be a third component on that wind: `cdA` is the hull's drag area NOSE-ON, three quarters of a square metre of something 3.5 m long and shaped to go forwards, and a hull going UP is not going forwards — it meets the column bottom-first and shows it the plan area as a flat plate. So it is its own force, `½·ρ·(L·B·plateCd)·v_rel·|v_rel|` at `plateCd` = 1.2 (Hoerner 1965), signed on the relative speed, capped at `liftCap` = 3 weights, and scaled by `airShare` — the same reading `flight.ts` fades its own air terms in with.
+
+`airShare` is the whole design. **On the water the rider is only shoved about; the moment a wave throws him clear, the column has him.** A hull planing with a fifth of its bottom wetted is already partly in it and feels the machine trying to be plucked off the sea; one that leaves the water is gone.
+
+### Not one absolute number in it
+
+The ocean past the rim is sized off `STORM_CEILING`, which goes as the **square** of `TUNING.pump.speedClass`. A hazard standing in that ocean and quoted in metres and metres per second is therefore a hazard that is correct at exactly one speed class and quietly wrong at every other. So every dial is a ratio against the thing it has to stay in proportion to:
+
+| Dial            | Against                                             | Shipped        |
+| --------------- | --------------------------------------------------- | -------------- |
+| `grace`, `band` | seconds of riding at the roster's best              | 1 800 m, 490 m |
+| `blow`          | the roster's top speed                              | 65 m/s         |
+| `climb`         | √(g·`STORM_CEILING`), the speed of a wave out there | 24 m/s         |
+| `column`        | seconds of that climb                               | 18 m, 20 m     |
+| `eventShare`    | a share of `blow`                                   | 29 m/s         |
+
+Two of those are less obvious than they look, and both were found by sweeping the class rather than by reasoning:
+
+**The updraft is quoted as a CLIMB, not as an air speed.** The speed at which a hull _hovers_ — where the plate drag exactly carries its weight — is set by its mass over its plan area and by nothing else: `hoverSpeed`, 34 to 38 m/s across the shipped roster, and it moves with neither the class nor the sea. An updraft quoted outright is therefore a different throw on every hull, and at a low enough class it is a number _under_ the hover speed on the heaviest one — a tornado that lifts nothing and fails silently. `updraftFor(spec)` is each hull's own hover speed plus the climb, which makes the throw the same on all four by construction.
+
+**The column is quoted in SECONDS of that climb, not in metres of sea.** Quoted against `STORM_CEILING` it would go as the square of the class, and the throw is not a throw at either end: measured at half the class it stands 5 m and lofts the roster over its own height once in two minutes, and at double it stands 80 m and holds a rider 26 to 33 s. What a rider reads is seconds, so the height is quoted in them and the column grows **linearly** with the class while the sea around it grows quadratically.
+
+**And the lift has a ceiling.** The plate drag goes as the square of the relative speed, so on a hull _falling_ back into a column that is still rising the two speeds add: uncapped, a fast class turns the column into a trampoline — 44 s of air at four times the shipped class, against the 5 s the same storm gives with no tornado in it. `liftCap` = 3 weights lets the column accelerate a hull at 2 g and slow a falling one by no more, whatever the class. At the shipped class the uncapped force at the water is about 2.8 weights, so it barely binds where the game actually is.
+
+### What bounds the throw
+
+Three things bound it, and each bounds a different axis:
+
+- **The speed** is bounded by the sign on `v_rel`: a hull climbing faster than the air around it is pushed back DOWN, so the climb settles at `climb` wave-speeds however long it is held.
+- **The height** is bounded by `columnFade`. The climb is one thing; how LONG a rider is up is how long the column keeps holding him, and out here that is however long the inflow takes to carry him back inside — twenty seconds. Given a column with no top the roster went to **150 m for seventeen seconds**, which is not a jump, it is weather. Past about 24 m of column at the shipped class the lift at the apex carries the weight outright and a throw stops coming down at all.
+- **The force** is bounded by `liftCap`, above.
+
+The column has **two** tops, because a tornado is only ever as big as the water under it: `column.shore` over the shallows a rider reaches by following the coast, `column.ocean` over the open sea he reaches by turning his back on the level. `tornadoColumn` reads the level's own `offshore` field to say which — a baked field clamps at its rim, which is exactly the reading wanted, so nothing extra is built to answer it.
+
+Measured over the roster at the shipped class, counting only the flights the column actually lofted:
+
+| Column | p10 air | median | p90    | apex median | apex max |
+| ------ | ------- | ------ | ------ | ----------- | -------- |
+| shore  | 2.6 s   | 4.6 s  | 9.9 s  | 16 m        | 31 m     |
+| ocean  | 1.9 s   | 5.2 s  | 13.1 s | 17 m        | 28 m     |
+
+Swept over the class, median and p90: at ×0.5, 3.1 / 11.1 alongshore and 4.3 / 18.3 at sea; at ×1, 4.6 / 9.9 and 5.2 / 13.1; at ×2, 10.8 / 24.1 and 5.9 / 18.5. Past about ×2 the throw runs long — but so does every flight out there, because the sea is then over a hundred metres and outside what the spectrum itself is held to (`sea.open.bandHigh`). That is the ocean outgrowing the model, not this hazard losing its calibration.
+
+### What it is not
+
+Nothing here teleports a craft, resets a run, ends a run, or stands a wall in the water. The rider is thrown — twenty-odd metres up and a long way back toward where he started — by a wind, lands, and rides on; the course, the gate count and the clock are untouched, and he is free to ride straight back out and be thrown again. `tests/tornado_test.ts` holds all four of those.
+
+The engine says so with one event, `{ kind: "tornado", t, wind, speed }`, emitted when the column takes a hull that is more than half out of the water in a wind of at least `eventShare` = 0.45 of the full blow, and no oftener than `eventGap` = 6 s — one telling a throw. `pwa/src/game/rumble.ts` spends the whole motor on it. It needs no sound of its own: the ride bed's wind layer already reads `windAt`, so a 65 m/s inflow roars through the mix that was always there.
+
 ## The current (R27, `engine/mapgen/flow.ts`)
 
 The river is going somewhere. It carries `river.discharge` (120–600 m³/s, drawn per level — a real Gulf of Bothnia band) out of its mouth, and the SPEED is what is left when that volume has to fit through the channel:
