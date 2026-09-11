@@ -19,6 +19,16 @@
 // hangs UNDER the cluster, which is the part that has to clear the lever
 // zone — styles.css argues that clearance where it sets the zone's top.
 //
+// THE SAME CORNER ON THE FRONT DOOR. A deploy that lands while a tab is open
+// most often lands on a tab nobody is riding, so a mark only a RUN could show
+// is a mark most players would never see — `App.tsx` stands it in the same
+// corner, in the same chrome, over the menu, lifted over the card's wash
+// (styles.css's `.hud-over-card`). Measured at both reference viewports: the
+// cards are centred and clear it everywhere except OPTIONS at 390×844, which
+// is tall enough that the mark overhangs its top-right corner by a couple of
+// pixels — over the card's edge, not over a control, and the corner it would
+// have to move to is under a card on that viewport too.
+//
 // TWO PRESSES, because the press throws the run away: the page reloads onto
 // the new build and the ride in progress goes with it, and this mark stands
 // one gap from the RESET button. The first press arms it and the mark

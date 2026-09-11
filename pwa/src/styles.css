@@ -269,6 +269,17 @@ canvas {
   gap: 0.5rem;
 }
 
+/* THE NOTICE STANDING OVER A CARD (App.tsx): the front door is a layer of
+   its own with a wash across the whole screen, so the corner the new-build
+   mark stands in has to be lifted over it — under it the one thing the app
+   ever says on its own initiative arrives dimmed and unpressable. Above the
+   menu (1500) and deliberately below the loading and attract cards (1800,
+   2000): those two are the app covering its own screen, and a notice over a
+   cover is a notice over nothing. */
+.hud-over-card {
+  z-index: 1600;
+}
+
 /* The row the new-build mark stands on its own in with the HUD switched off
    (App.tsx) — the readouts are gone, and the notice is not one of them. */
 .hud-topright-row {
