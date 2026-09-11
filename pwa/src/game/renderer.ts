@@ -27,7 +27,7 @@ import { createBirds, type Birds } from "./birds.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
-import { createBuoys, type Buoys } from "./buoys.ts";
+import { createBuoys, nearestLamps, type Buoys, type BuoyLamp } from "./buoys.ts";
 import { createGates, type Gates } from "./gates.ts";
 import { createFlora, type CoverMirror, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
@@ -52,6 +52,11 @@ import { createSpray } from "./spray.ts";
 import { createWake } from "./wake.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
 import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
+
+/** Nothing lit, for a level with no marks of one kind on it — a coast
+ * sprint has no rounding buoys at all. Stated once so the pick is handed a
+ * list rather than a null and allocates nothing to say "none". */
+const NO_LAMPS: readonly BuoyLamp[] = [];
 
 /** Near and far planes, m. The far is past the sky's outermost shell — the
  * weather's ceiling at 2400 m — so nothing in the sky is ever clipped; the
@@ -189,6 +194,7 @@ export function createRenderer(
       level = state.level;
       terrain = createTerrain(level);
       gates = createGates(level);
+      gates.setLens(bufferSize.y);
       buoys = createBuoys(level);
       // The sea life is under the water rather than in it: an opaque thing
       // at a place, drawn before the transparent surface blends over it,
@@ -371,6 +377,7 @@ export function createRenderer(
       camera.updateProjectionMatrix();
       fovWas = fov;
       spray.setLens(bufferSize.y, fov);
+      gates?.setLens(bufferSize.y);
     }
     camera.updateMatrixWorld();
     viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
@@ -380,9 +387,17 @@ export function createRenderer(
     mirror.aim(camera);
 
     cost.waterMs = water.update(state, c.x, c.z, frustum);
-    gates?.update(state);
+    gates?.update(state, camera);
     buoys?.update(state, camera);
-    if (buoys) water?.setBuoyLamps(buoys.lamps);
+    // R31 — THE LAMPS ON THE SEA. The gate marks and the rounding buoys
+    // both throw a pool, the water can carry four of them, and which four
+    // is decided by range from the craft rather than by which list they
+    // came out of: a gate mark five metres away lights more water than a
+    // rounding buoy across the bay.
+    if (gates || buoys)
+      water?.setBuoyLamps(
+        nearestLamps(gates?.lamps ?? NO_LAMPS, buoys?.lamps ?? NO_LAMPS, c.x, c.z),
+      );
     // How far the rider can see into the water is the water mesh's answer, and
     // it is 0 with the window closed — so a closed window is also an empty sea
     // bed rather than a second rule about what to draw down there.

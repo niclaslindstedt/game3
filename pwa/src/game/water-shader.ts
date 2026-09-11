@@ -167,7 +167,7 @@ const GLINT_GAIN = 0.2;
  * far off it can be SEEN — the glare carries for kilometres and the pool
  * does not, and a pool stretched past this reads as a lit sea rather than a
  * lit buoy. */
-const BUOY_LAMPS = 4;
+export const BUOY_LAMPS = 4;
 const BUOY_REACH = 78;
 /** The lantern's own warm white, and what its pool is worth in the water's
  * own irradiance units — the craft's headlamp is 640 cd over a cone, and

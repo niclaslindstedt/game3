@@ -60,6 +60,7 @@ export type ScenarioName =
   | "breach"
   | "birds"
   | "mark"
+  | "gate"
   | "river";
 
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
@@ -82,6 +83,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "breach",
   "birds",
   "mark",
+  "gate",
   "river",
 ];
 
@@ -377,6 +379,12 @@ const MARK_STANDOFF = 150;
  * rider sees on the approach to the corner, which is a few boat lengths
  * out. */
 const BUOY_STANDOFF = 42;
+
+/** How far back from a water gate's line the approach shot is stood, m —
+ * far enough that both marks of the pair and the water between them are in
+ * one frame, close enough that a mark is a thing with a lantern on it
+ * rather than a dot. */
+const GATE_STANDOFF = 26;
 
 /** How far up the RIVER its shot stands, as a share of the water's own
  * length. A third of the way: past the mouth, where the channel has closed
@@ -793,6 +801,28 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
           nextGate: mid.index,
         },
         script: () => input(0, 0.7, 0),
+        seconds: 4,
+      };
+    }
+    case "gate": {
+      // THE CHECKPOINT ITSELF: stood on the approach to a water gate, a
+      // standoff back and pointed straight between its two marks, with a
+      // pair already crossed astern. The questions are whether a mark
+      // reads from the saddle as something MOORED and lit — its shape
+      // against the water at gate range — and, after dark, whether the
+      // lantern and the pool it throws say which gates are still owed.
+      const water = level.course.gates.filter((g) => g.kind === "water");
+      const gate = water[Math.min(1, water.length - 1)];
+      if (!gate) return scenarioFor(state, "cruise");
+      return {
+        moment: {
+          x: gate.x - Math.sin(gate.heading) * GATE_STANDOFF,
+          z: gate.z - Math.cos(gate.heading) * GATE_STANDOFF,
+          heading: gate.heading,
+          speed: top * 0.45,
+          nextGate: gate.index,
+        },
+        script: () => input(0, 0.6, 0),
         seconds: 4,
       };
     }

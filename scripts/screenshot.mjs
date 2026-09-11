@@ -77,6 +77,7 @@ const SCENES = [
   "breach",
   "birds",
   "mark",
+  "gate",
   "river",
 ];
 
