@@ -55,7 +55,8 @@ moment and photographs it after `t` seconds. The moments that matter:
 | `launch` | Leaving a ramp — the nose up, the engine free |
 | `apex` | The top of a flight through an air gate — the ring, the horizon, the air time on the HUD |
 | `landing` | Coming down flat — the plume, the camera's shudder |
-| `dive` | Coming down nose-first — the bow buried, the pitch-down |
+| `dive` | Coming down nose-first — the bow buried, the pitch-down, the wall over the rider, the crater and the ring on the water |
+| `capsize` | Past vertical and still rolling — the sheet off the side, the boil round a hull on its back, the righting (`--t 0.4`, `--t 1.2`, `--t 2.2`) |
 | `offshore` | Riding out to sea in wind — the sea building with fetch |
 | `backflip` | Held back off a big ramp — the one rotation the air control must reach |
 

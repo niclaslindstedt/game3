@@ -117,8 +117,8 @@ waves:
 # second over the water it crossed, with the numbers that decide the next
 # step beside each cell: speed, pitch, wetted share, rpm and air time. One
 # staged scenario at a time (scripts/lib/ride-scenarios.mjs names them:
-# rest, cruise, carve, chop, swell, launch, landing, dive, offshore,
-# backflip — the app's pwa/src/game/scenarios.ts is the same list for the
+# rest, cruise, carve, chop, swell, launch, landing, dive, capsize,
+# offshore, backflip — the app's pwa/src/game/scenarios.ts is the same list for the
 # browser), through the real engine and a canvas, so what is drawn is
 # isolated from everything that is not the physics. Required before/after
 # any change to the hull, the planing lift, the slamming or the flight.

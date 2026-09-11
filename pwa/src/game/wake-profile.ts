@@ -195,6 +195,142 @@ export function fanAt(s: number, age: number, speed: number, strength: number, o
   out.cover = age < FAN_LIFE ? 1 - smoothstep(0.9, 1, a) : 0;
 }
 
+// ── THE SPLASH ────────────────────────────────────────────────────────
+// What a hull arriving from ABOVE does to a disc of water — a landing's
+// plume falling back, a bow driven under, a hull coming down on its side —
+// as against what a hull moving THROUGH it does (the road and the fan).
+// Three things in it, each with its own life, all stamped into the same
+// map so the water shader draws and moves them the way it draws the wake:
+//
+//   THE PATCH   the foam the plume leaves on the water: a disc that spreads
+//               slowly and breaks up as the bubbles pop, churned hardest at
+//               first — what the landing's stamp has always carried.
+//   THE CRATER  the water the hull displaced: a hollow under it, forming
+//               over the relief's rise and filling back in under a second.
+//   THE RING    where the displaced water went — a ring wave rolling out
+//               from the crater's rim with a trough drawn in behind its
+//               crest, thinning as its circumference grows and lacing the
+//               crest white. The wave is what the eye reads as the sea
+//               taking the blow: a splash with no ring is paint.
+
+/** How long the patch's foam lives, s, and how fast it spreads, m/s. */
+export const SPLASH_LIFE = 2.6;
+export const SPLASH_SPREAD = 0.9;
+/** How long the crater takes to fill, s — the hollow's decay after the
+ * relief's rise. */
+export const CRATER_LIFE = 0.6;
+/** THE RING WAVE: how fast it travels, m/s — a wave a few metres long at
+ * deep-water celerity (√(gλ/2π) for λ ≈ 3 m) — its width crest to foot,
+ * m, how long it lives, s, and its crest's height at the crater's rim as
+ * a share of the crater's depth. The width is the wave's own scale AND the
+ * grid's: the water shader reads the relief blurred to about two metres
+ * (`WAKE_RELIEF_LOD`) and the near grid's cell is a metre and a half, so a
+ * ring narrower than this is smoothed into nothing before a vertex ever
+ * stands on it. */
+export const RING_SPEED = 2.2;
+export const RING_WIDTH = 3.2;
+export const RING_LIFE = 2.4;
+export const RING_SHARE = 1.2;
+/** Where the ring's trough sits, in half-widths inside its crest, and how
+ * deep it runs as a share of the crest. */
+const RING_TROUGH_AT = 1.2;
+const RING_TROUGH = 0.6;
+/** How much white the crest carries at full strength, and how much churn. */
+const RING_FOAM = 0.7;
+const RING_CHURN = 1;
+/** How much of a stamp's strength the patch's foam takes. */
+const PATCH_FOAM = 0.7;
+/** The stations a splash is laid across, centre to reach: the crater's
+ * middle and its rim, the patch's edge, the ring's trough, crest and foot,
+ * and the reach — placed ON the features rather than spread evenly, so a
+ * crest a metre wide is a vertex and not a gap between two. */
+export const SPLASH_STATIONS = 8;
+
+/** How far out from its centre a splash reaches at an age, m — the further
+ * of the patch's edge and the ring's foot, while the ring lives and is
+ * drawn (`ring` is the DETAIL row's share of it, 0 for none). */
+export function splashReach(radius: number, age: number, ring: number): number {
+  const patch = radius + SPLASH_SPREAD * age;
+  if (ring <= 0 || age >= RING_LIFE) return patch;
+  return Math.max(patch, radius + RING_SPEED * age + RING_WIDTH);
+}
+
+/** The radii of a splash's stations at an age, m, ascending from 0 into
+ * `out` (`SPLASH_STATIONS` long). */
+export function splashStations(radius: number, age: number, ring: number, out: Float32Array): void {
+  const reach = splashReach(radius, age, ring);
+  const rc = radius + RING_SPEED * age;
+  const half = RING_WIDTH / 2;
+  out[0] = 0;
+  out[1] = radius * 0.5;
+  out[2] = radius;
+  out[3] = radius + SPLASH_SPREAD * age;
+  out[4] = rc - RING_TROUGH_AT * half;
+  out[5] = rc;
+  out[6] = rc + half;
+  out[7] = reach;
+  // Ascending, and inside the reach: the features overtake one another as
+  // the ring outruns the patch, and a station past the reach is a vertex
+  // with no cover, which is fine, but one out of order folds the fan.
+  for (let i = 1; i < SPLASH_STATIONS; i++) {
+    out[i] = Math.min(reach, Math.max(out[i - 1], out[i]));
+  }
+}
+
+/** THE SPLASH'S SECTION at `r` m from its centre, for a splash of `radius`
+ * m laid `age` seconds ago with `strength` of white, a crater `depth` m
+ * deep at full, and `ring` of the ring wave (0..1). */
+export function splashAt(
+  r: number,
+  radius: number,
+  age: number,
+  strength: number,
+  depth: number,
+  ring: number,
+  out: WakeSection,
+): void {
+  const life = age / SPLASH_LIFE;
+  if (age < 0 || life >= 1) {
+    out.foam = out.churn = out.up = out.down = out.cover = 0;
+    return;
+  }
+  // The patch: flat, feathered over its outer third, paling and settling.
+  const patchR = radius + SPLASH_SPREAD * age;
+  const inPatch = 1 - smoothstep(0.7, 1, r / patchR);
+  const fade = Math.pow(1 - life, 1.6);
+  let foam = strength * fade * PATCH_FOAM * inPatch;
+  let churn = strength * fade * (1 - life) * inPatch;
+  // The crater: a bowl over the radius, rising in and filling.
+  const rim = Math.min(1, r / radius);
+  let down = depth * relief(age, CRATER_LIFE) * (1 - rim * rim);
+  let up = 0;
+  // The ring: a crest at the wave's front and a trough inside it, its
+  // height spread thinner round a growing circumference.
+  if (ring > 0 && age < RING_LIFE) {
+    const rc = radius + RING_SPEED * age;
+    const amp =
+      depth *
+      RING_SHARE *
+      ring *
+      Math.sqrt(radius / rc) *
+      Math.exp(-age / RING_LIFE) *
+      (1 - Math.exp(-age / RELIEF_RISE));
+    const d = (r - rc) / (RING_WIDTH / 2);
+    const crest = Math.exp(-d * d * 2);
+    const trough = Math.exp(-(d + RING_TROUGH_AT) * (d + RING_TROUGH_AT) * 2);
+    up += amp * crest;
+    down += amp * RING_TROUGH * trough;
+    const lace = strength * ring * crest * Math.exp(-age / RING_LIFE);
+    foam += RING_FOAM * lace;
+    churn += RING_CHURN * lace;
+  }
+  out.foam = Math.min(1, foam);
+  out.churn = Math.min(1, churn);
+  out.up = up;
+  out.down = down;
+  out.cover = 1 - smoothstep(0.85, 1, r / splashReach(radius, age, ring));
+}
+
 /** THE MAP the water shader reads the wake off: texels a side, and how far
  * it reaches either side of its centre, m. The centre stands
  * `WAKE_MAP_BACK` m behind the craft, because the wake is. */
