@@ -21,18 +21,16 @@ import { surfaceAt, type GameState, type Level, type SurfaceSample } from "@engi
 
 import { BIRDS, type BirdId } from "./bird-defs.ts";
 import {
-  FLUSH_RADIUS,
-  FLUSH_SECONDS,
   activityAt,
+  birdPlanFor,
   birdPose,
   crossingCapacity,
   crossingPose,
+  flushAt,
   forEachCrossing,
   freshBirdPose,
-  planBirds,
   residentCount,
   type BirdPlan,
-  type Flock,
 } from "./bird-plan.ts";
 import { BIRD_STYLES, birdMaterial, buildBird } from "./bird-shapes.ts";
 
@@ -71,7 +69,7 @@ export type Birds = {
 
 export function createBirds(level: Level): Birds {
   const group = new THREE.Group();
-  const plan = planBirds(level);
+  const plan = birdPlanFor(level);
   const rosters = new Map<BirdId, Roster>();
   for (const spec of BIRDS) {
     const capacity = residentCount(plan, spec.id) + crossingCapacity(plan, spec.id);
@@ -118,24 +116,12 @@ export function createBirds(level: Level): Birds {
     roster.n++;
   };
 
-  /** Whether the craft can put this flock up at all. Only a flock on the
-   * WATER or the SHORE gets up for a hull — a gull on a rock two metres
-   * over the sea watches it go by. */
-  const flushes = (flock: Flock): boolean =>
-    flock.home.kind === "water" || flock.home.kind === "shore";
-
   const observe = (state: GameState): void => {
     const t = state.t;
     const cx = state.craft.x;
     const cz = state.craft.z;
     plan.flocks.forEach((flock, f) => {
-      if (!flushes(flock)) return;
-      // Re-armed only once the last flush is over, so a hull idling in the
-      // middle of a raft does not hold the birds in the air forever.
-      if (t - flushed[f] <= FLUSH_SECONDS) return;
-      if (Math.hypot(flock.home.x - cx, flock.home.z - cz) < FLUSH_RADIUS + flock.roost) {
-        flushed[f] = t;
-      }
+      flushed[f] = flushAt(flock, cx, cz, t, flushed[f]);
     });
   };
 

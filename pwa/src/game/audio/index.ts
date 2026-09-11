@@ -5,8 +5,9 @@
 // The engine emits `GameEvent`s from `step()` and has no idea any of them make
 // a noise; this is the one place that opinion lives. A moment the simulation
 // never reports — the slap of the bottom on a wave, the spray, the wind, the
-// surf — is not an event and never becomes one: it is read off the state by
-// the bed (`ride-bed.ts`).
+// surf, a gull off the skerry — is not an event and never becomes one: it is
+// read off the state by a bed (`ride-bed.ts` for the craft and the water,
+// `bird-bed.ts` for the sky).
 //
 // WHICH sound an event makes is `route.ts`; this module owns WHEN, WHERE
 // FROM (the camera's ear, `listener.ts`), and the two rules that only a
@@ -20,6 +21,7 @@
 import type { GameEvent, GameState } from "@engine";
 
 import { RUN_BANK } from "./bank.ts";
+import { createBirdBed, type BirdBed } from "./bird-bed.ts";
 import { bubbleBurst } from "./bubbles.ts";
 import { sfx } from "./bus.ts";
 import { listenerFor, type Listener } from "./listener.ts";
@@ -56,6 +58,7 @@ export type RunAudio = {
 
 export function createRunAudio(): RunAudio {
   const bed: RideBed = createRideBed(sfx);
+  const birds: BirdBed = createBirdBed(sfx);
   let ear: Listener = listenerFor("chase");
 
   return {
@@ -78,19 +81,23 @@ export function createRunAudio(): RunAudio {
 
     frame(state, dt, duck = 1) {
       bed.update(state, dt, duck);
+      birds.update(state, dt, duck);
     },
 
     setView(view) {
       ear = listenerFor(view);
       bed.setView(view);
+      birds.setView(view);
     },
 
     silence() {
       bed.silence();
+      birds.silence();
     },
 
     reset() {
       bed.reset();
+      birds.reset();
     },
   };
 }

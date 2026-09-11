@@ -25,6 +25,17 @@ import { describe, expect, it } from "vitest";
 import { TUNING, createGame, placeRun, totalMass, type GameEvent } from "@engine";
 
 import { RUN_BANK } from "../pwa/src/game/audio/bank.ts";
+import { createBirdBed } from "../pwa/src/game/audio/bird-bed.ts";
+import {
+  BIRD_CALLS,
+  CRY_SLOT,
+  FLUSH_CRIES,
+  callRate,
+  criesIn,
+  cryPan,
+  heardAt,
+  type Cry,
+} from "../pwa/src/game/audio/bird-voice.ts";
 import { bubbleBurst, bubbleVoice } from "../pwa/src/game/audio/bubbles.ts";
 import {
   ENGINE_LAYERS,
@@ -52,6 +63,9 @@ import {
   type WaterLayer,
   type WaterVoice,
 } from "../pwa/src/game/audio/water-voice.ts";
+import { BIRD_IDS } from "../pwa/src/game/bird-defs.ts";
+import { planBirds } from "../pwa/src/game/bird-plan.ts";
+import { SCREEN_TO_ENGINE } from "../pwa/src/game/input-model.ts";
 import { SFX_STEP, mergeSettings } from "../pwa/src/game/settings.ts";
 import {
   MAX_CUTOFF_RATIO,
@@ -759,6 +773,190 @@ describe("the ride bed (audio/ride-bed.ts)", () => {
     expect(chop.sets[chop.sets.length - 1].target.level).toBeGreaterThanOrEqual(0);
     const wind = rec.layers.find((l) => l.spec === WATER_LAYERS.wind)!;
     expect(wind.sets[wind.sets.length - 1].target.level).toBeGreaterThan(0);
+  });
+});
+
+describe("the birds' voices (audio/bird-voice.ts)", () => {
+  it("names a sound the bank has for every bird that speaks, and keeps two quiet", () => {
+    for (const id of BIRD_IDS) {
+      const call = BIRD_CALLS[id];
+      if (!call) continue;
+      expect(RUN_BANK[call.sound], `${id}'s ${call.sound}`).toBeDefined();
+      if (call.flush) expect(RUN_BANK[call.flush], `${id}'s ${call.flush}`).toBeDefined();
+      expect(call.reach).toBeGreaterThan(call.ref);
+    }
+    expect(BIRD_CALLS.cormorant).toBeNull();
+    expect(BIRD_CALLS.eagle).toBeNull();
+    // The sky is heard BETWEEN things: every bird under the water's
+    // smallest splash.
+    const quietest = Math.max(...RUN_BANK.reset.voices.map((v) => v.volume ?? 1));
+    for (const id of BIRD_IDS) {
+      const call = BIRD_CALLS[id];
+      if (!call) continue;
+      for (const voice of RUN_BANK[call.sound].voices)
+        expect(voice.volume ?? 1, call.sound).toBeLessThanOrEqual(quietest);
+    }
+  });
+
+  it("deals the same cries twice, about as many as the rate says, and never two in a slot", () => {
+    const a: Cry[] = [];
+    const b: Cry[] = [];
+    // Twelve gulls at four a minute: forty-eight a minute, which the slot
+    // cap and the Poisson curve pull down but not to nothing.
+    const n = criesIn(1234, 12, 4, 0, 60, (cry) => a.push(cry));
+    criesIn(1234, 12, 4, 0, 60, (cry) => b.push(cry));
+    expect(b).toEqual(a);
+    expect(n).toBe(a.length);
+    expect(n).toBeGreaterThan(20);
+    expect(n).toBeLessThan(60 / CRY_SLOT);
+    for (let i = 1; i < a.length; i++)
+      expect(a[i].at - a[i - 1].at).toBeGreaterThanOrEqual(CRY_SLOT);
+    for (const cry of a) expect(cry.at).toBeGreaterThan(0);
+    // A window is exclusive at its start: two windows that meet deal each
+    // slot once.
+    const split: Cry[] = [];
+    criesIn(1234, 12, 4, 0, 20.1, (cry) => split.push(cry));
+    criesIn(1234, 12, 4, 20.1, 60, (cry) => split.push(cry));
+    expect(split).toEqual(a);
+    expect(criesIn(1234, 12, 0, 0, 60, () => {})).toBe(0);
+    expect(criesIn(1234, 0, 4, 0, 60, () => {})).toBe(0);
+  });
+
+  it("calls more on the wing than on the rock, and a roost goes nearly quiet at night", () => {
+    const gull = BIRD_CALLS.gull!;
+    expect(callRate(gull, 1, 1)).toBe(gull.airborne);
+    expect(callRate(gull, 0, 1)).toBe(gull.perched);
+    expect(callRate(gull, 0, 0)).toBeLessThan(gull.perched * 0.2);
+    expect(callRate(gull, 0, 0)).toBeGreaterThan(0);
+  });
+
+  it("is heard at its level close to, falls on the inverse square, and is gone at its reach", () => {
+    const gull = BIRD_CALLS.gull!;
+    expect(heardAt(0, gull)).toBe(1);
+    expect(heardAt(gull.ref, gull)).toBe(1);
+    expect(heardAt(gull.ref * 2, gull)).toBeCloseTo(0.25, 6);
+    expect(heardAt(gull.ref * 4, gull)).toBeLessThan(heardAt(gull.ref * 2, gull));
+    expect(heardAt(gull.reach - 1, gull)).toBeGreaterThan(0);
+    expect(heardAt(gull.reach, gull)).toBe(0);
+    expect(heardAt(gull.reach * 3, gull)).toBe(0);
+  });
+
+  it("pans a cry to the side it comes from, through the input model's one screen flip", () => {
+    expect(cryPan(Math.PI / 2, 0)).toBeCloseTo(SCREEN_TO_ENGINE, 9);
+    expect(cryPan(0, 0)).toBeCloseTo(0, 9);
+  });
+});
+
+describe("the bird bed (audio/bird-bed.ts)", () => {
+  // The strip carries one flock: a few geese on the water. Where they are
+  // is the plan's business; the bed lays the same plan off the same level.
+  const raft = planBirds(STRIP).flocks[0];
+  const goose = BIRD_CALLS[raft.species]!;
+
+  const runAt = (x: number, z: number) => {
+    const state = createGame({ seed: 1, craft: "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x, z, heading: 0, speed: 0 });
+    return state;
+  };
+
+  /** Run the bed for `seconds` of engine time at thirty frames a second. */
+  const ride = (
+    bed: ReturnType<typeof createBirdBed>,
+    state: ReturnType<typeof createGame>,
+    seconds: number,
+    duck = 1,
+  ): void => {
+    const step = 1 / 30;
+    for (let i = 0; i < seconds * 30; i++) {
+      (state as { t: number }).t += step;
+      bed.update(state, step, duck);
+    }
+  };
+
+  it("raises the flock's own cry within earshot, and nothing out of it", () => {
+    expect(raft.home.kind).toBe("water");
+    const rec = recorder();
+    const bed = createBirdBed(rec);
+    ride(bed, runAt(raft.home.x, raft.home.z + goose.reach * 0.3), 240);
+    expect(rec.tones.length).toBeGreaterThan(0);
+    const voices = RUN_BANK[goose.sound].voices;
+    expect(rec.tones.length % voices.length).toBe(0);
+    for (const tone of rec.tones) {
+      expect(tone.type).toBe(voices[0].call === "tone" ? voices[0].type : undefined);
+      expect(tone.at).toBeUndefined();
+      expect(tone.pan).toBeDefined();
+    }
+    const far = recorder();
+    ride(createBirdBed(far), runAt(raft.home.x, raft.home.z + goose.reach + 50), 240);
+    expect(far.tones.length).toBe(0);
+  });
+
+  it("is silent while the context is locked, and only opens its window on the first frame", () => {
+    const rec = recorder();
+    const bed = createBirdBed(rec);
+    const state = runAt(raft.home.x, raft.home.z + 40);
+    rec.locked = true;
+    ride(bed, state, 60);
+    expect(rec.tones.length).toBe(0);
+    rec.locked = false;
+    // The window opens on the first live frame: the minute that passed is
+    // not owed.
+    bed.update(state, 1 / 30);
+    expect(rec.tones.length).toBe(0);
+  });
+
+  it("puts a raft up with a burst of louder cries, once, and forgets it on reset", () => {
+    const rec = recorder();
+    const bed = createBirdBed(rec);
+    const state = runAt(raft.home.x, raft.home.z);
+    bed.update(state, 1 / 30);
+    (state as { t: number }).t += 1 / 30;
+    bed.update(state, 1 / 30);
+    ride(bed, state, FLUSH_CRIES.spread + 0.5);
+    // A flush's shouts are louder than any ordinary cry off the raft, which
+    // varies a fifth either side of its authored level — counted on the
+    // call's first voice, the loudest one.
+    const shout = (RUN_BANK[goose.sound].voices[0].volume ?? 1) * ((FLUSH_CRIES.gain + 1.2) / 2);
+    const shouts = () => rec.tones.filter((t) => t.volume! > shout).length;
+    const perFlush = FLUSH_CRIES.count;
+    expect(shouts()).toBe(perFlush);
+    // Sitting in the raft: not put up again until the flush is over.
+    ride(bed, state, 5);
+    expect(shouts()).toBe(perFlush);
+    // A reset forgets the flush: the same raft goes up again for the same hull.
+    bed.reset();
+    bed.update(state, 1 / 30);
+    (state as { t: number }).t += 1 / 30;
+    bed.update(state, 1 / 30);
+    ride(bed, state, FLUSH_CRIES.spread + 0.5);
+    expect(shouts()).toBe(perFlush * 2);
+  });
+
+  it("follows the seat and the duck: the same cries are quieter from the helicopter and under a card", () => {
+    const heard = (view: string, duck: number) => {
+      const rec = recorder();
+      const bed = createBirdBed(rec);
+      bed.setView(view);
+      const state = runAt(raft.home.x, raft.home.z);
+      bed.update(state, 1 / 30);
+      (state as { t: number }).t += 1 / 30;
+      bed.update(state, 1 / 30, duck);
+      return rec.tones[0].volume!;
+    };
+    expect(heard("heli", 1)).toBeCloseTo(heard("chase", 1) * LISTENERS.heli.events, 9);
+    expect(heard("chase", 0.5)).toBeCloseTo(heard("chase", 1) * 0.5, 9);
+  });
+
+  it("says its silence: the frame that resumes owes nothing for the pause", () => {
+    const rec = recorder();
+    const bed = createBirdBed(rec);
+    const state = runAt(raft.home.x, raft.home.z + 40);
+    ride(bed, state, 2);
+    bed.silence();
+    const n = rec.tones.length;
+    (state as { t: number }).t += 300;
+    bed.update(state, 1 / 30);
+    expect(rec.tones.length).toBe(n);
   });
 });
 

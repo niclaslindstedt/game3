@@ -40,11 +40,13 @@
 //   A tern plunges every `dive` seconds: the bird drops out of its loop to
 //   the water with its wings closing at the bottom, and climbs out again.
 //
-//   THE FLUSH. The one thing here with memory, and it is the renderer's:
-//   a raft the craft runs at gets up off the water in a burst and circles
+//   THE FLUSH. The one thing here with memory, and it is the caller's: a
+//   raft the craft runs at gets up off the water in a burst and circles
 //   low until the craft has gone, then settles. `birds.ts` remembers when
-//   each flock was last flushed and hands the moment in; the model is still
-//   pure in its arguments.
+//   each flock was last flushed and hands the moment in, and so does the
+//   audio's `bird-bed.ts` for the whirr of it; both decide the moment with
+//   `flushAt`, the rule stated once here, and the model is still pure in
+//   its arguments.
 //
 // CROSSINGS are the other half — the skeins going over on passage. They
 // belong to the SEASON rather than to a place: in spring they go north and
@@ -91,6 +93,25 @@ import { NIGHT_BELOW } from "./daylight.ts";
 import { FLORA } from "./flora-defs.ts";
 import { planFlora } from "./flora-plan.ts";
 import { FLORA_SCALE } from "./settings-video.ts";
+
+/** The plan a level was dealt, kept against the level itself: the renderer
+ * and the audio both ask, and laying one is forty milliseconds of hashing
+ * the shore's cover for perches — once behind the loading card is a step;
+ * twice, with the second on the first audible frame, is a hitch. */
+const plans = new WeakMap<Level, BirdPlan>();
+
+/** THE PLAN FOR A LEVEL, laid once: what `birds.ts` draws and what the
+ * audio's `bird-bed.ts` cries from, so the ear and the eye agree by
+ * construction. `planBirds` itself is the pure builder, for a lab or a
+ * test that hands in perches of its own. */
+export function birdPlanFor(level: Level): BirdPlan {
+  let hit = plans.get(level);
+  if (hit === undefined) {
+    hit = planBirds(level);
+    plans.set(level, hit);
+  }
+  return hit;
+}
 
 /** Where a flock lives: what it sits on and where, with `y` the height of
  * that surface over sea level — 0 for a raft, which rides the sea the
@@ -613,6 +634,48 @@ function flightAt(flock: Flock, t: number, activity: number): number {
   return Math.min(smooth(u / ramp), smooth((1 - u) / ramp));
 }
 
+/** How far a flock put up `since` seconds ago is in its flush, 0..1: a
+ * quick rise, a long settle, and nothing for a flock already flying its
+ * loop (`w`). The one envelope every bird of the flock lifts on. */
+function flushLift(since: number, w: number): number {
+  if (!(since >= 0) || since >= FLUSH_SECONDS || w >= 1) return 0;
+  const f = since / FLUSH_SECONDS;
+  return Math.min(smooth(f / 0.12), smooth((1 - f) / 0.3)) * (1 - w);
+}
+
+/** Whether the craft can put a flock up at all. Only a flock on the WATER
+ * or the SHORE gets up for a hull — a gull on a rock two metres over the
+ * sea watches it go by. */
+export function flushable(flock: Flock): boolean {
+  return flock.home.kind === "water" || flock.home.kind === "shore";
+}
+
+/**
+ * THE FLUSH RULE: when a flock last put up by the craft at `last` (or
+ * -Infinity) is put up again, given where the craft is at `t`. Re-armed
+ * only once the last flush is over, so a hull idling in the middle of a
+ * raft does not hold the birds in the air forever. Returns `last` when
+ * nothing happens, so a caller can tell a new flush by the change.
+ *
+ * Stated once, here, because two things keep this memory and neither can
+ * afford to disagree: the renderer (`birds.ts`, which draws the raft going
+ * up) and the audio (`audio/bird-bed.ts`, which plays the whirr of it).
+ */
+export function flushAt(flock: Flock, cx: number, cz: number, t: number, last: number): number {
+  if (!flushable(flock)) return last;
+  if (t - last <= FLUSH_SECONDS) return last;
+  return Math.hypot(flock.home.x - cx, flock.home.z - cz) < FLUSH_RADIUS + flock.roost ? t : last;
+}
+
+/** How much of a flock is IN THE AIR at `t`, 0..1 — on its loop, or put
+ * up — without posing a bird. What the audio asks, once a flock a frame,
+ * to know whether a colony is a racket in the sky or a few grumbles on a
+ * rock. */
+export function flightShare(flock: Flock, t: number, activity = 1, flushedAt = -Infinity): number {
+  const w = flightAt(flock, t, activity);
+  return Math.max(w, flushLift(t - flushedAt, w));
+}
+
 /** Where bird `i` of `flock` is at `t`, position only. `waterY` is the sea
  * under a raft; `flushedAt` the moment the flock was last put up. */
 function stationAt(
@@ -678,9 +741,8 @@ function stationAt(
 
   // ── Put up ────────────────────────────────────────────────────────────
   const since = t - flushedAt;
-  if (since >= 0 && since < FLUSH_SECONDS && w < 1) {
-    const f = since / FLUSH_SECONDS;
-    const wf = Math.min(smooth(f / 0.12), smooth((1 - f) / 0.3)) * (1 - w);
+  const wf = flushLift(since, w);
+  if (wf > 0) {
     const r = flock.roost + FLUSH_OUT + jitter(flock.scatter, i, 7) * 8;
     const a = ra + (flock.loop.sense * spec.speed * since) / r;
     const fx = flock.home.x + Math.sin(a) * r;
