@@ -27,7 +27,11 @@ import {
   type P,
   type RiderRead,
 } from "../pwa/src/game/rider-pose.ts";
-import { syntheticLevel } from "./support/synthetic.ts";
+import { syntheticLevel, pinSpeedClass } from "./support/synthetic.ts";
+
+// The rod, the springs and the righting are measured at the class they
+// were written at (`pinSpeedClass`): their subject is not the roster's pace.
+pinSpeedClass(1);
 
 const LEVEL = syntheticLevel({ windSpeed: 0, noSolids: true, depth: 12 });
 

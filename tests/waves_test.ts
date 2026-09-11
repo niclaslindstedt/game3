@@ -23,6 +23,10 @@ import {
   bedAt,
   sampleField,
   sampleFieldGradient,
+  CRAFT,
+  jumpableHs,
+  STORM_CEILING,
+  topSpeedOf,
   stormAt,
   seaShares,
   seaSummary,
@@ -482,9 +486,9 @@ describe("the open ocean past the rim", () => {
   const O = TUNING.sea.open;
   const out = (past: number): number => SEAWARD + past;
 
-  it("builds the whole way out and stops at the storm", () => {
+  it("builds the whole way out and stops at the storm it was dealt", () => {
     let last = 0;
-    for (let past = 0; past <= O.reach * 1.5; past += O.reach / 25) {
+    for (let past = 0; past <= O.reach * 1.5; past += O.reach / 50) {
       const { Hs } = seaSummary(sea, 400, out(past));
       // Never a dip: the handover from the coast's spectrum to the storm's
       // has to carry the height across, not cross through a calm belt.
@@ -492,13 +496,50 @@ describe("the open ocean past the rim", () => {
       last = Hs;
     }
     expect(seaSummary(sea, 400, out(0)).Hs).toBeCloseTo(sea.hsRef, 6);
-    expect(seaSummary(sea, 400, out(O.reach)).Hs).toBeCloseTo(O.hs, 6);
+    expect(seaSummary(sea, 400, out(O.reach)).Hs).toBeCloseTo(sea.openHs, 6);
     // ...and a ceiling past it, however far a rider holds the throttle open.
-    expect(seaSummary(sea, 400, out(O.reach * 40)).Hs).toBeCloseTo(O.hs, 6);
+    expect(seaSummary(sea, 400, out(O.reach * 40)).Hs).toBeCloseTo(sea.openHs, 6);
+  });
+
+  it("deals a storm in the top of what the fastest craft can still jump", () => {
+    // The ocean is not the same every ride: each seed draws its storm over
+    // the top `vary` of the ceiling, so the biggest is rare — and NOTHING
+    // anywhere quotes a height, so a speed class moves the whole band.
+    const heights = new Set<number>();
+    for (let seed = 0; seed < 60; seed++) {
+      const its = createSea(level, seed);
+      expect(its.openHs, `seed ${seed}`).toBeGreaterThanOrEqual(STORM_CEILING * O.vary - 1e-9);
+      expect(its.openHs, `seed ${seed}`).toBeLessThanOrEqual(STORM_CEILING + 1e-9);
+      heights.add(Math.round(its.openHs * 100));
+    }
+    // ...and it really varies rather than landing on one number.
+    expect(heights.size).toBeGreaterThan(40);
+  });
+
+  it("sizes the ceiling off the fastest craft, as the square of its speed", () => {
+    // The whole point: the biggest sea is the biggest a craft can fly over
+    // the rim of and down to the floor of, so it is a function of the top
+    // speed and of nothing else. Doubling the speed quadruples it.
+    expect(STORM_CEILING).toBeCloseTo(jumpableHs(Math.max(...CRAFT.map(topSpeedOf))), 9);
+    expect(jumpableHs(40)).toBeCloseTo(4 * jumpableHs(20), 9);
+    expect(jumpableHs(0)).toBe(0);
+    // ...and a flight at that speed spans exactly the wave's crest-to-trough
+    // run, which is what "can still jump it" means (`ocean.ts`).
+    for (const v of [20, 30, 45, 60]) {
+      const hs = jumpableHs(v);
+      const width = hs / (2 * TUNING.sea.steepness);
+      const face = Math.atan(Math.PI * TUNING.sea.steepness);
+      const vy = v * Math.sin(face);
+      const flight = (vy + Math.sqrt(vy * vy + 2 * TUNING.g * hs)) / TUNING.g;
+      expect(v * Math.cos(face) * flight, `${v} m/s`).toBeCloseTo(width, 6);
+    }
   });
 
   it("keeps the bed ahead of the sea, so nothing clips the storm", () => {
-    for (let past = 0; past <= O.reach; past += O.reach / 20) {
+    // Also the guard on the speed class: raise it far enough and the ceiling
+    // outgrows this bed, and this fails rather than quietly clipping.
+    expect(STORM_CEILING / TUNING.sea.breakingHs).toBeLessThan(O.depth);
+    for (let past = 0; past <= O.reach; past += O.reach / 200) {
       const z = out(past);
       const depth = -bedAt(level, 400, z);
       const { Hs } = seaSummary(sea, 400, z);
@@ -533,28 +574,29 @@ describe("the open ocean past the rim", () => {
   it("meets the level's own sea at the rim without a step in it", () => {
     // The open band is 0 at the rim and the ocean band's phase is carried
     // on outward from the plane wave the field was seeded with there, so
-    // crossing the rim is not an event. Measured as a WALK across it: the
-    // one step that straddles the rim must be no bigger than the biggest
-    // the same sea takes anywhere else along the line. An absolute
-    // tolerance would say nothing — the shortest components here are two
-    // metres long, so the surface moves its own amplitude in a step.
-    const STEP = 0.25;
+    // crossing the rim is not an event.
+    //
+    // Measured as CONTINUITY, not as "the smallest step": sample the one
+    // step that straddles the rim at finer and finer resolution, and it has
+    // to shrink in proportion. A smooth surface halves its step when the
+    // step halves; a discontinuity keeps whatever it jumps by however
+    // closely you look, which is exactly the fault this guards. Asking
+    // instead that the rim be no steeper than its neighbours says nothing —
+    // the rim is as likely as any other point to be on the steep part of a
+    // wave, and on this seed at t = 0 it is.
     for (const t of [0, 3.5, 11]) {
-      let rimStep = 0;
-      let worstElsewhere = 0;
-      for (let z = SEAWARD - 20; z < SEAWARD + 20; z += STEP) {
-        const jump = Math.abs(
-          heightAt(sea, level, 400, z + STEP, t) - heightAt(sea, level, 400, z, t),
+      const at = (step: number): number =>
+        Math.abs(
+          heightAt(sea, level, 400, SEAWARD + step, t) - heightAt(sea, level, 400, SEAWARD, t),
         );
-        if (z <= SEAWARD && z + STEP > SEAWARD) rimStep = jump;
-        else worstElsewhere = Math.max(worstElsewhere, jump);
-      }
-      expect(rimStep, `t ${t}`).toBeLessThanOrEqual(worstElsewhere);
+      const coarse = at(0.25);
+      const fine = at(0.0025);
+      expect(fine, `t ${t}`).toBeLessThan(coarse / 50);
     }
   });
 
   it("is finite and level everywhere out there", () => {
-    const cap = O.hs * 4;
+    const cap = STORM_CEILING * 4;
     for (let i = 0; i < 500; i++) {
       const x = 100 + (i % 25) * 30;
       const z = out((O.reach * 1.5 * Math.floor(i / 25)) / 20);

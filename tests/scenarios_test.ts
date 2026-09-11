@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  STORM_CEILING,
   TUNING,
   createGame,
   oceanOut,
@@ -87,7 +88,11 @@ describe("the scenario list", () => {
     const past = oceanOut(LEVEL.bounds, s.moment.x, s.moment.z);
     expect(past).toBeGreaterThanOrEqual(TUNING.sea.open.reach);
     expect(stormAt(LEVEL.bounds, s.moment.x, s.moment.z)).toBe(1);
-    expect(seaSummary(state.sea, s.moment.x, s.moment.z).Hs).toBeCloseTo(TUNING.sea.open.hs, 6);
+    // The storm this level was DEALT — somewhere in the top quarter of what
+    // the roster's fastest craft can still jump, drawn once per seed.
+    const { Hs } = seaSummary(state.sea, s.moment.x, s.moment.z);
+    expect(Hs).toBeGreaterThanOrEqual(STORM_CEILING * TUNING.sea.open.vary - 1e-6);
+    expect(Hs).toBeLessThanOrEqual(STORM_CEILING + 1e-6);
   });
 });
 

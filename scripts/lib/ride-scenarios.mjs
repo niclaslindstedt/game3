@@ -254,7 +254,7 @@ export const SCENARIOS = {
     },
   },
   ocean: {
-    blurb: "out past the edge of the level, in the full twenty-metre storm",
+    blurb: "out past the edge of the level, in the storm the coast is hiding",
     seconds: 14,
     stage: (level) => {
       // Straight out along the wind's own line (R12 blows it off the sea)

@@ -55,6 +55,25 @@ A personal watercraft has no propeller, no rudder and no gears: an axial-flow pu
 
 `staticThrust` is the pull at the dock at redline; `jetCeiling` (in `limits.ts`) is the jet's own speed at redline, which nothing pushes the hull past. The catalog test holds every pump matched to its engine at the limiter (pump torque 0.85–1.05 × engine torque) and its static pull to 0.6–1.6 × the weight — a jet ski, not a tug.
 
+## The speed class (`TUNING.pump.speedClass`)
+
+**One knob makes every craft on the roster faster or slower together**, the way a kart game's engine classes do — and it is the knob the open ocean's biggest wave is sized off ([water.md](water.md): the ceiling is quadratic in the top speed).
+
+It is quoted in what it BUYS: 1.4 means every hull runs 1.4× the speed the catalog quotes it at. Underneath it is a taller impeller and the engine to swing it — the pitch goes as `speedClass^(1/classGain)` and the engine's torque as the cube of that pitch, because the pump's load torque goes as pitch³ at a given shaft speed and an engine that did not grow with it would simply bog. (Measured without that cube, a class of 2 left the roster's fastest craft SLOWER than class 1.) `classGain` = 1.2 is why the pitch is the smaller number: a planing hull lifts as it speeds up, so its wetted area shrinks, its drag grows slower than v², and a pitch that doubles the jet buys more than double the speed. Measured top speed, km/h, flat out on the calm strip:
+
+| class  | 0.75 | 1.00 | 1.15 | 1.30 | 1.50 | 1.75 | 2.00 |
+| ------ | ---- | ---- | ---- | ---- | ---- | ---- | ---- |
+| skiff  | 58   | 95   | 112  | 127  | 146  | 171  | 196  |
+| marlin | 62   | 108  | 126  | 143  | 164  | 197  | 209  |
+| otter  | 57   | 91   | 107  | 121  | 141  | 163  | 189  |
+| dart   | 50   | 78   | 92   | 105  | 122  | 143  | 168  |
+
+At 1 every craft reproduces its catalog `topSpeed` exactly, and what the class promises tracks what it delivers to within 2–4 % over 1–2. Past 2 the hull is unstable at the speeds it reaches and the top falls again, so 0.75–2 is the usable ladder.
+
+`topSpeedOf` is the ONE place the class is applied (`accel0to50Of` beside it, which falls as the square of it), so the bot, the HUD's dial and the physics never disagree; `classPitch` and `classTorque` in `limits.ts` are the two factors the pump reads. The catalog's `topSpeed`, `accel0to50`, `powerKw` and torque curve all stay the hull's own numbers AT CLASS 1 — what separates the four must not move when a class does — and `tests/craft_test.ts` holds the physics to them times the class, at whatever class is set.
+
+**It ships at 1, and the reason is the courses.** A level's gates are spaced in METRES (`mapgen/rules.ts` reads no speed at all), so a class does not stretch the course it is ridden on — it only gives the rider less time between gates. Measured at 1.5 over the sim's corpus: every craft still finishes, but the missed-gate count goes from 5 to 32 on the dart and 24 to 37 on the skiff, the dives roughly double, and the PACE falls (the marlin's 39.6 km/h to 35.6) because a hull that overshoots a gate has to come back for it; `tests/simulation_test.ts` fails outright there. Raising this is therefore a two-part change: the class, and a course whose spacing is a function of the same top speed the ocean's ceiling already reads.
+
 ## Steering, and the off-throttle characteristic
 
 - **The nozzle** swings toward the steer input at `nozzleRate` = 6 rad/s × its full deflection (a cable and a hand), to `±nozzleAngle` — the spec's, 20–26°. The thrust vector yaws with it; the yaw moment is the reaction's lever about the centre of gravity.

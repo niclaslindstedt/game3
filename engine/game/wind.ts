@@ -21,8 +21,8 @@
 // - ...and PAST THE LEVEL'S RIM it goes on freshening (`ocean.ts`): the
 //   shelter field has run out and the coast is astern, so the mean itself
 //   climbs toward `TUNING.sea.open.wind` over the storm's ramp. A rider who
-//   keeps heading out meets the weather the twenty-metre sea out there is
-//   grown in, and feels it through the same aero term as any gust.
+//   keeps heading out meets the weather the storm out there is grown in,
+//   and feels it through the same aero term as any gust.
 // - An ORNSTEIN–UHLENBECK gust factor: a mean-reverting random process
 //   with the turbulence intensity's stationary deviation and the gust
 //   integral time scale's memory, stepped from `state.rng` so a seed

@@ -20,7 +20,11 @@ import {
   type CameraPose,
 } from "../pwa/src/game/camera.ts";
 import { CHASE_RIGS, type ChaseCamera } from "../pwa/src/game/camera-rigs.ts";
-import { syntheticLevel } from "./support/synthetic.ts";
+import { syntheticLevel, pinSpeedClass } from "./support/synthetic.ts";
+
+// The rod, the springs and the righting are measured at the class they
+// were written at (`pinSpeedClass`): their subject is not the roster's pace.
+pinSpeedClass(1);
 
 /** The reference rig every framing rule below is stated against. */
 const CHASE = CHASE_RIGS.chase;

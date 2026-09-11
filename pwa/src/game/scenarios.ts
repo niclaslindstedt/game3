@@ -22,7 +22,6 @@ import {
   freshPose,
   isMale,
   launchSpeedFor,
-  TUNING,
   oceanOut,
   placeRun,
   pointAlong,
@@ -35,9 +34,11 @@ import {
   type Pod,
   type RunMoment,
   sampleField,
+  TUNING,
 } from "@engine";
 
 import { FLUSH_SECONDS, birdPose, freshBirdPose, planBirds, type Flock } from "./bird-plan.ts";
+import { clamp } from "../lib/util.ts";
 
 export type ScenarioName =
   | "rest"
@@ -158,7 +159,8 @@ function outPastTheRim(
     if (oceanOut(level.bounds, at.x, at.z) > 0) break;
     at = { x: at.x + sea.x * STEP, z: at.z + sea.z * STEP };
   }
-  return { x: at.x + sea.x * TUNING.sea.open.reach, z: at.z + sea.z * TUNING.sea.open.reach };
+  const past = TUNING.sea.open.reach;
+  return { x: at.x + sea.x * past, z: at.z + sea.z * past };
 }
 
 function outToSea(level: Level, x: number, z: number, metres: number): { x: number; z: number } {
@@ -464,9 +466,14 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       const speed = launchSpeedFor(air, spec.cog.y, top);
       return {
         moment: beforeRamp(air, LAUNCH_RUN_UP, { speed }),
-        // Flat out up the run-up, a lean back as the deck is met so the
-        // nose comes up off the lip, level in the air.
-        script: (t) => input(0, 1, t > 1.6 && t < 2.8 ? 0.5 : 0),
+        // HOLDING the speed the ring asks for up the run-up, a lean back as
+        // the deck is met so the nose comes up off the lip, level in the
+        // air. The throttle is that speed as a share of what this craft
+        // could do — flat out when the ring wants everything the hull has,
+        // which is what it wanted before there was a SPEED CLASS, and less
+        // once the class has made the hull faster than the ramp needs.
+        // Riding this one flat out at a high class simply sails the ring.
+        script: (t) => input(0, clamp(speed / top, 0.2, 1), t > 1.6 && t < 2.8 ? 0.5 : 0),
         seconds: 5,
       };
     }
@@ -563,8 +570,8 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       // moment that stands OUTSIDE the bounds on purpose
       // (`engine/game/ocean.ts`). Everything out here is analytic: there is
       // no grid left to follow, so the walk holds the seaward heading it
-      // left the coast on and carries straight on until the storm stands at
-      // its full twenty metres. Beam-on, at a crawl, because a rider who
+      // left the coast on and carries straight on until the storm stands in
+      // full. Beam-on, at a crawl, because a rider who
       // gets out here is not racing any more — he is being carried up one
       // face and dropped down the next.
       const at = outToSea(level, mid.x, mid.z, 600);

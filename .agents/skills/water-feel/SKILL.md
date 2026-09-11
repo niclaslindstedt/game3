@@ -8,7 +8,10 @@ description: "Use when working on THE SEA — the wave field the hull rides (the
 This skill owns **one question**: what is the surface doing at `(x, z, t)`,
 and why?
 
-Everything about the answer lives in **`engine/game/water.ts`**, a DOM-free
+Everything about the answer lives in **`engine/game/water.ts`** — with what
+the BED does to a wave (dispersion, shoaling, the depth table, the eikonal
+phase field) split into **`engine/game/wave-bed.ts`** beside it for the §20.5
+cap — a DOM-free
 module of pure functions: a `SeaState` built ONCE from the level's wind and
 seed, and `surfaceAt(sea, level, x, z, t)` evaluated wherever anything needs
 the surface — twelve times a step under the hull, a few thousand times a
@@ -39,9 +42,9 @@ comment's claim has to stay true.
 | The surface: a sum of N (8) linear components, each carrying a second-order crest correction — a peaked top over a long flat trough | Airy + Stokes (1847) second order, `η = a·sin φ − ½·k·a²·cos 2φ`. NOT Gerstner (Tessendorf 2001): the horizontal displacement would have to be inverted at every probe and vertex | `surfaceAt`, the component loop |
 | Each component's amplitude, from the wind and the fetch | A fetch-limited JONSWAP spectrum (Hasselmann et al. 1973), falling back to Pierson–Moskowitz (1964) for the fully developed sea | `createSea` — the spectrum sampled at N frequencies |
 | The directions, spread about the wind | A cos²ⁿ spreading function about the mean wind direction | `createSea` |
-| Frequency from wavenumber, given the depth | Linear dispersion, ω² = g k tanh(k d), `d` from `level.ground` | `dispersion(k, d)` |
-| The phase of a component over the level — the wavelength shortening ashore, the crests turning toward the shallows and wrapping into a river mouth | The eikonal |∇φ| = k(d), solved once at build time by fast sweeping (Zhao 2005) from the deep-water plane wave at the rim; its gradient is the local wave vector | `buildPhaseField`, read by `surfaceAt` through `sampleFieldGradient` |
-| Amplitude growth coming ashore | The linear-theory shoaling coefficient K_s = √(c_g,deep / c_g), with Green's law (H ∝ d^−¼) as the shallow limit | `shoal(a, k, d)` |
+| Frequency from wavenumber, given the depth | Linear dispersion, ω² = g k tanh(k d) (Fenton & McKee 1990's explicit fit), `d` from `level.ground` | `wavenumber(omega, d)` in `wave-bed.ts` |
+| The phase of a component over the level — the wavelength shortening ashore, the crests turning toward the shallows and wrapping into a river mouth | The eikonal |∇φ| = k(d), solved once at build time by fast sweeping (Zhao 2005) from the deep-water plane wave at the rim; its gradient is the local wave vector | `buildPhaseField` in `wave-bed.ts`, read by `surfaceAt` through `sampleFieldGradient` |
+| Amplitude growth coming ashore | The linear-theory shoaling coefficient K_s = √(c_g,deep / c_g), with Green's law (H ∝ d^−¼) as the shallow limit | `shoaling(omega, k, d)` in `wave-bed.ts`, precomputed per component into a √d-axis depth table |
 | The ceiling on height in shallow water | The depth-limited SIGNIFICANT height, Hs/d = 0.55 (Nelson 1994) — never McCowan's 0.78 applied to the summed amplitudes, which saturates every big sea to one value | the clip inside `surfaceAt` |
 | How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is the EFFECTIVE fetch upwind of the point, over a cos-weighted fan (SPM 1984 / Saville) | `engine/game/fetch.ts` — `fetchHeight`, `fetchPeriod`, `createShelter` |
 | Which of a level's two seas a point is dealt (R28) | Its EXPOSURE — the share of that fan reaching the open sea. Ocean band × exposure, local wind chop × (1 − exposure) × the chop it grows on its own water | `seaShares(sea, x, z)` |
@@ -49,7 +52,8 @@ comment's claim has to stay true.
 | What the water itself is doing, where a river runs (R27) | v = Q/A over the channel's cross-section, summed into the wave model's own velocity | `engine/mapgen/flow.ts` — `flowAt` |
 | What the water under the surface is doing | The orbital velocity of the same components (the tangent of the water particle's circle) | `surfaceAt`'s `vx, vy, vz` |
 | The mean wind, and the gusts on it | A log-law height profile, the shelter field over the plan, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y, x, z)` |
-| The summary a level or a lab quotes | Hs = 4√m₀ over the two bands at their shares, Tp of whichever is carrying it there | `seaSummary(sea, x, z) → { Hs, Tp }` |
+| The summary a level or a lab quotes | Hs = 4√m₀ over every band at its share, Tp of whichever is carrying it there | `seaSummary(sea, x, z) → { Hs, Tp }` |
+| How big the sea is PAST the level's rim | The biggest a craft can still fly over the rim of and down to the floor of — a closed form QUADRATIC in the top speed, since a wave's width grows with its height and a flight's reach does not. Each level deals its own storm just under it, so the biggest is rare | `jumpableHs`, `STORM_CEILING` (`ocean.ts`), `TUNING.sea.open` |
 
 The knobs are `TUNING.sea` (`engine/game/defs/tuning.ts`): the component
 count, the spectrum's peak-enhancement γ (3.3 is JONSWAP's), the spreading

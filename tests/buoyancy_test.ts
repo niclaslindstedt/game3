@@ -15,9 +15,14 @@ import {
   step,
   totalMass,
   type GameState,
+  classPitch,
 } from "@engine";
 
-import { syntheticLevel } from "./support/synthetic.ts";
+import { syntheticLevel, pinSpeedClass } from "./support/synthetic.ts";
+
+// The rod, the springs and the righting are measured at the class they
+// were written at (`pinSpeedClass`): their subject is not the roster's pace.
+pinSpeedClass(1);
 
 const STILL = syntheticLevel({ windSpeed: 0, noSolids: true });
 
@@ -58,8 +63,10 @@ describe("the rest draft", () => {
       expect(Math.abs(c.y - restY(spec, density))).toBeLessThan(0.04);
       expect(Math.abs(c.pitch)).toBeLessThan(0.06);
       expect(Math.abs(c.roll)).toBeLessThan(0.02);
-      // An idling jet creeps; the draft is read on the way.
-      expect(Math.hypot(c.vx, c.vy, c.vz)).toBeLessThan(2.5);
+      // An idling jet creeps; the draft is read on the way. Under the SPEED
+      // CLASS, which is a taller impeller: the same idle throws the jet
+      // faster, so the creep grows with it (`classPitch`).
+      expect(Math.hypot(c.vx, c.vy, c.vz)).toBeLessThan(2.5 * classPitch());
       expect(Math.abs(c.vy)).toBeLessThan(0.05);
       expect(c.airborne).toBe(false);
       expect(c.wetted).toBeGreaterThan(0.5);
