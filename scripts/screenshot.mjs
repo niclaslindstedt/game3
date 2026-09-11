@@ -70,6 +70,7 @@ const SCENES = [
   "backflip",
   "wildlife",
   "breach",
+  "birds",
   "mark",
   "river",
 ];
