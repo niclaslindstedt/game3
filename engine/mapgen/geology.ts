@@ -47,7 +47,7 @@ import { smooth, valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import type { Basin } from "./basin.ts";
 import type { Biome } from "./biomes.ts";
-import { LEVEL_RULES as R, inBand, solidRule } from "./rules.ts";
+import { LEVEL_RULES as R, inBand, solidRule, withinBand } from "./rules.ts";
 import type { Bounds, ScatteredKind, Solid, TrackKind } from "./types.ts";
 
 export type Geology = {
@@ -171,6 +171,14 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
  * handed to the placer so the geology never learns what a gate is. */
 export type KeepOut = (x: number, z: number, r: number) => boolean;
 
+/** R17 — the kinds the OPEN SEA makes, and so the ones whose band is read
+ * against the sea's own edge as well as against the nearest water. The
+ * STACK alone: the mark is the sea's too, but R25's line places it rather
+ * than the density, so it never reaches this placer; and a low rock awash
+ * in a channel is what an archipelago is made of, so the skerries, the
+ * boulders and the reefs stay off the list on purpose. */
+const SEA_MADE: readonly Solid["kind"][] = ["stack"];
+
 const KIND_PREFIX: Record<ScatteredKind, string> = {
   skerry: "K",
   boulder: "B",
@@ -190,6 +198,12 @@ const KIND_PREFIX: Record<ScatteredKind, string> = {
  * edge a point stands. A rock that finds no legal spot in its tries is
  * simply not placed: the coast is a little emptier there, which is what a
  * coast is allowed to be.
+ *
+ * `seawardAt` is the second answer to that question, for the kinds the OPEN
+ * SEA makes (R17): metres out past the sea's own straight edge (R15),
+ * negative behind it. `offshoreAt` cannot stand in for it — it is the
+ * distance from the nearest water's edge whatever made that water, so the
+ * middle of a channel reads as open sea to it.
  */
 export function laySolids(
   rng: Rng,
@@ -199,6 +213,7 @@ export function laySolids(
   groundAt: (x: number, z: number, offshore: number) => number,
   km: number,
   keepOut: KeepOut,
+  seawardAt: (x: number, z: number) => number,
   standing: readonly Solid[] = [],
   track: TrackKind = "coast",
 ): Solid[] {
@@ -224,6 +239,15 @@ export function laySolids(
         const size = inBand(rng, rule.height ?? rule.top ?? { min: 0, max: 0 });
         const offshore = offshoreAt(x, z);
         if (offshore < rule.offshore.min || offshore > rule.offshore.max) continue;
+        // R17 — and a SEA STACK has to be in the OPEN SEA, not merely far
+        // from a bank. The band above is measured from the NEAREST water's
+        // edge and cannot tell a channel's middle from the sea, so the
+        // sea-made kinds are held to the same band against the sea's own
+        // line as well. Both, rather than instead: the pair is "out in the
+        // ocean AND in near the shore", which is where a stack belongs —
+        // and it keeps the analysis, which can only read `offshore` off a
+        // published level, from refusing a rock this placer laid.
+        if (SEA_MADE.includes(kind) && !withinBand(seawardAt(x, z), rule.offshore)) continue;
         const ground = groundAt(x, z, offshore);
         // A block on the shore stands on the GROUND it was dropped on; a
         // rock in the water stands at its own height against the SEA.

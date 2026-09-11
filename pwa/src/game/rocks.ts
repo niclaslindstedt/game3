@@ -1,12 +1,27 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE ROCKS ON THE COAST — `level.solids`, the things the hull can hit,
-// drawn as what they are: a skerry is a low granite dome standing out of
-// the sea, a boulder a darker lump at the waterline, a reef a dark shape
-// just under it that the water's own shallow tint gives away, and an
-// ERRATIC one of the big angular blocks the ice left sitting on the shore
-// itself (R17) — the biggest rock on the coast and the one the rider passes
-// closest to. Low-poly and instanced: four draw calls for the lot, whatever
-// the count.
+// drawn as what they are: a boulder is a darker lump at the waterline, a
+// reef a dark shape just under it that the water's own shallow tint gives
+// away, and an ERRATIC one of the big angular blocks the ice left sitting
+// on the shore itself (R17) — the biggest rock on the coast and the one the
+// rider passes closest to.
+//
+// TWO WAYS OF DRAWING A ROCK, and which one a kind gets is decided by
+// whether it STANDS OUT OF THE WATER:
+//
+//   SCULPTED, one mesh a kind. The sea stacks, the mark a course rounds
+//   (R25) and the skerries are the coast's silhouette — the things a rider
+//   reads the water by from a kilometre out — and there are a handful of
+//   them a level. Each is carved for itself by `rock-shapes.ts` from its
+//   own seed and merged into one geometry a kind, so no two are the same
+//   shape and the whole lot is still one draw call. A shared geometry
+//   cannot carry the one feature that says "this rock stands in the sea" —
+//   the undercut at the waterline — because every rock's root is a
+//   different share of its height.
+//   INSTANCED, one shape a kind. The boulders, the reefs and the erratics
+//   are small, numerous, and met at arm's length or not at all; one lump
+//   spun about y and tinted per instance is the right answer and costs one
+//   draw call for twenty of them.
 //
 // An erratic is the one kind placed against the GROUND rather than the sea:
 // its `top` is a height above the water like every other solid's, but it
@@ -16,9 +31,10 @@
 import * as THREE from "three";
 import { TAU, hash2, sampleField, type Level, type Solid } from "@engine";
 
+import { Builder } from "../lib/lowpoly.ts";
 import { PALETTE } from "../identity.ts";
+import { ROCK_FORMS, carveRock, rockFoot } from "./rock-shapes.ts";
 
-const SKERRY = new THREE.Color(PALETTE.granite);
 const BOULDER = new THREE.Color(PALETTE.graniteDark);
 /** A reef is a dark shape UNDER the water, and it has to stay a shape: the
  * tone here is the sea bed's own olive taken a step down rather than the
@@ -29,26 +45,6 @@ const REEF = new THREE.Color(0x475840);
  * somewhere else — which is the whole point of an erratic, and what makes
  * one read as an object on the shore rather than as part of it. */
 const ERRATIC = new THREE.Color(0x9a8b78);
-/** The sea stacks: paler than the shore, because a rock standing in open
- * water is lit from every side by the sky and washed by the salt. */
-const STACK = new THREE.Color(0xa8a49b);
-/** THE MARK (R25): the rock the course goes out to round, and the only
- * thing on the water taller than the land behind it. Paler still — a
- * seabird colony's rock is white with guano from the waterline up, and on
- * this coast that is what a landmark stack looks like from a kilometre
- * out, which is exactly the distance it has to be legible from. */
-const MARK = new THREE.Color(0xc9c4b6);
-
-/** How far below the sea the solids' shapes continue, m, so a rock is
- * rooted in the bed rather than floating at the surface. */
-const ROOT = 6;
-/** …and how far a STACK's column continues under it, m: deeper, because a
- * stack stands in open water where the bed is well down. The MARK's own is
- * deeper again — it stands where the bed has fallen to R3's shelf depth
- * and then some, and a column that stops short of the bottom is a rock
- * floating in the sea from anywhere the water is clear. */
-const STACK_ROOT = 26;
-const MARK_ROOT = 40;
 
 const m = new THREE.Matrix4();
 const pos = new THREE.Vector3();
@@ -104,61 +100,45 @@ function instanced(
   return mesh;
 }
 
+/** THE SCULPTED KINDS: every rock of one kind carved for itself into one
+ * merged, flat-shaded, vertex-coloured mesh. The seed a rock's own wobble
+ * is drawn from is its PLACE through `hash2` — the level seed alone would
+ * give a coast one rock at six sizes again — so a seed builds the same
+ * coast every time it is loaded and a rock keeps its shape across a
+ * reload. */
+function sculpted(level: Level, kind: keyof typeof ROCK_FORMS): THREE.Mesh | null {
+  const solids = level.solids.filter((s) => s.kind === kind);
+  if (solids.length === 0) return null;
+  const b = new Builder();
+  for (const s of solids) {
+    carveRock(
+      b,
+      ROCK_FORMS[kind],
+      s.x,
+      s.z,
+      s.r,
+      s.top,
+      rockFoot(sampleField(level.ground, s.x, s.z), s.r),
+      // An INTEGER seed: `hash2` mixes its third argument as one, so a
+      // fraction between 0 and 1 hands every rock on the coast the same
+      // wobble and the whole point of carving them separately is lost.
+      1 + Math.floor(hash2(Math.round(s.x), Math.round(s.z), level.seed) * 0x7ffffffe),
+    );
+  }
+  return new THREE.Mesh(
+    b.geometry(),
+    new THREE.MeshLambertMaterial({ vertexColors: true, flatShading: true }),
+  );
+}
+
 export function createRocks(level: Level): THREE.Group {
   const group = new THREE.Group();
   const by = (kind: Solid["kind"]) => level.solids.filter((s) => s.kind === kind);
-  // A skerry: a seven-sided cone-topped drum, unit radius, from -1 to +1.
-  const dome = new THREE.CylinderGeometry(0.55, 1, 2, 7, 1);
-  // A stack: a tall tapered column, wider at the waterline than at its top,
-  // rooted far enough under the sea that the bed never shows through its
-  // foot. Nine-sided, so it reads as a rock face from any angle.
-  group.add(
-    instanced(
-      new THREE.CylinderGeometry(0.62, 1, 2, 9, 1),
-      by("stack"),
-      (s) => {
-        const h = s.top + STACK_ROOT;
-        pos.y = s.top - h / 2;
-        scale.set(s.r, h / 2, s.r * 0.82);
-      },
-      STACK,
-      level.seed,
-      0.05,
-    ),
-  );
-  // THE MARK: the stack's column again, but drawn to be a ROCK at a
-  // kilometre rather than a post. Seven sides and a hard taper — a stack
-  // is a remnant, wider at the water where the sea has not got at it and
-  // narrow at the top where it has — and a lean off vertical, because a
-  // column standing plumb with a flat top reads as something that was
-  // built.
-  group.add(
-    instanced(
-      new THREE.CylinderGeometry(0.42, 1, 2, 7, 1),
-      by("mark"),
-      (s) => {
-        const h = s.top + MARK_ROOT;
-        pos.y = s.top - h / 2;
-        scale.set(s.r, h / 2, s.r * 0.86);
-      },
-      MARK,
-      level.seed,
-      0.07,
-    ),
-  );
-  group.add(
-    instanced(
-      dome,
-      by("skerry"),
-      (s) => {
-        const h = s.top + ROOT;
-        pos.y = s.top - h / 2;
-        scale.set(s.r, h / 2, s.r * 0.85);
-      },
-      SKERRY,
-      level.seed,
-    ),
-  );
+  // The things that stand out of the water, each one its own rock.
+  for (const kind of ["stack", "mark", "skerry"] as const) {
+    const mesh = sculpted(level, kind);
+    if (mesh) group.add(mesh);
+  }
   // A boulder: a squashed low-poly sphere.
   const lump = new THREE.SphereGeometry(1, 6, 4);
   group.add(

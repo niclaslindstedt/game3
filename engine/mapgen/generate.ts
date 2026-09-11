@@ -248,6 +248,15 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     const { river, bounds, basin, geology, ground } = drawn;
     const offshoreAt = (x: number, z: number): number => sampleField(basin.offshore, x, z);
     const depthAt = (x: number, z: number): number => -sampleField(ground, x, z);
+    // R17 — how far out into the OPEN SEA a point stands, m: the basin's own
+    // straight sea edge (R15), signed, so a channel or a river is deeply
+    // negative however wide it is. The basin folds this line into `offshore`
+    // with `max`, which is exactly why the two cannot be read off one field:
+    // once the corridor has won a cell, nothing downstream can tell whether
+    // the water there is the sea's or a bay's.
+    const seaX = Math.sin(basin.seaHeading);
+    const seaZ = Math.cos(basin.seaHeading);
+    const seawardAt = (x: number, z: number): number => x * seaX + z * seaZ - basin.seaOffset;
     // R12 — off the sea: the open water's own seaward normal, swung by up
     // to `wind.seaward` either way, so the fetch grows riding out from the
     // land whichever way the route wandered.
@@ -286,6 +295,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       geology.groundAt,
       drawn.km,
       courseKeepOut(course),
+      seawardAt,
       drawn.marks,
       track,
     );
