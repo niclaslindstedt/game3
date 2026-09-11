@@ -521,8 +521,8 @@ describe("what a wave face reflects", () => {
 });
 
 describe("R13 — the named hour a level was dealt (dealtTimeOfDay)", () => {
-  // The start card offers three hours and marks the one the seed already
-  // gives, so every hour R13 can deal has to answer to one of the three.
+  // The start card offers four hours and marks the one the seed already
+  // gives, so every hour R13 can deal has to answer to one of them.
   const level = syntheticLevel({ windSpeed: 4, noSolids: true });
   const at = (hour: number) => dealtTimeOfDay({ ...level, hour });
 
@@ -542,6 +542,29 @@ describe("R13 — the named hour a level was dealt (dealtTimeOfDay)", () => {
 
   it("leaves no hour of the window unnamed", () => {
     for (let h = DAY.min; h <= DAY.max; h += 0.25) expect(TIMES_OF_DAY).toContain(at(h));
+  });
+
+  it("never names a DEALT hour night, in any season", () => {
+    // R13's promise: a run starts in daylight. The night rung is therefore
+    // something a rider asks for and never a mark on the start card — and
+    // that only holds while every hour of the window is nearer one of the
+    // three daylight rungs than it is to midnight, which is a fact about the
+    // window's width and so about the coast and the season.
+    for (const season of SEASONS) {
+      const window = daylightWindow(LAT, R.day.minSun, DECLINATION[season]) ?? { min: 0, max: 24 };
+      for (let h = window.min; h <= window.max; h += 0.25) {
+        expect(dealtTimeOfDay({ ...level, season, hour: h })).not.toBe("night");
+      }
+    }
+  });
+
+  it("names the dark hours night, on a clock that wraps", () => {
+    // Midnight is an hour from 23:00, not twenty-three: the rung sits at 0
+    // with the other three on the far side of it, so a linear gap would hand
+    // the whole late evening to SUNSET.
+    const midnight = hourOfDay(level, "night");
+    expect(midnight).toBeCloseTo(0, 6);
+    for (const hour of [23, 23.9, 0, 0.1, 1]) expect(at(hour)).toBe("night");
   });
 
   it("reads the window off the level's own season", () => {
