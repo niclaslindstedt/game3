@@ -29,15 +29,27 @@
   --hud-good: #f28c28;
   --hud-bad: #ff5a4e;
   --hud-info: #9cc6d8;
-  /* The minimap's plate, edge to edge. Big enough that a buoy pair is two
-     dots with a gap in it, small enough that it never owns the corner. */
-  --hud-map: clamp(4.8rem, 16vmin, 7.6rem);
+  /* The minimap's plate, edge to edge — and with it the two presses under
+     it, which are sized off this and nothing else. The map is the instrument
+     that is read while the sea is still moving, so it is sized to be legible
+     at a glance rather than to be unobtrusive: at sixteen vmin a course of a
+     dozen gates was a smear of dots, and the gate a rider is actually aiming
+     at was the same two pixels as the one behind them.
+
+     The rem FLOOR is the term that carries a phone on its side, where vmin
+     is the SHORT edge and a map sized by it alone comes out half the size of
+     the one the same phone gets held upright. The cap is what stops a
+     desktop from being given a chart instead of a map. Matches the sibling
+     rally game's plate, which is the same instrument at the same reading
+     distance. */
+  --hud-map: clamp(6.24rem, 20.8vmin, 9.75rem);
   /* The gap between the two glyph buttons. Their EDGE is half the map less
      half of this, so the pair comes to the map's own width — but that sum is
      written where it is used (`.hud-mini-icon`) rather than stored here: a
      custom property is resolved against the element it is DECLARED on, and
-     `--hud-map` is re-declared on `.hud` by two media queries, so a size
-     computed here would keep the desktop map's proportions on a phone. */
+     `--hud-map` is re-declared on `.hud` by the portrait media query, so a
+     size computed here would keep the landscape map's proportions on a
+     phone held upright. */
   --hud-mini-gap: 0.3rem;
 }
 
@@ -977,20 +989,27 @@ canvas {
 }
 
 /* ── THE TOUCH CONTROLS ──────────────────────────────────────────────────
-   The two thumb zones: the LOWER 60% of the screen, split down the middle.
-   The bar or the lever anchors wherever the thumb lands inside its zone.
+   The two thumb zones: the lower 60% of the screen at most, split down the
+   middle. The bar or the lever anchors wherever the thumb lands in its zone.
 
-   WHY A PROPORTION, AND WHY THIS ONE. The readouts and their two buttons
-   (RESET, and the new-build mark that hangs under the cluster in portrait)
-   are sized in clamped rem, so the top-right cluster is a FIXED number of
-   pixels tall — about 170 in portrait, 110 in landscape — while the zone's
-   top is a fraction of the viewport. The shorter the screen, the further
-   the zone climbs into that cluster, and a zone that reaches a button eats
-   the press: at 375×667 the lever zone covered the new-build mark
-   completely, so tapping it opened the throttle instead. Two fifths clears
-   the cluster on every viewport the review sweep looks at, with room to
-   spare on the shortest, and the lower three fifths is where a thumb on a
-   held phone can reach anyway. */
+   WHY A PROPORTION, AND WHY IT IS A FLOOR RATHER THAN THE WHOLE RULE. The
+   readouts and their two buttons (RESET, and the new-build mark that hangs
+   under the cluster in portrait) are sized in clamped rem, so the top-right
+   cluster is a FIXED number of pixels tall while the zone's top is a
+   fraction of the viewport. The shorter the screen, the further the zone
+   climbs into that cluster, and a zone that reaches a button eats the
+   press: at 375×667 the lever zone covered the new-build mark completely,
+   so tapping it opened the throttle instead.
+
+   So the top is the LOWER of the two: three fifths of the screen is where a
+   thumb on a held phone can reach, and it is taken unless the cluster
+   reaches further down than that — on a phone on its SIDE it does, because
+   the cluster is a map and a half tall and the screen is 393 px. Stated as
+   the cluster's own arithmetic (the top inset, the map, the gap the presses
+   hang below it on, and half a map for the presses themselves) rather than
+   as a percentage that happens to clear it today: the map is the one number
+   this corner is sized from, and a rule written this way cannot be left
+   behind by a change to it. */
 .hud-touch {
   position: absolute;
   inset: 0;
@@ -999,7 +1018,16 @@ canvas {
 
 .hud-zone {
   position: absolute;
-  top: 40%;
+  /* The cluster's foot plus a finger's clearance, or two fifths — whichever
+     is further down. See the note above for why it is the arithmetic and not
+     the fraction that is load-bearing. */
+  top: max(
+    40%,
+    calc(
+      max(0.6rem, env(safe-area-inset-top)) + var(--hud-map) * 1.5 - var(--hud-mini-gap) / 2 +
+        1.1rem
+    )
+  );
   bottom: 0;
   width: 50%;
   pointer-events: auto;
@@ -1169,10 +1197,13 @@ canvas {
 /* A short landscape (a phone on its side) has no height to spare: the
    panel tightens vertically. */
 @media (orientation: landscape) and (max-height: 30rem) {
-  .hud {
-    --hud-map: clamp(3.6rem, 15vmin, 5.2rem);
-  }
-
+  /* The map is NOT one of the things that tightens here. This is the phone
+     held the way the game is actually played, and it is the viewport with
+     the least room for a map that has to be read at a glance — shrinking it
+     with the height is shrinking it exactly where it is needed most. The
+     base rule's rem floor carries it, and the thumb zones below move down
+     to clear the taller cluster rather than the cluster shrinking to clear
+     them (`.hud-zone`). */
   .hud-speed {
     gap: 0.1rem;
   }
