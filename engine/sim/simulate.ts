@@ -23,10 +23,13 @@ export type SimOptions = {
   track?: TrackKind;
   wind?: Wind;
   profile?: BotProfile;
-  /** How much of the arcade landing assist to ride with, 0..1
-   * (`GameState.assist`); the tuning's default when left out. The lab's
-   * `--assist` flag is how a before-and-after over it is taken. */
+  /** How much of the arcade's two hands to ride with, 0..1 each
+   * (`GameState.assist`, `.rampAssist`); each one's tuning default when
+   * left out, and the ramp's follows `assist` when only that is given.
+   * The lab's `--assist` and `--ramp-assist` flags are how a
+   * before-and-after over either is taken. */
   assist?: number;
+  rampAssist?: number;
   /** Give up after this much simulated time, seconds. */
   maxSeconds?: number;
 };
@@ -84,6 +87,7 @@ export function simulateStage(options: SimOptions): RunReport {
     track: options.track,
     wind: options.wind,
     assist: options.assist,
+    rampAssist: options.rampAssist,
     quiet: true,
   });
 

@@ -6,6 +6,13 @@
 // carries its unit; every model it feeds names its source at the function
 // that implements it. Tweak here, verify with `npm run sim` and the
 // craft/flight/buoyancy tests; the render layer never reads these directly.
+//
+// The one block stated NEXT DOOR is the arcade assist (`defs/assist.ts`),
+// folded in below as `TUNING.assist`: it is the only group in here that
+// models nothing, and moving it is what keeps this file under the §20.5
+// cap.
+
+import { ASSIST } from "./assist.ts";
 
 /** The clock the whole engine runs on — see `TUNING.physicsHz`. Named out
  * here so the timestep can be derived from it rather than restated. */
@@ -807,111 +814,13 @@ export const TUNING = {
     divePitch: -0.12,
   },
 
-  /** THE ARCADE ASSIST — the hand on the rider's shoulder in the air
-   * (`flight.ts`, `landingAssist`).
-   *
-   * This game is an ARCADE game before it is a simulation, and the
-   * sensation it sells is the flight: the launch, the hang, the landing
-   * taken cleanly and ridden away from. A hull thrown off a ramp by a
-   * wave it met on the lip arrives at whatever attitude the physics gave
-   * it, and an honest model puts it in on its side about two flights in
-   * three — which is the sea winning an argument the rider never got to
-   * have. So the last fraction of a second before the water is the
-   * ARCADE's: the craft is turned toward the attitude it ought to land
-   * at, and the rider keeps the ride.
-   *
-   * It is a DIAL, not a rule. `strength` is the default a run is dealt
-   * (`GameState.assist`, `createGame({ assist })`), and a difficulty
-   * setting is expected to move it: 1 is the full arcade, 0 the bare
-   * physics with nothing between the rider and the sea. Every number
-   * here is an arcade number argued against `make ride` and the flight
-   * bench, not a measurement of anything.
-   *
-   * THE ASSIST NEVER FIRES ON A FLIGHT THAT WAS GOING TO BE FINE. It
-   * predicts the attitude the hull will ARRIVE at and does nothing while
-   * that prediction is inside the tolerances below — so a rider who
-   * lands his own jumps never feels it, and a backflip that is going to
-   * come round completes untouched. */
-  assist: {
-    /** How much of the assist a run is dealt by default, 0..1. A
-     * difficulty setting overrides it per run; nothing else reads this
-     * constant.
-     *
-     * Half, and deliberately the MIDDLE of its own range rather than the
-     * top of it, because this number is about to become a difficulty
-     * scale and a default with nowhere left to go is a scale with one
-     * direction. Over the flight bench — 3360 staged launches, four
-     * craft, the rider's hands still — bad landings run 68.3% of flights
-     * at 0, 13.9% at 0.25, 7.7% here, 5.7% at 0.75 and 5.0% at 1. So the
-     * ladder a difficulty setting wants is already measured, and what
-     * ships takes nine swims in ten out of the game with room to move
-     * either way. */
-    strength: 0.5,
-    /** How long before the water the hand arrives, s. The whole hang
-     * above this is the rider's alone: the assist owns only the approach,
-     * which is what keeps a flight a decision rather than a cutscene. */
-    window: 0.75,
-    /** How far off the landing attitude the hull may be predicted to
-     * arrive and still be left alone, rad — read PER AXIS, and the two
-     * are far apart because the hull is: it rides away from a landing
-     * twenty degrees off in ROLL, and `flight.divePitch` says seven
-     * degrees of nose-down is already a dive. One tolerance covering both
-     * is either a hand that grabs at every honest bit of bank or one that
-     * watches the bow go under. The torque grows from zero AT the
-     * tolerance, so nothing steps as a flight crosses it. */
-    pitchTolerance: 0.09,
-    rollTolerance: 0.35,
-    /** The attitude aimed for, rad nose-up. A touch of bow lift rather
-     * than dead level, so that the BAND — this plus and minus
-     * `pitchTolerance` — sits clear of the nose-down attitude a landing
-     * is a dive at (`flight.divePitch`, −0.12): aimed at level, the band
-     * would reach to within a couple of degrees of one. Dead level is
-     * itself well inside it and is left alone, which is what a rider who
-     * levels his own jumps should feel. */
-    landPitch: 0.06,
-    /** The righting stiffness, rad/s² per rad of error, and the rate
-     * damping beside it, rad/s² per rad/s. ACCELERATIONS rather than
-     * torques, because the roster's pitch inertia runs from 165 to 490
-     * kg·m² and a hand quoted in N·m would catch the dart three times as
-     * hard as the otter; `craft.ts` multiplies each axis by that craft's
-     * own inertia, so one dial means one correction on every hull.
-     *
-     * `right` is a spring of √120 ≈ 11 rad/s, which settles a correction
-     * in about 0.15 s, and `damp` is near critical (2√k ≈ 22) so the hull
-     * arrives settled rather than swinging through. Both are scaled by
-     * how close the water is and by the run's dial.
-     *
-     * SHORT AND FIRM RATHER THAN LONG AND SOFT, and that is a choice
-     * about the game and not about the arithmetic: over the flight bench
-     * a fifth of this stiffness reaching a second and a half out saves
-     * the same landings, and it does it by owning most of the hang. A
-     * hand that arrives late and decisively leaves the flight a decision
-     * — the rider has the whole of it but the last three-quarters of a
-     * second, and what he gets then reads as a catch. */
-    right: 120,
-    damp: 22,
-    /** THE LADDER a difficulty setting picks from: how hard the hand
-     * catches and how late it arrives, hardest first. Two dials rather
-     * than one because they are two different things — `strength` scales
-     * the correction, `window` decides how much of the flight is the
-     * rider's — and over the flight bench a soft hand reaching far out
-     * saves the same landings as a firm one arriving late while owning
-     * most of the hang. A hard rung therefore shortens the WINDOW, which
-     * hands the flight back, rather than only softening the spring.
-     *
-     * The bad-landing rate each rung leaves, measured over the flight
-     * bench (3360 staged launches, four craft, the rider's hands still):
-     * 68.3 % at `none`, 13.9 % at a quarter, 7.7 % at `half` and 5.0 %
-     * at `full`. `half` is what a run is dealt when nothing says
-     * (`strength` above), and every rung is stated here rather than
-     * computed so the ladder can be re-measured rung by rung. */
-    band: [
-      { id: "none", strength: 0, window: 0 },
-      { id: "light", strength: 0.25, window: 0.5 },
-      { id: "half", strength: 0.5, window: 0.75 },
-      { id: "full", strength: 1, window: 1.1 },
-    ],
-  },
+  /** THE ARCADE ASSIST — the help the rider is given, stated in
+   * `defs/assist.ts` beside this file rather than in it. Two hands on
+   * two dials (`assist.ts`, `GameState.assist` / `.rampAssist`) and the
+   * difficulty ladder over both; the split is the §20.5 cap, not a
+   * second tuning file, and every reader still spells it
+   * `TUNING.assist`. */
+  assist: ASSIST,
 
   /** CONTACTS with what is not water (`collision.ts`). */
   contact: {

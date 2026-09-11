@@ -44,6 +44,11 @@ export type ContactResult = {
   tz: number;
   onGround: boolean;
   onRamp: boolean;
+  /** The ramp whose deck the hull is riding, when it is riding one — so
+   * that the arcade's hand on the deck (`assist.ts`, `rampAssist`) reads
+   * the ramp this step actually found instead of searching for it again.
+   * A hull over two decks at once is not a thing the generator builds. */
+  ramp: Ramp | null;
   /** Fastest closing speed into the ground this step, m/s. */
   groundSpeed: number;
 };
@@ -141,6 +146,7 @@ export function contactForces(
   out.fx = out.fy = out.fz = out.tx = out.ty = out.tz = 0;
   out.onGround = false;
   out.onRamp = false;
+  out.ramp = null;
   out.groundSpeed = 0;
   const ramps: Ramp[] = [];
   for (const gate of level.course.gates) if (gate.ramp) ramps.push(gate.ramp);
@@ -203,6 +209,7 @@ export function contactForces(
       const nz = -sa * ch;
       if (penalty(out, s, cx, cy, cz, nx, ny, nz, pen, C.rampFriction, C.rampDeckCap) > 0) {
         out.onRamp = true;
+        out.ramp = ramp;
       }
     }
   }

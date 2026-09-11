@@ -66,10 +66,14 @@ const args = parseArgs(
     },
     assist: {
       kind: "number",
-      help: "the arcade landing assist, 0..1 (the tuning's default when left out); 0 is the bare physics",
+      help: "the arcade assist, 0..1, BOTH hands (the tuning's defaults when left out); 0 is the bare physics",
+    },
+    "ramp-assist": {
+      kind: "number",
+      help: "the ramp's hand alone, 0..1 — overrides --assist for the deck",
     },
   },
-  "usage: npm run ride -- [--scenario name | name | --all] [--craft id] [--seed n] [--seconds s] [--every s] [--wind m/s] [--hs m] [--assist 0..1]",
+  "usage: npm run ride -- [--scenario name | name | --all] [--craft id] [--seed n] [--seconds s] [--every s] [--wind m/s] [--hs m] [--assist 0..1] [--ramp-assist 0..1]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -103,6 +107,7 @@ function ride(id) {
     windSpeed: args.wind,
     sea: args.hs !== undefined ? { hs: args.hs } : undefined,
     assist: args.assist,
+    rampAssist: args["ramp-assist"],
   });
   placeRun(state, moment);
   const x0 = state.craft.x;

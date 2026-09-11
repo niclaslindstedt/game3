@@ -49,10 +49,14 @@ const args = parseArgs(
     json: { kind: "string", help: "also write the rows (events dropped) to this file" },
     assist: {
       kind: "number",
-      help: "the arcade landing assist, 0..1 (the tuning's default when left out); 0 is the bare physics",
+      help: "the arcade assist, 0..1, BOTH hands (the tuning's defaults when left out); 0 is the bare physics",
+    },
+    "ramp-assist": {
+      kind: "number",
+      help: "the ramp's hand alone, 0..1 — overrides --assist for the deck",
     },
   },
-  "usage: npm run sim -- [--seeds a,b,c] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1]",
+  "usage: npm run sim -- [--seeds a,b,c] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1] [--ramp-assist 0..1]",
 );
 const seeds = args.seeds.map(Number);
 if (seeds.some((s) => !Number.isInteger(s))) {
@@ -97,6 +101,7 @@ for (const seed of seeds) {
       track: args.track,
       maxSeconds: args.max,
       assist: args.assist,
+      rampAssist: args["ramp-assist"],
     });
     rows.push(r);
     console.log(

@@ -1,14 +1,17 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE ARCADE'S HAND (`engine/game/flight.ts`, `landingAssist`): the last
-// moment before the water, and what it is allowed to do with it.
+// THE ARCADE'S HAND (`engine/game/assist.ts`): the two moments it is
+// allowed to touch — the last of a flight (`landingAssist`) and the run
+// up a ramp's deck before it (`rampAssist`) — and what it may do with
+// each.
 //
-// The whole promise is two-sided and both sides are held here. A flight
-// that was going to end badly — thrown sideways off a lip, wound nose-up
-// by the plate over the hang — is turned toward the attitude it ought to
-// land at and the rider keeps the ride. A flight that was going to be
-// fine is not touched AT ALL: a clean landing and a backflip that is
-// coming round both ride out with the assist adding nothing, which is
-// what keeps the air a decision rather than a cutscene.
+// The whole promise is two-sided and both sides are held here, for both
+// hands. A ride that was going to end badly — a flight thrown sideways
+// off a lip, a hull skidding off the flank of a four-metre deck — is
+// turned toward the one it ought to have and the rider keeps it. A ride
+// that was going to be fine is not touched AT ALL: a clean landing, a
+// backflip coming round and a jump lined up straight all ride out with
+// the assist adding nothing, which is what keeps the air a decision
+// rather than a cutscene and a ramp a ramp rather than a gutter.
 //
 // Every case here is staged with `placeRun` on the synthetic level, so
 // what is measured is the assist and not a generator.
@@ -19,7 +22,9 @@ import {
   createGame,
   fromEuler,
   landingAssist,
+  onRampDeck,
   placeRun,
+  rampAssist,
   step,
   timeToWater,
   type CraftId,
@@ -239,7 +244,7 @@ describe("what the hand does not touch", () => {
       -4,
       0,
       1,
-      TUNING.assist.window,
+      TUNING.assist.air.window,
       out,
     );
     return [out.tx, out.ty, out.tz];
@@ -255,7 +260,7 @@ describe("what the hand does not touch", () => {
       landingAssist(fromEuler(0, -0.4, 0), 0, 0, 0, 228, 225, 60, 0.5, 0.6, -4, 0, 1, window, out);
       return out.tx;
     };
-    expect(at(TUNING.assist.window)).toBeLessThan(-100);
+    expect(at(TUNING.assist.air.window)).toBeLessThan(-100);
     expect(at(0.1)).toBe(0);
     // ...and the ladder every rung of a difficulty setting comes from is
     // ordered, hardest first, with the shipped default somewhere inside it.
@@ -263,8 +268,12 @@ describe("what the hand does not touch", () => {
     for (let i = 1; i < band.length; i++) {
       expect(band[i].strength, band[i].id).toBeGreaterThan(band[i - 1].strength);
       expect(band[i].window, band[i].id).toBeGreaterThan(band[i - 1].window);
+      // ...and the ramp's hand comes down the same ladder, never rising
+      // as the rung gets harder.
+      expect(band[i].ramp, band[i].id).toBeGreaterThan(band[i - 1].ramp);
     }
-    expect(band.some((r) => r.strength === TUNING.assist.strength)).toBe(true);
+    expect(band.some((r) => r.strength === TUNING.assist.air.strength)).toBe(true);
+    expect(band.some((r) => r.ramp === TUNING.assist.ramp.strength)).toBe(true);
   });
 
   it("waits for a real flight: a chop hop is not a jump", () => {
@@ -284,7 +293,7 @@ describe("what the hand does not touch", () => {
       -4,
       0,
       1,
-      TUNING.assist.window,
+      TUNING.assist.air.window,
       out,
     );
     expect([out.tx, out.ty, out.tz]).toEqual([0, 0, 0]);
@@ -410,5 +419,184 @@ describe("the backflip", () => {
     const bare = flip(0);
     const caught = flip(1);
     expect(caught.rotation).toBeCloseTo(bare.rotation, 9);
+  });
+});
+
+// THE RAMP'S HAND. A four-metre deck with no keel in the water under it:
+// whatever sideways way a hull climbs aboard with is the way it leaves,
+// and the jump is lost to a line the rider never saw he had not made.
+// The two sides here are the same two the air's hand is held to — it does
+// something when the hull is on its way off the side, and it does exactly
+// NOTHING when the hull is tracking straight up the deck, which is what
+// keeps a ramp from reading as a gutter that rolls the craft to its
+// middle.
+describe("the ramp's hand", () => {
+  const RAMP = FLAT.course.gates.find((g) => g.kind === "air")!.ramp!;
+  const HALF = RAMP.width / 2;
+  // A hair inside the flank, so that a case about the deck's very edge is
+  // ON the deck rather than a rounding error off it.
+  const EDGE = HALF * (1 - 1e-9);
+  // The deck's own axes in the plan, the pair `onRampDeck` measures in:
+  // `along` is up the ramp, `across` is ninety degrees clockwise of it.
+  const SH = Math.sin(RAMP.heading);
+  const CH = Math.cos(RAMP.heading);
+  const deckX = (along: number, across: number) => RAMP.x + SH * along + CH * across;
+  const deckZ = (along: number, across: number) => RAMP.z + CH * along - SH * across;
+
+  /** The hand at a place on the deck, as the craft would feel it: the
+   * across acceleration, m/s², and the yaw torque, for a skiff-sized hull
+   * (mass 300 kg, yaw inertia 225 kg·m²). */
+  function hand(
+    opts: {
+      across?: number;
+      vAcross?: number;
+      vAlong?: number;
+      yaw?: number;
+      yawRate?: number;
+      steer?: number;
+      strength?: number;
+    } = {},
+  ): { lateral: number; ty: number } {
+    const out = { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 };
+    const vAlong = opts.vAlong ?? 12;
+    const vAcross = opts.vAcross ?? 0;
+    const across = opts.across ?? 0;
+    rampAssist(
+      RAMP,
+      fromEuler(RAMP.heading + (opts.yaw ?? 0), RAMP.angle, 0),
+      deckX(4, across),
+      deckZ(4, across),
+      SH * vAlong + CH * vAcross,
+      CH * vAlong - SH * vAcross,
+      0,
+      opts.yawRate ?? 0,
+      0,
+      300,
+      225,
+      opts.steer ?? 0,
+      opts.strength ?? 1,
+      out,
+    );
+    return { lateral: (out.fx * CH - out.fz * SH) / 300, ty: out.ty };
+  }
+
+  /** Nothing at all, to the last bit a float carries. */
+  function feelsNothing(felt: { lateral: number; ty: number }, why: string): void {
+    expect(felt.lateral, why).toBeCloseTo(0, 12);
+    expect(felt.ty, why).toBeCloseTo(0, 12);
+  }
+
+  it("adds nothing at all to a hull tracking straight up the deck", () => {
+    // Anywhere inside `free` of the half-width, at any pace, with the bow
+    // on the axis: the deck is flat and the hand is not there.
+    for (const across of [0, HALF * 0.2, -HALF * 0.39]) {
+      feelsNothing(hand({ across }), `across ${across.toFixed(2)} m`);
+    }
+  });
+
+  it("...and does hold a hull that is sliding off, so the silence means something", () => {
+    // The slide damped — a hull drifting toward the deck's edge feels a
+    // force against the drift wherever it is, the centreline included...
+    expect(hand({ vAcross: 1.5 }).lateral).toBeLessThan(-1);
+    expect(hand({ vAcross: -1.5 }).lateral).toBeGreaterThan(1);
+    // ...and past the free band, the camber, growing to `centre` at the
+    // very edge and pointing back toward the middle.
+    const mid = hand({ across: HALF * 0.7 }).lateral;
+    const edge = hand({ across: EDGE }).lateral;
+    expect(mid).toBeLessThan(0);
+    expect(edge).toBeLessThan(mid);
+    expect(edge).toBeCloseTo(-TUNING.assist.ramp.centre, 6);
+    expect(hand({ across: -EDGE }).lateral).toBeCloseTo(TUNING.assist.ramp.centre, 6);
+    // And never more than `most`, however sideways the hull arrived.
+    expect(hand({ across: EDGE, vAcross: 40 }).lateral).toBeCloseTo(-TUNING.assist.ramp.most, 6);
+  });
+
+  it("brings the bow round to the deck's axis, past a band it does not", () => {
+    // Clockwise from above is +y, and `aim` is the band inside which a
+    // rider is simply pointing where he meant to.
+    expect(hand({ yaw: TUNING.assist.ramp.aim * 0.9 }).ty).toBeCloseTo(0, 12);
+    expect(hand({ yaw: 0.3 }).ty).toBeLessThan(0);
+    expect(hand({ yaw: -0.3 }).ty).toBeGreaterThan(0);
+  });
+
+  it("is not a gutter: it does not move a hull that is not going up the deck", () => {
+    // The whole of it fades with the pace ALONG the deck. A hull parked
+    // on a ramp, one sliding back down it and one crossing it broadside
+    // are all left exactly where they are, however far off the middle
+    // they sit — which is the difference between a help and a magnet.
+    for (const vAlong of [0, -6, -0.01]) {
+      feelsNothing(hand({ across: EDGE, vAlong, yaw: 0.4 }), `${vAlong} m/s up the deck`);
+    }
+    // ...and it fades IN with that pace rather than arriving all at once.
+    const slow = hand({ across: EDGE, vAlong: TUNING.assist.ramp.pace / 3 }).lateral;
+    const quick = hand({ across: EDGE, vAlong: TUNING.assist.ramp.pace }).lateral;
+    expect(slow).toBeGreaterThan(quick);
+    expect(slow).toBeLessThan(0);
+  });
+
+  it("stands aside for a rider steering, and at a dial of 0 is not there", () => {
+    feelsNothing(hand({ across: EDGE, vAcross: 2, yaw: 0.3, steer: 1 }), "a rider steering");
+    feelsNothing(hand({ across: EDGE, vAcross: 2, yaw: 0.3, strength: 0 }), "a dial at 0");
+    // Half a dial is half a hand — a difficulty setting is a scale, not
+    // a switch.
+    const full = hand({ across: EDGE, vAcross: 2 }).lateral;
+    expect(hand({ across: EDGE, vAcross: 2, strength: 0.5 }).lateral).toBeCloseTo(full / 2, 9);
+  });
+
+  /** Ride at the ramp from eight metres before the hinge, `across` metres
+   * off its centreline and `yaw` rad off its axis, with the throttle open
+   * and the rider's hands still; report how far up the deck the hull got
+   * before it left it, by the lip or over a flank. */
+  function runUp(rampAssistDial: number, across: number, yaw: number): number {
+    const state = createGame({
+      seed: 1,
+      craft: "skiff",
+      level: FLAT,
+      assist: 0,
+      rampAssist: rampAssistDial,
+      quiet: true,
+    });
+    placeRun(state, {
+      x: deckX(-8, across),
+      z: deckZ(-8, across),
+      heading: RAMP.heading + yaw,
+      speed: 14,
+    });
+    let best = -Infinity;
+    let aboard = false;
+    for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
+      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
+      const c = state.craft;
+      aboard ||= c.onRamp;
+      const at = onRampDeck(RAMP, c.x, c.z);
+      // Off the deck once it has been on it: either over the lip or out
+      // through a flank, and `best` is which.
+      if (!at) {
+        if (aboard) break;
+        continue;
+      }
+      best = Math.max(best, at.along);
+    }
+    return best;
+  }
+
+  it("follows a jump through that the bare physics skids off the side of", () => {
+    // A metre off the centreline and six degrees off the axis, which is a
+    // line a rider would call lined up: bare, the hull is over the flank
+    // two metres before the lip; with the hand, it leaves off the end.
+    expect(runUp(0, 1, 0.1)).toBeLessThan(RAMP.length - 1.5);
+    expect(runUp(1, 1, 0.1)).toBeGreaterThan(RAMP.length - 0.2);
+  });
+
+  it("leaves a jump already lined up exactly where it was", () => {
+    // Lined up — bow on the deck's axis, anywhere in the part of it a
+    // rider rides — the two dials come back bit-identical over a whole
+    // run up it, which is the property every one of the unit cases above
+    // is really about. Out past `free` of the half-width the camber does
+    // act on a straight-running hull, and it is meant to: that is the
+    // last half-metre before the flank, not the line anybody aims at.
+    for (const across of [0, 0.5, HALF * TUNING.assist.ramp.free * 0.9]) {
+      expect(runUp(1, across, 0), `${across} m off the middle`).toBeCloseTo(runUp(0, across, 0), 9);
+    }
   });
 });
