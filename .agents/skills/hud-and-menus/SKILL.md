@@ -37,7 +37,8 @@ here, the keys that walk a card are there.
 | What the speedo READS | `CraftState.speed` — `|v|`, vertical included; stated once in `engine/game/state.ts`, never re-derived in the HUD |
 | The split against the last gate | `Progress.splits` / `lastGatePassedAt` in `engine/game/course.ts` — the HUD shows it, never computes it |
 | The `__SH_READY__` flag the screenshot harness waits on | `App.tsx`, set once the first frame has drawn — a HUD change that delays it is a harness that times out |
-| The minimap | `pwa/src/game/minimap-scene.ts` (the coast cut into paths around an ANCHOR, translated to the craft every frame), `minimap-view.ts` (the gates, the chevron, the gauge, the readout), `minimap.tsx` (the glyphs and the DOM) — the split above, and `tests/minimap_test.ts` reads the two payload halves without a browser |
+| The minimap | `pwa/src/game/minimap-scene.ts` (the coast cut into paths around an ANCHOR, translated to the craft every frame — one ladder of ground heights, each band's edge cut THROUGH the lattice, and `spanNow`'s smoothed window), `minimap-view.ts` (the gates, the chevron, the gauge, the scale bar, the readout), `minimap.tsx` (the glyphs, the two textures and the DOM) — the split above, and `tests/minimap_test.ts` reads the two payload halves without a browser |
+| What the map says the shore IS | the bands' paint in `styles.css`: the wood's green and the bare stone over `TREE_LINE` are the WORLD's own (`terrain.ts`, `identity.ts`'s `pine`/`granite`), not a chart palette of their own — a map that invents a colour for the shore is a map that disagrees with what the rider can see |
 | The way OUT of a run | Escape, an `InputAction` in `input.ts` that `App.tsx` turns into the front door coming up (`menu-system`) |
 
 ## The controls

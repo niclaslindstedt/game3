@@ -70,10 +70,50 @@ const RING_LEN = 4 * (VIEW - RING_SW - 2 * RING_R) + 2 * Math.PI * RING_R;
  * and one rotate — and it is drawn at a size nothing on the map shares. A
  * three-metre ski at this framing is a dot; the icon is five times that,
  * because what it has to say is WHICH WAY THE BOW IS POINTED and a dot cannot
- * say it. */
-const CRAFT_HULL = "M 0 -7.6 L 2.9 -3.4 L 3.2 3.4 L 2.4 6.4 L -2.4 6.4 L -3.2 3.4 L -2.9 -3.4 Z";
-const CRAFT_SEAT = "M -1.9 -1.4 L 1.9 -1.4 L 2.1 3.2 L -2.1 3.2 Z";
-const CRAFT_SPONSONS = ["M -4.7 0.6 h 1.6 v 4 h -1.6 Z", "M 3.1 0.6 h 1.6 v 4 h -1.6 Z"].join(" ");
+ * say it.
+ *
+ * FOUR THINGS CARRY IT, and each is answering a different failure. The
+ * PLINTH — a soft dark disc under the lot — is what stops the icon
+ * disappearing into whatever it happens to be over: the map's ground runs
+ * from a near-black deep to a pale beach, so no single hull colour survives
+ * all of it and the answer is to stop asking one to. The light OUTLINE is
+ * the same argument at the glyph's own edge. The BOW WEDGE is what makes the
+ * icon directional at a glance rather than on inspection — a hull this small
+ * is nearly symmetric fore and aft, and the rider needs the heading in the
+ * corner of his eye while he is looking at the water. And the RAY thrown
+ * forward of the bow is the heading read at arm's length: the one mark on
+ * the plate that can be seen without looking at the plate. */
+const CRAFT_HULL = "M 0 -8.4 L 3 -3.6 L 3.3 3.2 L 2.5 6.6 L -2.5 6.6 L -3.3 3.2 L -3 -3.6 Z";
+const CRAFT_BOW = "M 0 -7.4 L 2.1 -3.6 L 0 -4.6 L -2.1 -3.6 Z";
+const CRAFT_SEAT = "M -1.6 0.4 L 1.6 0.4 L 1.8 3.6 L -1.8 3.6 Z";
+const CRAFT_SPONSONS = ["M -4.9 0.4 h 1.7 v 4.2 h -1.7 Z", "M 3.2 0.4 h 1.7 v 4.2 h -1.7 Z"].join(
+  " ",
+);
+const CRAFT_RAY = "M -2.1 -8 L 2.1 -8 L 0.8 -27 L -0.8 -27 Z";
+
+/** The plinth's radius — a little wider than the sponsons, so the disc reads
+ * as the glyph's own ground rather than as a ring around it. */
+const CRAFT_PLINTH = 8.6;
+
+/** How far past the box the water's texture is drawn, view units. The sheet
+ * rides INSIDE the world group so the ripples slide and open out with the
+ * coast — which is most of what makes the map read as a sea being crossed
+ * rather than a diagram being panned — so it has to cover the box at the
+ * furthest the group is ever translated and the least it is ever scaled. */
+const SHEET = 60;
+
+/** Where the scale rule stands, view units: inside the gauge ring on the
+ * left, clear above the word that says what it is worth.
+ *
+ * The clearance is generous because the two are measured in DIFFERENT
+ * units and always will be: the rule is drawn in the face's own space and
+ * scales with the plate, while the word is set in rem and does not. So the
+ * smaller the map, the more of it the word takes — and the gap that looked
+ * ample on a desktop plate was the phone's rule struck through its own
+ * label. This is the height of the word at the smallest plate the clamp on
+ * `--hud-map` allows, with room over it. */
+const RULE_X = 9;
+const RULE_Y = 79;
 
 /** The next gate's halo — a ring breathing out of whatever glyph the gate
  * itself is, so the mark that says WHICH ONE is one shape rather than a
@@ -168,16 +208,66 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
       onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
     >
       <svg class="hud-minimap-face" viewBox={`0 0 ${VIEW} ${VIEW}`} aria-hidden="true">
+        <defs>
+          {/* THE TWO SURFACES, AS TEXTURES. A plan drawn in flat fills asks
+              the rider to REMEMBER which tone was water; a plan drawn in
+              grain and ripple tells him. Both are patterns rather than a
+              second path over the fill, so the texture and the colour are
+              one paint and the land's own path is written once. */}
+          {/* The tile carries FOUR crests rather than one, at three
+              amplitudes and off each other's phase, because a single crest
+              tiled is a corrugation: the eye finds the repeat immediately
+              and what it reads is a knitted sheet rather than water. */}
+          <pattern
+            id="hud-map-swell"
+            width="9"
+            height="13"
+            patternUnits="userSpaceOnUse"
+            patternTransform="rotate(-11)"
+          >
+            <path class="hud-minimap-swell" d="M 0 2.2 q 2.25 -1.7 4.5 0 t 4.5 0" />
+            <path class="hud-minimap-swell" d="M -4.5 5.4 q 2.25 -1.1 4.5 0 t 4.5 0" />
+            <path class="hud-minimap-swell" d="M 4.5 5.4 q 2.25 -1.1 4.5 0 t 4.5 0" />
+            <path class="hud-minimap-swell" d="M -2.2 9 q 2.25 -1.9 4.5 0 t 4.5 0" />
+            <path class="hud-minimap-swell" d="M 6.8 9 q 2.25 -1.9 4.5 0 t 4.5 0" />
+            <path class="hud-minimap-swell" d="M 2.6 12.2 q 2.25 -1.3 4.5 0 t 4.5 0" />
+            <path class="hud-minimap-swell" d="M -6.4 12.2 q 2.25 -1.3 4.5 0 t 4.5 0" />
+          </pattern>
+          {/* The wooded ground, as canopy: the stipple IS the wood, which is
+              why it is coarser than a sand grain would be and why the
+              headland above the tree line does not get it. */}
+          <pattern id="hud-map-grain" width="3.6" height="3.6" patternUnits="userSpaceOnUse">
+            <rect class="hud-minimap-ground" width="3.6" height="3.6" />
+            <circle class="hud-minimap-grain" cx="0.9" cy="0.8" r="0.44" />
+            <circle class="hud-minimap-grain" cx="2.6" cy="2.4" r="0.36" />
+            <circle class="hud-minimap-grain" cx="1.7" cy="3.1" r="0.24" />
+          </pattern>
+        </defs>
         {/* The coast, cut around its anchor and slid to where the craft now
-            stands. The plate's own ground is the deep water, so what is
-            painted here is everything that is NOT that: the shallows, the
-            land over them, the shoreline between, the rocks, the line. */}
+            stands. The plate's own ground is the deepest water, so what is
+            painted here is everything that is NOT that: the sea's own
+            texture, the two depth bands over it, the land over them, the
+            shoreline between, the rocks, the line. */}
         <g
           class="hud-minimap-world"
           style={{ transform: worldPose(scene), transition: recut ? "none" : undefined }}
         >
+          <rect
+            class="hud-minimap-sea"
+            x={-SHEET}
+            y={-SHEET}
+            width={VIEW + 2 * SHEET}
+            height={VIEW + 2 * SHEET}
+          />
+          <path class="hud-minimap-shelf" d={scene.shelf} />
           <path class="hud-minimap-shallows" d={scene.shallows} />
+          {/* The surf goes UNDER the land on purpose: a wide pale stroke
+              centred on the shoreline, with the land painted over its
+              landward half, leaves exactly the half that belongs in the
+              water. */}
+          <path class="hud-minimap-surf" d={scene.shore} />
           <path class="hud-minimap-land" d={scene.land} />
+          <path class="hud-minimap-highland" d={scene.highland} />
           <path class="hud-minimap-shoreline" d={scene.shore} />
           <path class="hud-minimap-reef" d={scene.reefs} />
           <path class="hud-minimap-rock" d={scene.rocks} />
@@ -211,10 +301,20 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
           />
         )}
         <g class="hud-minimap-craft" style={{ transform: place(VIEW / 2, VIEW / 2, map.heading) }}>
+          <path class="hud-minimap-craft-ray" d={CRAFT_RAY} />
+          <circle class="hud-minimap-craft-plinth" cx="0" cy="0" r={CRAFT_PLINTH} />
           <path class="hud-minimap-craft-sponsons" d={CRAFT_SPONSONS} />
           <path class="hud-minimap-craft-hull" d={CRAFT_HULL} />
           <path class="hud-minimap-craft-seat" d={CRAFT_SEAT} />
+          <path class="hud-minimap-craft-bow" d={CRAFT_BOW} />
         </g>
+        {/* The scale rule, in the face's own units so the bar it draws IS
+            the distance it claims. Ticked at both ends, so what is being
+            measured is the span between them rather than a smear. */}
+        <path
+          class="hud-minimap-rule"
+          d={`M ${RULE_X} ${RULE_Y - 2.2} V ${RULE_Y} H ${(RULE_X + map.scale.length).toFixed(2)} V ${RULE_Y - 2.2}`}
+        />
       </svg>
       {/* The frame IS the progress gauge — a dim track with the run's share
           of it drawn over the top, clockwise from twelve o'clock. */}
@@ -227,7 +327,15 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
           stroke-dasharray={`${(map.progress * RING_LEN).toFixed(2)} ${RING_LEN.toFixed(2)}`}
         />
       </svg>
-      {map.label !== "" && <span class="hud-minimap-read">{map.label}</span>}
+      {/* THE FOOT: what the picture is worth on the left, what the run owes
+          on the right. The rule itself is drawn in the face's own units
+          above, because a bar measuring the map has to be measured in the
+          map's units and nothing else; these are only its word and the
+          readout beside it. */}
+      <div class="hud-minimap-foot">
+        <span class="hud-minimap-scale">{map.scale.label}</span>
+        {map.label !== "" && <span class="hud-minimap-read">{map.label}</span>}
+      </div>
     </button>
   );
 }
