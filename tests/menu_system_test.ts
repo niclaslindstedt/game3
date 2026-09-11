@@ -698,6 +698,14 @@ describe("the key bindings", () => {
     expect(DEFAULT_KEYS.leanBack).not.toContain("KeyS");
   });
 
+  it("keeps SHIFT for the tuck alone, with the lean it displaced on Q", () => {
+    // A rider holding himself down behind the bars must not also be pushing
+    // the nose down, so the two never share a key.
+    expect(DEFAULT_KEYS.crouch).toEqual(["ShiftLeft", "ShiftRight"]);
+    expect(DEFAULT_KEYS.leanForward).toEqual(["KeyQ", "ArrowUp"]);
+    expect(clashesWith(DEFAULT_KEYS, "crouch")).toEqual([]);
+  });
+
   it("keeps R for the press a rider makes mid-run, and the shutter on ENTER", () => {
     // R is the one of the two reached for with the craft upside down in the
     // surf; standing the whole run back up is the rarer press and gets a key
