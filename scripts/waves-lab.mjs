@@ -42,6 +42,9 @@ const {
   createWind,
   seaShares,
   seaSummary,
+  stormAt,
+  oceanOut,
+  bedAt,
   surfaceAt,
   windSpeedAt,
   heightAt,
@@ -81,7 +84,10 @@ const override = args.hs !== undefined ? { hs: args.hs, tp: args.tp } : undefine
 const sea = createSea(level, args.seed, wind, override);
 const air = createWind(level, wind, sea.shelter);
 const deg = (rad) => ((rad * 180) / Math.PI + 360) % 360;
-const depthAt = (x, z) => Math.max(0, -sampleField(level.ground, x, z));
+// `bedAt`, not the field: past the level's rim the bed keeps falling to the
+// open ocean's floor, and that is the depth the sea's breaking clip is
+// measured against (`ocean.ts`).
+const depthAt = (x, z) => Math.max(0, -bedAt(level, x, z));
 const offshoreAt = (x, z) => sampleField(level.offshore, x, z);
 
 // ── The transect: from the shore, into the wind, through the course's middle ─
@@ -127,6 +133,7 @@ function station(s) {
   const shares = seaShares(sea, x, z);
   const surface = surfaceAt(sea, level, x, z, 0);
   const current = Math.hypot(surface.vx, surface.vz);
+  const storm = stormAt(level.bounds, x, z);
   // The envelope the field delivers here: the surface over one peak period.
   let lo = Infinity;
   let hi = -Infinity;
@@ -138,12 +145,14 @@ function station(s) {
   }
   const H = hi - lo;
   // The dominant component at this depth: the one shoaling leaves biggest.
+  // ...at the share its own BAND stands at here, or the open band's
+  // four-hundred-metre storm swell would be the answer over every beach.
   let best = 0;
   let wavelength = 0;
   const d = Math.max(depth, TUNING.sea.minDepth);
   for (const c of sea.components) {
     const k = wavenumber(c.omega, d);
-    const a = c.amp * shoaling(c.omega, k, d);
+    const a = c.amp * shoaling(c.omega, k, d) * shares[c.band];
     if (a > best) {
       best = a;
       wavelength = (2 * Math.PI) / k;
@@ -167,6 +176,8 @@ function station(s) {
     offshore,
     ocean: shares.ocean,
     local: shares.local,
+    open: shares.open,
+    storm,
     wind: windSpeedAt(air, 2, x, z),
     current,
     Hs,
@@ -180,6 +191,11 @@ function station(s) {
     regime,
   };
 }
+/** How many components one band was laid with. */
+function bandCount(band) {
+  return sea.components.filter((c) => c.band === band).length;
+}
+
 const stations = [];
 for (let s = 0; s <= args.reach; s += 1) stations.push(station(s));
 const outermostBreak = [...stations].reverse().find((st) => st.breaking) ?? null;
@@ -190,8 +206,9 @@ console.log(
   `waves — engine ${engineVersion} · seed ${args.seed} (${level.biome}) · wind ${wind.speed.toFixed(1)} m/s from ${deg(wind.from).toFixed(0)}°` +
     `${args.wind !== undefined || args.from !== undefined ? ` (level's own ${level.wind.speed.toFixed(1)} m/s from ${deg(level.wind.from).toFixed(0)}°)` : ""}` +
     `${override ? ` · sea quoted at Hs ${override.hs} m` : ""}` +
-    ` · ocean band ${sea.oceanCount} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s` +
-    ` · local band ${sea.components.length - sea.oceanCount} · Hs ${sea.localHs.toFixed(2)} m · Tp ${sea.localTp.toFixed(2)} s`,
+    ` · ocean band ${bandCount("ocean")} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s` +
+    ` · local band ${bandCount("local")} · Hs ${sea.localHs.toFixed(2)} m · Tp ${sea.localTp.toFixed(2)} s` +
+    ` · open band ${bandCount("open")} · Hs ${sea.openHs.toFixed(2)} m · Tp ${sea.openTp.toFixed(2)} s`,
 );
 console.log(
   `dials — height ×${TUNING.sea.heightScale} · period ×${TUNING.sea.periodScale} · γ ${TUNING.sea.peakEnhancement}` +
@@ -211,6 +228,7 @@ console.log(
     pad("depth", 7),
     pad("ocean", 6),
     pad("local", 6),
+    pad("open", 6),
     pad("U m/s", 6),
     pad("Hs", 6),
     pad("Tp", 5),
@@ -223,8 +241,17 @@ console.log(
     "  breaking",
   ].join(" "),
 );
-for (const s of [0, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500, 600]) {
-  if (s > args.reach) break;
+// The near ladder is fine-grained because the shallows are where the model
+// does the most in the least distance; past it, ten even steps however far
+// out `--reach` was asked to run.
+const rows = [0, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500, 600].filter(
+  (s) => s <= args.reach,
+);
+for (let i = 1; i <= 10; i++) {
+  const s = Math.round((600 + ((args.reach - 600) * i) / 10) / 5) * 5;
+  if (s > 600 && s <= args.reach && !rows.includes(s)) rows.push(s);
+}
+for (const s of rows) {
   const st = stations[s];
   console.log(
     [
@@ -233,6 +260,7 @@ for (const s of [0, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500,
       pad(st.depth.toFixed(2), 7),
       pad(st.ocean.toFixed(2), 6),
       pad(st.local.toFixed(2), 6),
+      pad(st.open.toFixed(2), 6),
       pad(st.wind.toFixed(1), 6),
       pad(st.Hs.toFixed(2), 6),
       pad(st.Tp.toFixed(1), 5),
@@ -246,14 +274,72 @@ for (const s of [0, 5, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200, 300, 400, 500,
     ].join(" "),
   );
 }
-console.log("\nspectrum (deep water):");
+console.log("\nspectrum (deep water), longest first, each component's band beside it:");
 for (const c of sea.components) {
   const rel = ((deg(Math.atan2(c.dirX, c.dirZ)) - deg(wind.from + Math.PI) + 540) % 360) - 180;
   console.log(
-    `  T ${((2 * Math.PI) / c.omega).toFixed(2).padStart(5)} s  λ ${((2 * Math.PI) / c.k0).toFixed(1).padStart(6)} m  ` +
+    `  ${c.band.padEnd(5)}  T ${((2 * Math.PI) / c.omega).toFixed(2).padStart(5)} s  λ ${((2 * Math.PI) / c.k0).toFixed(1).padStart(6)} m  ` +
       `a ${c.amp.toFixed(3)} m  ak ${(c.amp * c.k0).toFixed(3)}  ` +
       `${rel >= 0 ? "+" : ""}${rel.toFixed(0)}° off the wind`,
   );
+}
+
+// ── Out into the open ocean ─────────────────────────────────────────────
+// The transect CONTINUED, straight on past the edge of the built level
+// (`ocean.ts`). The whole claim is in this table: the sea builds every
+// metre of the way out, the wind freshens with it, the bed keeps falling so
+// that nothing clips the sea on the way up, and both stop at the storm
+// rather than running away. A dip anywhere in the Hs column is the handover
+// between the coast's spectrum and the storm's going wrong.
+{
+  const rim = (() => {
+    for (let s = 0; s < 20_000; s += 4) {
+      const st = station(s);
+      if (oceanOut(level.bounds, st.x, st.z) > 0) return s;
+    }
+    return null;
+  })();
+  if (rim === null) {
+    console.log("\nthe transect never leaves the level: no open ocean on this heading");
+  } else {
+    console.log("\nout into the open ocean — past the rim, where the coast stops sheltering:");
+    console.log(
+      [
+        pad("out m", 6),
+        pad("past m", 7),
+        pad("storm", 6),
+        pad("depth", 7),
+        pad("ocean", 6),
+        pad("open", 6),
+        pad("U m/s", 6),
+        pad("Hs", 6),
+        pad("Tp", 5),
+        pad("H here", 7),
+        pad("λ dom", 7),
+        pad("H/λ", 6),
+      ].join(" "),
+    );
+    const full = TUNING.sea.open.reach;
+    for (let i = 0; i <= 12; i++) {
+      const st = station(rim + Math.round((full * 1.2 * i) / 12));
+      console.log(
+        [
+          pad(st.s, 6),
+          pad(oceanOut(level.bounds, st.x, st.z).toFixed(0), 7),
+          pad(st.storm.toFixed(2), 6),
+          pad(st.depth.toFixed(1), 7),
+          pad(st.ocean.toFixed(2), 6),
+          pad(st.open.toFixed(2), 6),
+          pad(st.wind.toFixed(1), 6),
+          pad(st.Hs.toFixed(2), 6),
+          pad(st.Tp.toFixed(1), 5),
+          pad(st.H.toFixed(2), 7),
+          pad(st.wavelength.toFixed(1), 7),
+          pad(st.steepness.toFixed(3), 6),
+        ].join(" "),
+      );
+    }
+  }
 }
 
 // ── R27, R28 — up the river ─────────────────────────────────────────────
@@ -371,11 +457,16 @@ if (outermostBreak) {
     1,
   );
 }
+/** The pitch the metres-out axes are labelled at: the coarsest round step
+ * that leaves at most a dozen labels, so a transect run out into the open
+ * ocean does not print its axis as one smear of digits. */
+const tickStep = [100, 250, 500, 1000, 2000, 5000].find((m) => args.reach / m <= 12) ?? 10_000;
+
 // A reference bar that fits the panel: the largest of 1, 0.5, 0.25 m that does.
 const bar = [1, 0.5, 0.25, 0.1].find((m) => m * vScale <= A.h / 2 - 14) ?? 0.1;
 canvas.line(A.x + 8, zeroY - bar * vScale, A.x + 8, zeroY, INK.dim, 2);
 canvas.text(`${bar} M`, A.x + 12, zeroY - bar * vScale, INK.dim, 1);
-for (let s = 0; s <= args.reach; s += 100)
+for (let s = 0; s <= args.reach; s += tickStep)
   canvas.text(`${s}`, sxp(s) - 6, A.y + A.h + 3, INK.dim, 1);
 canvas.text("M OUT", A.x + A.w - 30, A.y + A.h + 3, INK.dim, 1);
 
@@ -429,7 +520,7 @@ for (const h of [0.25, 0.5, 1, 1.5, 2]) {
   canvas.text(`${h} M`, B.x + 3, hy(h) - 9, INK.dim, 1);
 }
 canvas.text(`TP ${sea.tp.toFixed(1)} S`, B.x + B.w - 60, ty(sea.tp) - 9, INK.tp, 1);
-for (let s = 0; s <= args.reach; s += 100)
+for (let s = 0; s <= args.reach; s += tickStep)
   canvas.text(`${s}`, bxp(s) - 6, B.y + B.h + 3, INK.dim, 1);
 
 // C — the spectrum: one bar per component, amplitude against wavelength.

@@ -28,6 +28,7 @@ import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import type { HullProbe, ProbeSample } from "./hull.ts";
 import { inertia } from "./hull.ts";
+import { bedAt } from "./ocean.ts";
 import type { CraftState, GameEvent } from "./state.ts";
 
 const C = TUNING.contact;
@@ -143,8 +144,10 @@ export function contactForces(
   for (const gate of level.course.gates) if (gate.ramp) ramps.push(gate.ramp);
   for (let i = 0; i < probes.length; i++) {
     const s = samples[i];
-    // The ground.
-    const g = sampleField(level.ground, s.px, s.pz);
+    // The ground — `bedAt`, not the field, so that a level's last row of
+    // cells is not repeated out to sea as a plateau of land a rider out in
+    // the storm can run aground on (`ocean.ts`).
+    const g = bedAt(level, s.px, s.pz);
     if (s.py < g) {
       const { gx, gz } = fieldGradient(level.ground, s.px, s.pz);
       const nl = Math.hypot(gx, 1, gz);
@@ -245,16 +248,43 @@ export function clipSolids(
   }
 }
 
-/** The bounds' soft push, as a world-frame acceleration, m/s². */
+/** Whether the rim the push would act from stands in OPEN WATER. The basin
+ * pads every side but the sea's with land (R14, R15), so a rim deeper than
+ * `contact.boundsOpenDepth` is the open ocean and a rider is let through to
+ * it; a rim with land at it, or a creek's last shallow metres (R26), turns
+ * him back. */
+function rimIsOpen(level: Level, x: number, z: number): boolean {
+  return -sampleField(level.ground, x, z) >= C.boundsOpenDepth;
+}
+
+/** The bounds' soft push, as a world-frame acceleration, m/s².
+ *
+ * THE SEA HAS NO FAR SIDE. The push is the edge of the BUILT world, and it
+ * holds a rider inside it only where that edge is land: where the grid's rim
+ * stands in the open sea he rides straight out of the level and on into the
+ * storm, with the sea, the bed and the wind going with him (`ocean.ts`).
+ *
+ * Each axis's spring also asks that the rider still be WITHIN the box along
+ * the other one, so that a rider a kilometre out at sea is not reeled
+ * sideways by the land rim he is now abeam of. Nothing is lost by it: the
+ * land past a rim is the rim's own height carried on (the heightfield clamps
+ * to its edge), so the ground itself is what stops a hull from riding over
+ * the country, and this spring is only the backstop on the water. */
 export function boundsPush(level: Level, x: number, z: number): { ax: number; az: number } {
   const b = level.bounds;
   const m = C.boundsMargin;
+  const alongX = x >= b.minX && x <= b.maxX;
+  const alongZ = z >= b.minZ && z <= b.maxZ;
   let ax = 0;
   let az = 0;
-  if (x < b.minX + m) ax = (b.minX + m - x) * C.boundsSpring;
-  else if (x > b.maxX - m) ax = (b.maxX - m - x) * C.boundsSpring;
-  if (z < b.minZ + m) az = (b.minZ + m - z) * C.boundsSpring;
-  else if (z > b.maxZ - m) az = (b.maxZ - m - z) * C.boundsSpring;
+  if (alongZ) {
+    if (x < b.minX + m && !rimIsOpen(level, b.minX, z)) ax = (b.minX + m - x) * C.boundsSpring;
+    else if (x > b.maxX - m && !rimIsOpen(level, b.maxX, z)) ax = (b.maxX - m - x) * C.boundsSpring;
+  }
+  if (alongX) {
+    if (z < b.minZ + m && !rimIsOpen(level, x, b.minZ)) az = (b.minZ + m - z) * C.boundsSpring;
+    else if (z > b.maxZ - m && !rimIsOpen(level, x, b.maxZ)) az = (b.maxZ - m - z) * C.boundsSpring;
+  }
   return { ax: clamp(ax, -40, 40), az: clamp(az, -40, 40) };
 }
 

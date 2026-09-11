@@ -71,6 +71,7 @@ const SCENES = [
   "capsize",
   "offshore",
   "storm",
+  "ocean",
   "backflip",
   "wildlife",
   "breach",

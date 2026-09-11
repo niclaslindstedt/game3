@@ -18,6 +18,11 @@
 //   well as its height. Averaged over `wind.cell` squares and read back
 //   bilinearly, because a mass of air a hundred metres deep does not step
 //   at a bank: it changes slowly, and so does what a rider feels.
+// - ...and PAST THE LEVEL'S RIM it goes on freshening (`ocean.ts`): the
+//   shelter field has run out and the coast is astern, so the mean itself
+//   climbs toward `TUNING.sea.open.wind` over the storm's ramp. A rider who
+//   keeps heading out meets the weather the twenty-metre sea out there is
+//   grown in, and feels it through the same aero term as any gust.
 // - An ORNSTEIN–UHLENBECK gust factor: a mean-reverting random process
 //   with the turbulence intensity's stationary deviation and the gust
 //   integral time scale's memory, stepped from `state.rng` so a seed
@@ -27,9 +32,10 @@
 import { sampleField } from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
 import type { Rng } from "../lib/prng.ts";
-import type { Level, Wind } from "../mapgen/types.ts";
+import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, type Shelter } from "./fetch.ts";
+import { oceanWind, stormAt } from "./ocean.ts";
 
 const W = TUNING.wind;
 
@@ -38,6 +44,9 @@ export type WindState = {
    * how fast at the reference height, m/s. */
   readonly meanFrom: number;
   readonly meanSpeed: number;
+  /** The level's bounds — where the coast, and its shelter, stop
+   * (`ocean.ts`). */
+  readonly bounds: Bounds;
   /** The gust factor, a multiple of the mean (1 = the mean). */
   gust: number;
   /** How far the direction has wandered off the mean, rad. */
@@ -51,7 +60,14 @@ export function createWind(
   wind: Wind = level.wind,
   shelter: Shelter = createShelter(level, wind),
 ): WindState {
-  return { meanFrom: wind.from, meanSpeed: wind.speed, gust: 1, veer: 0, shelter };
+  return {
+    meanFrom: wind.from,
+    meanSpeed: wind.speed,
+    bounds: level.bounds,
+    gust: 1,
+    veer: 0,
+    shelter,
+  };
 }
 
 /** One standard normal draw off the seeded stream (Box–Muller, one of the
@@ -78,11 +94,16 @@ export function stepWind(wind: WindState, rng: Rng, dt: number): void {
 }
 
 /** Wind speed at height `y` above the sea over the plan point (`x`, `z`),
- * m/s — the height profile, the gust and the place's own shelter. */
+ * m/s — the height profile, the gust, the place's own shelter, and out past
+ * the level's rim the storm the mean itself climbs into (`ocean.ts`). The
+ * coast's own shelter opens out to nothing as the storm comes up
+ * (`oceanWind`), so a rider who left by any rim meets the same weather. */
 export function windSpeedAt(wind: WindState, y: number, x: number, z: number): number {
   const h = Math.max(y, W.minHeight);
   const profile = Math.log(h / W.roughness) / Math.log(W.referenceHeight / W.roughness);
-  return wind.meanSpeed * wind.gust * profile * sampleField(wind.shelter.shelter, x, z);
+  const shelter = sampleField(wind.shelter.shelter, x, z);
+  const mean = oceanWind(wind.meanSpeed, shelter, stormAt(wind.bounds, x, z));
+  return mean * wind.gust * profile;
 }
 
 /** The wind VELOCITY there, world frame, m/s: it blows toward the opposite

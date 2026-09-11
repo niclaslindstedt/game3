@@ -278,7 +278,18 @@ export function createShelter(level: Level, wind: Wind = level.wind): Shelter {
 }
 
 /** A field on `size`-metre cells over the same ground as `like`, each node
- * the mean of the fine cells in the square around it. */
+ * the mean of the fine cells in the square around it.
+ *
+ * The coarse grid's last node overshoots the fine one — the span rarely
+ * divides the fine grid evenly — so the window is CLAMPED into the fine
+ * grid rather than having its outside half skipped. Skipped, a node whose
+ * whole window lies past the fine grid averages nothing and reads 0, and
+ * since the field is read back bilinearly that zero reaches inside the
+ * level: the wind fell away to nothing over the last hundred metres of
+ * water a level holds, which is the water a course's ocean leg is ridden in
+ * and the water a rider leaves by (`ocean.ts`). Clamping is the same rule
+ * `sampleField` itself follows — the world ends where the level says, and a
+ * sample past the edge reads the edge. */
 function coarsen(like: Heightfield, size: number, read: (i: number) => number): Heightfield {
   const span = Math.max(1, Math.round(size / like.cell));
   const cols = Math.max(2, Math.ceil((like.cols - 1) / span) + 1);
@@ -290,16 +301,13 @@ function coarsen(like: Heightfield, size: number, read: (i: number) => number): 
       let sum = 0;
       let count = 0;
       for (let dr = -half; dr <= half; dr++) {
-        const fr = r * span + dr;
-        if (fr < 0 || fr >= like.rows) continue;
+        const fr = clamp(r * span + dr, 0, like.rows - 1);
         for (let dc = -half; dc <= half; dc++) {
-          const fc = c * span + dc;
-          if (fc < 0 || fc >= like.cols) continue;
-          sum += read(fr * like.cols + fc);
+          sum += read(fr * like.cols + clamp(c * span + dc, 0, like.cols - 1));
           count++;
         }
       }
-      out.data[r * cols + c] = count > 0 ? sum / count : 0;
+      out.data[r * cols + c] = sum / count;
     }
   }
   return out;
