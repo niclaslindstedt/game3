@@ -79,6 +79,15 @@ here, the keys that walk a card are there.
   chase camera, and not a bug to be tidied.
 - **The build label is §38's "the running build says what it is".** It reads
   `engine/version.ts` and the build's short hash; do not drop it for room.
+- **A new colour on this screen owes the night dressing a ramp.** The HUD dips
+  with the craft's lamp — `snapshot.dark` on the root as `--hud-dark`, and the
+  block on `.hud` in `styles.css` where every dipped token is a `color-mix` or
+  a `calc` along it. Anything added in a literal white or a hard navy is a
+  lamp in the corner of a night frame; take it off `--hud-ink`, `--hud-plate`,
+  `--hud-edge` or `--hud-track` instead. What stays at full strength is the
+  SIGNAL — `--hud-bad` (every warning) and `--hud-good` (the buoy orange, which
+  has to agree with the buoys out on the water) — and that is a decision, not
+  an oversight.
 - **A menu is not a saving.** The menu's backdrop is the real game, ridden by
   the bot — a menu that stops the sea is a bug. That rule and the cards it
   governs are `menu-system`'s; it is restated here because a HUD change that
