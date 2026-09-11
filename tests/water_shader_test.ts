@@ -217,6 +217,25 @@ describe("what the water is handed for a sea", () => {
     const fresh = u.uRippleStrength.value;
     expect(fresh / calm).toBeCloseTo(Math.sqrt((0.003 + 0.00512 * 16) / 0.003), 6);
   });
+
+  it("draws that lobe out ALONG the wind, by the same paper's two components", () => {
+    // σ_c² = 0.003 + 0.00192·U across the wind, σ_u² = 0.00316·U along it —
+    // a sea tilts more along the wind than across it, so the sun's road is
+    // stretched rather than round. Only the ratio is taken; the total stays
+    // the total fit asserted above.
+    for (const wind of [4, 12, 20]) {
+      applySea(material, 0, wind, 0.4);
+      const along = 0.00316 * wind;
+      const cross = 0.003 + 0.00192 * wind;
+      expect(u.uSlopeAlong.value).toBeCloseTo(along / (along + cross), 9);
+      expect(u.uSlopeAlong.value as number).toBeGreaterThan(0.5);
+    }
+    // Under about 2.4 m/s the two linear fits cross and the along-wind
+    // component comes out the SMALLER, which no sea does: a wind too light
+    // to have built its own chop is isotropic, not corrugated across itself.
+    applySea(material, 0, 0, 0.4);
+    expect(u.uSlopeAlong.value).toBe(0.5);
+  });
 });
 
 describe("what the water is handed for a mirror", () => {
