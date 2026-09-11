@@ -161,9 +161,11 @@ export { planingLift, pressureCentre, wettedLength, type PlaningResult } from ".
 // THE PUMP (propulsion.ts).
 export {
   boostFactor,
+  bucketDrag,
   bucketVector,
   curveTorque,
   engineTorque,
+  intakeDrag,
   jetVelocity,
   nozzleArea,
   peakTorque,

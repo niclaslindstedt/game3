@@ -10,17 +10,21 @@ import {
   CRAFT,
   TUNING,
   boostFactor,
+  bucketDrag,
   craftAtClass,
   craftById,
   angleDiff,
   createGame,
   curveTorque,
+  intakeDrag,
   jetCeiling,
+  maxRpm,
   placeRun,
   pumpTorque,
   ratedTorque,
   staticThrust,
   step,
+  thrust,
   topSpeedOf,
   totalMass,
   type CraftInput,
@@ -410,6 +414,81 @@ describe("the reverse bucket", () => {
       step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false });
     }
     expect(state.craft.bucket).toBe(0);
+  });
+});
+
+describe("what the drive costs", () => {
+  const skiff = craftById("skiff");
+  const RHO = 1005;
+
+  it("takes momentum out of a hull whose throttle is shut — and exactly one of the two halves is ever on", () => {
+    // At idle with the hull at speed the jet is slower than the water
+    // coming in, so the duct is a drag and the thrust is nothing; wound
+    // out, it is the other way round. They are the two halves of one
+    // momentum expression, so they may never both be live.
+    for (const v of [0, 5, 12, 20, 28]) {
+      for (const rpm of [skiff.idleRpm, maxRpm(skiff)]) {
+        const push = thrust(skiff, RHO, rpm, v, true);
+        const drag = intakeDrag(skiff, RHO, rpm, v, true);
+        expect(Math.min(push, drag), `${rpm} rpm at ${v} m/s`).toBe(0);
+      }
+    }
+    expect(intakeDrag(skiff, RHO, skiff.idleRpm, 26, true)).toBeGreaterThan(100);
+    // Nothing at rest, and nothing with the intake out of the water — an
+    // impeller in spray swallows no momentum.
+    expect(intakeDrag(skiff, RHO, skiff.idleRpm, 0, true)).toBe(0);
+    expect(intakeDrag(skiff, RHO, skiff.idleRpm, 26, false)).toBe(0);
+  });
+
+  it("hangs the deployed gate in the water as a plate: v², and none at all without one", () => {
+    const at = (v: number, d = 1) => bucketDrag(skiff, RHO, d, v, true);
+    expect(at(0)).toBe(0);
+    expect(at(26, 0)).toBe(0);
+    // Four times the drag for twice the speed — which is the whole point:
+    // the gate bites hardest where the reversed thrust has least left to
+    // give, and is nothing at the walking pace reverse runs at.
+    expect(at(20) / at(10)).toBeCloseTo(4, 6);
+    expect(at(3)).toBeLessThan(at(26) / 50);
+    // Half the gate, half the plate.
+    expect(at(26, 0.5) / at(26)).toBeCloseTo(0.5, 9);
+    // A stand-up carries no gate, so it has none of this.
+    const dart = craftById("dart");
+    expect(dart.bucket.reverse).toBe(0);
+    expect(bucketDrag(dart, RHO, 1, 26, true)).toBe(0);
+  });
+
+  it("so the brake covers far less water than a coast from the same speed", () => {
+    /** Where the craft is and how fast after `seconds` from `speed`, with
+     * the right hand as given. */
+    function run(id: string, speed: number, given: Partial<CraftInput>, seconds: number) {
+      const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
+      placeRun(state, { x: -50, z: 500, heading: Math.PI / 2, speed });
+      const { x, z } = state.craft;
+      const input: CraftInput = {
+        steer: 0,
+        throttle: 0,
+        reverse: 0,
+        lean: 0,
+        reset: false,
+        ...given,
+      };
+      for (let i = 0; i < seconds * TUNING.physicsHz; i++) step(state, input);
+      return { run: Math.hypot(state.craft.x - x, state.craft.z - z), left: state.craft.speed };
+    }
+    for (const spec of CRAFT) {
+      if (spec.bucket.reverse <= 0) continue;
+      const v0 = (spec.topSpeed / 3.6) * 0.7;
+      const coast = run(spec.id, v0, {}, 5);
+      const brake = run(spec.id, v0, { reverse: 1 }, 5);
+      // The bar is the MARLIN's, which is the roster's weakest brake by
+      // design — the heaviest hull, and the smallest gate on it. The skiff
+      // and the otter come in nearer three fifths.
+      expect(brake.run, `${spec.id} brake vs coast`).toBeLessThan(coast.run * 0.85);
+      // ...and what is left at the end is the reading that matters going
+      // into a buoy: a braked five seconds ends under half the speed a
+      // coasted one does.
+      expect(brake.left, `${spec.id} speed left`).toBeLessThan(coast.left * 0.5);
+    }
   });
 });
 

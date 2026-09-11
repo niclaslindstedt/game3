@@ -41,7 +41,9 @@ import {
 } from "./hull.ts";
 import { topSpeedOf } from "./limits.ts";
 import {
+  bucketDrag,
   bucketVector,
+  intakeDrag,
   stepBucket,
   stepEngine,
   stepNozzle,
@@ -287,6 +289,31 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     const nozzleZ = -spec.length / 2 - spec.cog.z + 0.1;
     const nozzleY = keelY + 0.1;
     const wf = rotate(c.q, { x: bx, y: by, z: bz });
+    const r = rotate(c.q, { x: 0, y: nozzleY, z: nozzleZ });
+    fx += wf.x;
+    fy += wf.y;
+    fz += wf.z;
+    twx += r.y * wf.z - r.z * wf.y;
+    twy += r.z * wf.x - r.x * wf.z;
+    twz += r.x * wf.y - r.y * wf.x;
+  }
+  // WHAT THE DRIVE COSTS RATHER THAN GIVES, and both of it acts along the
+  // hull's own line at the transom: the INTAKE'S RAM DRAG — the momentum
+  // the duct takes out of a hull whose throttle is shut, which is what the
+  // rider feels the instant a thumb comes off — and the DEPLOYED BUCKET'S
+  // own drag as a plate hung in the water, which is most of the brake at
+  // speed because the reversed thrust above has almost nothing left to
+  // give there. Neither is aimed by the nozzle or turned by the gate
+  // (`propulsion.ts` says why), and both pull aft BELOW the centre of
+  // gravity, so each also puts the bow down — braking hard on a watercraft
+  // buries the nose, and now it does so for the reason it really does.
+  const dragAft =
+    intakeDrag(spec, density, c.rpm, throughWater, wet) +
+    bucketDrag(spec, density, c.bucket, throughWater, wet);
+  if (dragAft > 0) {
+    const nozzleZ = -spec.length / 2 - spec.cog.z + 0.1;
+    const nozzleY = keelY + 0.1;
+    const wf = rotate(c.q, { x: 0, y: 0, z: -dragAft });
     const r = rotate(c.q, { x: 0, y: nozzleY, z: nozzleZ });
     fx += wf.x;
     fy += wf.y;

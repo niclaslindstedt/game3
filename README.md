@@ -88,7 +88,7 @@ Open the printed URL. The game boots straight onto the water: seed 1's shore, th
 
 **Pausing** holds the run exactly where it stands — Escape, or a press on the minimap, which is the way in on a phone. RESUME comes back on the very frame it left; between it and MAIN MENU is a strip of the three settings a rider stops mid-run for — the camera, the HUD and the frame rate — with the rest left to OPTIONS on the front door, where the sea behind the card is still moving. MAIN MENU hands the craft back to the bot and comes back to the front door over the shore you were just on.
 
-**Touch:** the LOWER-LEFT of the screen is the handlebar — touch anywhere and move the thumb: sideways travel steers, vertical travel leans. The LOWER-RIGHT is the LEVER — a touch anchors it at its neutral and the throw runs both ways: dragging DOWN opens the throttle, full at about ninety pixels, and dragging UP pulls the brake and reverse instead, full at about sixty. Both are analogue, only one can be open at a time, and both are held while the finger is down and let go the moment it lifts. Both overlays are drawn under the thumb that owns them, and both stop at the lower three fifths of the screen so a press meant for the HUD's own buttons is not read as throttle. Works in portrait and landscape; the HUD re-flows to fit.
+**Touch:** the LOWER-LEFT of the screen is the handlebar — touch anywhere and move the thumb: sideways travel steers, vertical travel leans. The LOWER-RIGHT is the LEVER — and a touch anywhere in it is already WIDE OPEN, the way a watercraft's own sprung finger lever is: you hold the throttle on and ease it out to slow. The whole throw runs UP the glass from where you touched — about ninety pixels of it closes the throttle, and about sixty further pulls the brake and reverse. Both are analogue, only one can be open at a time, and both are held while the finger is down and let go the moment it lifts. Both overlays are drawn under the thumb that owns them, and both stop at the lower three fifths of the screen so a press meant for the HUD's own buttons is not read as throttle. Works in portrait and landscape; the HUD re-flows to fit.
 
 **Vibration:** on a phone the sea comes back through the motor — the bottom slapping the chop, every landing, every rock, sized by how hard the hull actually took it (OPTIONS ▸ RIDING ▸ VIBRATION, offered only where there is a motor to feel it with). In the store app the same table drives the phone's own haptic engine instead of the browser's buzz.
 
@@ -117,7 +117,7 @@ npm run sim -- --seeds 38,7 --craft marlin
 ## Troubleshooting
 
 - **Black canvas / WebGL errors** — the renderer needs WebGL2; check `chrome://gpu` or try another browser. The engine itself is fine — `make sim` runs without any GPU.
-- **The craft will not turn** — it is off the throttle. A jet ski steers by pointing its thrust; open the throttle.
+- **The craft will not turn** — it is off the throttle. A jet ski steers by pointing its thrust; open the throttle. Carrying too much speed for the buoy? Brake first and get back on the gas: the bucket is the one hand that scrubs speed and keeps the nozzle flowing.
 - **Every landing is a dive** — lean back off the ramp and level the hull before the water arrives.
 - **Stale build after deploy** — the service worker prompts before updating; if a prompt was dismissed, reload twice or clear site data.
 

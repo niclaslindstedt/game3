@@ -1,20 +1,13 @@
 ---
-title: Turn authority is a yaw-torque BALANCE, and `make ride SCENARIO=carve` cannot show it — bench the steady turn on a flat synthetic level instead
+title: Turn authority is a yaw-torque BALANCE against the hull's own weathervane — and the weathervane is NOT the knob
 date: 2026-09-09
 scope: engine/game/craft.ts, engine/game/defs/tuning.ts
 concepts: [steering, carve, yaw, nozzle, tuning]
 ---
 
-`SCENARIO=carve` rides a REAL sea: at speed the hull is airborne a fifth of
-the steps and `planing` collapses under half, so the strip shows a chaotic
-mix and not the turn. A claim about how hard the game turns is made on a
-flat bench — `syntheticLevel({ windSpeed: 0.01 })` with `sea: { hs: 0.01 }`,
-full lock and full throttle, averaged over the last seconds of a ten-second
-run — read as yaw rate, radius `v/wy`, lateral g `wy·v/9.81` and the time a
-180 takes. Quote g and the 180: a radius alone hides that the craft also
-accelerated.
-
-Then decompose. At steady state the driving terms (the nozzle's `T·sinδ·lever`,
+Benched flat (SKILL.md's flat bench — `SCENARIO=carve` rides a real sea and
+cannot show a turn), full lock and full throttle, decompose it. At steady
+state the driving terms (the nozzle's `T·sinδ·lever`,
 `pump.keelYaw`, `hull.carve`) balance against the hull's own weathervane
 moment — the lateral drag centre sitting aft of the CoG — plus
 `hull.rotDamp.y`. The weathervane is far the biggest and is NOT the knob:

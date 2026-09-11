@@ -732,6 +732,27 @@ export const TUNING = {
      * down — which is why braking hard on a watercraft buries the nose.
      * An ARCADE DIAL sized for that read, not a measured deflection. */
     bucketDown: 0.55,
+    /** THE GATE AS A PLATE IN THE WATER: its drag area (C_d·A) fully
+     * deployed, in multiples of the nozzle's own area, on a craft whose
+     * bucket takes the whole flow (`bucket.reverse` of 1) — `bucketDrag`
+     * scales it by both. It is quoted against the nozzle so a bigger pump
+     * carries a bigger gate without a second number per craft.
+     *
+     * WHY IT HAS TO EXIST. Jet thrust falls as the hull speeds up, so a
+     * brake built only out of reversed thrust is weakest exactly where a
+     * rider reaches for it: at the top of the range the gate was worth
+     * about a twentieth of a g, and dropping it at ninety was something a
+     * rider could not feel. A real gate is a bluff body hung in the stream
+     * and it bites as v², which is what lets a modern electronic brake
+     * roughly HALVE a stopping distance from fifty.
+     *
+     * MEASURED on the flat bench, full lock from a steady top speed, the
+     * skiff: it is worth about a fifth of a g at ninety and nothing at the
+     * walking pace reverse runs at. Sized so a braked stop lands at about
+     * half the coasting distance — the figure quoted for a real electronic
+     * brake — rather than to a deflection anyone has measured, so it is an
+     * ARCADE DIAL with a real shape rather than a coefficient. */
+    bucketDragArea: 1.1,
     /** How far the brake lever opens the throttle on its own, 0..1. The
      * bucket can only turn flow the pump is making, so pulling the lever
      * asks the engine for enough of it to stop with — which is exactly

@@ -103,6 +103,36 @@ skill owns adding one). The ones this skill reads most:
 change plausibly reaches, and put both tables in the PR. It drives the
 engine directly — no build, no browser, seconds.
 
+### The flat bench — where a NUMBER about the craft comes from
+
+`make ride` shows you what the hull was doing; it cannot give you a figure,
+because every scenario rides a REAL sea. At speed the hull is airborne a
+fifth of the steps and `planing` collapses under half, so a claim about how
+hard the craft turns, how fast it stops or how long it takes to get there
+is made on flat water or not at all.
+
+- **Inside the runner**, that is `syntheticLevel({ windSpeed: 0.01 })` with
+  `sea: { hs: 0.01 }` — the drag strip `tests/craft_test.ts` already uses.
+- **In a plain-Node bench** it cannot be: `tests/support/synthetic.ts`
+  imports `vitest` and resolves `@engine`, so a scratch script has to ride a
+  GENERATED level with `createGame({ level, windSpeed: 0.01, sea: { hs: 0.01 }, assist: 0 })`.
+  Stage it at the course path's point of greatest `sampleField(level.offshore, …)`
+  and head ALONG the offshore contour (the gradient there by central
+  difference, `Math.atan2(gz, -gx)`). Staging at `level.start` on
+  `level.start.heading` instead runs the hull ashore inside ten seconds, and
+  what comes back is a craft grounding at 25 km/h reported as a
+  deceleration — with every hand measuring the same, because beaching is
+  what stopped all of them.
+- **Spin up before measuring.** `placeRun`'s `speed` is a placement, not a
+  trimmed-out hull; give it ~14 s at full throttle first or the figure is a
+  craft still accelerating.
+- **Quote a rate at a FIXED TIME and a time to half** — g at 0.5 s and 1 s,
+  then seconds and metres to half speed. An average to a full stop is mostly
+  the v² tail (a craft sits above walking pace for the best part of a minute),
+  and half speed is what a rider actually feels going into a buoy. For a
+  turn, quote lateral g and the time a 180 takes beside the radius: a radius
+  alone hides that the craft also accelerated.
+
 ## The rules
 
 - **THE HULL FLOATS AT THE DRAFT ITS NUMBERS IMPLY.** Mass over displacement
