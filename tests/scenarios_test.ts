@@ -8,6 +8,10 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  STORM_HS,
+  STORM_NEAR_HS,
+  STORM_NEAR_REACH,
+  STORM_REACH,
   TUNING,
   createGame,
   oceanOut,
@@ -69,10 +73,11 @@ describe("the scenario list", () => {
       expect(Number.isFinite(s.moment.z)).toBe(true);
       expect(Number.isFinite(s.moment.heading)).toBe(true);
       expect(s.seconds).toBeGreaterThan(0);
-      // ...every scene but `ocean`, which is the one that stands the craft
-      // OUT past the rim on purpose, in the storm the coast shelters it
-      // from (`engine/game/ocean.ts`).
-      if (name === "ocean") continue;
+      // ...every scene but the two that stand the craft OUT past the rim on
+      // purpose: `ocean` at the storm ladder's first rung, the sea the
+      // coast shelters the course from, and `maelstrom` at its top
+      // (`engine/game/ocean.ts`).
+      if (name === "ocean" || name === "maelstrom") continue;
       const b = LEVEL.bounds;
       expect(s.moment.x).toBeGreaterThanOrEqual(b.minX);
       expect(s.moment.x).toBeLessThanOrEqual(b.maxX);
@@ -81,13 +86,30 @@ describe("the scenario list", () => {
     }
   });
 
-  it("stands `ocean` out in the open sea, in the full storm", () => {
+  it("stands `maelstrom` at the top of the ladder, in the thousand-metre sea", () => {
+    const state = fresh();
+    const s = scenarioFor(state, "maelstrom");
+    expect(oceanOut(LEVEL.bounds, s.moment.x, s.moment.z)).toBeGreaterThanOrEqual(STORM_REACH);
+    expect(stormAt(LEVEL.bounds, s.moment.x, s.moment.z)).toBe(1);
+    expect(seaSummary(state.sea, s.moment.x, s.moment.z).Hs).toBeCloseTo(STORM_HS, 6);
+  });
+
+  it("stands `ocean` out in the open sea, at the storm ladder's first rung", () => {
     const state = fresh();
     const s = scenarioFor(state, "ocean");
     const past = oceanOut(LEVEL.bounds, s.moment.x, s.moment.z);
-    expect(past).toBeGreaterThanOrEqual(TUNING.sea.open.reach);
-    expect(stormAt(LEVEL.bounds, s.moment.x, s.moment.z)).toBe(1);
-    expect(seaSummary(state.sea, s.moment.x, s.moment.z).Hs).toBeCloseTo(TUNING.sea.open.hs, 6);
+    expect(past).toBeGreaterThanOrEqual(STORM_NEAR_REACH);
+    // The ladder climbs for two hundred kilometres past here, so the ramp
+    // is a fraction rather than 1 — what a staged moment wants is the storm
+    // a rider can actually reach, and the height it stands at there. The
+    // walk out stops on the first step that clears the rim, so the moment
+    // is that rung or a stride past it, never short of it.
+    expect(stormAt(LEVEL.bounds, s.moment.x, s.moment.z)).toBeGreaterThanOrEqual(
+      STORM_NEAR_HS / STORM_HS,
+    );
+    const { Hs } = seaSummary(state.sea, s.moment.x, s.moment.z);
+    expect(Hs).toBeGreaterThanOrEqual(STORM_NEAR_HS);
+    expect(Hs).toBeLessThan(STORM_NEAR_HS * 1.1);
   });
 });
 

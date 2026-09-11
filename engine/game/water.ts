@@ -24,8 +24,8 @@
 //   in `fetch.ts`, and the component amplitudes are laid over the JONSWAP
 //   shape (γ is `TUNING.sea.peakEnhancement`) and normalised so that
 //   4·√m0 = Hs.
-// - THERE ARE THREE BANDS, because there are three kinds of water a rider
-//   can reach and they do not carry the same waves.
+// - THERE ARE THREE KINDS OF BAND, because there are three kinds of water a
+//   rider can reach and they do not carry the same waves.
 //
 //     THE OCEAN BAND is the sea the wind has grown over the whole fetch
 //     of the coast this level is a piece of — the long, ordered thing a
@@ -43,17 +43,22 @@
 //     the two never double-count, and it is what a river actually has —
 //     a ripple a couple of metres long, not a swell that came up it.
 //
-//     THE OPEN BAND is the storm out past the edge of the built level
-//     (`ocean.ts`). Seaward of the grid there is no coast left to shelter
-//     anything and no fetch left to grow a sea over, so this one is QUOTED
-//     rather than grown — `TUNING.sea.open.hs`, at the period
-//     `periodForHeight` gives it — and its share rises with the storm's
-//     ramp while the OCEAN band's falls away, so the sea a rider is in
-//     grows steadily from the coast's own to twenty metres the further out
-//     he holds the throttle open. Inside the level its share is exactly
-//     zero and it costs one comparison per sample.
+//     THE OPEN BANDS are the storm out past the edge of the built level
+//     (`ocean.ts`) — one band per rung of `TUNING.sea.open.ladder`, from
+//     the twenty-metre sea a couple of kilometres out to the thousand-metre
+//     one two hundred kilometres past it. Seaward of the grid there is no
+//     coast left to shelter anything and no fetch left to grow a sea over,
+//     so these are QUOTED rather than grown, each at its own height and the
+//     period `periodForHeight` gives THAT height — which is the whole
+//     reason there is a rung per height rather than one band scaled up and
+//     down (`SeaBand`). Their shares rise along the ladder while the OCEAN
+//     band's falls away over the first rung, so the sea a rider is in grows
+//     steadily the further out he holds the throttle open. Inside the level
+//     every one of their shares is exactly zero, and the whole ladder costs
+//     ONE comparison per sample, because `surfaceAt` walks the field band
+//     by band and skips a band rather than a component.
 //
-//   Neither the local nor the open band carries a phase field. A five-metre
+//   Neither the local nor the open bands carry a phase field. A five-metre
 //   wave feels the bottom only in water a hull is already aground in, and
 //   the open ocean has no bed worth refracting over, so both are plane
 //   waves — a field sample per component saved in the hottest loop here.
@@ -69,14 +74,13 @@
 //   baked current to what it reports. Everything that asks the water how
 //   fast it is going — the hull's drag, the spray, the wake — therefore
 //   feels the river drift the craft without knowing there is a river.
-// - Each component keeps ONE frequency and lets its wavenumber follow
-//   the depth through the dispersion relation ω² = g·k·tanh(k·d) (Airy;
-//   Fenton & McKee 1990's explicit solution). Its PHASE over the level is
-//   the eikonal |∇φ| = k(d), solved over the grid at build time: the
-//   wavelength shortens toward the shore, the crests turn with the bed
-//   (refraction) and bend in round a headland and through a river mouth
-//   (diffraction's kinematics), and the local wave vector — what the
-//   slope and the orbital motion follow — is that field's gradient.
+// - WHAT THE BED DOES to a component — the dispersion relation its
+//   wavenumber follows, the shoaling that grows it, the depth table both
+//   are precomputed into, and the eikonal phase field that turns its crests
+//   toward the shallows and wraps them into a river mouth — is
+//   `wave-bed.ts`, which is the half of this model that reads the ground.
+//   Each component keeps ONE frequency; everything else about it follows
+//   the depth at the point it is sampled at.
 // - THE BED GOES ON PAST THE GRID. The depth every term here reads is
 //   `oceanDepth` (`ocean.ts`): the level's own bed inside the grid, falling
 //   on to the open ocean's floor outside it, because the sampler's clamped
@@ -91,28 +95,26 @@
 //   fully developed law and by the depth under it, nothing else: a run
 //   handed a SEA OVERRIDE (`SeaOverride` — a swell quoted by its height
 //   rather than grown from the wind) can stand a twenty-metre sea over deep
-//   water, and so can a rider who simply rides out to the open band's
-//   storm. Every term here — the depth table, the phase field, the orbital
-//   velocity — is sized to carry it (`tests/waves_test.ts`'s storm case).
+//   water, and a rider who simply rides out far enough meets a thousand.
+//   Every term here — the depth table, the phase field, the orbital
+//   velocity — is sized to carry it (`tests/waves_test.ts`'s storm case
+//   and its ladder cases).
 //
 // Deterministic: the seed fixes the phases and the directional draws, and
 // t is the only clock.
 
-import {
-  createHeightfield,
-  sampleField,
-  sampleFieldGradient,
-  type Heightfield,
-} from "../lib/heightfield.ts";
+import { sampleField, sampleFieldGradient, type Heightfield } from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
 import { createRng, type Rng } from "../lib/prng.ts";
 import { flowAt } from "../mapgen/flow.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, effectiveFetch, fetchHeight, fetchPeriod, type Shelter } from "./fetch.ts";
-import { oceanDepth, oceanOffset, stormAt, stormRamp } from "./ocean.ts";
+import { coastAstern, oceanDepth, oceanOffset, oceanOut, stormRamp } from "./ocean.ts";
+import { buildPhaseField, buildTable, tableAt } from "./wave-bed.ts";
 
 const S = TUNING.sea;
+const O = TUNING.sea.open;
 const G = TUNING.g;
 
 /** WHICH SEA a component belongs to, and so which share it stands at —
@@ -123,6 +125,11 @@ export type WaveBand = "ocean" | "local" | "open";
 export type WaveComponent = {
   /** Which of the three seas it is part of. */
   readonly band: WaveBand;
+  /** ...and WHICH BAND, as a position in `SeaState.bands`: there is one
+   * ocean band and one local band, and one open band per rung of the storm
+   * ladder. `surfaceAt` reads the band's share by this index rather than by
+   * comparing the name. */
+  readonly bandIndex: number;
   /** Angular frequency, rad/s, and the deep-water wavenumber, rad/m. */
   readonly omega: number;
   readonly k0: number;
@@ -141,9 +148,9 @@ export type WaveComponent = {
    * stands in ocean the level's grid does not cover: both read the
    * deep-water plane wave k₀·(d̂·x) instead. */
   readonly phaseField: Heightfield | null;
-  /** Per depth row (`TUNING.sea.tableStep` apart): local wavenumber k
-   * (rad/m), shoaling coefficient Ks, and coth(k·d) for the orbital
-   * velocity — three floats a row. */
+  /** Per depth row (row `i` at (i·`TUNING.sea.tableRoot`)² metres): local
+   * wavenumber k (rad/m), shoaling coefficient Ks, and coth(k·d) for the
+   * orbital velocity — three floats a row. */
   readonly table: Float32Array;
 };
 
@@ -178,16 +185,45 @@ export type SeaState = {
    * mean wind. `chop` is a share of `localHs`. */
   readonly localHs: number;
   readonly localTp: number;
-  /** ...and the OPEN band's, the storm past the level's rim (`ocean.ts`):
-   * the height it is quoted at, m, and the period that height earns. 0 on a
-   * calm level, which has no storm out at sea. */
+  /** ...and the TOP of the storm ladder past the level's rim (`ocean.ts`):
+   * the height the biggest open band is quoted at, m, and the period that
+   * height earns. 0 on a calm level, which has no storm out at sea. */
   readonly openHs: number;
   readonly openTp: number;
+  /** Every band of the field: the ocean's, the local one, and one per rung
+   * of the storm ladder. `surfaceAt` walks THIS and skips a whole band
+   * whose share is nothing — which is every open band on every sample a
+   * course is ridden over, and most of the cost of carrying a ladder that
+   * only stands kilometres out at sea. */
+  readonly bands: readonly SeaBand[];
   /** Every component of every band, LONGEST FIRST — an order `surfaceAt`'s
    * `count` depends on, since a caller asking for the first few components
-   * is asking for the swell, and the open band's storm swell is the longest
-   * thing in the field. Each one says which band it belongs to. */
+   * is asking for the swell, and the storm's swell is the longest thing in
+   * the field. Each one says which band it belongs to. */
   readonly components: readonly WaveComponent[];
+};
+
+/** ONE BAND of the field: the sea it was quoted at, and where its
+ * components sit in `SeaState.components`.
+ *
+ * The ocean band is the coast's own sea and the local band is the chop on
+ * water it cannot reach; the rest are the STORM LADDER's rungs
+ * (`TUNING.sea.open.ladder`), one band each. A ladder rather than one big
+ * band because a sea quoted by its height takes its WAVELENGTH from that
+ * height (`periodForHeight`), so a single band laid at the thousand-metre
+ * top rung and scaled down to the twenty-metre sea a rider meets two
+ * kilometres out would deal him a thirteen-kilometre wave with a fiftieth
+ * of its proper face — an ocean tilting, not a wave. Each rung carries its
+ * own height at its own steepness, and neighbouring rungs hand over on the
+ * HEIGHT the way the coast's sea and the storm already do. */
+export type SeaBand = {
+  readonly kind: WaveBand;
+  /** The significant height, m, and peak period, s, the band was laid at. */
+  readonly hs: number;
+  readonly tp: number;
+  /** Positions in `SeaState.components` — which is sorted by wavenumber, so
+   * a band's components are scattered through it. */
+  readonly at: Int32Array;
 };
 
 /** What `surfaceAt` fills: the surface height, its unit normal, and the
@@ -222,208 +258,6 @@ function jonswap(w: number, wp: number): number {
   return Math.pow(w, -5) * Math.exp(-1.25 * Math.pow(wp / w, 4)) * Math.pow(S.peakEnhancement, r);
 }
 
-/** Local wavenumber for frequency `omega` in depth `d`, rad/m: Fenton &
- * McKee (1990)'s explicit fit to ω² = g·k·tanh(k·d), within 1.7% of the
- * exact root everywhere and exact in both limits. */
-export function wavenumber(omega: number, d: number): number {
-  const k0 = (omega * omega) / G;
-  const depth = Math.max(d, S.minDepth);
-  const t = Math.tanh(Math.pow(k0 * depth, 0.75));
-  return k0 / Math.pow(t, 2 / 3);
-}
-
-/** Linear shoaling coefficient Ks = √(cg₀/cg) for wavenumber `k` at depth
- * `d`: the amplitude grows as the group velocity slows over a rising bed
- * (energy flux conserved; Dean & Dalrymple 1991 §5). */
-export function shoaling(omega: number, k: number, d: number): number {
-  const kd = k * Math.max(d, S.minDepth);
-  const n = 0.5 * (1 + (2 * kd) / Math.sinh(2 * kd));
-  const cg = (n * omega) / k;
-  const cg0 = G / (2 * omega);
-  return Math.sqrt(cg0 / cg);
-}
-
-function buildTable(omega: number): Float32Array {
-  const rows = Math.floor(S.tableDepth / S.tableStep) + 1;
-  const table = new Float32Array(rows * 3);
-  for (let i = 0; i < rows; i++) {
-    const d = Math.max(i * S.tableStep, S.minDepth);
-    const k = wavenumber(omega, d);
-    table[i * 3] = k;
-    table[i * 3 + 1] = shoaling(omega, k, d);
-    table[i * 3 + 2] = 1 / Math.tanh(k * d);
-  }
-  return table;
-}
-
-/** Read a component's depth table at `d`, linearly between rows. */
-function tableAt(table: Float32Array, d: number, out: Float64Array): void {
-  const rows = table.length / 3;
-  const f = clamp(d / S.tableStep, 0, rows - 1);
-  const i0 = Math.floor(f);
-  const i1 = Math.min(i0 + 1, rows - 1);
-  const t = f - i0;
-  for (let j = 0; j < 3; j++) {
-    const a = table[i0 * 3 + j];
-    out[j] = a + (table[i1 * 3 + j] - a) * t;
-  }
-}
-
-/** How many times the four sweep orders are run. Two rounds settle every
- * exposed cell of a generated level to a thousandth of a radian of what
- * eight give; what is still moving after that is deep in a lee, where no
- * sea stands. */
-const PHASE_ROUNDS = 2;
-
-/** The spatial phase of one component over the level: the EIKONAL
- * |∇φ| = k(d), solved over the grid by fast sweeping (Zhao 2005) —
- * Godunov's upwind update at every cell, in each of the four sweep
- * orders, `PHASE_ROUNDS` times. The deep-water plane wave k₀·(d̂·x) flows
- * in over the rims the component travels in across; land is impassable
- * and takes no part. What comes out is the FIRST-ARRIVAL phase, which is what a
- * wave field does with a bed and a coast: it shortens with the depth,
- * turns toward the shallows (refraction), and wraps round a headland and
- * in through a river mouth as arcs about the corner — diffraction's
- * kinematics; how MUCH gets in is the exposure's question (`fetch.ts`).
- * Where two arrivals meet in a lee the field creases, as two crossing
- * trains do.
- *
- * Integrating k·ds along a fixed heading instead carries every shoal's
- * delay forever downwind of it as an offset between neighbouring paths,
- * and the lateral gradient of that offset is a wavenumber the wave never
- * had: a swell three times too short, crawling sideways, in the lee of
- * every reef and either side of every river mouth. */
-function buildPhaseField(
-  ground: Heightfield,
-  table: Float32Array,
-  k0: number,
-  dirX: number,
-  dirZ: number,
-): Heightfield {
-  const field = createHeightfield(
-    ground.originX,
-    ground.originZ,
-    ground.cell,
-    ground.cols,
-    ground.rows,
-  );
-  const { cols, rows, cell, data } = field;
-  const n = cols * rows;
-  // What a cell adds to the phase, k(d)·cell — or −1 on land.
-  const stepAt = new Float32Array(n);
-  const row = new Float64Array(3);
-  for (let i = 0; i < n; i++) {
-    const depth = -ground.data[i];
-    if (depth <= 0) {
-      stepAt[i] = -1;
-      continue;
-    }
-    tableAt(table, depth, row);
-    stepAt[i] = row[0] * cell;
-  }
-  // The deep-water plane wave at cell (c, r) — the grid's cells and the
-  // ring just outside it alike.
-  const plane = (c: number, r: number): number =>
-    k0 * (dirX * (field.originX + c * cell) + dirZ * (field.originZ + r * cell));
-  // The phase just past each rim: the plane wave on the sides the wave
-  // comes IN over, nothing on the sides it leaves by — a rim it is
-  // leaving must not hand it an undelayed phase back. The rim is where
-  // the deep water is (R3's bed keeps falling to seaward), so the plane
-  // wave is the wave there; a rim stood in water a component can feel the
-  // bottom of refracts it at the rim itself, which is what the synthetic
-  // level's deep variant is for.
-  const west = new Float64Array(rows);
-  const east = new Float64Array(rows);
-  const south = new Float64Array(cols);
-  const north = new Float64Array(cols);
-  for (let r = 0; r < rows; r++) {
-    west[r] = dirX > 0 ? plane(-1, r) : Infinity;
-    east[r] = dirX < 0 ? plane(cols, r) : Infinity;
-  }
-  for (let c = 0; c < cols; c++) {
-    south[c] = dirZ > 0 ? plane(c, -1) : Infinity;
-    north[c] = dirZ < 0 ? plane(c, rows) : Infinity;
-  }
-  data.fill(Infinity);
-  // The component's own quadrant first: one sweep settles every cell a
-  // wave reaches without turning through more than a right angle, and the
-  // other three orders pick up what bends further round.
-  const sxs = dirX >= 0 ? [1, -1, 1, -1] : [-1, 1, -1, 1];
-  const szs = dirZ >= 0 ? [1, 1, -1, -1] : [-1, -1, 1, 1];
-  for (let round = 0; round < PHASE_ROUNDS; round++) {
-    for (let s = 0; s < 4; s++) {
-      const sx = sxs[s];
-      const sz = szs[s];
-      for (let i = 0; i < rows; i++) {
-        const r = sz > 0 ? i : rows - 1 - i;
-        const base = r * cols;
-        for (let j = 0; j < cols; j++) {
-          const c = sx > 0 ? j : cols - 1 - j;
-          const at = base + c;
-          const step = stepAt[at];
-          if (step < 0) continue;
-          const w = c > 0 ? data[at - 1] : west[r];
-          const e = c < cols - 1 ? data[at + 1] : east[r];
-          const so = r > 0 ? data[at - cols] : south[c];
-          const no = r < rows - 1 ? data[at + cols] : north[c];
-          const a = w < e ? w : e;
-          const b = so < no ? so : no;
-          const lo = a < b ? a : b;
-          if (lo === Infinity) continue;
-          // Godunov: the two-sided solution when both neighbours are close
-          // enough to share the front, the one-sided step when they are not.
-          const diff = a > b ? a - b : b - a;
-          const phi =
-            diff >= step ? lo + step : 0.5 * (a + b + Math.sqrt(2 * step * step - diff * diff));
-          if (phi < data[at]) data[at] = phi;
-        }
-      }
-    }
-  }
-  // What the sweep never reached — the land, and any water no path from
-  // the sea gets to — carries the finished water beside it on, at that
-  // water's own rate along the heading, two cells out: a sample in the
-  // last metres before a beach is bilinear, and mixes the water's cell
-  // with the land's, so it has to find a wave there and not a cliff. Past
-  // that, the deep-water plane wave; nothing rides it.
-  const stepOf = (at: number): number => (stepAt[at] >= 0 ? stepAt[at] : k0 * cell);
-  for (let pass = 0; pass < 2; pass++) {
-    const before = data.slice();
-    for (let r = 0; r < rows; r++) {
-      for (let c = 0; c < cols; c++) {
-        const at = r * cols + c;
-        if (before[at] !== Infinity) continue;
-        let sum = 0;
-        let count = 0;
-        if (c > 0 && before[at - 1] !== Infinity) {
-          sum += before[at - 1] + stepOf(at - 1) * dirX;
-          count++;
-        }
-        if (c < cols - 1 && before[at + 1] !== Infinity) {
-          sum += before[at + 1] - stepOf(at + 1) * dirX;
-          count++;
-        }
-        if (r > 0 && before[at - cols] !== Infinity) {
-          sum += before[at - cols] + stepOf(at - cols) * dirZ;
-          count++;
-        }
-        if (r < rows - 1 && before[at + cols] !== Infinity) {
-          sum += before[at + cols] - stepOf(at + cols) * dirZ;
-          count++;
-        }
-        if (count > 0) data[at] = sum / count;
-      }
-    }
-  }
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const at = r * cols + c;
-      if (data[at] === Infinity) data[at] = plane(c, r);
-    }
-  }
-  return field;
-}
-
 /** Lay one band of components over a JONSWAP spectrum: `n` of them,
  * log-spaced over `[low, high]` multiples of the peak, travelling `travel`
  * with a cos² directional spread about it (Longuet-Higgins et al. 1963,
@@ -436,6 +270,7 @@ function buildPhaseField(
 function layBand(
   rng: Rng,
   band: WaveBand,
+  bandIndex: number,
   hs: number,
   tp: number,
   n: number,
@@ -469,6 +304,7 @@ function layBand(
     const table = buildTable(c.omega);
     return {
       band,
+      bandIndex,
       omega: c.omega,
       k0,
       dirX,
@@ -514,6 +350,7 @@ export function createSea(
   const ocean = layBand(
     rng,
     "ocean",
+    0,
     hsRef,
     tp,
     S.components,
@@ -531,6 +368,7 @@ export function createSea(
   const local = layBand(
     rng,
     "local",
+    1,
     localHs,
     localTp,
     S.localComponents,
@@ -540,35 +378,62 @@ export function createSea(
     null,
   );
 
-  // ── The open band ─────────────────────────────────────────────────────
-  // The storm past the edge of the level (`ocean.ts`). Quoted by its HEIGHT
-  // and not grown, because out there the fetch law has nothing left to say:
-  // the coast the level is a piece of is kilometres astern and the sea is
-  // whatever weather the game says is out at sea. A sea quoted by its
-  // height takes its period — and so its WAVELENGTH, and so the angle of
-  // the face, which is what a rider reads — from `sea.steepness`, exactly
-  // as a `SeaOverride` does. A run already handed a bigger sea than the
-  // storm keeps it rather than riding out into calmer water.
+  // ── The open bands: the STORM LADDER ──────────────────────────────────
+  // The storm past the edge of the level (`ocean.ts`), one band per rung of
+  // `TUNING.sea.open.ladder`. Quoted by their HEIGHT and not grown, because
+  // out there the fetch law has nothing left to say: the coast the level is
+  // a piece of is kilometres astern and the sea is whatever weather the
+  // game says is out at sea. A sea quoted by its height takes its period —
+  // and so its WAVELENGTH, and so the angle of the face, which is what a
+  // rider reads — from `sea.steepness`, exactly as a `SeaOverride` does,
+  // which is the whole reason there is a rung per height rather than one
+  // band scaled up and down (`SeaBand`). A run already handed a bigger sea
+  // than a rung keeps its own rather than riding out into calmer water.
   //
   // Drawn LAST so that every component of the other two bands, and every
   // digest that replays one, is the draw it always was; a calm level gets
   // no storm at all, which keeps "zero wind is zero sea" true out here too.
-  const openHs = u > 0 ? Math.max(S.open.hs, hsRef) : 0;
-  const openTp = periodForHeight(openHs);
-  const open =
-    openHs > 0
-      ? layBand(
+  const rungs: { hs: number; tp: number; comps: WaveComponent[] }[] = [];
+  if (u > 0) {
+    for (const [, rungHs] of O.ladder) {
+      const hs = Math.max(rungHs, hsRef);
+      const rungTp = periodForHeight(hs);
+      rungs.push({
+        hs,
+        tp: rungTp,
+        comps: layBand(
           rng,
           "open",
-          openHs,
-          openTp,
+          2 + rungs.length,
+          hs,
+          rungTp,
           S.components,
           S.bandLow,
-          Math.max(S.bandHigh, openTp / S.minPeriod),
+          O.bandHigh,
           travel,
           null,
-        )
-      : [];
+        ),
+      });
+    }
+  }
+  const top = rungs[rungs.length - 1];
+
+  // Longest first across every band: the storm's swell reaches kilometres
+  // and the local band's chop stops at two metres, so only a sort puts "the
+  // first few components" and "the swell" back together. Inside a level
+  // every open band's share is 0 and the whole ladder is skipped, so the
+  // sum a coast's water returns is term for term the one it returned before
+  // there was an ocean beyond the rim.
+  const components = [...ocean, ...local, ...rungs.flatMap((r) => r.comps)].sort(
+    (a, b) => a.k0 - b.k0,
+  );
+  const bandOf = (index: number, kind: WaveBand, hs: number, bandTp: number): SeaBand => {
+    const at: number[] = [];
+    for (let i = 0; i < components.length; i++) {
+      if (components[i].bandIndex === index) at.push(i);
+    }
+    return { kind, hs, tp: bandTp, at: Int32Array.from(at) };
+  };
 
   return {
     windSpeed: u,
@@ -580,67 +445,174 @@ export function createSea(
     tp,
     localHs,
     localTp,
-    openHs,
-    openTp,
-    // Longest first across all three bands: the open band's storm swell
-    // reaches past four hundred metres and the local band's chop stops at
-    // two, so only a sort puts "the first few components" and "the swell"
-    // back together. Inside a level the open band's share is 0 and every
-    // one of its components is skipped, so the sum a coast's water returns
-    // is term for term the one it returned before there was a storm.
-    components: [...ocean, ...local, ...open].sort((a, b) => a.k0 - b.k0),
+    openHs: top ? top.hs : 0,
+    openTp: top ? top.tp : periodForHeight(0),
+    bands: [
+      bandOf(0, "ocean", hsRef, tp),
+      bandOf(1, "local", localHs, localTp),
+      ...rungs.map((r, i) => bandOf(2 + i, "open", r.hs, r.tp)),
+    ],
+    components,
   };
 }
 
-/** What share of each band stands at a plan point.
+/** What share the three KINDS of band stand at at a plan point: the coast's
+ * own sea, the chop on water it cannot reach, and the storm ladder as a
+ * whole — the open rungs summed in energy and quoted as a fraction of the
+ * ladder's top, so the number still reads "how much of the full storm
+ * stands here".
  *
- * Across the coast, the OCEAN band's is the point's exposure to the open
- * sea and the LOCAL band's is what is left over, times the chop the
- * sheltered wind grows on the point's own water: they partition rather than
- * add, so no water is dealt two seas.
- *
- * Out past the level's rim the OPEN band takes over from the ocean band on
- * the storm's ramp (`ocean.ts`), and the handover is written so that the
- * SIGNIFICANT HEIGHT grows straight from the coast's own sea to the storm's
- * `openHs` — the ocean band fades by `1 − storm` and the open band's share
- * is whatever carries the rest of the height in energy. That keeps the sea
- * building monotonically the whole way out instead of dipping where the two
- * spectra cross, and it is why the open band has no share of its own to
- * tune. `storm` is 0 everywhere inside a level, so all three shares there
- * are exactly what they were before there was an ocean beyond the rim. */
+ * `fillShares` below is where all of it is decided, rung by rung; this is
+ * the reading of it a lab or a test wants. `storm` is 0 everywhere inside a
+ * level, so the three shares there are exactly what they were before there
+ * was an ocean beyond the rim. */
 export function seaShares(
   sea: SeaState,
   x: number,
   z: number,
-  storm: number = stormAt(sea.bounds, x, z),
+  out: number = oceanOut(sea.bounds, x, z),
 ): { ocean: number; local: number; open: number } {
-  const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
-  const local = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
-  if (storm <= 0) return { ocean: exposure, local, open: 0 };
-  // The coast's own sea here, what is left of it, and the height the storm
-  // has to make up: Hs² = (coast carried)² + (openHs · open)².
-  const coast = sea.hsRef * exposure;
-  const carried = coast * (1 - storm);
-  const target = coast + Math.max(0, sea.openHs - coast) * storm;
-  const open =
-    sea.openHs > 0 ? Math.sqrt(Math.max(0, target * target - carried * carried)) / sea.openHs : 0;
-  return { ocean: exposure * (1 - storm), local, open };
+  fillShares(sea, x, z, out, shares);
+  let openHs = 0;
+  for (let b = 2; b < sea.bands.length; b++) {
+    const hs = shares[b] * sea.bands[b].hs;
+    openHs += hs * hs;
+  }
+  return {
+    ocean: shares[0],
+    local: shares[1],
+    open: sea.openHs > 0 ? Math.sqrt(openHs) / sea.openHs : 0,
+  };
 }
 
-/** The sea's headline numbers at a plan point: significant height (m — the
- * three bands summed in energy, before the bed clips them) and the peak
- * period (s) of whichever band is carrying the most of it there. Which is
- * why a river reads a tenth of a metre at a second and a half where the
- * water off the beach reads a metre and a half at four, and why two
- * kilometres out to sea reads twenty metres at twelve. */
+/** `seaSummary` for the STORM ALONE — the open bands of the ladder summed in
+ * energy, at the period of whichever rung is carrying them, and nothing of
+ * the coast's own sea. Both 0 everywhere inside a level, which is what lets
+ * a caller take the bigger of this and the level's own headline sea and
+ * change nothing about any water a course is ridden over.
+ *
+ * It is what a renderer needs to judge a crest out there: how high a wave
+ * stands, and how steep it is, are both read against the sea it stands IN,
+ * and thresholds set by a one-metre coastal swell paint a thousand-metre
+ * sea entirely white. Written into `out` rather than returned, so the water
+ * mesh can ask once a frame without allocating. */
+export function stormSeaAt(
+  sea: SeaState,
+  x: number,
+  z: number,
+  out: { Hs: number; Tp: number },
+): { Hs: number; Tp: number } {
+  fillShares(sea, x, z, oceanOut(sea.bounds, x, z), shares);
+  let m0 = 0;
+  let biggest = 0;
+  out.Tp = 0;
+  for (let b = 2; b < sea.bands.length; b++) {
+    const hs = shares[b] * sea.bands[b].hs;
+    m0 += hs * hs;
+    if (hs >= biggest) {
+      biggest = hs;
+      out.Tp = sea.bands[b].tp;
+    }
+  }
+  out.Hs = Math.sqrt(m0);
+  if (out.Hs <= 0) out.Tp = 0;
+  return out;
+}
+
+/** The share every band of the field stands at at a plan point, by the same
+ * index as `SeaState.bands` — the whole handover, rung by rung, rather than
+ * `seaShares`' reading of it in three numbers. Allocates, so it is for a
+ * lab or a test asking which rung of the storm ladder is carrying the sea,
+ * never for the hull or the water mesh. */
+export function seaBandShares(sea: SeaState, x: number, z: number): Float64Array {
+  fillShares(sea, x, z, oceanOut(sea.bounds, x, z), shares);
+  return shares.slice(0, sea.bands.length);
+}
+
+/** The share EVERY band stands at, written into `out` by band index — the
+ * one place the handover between the coast's sea and the storm ladder is
+ * decided, read by `seaShares`, `seaSummary` and `surfaceAt` alike.
+ *
+ * Across the coast it is the partition above: exposure to the ocean band,
+ * what is left over to the local one. Out past the rim the ocean band fades
+ * by `1 − storm` and the LADDER makes up the rest of the height in energy:
+ * Hs² = (coast carried)² + Σ (rung hs · its share)². That keeps the sea
+ * building monotonically the whole way out instead of dipping where two
+ * spectra cross, and it is why no open band has a share of its own to tune.
+ *
+ * WHICH rungs carry it is the second half. The ramp is the ladder's own
+ * height profile (`stormRamp`), so the height standing here sits between
+ * two rungs, and those two — and only those two — share the energy, by how
+ * far between them it is. Below the first rung that rung takes all of it,
+ * which is exactly what the single open band did before there was a ladder.
+ * The wavelength a rider reads therefore walks up the ladder with the
+ * height rather than jumping between rungs.
+ *
+ * Writes rather than returns: `surfaceAt` calls it tens of thousands of
+ * times a frame under the renderer's water grid. */
+function fillShares(sea: SeaState, x: number, z: number, past: number, out: Float64Array): void {
+  const bands = sea.bands;
+  out.fill(0, 0, bands.length);
+  const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
+  out[1] = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
+  if (past <= 0 || bands.length <= 2 || sea.openHs <= 0) {
+    out[0] = exposure;
+    return;
+  }
+  // The coast's own sea, fading out as the coast goes ASTERN — the short
+  // ramp, done with by the ladder's first rung — and the storm standing
+  // over it, which is the ladder's own height (`stormRamp` is its profile).
+  const astern = coastAstern(past);
+  const coast = sea.hsRef * exposure;
+  const carried = coast * (1 - astern);
+  out[0] = exposure * (1 - astern);
+  const storm = stormRamp(past);
+  // Hs² = carried² + need², and the sea here is what is left of the coast's
+  // plus the storm over it — so at every rung, where the coast is long
+  // gone, the sea is that rung's own authored metre and nothing else.
+  const target = carried + sea.openHs * storm;
+  const need = Math.sqrt(Math.max(0, target * target - carried * carried));
+  if (need <= 0) return;
+  // WHICH rungs carry it. Each rung's own place on the ramp is its height
+  // over the ladder's top, by construction of `stormRamp`, so the height
+  // standing here sits between two of them — and those two share it.
+  let r = 2;
+  let below = 0;
+  while (r < bands.length - 1 && storm > bands[r].hs / sea.openHs) {
+    below = bands[r].hs / sea.openHs;
+    r++;
+  }
+  const here = bands[r].hs / sea.openHs;
+  const f = r === 2 ? 1 : clamp((storm - below) / (here - below), 0, 1);
+  // Energy, not height: two rungs at f and 1 − f of it carry exactly `need`
+  // between them, whatever their own quoted heights are.
+  out[r] = (need * Math.sqrt(f)) / bands[r].hs;
+  if (f < 1) out[r - 1] = (need * Math.sqrt(1 - f)) / bands[r - 1].hs;
+}
+
+/** The sea's headline numbers at a plan point: significant height (m — every
+ * band summed in energy, before the bed clips them) and the peak period (s)
+ * of whichever band is carrying the most of it there. Which is why a river
+ * reads a tenth of a metre at a second and a half where the water off the
+ * beach reads a metre and a half at four, why two kilometres out to sea
+ * reads twenty metres at twelve, and why two hundred kilometres out it
+ * reads a thousand metres at eighty-four. */
 export function seaSummary(sea: SeaState, x: number, z: number): { Hs: number; Tp: number } {
-  const { ocean, local, open } = seaShares(sea, x, z);
-  const hsOcean = sea.hsRef * ocean;
-  const hsLocal = sea.localHs * local;
-  const hsOpen = sea.openHs * open;
-  const Tp =
-    hsOpen >= hsOcean && hsOpen >= hsLocal ? sea.openTp : hsOcean >= hsLocal ? sea.tp : sea.localTp;
-  return { Hs: Math.hypot(hsOcean, hsLocal, hsOpen), Tp };
+  fillShares(sea, x, z, oceanOut(sea.bounds, x, z), shares);
+  let m0 = 0;
+  let biggest = 0;
+  let Tp = sea.tp;
+  for (let b = 0; b < sea.bands.length; b++) {
+    const hs = shares[b] * sea.bands[b].hs;
+    m0 += hs * hs;
+    // Ties go to the LONGER band: the ocean's swell over the chop riding on
+    // it, and the rung a rider is climbing to over the one he has left.
+    if (hs >= biggest) {
+      biggest = hs;
+      Tp = sea.bands[b].tp;
+    }
+  }
+  return { Hs: Math.sqrt(m0), Tp };
 }
 
 const scratch = new Float64Array(3);
@@ -648,8 +620,16 @@ const scratch = new Float64Array(3);
 const phaseAt = new Float64Array(3);
 /** Three numbers a component — the local wavenumber, the amplitude it
  * actually stands at here, and coth(k·d) — kept between the two passes
- * below so the depth table is read once per component rather than twice. */
-const held = new Float64Array(3 * (2 * S.components + S.localComponents));
+ * below so the depth table is read once per component rather than twice.
+ *
+ * Sized for the whole field: the ocean band, the local band, and one open
+ * band per rung of the storm ladder. A typed array silently DROPS a write
+ * past its end and reads `undefined` back, so a band added without this
+ * growing with it is not an error but a surface full of NaN — and a
+ * `surfaceAt` ten times slower for the deopt. */
+const held = new Float64Array(3 * (S.components * (1 + O.ladder.length) + S.localComponents));
+/** Every band's share at the sample, by band index (`fillShares`). */
+const shares = new Float64Array(2 + O.ladder.length);
 const drift = { x: 0, z: 0 };
 /** How far out of the level's bounds the sample lies, per axis (`ocean.ts`). */
 const beyond = new Float64Array(2);
@@ -677,20 +657,11 @@ export function surfaceAt(
   const storm = past > 0 ? stormRamp(past) : 0;
   // `bedAt`, inlined: the storm's ramp is already in hand here.
   const depth = Math.max(oceanDepth(-sampleField(level.ground, x, z), storm), S.minDepth);
-  // `seaShares`, inlined: this is called thousands of times a frame by the
-  // renderer's water grid and twelve times a step by the hull, and an object
-  // returned per call is an allocation on every one of them.
-  const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
-  const local = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
-  let ocean = exposure;
-  let open = 0;
-  if (storm > 0 && sea.openHs > 0) {
-    const coast = sea.hsRef * exposure;
-    const carried = coast * (1 - storm);
-    const target = coast + Math.max(0, sea.openHs - coast) * storm;
-    ocean = exposure * (1 - storm);
-    open = Math.sqrt(Math.max(0, target * target - carried * carried)) / sea.openHs;
-  }
+  // What every band stands at here. Written into a shared array rather than
+  // returned, because this is called thousands of times a frame by the
+  // renderer's water grid and twelve times a step by the hull, and an
+  // object returned per call is an allocation on every one of them.
+  fillShares(sea, x, z, past, shares);
   // First pass: the shoaled amplitudes each band's share leaves standing
   // here, and the depth limit the SEA they make together has to stay
   // under. The limit is on the significant height — Hs = 4·√m0 over the
@@ -705,30 +676,39 @@ export function surfaceAt(
   // the sea's own, and a far grid drawing two components of it has to be
   // clipped by what the whole sea does or the swell steps at the seam.
   //
-  // A band whose share here is nothing is skipped outright rather than
-  // multiplied by zero, and that is most of every sample: over a course the
-  // open band is absent and so is the local one, up a river the ocean band
-  // is, and out in the storm the coast's is, so almost all water pays for
-  // ONE band of the three. The threshold is a thousandth of a quoted sea —
-  // under a millimetre of water, which is nothing a hull or an eye can tell
-  // from none.
+  // BAND BY BAND rather than component by component, because a band whose
+  // share here is nothing is then skipped in one compare instead of eight,
+  // and that is most of every sample: over a course the whole storm ladder
+  // is absent and so is the local band, up a river the ocean band is, and
+  // out in the storm the coast's is and all but two rungs of the ladder
+  // are. So almost all water pays for ONE band of the eight, and carrying a
+  // ladder that only stands kilometres out at sea costs a course nothing.
+  // The threshold is a thousandth of a quoted sea — under a millimetre of
+  // water, which is nothing a hull or an eye can tell from none.
+  //
+  // A skipped band leaves STALE numbers in `held`, and they are never read:
+  // the second pass walks the components in wavelength order and asks the
+  // same question of the share before it touches one. Clearing the array
+  // instead would be the whole ladder's worth of writes on every sample of
+  // every course, which is the cost this loop exists to avoid.
   const comps = sea.components;
   const total = comps.length;
   const n = Math.min(count, total);
   let m0 = 0;
-  for (let i = 0; i < total; i++) {
-    const c = comps[i];
-    const share = c.band === "ocean" ? ocean : c.band === "local" ? local : open;
-    if (share <= 1e-3) {
-      held[i * 3 + 1] = 0;
-      continue;
+  for (let b = 0; b < sea.bands.length; b++) {
+    const share = shares[b];
+    if (share <= 1e-3) continue;
+    const at = sea.bands[b].at;
+    for (let j = 0; j < at.length; j++) {
+      const i = at[j];
+      const c = comps[i];
+      tableAt(c.table, depth, scratch);
+      const a = c.amp * scratch[1] * share;
+      held[i * 3] = scratch[0];
+      held[i * 3 + 1] = a;
+      held[i * 3 + 2] = scratch[2];
+      m0 += a * a;
     }
-    tableAt(c.table, depth, scratch);
-    const a = c.amp * scratch[1] * share;
-    held[i * 3] = scratch[0];
-    held[i * 3 + 1] = a;
-    held[i * 3 + 2] = scratch[2];
-    m0 += a * a;
   }
   // m0 = Σa²/2, Hs = 4√m0 = 2·√(2·Σa²).
   const hs = 2 * Math.SQRT2 * Math.sqrt(m0);
@@ -740,73 +720,84 @@ export function surfaceAt(
   let vx = 0;
   let vy = 0;
   let vz = 0;
-  for (let i = 0; i < n; i++) {
-    const c = comps[i];
-    const k = held[i * 3];
-    const a = held[i * 3 + 1] * clip;
-    if (a <= 0) continue;
-    // The ocean band's phase is the eikonal over the bed, so its
-    // wavelength shortens toward the shore and its crests turn with the
-    // depth and round the land; the LOCAL WAVE VECTOR is that field's
-    // gradient, and it is what the slope and the orbital motion follow.
-    // The local and open bands are plane waves — the same thing for a wave
-    // that never feels a bottom — and their wave vector is their heading's.
-    let spatial: number;
-    let kx: number;
-    let kz: number;
-    if (c.phaseField) {
-      sampleFieldGradient(c.phaseField, x, z, phaseAt);
-      spatial = phaseAt[0];
-      kx = phaseAt[1];
-      kz = phaseAt[2];
-      // PAST THE RIM the field has run out, and the sampler clamps: its
-      // value stops changing along the axis the sample left the grid by and
-      // its gradient there is zero, which is a wave standing still in the
-      // water. So the rim's own phase is carried on outward at the local
-      // rate along the component's heading — continuous, because the field
-      // was seeded at the rim with exactly that plane wave (the seaward rim
-      // is the one a wave comes IN over under R12), and travelling, because
-      // the wave vector out there is the heading's. The same carry-on
-      // `buildPhaseField` uses to fill the cells no sweep reaches.
-      if (past > 0) {
-        spatial += k * (c.dirX * beyond[0] + c.dirZ * beyond[1]);
-        if (beyond[0] !== 0) kx = k * c.dirX;
-        if (beyond[1] !== 0) kz = k * c.dirZ;
+  // Band by band again, and for the same reason: over a course this walks
+  // thirteen components rather than every rung of a ladder that is not
+  // standing. `count` still means "the longest n of the field", because a
+  // band's positions are its own ascending run through the sorted array —
+  // so the first that reaches `n` ends that band.
+  for (let b = 0; b < sea.bands.length; b++) {
+    if (shares[b] <= 1e-3) continue;
+    const at = sea.bands[b].at;
+    for (let j = 0; j < at.length; j++) {
+      const i = at[j];
+      if (i >= n) break;
+      const c = comps[i];
+      const k = held[i * 3];
+      const a = held[i * 3 + 1] * clip;
+      if (a <= 0) continue;
+      // The ocean band's phase is the eikonal over the bed, so its
+      // wavelength shortens toward the shore and its crests turn with the
+      // depth and round the land; the LOCAL WAVE VECTOR is that field's
+      // gradient, and it is what the slope and the orbital motion follow.
+      // The local and open bands are plane waves — the same thing for a wave
+      // that never feels a bottom — and their wave vector is their heading's.
+      let spatial: number;
+      let kx: number;
+      let kz: number;
+      if (c.phaseField) {
+        sampleFieldGradient(c.phaseField, x, z, phaseAt);
+        spatial = phaseAt[0];
+        kx = phaseAt[1];
+        kz = phaseAt[2];
+        // PAST THE RIM the field has run out, and the sampler clamps: its
+        // value stops changing along the axis the sample left the grid by and
+        // its gradient there is zero, which is a wave standing still in the
+        // water. So the rim's own phase is carried on outward at the local
+        // rate along the component's heading — continuous, because the field
+        // was seeded at the rim with exactly that plane wave (the seaward rim
+        // is the one a wave comes IN over under R12), and travelling, because
+        // the wave vector out there is the heading's. The same carry-on
+        // `buildPhaseField` uses to fill the cells no sweep reaches.
+        if (past > 0) {
+          spatial += k * (c.dirX * beyond[0] + c.dirZ * beyond[1]);
+          if (beyond[0] !== 0) kx = k * c.dirX;
+          if (beyond[1] !== 0) kz = k * c.dirZ;
+        }
+      } else {
+        spatial = c.k0 * (c.dirX * x + c.dirZ * z);
+        kx = k * c.dirX;
+        kz = k * c.dirZ;
       }
-    } else {
-      spatial = c.k0 * (c.dirX * x + c.dirZ * z);
-      kx = k * c.dirX;
-      kz = k * c.dirZ;
+      const phase = spatial - c.omega * t + c.phase0;
+      const sin = Math.sin(phase);
+      const cos = Math.cos(phase);
+      // STOKES SECOND ORDER (1847): a linear component is a rounded hump,
+      // and a real wave is not — its crest is peaked and its trough is long
+      // and flat. The correction −½·k·a²·cos 2φ is exactly that shape, and
+      // it is a function of the UNDISPLACED point, so the whole field stays
+      // a function of (x, z) the physics can ask about — which the Gerstner
+      // horizontal displacement, the other way to the same shape, is not.
+      // Evaluated at a steepness the expansion is still good at, so a steep
+      // component peaks rather than growing a second bump in its trough.
+      const steep = Math.min(k * a, S.crestMaxSteepness) * S.crestSharpness;
+      const peak = 0.5 * steep * a;
+      height += a * sin - peak * Math.cos(2 * phase);
+      // Slope from the wave vector (the amplitude's own gradient is a
+      // shoaling effect too slow to tilt the surface), with the crest
+      // correction's own slope on it: d/dφ[−½·k·a²·cos 2φ] = k·a²·sin 2φ.
+      const dEta = a * cos + 2 * peak * Math.sin(2 * phase);
+      sx += dEta * kx;
+      sz += dEta * kz;
+      // Orbital velocity at the surface (Airy): horizontal a·ω·coth(kd) in
+      // phase with the height, along the wave vector; vertical −a·ω·cos φ
+      // (the surface's own rate). The wave vector is divided by the depth's
+      // own k rather than normalised, so a crease in the field, where two
+      // arrivals meet, carries less water rather than water sent anywhere.
+      const horizontal = (a * c.omega * held[i * 3 + 2] * sin) / k;
+      vx += horizontal * kx;
+      vz += horizontal * kz;
+      vy -= a * c.omega * cos;
     }
-    const phase = spatial - c.omega * t + c.phase0;
-    const sin = Math.sin(phase);
-    const cos = Math.cos(phase);
-    // STOKES SECOND ORDER (1847): a linear component is a rounded hump,
-    // and a real wave is not — its crest is peaked and its trough is long
-    // and flat. The correction −½·k·a²·cos 2φ is exactly that shape, and
-    // it is a function of the UNDISPLACED point, so the whole field stays
-    // a function of (x, z) the physics can ask about — which the Gerstner
-    // horizontal displacement, the other way to the same shape, is not.
-    // Evaluated at a steepness the expansion is still good at, so a steep
-    // component peaks rather than growing a second bump in its trough.
-    const steep = Math.min(k * a, S.crestMaxSteepness) * S.crestSharpness;
-    const peak = 0.5 * steep * a;
-    height += a * sin - peak * Math.cos(2 * phase);
-    // Slope from the wave vector (the amplitude's own gradient is a
-    // shoaling effect too slow to tilt the surface), with the crest
-    // correction's own slope on it: d/dφ[−½·k·a²·cos 2φ] = k·a²·sin 2φ.
-    const dEta = a * cos + 2 * peak * Math.sin(2 * phase);
-    sx += dEta * kx;
-    sz += dEta * kz;
-    // Orbital velocity at the surface (Airy): horizontal a·ω·coth(kd) in
-    // phase with the height, along the wave vector; vertical −a·ω·cos φ
-    // (the surface's own rate). The wave vector is divided by the depth's
-    // own k rather than normalised, so a crease in the field, where two
-    // arrivals meet, carries less water rather than water sent anywhere.
-    const horizontal = (a * c.omega * held[i * 3 + 2] * sin) / k;
-    vx += horizontal * kx;
-    vz += horizontal * kz;
-    vy -= a * c.omega * cos;
   }
   // R27 — and the water it is all riding on may itself be going somewhere.
   flowAt(level.flow, x, z, drift);

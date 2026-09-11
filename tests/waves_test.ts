@@ -23,6 +23,9 @@ import {
   bedAt,
   sampleField,
   sampleFieldGradient,
+  seaBandShares,
+  STORM_HS,
+  STORM_REACH,
   stormAt,
   seaShares,
   seaSummary,
@@ -482,9 +485,9 @@ describe("the open ocean past the rim", () => {
   const O = TUNING.sea.open;
   const out = (past: number): number => SEAWARD + past;
 
-  it("builds the whole way out and stops at the storm", () => {
+  it("builds the whole way out and stops at the top of the ladder", () => {
     let last = 0;
-    for (let past = 0; past <= O.reach * 1.5; past += O.reach / 25) {
+    for (let past = 0; past <= STORM_REACH * 1.5; past += STORM_REACH / 250) {
       const { Hs } = seaSummary(sea, 400, out(past));
       // Never a dip: the handover from the coast's spectrum to the storm's
       // has to carry the height across, not cross through a calm belt.
@@ -492,19 +495,65 @@ describe("the open ocean past the rim", () => {
       last = Hs;
     }
     expect(seaSummary(sea, 400, out(0)).Hs).toBeCloseTo(sea.hsRef, 6);
-    expect(seaSummary(sea, 400, out(O.reach)).Hs).toBeCloseTo(O.hs, 6);
+    expect(seaSummary(sea, 400, out(STORM_REACH)).Hs).toBeCloseTo(STORM_HS, 6);
     // ...and a ceiling past it, however far a rider holds the throttle open.
-    expect(seaSummary(sea, 400, out(O.reach * 40)).Hs).toBeCloseTo(O.hs, 6);
+    expect(seaSummary(sea, 400, out(STORM_REACH * 40)).Hs).toBeCloseTo(STORM_HS, 6);
+  });
+
+  it("stands the authored height at every rung of the ladder", () => {
+    // The ladder IS the sea out here — the height a rider meets after so
+    // many minutes of holding the throttle open — so every rung is held to
+    // the metre it was authored at, and every midpoint past the first to
+    // the straight line between its neighbours. The coast's own sea has
+    // faded out by the first rung (`coastAstern`), which is what lets the
+    // rungs be exact rather than the rung plus whatever swell the level
+    // happened to have.
+    let below = 0;
+    let belowHs = 0;
+    for (const [rungOut, rungHs] of O.ladder) {
+      expect(seaSummary(sea, 400, out(rungOut)).Hs, `${rungOut} m out`).toBeCloseTo(rungHs, 6);
+      if (below > 0) {
+        const mid = (below + rungOut) / 2;
+        expect(seaSummary(sea, 400, out(mid)).Hs, `${mid} m out`).toBeCloseTo(
+          (belowHs + rungHs) / 2,
+          6,
+        );
+      }
+      below = rungOut;
+      belowHs = rungHs;
+    }
+    expect(belowHs).toBe(STORM_HS);
+  });
+
+  it("hands the coast's own sea over to the first rung, and only to it", () => {
+    // Inside the first rung the whole handover is the one there was before
+    // there was a ladder: the level's sea fading by `1 − astern` with the
+    // storm's first rung rising in its place, and nothing of the ladder
+    // above it standing at all. That is the water a rider can actually
+    // reach, and it is the water it always was.
+    const [firstOut, firstHs] = O.ladder[0];
+    for (let past = 0; past <= firstOut; past += firstOut / 10) {
+      const astern = past / firstOut;
+      const carried = sea.hsRef * (1 - astern);
+      expect(seaSummary(sea, 400, out(past)).Hs, `${past} m past the rim`).toBeCloseTo(
+        carried + firstHs * astern,
+        6,
+      );
+      const byBand = seaBandShares(sea, 400, out(past));
+      for (let b = 3; b < byBand.length; b++) {
+        expect(byBand[b], `rung ${b - 1} at ${past} m`).toBe(0);
+      }
+    }
   });
 
   it("keeps the bed ahead of the sea, so nothing clips the storm", () => {
-    for (let past = 0; past <= O.reach; past += O.reach / 20) {
+    for (let past = 0; past <= STORM_REACH; past += STORM_REACH / 200) {
       const z = out(past);
       const depth = -bedAt(level, 400, z);
       const { Hs } = seaSummary(sea, 400, z);
       expect(Hs, `${past} m past the rim`).toBeLessThan(TUNING.sea.breakingHs * depth);
     }
-    expect(-bedAt(level, 400, out(O.reach))).toBeCloseTo(O.depth, 6);
+    expect(-bedAt(level, 400, out(STORM_REACH))).toBeCloseTo(O.depth, 6);
   });
 
   it("leaves the level's own water exactly as it was", () => {
@@ -522,7 +571,7 @@ describe("the open ocean past the rim", () => {
     // outside the level heaving in one place with no crest going anywhere.
     // Two points a fraction of a wavelength apart along the outward axis
     // must not read the same surface, and the crest must move with t.
-    const z = out(O.reach * 0.3);
+    const z = out(STORM_REACH * 0.3);
     const a = heightAt(sea, level, 400, z, 0);
     const b = heightAt(sea, level, 400, z + 12, 0);
     expect(Math.abs(a - b)).toBeGreaterThan(0.05);
@@ -554,10 +603,10 @@ describe("the open ocean past the rim", () => {
   });
 
   it("is finite and level everywhere out there", () => {
-    const cap = O.hs * 4;
+    const cap = STORM_HS * 4;
     for (let i = 0; i < 500; i++) {
       const x = 100 + (i % 25) * 30;
-      const z = out((O.reach * 1.5 * Math.floor(i / 25)) / 20);
+      const z = out((STORM_REACH * 1.5 * Math.floor(i / 25)) / 20);
       const s = surfaceAt(sea, level, x, z, i * 0.37);
       for (const v of Object.values(s)) expect(Number.isFinite(v)).toBe(true);
       expect(Math.abs(s.height), `(${x}, ${z})`).toBeLessThan(cap);
@@ -568,8 +617,8 @@ describe("the open ocean past the rim", () => {
   it("has no storm out at sea on a level with no wind", () => {
     const calm = createSea(syntheticLevel({ windSpeed: 0, depth: 40, seaward: SEAWARD }), 5);
     expect(calm.openHs).toBe(0);
-    expect(seaSummary(calm, 400, out(O.reach * 2)).Hs).toBe(0);
-    expect(heightAt(calm, level, 400, out(O.reach * 2), 4)).toBe(0);
+    expect(seaSummary(calm, 400, out(STORM_REACH * 2)).Hs).toBe(0);
+    expect(heightAt(calm, level, 400, out(STORM_REACH * 2), 4)).toBe(0);
   });
 });
 

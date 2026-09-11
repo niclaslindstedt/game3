@@ -11,7 +11,14 @@
 // `make screenshots` photographs, and a scenario that should be in both
 // is added to both by hand.
 
-import { TUNING, oceanOut, onRampDeck, sampleField, topSpeedOf } from "../../engine/index.ts";
+import {
+  STORM_NEAR_REACH,
+  STORM_REACH,
+  oceanOut,
+  onRampDeck,
+  sampleField,
+  topSpeedOf,
+} from "../../engine/index.ts";
 // The hinge speed a ring asks for is the bot's arithmetic; not on the
 // engine's public surface yet, so it is read from the module that owns it.
 import { launchSpeedFor } from "../../engine/sim/bot.ts";
@@ -254,19 +261,45 @@ export const SCENARIOS = {
     },
   },
   ocean: {
-    blurb: "out past the edge of the level, in the full twenty-metre storm",
+    blurb: "out past the edge of the level, in the twenty-metre storm",
     seconds: 14,
     stage: (level) => {
       // Straight out along the wind's own line (R12 blows it off the sea)
       // from the course's outermost point, far enough that the rim is
-      // astern and the storm stands in full (`engine/game/ocean.ts`). Beam
-      // on and at a crawl: nobody races out here.
+      // astern and the storm ladder's first rung stands
+      // (`engine/game/ocean.ts`). Beam on and at a crawl: nobody races out
+      // here.
       const p = outerPoint(level);
       const dx = -Math.sin(level.wind.from);
       const dz = -Math.cos(level.wind.from);
       let d = 0;
       while (d < 20_000 && oceanOut(level.bounds, p.x + dx * d, p.z + dz * d) <= 0) d += 20;
-      const out = d + TUNING.sea.open.reach;
+      const out = d + STORM_NEAR_REACH;
+      return {
+        moment: {
+          x: p.x + dx * out,
+          z: p.z + dz * out,
+          heading: level.wind.from + Math.PI / 2,
+          speed: 8,
+        },
+        input: () => ({ ...NEUTRAL, throttle: 0.4 }),
+      };
+    },
+  },
+  maelstrom: {
+    blurb: "the top of the storm ladder: a thousand-metre sea, two hundred kilometres out",
+    seconds: 14,
+    stage: (level) => {
+      // `ocean`, at the far end of `TUNING.sea.open.ladder` instead of its
+      // first rung: the sea a rider reaches after two and a half hours of
+      // holding the throttle open. Beam on and at a crawl, for the same
+      // reason — nobody races out here, and out HERE nobody rides at all.
+      const p = outerPoint(level);
+      const dx = -Math.sin(level.wind.from);
+      const dz = -Math.cos(level.wind.from);
+      let d = 0;
+      while (d < 20_000 && oceanOut(level.bounds, p.x + dx * d, p.z + dz * d) <= 0) d += 20;
+      const out = d + STORM_REACH;
       return {
         moment: {
           x: p.x + dx * out,

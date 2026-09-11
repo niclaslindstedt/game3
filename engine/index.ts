@@ -78,17 +78,21 @@ export {
   createSea,
   heightAt,
   periodForHeight,
+  seaBandShares,
   seaShares,
   seaSummary,
-  shoaling,
+  stormSeaAt,
   surfaceAt,
-  wavenumber,
+  type SeaBand,
   type SeaOverride,
   type SeaState,
   type SurfaceSample,
   type WaveBand,
   type WaveComponent,
 } from "./game/water.ts";
+// WHAT THE BED DOES TO A WAVE (wave-bed.ts): dispersion, shoaling, and the
+// eikonal phase field that turns a crest toward the shallows.
+export { shoaling, wavenumber } from "./game/wave-bed.ts";
 // THE FETCH (fetch.ts): the growth laws, and what every point of a level
 // has upwind of it — its exposure to the open sea, its own run of water,
 // and how much of the mean wind is left by the time it gets there.
@@ -104,10 +108,16 @@ export {
 // and the wind that go with it. The sea out there is `water.ts`'s OPEN band.
 export {
   bedAt,
+  coastAstern,
+  coastAsternAt,
   oceanDepth,
   oceanOffset,
   oceanOut,
   oceanWind,
+  STORM_HS,
+  STORM_NEAR_HS,
+  STORM_NEAR_REACH,
+  STORM_REACH,
   stormAt,
   stormRamp,
 } from "./game/ocean.ts";

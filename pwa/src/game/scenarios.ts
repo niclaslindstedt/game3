@@ -22,7 +22,6 @@ import {
   freshPose,
   isMale,
   launchSpeedFor,
-  TUNING,
   oceanOut,
   placeRun,
   pointAlong,
@@ -35,6 +34,8 @@ import {
   type Pod,
   type RunMoment,
   sampleField,
+  STORM_NEAR_REACH,
+  STORM_REACH,
 } from "@engine";
 
 import { FLUSH_SECONDS, birdPose, freshBirdPose, planBirds, type Flock } from "./bird-plan.ts";
@@ -54,6 +55,7 @@ export type ScenarioName =
   | "offshore"
   | "storm"
   | "ocean"
+  | "maelstrom"
   | "backflip"
   | "wildlife"
   | "breach"
@@ -76,6 +78,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "offshore",
   "storm",
   "ocean",
+  "maelstrom",
   "backflip",
   "wildlife",
   "breach",
@@ -142,15 +145,18 @@ export function seawardAt(level: Level, x: number, z: number): { x: number; z: n
  * the middle of it.
  */
 /** Straight on along `sea` from (x, z) until the level's rim is astern and
- * the storm stands in full — `TUNING.sea.open.reach` metres of open ocean
- * past the last cell of the grid (`engine/game/ocean.ts`). Nothing is
- * sampled on the way: past the rim there is no field left to read, which is
- * the whole point of the place. */
+ * `past` metres of open ocean lie beyond the last cell of the grid
+ * (`engine/game/ocean.ts`). The default is the storm ladder's FIRST rung,
+ * the twenty-metre sea the coast is sheltering the course from and the one
+ * a rider can actually reach; `maelstrom` asks for the top of the ladder
+ * instead. Nothing is sampled on the way: past the rim there is no field
+ * left to read, which is the whole point of the place. */
 function outPastTheRim(
   level: Level,
   x: number,
   z: number,
   sea: { x: number; z: number },
+  past: number = STORM_NEAR_REACH,
 ): { x: number; z: number } {
   const STEP = 20;
   let at = { x, z };
@@ -158,7 +164,7 @@ function outPastTheRim(
     if (oceanOut(level.bounds, at.x, at.z) > 0) break;
     at = { x: at.x + sea.x * STEP, z: at.z + sea.z * STEP };
   }
-  return { x: at.x + sea.x * TUNING.sea.open.reach, z: at.z + sea.z * TUNING.sea.open.reach };
+  return { x: at.x + sea.x * past, z: at.z + sea.z * past };
 }
 
 function outToSea(level: Level, x: number, z: number, metres: number): { x: number; z: number } {
@@ -563,13 +569,37 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       // moment that stands OUTSIDE the bounds on purpose
       // (`engine/game/ocean.ts`). Everything out here is analytic: there is
       // no grid left to follow, so the walk holds the seaward heading it
-      // left the coast on and carries straight on until the storm stands at
-      // its full twenty metres. Beam-on, at a crawl, because a rider who
+      // left the coast on and carries straight on to the storm ladder's
+      // first rung, twenty metres. Beam-on, at a crawl, because a rider who
       // gets out here is not racing any more — he is being carried up one
       // face and dropped down the next.
       const at = outToSea(level, mid.x, mid.z, 600);
       const sea = seawardAt(level, at.x, at.z);
       const out = outPastTheRim(level, at.x, at.z, sea);
+      return {
+        moment: {
+          x: out.x,
+          z: out.z,
+          heading: Math.atan2(sea.x, sea.z) + Math.PI / 2,
+          speed: top * 0.3,
+          nextGate: mid.index,
+        },
+        script: () => input(0, 0.4, 0),
+        seconds: 10,
+      };
+    }
+    case "maelstrom": {
+      // The TOP OF THE STORM LADDER — two hundred kilometres past the rim
+      // and two and a half hours of holding the throttle open
+      // (`TUNING.sea.open.ladder`), where the quoted sea is a thousand
+      // metres and its swell is eleven kilometres long. It exists to be
+      // LOOKED at: a face this big is wider than anything the renderer
+      // draws, so what the camera sees is the whole world tilting, and
+      // there is no other way to find out whether that reads as an ocean
+      // or as a hillside. Staged exactly like `ocean`, one constant apart.
+      const at = outToSea(level, mid.x, mid.z, 600);
+      const sea = seawardAt(level, at.x, at.z);
+      const out = outPastTheRim(level, at.x, at.z, sea, STORM_REACH);
       return {
         moment: {
           x: out.x,

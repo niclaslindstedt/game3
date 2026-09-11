@@ -64,6 +64,7 @@ import * as THREE from "three";
 import {
   BIOME_IDS,
   sampleField,
+  stormSeaAt,
   surfaceAt,
   type BiomeId,
   type GameState,
@@ -400,6 +401,12 @@ export function createWaterMesh(
   let farComponents = 0;
   let farSink = FAR_SINK;
   let farSea: GameState["sea"] | null = null;
+  /** The crest threshold the shader is currently carrying: it follows the
+   * storm now, so it moves within one sea rather than only between two. */
+  let appliedCrest = -1;
+  /** The STORM standing at the craft (`stormSeaAt`), read once a frame: both
+   * 0 inside a level, so every threshold below is the level's own there. */
+  const storm = { Hs: 0, Tp: 0 };
   /** The far grid's height at a plan point, off its last displacement and
    * sunk as it stands — what the near grid's edge fades to. Bilinear over
    * the far cells. */
@@ -466,9 +473,20 @@ export function createWaterMesh(
     mesh.position.set(sx, 0, sz);
     const { sea, level, t } = state;
     const ground = level.ground;
+    // THE STORM STANDING HERE (`stormSeaAt`), read once a frame at the craft
+    // rather than per vertex: past the level's rim the sea is the ladder's,
+    // which is uniform to a fraction of a percent over a mesh two hundred
+    // metres across and two hundred kilometres out. It is 0 everywhere
+    // inside a level, so every `bigHs` below is the level's own there and
+    // nothing a course is ridden over changes.
+    stormSeaAt(sea, cx, cz, storm);
+    const bigHs = Math.max(sea.hsRef, storm.Hs);
     // Where the crest tint and the whitecaps stand for this sea, and the
-    // coast's two end tones a crest and a trough lean toward.
-    const crestHeight = Math.max(CREST_MIN, CREST_SHARE * sea.hsRef);
+    // coast's two end tones a crest and a trough lean toward. Against the
+    // bigger sea, because a threshold set by a one-metre coastal swell
+    // tints every face of a thousand-metre one and the ocean comes out a
+    // snowfield.
+    const crestHeight = Math.max(CREST_MIN, CREST_SHARE * bigHs);
     const tones = seaTones(optics);
     if (sea !== farSea) {
       farSea = sea;
@@ -480,6 +498,9 @@ export function createWaterMesh(
         else short += c.amp;
       });
       farSink = FAR_SINK + SHORT_SINK * short;
+    }
+    if (crestHeight !== appliedCrest) {
+      appliedCrest = crestHeight;
       applySea(material, sea.windFrom, sea.windSpeed, crestHeight);
     }
     applyClock(material, t);
@@ -494,7 +515,7 @@ export function createWaterMesh(
     // stands up, so nothing a visible triangle touches is ever stale. The
     // far grid takes two of its cells, because the near grid's edge reads
     // the far cells round it (`farHeightAt`) and those must be fresh too.
-    const crest = 1 + 1.2 * sea.hsRef;
+    const crest = 1 + 1.2 * bigHs;
     const farMargin = 2 * farCell + crest;
     const nearMargin = maxCell + crest;
     if (farComponents > 0) {
@@ -517,9 +538,14 @@ export function createWaterMesh(
     farPosAttr.needsUpdate = true;
     farNormAttr.needsUpdate = true;
     // The sea's own characteristic tilt: a sinusoid of its significant
-    // height at its deep-water peak wavelength, at its steepest point.
-    const seaLambda = (9.81 * sea.tp * sea.tp) / (2 * Math.PI);
-    const seaSlope = seaLambda > 0 ? (Math.PI * sea.hsRef) / seaLambda : 0;
+    // height at its deep-water peak wavelength, at its steepest point —
+    // again the steeper of the coast's sea and the storm over it, since out
+    // past the rim it is the storm's face every band below is judging.
+    const slopeOf = (hs: number, tp: number): number => {
+      const lambda = (9.81 * tp * tp) / (2 * Math.PI);
+      return lambda > 0 ? (Math.PI * hs) / lambda : 0;
+    };
+    const seaSlope = Math.max(slopeOf(sea.hsRef, sea.tp), slopeOf(storm.Hs, storm.Tp));
     const seaTilt = 1 - 1 / Math.hypot(1, seaSlope);
     const foamFrom = Math.max(0.04, FOAM_REL_FROM * seaTilt);
     const foamTo = Math.max(0.09, FOAM_REL_TO * seaTilt);
@@ -587,13 +613,13 @@ export function createWaterMesh(
       const tilt = 1 - sample.ny;
       // How high a crest stands HERE is judged against the sea that runs
       // here — the two bands' heights by their shares at this point
-      // (`seaShares`, inlined so nothing is allocated) — and not against
-      // the level's headline height: sheltered water inside a bay runs a
-      // fraction of the open sea, and judged against the open sea's height
-      // its crests would never cap at all.
+      // (`seaShares`, inlined so nothing is allocated) plus the storm over
+      // them — and not against the level's headline height: sheltered water
+      // inside a bay runs a fraction of the open sea, and judged against
+      // the open sea's height its crests would never cap at all.
       const ocean = clamp(sampleField(sea.shelter.exposure, wx, wz), 0, 1);
       const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, wx, wz));
-      const hsHere = Math.max(0.05, Math.hypot(sea.hsRef * ocean, sea.localHs * local));
+      const hsHere = Math.max(0.05, Math.hypot(sea.hsRef * ocean, sea.localHs * local, storm.Hs));
       // Breaking foam on the steep crests and the shallow, and whitecaps on
       // the high crests' steep faces once the wind blows them.
       const cap =

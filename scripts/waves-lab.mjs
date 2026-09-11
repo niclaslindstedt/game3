@@ -40,9 +40,11 @@ const {
   generateLevel,
   createSea,
   createWind,
+  seaBandShares,
   seaShares,
   seaSummary,
   stormAt,
+  STORM_REACH,
   oceanOut,
   bedAt,
   surfaceAt,
@@ -145,14 +147,16 @@ function station(s) {
   }
   const H = hi - lo;
   // The dominant component at this depth: the one shoaling leaves biggest.
-  // ...at the share its own BAND stands at here, or the open band's
-  // four-hundred-metre storm swell would be the answer over every beach.
+  // ...at the share ITS OWN BAND stands at here, per band and not per kind,
+  // or the top of the storm ladder — a thirteen-kilometre swell that stands
+  // nowhere but the abyssal plain — would be the answer over every beach.
+  const byBand = seaBandShares(sea, x, z);
   let best = 0;
   let wavelength = 0;
   const d = Math.max(depth, TUNING.sea.minDepth);
   for (const c of sea.components) {
     const k = wavenumber(c.omega, d);
-    const a = c.amp * shoaling(c.omega, k, d) * shares[c.band];
+    const a = c.amp * shoaling(c.omega, k, d) * byBand[c.bandIndex];
     if (a > best) {
       best = a;
       wavelength = (2 * Math.PI) / k;
@@ -202,6 +206,10 @@ const outermostBreak = [...stations].reverse().find((st) => st.breaking) ?? null
 
 // ── Say it ──────────────────────────────────────────────────────────────
 const pad = (v, n) => String(v).padStart(n);
+
+/** The reference speed the storm ladder was authored in, m/s: the catalog's
+ * mean top speed, which is what "half an hour out" means on its rungs. */
+const RIDE_OUT = 25;
 console.log(
   `waves — engine ${engineVersion} · seed ${args.seed} (${level.biome}) · wind ${wind.speed.toFixed(1)} m/s from ${deg(wind.from).toFixed(0)}°` +
     `${args.wind !== undefined || args.from !== undefined ? ` (level's own ${level.wind.speed.toFixed(1)} m/s from ${deg(level.wind.from).toFixed(0)}°)` : ""}` +
@@ -287,10 +295,19 @@ for (const c of sea.components) {
 // ── Out into the open ocean ─────────────────────────────────────────────
 // The transect CONTINUED, straight on past the edge of the built level
 // (`ocean.ts`). The whole claim is in this table: the sea builds every
-// metre of the way out, the wind freshens with it, the bed keeps falling so
-// that nothing clips the sea on the way up, and both stop at the storm
-// rather than running away. A dip anywhere in the Hs column is the handover
-// between the coast's spectrum and the storm's going wrong.
+// metre of the way out, the wind freshens over the first couple of
+// kilometres of it, the bed keeps falling so that nothing clips the sea on
+// the way up, and all of it stops at the ladder's top rather than running
+// away. A dip anywhere in the Hs column is the handover between the coast's
+// spectrum and the storm's going wrong.
+//
+// The stations are the STORM LADDER's own rungs and their midpoints
+// (`TUNING.sea.open.ladder`), not an even walk: the rungs are half an hour
+// of riding apart at the top and the first one is ninety seconds out, so an
+// even walk over two hundred kilometres would step straight past the sea
+// every level is actually ridden beside. `min` is how long a rider holds
+// the throttle open to reach the station, at the catalog's mean top speed
+// — the units the ladder was authored in.
 {
   const rim = (() => {
     for (let s = 0; s < 20_000; s += 4) {
@@ -306,7 +323,8 @@ for (const c of sea.components) {
     console.log(
       [
         pad("out m", 6),
-        pad("past m", 7),
+        pad("past m", 8),
+        pad("min", 5),
         pad("storm", 6),
         pad("depth", 7),
         pad("ocean", 6),
@@ -319,13 +337,22 @@ for (const c of sea.components) {
         pad("H/λ", 6),
       ].join(" "),
     );
-    const full = TUNING.sea.open.reach;
-    for (let i = 0; i <= 12; i++) {
-      const st = station(rim + Math.round((full * 1.2 * i) / 12));
+    // Every rung of the ladder and the midpoint below it, then one station
+    // past the top to show the ceiling holding.
+    const stops = [0];
+    let below = 0;
+    for (const [out] of TUNING.sea.open.ladder) {
+      stops.push(Math.round((below + out) / 2), out);
+      below = out;
+    }
+    stops.push(Math.round(STORM_REACH * 1.2));
+    for (const past of stops) {
+      const st = station(rim + past);
       console.log(
         [
           pad(st.s, 6),
-          pad(oceanOut(level.bounds, st.x, st.z).toFixed(0), 7),
+          pad(oceanOut(level.bounds, st.x, st.z).toFixed(0), 8),
+          pad((st.s / (RIDE_OUT * 60)).toFixed(0), 5),
           pad(st.storm.toFixed(2), 6),
           pad(st.depth.toFixed(1), 7),
           pad(st.ocean.toFixed(2), 6),
