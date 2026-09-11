@@ -285,6 +285,13 @@ export const STRINGS = {
   optRumble: "VIBRATION",
   optRumbleHint: "The sea through the bars — every slap of the bottom, every landing, every rock",
   percent: (share: number): string => `${Math.round(share * 100)}%`,
+  /** The door to the bindings page, and what stands where a value would:
+   * how many actions are behind it, so a row that opens a page still says
+   * what is in there the way every other row says what it is set to. */
+  optControlsGroup: "CONTROLS",
+  optKeyboard: "KEYBOARD",
+  optKeyboardHint: "Which key does what — every action on the craft, and the presses around a run",
+  optKeysCount: (n: number): string => `${n} KEYS`,
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order — the handlebars backwards.
    * Each is one word: the row is six chips wide and read at a glance. */
@@ -294,6 +301,37 @@ export const STRINGS = {
   cameraChase: "CHASE",
   cameraFar: "FAR",
   cameraHeli: "HELI",
+
+  /* ── THE KEYBOARD PAGE (menu-keys.tsx, settings-input.ts) ──────────── */
+  /** One word per action, and every one of them says what the CRAFT does
+   * rather than what the code is called: a rider looking for the brake is
+   * looking for the word BRAKE, and `reverse` is the engine's name for it. */
+  keysTitle: "KEYBOARD",
+  keyThrottle: "THROTTLE",
+  keyReverse: "BRAKE / REVERSE",
+  keyLeft: "STEER LEFT",
+  keyRight: "STEER RIGHT",
+  keyLeanBack: "LEAN BACK",
+  keyLeanForward: "LEAN FORWARD",
+  keyTuck: "TUCK",
+  keyReset: "BACK TO THE GATE",
+  keyRestart: "RESTART THE RUN",
+  keyCamera: "CAMERA",
+  keyShot: "SCREENSHOT",
+  keyPause: "PAUSE",
+  /** What a row says while it waits for the key, what an action with no key
+   * on it says, and the page's own line at the foot. */
+  keysPrompt: "PRESS A KEY…",
+  keysUnbound: "UNBOUND",
+  keysCaption: "Press a row, then the key you want on it. One key replaces the whole binding",
+  keysRowHint: (label: string): string =>
+    `Press the row, then the key you want on ${label}. Escape keeps what is there`,
+  /** A key doing two jobs at once. Allowed — a rider may want the brake and
+   * the reset under one finger — but never hidden. */
+  keysClash: "ALSO ON",
+  keysClashHint: (label: string, others: string): string =>
+    `${label} shares its key with ${others} — both happen on one press`,
+  keysRestore: "RESET KEYS",
 
   /* ── THE DEVELOPER PAGE (menu-dev.tsx) ─────────────────────────────── */
   /** The three groups: which shore and where on it, what the water is doing,

@@ -43,6 +43,7 @@ import {
   WATER_PRESETS,
   type VideoSettings,
 } from "./settings-video.ts";
+import { DEFAULT_KEYS, freshKeys, mergeKeys, type KeyBindings } from "./settings-input.ts";
 
 /** What the HUD draws. The whole overlay, and one readout that is not part of
  * it until it is asked for.
@@ -223,6 +224,12 @@ export type Settings = {
   /** What the picture costs — the rows of OPTIONS ▸ VIDEO. What each one buys
    * is `settings-video.ts`, which is also where the ladders are stated. */
   video: VideoSettings;
+  /** WHICH KEY DOES WHAT — the rows of OPTIONS ▸ KEYBOARD. The actions, the
+   * defaults and the words for them are `settings-input.ts`; this is only
+   * where the rider's own answer is kept. Stored on a phone as well as a
+   * laptop, though the phone is never offered the page: one blob, and two
+   * devices reading it must never argue about it. */
+  keys: KeyBindings;
   /** True once THIS MACHINE HAS BEEN MEASURED — the first-visit probe
    * (`video-probe.ts`) has drawn the design point for a couple of seconds
    * under the attract card and given its verdict, whichever way it went.
@@ -257,6 +264,7 @@ export const DEV_HOLD_MS = 7000;
 export const DEFAULT_SETTINGS: Settings = {
   hud: { on: true, fps: false },
   video: DEFAULT_VIDEO,
+  keys: DEFAULT_KEYS,
   // Loud enough to be the game, short of full so a landing has somewhere to
   // go — the bank is mixed at the chase seat with this much headroom.
   audio: { sfx: 0.8 },
@@ -320,6 +328,9 @@ export function freshSettings(): Settings {
     hud: { ...DEFAULT_SETTINGS.hud },
     ride: { ...DEFAULT_SETTINGS.ride },
     video: { ...DEFAULT_SETTINGS.video },
+    // Deep, unlike every other line here: each action holds a LIST, and a
+    // shallow copy would hand the rider the defaults' own arrays to rebind.
+    keys: freshKeys(),
     audio: { ...DEFAULT_SETTINGS.audio },
     rumble: DEFAULT_SETTINGS.rumble,
     probed: false,
@@ -380,6 +391,10 @@ export function mergeSettings(parsed: unknown): Settings {
     if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
     if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;
   }
+
+  // The bindings are checked action by action against the ones this build
+  // has, the way every other stored value is — see `mergeKeys`.
+  mergeKeys(settings.keys, blob.keys);
 
   // The fader is a share, and a share it is not — a percentage from a build
   // that stored one, a string — is the default rather than a scream.

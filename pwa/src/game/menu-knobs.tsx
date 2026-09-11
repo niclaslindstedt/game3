@@ -396,6 +396,100 @@ export function NumberRow({
   );
 }
 
+/**
+ * A row that OPENS A PAGE — the keyboard's bindings — with what is behind
+ * it summarised where a value would stand. Same silhouette as every other
+ * row, and one arrow instead of two: a pair either side of a value means
+ * "the next value", and a single one pointing on means what it says.
+ */
+export function LinkRow({
+  label,
+  value,
+  hint,
+  onOpen,
+  onHint,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  onOpen: () => void;
+  onHint?: OnHint;
+}) {
+  const describe = (): void => onHint?.(hint ?? null);
+  return (
+    <button
+      type="button"
+      class="knob knob-link"
+      onPointerEnter={describe}
+      onFocus={describe}
+      onClick={onOpen}
+    >
+      <KnobLabel label={label} />
+      <span class="knob-ctl">
+        <span class="knob-value">
+          <span class="knob-word">{value}</span>
+        </span>
+        <span class="knob-arrow knob-arrow-go" aria-hidden="true">
+          ›
+        </span>
+      </span>
+    </button>
+  );
+}
+
+/**
+ * ONE REBINDABLE ACTION. The row IS the press: it arms a capture, and the
+ * next key becomes the whole binding. Same silhouette again, so a player
+ * who has just walked a ladder does not have to learn a second idea to
+ * change a key — and it is a real `<button>`, so the cursor walks a page of
+ * these with nothing registered.
+ *
+ * `clash` is a key doing two jobs. Allowed, and never hidden: the row says
+ * which other action shares it and the caption at the foot says what that
+ * means.
+ */
+export function BindRow({
+  label,
+  bound,
+  listening,
+  clash,
+  hint,
+  onListen,
+  onHint,
+}: {
+  label: string;
+  /** What is on the action now, as the player reads it off their keyboard. */
+  bound: string;
+  listening: boolean;
+  /** The other actions on the same key, already worded. Null where there
+   * are none, which is every row of a keyboard nobody has rebound. */
+  clash?: string | null;
+  hint?: string;
+  onListen: () => void;
+  onHint?: OnHint;
+}) {
+  const describe = (): void => onHint?.(hint ?? null);
+  return (
+    <button
+      type="button"
+      class={`knob knob-bind${listening ? " knob-bind-listening" : ""}`}
+      aria-pressed={listening}
+      onPointerEnter={describe}
+      onFocus={describe}
+      onClick={onListen}
+    >
+      <KnobLabel label={label} />
+      <span class="knob-value">
+        <span class="knob-word">{listening ? STRINGS.keysPrompt : bound}</span>
+        {/* Under the key rather than beside it: the value column is a fixed
+            width so the page's keys stand on one x, and a note that changes
+            the row's width would move every key on the card. */}
+        {!listening && clash && <span class="knob-clash">{clash}</span>}
+      </span>
+    </button>
+  );
+}
+
 /** A handful of rows under one word. */
 export function KnobGroup({ title, children }: { title: string; children: ComponentChildren }) {
   return (

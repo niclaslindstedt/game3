@@ -2492,6 +2492,81 @@ button.knob-read:focus-visible {
   gap: 0.6rem;
 }
 
+/* THE KEYBOARD PAGE — the same shape with one grid instead of two columns of
+   groups: ten rows that are all the same question do not want carving into
+   sections. */
+.menu-card-keys {
+  width: min(36rem, 100%);
+  gap: 0.6rem;
+}
+
+/* TWO ABREAST AT MOST. An action and its key are a row with a rem to spare
+   at half a card; at a third of one the NAME is what gives, and a page of
+   rows reading "TH…" and "BR…" is a page of rows nobody can use. */
+.knob-binds {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(17rem, 1fr));
+  gap: 0.25rem 0.6rem;
+}
+
+.knob-link,
+.knob-bind {
+  width: 100%;
+  cursor: pointer;
+}
+
+/* The one arrow of a row that opens a page, dimmer than a stepper's pair:
+   it is a direction and not a press of its own. */
+.knob-arrow-go {
+  color: rgb(242 247 248 / 55%);
+}
+
+/* A binding row has no arrows, so its value may take the room they would
+   have had — "L SHIFT / R SHIFT / UP ARROW" is what the defaults actually
+   read, and it wraps rather than pushing the name off the row. */
+.knob-bind .knob-value {
+  width: clamp(8.5rem, 26vw, 9.5rem);
+}
+
+.knob-bind .knob-name {
+  letter-spacing: 0.08em;
+}
+
+.knob-bind .knob-word {
+  font-size: 0.72rem;
+  white-space: normal;
+  text-align: center;
+}
+
+/* WAITING FOR THE KEY. The row goes to the buoy colour every press in this
+   game is drawn in and the prompt blinks, so a page of ten identical rows
+   says which one has the keyboard from across the desk. */
+.knob-bind-listening {
+  background: rgb(242 140 40 / 22%);
+  border-color: var(--buoy);
+}
+
+.knob-bind-listening .knob-word {
+  animation: knob-blink 0.9s steps(2) infinite;
+}
+
+@keyframes knob-blink {
+  to {
+    opacity: 0.3;
+  }
+}
+
+/* A key doing two jobs, said under the key itself — see menu-keys.tsx for
+   why it is allowed at all. */
+.knob-clash {
+  font-size: 0.52rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  color: var(--hud-bad);
+  opacity: 0.85;
+  text-align: center;
+}
+
 /* THE START CARD, WHOSE LAYOUT IS DECIDED BY THE CHART. The chart is SQUARE,
    so every pixel of its width is a pixel of card height: stood over the rows
    in one narrow column it was the tallest thing on the card and still only a
@@ -2514,7 +2589,8 @@ button.knob-read:focus-visible {
    are the thumb targets and 40px is the floor for one, so a settings page
    that fits by making itself harder to press has not fixed anything. */
 @media (max-width: 30rem) {
-  .menu-card-options {
+  .menu-card-options,
+  .menu-card-keys {
     gap: 0.4rem;
   }
 
@@ -2546,7 +2622,8 @@ button.knob-read:focus-visible {
    the whole card. The value column narrows with it: a row now shares half a
    card, and RESOLUTION must not be truncated to make room. */
 @media (min-width: 48rem) {
-  .menu-card-options {
+  .menu-card-options,
+  .menu-card-keys {
     width: min(48rem, 100%);
   }
 

@@ -21,7 +21,9 @@
 //                only place one is ever shown. It stands above OPTIONS
 //                because it is the player's own, and under START because
 //                nothing gets into it without a run first.
-//   OPTIONS    → the knobs the game actually has (menu-options.tsx).
+//   OPTIONS    → the knobs the game actually has (menu-options.tsx), and
+//                behind one of its rows the keyboard's bindings
+//                (menu-keys.tsx).
 //   DEVELOPER  → hidden until START has been HELD for seven seconds
 //                (menu-hold.ts, `DEV_HOLD_MS`), and out for good once found.
 //
@@ -50,6 +52,7 @@ import {
 import { CraftPage } from "./menu-craft.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
 import { GalleryPage } from "./menu-gallery.tsx";
+import { KeysPage } from "./menu-keys.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
 import { STRINGS } from "./strings.ts";
@@ -60,6 +63,7 @@ export type MenuPage =
   | { page: "craft" }
   | { page: "gallery" }
   | { page: "options" }
+  | { page: "keys" }
   | { page: "developer" };
 
 /** How often the held row redraws its fill, ms. Ten a second is a fill that
@@ -342,6 +346,16 @@ export function MainMenu({
           settings={settings}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
+          onKeys={() => onNavigate({ page: "keys" })}
+        />
+      )}
+      {/* The one page behind a page: which key does what, reached from the
+          row that summarises it and going back to it. */}
+      {page.page === "keys" && (
+        <KeysPage
+          settings={settings}
+          onSettings={onSettings}
+          onBack={() => onNavigate({ page: "options" })}
         />
       )}
       {page.page === "developer" && (

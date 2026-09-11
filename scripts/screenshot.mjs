@@ -108,7 +108,8 @@ const SURFACES = {
   // photographs is the empty state — which is the surface most players see
   // first and the one no run can be scripted to produce.
   gallery: { params: { menu: "gallery" }, wait: ".menu-card-gallery", settle: 500 },
-  options: { params: { menu: "options" }, wait: ".menu-card", settle: 400 },
+  options: { params: { menu: "options" }, wait: ".menu-card-options", settle: 400 },
+  keys: { params: { menu: "keys" }, wait: ".menu-card-keys", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
   // The pause card is the one surface with no meaning without a run behind
   // it, so `?paused=1` rides one and holds it — the HUD and the frozen sea

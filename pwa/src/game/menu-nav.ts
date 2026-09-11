@@ -129,6 +129,26 @@ export type MenuNav = {
   sync: () => void;
 };
 
+/**
+ * THE CURSOR'S KEYS, HANDED OVER — to a surface that is listening for one
+ * particular press rather than walking a card. A binding row is the only
+ * caller: while it waits, EVERY key belongs to it, the arrows and Escape
+ * included, or the two keys a player is most likely to want on the
+ * handlebar would be the two they could never bind.
+ *
+ * A module-level latch rather than a flag passed down because the surface
+ * holding the keyboard is not the one reading it: App.tsx's capture-phase
+ * listener is registered before any card exists, so a listener the card
+ * adds later cannot get in front of it. `active()` is where that listener
+ * already asks whether the press is the cursor's, so that is where the
+ * answer is given.
+ */
+let handed = false;
+
+export function holdNav(on: boolean): void {
+  handed = on;
+}
+
 export function createMenuNav(): MenuNav {
   /** The surface the cursor was last put into, so `sync` can tell a new card
    * from the same card re-rendering. */
@@ -196,7 +216,7 @@ export function createMenuNav(): MenuNav {
   };
 
   return {
-    active: () => root() !== null,
+    active: () => !handed && root() !== null,
     sync: () => {
       const host = root();
       if (host === seen) return;

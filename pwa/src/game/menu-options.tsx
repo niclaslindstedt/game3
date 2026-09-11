@@ -6,9 +6,14 @@
 // the player moves it, nothing happens, and now nothing else on the page can
 // be trusted either. So there is ONE fader here — every sound effect, which is
 // every sound the game makes today — and no MUSIC fader, because there is no
-// score yet; and no key bindings, because `input.ts` carries a fixed table.
-// Each of those becomes a row here on the day the thing behind it exists, and
-// not before.
+// score yet. It becomes a row here on the day the score exists, and not
+// before.
+//
+// A ROW IS ALSO NOT OFFERED TO A MACHINE THAT CANNOT USE IT: the motor's
+// switch is drawn only where there is a motor (`canRumble`) and the door to
+// the bindings only where there are keys (`hasKeyboard`). The setting behind
+// each is stored either way, so a phone and the laptop beside it never argue
+// over one blob.
 //
 // What is left is what a rider chooses ABOUT THE APP: what the picture costs,
 // where the eye rides, how loud the water is, and whether the readouts are
@@ -38,8 +43,19 @@
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { canRumble } from "./haptics.ts";
+import { hasKeyboard } from "./input.ts";
 import { MenuHead } from "./menu.tsx";
-import { Caption, FadeRow, KnobGroup, ON_OFF, StepRow, onOff, type Stop } from "./menu-knobs.tsx";
+import {
+  Caption,
+  FadeRow,
+  KnobGroup,
+  LinkRow,
+  ON_OFF,
+  StepRow,
+  onOff,
+  type Stop,
+} from "./menu-knobs.tsx";
+import { KEY_ACTIONS } from "./settings-input.ts";
 import { SFX_STEP, freshSettings, type Settings } from "./settings.ts";
 import {
   DETAIL_LEVELS,
@@ -153,16 +169,22 @@ export function OptionsPage({
   settings,
   onSettings,
   onBack,
+  onKeys,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
   onBack: () => void;
+  onKeys: () => void;
 }) {
   const [hint, setHint] = useState<string | null>(null);
   // Asked once per opening rather than per render: the answer is a fact
   // about the machine, and the probe reaches for `navigator` and the
   // touchscreen.
   const [rumbleOffered] = useState(canRumble);
+  // Same question, same reason: a phone has no keys to rebind, and a door
+  // onto a page of them is a door onto a room it cannot walk into. Asked
+  // once per opening, because it is a fact about the machine.
+  const [keysOffered] = useState(hasKeyboard);
   const setVideo = (video: Partial<VideoSettings>): void =>
     onSettings({ ...settings, video: { ...settings.video, ...video } });
   return (
@@ -260,6 +282,20 @@ export function OptionsPage({
               onPick={(camera) => onSettings({ ...settings, ride: { ...settings.ride, camera } })}
               onHint={setHint}
             />
+            {/* The door to the bindings, in RIDING rather than under a
+                CONTROLS heading of its own: a group title is height, this
+                card already reaches the bottom of a phone, and which keys
+                are under the hands is as much "how this is ridden" as where
+                the eye sits and what the bars do to them. */}
+            {keysOffered && (
+              <LinkRow
+                label={STRINGS.optKeyboard}
+                hint={STRINGS.optKeyboardHint}
+                value={STRINGS.optKeysCount(KEY_ACTIONS.length)}
+                onOpen={onKeys}
+                onHint={setHint}
+              />
+            )}
             {/* THE MOTOR IS OFFERED ONLY WHERE THERE IS ONE. A desktop
                 browser answers `navigator.vibrate` and does nothing with it,
                 so the check is `canRumble()` rather than the API's existence

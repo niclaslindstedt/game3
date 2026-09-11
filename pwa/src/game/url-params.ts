@@ -154,6 +154,7 @@ export function readParams(search: string): Params {
       menu === "craft" ||
       menu === "gallery" ||
       menu === "options" ||
+      menu === "keys" ||
       menu === "developer" ||
       menu === "root"
         ? { page: menu }
