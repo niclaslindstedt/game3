@@ -20,8 +20,6 @@ import {
   ratedTorque,
   staticThrust,
   step,
-  accel0to50Of,
-  classTorque,
   topSpeedOf,
   totalMass,
   type CraftInput,
@@ -31,7 +29,7 @@ import {
 import { syntheticLevel } from "./support/synthetic.ts";
 
 // A long flat sea with nothing on it: the drag strip.
-const STRIP = syntheticLevel({ windSpeed: 0, noSolids: true, seaward: 1200, plan: 4000 });
+const STRIP = syntheticLevel({ windSpeed: 0, noSolids: true, seaward: 1200 });
 const FULL: CraftInput = { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false };
 
 function flatOut(id: string, seconds: number): { top: number; t50: number; state: GameState } {
@@ -55,16 +53,10 @@ describe("the sheet", () => {
   for (const spec of CRAFT) {
     it(`${spec.id} reaches its top speed within 10% and 0–50 within 20%`, () => {
       const { top, t50, state } = flatOut(spec.id, 24);
-      // Against `topSpeedOf`, not the raw catalog number: the SPEED CLASS
-      // (`pump.speedClass`) scales what the physics delivers and that is
-      // the one place it is applied, so this holds the two together at
-      // whatever class is set.
-      const want = topSpeedOf(spec) * 3.6;
-      expect(top, "top speed km/h").toBeGreaterThan(want * 0.9);
-      expect(top, "top speed km/h").toBeLessThan(want * 1.1);
-      const want50 = accel0to50Of(spec);
-      expect(t50, "0–50 s").toBeGreaterThan(want50 * 0.8);
-      expect(t50, "0–50 s").toBeLessThan(want50 * 1.2);
+      expect(top, "top speed km/h").toBeGreaterThan(spec.topSpeed * 0.9);
+      expect(top, "top speed km/h").toBeLessThan(spec.topSpeed * 1.1);
+      expect(t50, "0–50 s").toBeGreaterThan(spec.accel0to50 * 0.8);
+      expect(t50, "0–50 s").toBeLessThan(spec.accel0to50 * 1.2);
       // ...on the plane, level, and still in the water.
       const c = state.craft;
       expect(c.planing).toBeGreaterThan(0.3);
@@ -123,17 +115,12 @@ describe("the pump", () => {
       expect(pump / engine).toBeLessThan(1.05);
       // The rated power lands on the curve at redline.
       const power = (engine * spec.maxRpm * 2 * Math.PI) / 60;
-      // `powerKw` is the hull's own number AT CLASS 1; the class is a
-      // bigger engine, so it scales with it (`classTorque`).
-      expect(power / 1000).toBeCloseTo(spec.powerKw * classTorque(), 0);
+      expect(power / 1000).toBeCloseTo(spec.powerKw, 0);
       // Static pull is of the order of the weight — a jet ski, not a tug.
-      // Under the class, which scales the thrust by the square of the pitch
-      // it asks for while the hull weighs what it always did.
       const pull = staticThrust(spec, density);
       const weight = totalMass(spec) * TUNING.g;
-      const byClass = classTorque() ** (2 / 3);
-      expect(pull / weight).toBeGreaterThan(0.6 * byClass);
-      expect(pull / weight).toBeLessThan(1.6 * byClass);
+      expect(pull / weight).toBeGreaterThan(0.6);
+      expect(pull / weight).toBeLessThan(1.6);
       // The jet leaves faster than the hull can ever go.
       expect(jetCeiling(spec)).toBeGreaterThan(topSpeedOf(spec) * 1.15);
     });
@@ -266,12 +253,11 @@ describe("the blower", () => {
     // The one blown craft on the roster: its rated power still lands at the
     // limiter, so what the blower bought at the top it gave up in the
     // middle — the trade the archetype exists for.
-    // `powerKw` is the hull's own number AT CLASS 1 (`classTorque`).
     const ratedPower = (ratedTorque(marlin) * marlin.maxRpm * 2 * Math.PI) / 60 / 1000;
-    expect(ratedPower).toBeCloseTo(marlin.powerKw * classTorque(), 0);
+    expect(ratedPower).toBeCloseTo(marlin.powerKw, 0);
     const mid = marlin.maxRpm * 0.4;
     const blown = curveTorque(marlin, mid) * boostFactor(marlin, mid);
-    const unblown = (marlin.powerKw * classTorque() * 1000 * 60) / (2 * Math.PI * marlin.maxRpm);
+    const unblown = (marlin.powerKw * 1000 * 60) / (2 * Math.PI * marlin.maxRpm);
     expect(blown).toBeLessThan(unblown);
     for (const spec of CRAFT) {
       if (spec.id !== "marlin") expect(spec.boost.peak).toBe(0);

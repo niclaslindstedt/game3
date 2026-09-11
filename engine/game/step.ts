@@ -13,7 +13,7 @@ import type { Season } from "../lib/solar.ts";
 import { status } from "../output.ts";
 import { stepCraft } from "./craft.ts";
 import { freshProgress, resetCraft, standCraft, stepCourse } from "./course.ts";
-import { craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
+import { craftAtClass, craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { identity } from "../lib/quat.ts";
 import { NEUTRAL_INPUT, type CraftInput, type CraftState, type GameState } from "./state.ts";
@@ -25,6 +25,14 @@ export type CreateGameOptions = {
   seed: number;
   /** Which craft; defaults to the skiff. */
   craft?: CraftId;
+  /** R32 — the SPEED CLASS, as the multiple of the catalog's own speed the
+   * craft is ridden at; defaults to `TUNING.pump.speedClass`. It is TWO
+   * things at once: the hull is derived at it (`craftAtClass`) and the
+   * course is PACED for it, because gates are laid in metres and a faster
+   * rider needs them further apart to be the same race. So the same seed at
+   * two classes is two different courses. Ignored for the level when
+   * `level` is given, which already carries its own pace. */
+  speedClass?: number;
   /** R29 — which chapter of the rule book the seed is dealt from: a coast
    * sprint (the default) or an ocean circuit ridden in laps. Ignored when
    * `level` is given, which already is one or the other. */
@@ -57,6 +65,10 @@ export type CreateGameOptions = {
    * (`GameState.assist`, `TUNING.assist`); the tuning's own `strength`
    * when left out. 0 rides the bare physics. */
   assist?: number;
+  /** ...and how late that hand arrives, s before the water; the tuning's
+   * own `window` when nothing says. The two together are what a
+   * difficulty setting moves (`TUNING.assist.band` is the ladder). */
+  assistWindow?: number;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
 };
@@ -107,8 +119,16 @@ export function freshCraft(spec: CraftSpec): CraftState {
 }
 
 export function createGame(options: CreateGameOptions): GameState {
-  const spec = craftById(options.craft ?? "skiff");
-  const dealt = options.level ?? generateLevel(options.seed, { track: options.track });
+  // R32 — the SPEED CLASS this run is ridden at, applied by deriving the
+  // spec rather than read out of the tuning by the physics: it is a choice
+  // a rider makes per run, and everything downstream reads one spec and
+  // needs to know nothing about classes.
+  const speedClass = options.speedClass ?? TUNING.pump.speedClass;
+  const spec = craftAtClass(craftById(options.craft ?? "skiff"), speedClass);
+  // ...and the course is PACED for it: gates are laid in metres, so the
+  // class is part of what the level is (`mapgen/rules.ts`'s `rulesAtPace`).
+  const dealt =
+    options.level ?? generateLevel(options.seed, { track: options.track, pace: speedClass });
   // A named time of day is resolved against the coast that was actually
   // dealt, which is why it is read here rather than by the caller: only the
   // level knows the latitude its daylight window is cut from (R13).
@@ -149,6 +169,7 @@ export function createGame(options: CreateGameOptions): GameState {
     input: { ...NEUTRAL_INPUT },
     progress: freshProgress(level),
     assist: clamp(options.assist ?? TUNING.assist.strength, 0, 1),
+    assistWindow: Math.max(0, options.assistWindow ?? TUNING.assist.window),
     phase: "running",
     events: [],
   };

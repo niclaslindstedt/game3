@@ -51,6 +51,7 @@ import { angleDiff, clamp, TAU } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import { LEVEL_RULES as R, inBand } from "./rules.ts";
+import { rulesAtPace } from "./pace.ts";
 import type { BuoyLight, Vec2 } from "./types.ts";
 
 /** R25, R31 — WHAT THE LINE IS DRAWN ROUND: the sea stack at the end of a
@@ -119,15 +120,19 @@ export type Route = {
  * everything drawn around a coast can read `leg` without asking. */
 export type CoastRoute = Route & { readonly leg: OceanLeg };
 
-export function drawRoute(rng: Rng): CoastRoute | null {
+export function drawRoute(rng: Rng, pace = 1): CoastRoute | null {
   for (let attempt = 0; attempt < R.route.tries; attempt++) {
-    const route = drawOnce(rng);
+    const route = drawOnce(rng, pace);
     if (route) return route;
   }
   return null;
 }
 
-function drawOnce(rng: Rng): CoastRoute | null {
+function drawOnce(rng: Rng, pace: number): CoastRoute | null {
+  // R32 — the rule book AT THIS LEVEL'S PACE, shadowing the module's own:
+  // the line a faster class is raced on is longer and strays further, and
+  // everything below reads those numbers without knowing it.
+  const R = rulesAtPace(pace);
   const step = R.route.step;
   // The leg's own numbers first: its length is 2π·round + 2·out whatever
   // heading it leaves on, so the free walk can be drawn shorter by exactly

@@ -56,6 +56,7 @@ import {
 } from "./course.ts";
 import { layFauna } from "./fauna.ts";
 import { createGeology, laySolids, type Geology } from "./geology.ts";
+import { TUNING } from "../game/defs/tuning.ts";
 import { LEVEL_RULES as R, inBand, withinBand } from "./rules.ts";
 import { pickWeather, skyCover } from "./weather.ts";
 import type { Bounds, GenerateOptions, Level, Solid, TrackKind, Wind } from "./types.ts";
@@ -140,11 +141,11 @@ function markSolids(route: Route): Solid[] {
 
 /** R24, R25, R26, R15 — a coast: the route, the river off its most inland
  * station, and the basin cut round them both. */
-function drawCoast(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string {
+function drawCoast(rng: Rng, biome: ReturnType<typeof biomeOf>, pace = 1): Waters | string {
   // R24 — THE ROUTE FIRST. Everything else in a level is built around the
   // line the race is ridden on, which is the whole inversion: a coast drawn
   // first can only ever be raced ALONG.
-  const route = drawRoute(rng);
+  const route = drawRoute(rng, pace);
   if (!route) return "the route folds back on itself";
   // R26 — the river that runs on inland from the route's own mouth. It is
   // drawn before the water is carved, because it is part of what gets
@@ -183,13 +184,13 @@ function drawCoast(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string
     // ridden through half as strewn as the rule says.
     strewn: routeBounds(route),
     km: route.length / 1000,
-    lay: (rng2, water, wind) => layCourse(rng2, route, water, wind),
+    lay: (rng2, water, wind) => layCourse(rng2, route, water, wind, pace),
   };
 }
 
 /** R29, R31 — a circuit: the closed loop, and the open sea it stands in
  * with one coast cut a long way off on one side. */
-function drawOcean(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string {
+function drawOcean(rng: Rng, biome: ReturnType<typeof biomeOf>, pace = 1): Waters | string {
   const route = drawCircuit(rng);
   if (!route) return "no loop this seed draws is rideable";
   // R29 — the coast is put where the loop is not: the sea's edge is cut
@@ -216,7 +217,7 @@ function drawOcean(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string
     // A lap ridden two or three times is two or three times the water a
     // rider passes, and R17 counts rock by the kilometre a rider rides.
     km: (route.length * R.circuit.laps.max) / 1000,
-    lay: (rng2, water, wind) => layCircuitCourse(rng2, route, water, wind),
+    lay: (rng2, water, wind) => layCircuitCourse(rng2, route, water, wind, pace),
   };
 }
 
@@ -225,6 +226,12 @@ function drawOcean(rng: Rng, biome: ReturnType<typeof biomeOf>): Waters | string
 export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   const biome = biomeOf(opts.biome ?? "taiga");
   const track: TrackKind = opts.track ?? "coast";
+  // R32 — the SPEED CLASS this course is paced for. Gates are laid in
+  // metres, so the class the craft will be ridden at is part of what a
+  // level IS: the same seed at two classes is two different courses, and
+  // the level carries it so the analyzer scores it against the rules it
+  // was actually built to.
+  const pace = Math.max(0.1, opts.pace ?? TUNING.pump.speedClass);
   const attempts = opts.attempts ?? R.search.attempts;
   // R13 — the hours this coast is in daylight in each season, off its own
   // latitude. A fact about the place rather than about the attempt, so it
@@ -240,7 +247,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       lastReason = why;
       warn(`level ${seed}: attempt ${attempt} rejected — ${why}`);
     };
-    const drawn = track === "circuit" ? drawOcean(rng, biome) : drawCoast(rng, biome);
+    const drawn = track === "circuit" ? drawOcean(rng, biome, pace) : drawCoast(rng, biome, pace);
     if (typeof drawn === "string") {
       reject(drawn);
       continue;
@@ -294,7 +301,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       offshoreAt,
       geology.groundAt,
       drawn.km,
-      courseKeepOut(course),
+      courseKeepOut(course, pace),
       seawardAt,
       drawn.marks,
       track,
@@ -335,6 +342,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       seed,
       biome,
       track,
+      pace,
       bounds,
       offshore: basin.offshore,
       ground,

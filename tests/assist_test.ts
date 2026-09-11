@@ -226,15 +226,67 @@ describe("what the hand does not touch", () => {
    * which is −wx. */
   function torqueAt(pitch: number, nose: number, roll = 0): [number, number, number] {
     const out = { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 };
-    landingAssist(fromEuler(0, pitch, roll), -nose, 0, 0, 228, 225, 60, 0.5, 0.6, -4, 0, 1, out);
+    landingAssist(
+      fromEuler(0, pitch, roll),
+      -nose,
+      0,
+      0,
+      228,
+      225,
+      60,
+      0.5,
+      0.6,
+      -4,
+      0,
+      1,
+      TUNING.assist.window,
+      out,
+    );
     return [out.tx, out.ty, out.tz];
   }
+
+  it("arrives when the WINDOW says, which is the difficulty ladder's other dial", () => {
+    // The same badly-pointed hull at the same moment, with only the window
+    // moved: 0.13 s of flight left is inside the shipped 0.75 s and outside
+    // a hard rung's, so a short window hands the flight back to the rider
+    // without softening the spring at all.
+    const out = { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 };
+    const at = (window: number): number => {
+      landingAssist(fromEuler(0, -0.4, 0), 0, 0, 0, 228, 225, 60, 0.5, 0.6, -4, 0, 1, window, out);
+      return out.tx;
+    };
+    expect(at(TUNING.assist.window)).toBeLessThan(-100);
+    expect(at(0.1)).toBe(0);
+    // ...and the ladder every rung of a difficulty setting comes from is
+    // ordered, hardest first, with the shipped default somewhere inside it.
+    const band = TUNING.assist.band;
+    for (let i = 1; i < band.length; i++) {
+      expect(band[i].strength, band[i].id).toBeGreaterThan(band[i - 1].strength);
+      expect(band[i].window, band[i].id).toBeGreaterThan(band[i - 1].window);
+    }
+    expect(band.some((r) => r.strength === TUNING.assist.strength)).toBe(true);
+  });
 
   it("waits for a real flight: a chop hop is not a jump", () => {
     // The same badly-pointed hull, a hop old instead of a flight old.
     const out = { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 };
     const hop = TUNING.flight.minAir / 2;
-    landingAssist(fromEuler(0, -0.4, 0), 0, 0, 0, 228, 225, 60, hop, 0.6, -4, 0, 1, out);
+    landingAssist(
+      fromEuler(0, -0.4, 0),
+      0,
+      0,
+      0,
+      228,
+      225,
+      60,
+      hop,
+      0.6,
+      -4,
+      0,
+      1,
+      TUNING.assist.window,
+      out,
+    );
     expect([out.tx, out.ty, out.tz]).toEqual([0, 0, 0]);
     expect(torqueAt(-0.4, 0)[0]).toBeLessThan(-100);
   });

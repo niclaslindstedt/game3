@@ -40,6 +40,11 @@ export type GenerateOptions = {
   /** R29 — which chapter of the rule book to build to; defaults to
    * `coast`. */
   track?: TrackKind;
+  /** R32 — the SPEED CLASS the course is paced for, as the multiple of the
+   * catalog's own speed the craft will be ridden at. Defaults to
+   * `TUNING.pump.speedClass`. Gates are laid in metres, so a faster class
+   * needs them further apart to be the same race (`rulesAtPace`). */
+  pace?: number;
   /** Bounded sub-seed attempts before the generator throws; defaults to
    * `LEVEL_RULES.search.attempts`. */
   attempts?: number;
@@ -230,6 +235,12 @@ export type Level = {
   readonly biome: BiomeId;
   /** R29 — which chapter of the rule book this level was built to. */
   readonly track: TrackKind;
+  /** R32 — the SPEED CLASS it was PACED for: the multiple of the catalog's
+   * own speed the craft is ridden at, which is what its gate spacing, its
+   * length and its run-ups were stretched by (`rulesAtPace`). A level
+   * carries it because the analyzer is handed a `Level` and nothing else,
+   * and has to score it against the rules it was actually built to. */
+  readonly pace: number;
   readonly bounds: Bounds;
   /** Ground height against sea level: the sea bed under the water, the land
    * above it. Land is only meaningful within ~100 m of the shore. */

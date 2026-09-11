@@ -165,9 +165,16 @@ export function timeToWater(height: number, vy: number): number {
  * flip is genuinely predicted to land on its head and only the rider
  * knows that is on purpose.
  *
- * `strength` is the run's dial (`GameState.assist`); at 0 nothing here
- * runs and the hull lands wherever the physics threw it. Torque comes
- * back in the BODY frame, N·m, and is added to the step's own. */
+ * `strength` and `window` are the run's two dials (`GameState.assist`) —
+ * HOW HARD the hand catches and HOW LATE it arrives — and they are two
+ * because a difficulty ladder needs both: strength alone scales the
+ * correction, while the window is what decides whether a flight is the
+ * rider's. Over the flight bench a fifth of the stiffness reaching a
+ * second and a half out saves the same landings and does it by owning most
+ * of the hang, so a hard ladder shortens the window rather than only
+ * softening the spring. At `strength` 0 nothing here runs and the hull
+ * lands wherever the physics threw it. Torque comes back in the BODY
+ * frame, N·m, and is added to the step's own. */
 export function landingAssist(
   q: Quat,
   wx: number,
@@ -181,6 +188,7 @@ export function landingAssist(
   vy: number,
   lean: number,
   strength: number,
+  window: number,
   out: AeroResult,
 ): void {
   out.fx = 0;
@@ -200,7 +208,7 @@ export function landingAssist(
   // is the sensation this game is FOR. It waits for a real flight.
   if (airTime < F.minAir) return;
   const tti = timeToWater(height, vy);
-  if (!(tti < A.window)) return;
+  if (!(tti < window)) return;
 
   // Where the hull will be pointing when it arrives: its attitude turned
   // forward at the rate it is turning now. `integrate` is the same
@@ -233,7 +241,7 @@ export function landingAssist(
   // Past the tolerance the torque grows from zero, so nothing steps as a
   // flight crosses the line between "fine" and "caught", and it grows
   // again as the water closes — the hand tightens rather than grabbing.
-  const urgency = 1 - tti / A.window;
+  const urgency = 1 - tti / window;
   const gain = dial * urgency;
   // NEGATED, and that is the whole sign of this term: `ax`/`az` is the
   // axis that turns the VECTOR onto its target, and a body turned

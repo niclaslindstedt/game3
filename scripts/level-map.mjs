@@ -44,7 +44,8 @@ const {
   faunaCount,
   rarityOf,
   CRAFT_IDS,
-  LEVEL_RULES,
+  craftAtClass,
+  rulesAtPace,
 } = await import(join(root, "engine/index.ts"));
 // The hinge speed a ring asks for is the bot's arithmetic (engine/sim/
 // bot.ts); it is not on the engine's public surface yet, so it is read
@@ -62,10 +63,15 @@ const args = parseArgs(
       default: "coast",
       help: "coast (a shore sprint) or circuit (a lap at sea)",
     },
+    pace: {
+      kind: "number",
+      default: 1,
+      help: "the speed class the level is built for (R32) — 1 is STOCK",
+    },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--track coast|circuit] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--track coast|circuit] [--pace k] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -78,7 +84,12 @@ if (args.track !== "coast" && args.track !== "circuit") {
 
 // ── Build it ────────────────────────────────────────────────────────────
 const t0 = Date.now();
-const level = generateLevel(args.seed, { track: args.track });
+const level = generateLevel(args.seed, { track: args.track, pace: args.pace });
+// The rules the LISTING quotes are the ones this level was built to (R32),
+// and the hulls it quotes launch speeds for are at the same class — a run-up
+// measured against the stock book is a number the level never had to meet.
+const R = rulesAtPace(level.pace);
+const atClass = (id) => craftAtClass(craftById(id), level.pace);
 const built = Date.now() - t0;
 const depthAt = (x, z) => -sampleField(level.ground, x, z);
 const offshoreAt = (x, z) => sampleField(level.offshore, x, z);
@@ -101,7 +112,7 @@ function stationOf(x, z) {
 }
 
 // ── The listing ─────────────────────────────────────────────────────────
-const spec = craftById(args.craft);
+const spec = atClass(args.craft);
 const gates = level.course.gates;
 const startStation = stationOf(level.start.x, level.start.z);
 let prev = startStation;
@@ -144,7 +155,7 @@ const rows = gates.map((g) => {
       ringHeight: g.y,
       launchSpeed: Object.fromEntries(
         CRAFT_IDS.map((id) => {
-          const s = craftById(id);
+          const s = atClass(id);
           return [id, launchSpeedFor(g, s.cog.y, topSpeedOf(s))];
         }),
       ),
@@ -189,7 +200,7 @@ const heading = `SEED ${args.seed} — ${level.biome}, ${level.weather} sky, win
 // picture from the number.
 const lapText =
   level.course.laps > 1
-    ? `${((level.course.length - LEVEL_RULES.start.behind) / level.course.laps / 1000).toFixed(2)} km ` +
+    ? `${((level.course.length - R.start.behind) / level.course.laps / 1000).toFixed(2)} km ` +
       `× ${level.course.laps} laps of ${level.course.lapGates} gates, `
     : "";
 const statLine =
@@ -285,7 +296,7 @@ for (const r of rows) {
           (id) =>
             `${id} ${(rp.launchSpeed[id] * 3.6).toFixed(0)} km/h${id === args.craft ? "*" : ""}`,
         ).join(" · ") +
-        `  (run-up ${LEVEL_RULES.ramp.runUp} m, ${spec.name}'s top ${spec.topSpeed} km/h)`,
+        `  (run-up ${R.ramp.runUp.toFixed(0)} m, ${spec.name}'s top ${spec.topSpeed.toFixed(0)} km/h)`,
     );
   }
 }

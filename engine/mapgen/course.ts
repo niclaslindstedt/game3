@@ -43,6 +43,7 @@ import { polylineDistance, segmentDistance } from "../lib/polyline.ts";
 import type { Rng } from "../lib/prng.ts";
 import { lapTurn, roundingAbout } from "./circuit.ts";
 import { LEVEL_RULES as R, inBand, solidBerth, withinBand } from "./rules.ts";
+import { rulesAtPace } from "./pace.ts";
 import type { CoastRoute, Route } from "./route.ts";
 import type { Gate, Ramp, Vec2, Wind } from "./types.ts";
 
@@ -115,8 +116,18 @@ export function ringPlacement(
 
 /** The straight corridor an air gate owns, from the start of its run-up to
  * the end of its landing, and the half-width a solid must keep out of:
- * the deck's half plus R6's margin. */
-export function airCorridor(gate: Gate): {
+ * the deck's half plus R6's margin.
+ *
+ * R32 — it takes the level's PACE, because both of its ends are stretched
+ * by the class: the corridor has to be the one `layAir` cut the window
+ * straight for. Read at the stock book on a level drawn for a slower class
+ * it reaches out past both ends of that window into the bend beyond, and
+ * every reader of it — R9's straightness check, the placer's keep-out —
+ * measures a corridor the generator never promised. */
+export function airCorridor(
+  gate: Gate,
+  pace = 1,
+): {
   x0: number;
   z0: number;
   x1: number;
@@ -125,13 +136,14 @@ export function airCorridor(gate: Gate): {
 } {
   const ramp = gate.ramp;
   if (!ramp) throw new Error(`gate ${gate.id} is an air gate with no ramp`);
+  const P = rulesAtPace(pace);
   const fx = Math.sin(ramp.heading);
   const fz = Math.cos(ramp.heading);
   return {
-    x0: ramp.x - fx * R.ramp.runUp,
-    z0: ramp.z - fz * R.ramp.runUp,
-    x1: gate.x + fx * R.air.landing,
-    z1: gate.z + fz * R.air.landing,
+    x0: ramp.x - fx * P.ramp.runUp,
+    z0: ramp.z - fz * P.ramp.runUp,
+    x1: gate.x + fx * P.air.landing,
+    z1: gate.z + fz * P.air.landing,
     halfWidth: ramp.width / 2 + R.course.solidMargin,
   };
 }
@@ -318,10 +330,14 @@ function layAir(
   line: Vec2[],
   gateD: number[],
   ask: AirAsk,
+  pace = 1,
 ): {
   points: Vec2[];
   chosen: AirDraw[];
 } | null {
+  // R32 — the paced rule book, as in `layCourse`: the run-up and the lead
+  // an air gate is given stretch with the class the course is drawn for.
+  const R = rulesAtPace(pace);
   let points = line;
   // R18 — the ring's place follows from the ramp; a ramp whose two design
   // arcs spread wider than the ring can take is no ramp to build.
@@ -467,7 +483,13 @@ export function layCourse(
   route: CoastRoute,
   water: Water,
   wind: Wind,
+  pace = 1,
 ): CoursePlan | null {
+  // R32 — the rule book AT THIS LEVEL'S PACE, shadowing the module's own.
+  // Gates are laid in METRES, so a faster class needs them further apart to
+  // be the same race; everything below reads the stretched numbers without
+  // knowing they were stretched.
+  const R = rulesAtPace(pace);
   const S = R.search;
   const band = {
     min: R.course.offshore.min + S.offshoreSlack,
@@ -534,15 +556,21 @@ export function layCourse(
   if (finishD < R.course.length.min || finishD > R.course.length.max) return null;
 
   // ── The air gates (R7, R8, R9) ──────────────────────────────────────
-  const air = layAir(rng, points, gateD, {
-    want: airCount,
-    least: R.air.count.min,
-    room: { from: startStraight, to: finishD },
-    wind,
-    legalAt,
-    needDepth,
-    runUpDepth,
-  });
+  const air = layAir(
+    rng,
+    points,
+    gateD,
+    {
+      want: airCount,
+      least: R.air.count.min,
+      room: { from: startStraight, to: finishD },
+      wind,
+      legalAt,
+      needDepth,
+      runUpDepth,
+    },
+    pace,
+  );
   if (!air) return null;
   points = air.points;
   const chosen = air.chosen;
@@ -637,7 +665,10 @@ export function layCircuitCourse(
   route: Route,
   water: Water,
   wind: Wind,
+  pace = 1,
 ): CoursePlan | null {
+  // R32 — the paced rule book, as in `layCourse`.
+  const R = rulesAtPace(pace);
   const C = R.circuit;
   const S = R.search;
   const needDepth = R.course.minDepth + S.depthSlack;
@@ -674,15 +705,21 @@ export function layCircuitCourse(
   // Its window may not reach the seam at either end: the seam carries the
   // start line, and a run-up straightened across it would be cut out of
   // two different laps at once.
-  const air = layAir(rng, points, gateD, {
-    want: C.airPerLap,
-    least: C.airPerLap,
-    room: { from: R.gate.spacing.min / 2, to: lap - R.gate.spacing.min / 2 },
-    wind,
-    legalAt,
-    needDepth,
-    runUpDepth,
-  });
+  const air = layAir(
+    rng,
+    points,
+    gateD,
+    {
+      want: C.airPerLap,
+      least: C.airPerLap,
+      room: { from: R.gate.spacing.min / 2, to: lap - R.gate.spacing.min / 2 },
+      wind,
+      legalAt,
+      needDepth,
+      runUpDepth,
+    },
+    pace,
+  );
   if (!air) return null;
   points = air.points;
 
@@ -790,9 +827,12 @@ export function layCircuitCourse(
 /** R6, R9 — the placer's question: may a rock of radius `r` stand here?
  * Kept `search.marginSlack` clear beyond the rule, so the finished level
  * holds the rule with room. */
-export function courseKeepOut(plan: CoursePlan): (x: number, z: number, r: number) => boolean {
+export function courseKeepOut(
+  plan: CoursePlan,
+  pace = 1,
+): (x: number, z: number, r: number) => boolean {
   const buoys = plan.gates.flatMap(gateBuoys);
-  const corridors = plan.gates.filter((g) => g.kind === "air").map(airCorridor);
+  const corridors = plan.gates.filter((g) => g.kind === "air").map((g) => airCorridor(g, pace));
   return (x, z, r) => {
     const margin = solidBerth(r) + R.search.marginSlack;
     if (polylineDistance(plan.path, x, z) < r + margin) return false;

@@ -250,8 +250,45 @@ function yawRate(c: GameState["craft"]): number {
   return rotate(c.q, { x: c.wx, y: c.wy, z: c.wz }).y;
 }
 
-export function botInput(state: GameState, profile: BotProfile = RIDER_BOT): CraftInput {
+/** The bot's profile at a level's PACE: every lead that is a distance is
+ * stretched by the speed class the course was drawn for, so the rider's
+ * eye stays the same number of SECONDS ahead of the hull. Memoised, since
+ * `botInput` runs every step of every craft in a sweep. */
+const PACED_BOTS = new Map<BotProfile, Map<number, BotProfile>>();
+
+export function botAtPace(profile: BotProfile, pace: number): BotProfile {
+  if (pace === 1) return profile;
+  let byPace = PACED_BOTS.get(profile);
+  if (!byPace) {
+    byPace = new Map();
+    PACED_BOTS.set(profile, byPace);
+  }
+  const held = byPace.get(pace);
+  if (held) return held;
+  const paced: BotProfile = {
+    ...profile,
+    rampApproach: profile.rampApproach * pace,
+    rampCommit: profile.rampCommit * pace,
+    axisAhead: profile.axisAhead * pace,
+    lookAhead: profile.lookAhead * pace,
+    dodge: profile.dodge * pace,
+    giveUpPast: profile.giveUpPast * pace,
+  };
+  byPace.set(pace, paced);
+  return paced;
+}
+
+export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): CraftInput {
   const c = state.craft;
+  // R32 — THE BOT READS THE LEVEL'S PACE. Every lead below is a DISTANCE
+  // in metres, tuned at the catalog's own speeds; at a faster speed class
+  // the same metres are less TIME, so the bot turns late, commits late and
+  // sees a rock late. Measured over four seeds and the roster: pacing the
+  // course without pacing these took the gates taken DOWN (110 to 93),
+  // because a longer course with a bot still aiming at class-1 range is a
+  // bot missing more of it. The seconds in the profile (`yawLead`,
+  // `axisAheadTime`) are already times and are left alone.
+  const profile = botAtPace(asked, state.level.pace);
   const gates = state.level.course.gates;
   const n = state.progress.nextGate;
   if (state.phase !== "running" || n >= gates.length) {

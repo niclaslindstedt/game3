@@ -966,8 +966,6 @@ export const LEVEL_RULES = {
   circuit: CIRCUIT_RULES,
 } as const;
 
-/** A shape-only view for callers that want to write a band without
- * naming the deep type of the rule table. */
 export type LevelRules = typeof LEVEL_RULES;
 
 /** R29 — the kinds of rock that stand in OPEN WATER rather than on the

@@ -170,7 +170,7 @@ Hs = v²·(8·s²·cos²θ + 4·s·sinθ·cosθ) / g,   θ = atan(π·s)
    = 0.0157·v²                              at s = 0.09
 ```
 
-**Quadratic in the speed**, so the ocean grows with the square of whatever `pump.speedClass` buys. At the shipped class the roster's fastest is 108 km/h and the ceiling is **14.2 m**; the class table is in [riding.md](riding.md).
+**Quadratic in the speed**, so the ocean grows with the square of whatever the SPEED CLASS buys. At the shipped class the roster's fastest is 108 km/h and the ceiling is **14.2 m**; the class table is in [riding.md](riding.md).
 
 It is the ceiling of what is POSSIBLE, off a perfect launch. Measured in the engine — the craft staged at every phase of one wavelength and ridden into the sea at its top speed — a hull spans about **0.45** of it on a typical attempt: it leaves the water near the crest where the face has already flattened, loses way climbing, and carries aero drag through the flight. That gap is the difficulty, and it is deliberate — a sea nobody could fail to clear is not a sea worth riding out to.
 

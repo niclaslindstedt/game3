@@ -8,7 +8,7 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
-import { SEASONS, WEATHER_IDS } from "@engine";
+import { CLASS_BAND, SEASONS, WEATHER_IDS } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -414,6 +414,18 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings("not a blob")).toEqual(DEFAULT_SETTINGS);
   });
 
+  it("takes a CLASS the build still offers and refuses one it does not", () => {
+    // The same rule every picture row is held to: a rung that has been
+    // retuned or dropped is one the craft card could not put the cursor
+    // back on, so a stored blob naming it rides stock instead.
+    for (const k of CLASS_BAND) {
+      expect(mergeSettings({ ride: { speedClass: k } }).ride.speedClass).toBe(k);
+    }
+    for (const bad of [0, -1, 3, "1.25", null]) {
+      expect(mergeSettings({ ride: { speedClass: bad } }).ride.speedClass).toBe(1);
+    }
+  });
+
   it("keeps the choices a build still offers", () => {
     const stored = mergeSettings({
       ride: {
@@ -436,6 +448,9 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       season: null,
       conditions: "storm",
       weather: "rain",
+      // ...and the same for the CLASS: a blob from before it existed rides
+      // stock, which is the roster the catalog tunes.
+      speedClass: 1,
     });
     expect(stored.hud.on).toBe(false);
   });

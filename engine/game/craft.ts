@@ -374,6 +374,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       c.vy,
       input.lean,
       state.assist,
+      state.assistWindow,
       aero,
     );
     tbx += aero.tx;

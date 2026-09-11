@@ -1,32 +1,29 @@
 ---
-title: A global speed knob has to scale the ENGINE as well as the gearing — pitch alone makes the roster SLOWER, and the class must be quoted in the speed it buys, not the pitch
-date: 2026-09-11
-scope: engine/game/propulsion.ts, engine/game/limits.ts, engine/game/defs/tuning.ts
+title: A speed class has to scale the ENGINE as well as the gearing, be quoted in the speed it buys, and live in the SPEC rather than in a global
+date: 2026-09-10
+scope: engine/game/defs/craft.ts, engine/game/defs/tuning.ts
 concepts: [tuning, measurement, performance, craft]
 ---
 
-`TUNING.pump.speedClass` is the kart-game class knob. Two things it took to
-make it work, both found by measuring:
+Three things, learned in that order, about making the whole roster faster together.
 
-**Pitch alone bogs.** Scaling `jetVelocity` makes the jet faster, but the
-pump's LOAD torque goes as pitch³ at a given shaft speed, so the engine revs
-lower against it. Measured, the dart went 78 → 51 km/h as the class went
-1 → 2. The class has to scale `curveTorque` by the cube of the pitch too —
-a bigger engine AND taller gearing, which is what an engine class is.
+**Scale the engine too.** A waterjet's load torque goes as pitch³ at a given
+shaft speed, so a taller impeller alone just bogs the motor: measured, a class
+of 2 left the roster's FASTEST craft slower than class 1 (dart 78 → 51 km/h).
+`craftAtClass` grows the torque curve and `powerKw` by pitch³ beside the pitch.
 
-**Quote it in what it buys.** With both halves in, speed ∝ pitch^1.2, not
-pitch: a planing hull lifts as it speeds up, its wetted area shrinks and its
-drag grows slower than v². Exposing the raw pitch as the knob makes 1.5 mean
-1.66× — so the knob is the SPEED multiple and the pitch behind it is
-`class^(1/1.2)`. Then `topSpeedOf(spec) = spec.topSpeed · class` is exact by
-construction and everything downstream (the bot, the HUD, a derived wave
-ceiling) can trust it. Measured after: promised vs achieved within 2–4 %
-from class 1 to 2.
+**Quote it in what it BUYS, not in the pitch.** Speed goes as pitch^1.2 — a
+planing hull lifts as it speeds up, its wetted area shrinks, its drag grows
+slower than v² — so a knob spelled as pitch delivers 1.66× when it says 1.5.
+Derive the pitch from the promise (`class^(1/classGain)`), and the knob is
+honest to 2–4 % over 0.75–2.
 
-**Every absolute number in a test is a class-1 bound.** `accel0to50`
-(falls as class²), `powerKw` and the torque curve, the idle creep, the
-astern pace, the static-pull-over-weight band — all of them. So is the
-drag strip's LENGTH: at class 1.5 the craft ran off the end of the
-synthetic level and out into the open ocean, and reported a hull that was
-not planing. Fixtures whose subject is not the roster's pace (the camera
-rod, the rider's springs, a righting hull) pin the class instead.
+**Put it in the SPEC, not in a global.** The first cut applied it inside
+`topSpeedOf` off a `TUNING` constant, which meant every other reader — the
+pump, `jetCeiling`, the bot, the HUD's dial, the craft card's spec sheet — had
+to be taught about classes one at a time, and any that was missed disagreed
+silently. `craftAtClass(spec, class)` returns a spec with the taller pump and
+the numbers it actually has; everything downstream reads a spec and knows
+nothing about a class, so two readers cannot drift. It also makes the class a
+per-RUN choice rather than a build-wide one, which is what let it become a
+row on the craft card.
