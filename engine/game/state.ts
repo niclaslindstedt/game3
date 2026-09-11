@@ -196,21 +196,29 @@ export type GameState = {
    * back. */
   input: CraftInput;
   progress: Progress;
-  /** THE ARCADE DIAL, 0..1 — how much of `flight.ts`'s landing assist this
-   * run is ridden with (`TUNING.assist`). A flight predicted to end on
-   * its side or its nose is turned toward the attitude it ought to land
-   * at over the last moment before the water: 1 is the full arcade, 0
-   * the bare physics with the hull landing wherever it was thrown, and
-   * `TUNING.assist.strength` is what a run is dealt when nothing says.
-   * A difficulty setting is what is expected to move it. It is read and
-   * never written during a run and draws no randomness, so a run replays
-   * identically at any setting. */
+  /** THE ARCADE DIALS, 0..1 each — how much of `assist.ts`'s two hands
+   * this run is ridden with (`TUNING.assist`).
+   *
+   * `assist` is THE AIR's: a flight predicted to end on its side or its
+   * nose is turned toward the attitude it ought to land at over the last
+   * moment before the water. `rampAssist` is THE RAMP's: the sideways
+   * slide is taken out of a hull running up a deck and its bow is brought
+   * round to the deck's axis, so a jump lined up roughly right is
+   * followed through rather than skidded off the side.
+   *
+   * 1 is the full arcade, 0 the bare physics with the hull going wherever
+   * it was thrown, and `TUNING.assist.air.strength` / `.ramp.strength`
+   * are what a run is dealt when nothing says. A difficulty setting is
+   * what is expected to move them, and to move them apart. Both are read
+   * and never written during a run and draw no randomness, so a run
+   * replays identically at any setting. */
   assist: number;
-  /** ...and HOW LATE that hand arrives, s before the water. The second
-   * dial, because it is a different thing from the first: the strength
-   * scales the correction, this decides how much of the flight is the
-   * rider's at all. A hard difficulty shortens this rather than only
-   * softening the spring (`TUNING.assist.band`). */
+  rampAssist: number;
+  /** ...and HOW LATE the AIR's hand arrives, s before the water. A third
+   * dial, because it is a different thing from the strength: that scales
+   * the correction, this decides how much of the flight is the rider's at
+   * all. A hard difficulty shortens this rather than only softening the
+   * spring (`TUNING.assist.band`, which moves all three together). */
   assistWindow: number;
   phase: GamePhase;
   /** This step's events, cleared at the top of each step. */

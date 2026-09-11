@@ -1,6 +1,6 @@
 ---
 name: craft-physics
-description: "Use when working on HOW THE HULL ANSWERS THE WATER — the buoyancy probes and the draft they float at, the hydrodynamic drag (skin friction, the keel's lateral bite, heave damping), planing lift as speed rises (Savitsky), the slam on re-entry and the dive a nose-down landing becomes, the waterjet's thrust and the engine behind it, nozzle steering (no thrust ⇒ no steering), the rider's lean, and flight and air control. Owns `engine/game/craft.ts`, `hull.ts`, `flight.ts`, `limits.ts`, `TUNING.hull` / `.jet` / `.air`, and `make ride` — the lab that must run before and after any change here. Not the sea itself (`water-feel`) and not what separates the four craft (`craft-tuning`)."
+description: "Use when working on HOW THE HULL ANSWERS THE WATER — the buoyancy probes and the draft they float at, the hydrodynamic drag (skin friction, the keel's lateral bite, heave damping), planing lift as speed rises (Savitsky), the slam on re-entry and the dive a nose-down landing becomes, the waterjet's thrust and the engine behind it, nozzle steering (no thrust ⇒ no steering), the rider's lean, and flight and air control. Owns `engine/game/craft.ts`, `hull.ts`, `flight.ts`, `assist.ts`, `limits.ts`, `TUNING.hull` / `.pump` / `.flight` / `.assist`, and `make ride` — the lab that must run before and after any change here. Not the sea itself (`water-feel`) and not what separates the four craft (`craft-tuning`)."
 ---
 
 # The craft's physics
@@ -17,11 +17,17 @@ Three modules answer it, and the split matters:
 - **`engine/game/craft.ts`** — the BODY: a rigid body at 120 Hz
   (semi-implicit Euler; a quaternion for orientation, angular velocity in
   the body frame), summing the probes' forces and torques with the jet, the
-  nozzle, the rider's lean, aero, and gravity. Knobs in `TUNING.jet`,
-  `TUNING.rider`, `TUNING.aero`.
+  nozzle, the rider's lean, aero, and gravity. Knobs in `TUNING.pump`,
+  `TUNING.rider`, `TUNING.planing`, `TUNING.capsize`.
 - **`engine/game/flight.ts`** — the AIR: what the rider may still do once
   the last probe is dry (lean → pitch, steer → roll/yaw), the flat-plate
-  pitch moment, and the landing hand-back. Knobs in `TUNING.air`.
+  pitch moment, the rotational damping. Knobs in `TUNING.flight`
+  (`TUNING.air` is the air's density and nothing else).
+- **`engine/game/assist.ts`** — THE ARCADE'S HAND, which models nothing:
+  the landing caught at the end of a flight (`landingAssist`) and the
+  slide taken out of a run up a ramp's deck (`rampAssist`). Knobs in
+  `TUNING.assist.air` / `.ramp`, dials in `GameState.assist` /
+  `.rampAssist`. Judged on its NULL case first — see the lessons.
 - **`engine/game/limits.ts`** — what a craft CAN do (max rpm, max nozzle
   angle, max lean), stated once, read by `craft.ts` AND `sim/bot.ts`.
 
@@ -171,12 +177,13 @@ engine directly — no build, no browser, seconds.
   airborne while no probe is wet; the first wet probe hands the body back
   to `hull.ts`, and `land` (or `dive`) fires off that transition. Nothing
   in `flight.ts` counts time or decides a landing happened.
-- **EVERY FORCE HAS UNITS AND A SOURCE.** `TUNING.hull`, `.jet`, `.rider`,
-  `.aero`, `.air` each carry the unit and the model in the comment, and
-  say whether the number is a measurement (ITTC's line, Savitsky's
-  coefficients, ρ_air) or an arcade dial (the air control's authority, the
-  lean's trim moment, the keel's yaw authority). The first kind is argued
-  against the world; the second against `make ride`.
+- **EVERY FORCE HAS UNITS AND A SOURCE.** `TUNING.hull`, `.pump`,
+  `.rider`, `.planing`, `.flight`, `.assist` each carry the unit and the
+  model in the comment, and say whether the number is a measurement
+  (ITTC's line, Savitsky's coefficients, ρ_air) or an arcade dial (the air
+  control's authority, the lean's trim moment, the keel's yaw authority,
+  either hand of the assist). The first kind is argued against the world;
+  the second against `make ride` and its bench.
 
 ## Workflow
 

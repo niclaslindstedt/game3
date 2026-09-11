@@ -61,13 +61,18 @@ export type CreateGameOptions = {
    * ridden (`hourOfDay`). An explicit `hour` wins, being the more exact of
    * the two. */
   timeOfDay?: TimeOfDay;
-  /** How much of the arcade landing assist to ride with, 0..1
-   * (`GameState.assist`, `TUNING.assist`); the tuning's own `strength`
-   * when left out. 0 rides the bare physics. */
+  /** How much of the arcade's two hands to ride with, 0..1 each
+   * (`GameState.assist` and `.rampAssist`, `TUNING.assist`); each hand's
+   * own `strength` when left out. `assist` is the landing's and, left to
+   * itself, the ramp's too — so `assist: 0` is the bare physics
+   * everywhere, which is what a before-and-after is taken against —
+   * while `rampAssist` moves the ramp's hand alone. */
   assist?: number;
-  /** ...and how late that hand arrives, s before the water; the tuning's
-   * own `window` when nothing says. The two together are what a
-   * difficulty setting moves (`TUNING.assist.band` is the ladder). */
+  rampAssist?: number;
+  /** ...and how late the AIR's hand arrives, s before the water; the
+   * tuning's own `air.window` when nothing says. Strength and window
+   * together are what a difficulty setting moves (`TUNING.assist.band` is
+   * the ladder, and it carries the ramp's dial in the same rung). */
   assistWindow?: number;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
@@ -169,8 +174,9 @@ export function createGame(options: CreateGameOptions): GameState {
     craft: freshCraft(spec),
     input: { ...NEUTRAL_INPUT },
     progress: freshProgress(level),
-    assist: clamp(options.assist ?? TUNING.assist.strength, 0, 1),
-    assistWindow: Math.max(0, options.assistWindow ?? TUNING.assist.window),
+    assist: clamp(options.assist ?? TUNING.assist.air.strength, 0, 1),
+    rampAssist: clamp(options.rampAssist ?? options.assist ?? TUNING.assist.ramp.strength, 0, 1),
+    assistWindow: Math.max(0, options.assistWindow ?? TUNING.assist.air.window),
     phase: "running",
     events: [],
   };

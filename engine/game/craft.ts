@@ -12,7 +12,9 @@
 // where the inputs put it; the air drags and, once the hull is out of the
 // water, the rider's pull on the bars is the only control there is
 // (`flight.ts`); the ground, the ramps and the rocks say no
-// (`collision.ts`). Then gravity, the integration, and the readings.
+// (`collision.ts`), and the arcade lends the rider a hand on a landing
+// and on a deck (`assist.ts`). Then gravity, the integration, and the
+// readings.
 //
 // There is no MODE. A launch is a hull whose probes all came out of the
 // water; a landing is one whose probes went back in; a dive is a landing
@@ -21,9 +23,10 @@
 
 import { clamp } from "../lib/math.ts";
 import { fromEuler, integrate, rotate, toEuler, unrotate } from "../lib/quat.ts";
+import { landingAssist, rampAssist } from "./assist.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
-import { aeroForces, landingAssist, type AeroResult } from "./flight.ts";
+import { aeroForces, type AeroResult } from "./flight.ts";
 import {
   hullForces,
   hullProbes,
@@ -113,6 +116,7 @@ function workFor(craft: CraftState): Work {
         tz: 0,
         onGround: false,
         onRamp: false,
+        ramp: null,
         groundSpeed: 0,
       },
       aero: { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 },
@@ -383,7 +387,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   }
 
   // THE ARCADE'S HAND, over the last moment before the water and only
-  // when the flight is going to end badly (`flight.ts`, `landingAssist`).
+  // when the flight is going to end badly (`assist.ts`, `landingAssist`).
   if (c.airborne && state.assist > 0) {
     landingAssist(
       c.q,
@@ -414,6 +418,31 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   twx += contact.tx;
   twy += contact.ty;
   twz += contact.tz;
+
+  // ...and THE ARCADE'S HAND ON THE DECK, while the hull is riding one
+  // (`assist.ts`, `rampAssist`): the sideways slide a ramp has nothing in
+  // the water to take out, and the bow brought round to its axis.
+  if (contact.ramp && state.rampAssist > 0) {
+    rampAssist(
+      contact.ramp,
+      c.q,
+      c.x,
+      c.z,
+      c.vx,
+      c.vz,
+      c.wx,
+      c.wy,
+      c.wz,
+      mass,
+      I.y,
+      input.steer,
+      state.rampAssist,
+      aero,
+    );
+    fx += aero.fx;
+    fz += aero.fz;
+    twy += aero.ty;
+  }
 
   // THE EDGE OF THE WORLD.
   const edge = boundsPush(level, c.x, c.z);
