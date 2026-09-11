@@ -32,6 +32,7 @@ import {
   FRAME_RATE_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
+  WATER_PRESETS,
   type DetailLevel,
   type DistanceLevel,
   type FrameRateLevel,
@@ -171,7 +172,12 @@ export function settingsFor(stored: Settings, params: Params): Settings {
     dev: { ...stored.dev },
   };
   if (params.camera !== undefined) settings.ride.camera = params.camera;
-  if (params.water !== undefined) settings.video.water = params.water;
+  // Both rows are a word that expands: `?water=low` is a low sea in every
+  // part of itself, exactly as pressing the chip would be.
+  if (params.water !== undefined) {
+    settings.video.water = params.water;
+    Object.assign(settings.video, WATER_PRESETS[params.water]);
+  }
   if (params.resolution !== undefined) settings.video.resolution = params.resolution;
   if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
   if (params.distance !== undefined) settings.video.distance = params.distance;

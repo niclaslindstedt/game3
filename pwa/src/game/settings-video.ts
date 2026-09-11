@@ -22,18 +22,28 @@
  * The point of the split is that the costs are NOT the same cost, and a
  * machine can be short of one while rich in another:
  *
- *   WATER       is CPU. The grid is the only thing in the frame that calls the
- *               engine's `surfaceAt` thousands of times a frame, and that call
- *               is a sum over the sea's components. Nothing about the GPU
- *               makes it cheaper.
+ *   WATER       is THE SEA, the whole of it: the grid the surface is carried
+ *               on, and everything drawn on or thrown off that surface — the
+ *               spray, the wake, what a hull going in knocks into the water,
+ *               and what the water mirrors. The grid's half is CPU, and it is
+ *               the only thing in the frame that calls the engine's
+ *               `surfaceAt` thousands of times a frame; nothing about the GPU
+ *               makes that cheaper. What is drawn on it is the GPU's.
+ *
+ *               ONE ROW RATHER THAN TWO because a rider who asks for a
+ *               cheaper sea means the SEA. A coarse grid still carrying every
+ *               droplet, a sharp mirror and a ring wave is neither picture:
+ *               it costs what the rider was trying not to spend and looks
+ *               worse than the stop they came from, because the effects are
+ *               drawn against a surface too crude to hold them.
  *   RESOLUTION  is pixels — every one of them, every frame, whatever is on
  *               screen. The single biggest lever on a weak GPU.
- *   DETAIL      is how much world there is per metre: the spray thrown off the
- *               hull, the wake it leaves, the sea life under the surface, the
- *               tree line behind the shore, how many sheets of cloud are in
- *               the sky (and so in the sea reflecting it), how much rain is in
- *               the air and whether it lands on the water, and whether the
- *               shore and the craft stand mirrored in it.
+ *   DETAIL      is how much world there is per metre AROUND the water: the sea
+ *               life under the surface, the tree line behind the shore, how
+ *               many sheets of cloud are in the sky (and so in the sea
+ *               reflecting them), and how much rain is in the air and whether
+ *               it lands on the water. Nothing on this row changes what the
+ *               sea itself is drawn like — that is WATER's, entire.
  *   DISTANCE    is how many metres of it there ARE — vertices, and nothing
  *               else. Where DETAIL thins the wood the rider is riding past,
  *               DISTANCE decides how much coast is submitted at all, and pulls
@@ -51,10 +61,19 @@
  * life than look at a soft picture. Under one knob that trade cannot be said
  * at all. */
 export type VideoSettings = {
-  /** HOW FAR OUT THE SEA IS STILL A SEA — the near grid's fineness and reach,
-   * how far the ripples survive, and how sharply a tile is sampled along the
-   * water. Its own row (WATER), and the reason this page exists: the shader is
-   * handsome under the rider and the wave a dozen metres out is a facet.
+  /** HOW MUCH SEA THERE IS — the row, as one stored word. It decides two
+   * things at once: the surface itself (`WATER_LOOK` — the near grid's
+   * fineness and reach, how far the ripples survive, and how sharply a tile is
+   * sampled along the water) and everything drawn on that surface
+   * (`WATER_PRESETS` — the spray, the wake, the splash and the mirror).
+   *
+   * THOSE FOUR LEVERS ARE DERIVED FROM THIS WORD AND NEVER STORED AGAINST IT.
+   * A blob carrying `water: "low"` beside a sharp mirror is a blob from the
+   * build where the mirror belonged to DETAIL, and honouring it would be the
+   * page keeping the very disagreement this row exists to end; `mergeSettings`
+   * expands the word instead, so LOW is a low sea on the first frame after an
+   * update as well as after the next press.
+   *
    * Rebuilds the water grid when it is set, which is a few milliseconds and
    * happens while a card is up. */
   water: WaterLevel;
@@ -83,14 +102,14 @@ export type VideoSettings = {
   seeThrough: boolean;
   /** THE WATER THROWN OFF THE HULL: the chine sheets, the rooster tail, the
    * plume a landing punches out, the patches they leave behind (`spray.ts`).
-   * Part of DETAIL, and it applies the instant it is set — none of it is
+   * Part of WATER, and it applies the instant it is set — none of it is
    * geometry, it is a pool spawned into per step. Thousands of alpha-blended
    * sprites right in front of the lens, which is where a fill-bound machine
    * hurts most. */
   spray: SprayLevel;
   /** WHAT THE CRAFT LEAVES BEHIND IT: the road, the fan, the boil and the
    * relief the water shader draws off the map `wake.ts` rasterises round
-   * the hull every frame. Part of DETAIL, and it applies the instant it is
+   * the hull every frame. Part of WATER, and it applies the instant it is
    * set. Three stops because the map is paid for twice — once as a pass of
    * its own before the picture, and again as texture reads on every pixel
    * and every vertex of the near sea it covers — and the second bill splits
@@ -104,17 +123,18 @@ export type VideoSettings = {
    * in the sea and the ring wave that rolls out of it (stamped into the
    * wake's map, `wake.ts`), the wall of water a dive throws over the rider
    * and the sheet a hull going over throws off its side (`spray.ts`), and
-   * the boil under a hull lying on its back. Part of DETAIL, and it applies
+   * the boil under a hull lying on its back. Part of WATER, and it applies
    * the instant it is set. OFF is the arcade generation's own splash — the
    * plume and a patch of foam on a sea that does not take the blow — SOME
    * is the sea taking it, and FULL is the ring wave too. Cheap in every
-   * frame but the ones it happens in, which is why it is a lever on DETAIL
-   * rather than a row: it is an amount of world, not a cost a machine can
+   * frame but the ones it happens in, which is why it is a lever on WATER
+   * rather than a row: it is an amount of sea, not a cost a machine can
    * feel on the straight. */
   splash: SplashLevel;
   /** WHETHER ANYTHING SWIMS HERE (R20) — the pods under the surface, drawn
-   * only inside the see-through radius anyway. Part of DETAIL, and it applies
-   * the instant it is set. Two stops rather than three because there is no
+   * only inside the see-through radius anyway. Part of DETAIL — it is life
+   * rather than water, and the SEE-THROUGH row already decides whether any of
+   * it is on screen at all — and it applies the instant it is set. Two stops rather than three because there is no
    * half measure worth having: the pods are already culled to what the rider
    * can see into. */
   fauna: boolean;
@@ -150,7 +170,7 @@ export type VideoSettings = {
   /** WHETHER THE SHORE STANDS IN THE WATER — the coast, the wood on it, the
    * rocks, the gates, the craft and the rider, drawn a second time from
    * under the surface into a texture the water mirrors (`reflection.ts`),
-   * and how big that texture is. Part of DETAIL, and it applies the instant
+   * and how big that texture is. Part of WATER, and it applies the instant
    * it is set.
    *
    * The dearest thing on the row on a machine that is short of vertices
@@ -401,6 +421,46 @@ export const WATER_LOOK: Record<WaterLevel, WaterLook> = {
   high: { cell: 0.85, core: 48, rings: 4, rippleFade: [120, 460], anisotropy: 16 },
 };
 
+/** The levers the WATER row owns BESIDES its grid — everything drawn on the
+ * sea's surface or thrown off it. Named as a slice of `VideoSettings` rather
+ * than restated, so adding another is a decision about which row it belongs on
+ * instead of a silent omission from both. */
+export type WaterSettings = Pick<VideoSettings, "spray" | "wake" | "splash" | "reflections">;
+
+/** WHAT EACH WATER STOP DRAWS ON THE SEA, stop for stop with `WATER_LOOK`
+ * above it: one word, one sea. Pressing WATER writes both, and `mergeSettings`
+ * expands the stored word through this table rather than trusting four levers
+ * stored beside it.
+ *
+ * They belong to this row and not to DETAIL because every one of them is a
+ * mark ON the water — the water the hull throws, the road it leaves, the
+ * crater it knocks, the sky the surface mirrors — and none of them reads
+ * right against a surface drawn at a different stop. A fine grid under a sea
+ * the craft leaves no mark on is a photograph of a parked craft; a coarse one
+ * under the full ring wave is a facet with a ripple rolling over it. The two
+ * halves also fail on different hardware — the grid is CPU, these are pixels —
+ * which is exactly why a machine short of one tends to be short of the other
+ * and a rider hunting frames wants both to move at once.
+ *
+ * LOW keeps nothing OFF that says the craft is moving: the spray and the road
+ * stay, thinned, because a stop that reads as a craft parked on a painting is
+ * a stop nobody would keep, whatever it saved. */
+export const WATER_PRESETS: Record<WaterLevel, WaterSettings> = {
+  // The phone that would rather have the frames: under half the spray, a wake
+  // that is foam on a sea that does not bend for it, a sea that does not take
+  // a landing's blow, and a mirror that shows the sky alone.
+  low: { spray: "low", wake: "flat", splash: "off", reflections: "off" },
+  // The design point — every lever at the number the game was tuned on.
+  medium: { spray: "full", wake: "full", splash: "some", reflections: "soft" },
+  // A machine with headroom: the whole of a splash — the ring wave and every
+  // droplet of the wall a dive throws — and a mirror that keeps a tree line's
+  // trunks at the waterline. The spray is already every droplet the hull
+  // throws and the wake already everything the map carries, so those two have
+  // nowhere left to go; a stop that promised more would be the page inventing
+  // work to sell.
+  high: { spray: "full", wake: "full", splash: "full", reflections: "sharp" },
+};
+
 /** What one stop of the DISTANCE row is worth. Two radii and a haze, and the
  * three are one answer rather than three: the radii say where the world stops
  * and the haze says how far the eye gets before it stops caring, and a stop
@@ -547,13 +607,11 @@ export const FLORA_SCALE: Record<FloraLevel, number> = {
   lush: 1.6,
 };
 
-/** The levers DETAIL owns. Named as a slice of `VideoSettings` rather than
- * restated, so adding another is a decision about which row it belongs on
- * instead of a silent omission from both. */
-export type DetailSettings = Pick<
-  VideoSettings,
-  "spray" | "wake" | "splash" | "fauna" | "flora" | "sky" | "rain" | "reflections"
->;
+/** The levers DETAIL owns — the world AROUND the water: what swims in it,
+ * what grows beside it, and what is in the air over it. Named as a slice of
+ * `VideoSettings` rather than restated, so adding another is a decision about
+ * which row it belongs on instead of a silent omission from both. */
+export type DetailSettings = Pick<VideoSettings, "fauna" | "flora" | "sky" | "rain">;
 
 export const DETAIL_LEVELS = ["low", "medium", "high"] as const;
 export type DetailLevel = (typeof DETAIL_LEVELS)[number];
@@ -565,60 +623,28 @@ export type DetailLevel = (typeof DETAIL_LEVELS)[number];
  *
  * They are one row because they are one judgement with one answer: nobody has
  * an opinion about the tree line that is not also an opinion about whether
- * there are fish under the boat. */
+ * there are fish under the boat. And none of them is a judgement about the
+ * SEA — a rider who has turned WATER down has already said what they want the
+ * water to cost, and this row may not spend it back. */
 export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
-  // The phone that would rather have the frames: under half the spray, a
-  // wake that is foam on a sea that does not bend for it, an empty sea under
-  // the hull, a thin tree line, one cloud sheet read shallow, and no rain in
-  // the air or on the water. Nothing OFF that says the craft is moving — the
-  // spray and the road stay, thinned — because a stop that reads as a craft
-  // parked on a painting is a stop nobody would keep, whatever it saved.
-  low: {
-    spray: "low",
-    wake: "flat",
-    splash: "off",
-    fauna: false,
-    flora: "sparse",
-    sky: "low",
-    rain: "off",
-    reflections: "off",
-  },
+  // The phone that would rather have the frames: an empty sea under the hull,
+  // a thin tree line, one cloud sheet read shallow, and no rain in the air or
+  // on the water.
+  low: { fauna: false, flora: "sparse", sky: "low", rain: "off" },
   // The design point — every lever at the number the game was tuned on.
-  medium: {
-    spray: "full",
-    wake: "full",
-    splash: "some",
-    fauna: true,
-    flora: "normal",
-    sky: "medium",
-    rain: "near",
-    reflections: "soft",
-  },
-  // A machine with headroom: a thicker shore, a sharper mirror, the cloud's
-  // edges read a stop deeper, the whole sheet of rain and its rings out to
-  // where the near grid gives way, and the whole of a splash — the ring
-  // wave and every droplet of the wall. The spray is already every droplet
-  // the hull throws, the wake already everything the map carries and the
-  // sea life already every pod the rider can see into, so those have
-  // nowhere left to go — a stop that promised more would be the page
-  // inventing work to sell.
-  high: {
-    spray: "full",
-    wake: "full",
-    splash: "full",
-    fauna: true,
-    flora: "lush",
-    sky: "high",
-    rain: "far",
-    reflections: "sharp",
-  },
+  medium: { fauna: true, flora: "normal", sky: "medium", rain: "near" },
+  // A machine with headroom: a thicker shore, the cloud's edges read a stop
+  // deeper, and the whole sheet of rain with its rings out to where the near
+  // grid gives way. The sea life is already every pod the rider can see into,
+  // so it has nowhere left to go.
+  high: { fauna: true, flora: "lush", sky: "high", rain: "far" },
 };
 
 /** Where the rows stand on a first visit — and the answers are not the same
  * answer, because the costs are not the same cost.
  *
  * WATER ships MEDIUM: the design point, the grid every number in the water was
- * tuned against. HIGH is a choice somebody makes after finding out their
+ * tuned against and the spray, wake, splash and mirror that were tuned on it. HIGH is a choice somebody makes after finding out their
  * machine can hold it, and LOW is one they make after finding out it cannot —
  * neither is a default anybody should be given without asking.
  *
@@ -653,6 +679,7 @@ export const DEFAULT_VIDEO: VideoSettings = {
   resolution: "high",
   seeThrough: true,
   frameRate: "max",
+  ...WATER_PRESETS.medium,
   ...DETAIL_PRESETS.medium,
 };
 

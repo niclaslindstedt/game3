@@ -48,6 +48,7 @@ import {
   FRAME_RATE_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
+  WATER_PRESETS,
   detailOf,
   type DetailLevel,
   type DistanceLevel,
@@ -187,10 +188,11 @@ export function OptionsPage({
               onPick={(resolution) => setVideo({ resolution })}
               onHint={setHint}
             />
-            {/* One stop sets three levers, and the row READS BACK whichever
-                preset the three most resemble (`detailOf`) — so a blob stored
+            {/* One stop sets four levers, and the row READS BACK whichever
+                preset the four most resemble (`detailOf`) — so a blob stored
                 by another build still puts the value somewhere the rider can
-                move it from. */}
+                move it from. None of the four is the sea: turning DETAIL up
+                on a LOW water cannot buy back a droplet of spray. */}
             <StepRow
               label={STRINGS.optDetail}
               hint={STRINGS.optDetailHint}
@@ -212,12 +214,17 @@ export function OptionsPage({
               onPick={(distance) => setVideo({ distance })}
               onHint={setHint}
             />
+            {/* THE WHOLE SEA IN ONE WORD: the stop is stored, and the four
+                levers drawn ON the water — the spray, the wake, the splash
+                and the mirror — are its expansion rather than settings of
+                their own, so the row cannot disagree with itself and DETAIL
+                cannot raise the sea behind the rider's back. */}
             <StepRow
               label={STRINGS.optWater}
               hint={STRINGS.optWaterHint}
               stops={WATER_STOPS}
               value={settings.video.water}
-              onPick={(water) => setVideo({ water })}
+              onPick={(water) => setVideo({ water, ...WATER_PRESETS[water] })}
               onHint={setHint}
             />
             <StepRow

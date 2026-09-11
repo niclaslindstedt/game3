@@ -219,7 +219,8 @@ export const STRINGS = {
    * out the sea is drawn properly" is the row, and its three stops are the
    * answer; a row that had to be read is a row that has failed. */
   optWater: "WATER",
-  optWaterHint: "How far out the sea is drawn properly, and how fine the grid under it is",
+  optWaterHint:
+    "The whole sea — how fine the grid is and how far out it reaches, plus the spray, the wake, the splash and what the water mirrors",
   optDistance: "DISTANCE",
   optDistanceHint:
     "How much of the coast is drawn — the shorter the view, the closer the haze that closes over it",
@@ -227,7 +228,7 @@ export const STRINGS = {
   optResolutionHint: "How many pixels the water is drawn at before it reaches the screen",
   optDetail: "DETAIL",
   optDetailHint:
-    "The spray and the wake, the sea life, what grows on the shore, how much cloud is in the sky, and how much rain falls out of it",
+    "Everything around the water — the sea life, what grows on the shore, how much cloud is in the sky, and how much rain falls out of it",
   optSeeThrough: "SEE-THROUGH",
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
   /** The one row on the picture page that is about TIME: the two stops are
