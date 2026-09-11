@@ -515,20 +515,38 @@ describe("where a bird is", () => {
     const swan = flockOf("swan");
     // Counted on a flock properly in the air — a whole cycle flown, read
     // from twenty seconds in, well past the take-off ramp — as the number
-    // of times the shoulder crosses level in two seconds.
-    const flying = (flock: Flock): Flock => ({ ...flock, phase: 0, airShare: 1 });
+    // of times the shoulder crosses level.
+    //
+    // Over a WHOLE GATE CYCLE, and at the same scatter for both. The beat
+    // itself is the species' (`beatHz`), but it is gated by a glide that
+    // opens and shuts on a ~14 s cycle (`sin(t · 0.45 + phase)`) whose phase
+    // is hashed off the FLOCK's scatter — and the tern, gliding the more of
+    // the two, is the one with a shut window worth landing in. Sample less
+    // than one of those cycles and what comes back is the gate's phase
+    // rather than the wing's rate: a two-second window measured a tern that
+    // happened to be gliding through the whole of it. Which flock the
+    // corpus yields is not this test's subject either, so the scatter is
+    // pinned and swept instead of taken as dealt.
+    const flying = (flock: Flock, scatter: number): Flock => ({
+      ...flock,
+      phase: 0,
+      airShare: 1,
+      scatter,
+    });
     const crossings = (flock: Flock): number => {
       let n = 0;
       let was = birdPose(flock, 0, 20, freshBirdPose(), 1).flap;
-      for (let t = 20.01; t < 22; t += 0.01) {
+      for (let t = 20.01; t < 34; t += 0.01) {
         const now = birdPose(flock, 0, t, freshBirdPose(), 1).flap;
         if (was > 0 !== now > 0) n++;
         was = now;
       }
       return n;
     };
-    expect(crossings(flying(tern))).toBeGreaterThan(crossings(flying(swan)));
-    expect(crossings(flying(tern))).toBeGreaterThan(0);
+    for (const scatter of [1, 7, 1009, 65537, 2000003]) {
+      expect(crossings(flying(tern, scatter))).toBeGreaterThan(crossings(flying(swan, scatter)));
+      expect(crossings(flying(tern, scatter))).toBeGreaterThan(0);
+    }
   });
 });
 
