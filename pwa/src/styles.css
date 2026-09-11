@@ -2068,6 +2068,9 @@ canvas {
   border: 2px solid var(--hud-shadow);
 }
 
+/* The reading beside the track, in the same box whether it is a press or only
+   a word — a row whose readout stopped being a button must not change width
+   for it, or the two faders on a page stop lining up. */
 .knob-read {
   min-width: 3.4em;
   padding: 0.15rem 0.2rem;
@@ -2080,11 +2083,16 @@ canvas {
   letter-spacing: 0.06em;
   color: var(--buoy);
   text-align: right;
+}
+
+/* Only the readout that IS a press looks like one. A word that lights under
+   the pointer is a word a rider tries to press. */
+button.knob-read {
   cursor: pointer;
 }
 
-.knob-read:hover,
-.knob-read:focus-visible {
+button.knob-read:hover,
+button.knob-read:focus-visible {
   border-color: rgb(242 140 40 / 45%);
   outline: none;
 }

@@ -179,10 +179,13 @@ export function StepRow<T extends string>({
  * and carries straight on into the drag — `.knob-range` gives it the BAND to
  * be pressed on, which a bare 8 px line is not.
  *
- * The readout doubles as the way back to meaning NOTHING AT ALL: a wind of
- * zero and "the wind this shore was generated with" are different answers, and
- * a fader whose bottom stop had to serve as both would make one of them
- * unreachable.
+ * A row whose bottom stop IS an answer — silence is a level a rider chooses,
+ * not a deferral — leaves `autoLabel` off, and then the whole setting is on
+ * the travel: the thumb dragged to the far left means OFF, and the reading
+ * beside it is a reading rather than a press. A row that has an answer NOT on
+ * the travel names one: a wind of zero and "the wind this shore was generated
+ * with" are different things, and a bottom stop made to serve as both would
+ * put one of them out of reach.
  */
 export function FadeRow({
   label,
@@ -198,23 +201,27 @@ export function FadeRow({
 }: {
   label: string;
   /** Where the thumb stands — null is the row's own idea of nothing, which is
-   * what `autoLabel` reads as. */
+   * what `autoLabel` reads as. A row that names no `autoLabel` has no such
+   * state: every answer it offers is somewhere on the travel. */
   value: number | null;
   min: number;
   max: number;
   /** The travel's grid, and what one press of an arrow moves. */
   step: number;
-  autoLabel: string;
+  /** The word for an answer that is NOT on the travel, and the press that
+   * returns to it. Omitted by a row whose bottom stop already says what the
+   * word would. */
+  autoLabel?: string;
   read: (value: number) => string;
   hint?: string;
   onChange: (value: number | null) => void;
   onHint?: OnHint;
 }) {
-  const auto = value === null;
+  const auto = autoLabel !== undefined && value === null;
   // A fader has to stand somewhere while the row reads AUTO, and the bottom of
   // its travel is the honest place: the first press then moves UP off it,
   // rather than jumping from wherever a remembered value happened to be.
-  const shown = auto ? min : value;
+  const shown = value ?? min;
   const describe = (): void => onHint?.(hint ?? null);
   const clamp = (next: number): number => Math.min(max, Math.max(min, next));
   const fill = max > min ? (shown - min) / (max - min) : 0;
@@ -243,15 +250,24 @@ export function FadeRow({
             style={`--fill: ${Math.round(fill * 100)}%`}
             onInput={(e) => onChange(clamp(Number((e.target as HTMLInputElement).value)))}
           />
-          <button
-            type="button"
-            class={`knob-word knob-read${auto ? " knob-read-auto" : ""}`}
-            aria-pressed={auto}
-            aria-label={`${label}: ${autoLabel}`}
-            onClick={() => onChange(auto ? min : null)}
-          >
-            {auto ? autoLabel : read(shown)}
-          </button>
+          {/* The reading, and on a row with an answer off the travel the press
+              that goes back to it. Where there is no such answer it is a
+              READING and nothing else: a button sitting against the end of
+              the track is a press a thumb aiming for the top of the travel
+              lands on by accident. */}
+          {autoLabel === undefined ? (
+            <span class="knob-word knob-read">{read(shown)}</span>
+          ) : (
+            <button
+              type="button"
+              class={`knob-word knob-read${auto ? " knob-read-auto" : ""}`}
+              aria-pressed={auto}
+              aria-label={`${label}: ${autoLabel}`}
+              onClick={() => onChange(auto ? min : null)}
+            >
+              {auto ? autoLabel : read(shown)}
+            </button>
+          )}
         </span>
         <button
           type="button"

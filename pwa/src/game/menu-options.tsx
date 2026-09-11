@@ -110,9 +110,20 @@ const FRAME_RATE_STOPS: Stop<FrameRateLevel>[] = FRAME_RATE_LEVELS.map((id) => (
   label: id === "max" ? STRINGS.optFrameRateMax : id,
 }));
 
+/** The fader's reading: OFF at the bottom of the travel rather than 0%,
+ * because silence is a state a rider chooses and "0%" reads as a setting that
+ * did not take. */
+const soundLevel = (share: number): string =>
+  share <= 0 ? STRINGS.optSoundOff : STRINGS.percent(share);
+
 /** The one fader, exported because the PAUSE CARD's strip carries it too: a
  * rider who stops mid-run to turn the water down is the fader's commonest
- * caller, and one row in two places is one setting. */
+ * caller, and one row in two places is one setting.
+ *
+ * THE WHOLE SETTING IS ON THE TRAVEL — silence is the bottom stop, not a word
+ * beside the track — so the thumb dragged to the far left is the water going
+ * off, and a rider hunting for quiet never has to find a second control to
+ * get there. */
 export function SoundRow({
   settings,
   onSettings,
@@ -126,12 +137,11 @@ export function SoundRow({
     <FadeRow
       label={STRINGS.optSound}
       hint={STRINGS.optSoundHint}
-      value={settings.audio.sfx > 0 ? settings.audio.sfx : null}
-      min={SFX_STEP}
+      value={settings.audio.sfx}
+      min={0}
       max={1}
       step={SFX_STEP}
-      autoLabel={STRINGS.optSoundOff}
-      read={STRINGS.percent}
+      read={soundLevel}
       onChange={(sfx) => onSettings({ ...settings, audio: { sfx: sfx ?? 0 } })}
       onHint={onHint}
     />
@@ -262,9 +272,9 @@ export function OptionsPage({
           </KnobGroup>
           {/* THE FADER IS OVER A LIVE SEA TOO: the bus reads it every frame,
               so the engine under the front door gets quieter as the thumb
-              moves. OFF is the bottom of its travel, spelled by the row's own
-              idea of nothing — a fader at 0 and a fader at AUTO are the same
-              fader, and it is the same row the pause card carries. */}
+              moves — all the way to silence, which is the bottom of the travel
+              and not a word beside it. It is the same row the pause card
+              carries. */}
           <KnobGroup title={STRINGS.optSoundGroup}>
             <SoundRow settings={settings} onSettings={onSettings} onHint={setHint} />
           </KnobGroup>
