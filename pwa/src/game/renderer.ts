@@ -40,6 +40,7 @@ import {
   RAIN_LOOK,
   REFLECTION_LOOK,
   RESOLUTION_SCALE,
+  SPLASH_LOOK,
   SPRAY_SCALE,
   WAKE_LOOK,
   WATER_LOOK,
@@ -307,6 +308,10 @@ export function createRenderer(
     // on the way out so a stale road is never read back by a later press.
     wake.setDrawn(WAKE_LOOK[next.wake].map);
     water.setWakeLook(WAKE_LOOK[next.wake]);
+    // THE SPLASH is the same two halves again: what the map stamps and what
+    // the spray throws.
+    wake.setSplashLook(SPLASH_LOOK[next.splash]);
+    spray.setSplashThrow(SPLASH_LOOK[next.splash].throw);
     sky.setRainSheet(RAIN_LOOK[next.rain].sheet);
     flora?.setDensity(FLORA_SCALE[next.flora]);
     mirror.setScale(REFLECTION_LOOK[next.reflections].scale);

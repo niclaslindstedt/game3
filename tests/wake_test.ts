@@ -9,17 +9,25 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOIL_LIFE,
+  CRATER_LIFE,
   FAN_HALF_MAX,
   FAN_LIFE,
   KELVIN_TAN,
+  RING_LIFE,
+  RING_SPEED,
   ROAD_LIFE,
   SPEED_MIN,
+  SPLASH_LIFE,
+  SPLASH_STATIONS,
   WAKE_HEIGHT,
   fanAt,
   fanHalf,
   roadAt,
   roadHalf,
   roadStrength,
+  splashAt,
+  splashReach,
+  splashStations,
   wakeSection,
   washOf,
 } from "../pwa/src/game/wake-profile.ts";
@@ -135,5 +143,102 @@ describe("the fan", () => {
     expect(s.churn).toBeGreaterThan(stirred);
     expect(s.up).toBeGreaterThan(lifted * 4);
     expect(s.foam).toBeGreaterThan(0);
+  });
+});
+
+describe("the splash", () => {
+  const RADIUS = 1.5;
+  const DEPTH = 0.3;
+
+  it("knocks a crater that forms over a moment and fills back in", () => {
+    const s = wakeSection();
+    splashAt(0, RADIUS, 0, 1, DEPTH, 1, s);
+    expect(s.down).toBe(0);
+    splashAt(0, RADIUS, 0.3, 1, DEPTH, 1, s);
+    const formed = s.down;
+    expect(formed).toBeGreaterThan(DEPTH * 0.2);
+    expect(formed).toBeLessThanOrEqual(DEPTH);
+    splashAt(0, RADIUS, 4 * CRATER_LIFE, 1, DEPTH, 1, s);
+    expect(s.down).toBeLessThan(formed * 0.1);
+    // A bowl: deepest at the centre, nothing of it at the rim.
+    splashAt(RADIUS * 0.5, RADIUS, 0.3, 1, DEPTH, 1, s);
+    expect(s.down).toBeLessThan(formed);
+    expect(s.down).toBeGreaterThan(0);
+  });
+
+  it("rolls a ring wave out at its speed, thinning as it goes, laced white", () => {
+    const s = wakeSection();
+    const crestAt = (age: number) => {
+      let best = -1;
+      let at = 0;
+      for (let r = 0; r < splashReach(RADIUS, age, 1); r += 0.02) {
+        splashAt(r, RADIUS, age, 1, DEPTH, 1, s);
+        if (s.up > best) {
+          best = s.up;
+          at = r;
+        }
+      }
+      return { r: at, up: best };
+    };
+    const early = crestAt(0.5);
+    const late = crestAt(1.5);
+    expect(late.r - early.r).toBeCloseTo(RING_SPEED, 1);
+    expect(late.up).toBeLessThan(early.up);
+    expect(early.up).toBeGreaterThan(0);
+    expect(early.up).toBeLessThan(WAKE_HEIGHT);
+    // A trough drawn in just inside the crest, and foam on the crest itself.
+    splashAt(early.r, RADIUS, 0.5, 1, DEPTH, 1, s);
+    const crest = { ...s };
+    splashAt(early.r - 0.9, RADIUS, 0.5, 1, DEPTH, 1, s);
+    expect(s.down).toBeGreaterThan(crest.down);
+    expect(crest.foam).toBeGreaterThan(0);
+    // …and gone once it has lived its life.
+    splashAt(RADIUS + RING_SPEED * (RING_LIFE + 0.1), RADIUS, RING_LIFE + 0.1, 1, DEPTH, 1, s);
+    expect(s.up).toBe(0);
+  });
+
+  it("is the DETAIL row's: no ring at a ring share of nought, no crater at no depth", () => {
+    const s = wakeSection();
+    for (let r = 0; r < 8; r += 0.1) {
+      splashAt(r, RADIUS, 0.6, 1, DEPTH, 0, s);
+      expect(s.up).toBe(0);
+      splashAt(r, RADIUS, 0.6, 1, 0, 1, s);
+      expect(s.up).toBe(0);
+      expect(s.down).toBe(0);
+    }
+    // The foam patch is there whatever the row says.
+    splashAt(0, RADIUS, 0.6, 1, 0, 0, s);
+    expect(s.foam).toBeGreaterThan(0);
+    expect(splashReach(RADIUS, 0.6, 0)).toBeLessThan(splashReach(RADIUS, 0.6, 1));
+  });
+
+  it("feathers to nothing at its reach and is over after its life", () => {
+    const s = wakeSection();
+    for (const age of [0.1, 1, 2, SPLASH_LIFE - 0.1]) {
+      const reach = splashReach(RADIUS, age, 1);
+      splashAt(reach, RADIUS, age, 1, DEPTH, 1, s);
+      expect(s.cover).toBe(0);
+      splashAt(0, RADIUS, age, 1, DEPTH, 1, s);
+      expect(s.cover).toBe(1);
+      expect(s.foam).toBeGreaterThanOrEqual(0);
+      expect(s.foam).toBeLessThanOrEqual(1);
+    }
+    splashAt(0, RADIUS, SPLASH_LIFE, 1, DEPTH, 1, s);
+    expect(s.cover).toBe(0);
+    expect(s.foam).toBe(0);
+  });
+
+  it("lays its stations ascending from the centre to the reach, on the ring", () => {
+    const out = new Float32Array(SPLASH_STATIONS);
+    for (const age of [0, 0.4, 1.2, 2.5]) {
+      splashStations(RADIUS, age, 1, out);
+      expect(out[0]).toBe(0);
+      for (let i = 1; i < SPLASH_STATIONS; i++) expect(out[i]).toBeGreaterThanOrEqual(out[i - 1]);
+      expect(out[SPLASH_STATIONS - 1]).toBeCloseTo(splashReach(RADIUS, age, 1), 5);
+      if (age < RING_LIFE) {
+        const crest = RADIUS + RING_SPEED * age;
+        expect(Math.min(...Array.from(out, (r) => Math.abs(r - crest)))).toBeLessThan(1e-5);
+      }
+    }
   });
 });

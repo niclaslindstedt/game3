@@ -41,6 +41,7 @@ import {
   SKY_LEVELS,
   SPRAY_LEVELS,
   WAKE_LEVELS,
+  SPLASH_LEVELS,
   WATER_LEVELS,
   type VideoSettings,
 } from "./settings-video.ts";
@@ -357,6 +358,7 @@ export function mergeSettings(parsed: unknown): Settings {
       on(RESOLUTION_LEVELS, video.resolution) ?? settings.video.resolution;
     settings.video.spray = on(SPRAY_LEVELS, video.spray) ?? settings.video.spray;
     settings.video.wake = on(WAKE_LEVELS, video.wake) ?? settings.video.wake;
+    settings.video.splash = on(SPLASH_LEVELS, video.splash) ?? settings.video.splash;
     settings.video.flora = on(FLORA_LEVELS, video.flora) ?? settings.video.flora;
     settings.video.sky = on(SKY_LEVELS, video.sky) ?? settings.video.sky;
     settings.video.rain = on(RAIN_LEVELS, video.rain) ?? settings.video.rain;

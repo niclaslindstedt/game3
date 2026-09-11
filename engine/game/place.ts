@@ -39,8 +39,10 @@ export type RunMoment = {
   pitch?: number;
   roll?: number;
   /** Pitch rate to put it down with, rad/s, nose-up positive — a flip
-   * already begun. */
+   * already begun — and a roll rate, rad/s, right side down positive — a
+   * hull already going over. */
   pitchRate?: number;
+  rollRate?: number;
   /** The run clock to stand it at, s, and which gate is next. */
   time?: number;
   nextGate?: number;
@@ -71,7 +73,10 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   c.vx = Math.sin(moment.heading) * speed;
   c.vz = Math.cos(moment.heading) * speed;
   c.vy = moment.vy ?? 0;
+  // Body rates are right-handed: nose-up is −wx and right-side-down is −wz
+  // (`quat.ts` owns the flip).
   c.wx = -(moment.pitchRate ?? 0);
+  c.wz = -(moment.rollRate ?? 0);
   const height = moment.height ?? 0;
   if (height > 0) {
     c.y = heightAt(state.sea, state.level, moment.x, moment.z, state.t) + height;
