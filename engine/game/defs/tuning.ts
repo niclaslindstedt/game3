@@ -669,6 +669,32 @@ export const TUNING = {
      * a player would notice — "half as fast again" — rather than in impeller
      * pitch, which is the thing nobody outside this file thinks in. */
     classGain: 1.2,
+    /** ...and HOW MUCH OF THAT SPEED THE CONTROLS ARE TOLD ABOUT. An
+     * ARCADE DIAL, 0..1, because every steering term in the model is quoted
+     * against the water in ABSOLUTE metres a second — the nozzle's side
+     * force is a share of a thrust that grew with the class, the keel's bite
+     * and the carve go as v², the plate in the air goes as v² — so a class
+     * that scaled only the pump hands the rider a different craft rather
+     * than a faster one: four times the yaw acceleration off the same flick
+     * of the bars, and a hull that comes round HARDER per metre of track the
+     * faster it goes.
+     *
+     * A CLASS IS A SPEED, NOT A HANDLING PACKAGE. The rule it is sized to is
+     * that one craft's classes all manoeuvre the same — and that a faster
+     * class never turns SHARPER than a slower one, because nothing that goes
+     * faster turns tighter. Slightly wider is right and expected; sharper is
+     * the twitch that spins a rider on a gate line. What separates the four
+     * HULLS is untouched either way: this scales every craft's own numbers
+     * by the same factor, so the roster keeps its spread.
+     *
+     * 0 leaves the physics alone; 1 takes the rider's deflection down as
+     * fast as the speed goes up, which overshoots into a hull that goes soft
+     * at the top of the band. THREE QUARTERS is where the turn per metre
+     * goes flat-to-slightly-wider across the band on every hull the dial can
+     * reach — `craftAtClass`, which applies it, carries the bench. The
+     * factor is exactly 1 at class 1, so nothing the roster is tuned or
+     * documented at moves because this exists. */
+    classSteer: 0.75,
     /** Overall thrust efficiency against the ideal momentum-theory jet —
      * intake duct loss, nozzle loss, impeller slip. Marine waterjets run
      * 0.6–0.75 overall (Bulten 2006); the lower half because a PWC's short
