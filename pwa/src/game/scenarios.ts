@@ -22,6 +22,8 @@ import {
   freshPose,
   isMale,
   launchSpeedFor,
+  TUNING,
+  oceanOut,
   placeRun,
   pointAlong,
   topSpeedOf,
@@ -51,6 +53,7 @@ export type ScenarioName =
   | "capsize"
   | "offshore"
   | "storm"
+  | "ocean"
   | "backflip"
   | "wildlife"
   | "breach"
@@ -72,6 +75,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "capsize",
   "offshore",
   "storm",
+  "ocean",
   "backflip",
   "wildlife",
   "breach",
@@ -137,6 +141,26 @@ export function seawardAt(level: Level, x: number, z: number): { x: number; z: n
  * deeper — which on the open coast is the full distance and in a channel is
  * the middle of it.
  */
+/** Straight on along `sea` from (x, z) until the level's rim is astern and
+ * the storm stands in full — `TUNING.sea.open.reach` metres of open ocean
+ * past the last cell of the grid (`engine/game/ocean.ts`). Nothing is
+ * sampled on the way: past the rim there is no field left to read, which is
+ * the whole point of the place. */
+function outPastTheRim(
+  level: Level,
+  x: number,
+  z: number,
+  sea: { x: number; z: number },
+): { x: number; z: number } {
+  const STEP = 20;
+  let at = { x, z };
+  for (let d = 0; d < 20_000; d += STEP) {
+    if (oceanOut(level.bounds, at.x, at.z) > 0) break;
+    at = { x: at.x + sea.x * STEP, z: at.z + sea.z * STEP };
+  }
+  return { x: at.x + sea.x * TUNING.sea.open.reach, z: at.z + sea.z * TUNING.sea.open.reach };
+}
+
 function outToSea(level: Level, x: number, z: number, metres: number): { x: number; z: number } {
   const STEP = 4;
   let at = { x, z };
@@ -532,6 +556,30 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         },
         script: () => input(0, 0.5, 0),
         seconds: 8,
+      };
+    }
+    case "ocean": {
+      // PAST THE EDGE OF THE LEVEL, in the full storm — the one staged
+      // moment that stands OUTSIDE the bounds on purpose
+      // (`engine/game/ocean.ts`). Everything out here is analytic: there is
+      // no grid left to follow, so the walk holds the seaward heading it
+      // left the coast on and carries straight on until the storm stands at
+      // its full twenty metres. Beam-on, at a crawl, because a rider who
+      // gets out here is not racing any more — he is being carried up one
+      // face and dropped down the next.
+      const at = outToSea(level, mid.x, mid.z, 600);
+      const sea = seawardAt(level, at.x, at.z);
+      const out = outPastTheRim(level, at.x, at.z, sea);
+      return {
+        moment: {
+          x: out.x,
+          z: out.z,
+          heading: Math.atan2(sea.x, sea.z) + Math.PI / 2,
+          speed: top * 0.3,
+          nextGate: mid.index,
+        },
+        script: () => input(0, 0.4, 0),
+        seconds: 10,
       };
     }
     case "wildlife": {

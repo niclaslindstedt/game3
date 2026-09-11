@@ -226,6 +226,45 @@ export const TUNING = {
      * is 0.27, in line with the ocean band's own. */
     localBandLow: 0.8,
     localBandHigh: 1.8,
+    /** THE OPEN OCEAN — the sea past the edge of the built level
+     * (`engine/game/ocean.ts`). A level is a stretch of coast on a grid a
+     * couple of kilometres across, and the water does not stop where the
+     * grid does: a rider who turns his back on the course and holds the
+     * throttle open rides out into the storm the coast is sheltering him
+     * from, and it builds the whole way.
+     *
+     * It is the same fiction `baseFetch` runs on, carried one step
+     * further. Inside the level the sea is GROWN from the wind over the
+     * fetch; out here it is QUOTED, the way a `SeaOverride` is, and
+     * `reach` says how far out the quoted sea stands in full. Both the
+     * ramp and the two numbers it runs between are ARCADE DIALS: how much
+     * of the storm a rider is in is a geometry the game chose, not a law
+     * the ocean obeys. */
+    open: {
+      /** The storm's significant height, m, at `reach` and past it. Twenty
+       * metres is the sea the whole model is sized to carry — `tableDepth`
+       * is past half the wavelength of it, and `depth` below is past what
+       * `breakingHs` needs to stand it unclipped. */
+      hs: 20,
+      /** The mean wind out there, m/s at 10 m. A violent storm, and not an
+       * arbitrary one: it is about the wind a fully developed sea of `hs`
+       * is grown by under Pierson–Moskowitz with `heightScale` on it
+       * (Hs = 0.21·U²/g), so the sea a rider meets and the wind he meets
+       * it in are the same weather. A level whose own wind is already
+       * stronger keeps it. */
+      wind: 25,
+      /** How far past the level's own rim the full storm stands, m. At a
+       * catalog top speed of 20–30 m/s that is a minute and a half of
+       * riding out with the sea building every second of it, and it is a
+       * CEILING: past here the sea stops growing. */
+      reach: 2_500,
+      /** The bed out there, m below the surface, reached at `reach`: the
+       * level's own rim depth falls on to this. It is not a seabed a hull
+       * can ever touch — it is what keeps the depth-limited clip
+       * (`breakingHs`·d) off a twenty-metre sea, which needs 36 m and is
+       * given three times it. */
+      depth: 150,
+    },
   },
 
   /** THE WIND (`wind.ts`). */
@@ -683,6 +722,16 @@ export const TUNING = {
      * spring that returns it, m/s² per m. */
     boundsMargin: 5,
     boundsSpring: 4,
+    /** ...and HOW DEEP the water at the rim has to be for the bound to let
+     * a rider through instead, m. The basin cuts its open water off at a
+     * straight line and pads every other side with land (R14, R15), so the
+     * only water standing at the grid's rim is the sea's — and the sea has
+     * no far side (`engine/game/ocean.ts`). Measured over the seed corpus
+     * the wet rim cells of a level stand in 21 to 60 m of water, so fifteen
+     * opens every one of them and still holds a rider in at the last
+     * shallow metres of a river (R26) or a beach that happens to reach the
+     * box's corner. */
+    boundsOpenDepth: 15,
     /** Cooldown between `ground` events, s. */
     groundCooldown: 0.5,
   },

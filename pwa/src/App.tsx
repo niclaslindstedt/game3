@@ -801,12 +801,16 @@ export function App() {
           not reach it: a setting worded "the readouts over the water" must
           not quietly turn off the one thing the app ever says on its own
           initiative. With the HUD up it rides in the top bar where
-          `update-button.tsx` argues it belongs; with the HUD off it stands
-          in the same corner, in the same chrome, on its own. It draws
-          itself or it draws nothing, so on nearly every day this is an
-          empty box. */}
-      {hudOver(shell) && !settings.hud.on && (
-        <div class="hud">
+          `update-button.tsx` argues it belongs; everywhere else — the HUD
+          switched off, and THE FRONT DOOR, which is the surface a player is
+          most likely to be looking at when a deploy lands — it stands in the
+          same corner, in the same chrome, on its own. The attract and
+          loading cards are the app covering its own screen, so the notice
+          waits for whatever is under them (styles.css keeps it below both).
+          It draws itself or it draws nothing, so on nearly every day this is
+          an empty box. */}
+      {!hudUp && (hudOver(shell) || shell === "menu") && (
+        <div class={shell === "menu" ? "hud hud-over-card" : "hud"}>
           <div class="hud-topright">
             <div class="hud-topright-row">
               <UpdateButton />

@@ -151,6 +151,8 @@ describe("the ramp", () => {
 });
 
 describe("the bounds", () => {
+  // The default synthetic coast has eight metres of water at its seaward
+  // rim — a shelf, not the open sea — so every rim of it holds.
   it("push back inside, harder the further out", () => {
     const inside = boundsPush(LEVEL, 300, 200);
     expect(inside).toEqual({ ax: 0, az: 0 });
@@ -162,11 +164,42 @@ describe("the bounds", () => {
     expect(south.az).toBeGreaterThan(0);
   });
 
-  it("a hull driven at the seaward edge is turned back", () => {
+  it("a hull driven at a rim that is not the open sea is turned back", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
     placeRun(state, { x: 300, z: LEVEL.bounds.maxZ - 30, heading: 0, speed: 20 });
     ride(state, 8, FULL);
     expect(state.craft.z).toBeLessThan(LEVEL.bounds.maxZ + 30);
     expect(Number.isFinite(state.craft.z)).toBe(true);
+  });
+
+  // ...and where the rim stands in the OPEN SEA it lets him out
+  // (`engine/game/ocean.ts`). The basin pads every side but the sea's with
+  // land (R14, R15), so a rim this deep is the ocean and the ocean has no
+  // far side.
+  describe("where the rim stands in open water", () => {
+    const DEEP = syntheticLevel({ windSpeed: 0, depth: 40 });
+
+    it("let a rider straight out, and still hold him in at the land", () => {
+      expect(boundsPush(DEEP, 300, DEEP.bounds.maxZ + 4).az).toBe(0);
+      expect(boundsPush(DEEP, 300, DEEP.bounds.maxZ + 900).az).toBe(0);
+      // The landward rim of the same level is the country behind the beach.
+      expect(boundsPush(DEEP, 300, DEEP.bounds.minZ - 4).az).toBeGreaterThan(0);
+    });
+
+    it("stop reeling him in once he is out there, whatever rim he is abeam of", () => {
+      // A rider a kilometre out at sea is past the box on one axis, so the
+      // land rims he is now abeam of have nothing to say to him.
+      const far = boundsPush(DEEP, DEEP.bounds.maxX + 1000, DEEP.bounds.maxZ + 1000);
+      expect(far).toEqual({ ax: 0, az: 0 });
+    });
+
+    it("a hull driven at it rides out of the level and keeps going", () => {
+      const state = createGame({ seed: 1, craft: "marlin", level: DEEP, quiet: true });
+      placeRun(state, { x: 300, z: DEEP.bounds.maxZ - 60, heading: 0, speed: 20 });
+      ride(state, 20, FULL);
+      expect(state.craft.z).toBeGreaterThan(DEEP.bounds.maxZ + 100);
+      expect(Number.isFinite(state.craft.z)).toBe(true);
+      expect(state.craft.y).toBeGreaterThan(-5);
+    });
   });
 });

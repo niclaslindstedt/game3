@@ -86,6 +86,7 @@ export {
   type SeaOverride,
   type SeaState,
   type SurfaceSample,
+  type WaveBand,
   type WaveComponent,
 } from "./game/water.ts";
 // THE FETCH (fetch.ts): the growth laws, and what every point of a level
@@ -98,6 +99,18 @@ export {
   fetchPeriod,
   type Shelter,
 } from "./game/fetch.ts";
+// THE OPEN OCEAN (ocean.ts): what lies past the edge of the built level —
+// how far out a point is, how much of the storm stands there, and the bed
+// and the wind that go with it. The sea out there is `water.ts`'s OPEN band.
+export {
+  bedAt,
+  oceanDepth,
+  oceanOffset,
+  oceanOut,
+  oceanWind,
+  stormAt,
+  stormRamp,
+} from "./game/ocean.ts";
 // R27 — THE CURRENT (mapgen/flow.ts): how fast the water itself is going
 // at a plan point, and which way. Summed into `surfaceAt`'s velocity, so
 // nothing has to ask unless it wants to draw the river running.

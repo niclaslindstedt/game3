@@ -47,6 +47,45 @@ describe("the wind profile", () => {
   });
 });
 
+describe("the wind past the level's rim", () => {
+  // The storm out at sea (`ocean.ts`). The synthetic coast's water runs out
+  // to z = 400 and the open ocean is everything past it.
+  const SEAWARD = 400;
+  const level = syntheticLevel({ windSpeed: 8, depth: 40, seaward: SEAWARD });
+  const wind = createWind(level);
+  const O = TUNING.sea.open;
+  const at = (past: number): number =>
+    windSpeedAt(wind, TUNING.wind.referenceHeight, 400, SEAWARD + past);
+
+  it("freshens into the storm the further out a rider holds the throttle open", () => {
+    expect(at(0)).toBeCloseTo(8, 3);
+    let last = 0;
+    for (let past = 0; past <= O.reach; past += O.reach / 20) {
+      expect(at(past), `${past} m past the rim`).toBeGreaterThanOrEqual(last - 1e-9);
+      last = at(past);
+    }
+    expect(at(O.reach)).toBeCloseTo(O.wind, 3);
+    // ...and it is a ceiling, not a ramp that runs away.
+    expect(at(O.reach * 50)).toBeCloseTo(O.wind, 3);
+  });
+
+  it("opens the coast's own shelter out as the coast falls astern", () => {
+    // A point BEHIND the land reads the shelter floor at the rim and the
+    // full storm far out: the weather out at sea is the same whichever rim
+    // a rider left the level by.
+    const ashore = createWind(syntheticLevel({ windSpeed: 8, seaward: SEAWARD }));
+    const sheltered = windSpeedAt(ashore, TUNING.wind.referenceHeight, 400, -110);
+    expect(sheltered).toBeLessThan(8 * 0.6);
+    const far = windSpeedAt(ashore, TUNING.wind.referenceHeight, 400, ashore.bounds.minZ - O.reach);
+    expect(far).toBeCloseTo(O.wind, 3);
+  });
+
+  it("leaves a calm level calm, however far out it is ridden", () => {
+    const calm = createWind(syntheticLevel({ windSpeed: 0, seaward: SEAWARD }));
+    expect(windSpeedAt(calm, 10, 400, SEAWARD + O.reach * 2)).toBe(0);
+  });
+});
+
 describe("the gusts", () => {
   it("stay within their bounds and revert to the mean", () => {
     const level = syntheticLevel({ windSpeed: 8 });
