@@ -17,6 +17,7 @@ import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
+import { isEyeCamera } from "./camera-rigs.ts";
 import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
@@ -420,6 +421,11 @@ export function createRenderer(
     // lit by.
     if (lamps) {
       lamps.setLit(p.lamps, 1 - dayLight(p));
+      // …and their own hardware is put away when the frame is drawn from a
+      // lens bolted to the craft, because every piece of it is in front of
+      // that lens rather than in front of the viewer. The beam is not: the
+      // pool on the water is the same from every seat.
+      lamps.setAboard(isEyeCamera(rig.mode()));
       water.setLamp(lamps.light);
     }
     gates?.setNight(p.lamps);

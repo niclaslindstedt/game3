@@ -19,8 +19,15 @@ import {
   verticalFovFor,
   type CameraPose,
 } from "../pwa/src/game/camera.ts";
-import { CHASE_RIGS, type ChaseCamera } from "../pwa/src/game/camera-rigs.ts";
+import {
+  CHASE_RIGS,
+  EYE_RIGS,
+  isEyeCamera,
+  type ChaseCamera,
+} from "../pwa/src/game/camera-rigs.ts";
 import { syntheticLevel, pinSpeedClass } from "./support/synthetic.ts";
+
+const DEG = Math.PI / 180;
 
 // The rod, the springs and the righting are measured at the class they
 // were written at (`pinSpeedClass`): their subject is not the roster's pace.
@@ -189,6 +196,36 @@ describe("the nose rig", () => {
     expect(Math.hypot(pose.x - c.x, pose.y - c.y, pose.z - c.z)).toBeLessThan(1.2);
     expect(pose.roll).toBeGreaterThan(0);
     expect(pose.roll).toBeLessThan(c.roll);
+  });
+
+  // A ROLLED LENS TILTS THE HORIZON, which is the one line in the picture a
+  // rider balances against, and a horizon that swings through a turn is what
+  // reads as motion sickness rather than as a hull leaning. A hull held on
+  // the pump carves at some 20° and peaks near 37° (`make ride
+  // SCENARIO=carve`), so both bolted-on rigs are held to a few degrees at
+  // the carve and under ten at the peak — a ceiling, not a tuning, because
+  // the share is a number somebody will reach for again.
+  it.each([
+    ["bow", 0.25],
+    ["nose", 0.16],
+  ] as const)("keeps %s's lens near level through a carve", (name, share) => {
+    const CARVE = 20 * DEG;
+    const PEAK = 37 * DEG;
+    expect(EYE_RIGS[name].rollShare).toBeCloseTo(share, 6);
+    expect(EYE_RIGS[name].rollShare * CARVE).toBeLessThan(6 * DEG);
+    expect(EYE_RIGS[name].rollShare * PEAK).toBeLessThan(10 * DEG);
+    // …and still carries the lean: a lens pinned level is a hull that never
+    // banked.
+    expect(EYE_RIGS[name].rollShare * CARVE).toBeGreaterThan(2 * DEG);
+  });
+
+  // The ladder's two bolted-on rungs are read off the table rather than off
+  // a list spelled out a second time, which is what lets `renderer.ts` ask
+  // the same question the camera does about whose lamps are in the frame.
+  it("knows which rungs of the ladder are aboard the craft", () => {
+    for (const mode of CAMERA_MODES) {
+      expect(isEyeCamera(mode)).toBe(mode === "bow" || mode === "nose");
+    }
   });
 });
 

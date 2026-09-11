@@ -296,7 +296,16 @@ export type EyeRig = {
   aimAhead: number;
   /** How much of the hull's pitch and roll the eye takes, 0..1 — the rest is
    * the rider's neck levelling their head against the deck. The bow lens is
-   * not a head and takes more of both. */
+   * not a head and takes more of both.
+   *
+   * THE ROLL SHARE IS SIZED AGAINST A CARVE, NOT AGAINST THE LEAN CEILING.
+   * A hull held on the pump sits at some 20° of roll and peaks near 37°
+   * (`make ride SCENARIO=carve`), so a share is worth a fifth of a radian
+   * times itself every time the rider turns — and unlike a pitch, which the
+   * frame reads as the sea rising, a rolled lens tilts the HORIZON, which is
+   * the one thing in the picture a rider balances against. Much past 5° of
+   * that in a held turn and the view stops reading as a hull leaning and
+   * starts reading as a room being tipped. */
   pitchShare: number;
   rollShare: number;
   fov: number;
@@ -304,16 +313,28 @@ export type EyeRig = {
   fovMax: number;
 };
 
+/** Whether a rung of the ladder is one of the two BOLTED TO THE CRAFT —
+ * asked of the table rather than of a list spelled out again, so a rig added
+ * to `EYE_RIGS` is aboard the craft the moment it exists. `camera.ts` uses it
+ * to pick which update runs; the renderer uses it to decide whether the
+ * craft's own lamp hardware is in front of the lens (`craft-lamps.ts`). */
+export function isEyeCamera(mode: string): mode is EyeCamera {
+  return Object.hasOwn(EYE_RIGS, mode);
+}
+
 export const EYE_RIGS: Record<EyeCamera, EyeRig> = {
-  // Out on the foredeck, ahead of everything: no hull in the frame at all,
-  // and the sea a metre under the lens. The wave the hull is about to meet
-  // is the whole picture, which is the closest this game gets to the water.
+  // Out on the foredeck with the sea a metre under the lens and the deck's
+  // own point across the bottom of the frame. The wave the hull is about to
+  // meet is the whole picture, which is the closest this game gets to the
+  // water — but it is NOT ahead of everything the craft carries: the
+  // headlamp sits half a metre further forward and the rail lamps a third of
+  // one, so this is the rung `craft-lamps.ts` hides its hardware for.
   bow: {
     up: 0.62,
     forward: 1.15,
     aimAhead: 14,
     pitchShare: 0.6,
-    rollShare: 0.5,
+    rollShare: 0.25,
     fov: 72,
     fovPerSpeed: 0.5,
     fovMax: 92,
@@ -325,7 +346,7 @@ export const EYE_RIGS: Record<EyeCamera, EyeRig> = {
     forward: 0.72,
     aimAhead: 12,
     pitchShare: 0.45,
-    rollShare: 0.35,
+    rollShare: 0.16,
     fov: 68,
     fovPerSpeed: 0.5,
     fovMax: 90,

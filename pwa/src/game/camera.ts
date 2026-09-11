@@ -2,8 +2,12 @@
 // THE CAMERA, as maths. Six rigs, walked with the camera key as ONE LADDER
 // from the handlebars backwards (the ids and the order are `CAMERA_MODES`):
 //
-//   bow   — out on the foredeck ahead of everything: no hull in the frame,
-//           the sea a metre under the lens.
+//   bow   — out on the foredeck with the sea a metre under the lens and the
+//           deck's own point across the bottom of the frame. It is not
+//           ahead of everything: the headlamp and both rail lamps stand
+//           further forward still, which is why the craft puts its lamp
+//           hardware away whenever the frame is drawn from up here
+//           (`setAboard`, craft-lamps.ts).
 //   nose  — on the craft's own handlebars, looking over the bar and the
 //           hood. Both are bolted on, so they go with the hull — but only
 //           partly: the pitch and the roll they carry are DAMPED, because a
@@ -55,6 +59,7 @@ import {
   CHASE_RIGS,
   EYE_RIGS,
   FLIGHT_ROD,
+  isEyeCamera,
   type ChaseCamera,
   type EyeCamera,
   type EyeRig,
@@ -307,7 +312,7 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
 
   return {
     update: (state, dt, surfaceY) => {
-      if (mode === "bow" || mode === "nose") eye(EYE_RIGS[mode], state, dt);
+      if (isEyeCamera(mode)) eye(EYE_RIGS[mode], state, dt);
       else chase(CHASE_RIGS[mode], state, dt, surfaceY);
       if (change.flying()) {
         change.fly(pose, state.craft, dt);

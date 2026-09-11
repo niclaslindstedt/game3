@@ -97,9 +97,10 @@ The camera is this skill's own subsystem — `pwa/src/game/camera.ts`, reading
 | Where the chase camera stands behind the craft, and how far it pulls back with speed | the rig constants at the top of `camera.ts` |
 | How much of the craft's heave, pitch and roll the lens shares | the follow fractions beside them — a lagged share, never 1 |
 | Looking through a turn | the yaw blend between heading and velocity direction |
+| How much of the hull an ON-CRAFT lens takes | `pitchShare` / `rollShare` in `EYE_RIGS` — sized against a carve, never against `MAX_LEAN` |
 | What the camera does in the AIR | the rod follows the flight path's angle, its length unchanged, so the craft stays the same size off a ramp as on the water |
 | The landing's shudder | a damped kick on the `land` event, sized by the landing's vertical speed |
-| The `C` key | the rig ladder (chase, close, far — and the ones added later) |
+| The `C` key | the rig ladder, walked from the handlebars backwards: `bow`, `nose`, `close`, `chase`, `far`, `heli` (`CAMERA_MODES`) |
 
 **A reading that moves where the camera STANDS is stepped before the lens is
 placed.** The sea height under the lens, the follow target and the pull-back

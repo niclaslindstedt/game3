@@ -62,6 +62,10 @@ export type CraftLamps = {
   /** How lit the lamps are, 0..1 (the sky's switch), and how dark it is,
    * 0..1 (`1 - dayLight`), which is what the beam is worth on the water. */
   setLit: (lit: number, dark: number) => void;
+  /** Whether the lens the frame is drawn from is one of the two bolted ONTO
+   * the craft (`isEyeCamera`). The lamps' own hardware is hidden while it is
+   * — it sits between that lens and the water — and the beam is not. */
+  setAboard: (aboard: boolean) => void;
   dispose: () => void;
 };
 
@@ -95,14 +99,31 @@ export function createCraftLamps(spec: CraftSpec, style: CraftStyle): CraftLamps
   bloom.position.set(at.x, at.y, at.z + 0.05);
   group.add(bloom);
 
-  const sides: THREE.MeshBasicMaterial[] = [];
-  // Port first, starboard second — the order `setLit` colours them in.
-  for (const sign of [-1, 1] as const) {
+  // WHICH RAIL IS WHICH, and why it is not the one the body frame reads.
+  // Red is carried to port and green to starboard — defined from ON BOARD,
+  // facing forward — so the only frame that can answer "which side is
+  // starboard" here is the one the RIDER is looking along. The body frame is
+  // not that frame: the engine's map axes (x east, z north, y up) draw
+  // MIRRORED on screen, so from behind the craft — which is where both the
+  // rider and every chase lens look from — body +x is on the viewer's LEFT.
+  // `input-model.ts` states the same fact from the other end, and has to
+  // flip the steer for it (`SCREEN_TO_ENGINE`): the engine's positive steer
+  // grows the heading toward +x and reads as a turn to the LEFT.
+  //
+  // So the rider's starboard rail is body -x, and the lamp on it is green.
+  // Everything else on the craft is symmetric and cannot show the mirror;
+  // this pair is the one place in the game that can, which is why it is the
+  // one place it has to be spelled out.
+  const sides: { mesh: THREE.Mesh; material: THREE.MeshBasicMaterial; lit: number }[] = [];
+  for (const { sign, lit } of [
+    { sign: -1, lit: STARBOARD },
+    { sign: 1, lit: PORT },
+  ] as const) {
     const material = new THREE.MeshBasicMaterial({ color: 0x111111 });
-    const side = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), material);
-    side.position.set(sign * at.side, at.y - 0.08, at.z - 0.15);
-    group.add(side);
-    sides.push(material);
+    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.035, 6, 4), material);
+    mesh.position.set(sign * at.side, at.y - 0.08, at.z - 0.15);
+    group.add(mesh);
+    sides.push({ mesh, material, lit });
   }
   const dim = new THREE.Color();
 
@@ -116,20 +137,40 @@ export function createCraftLamps(spec: CraftSpec, style: CraftStyle): CraftLamps
     // The lenses go from a dark glass to their own colour, and the bloom
     // comes up with them.
     lensMaterial.color.set(0x1a1a1a).lerp(dim.set(LENS), lit);
-    sides[0].color.set(0x111111).lerp(dim.set(PORT), lit);
-    sides[1].color.set(0x111111).lerp(dim.set(STARBOARD), lit);
+    for (const side of sides) side.material.color.set(0x111111).lerp(dim.set(side.lit), lit);
     bloomMaterial.opacity = BLOOM * lit;
+  };
+
+  // THE HARDWARE IS FOR SOMEBODY ELSE'S EYES. Every piece of it — the lens
+  // in the hood, the bloom round it, the two rail lamps — is sized to be
+  // read from off the craft, and the two rungs of the ladder that sit ON the
+  // craft are all BEHIND it: the skiff's lamp stands half a metre in front
+  // of the bow lens and a third of a metre in front of the sidelights, so a
+  // 0.9 m bloom sprite becomes a flare across the frame and a 7 cm rail lamp
+  // becomes a coloured slab in the corner. Nobody riding a machine sees
+  // their own navigation lights, and hiding them costs the night nothing:
+  // the BEAM is a separate object and stays lit, so the pool it lays on the
+  // water — which is the whole of what the rider is steering by — is
+  // untouched.
+  let aboardWas = false;
+  const setAboard = (aboard: boolean): void => {
+    if (aboard === aboardWas) return;
+    aboardWas = aboard;
+    lens.visible = !aboard;
+    bloom.visible = !aboard;
+    for (const side of sides) side.mesh.visible = !aboard;
   };
 
   return {
     group,
     light,
     setLit,
+    setAboard,
     dispose: () => {
       lens.geometry.dispose();
       lensMaterial.dispose();
       bloomMaterial.dispose();
-      for (const s of sides) s.dispose();
+      for (const side of sides) side.material.dispose();
       group.traverse((o) => {
         if (o instanceof THREE.Mesh) o.geometry.dispose();
       });
