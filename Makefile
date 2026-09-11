@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -184,6 +184,16 @@ sky:
 # `make flora` · `make flora ARGS="--rows=reed,alder"` · `make flora ARGS=--skip-build`
 flora:
 	node scripts/flora-preview.mjs $(ARGS)
+
+# EVERY BIRD ON THE COAST SIDE BY SIDE: one contact sheet, one cell per row
+# of the bird roster, each drawn gliding, mid-beat and perched with its
+# wings folded over a metre rule, seen from below — `previews/birds.png`. A
+# bird in a run is a dozen pixels a hundred metres up; the roster is a
+# ladder of silhouettes and a ladder is judged side by side. Same Chromium
+# requirements as `screenshots`.
+# `make birds` · `make birds ARGS="--rows=gull,eagle"` · `make birds ARGS=--skip-build`
+birds:
+	node scripts/birds-preview.mjs $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as
