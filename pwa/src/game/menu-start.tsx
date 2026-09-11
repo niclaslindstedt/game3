@@ -12,11 +12,14 @@
 //            not a choice.
 //   SEASON   spring, summer, autumn or winter — the sun's arc, which is how
 //            long the day is and how dark the night gets (R13).
-//   TIME     sunrise, day or sunset — resolved by the ENGINE against this
-//            coast's own daylight window in that season (`hourOfDay`),
-//            never as three hours written down here. The clock runs on
-//            from there at an hour a minute, so SUNSET is a run that rides
-//            into the night.
+//   TIME     sunrise, day, sunset or night — resolved by the ENGINE against
+//            this coast's own daylight window in that season (`hourOfDay`),
+//            never as four hours written down here. The clock runs on from
+//            there at an hour a minute, so SUNSET is a run that rides into
+//            the night and NIGHT is one that starts there and rides out of
+//            it into the dawn. Night is the one rung a seed can never be
+//            dealt (R13 starts every level in daylight), so it is the one
+//            row value that is always an override and never the mark.
 //   WIND     calm, brisk or storm — the wind, and so the SEA, because the
 //            fetch law is what turns one into the other.
 //   WEATHER  the sky over it: R19's own five, off `WEATHER_IDS`.
@@ -89,10 +92,12 @@ const TIME_LABELS: Record<TimeOfDay, string> = {
   sunrise: STRINGS.timeSunrise,
   day: STRINGS.timeDay,
   sunset: STRINGS.timeSunset,
+  night: STRINGS.timeNight,
 };
 
-/** The hours in the engine's own order — earliest first, which is the order
- * they read as a ladder. */
+/** The hours in the engine's own order — the arc of a day, which is the order
+ * they read as a ladder. NIGHT is the last rung and never the marked one: R13
+ * only ever deals a level a daylight hour (`dealtTimeOfDay`). */
 const TIME_STOPS: Stop<TimeOfDay>[] = TIMES_OF_DAY.map((id) => ({
   id,
   label: TIME_LABELS[id],

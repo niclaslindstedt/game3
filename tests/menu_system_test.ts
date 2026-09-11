@@ -8,7 +8,7 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
-import { CLASS_BAND, SEASONS, WEATHER_IDS } from "@engine";
+import { CLASS_BAND, SEASONS, TIMES_OF_DAY, WEATHER_IDS } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -453,6 +453,16 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       speedClass: 1,
     });
     expect(stored.hud.on).toBe(false);
+  });
+
+  it("takes a TIME off the engine's own ladder, and only off it", () => {
+    // The start card's TIME row: R13's hours, checked against the engine
+    // rather than a copy, so a rung added there is a rung this build stores
+    // the same day — NIGHT was, and a blob carrying it has to survive.
+    for (const time of TIMES_OF_DAY) {
+      expect(mergeSettings({ ride: { time } }).ride.time).toBe(time);
+    }
+    expect(mergeSettings({ ride: { time: "dusk" } }).ride.time).toBeNull();
   });
 
   it("takes a SEASON off the engine's own four, and only off them", () => {

@@ -122,7 +122,7 @@ export const STRINGS = {
   startShoreHint: "The seed the whole coast is built from — type one in to ride somebody else's",
   startTime: "TIME",
   startTimeHint:
-    "The hour to start at, set against this coast's own daylight in the season — the clock runs on from there, an hour a minute",
+    "The hour to start at, set against this coast's own daylight in the season — NIGHT is midnight, and the clock runs on from wherever you start, an hour a minute",
   startSeason: "SEASON",
   startSeasonHint:
     "The sun's arc: how long the day is, and how dark the night gets — a summer night here never gets past twilight",
@@ -165,10 +165,11 @@ export const STRINGS = {
   /** Where this hull stands in the roster — `2 / 4`, so four craft turning
    * one at a time read as a set with edges rather than as a carousel. */
   craftOf: (at: number, of: number): string => `${at} / ${of}`,
-  /** The hours, earliest first. */
+  /** The hours, in the order a day passes through them. */
   timeSunrise: "SUNRISE",
   timeDay: "DAY",
   timeSunset: "SUNSET",
+  timeNight: "NIGHT",
   /** The seasons, in the year's order. */
   seasonSpring: "SPRING",
   seasonSummer: "SUMMER",
