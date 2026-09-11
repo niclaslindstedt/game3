@@ -21,7 +21,7 @@ import {
   type GameState,
 } from "@engine";
 
-import { daylightOf, sunOver, type Daylight } from "./daylight.ts";
+import { daylightOf, lampsAt, sunOver, type Daylight } from "./daylight.ts";
 import { SCREEN_TO_ENGINE } from "./input-model.ts";
 import { buildMinimap, type HudMinimap } from "./minimap-view.ts";
 
@@ -53,6 +53,31 @@ export type HudSnapshot = {
    * the astronomy's word (`daylightOf`), the same one the sky keys on. */
   hour: number;
   daylight: Daylight;
+  /** HOW FAR THE CHROME IS DIPPED, 0..1 — the HUD's night dressing, and
+   * nothing is DRAWN from it: it goes on the HUD root as `--hud-dark` and
+   * the dressing in styles.css is what reads it. Every colour on that
+   * screen was mixed to hold over a bright sea at noon — pure white ink, a
+   * hard navy drop under it, plates in the arcade's own blue — and over a
+   * coast lit by nothing but the craft's own lamp the same chrome has
+   * several times the contrast it needs and spends the surplus as glare.
+   * This is how much of that surplus is handed back.
+   *
+   * IT IS THE LAMP SWITCH (`lampsAt`), not a threshold of the HUD's. That
+   * is the wire a real machine has — a cluster dips off the lamp switch,
+   * never off a light meter — and a second opinion about when it is dark
+   * is one that can drift from the light the rider is actually riding by.
+   * It also rules out the one reading that looks right and is not: the
+   * astronomy's WORD. A taiga winter noon at 62°N is a sun 8.9° up, which
+   * is "dusk" by the bands in daylight.ts and broad daylight in the frame
+   * — dressing the HUD down there would dim it against the brightest hour
+   * that seed ever sees.
+   *
+   * And unlike the sibling rally game's, which dips on ONE frame because
+   * its headlamps are a switch, this RAMPS: our lamps come up over the
+   * four degrees either side of the horizon (`lampsAt`), so the cluster
+   * comes down with them. A HUD that stepped while the lamp faded would
+   * read as two machines. */
+  dark: number;
   /** Gates passed (missed ones count as reached) and gates in the course. */
   passed: number;
   gates: number;
@@ -88,9 +113,15 @@ export function takeSnapshot(state: GameState): HudSnapshot {
   const wind = windAt(state.wind, Math.max(0, c.y), c.x, c.z);
   const blowsTo = Math.atan2(wind.vx, wind.vz);
   const hour = sunHourAt(state.level, state.t);
+  const sun = sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season);
   return {
     hour,
-    daylight: daylightOf(sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season)),
+    daylight: daylightOf(sun),
+    // Quantised to a hundredth: the sun moves an hour a minute, so the dip
+    // takes about a minute and a half of riding end to end, and a style
+    // recalculation of the whole HUD on every one of the snapshot's twelve
+    // ticks a second buys nothing an eye can see.
+    dark: Math.round(lampsAt(sun.elevation) * 100) / 100,
     speedKmh: c.speed * 3.6,
     rpm: c.rpm / maxRpm(c.spec),
     idle: c.spec.idleRpm / maxRpm(c.spec),

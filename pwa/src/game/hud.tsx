@@ -112,11 +112,17 @@ export function Hud({
    * it — see minimap.tsx for why that is the button. */
   onPause: () => void;
 }) {
+  // THE NIGHT DRESSING's one number, 0..1, on the root as `--hud-dark` —
+  // the same switch the craft's lamp is on (`snapshot.ts`, `lampsAt`).
+  // Nothing in this file branches on it: every colour the dip moves is a
+  // custom property declared once on `.hud` in styles.css, and this is the
+  // dial all of them turn on.
   return (
     <div
       class="hud"
       data-air={snap.airborne ? "1" : undefined}
       data-finished={snap.finished ? "1" : undefined}
+      style={{ "--hud-dark": String(snap.dark) }}
     >
       <div class="hud-top">
         <div class="hud-top-row">

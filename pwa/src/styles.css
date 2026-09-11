@@ -24,8 +24,21 @@
   --sky: #d7e9f0;
   --foam: #f2f7f8;
   --buoy: #f28c28;
+  /* HOW FAR THE HUD'S CHROME IS DIPPED, 0..1 — the day value. `hud.tsx`
+     writes the live one onto `.hud` off the craft's own lamp switch, and
+     the ramp every token below it takes is documented there. It is stated
+     here as well so a rule that reads it from outside the HUD gets the
+     undipped chrome rather than an invalid declaration. */
+  --hud-dark: 0;
   --hud-ink: #ffffff;
-  --hud-shadow: #082a38;
+  /* THE CHROME'S OWN NAVY, as bare channels so every plate can still mix
+     its own alpha off it — the glyph a letter is stamped in and the ground
+     under a button are one idea, and stating it once is what lets the night
+     dressing below take the whole of the chrome down with a single number.
+     The MENU cards mix their own: they are pages rather than instruments,
+     and none of them is ever read over moving water. */
+  --hud-plate: 8 42 56;
+  --hud-shadow: rgb(var(--hud-plate));
   --hud-good: #f28c28;
   --hud-bad: #ff5a4e;
   --hud-info: #9cc6d8;
@@ -203,7 +216,80 @@ canvas {
   pointer-events: none;
   padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom)
     env(safe-area-inset-left);
-  text-shadow: 0 1px 0 var(--hud-shadow);
+
+  /* ── THE NIGHT DRESSING: the cluster dips with the lamp ──────────────
+     A machine's instruments dip when its lamp goes on, and so do these.
+     `--hud-dark` is 0..1 — how lit the craft's own lamp is (`lampsAt`,
+     read into the snapshot as `dark` and written here by `hud.tsx`) — and
+     every colour below is a ramp along it. Nothing else on this screen
+     has an opinion about how dark it is.
+
+     THE REASON IS CONTRAST, NOT MOOD. Every colour here was mixed to hold
+     over a bright sea at noon: full white ink, a hard navy drop under
+     every glyph, plates in the arcade's own blue and a chart in the
+     corner with a sand-coloured shore on it. Over a coast lit by nothing
+     but the craft's lamp and a moon, that same chrome has several times
+     the contrast it needs and spends the surplus as glare — a screenful
+     of white sitting in front of the one thing the rider is straining to
+     see into, which is the dark past the end of the beam. The dip hands
+     the surplus back.
+
+     Three rules decide what moves and what does not:
+
+       * THE CHROME COMES DOWN A STOP, AND NEVER FURTHER. The ink goes off
+         pure white; the navy goes to nearly black, which takes the drop
+         under every glyph and the ground under every plate with it in one
+         number (`--hud-plate`).
+       * THE DRESSING LOSES ITS LIGHT; THE SIGNAL KEEPS IT. Note what is
+         NOT ramped here: `--hud-bad` and `--hud-good`. The red is every
+         warning the screen has — the redline, the brake, a missed gate,
+         the craft's own mark on the chart — and a warning lamp is the one
+         thing on a real cluster that never dims. The orange is the BUOY's
+         own, the colour the rider is hunting for out on the water, and the
+         gate on the chart has to keep agreeing with the gate in the frame.
+       * THE GLYPHS GET THEIR SHAPE BACK. The hard 1 px drop is a DAYLIGHT
+         tool — it thickens every letterform against a lit sea, which is
+         worth paying for at noon and not against a black coast. It fades
+         out as a soft one fades in, and the letters end the ramp the shape
+         they were drawn in.
+
+     AND IT RAMPS RATHER THAN SWITCHING, which is where this parts company
+     with the sibling rally game's version of the same idea. That car's
+     headlamps reach main beam on one frame, so its cluster dips on one
+     frame too; our lamp comes up smoothly over the four degrees either
+     side of the horizon, and a cluster that stepped while the lamp faded
+     would read as two machines. It is the same rule — the instruments
+     follow the lamp switch, never a light meter of their own — and it
+     comes out continuous here because the switch is a dimmer.
+
+     WHY THE LAMP AND NOT THE WORD UNDER THE CLOCK. `daylight` bands the
+     sun's elevation into dawn / day / dusk / night, and those bands are
+     about the SKY rather than about how much light is on the water: a
+     taiga winter noon at 62°N is a sun 8.9° up, which the bands call dusk
+     and the frame shows as the brightest hour that seed ever gets. Dipping
+     there would dim the HUD against its hardest background. */
+  --hud-ink: color-mix(in srgb, #ffffff, #d3dce8 calc(var(--hud-dark) * 100%));
+  --hud-info: color-mix(in srgb, #9cc6d8, #7a9db2 calc(var(--hud-dark) * 100%));
+  --hud-plate: calc(8 - 3 * var(--hud-dark)) calc(42 - 30 * var(--hud-dark))
+    calc(56 - 36 * var(--hud-dark));
+  /* Restated rather than left to `:root`'s alias: a `var()` inside a custom
+     property is substituted where the property is DECLARED, so the root's
+     `--hud-shadow` resolved against the root's own plate and would carry
+     the day navy down here however far this one ramps. */
+  --hud-shadow: rgb(var(--hud-plate));
+  /* THE CHROME'S WHITE EDGE — the rim round a pressable plate, and the
+     line along a gauge's track. After the chart these are the brightest
+     things left in the corner of a night frame, and a 65% white rim was
+     drawn to be found against a SKY: against a black sea it only has to be
+     found. Both come down by the same share, and each keeps the daylight
+     weight it was drawn at — a button's rim and a gauge's track are set
+     apart on purpose, and the dip is not the place to relitigate that. */
+  --hud-edge: rgb(255 255 255 / calc(65% - 38% * var(--hud-dark)));
+  --hud-track: rgb(255 255 255 / calc(70% - 41% * var(--hud-dark)));
+
+  text-shadow:
+    0 1px 0 rgb(var(--hud-plate) / calc(100% - 78% * var(--hud-dark))),
+    0 1px 3px rgb(0 0 0 / calc(82% * var(--hud-dark)));
 }
 .hud button,
 .hud [data-touch] {
@@ -346,8 +432,8 @@ canvas {
   font-size: clamp(0.65rem, 2vmin, 0.9rem);
   letter-spacing: 0.08em;
   color: var(--hud-ink);
-  background: rgb(8 42 56 / 70%);
-  border: 2px solid rgb(255 255 255 / 65%);
+  background: rgb(var(--hud-plate) / 70%);
+  border: 2px solid var(--hud-edge);
   border-radius: 0.4rem;
   padding: 0.3rem 0.6rem;
   cursor: pointer;
@@ -409,8 +495,8 @@ canvas {
   font-weight: 700;
   letter-spacing: 0.08em;
   color: var(--hud-ink);
-  background: rgb(8 42 56 / 70%);
-  border: 2px solid rgb(255 255 255 / 65%);
+  background: rgb(var(--hud-plate) / 70%);
+  border: 2px solid var(--hud-edge);
   border-radius: 1rem;
   cursor: pointer;
   text-shadow: none;
@@ -467,7 +553,7 @@ canvas {
 .update-nudge[data-armed] {
   gap: 0.35rem;
   opacity: 1;
-  background: rgb(8 42 56 / 92%);
+  background: rgb(var(--hud-plate) / 92%);
   border-color: var(--hud-good);
 }
 
@@ -490,7 +576,10 @@ canvas {
   display: block;
   width: var(--hud-map);
   height: var(--hud-map);
-  background: var(--sea-deep);
+  /* The plate's ground is the DEEP water, and after dark it is the ground
+     under the only lit rectangle left on the screen — so it goes down with
+     the rest of the chrome (`--hud-dark`, the night dressing on `.hud`). */
+  background: color-mix(in srgb, var(--sea-deep), #05101a calc(var(--hud-dark) * 62%));
   border-radius: calc(var(--hud-map) * 0.175);
   filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
   /* The schematic fills the whole box and runs off every side of it: the
@@ -560,11 +649,17 @@ canvas {
    the map that is about the sea bed rather than about a thing on it. */
 .hud-minimap-shallows {
   fill: var(--sea-shallow);
-  opacity: 0.42;
+  opacity: calc(0.42 - 0.16 * var(--hud-dark));
 }
 
+/* THE SHORE IS THE BIGGEST BLOCK OF LIGHT ON A NIGHT SCREEN. Sand at 92%
+   over a quarter of the chart is brighter than anything the frame behind it
+   holds after dark — a lit window in the corner of the eye, and the first
+   thing a rider's pupil gives up the sea for. It goes to wet slate with the
+   rest of the chrome. What stands ON it does not: the gates, the craft's
+   own mark and the chevron are the signal, and they keep their colour. */
 .hud-minimap-land {
-  fill: rgb(226 220 198 / 92%);
+  fill: color-mix(in srgb, rgb(226 220 198 / 92%), rgb(38 46 56 / 92%) calc(var(--hud-dark) * 66%));
 }
 
 /* The shoreline itself — the edge the whole course is measured off. */
@@ -602,7 +697,7 @@ canvas {
 
 .hud-minimap-route {
   fill: none;
-  stroke: rgb(242 247 248 / 72%);
+  stroke: rgb(242 247 248 / calc(72% - 28% * var(--hud-dark)));
   stroke-width: 2.2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -786,8 +881,8 @@ canvas {
 }
 
 .hud-revs-track {
-  fill: rgb(8 42 56 / 55%);
-  stroke: rgb(255 255 255 / 70%);
+  fill: rgb(var(--hud-plate) / 55%);
+  stroke: var(--hud-track);
   stroke-width: 1.2;
 }
 
@@ -818,7 +913,7 @@ canvas {
 }
 
 .hud-revs-tick {
-  stroke: rgb(8 42 56 / 70%);
+  stroke: rgb(var(--hud-plate) / 70%);
   stroke-width: 1;
 }
 
@@ -989,8 +1084,8 @@ canvas {
   align-items: center;
   gap: 0.3rem;
   padding: 1rem 1.6rem;
-  background: rgb(8 42 56 / 75%);
-  border: 2px solid rgb(255 255 255 / 65%);
+  background: rgb(var(--hud-plate) / 75%);
+  border: 2px solid var(--hud-edge);
   border-radius: 0.6rem;
 }
 
@@ -1080,7 +1175,7 @@ canvas {
   height: 200px;
   color: var(--hud-ink);
   opacity: 0.85;
-  filter: drop-shadow(2px 2px 0 rgb(8 42 56 / 60%));
+  filter: drop-shadow(2px 2px 0 rgb(var(--hud-plate) / 60%));
 }
 
 .hud-bar-reach {
@@ -1116,12 +1211,12 @@ canvas {
   position: absolute;
   left: -22px;
   top: -22px;
-  filter: drop-shadow(2px 2px 0 rgb(8 42 56 / 60%));
+  filter: drop-shadow(2px 2px 0 rgb(var(--hud-plate) / 60%));
 }
 
 .hud-lever-track {
-  fill: rgb(8 42 56 / 45%);
-  stroke: rgb(255 255 255 / 70%);
+  fill: rgb(var(--hud-plate) / 45%);
+  stroke: var(--hud-track);
   stroke-width: 2;
 }
 
@@ -1136,13 +1231,13 @@ canvas {
 }
 
 .hud-lever-neutral {
-  stroke: rgb(255 255 255 / 70%);
+  stroke: var(--hud-track);
   stroke-width: 2;
 }
 
 .hud-lever-knob {
   fill: var(--hud-ink);
-  stroke: rgb(8 42 56 / 70%);
+  stroke: rgb(var(--hud-plate) / 70%);
   stroke-width: 2;
 }
 

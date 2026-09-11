@@ -10,8 +10,18 @@
 // — and the state's own `airborne` stays honest beside it.
 
 import { describe, expect, it } from "vitest";
-import { TUNING, createGame, placeRun, step, type CraftInput } from "@engine";
+import {
+  TUNING,
+  biomeOf,
+  createGame,
+  placeRun,
+  step,
+  type CraftInput,
+  type GameState,
+  type Level,
+} from "@engine";
 
+import { skyAt } from "../pwa/src/game/sky.ts";
 import { takeSnapshot } from "../pwa/src/game/snapshot.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
@@ -54,5 +64,57 @@ describe("the air clock", () => {
     expect(read.length).toBeGreaterThan(0);
     expect(read.every((r) => r.airTime < TUNING.flight.airCounts)).toBe(true);
     expect(read.every((r) => r.clock === 0)).toBe(true);
+  });
+});
+
+// ── THE NIGHT DRESSING ───────────────────────────────────────────────────
+// How far the HUD's chrome is dipped (`dark`) is the one number the night
+// dressing in styles.css turns on, and the whole of its correctness is
+// WHICH switch it is wired to. Two claims, and the second is the one that
+// was got wrong first: it is the craft's own lamp, and it is NOT the word
+// under the clock.
+
+/** A run standing on the synthetic coast at `hour`, in `season`. */
+function atHour(hour: number, season: Level["season"] = "winter"): GameState {
+  const level = { ...syntheticLevel({ windSpeed: 0, noSolids: true }), hour, season };
+  return createGame({ seed: 1, craft: "skiff", level, quiet: true });
+}
+
+/** The synthetic coast's latitude — the same one the snapshot reads. */
+const LAT = biomeOf(syntheticLevel().biome).latitude;
+
+describe("how far the chrome is dipped", () => {
+  it("is the craft's own lamp switch, to the last digit the HUD can use", () => {
+    for (const hour of [6, 8, 10, 12, 14, 15, 15.5, 16, 17, 22]) {
+      const state = atHour(hour);
+      const lamps = skyAt(hour, LAT, state.level.weather, 0, state.level.season).lamps;
+      // Quantised to a hundredth on the way into the snapshot; nothing else
+      // about it may differ from the light the rider is riding by.
+      expect(takeSnapshot(state).dark).toBeCloseTo(Math.round(lamps * 100) / 100, 10);
+    }
+  });
+
+  it("leaves the chrome alone with the sun up and dips it fully once it is down", () => {
+    expect(takeSnapshot(atHour(12, "summer")).dark).toBe(0);
+    expect(takeSnapshot(atHour(22, "winter")).dark).toBe(1);
+  });
+
+  it("never steps: the lamp is a dimmer here, so the cluster is one too", () => {
+    const read = [];
+    for (let hour = 14; hour <= 17; hour += 0.1) read.push(takeSnapshot(atHour(hour)).dark);
+    // Monotone down into the evening, and no single tenth of an hour moves
+    // it more than a fifth of the way — a HUD that switched would.
+    for (let i = 1; i < read.length; i++) {
+      expect(read[i]).toBeGreaterThanOrEqual(read[i - 1]);
+      expect(read[i] - read[i - 1]).toBeLessThan(0.2);
+    }
+    expect(read[0]).toBe(0);
+    expect(read[read.length - 1]).toBe(1);
+  });
+
+  it("is NOT the word under the clock: a winter noon at 62°N reads DUSK in full daylight", () => {
+    const snap = takeSnapshot(atHour(12, "winter"));
+    expect(snap.daylight).toBe("dusk");
+    expect(snap.dark).toBe(0);
   });
 });
