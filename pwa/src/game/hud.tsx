@@ -200,10 +200,12 @@ export function Hud({
           rider is trying to make GO UP, and it belongs where his eyes
           already are — on the horizon, over the nose, where he is aiming the
           landing — rather than down in the corner he only checks between
-          gates. It appears out of nothing at the lip and is gone at the
-          water, so the middle of the frame is empty whenever it is not a
-          hull's whole job. */}
-      {snap.airborne && (
+          gates. It appears out of nothing once the flight has lasted long
+          enough to BE one (`snapshot.ts`, `flight.airCounts`) and is gone at
+          the water, so the middle of the frame is empty whenever it is not a
+          hull's whole job — and a head sea, which throws the hull clear a
+          fifth of the steps, never flickers a clock over the horizon. */}
+      {snap.airTime > 0 && (
         <div class="hud-air">
           <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
           <span class="hud-chip-sub">{STRINGS.airLabel}</span>

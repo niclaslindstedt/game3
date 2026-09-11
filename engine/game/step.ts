@@ -16,7 +16,13 @@ import { freshProgress, resetCraft, standCraft, stepCourse } from "./course.ts";
 import { craftAtClass, craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { identity } from "../lib/quat.ts";
-import { NEUTRAL_INPUT, type CraftInput, type CraftState, type GameState } from "./state.ts";
+import {
+  NEUTRAL_INPUT,
+  type CraftInput,
+  type CraftState,
+  type GameEvent,
+  type GameState,
+} from "./state.ts";
 import { createShelter } from "./fetch.ts";
 import { createSea, seaSummary, type SeaOverride } from "./water.ts";
 import { createWind, stepWind } from "./wind.ts";
@@ -193,6 +199,22 @@ export function createGame(options: CreateGameOptions): GameState {
 }
 
 /** Advance the run by exactly one fixed step. */
+/** THE RUN'S AIR RECORD, read off the flight the craft has just reported.
+ * The craft knows how long it was up; only the run knows whether anything
+ * has been up longer, so the comparison is here and the landing that won it
+ * is marked as it goes past — one event, one flash, and `progress.bestAir`
+ * left holding the number. A flight under `flight.airCounts` is not air
+ * time at all and cannot take it. */
+function noteAirRecord(state: GameState, events: GameEvent[]): void {
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (e.kind !== "land") continue;
+    if (e.airTime <= TUNING.flight.airCounts || e.airTime <= state.progress.bestAir) continue;
+    state.progress.bestAir = e.airTime;
+    e.record = true;
+  }
+}
+
 export function step(state: GameState, input: CraftInput): GameState {
   const events = state.events;
   events.length = 0;
@@ -217,6 +239,7 @@ export function step(state: GameState, input: CraftInput): GameState {
   const y0 = c.y;
   const z0 = c.z;
   stepCraft(state, state.phase === "running" ? input : NEUTRAL_INPUT, events);
+  noteAirRecord(state, events);
   stepCourse(state, x0, y0, z0, events);
   return state;
 }

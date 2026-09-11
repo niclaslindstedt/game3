@@ -58,9 +58,33 @@ function slammed(g: number, spec: CraftSpec = CRAFT[0]): SlamRead {
 
 describe("what an event is worth in the hands", () => {
   it("sizes the hull arriving by how fast it was coming down", () => {
-    const touch = felt({ kind: "land", t: 0, vy: -1.5, airTime: 0.4, pitch: 0, speed: 14 });
-    const hard = felt({ kind: "land", t: 0, vy: -6, airTime: 1.2, pitch: 0.1, speed: 18 });
-    const slam = felt({ kind: "land", t: 0, vy: -11, airTime: 2.4, pitch: 0.3, speed: 22 });
+    const touch = felt({
+      kind: "land",
+      t: 0,
+      vy: -1.5,
+      airTime: 0.4,
+      pitch: 0,
+      speed: 14,
+      record: false,
+    });
+    const hard = felt({
+      kind: "land",
+      t: 0,
+      vy: -6,
+      airTime: 1.2,
+      pitch: 0.1,
+      speed: 18,
+      record: false,
+    });
+    const slam = felt({
+      kind: "land",
+      t: 0,
+      vy: -11,
+      airTime: 2.4,
+      pitch: 0.3,
+      speed: 22,
+      record: false,
+    });
     expect(touch.strength).toBeLessThan(hard.strength);
     expect(hard.strength).toBeLessThan(slam.strength);
     expect(touch.ms).toBeLessThan(slam.ms);
@@ -95,7 +119,7 @@ describe("what an event is worth in the hands", () => {
     expect(over.ms).toBe(RUMBLE.longest);
     // …and nothing else reaches it.
     const others: GameEvent[] = [
-      { kind: "land", t: 0, vy: -20, airTime: 3, pitch: 0.4, speed: 25 },
+      { kind: "land", t: 0, vy: -20, airTime: 3, pitch: 0.4, speed: 25, record: false },
       { kind: "hit", t: 0, solid: "boulder", speed: 40 },
       { kind: "dive", t: 0, depth: 3, speed: 25 },
     ];
@@ -211,7 +235,9 @@ describe("one motor, one pulse at a time", () => {
   it("does not let the chop truncate the landing it comes down into", () => {
     const { rumble, felt } = ledger();
     const chop = slammed(2);
-    rumble.events([{ kind: "land", t: 0, vy: -9, airTime: 2, pitch: 0.2, speed: 20 }]);
+    rumble.events([
+      { kind: "land", t: 0, vy: -9, airTime: 2, pitch: 0.2, speed: 20, record: false },
+    ]);
     const landing = felt.length;
     expect(landing).toBe(1);
     // The whole of the landing's pulse, fed the chop the entire way.
@@ -243,7 +269,7 @@ describe("one motor, one pulse at a time", () => {
     const { rumble, felt } = ledger();
     rumble.events([
       { kind: "gate", t: 0, gate: 1, split: 9 },
-      { kind: "land", t: 0, vy: -2, airTime: 0.3, pitch: 0, speed: 12 },
+      { kind: "land", t: 0, vy: -2, airTime: 0.3, pitch: 0, speed: 12, record: false },
       { kind: "capsize", t: 0, speed: 8 },
     ]);
     expect(felt).toHaveLength(1);

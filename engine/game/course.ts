@@ -32,6 +32,7 @@ export function freshProgress(level: Level): Progress {
     finished: false,
     lastGatePassedAt: 0,
     lastResetAt: 0,
+    bestAir: 0,
   };
 }
 

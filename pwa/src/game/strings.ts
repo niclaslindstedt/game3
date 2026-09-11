@@ -69,6 +69,10 @@ export const STRINGS = {
   hit: "HIT",
   grounded: "AGROUND",
   landed: (airSeconds: number): string => `AIR ${airSeconds.toFixed(1)}s`,
+  /** ...and the same flight when it is the longest of the run so far. The
+   * number is the point, so it reads the same way and the word is what is
+   * added to it. */
+  airRecord: (airSeconds: number): string => `BEST AIR ${airSeconds.toFixed(1)}s`,
   /** The new-build button: the word the armed mark shows, and the two
    * labels a pointer and a screen reader get — one for the mark, one for
    * the armed button, whose press throws the run away. */
