@@ -103,6 +103,11 @@ const SURFACES = {
   // three.js turntable is a dynamic chunk, and the hull is built on the
   // frame after that lands. A short settle photographs an empty pane.
   craft: { params: { menu: "craft" }, wait: ".craft-pick-canvas", settle: 2200 },
+  // The gallery as a FRESH VISIT finds it: the roll lives in IndexedDB and a
+  // lab's browser profile has never taken a picture, so what this
+  // photographs is the empty state — which is the surface most players see
+  // first and the one no run can be scripted to produce.
+  gallery: { params: { menu: "gallery" }, wait: ".menu-card-gallery", settle: 500 },
   options: { params: { menu: "options" }, wait: ".menu-card", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
   // The pause card is the one surface with no meaning without a run behind

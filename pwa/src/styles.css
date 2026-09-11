@@ -447,8 +447,11 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
-  height: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
+  /* THREE TO THE MAP'S WIDTH — the row is as wide as the minimap over it and
+     no wider, so the cluster reads as one block down the right-hand edge
+     rather than as a map with a row of buttons sticking out from under it. */
+  width: calc((var(--hud-map) - var(--hud-mini-gap) * 2) / 3);
+  height: calc((var(--hud-map) - var(--hud-mini-gap) * 2) / 3);
   padding: 0;
 }
 
@@ -3157,6 +3160,245 @@ button.knob-read:focus-visible {
 .nav-cursor {
   outline: none;
   box-shadow: 0 0 0 3px rgb(242 140 40 / 55%);
+}
+
+/* ── THE GALLERY (menu-gallery.tsx) ────────────────────────────────────────
+   The pictures the player took, under the front door's GALLERY row. A VIEWER
+   rather than a grid: one picture fills the frame, an arrow either side of
+   it, the roll running as a filmstrip underneath.
+
+   THE FRAME IS THE PICTURE'S OWN SHAPE, bounded. A fixed landscape frame
+   would be the wrong shape for every picture in the roll on the one device
+   most of them are taken on: a phone held upright photographs a tall frame,
+   and letterboxing it into 16:9 throws away most of the card's width to draw
+   it small. So the frame hugs whatever is in it and the picture is bounded
+   instead — never wider than the card, never taller than half
+   the window, which is what keeps the caption, the buttons and the filmstrip
+   under it on screen. The cost is a card that changes height when the roll
+   is flipped between shapes; on any one device every picture in the roll has
+   the same shape, so it is a cost almost nobody pays. */
+.menu-card-gallery {
+  width: min(52rem, 100%);
+  gap: 0.7rem;
+}
+
+.gallery {
+  display: flex;
+  flex-direction: column;
+  gap: 0.7rem;
+  min-height: 0;
+}
+
+.gallery-empty {
+  padding: 1.6rem 0.4rem;
+  text-align: center;
+  font-size: 0.85rem;
+  letter-spacing: 0.1em;
+  line-height: 1.7;
+  opacity: 0.8;
+}
+
+.gallery-stage {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-height: 0;
+}
+
+/* The two arrows are a STEPPER (`data-nav-steps`), so they wear the knob
+   rows' own arrows rather than a shape of their own: the same press on the
+   same silhouette picks a value everywhere else on every other card. */
+.gallery-step {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.2rem;
+  height: 3.4rem;
+  font: inherit;
+  font-size: 1.6rem;
+  line-height: 1;
+  color: var(--buoy);
+  background: transparent;
+  border: 0;
+  border-radius: 0.45rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.gallery-step:hover,
+.gallery-step:focus-visible {
+  background: rgb(242 247 248 / 14%);
+  outline: none;
+}
+
+.gallery-step:active {
+  background: var(--buoy);
+  color: var(--hud-shadow);
+  transform: translateY(1px);
+}
+
+.gallery-step:disabled {
+  opacity: 0.25;
+  cursor: default;
+}
+
+.gallery-frame {
+  flex: 0 1 auto;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  /* Enough to be a frame before anything has decoded in it, so the card does
+     not jump as the picture arrives. */
+  min-height: 8rem;
+  background: rgb(8 42 56 / 55%);
+  border: 2px solid rgb(242 247 248 / 18%);
+  border-radius: 0.5rem;
+  overflow: hidden;
+}
+
+/* NEVER CROPPED, and never blown up past the pixels that were captured: a
+   gallery that cropped to fit would quietly cut the very thing the picture
+   was taken for. */
+.gallery-img {
+  max-width: 100%;
+  max-height: 52vh;
+  object-fit: contain;
+  display: block;
+}
+
+.gallery-caption {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.6rem;
+  font-size: 0.78rem;
+  letter-spacing: 0.12em;
+}
+
+.gallery-label {
+  font-weight: 700;
+}
+
+.gallery-stamp {
+  opacity: 0.7;
+  /* The date is the one thing on this card that is not the game's own
+     vocabulary, so it does not shout. */
+  text-transform: none;
+  letter-spacing: 0.06em;
+}
+
+.gallery-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.gallery-btn {
+  padding: 0.5rem 0.9rem;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--hud-ink);
+  background: rgb(27 111 138 / 55%);
+  border: 2px solid rgb(242 247 248 / 26%);
+  border-radius: 0.5rem;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.gallery-btn:hover,
+.gallery-btn:focus-visible {
+  background: rgb(27 111 138 / 80%);
+  outline: none;
+}
+
+.gallery-btn:active {
+  transform: translateY(1px);
+}
+
+/* DELETE is quiet until it has been asked once, and then it is the loudest
+   thing on the card — the two-step is the whole safety, and a player has to
+   be able to see which step they are on without reading the word. */
+.gallery-btn-quiet {
+  margin-left: auto;
+  background: transparent;
+  opacity: 0.75;
+}
+
+.gallery-btn-arm {
+  background: var(--hud-bad);
+  border-color: var(--hud-bad);
+  color: var(--hud-shadow);
+  opacity: 1;
+}
+
+.gallery-notice {
+  flex-basis: 100%;
+  min-height: 1.1em;
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  color: var(--hud-good);
+}
+
+/* The filmstrip scrolls on its own, so a full roll never grows the card past
+   the viewport — the card is the scroller everywhere else, and forty tiles
+   wrapped into rows would push the picture itself off the top. */
+.gallery-strip {
+  display: flex;
+  gap: 0.35rem;
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 0.2rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.gallery-thumb {
+  flex: none;
+  padding: 0;
+  background: rgb(8 42 56 / 55%);
+  border: 2px solid rgb(242 247 248 / 18%);
+  border-radius: 0.35rem;
+  cursor: pointer;
+  overflow: hidden;
+  touch-action: manipulation;
+}
+
+.gallery-thumb-on {
+  border-color: var(--buoy);
+}
+
+.gallery-thumb-slot {
+  display: block;
+  width: 5rem;
+  height: 2.9rem;
+}
+
+.gallery-thumb-img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+/* A PHONE HELD UPRIGHT has no width to spare beside the picture, so the
+   arrows shrink to what a thumb still hits and the strip's tiles with them.
+   Nothing is dropped: a gallery that hid its own way of flipping on the one
+   device with no arrow keys would be a gallery with one picture in it. */
+@media (max-width: 30rem) {
+  .gallery-step {
+    width: 1.7rem;
+    font-size: 1.3rem;
+  }
+
+  .gallery-thumb-slot {
+    width: 4rem;
+    height: 2.3rem;
+  }
 }
 
 /* ── THE LOADING CARD ──────────────────────────────────────────────────────

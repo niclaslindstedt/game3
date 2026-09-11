@@ -87,6 +87,7 @@ export function Hud({
   cost,
   onReset,
   onCamera,
+  onShot,
   onPause,
 }: {
   snap: HudSnapshot;
@@ -108,6 +109,9 @@ export function Hud({
   onReset: () => void;
   /** Walk the camera ladder one rung — the C key's other door. */
   onCamera: () => void;
+  /** Ask for a picture of this frame — Enter's other door, and the only one
+   * a phone has. */
+  onShot: () => void;
   /** Hold the run and put the pause card up. The MINIMAP is what presses
    * it — see minimap.tsx for why that is the button. */
   onPause: () => void;
@@ -161,7 +165,7 @@ export function Hud({
             two edges of the screen; the buttons hang off its bottom, which
             is the nearer half of the cluster to the thumb that reaches for
             them and leaves the map's own square unbroken. */}
-        <HudActions onReset={onReset} onCamera={onCamera} />
+        <HudActions onReset={onReset} onCamera={onCamera} onShot={onShot} />
         {/* THE DIAGNOSTICS, at the foot of the cluster: the frame rate
             (OPTIONS ▸ FPS) and what the frame cost (the developer
             page's FRAME COST). They hang here rather than in the build corner

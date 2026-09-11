@@ -152,6 +152,7 @@ export function readParams(search: string): Params {
     menu:
       menu === "start" ||
       menu === "craft" ||
+      menu === "gallery" ||
       menu === "options" ||
       menu === "developer" ||
       menu === "root"
