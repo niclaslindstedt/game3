@@ -22,6 +22,7 @@ import {
   smoothFps,
 } from "../pwa/src/game/frame-rate.ts";
 import { dressSky } from "../pwa/src/game/cloud-field.ts";
+import { FLORA } from "../pwa/src/game/flora-defs.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
 import {
   DEFAULT_VIDEO,
@@ -46,6 +47,7 @@ import {
   WAKE_LOOK,
   WATER_LEVELS,
   WATER_LOOK,
+  coverReach,
   detailOf,
 } from "../pwa/src/game/settings-video.ts";
 import {
@@ -168,6 +170,43 @@ describe("the DISTANCE ladder", () => {
       expect(clearest * look.haze).toBeLessThanOrEqual(look.cover);
       expect(clearest * look.haze).toBeLessThanOrEqual(look.shore);
     }
+  });
+
+  it("…AND NO FURTHER PAST IT THAN IT HAS TO BE", () => {
+    // The other side of the same promise, and the one that costs frames when
+    // it is broken. A radius well beyond its own stop's fog is not a longer
+    // view — the air in front of it is already opaque — it is a shore and a
+    // wood submitted into a wall, and on this coast the wood is most of the
+    // frame's triangles. A little slack is honest: the culls keep a mesh
+    // while any part of its bounds is inside the radius, so the radius is the
+    // NEAREST range at which something may go, and it wants a margin over the
+    // fog rather than to sit on it.
+    const clearest = longestFog();
+    for (const id of DISTANCE_LEVELS) {
+      const look = DISTANCE_LOOK[id];
+      expect(look.cover / (clearest * look.haze)).toBeLessThan(1.25);
+      expect(look.shore / (clearest * look.haze)).toBeLessThan(1.25);
+    }
+  });
+
+  it("draws a species of cover only as far as it can be told from the shore behind it", () => {
+    // The DISTANCE row is one number for a roster that runs from a 19 m
+    // spruce to a 40 cm heather mat, and drawing both to the fog spends most
+    // of the cover's triangles on stems nobody can resolve. The pixel line
+    // splits it: a reach proportional to the height, so the trees keep the
+    // whole of the row and the ground cover stops where it stopped being
+    // visible.
+    for (const spec of FLORA) expect(coverReach(spec.look.height.max)).toBeGreaterThan(0);
+    const of = (id: string): number =>
+      coverReach(FLORA.find((spec) => spec.id === id)!.look.height.max);
+    // Proportional, so the ladder of heights is the ladder of reaches.
+    expect(of("spruce") / of("heather")).toBeCloseTo(19 / 0.4, 3);
+    // The trees outlive the clearest air the row can be set to, so nothing
+    // that makes the shore's silhouette is ever cut by this rather than by
+    // the fog; the ground cover is gone within a hundred metres.
+    for (const id of ["pine", "spruce", "birch", "aspen", "alder"])
+      expect(of(id)).toBeGreaterThan(DISTANCE_LOOK.high.cover);
+    for (const id of ["heather", "sedge", "lyme", "stone"]) expect(of(id)).toBeLessThan(120);
   });
 
   it("leaves the design point's own air alone", () => {

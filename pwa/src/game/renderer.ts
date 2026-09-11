@@ -28,7 +28,7 @@ import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
 import { createBuoys, type Buoys } from "./buoys.ts";
 import { createGates, type Gates } from "./gates.ts";
-import { createFlora, type Flora } from "./flora.ts";
+import { createFlora, type CoverMirror, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
 import { createReflection } from "./reflection.ts";
 import { createRider, type Rider } from "./rider.ts";
@@ -135,6 +135,9 @@ export function createRenderer(
   // the water into a texture the sea reads. Made before the water, which
   // holds its picture and its matrix for the life of the material.
   const mirror = createReflection();
+  // The mirror as the cover's cull sees it, written each frame rather than
+  // built: the reflection is asked about on every frame there is one.
+  const inWater: CoverMirror = { frustum: mirror.frustum, share: 0 };
   // THE WAKE (wake.ts): what the craft did to the water, as a map the water
   // shader reads — nothing of it is in the scene. The spray stamps a
   // landing's foam into the same map.
@@ -390,7 +393,11 @@ export function createRenderer(
     // cut to the frustum as well, which the fog never does.
     const drawn = DISTANCE_LOOK[video.distance];
     if (terrain) cullByDistance(terrain, pose.x, pose.z, drawn.shore);
-    flora?.update(frustum, pose.x, pose.z, drawn.cover, mirror.live() ? mirror.frustum : undefined);
+    if (mirror.live()) {
+      inWater.frustum = mirror.frustum;
+      inWater.share = mirror.scale();
+    }
+    flora?.update(frustum, pose.x, pose.z, drawn.cover, mirror.live() ? inWater : undefined);
 
     // The sky follows the lens, because it reads where the lens ended up:
     // the dome rides it, the rain's box wraps around it, and the cloud over
@@ -425,7 +432,10 @@ export function createRenderer(
     // water, without the water itself, the spray over it, the rain in the
     // air over it or the dome — the sea reflects the sky as a function
     // (sky-glsl.ts), and a dome drawn sharp into the mirror would put its
-    // cloud edges back on the crests.
+    // cloud edges back on the crests. The cover is the one thing in the scene
+    // with two answers: it draws its near share into the water and the whole
+    // of itself into the picture.
+    flora?.drawFor("mirror");
     const pass = mirror.render(renderer, scene, [
       water.mesh,
       water.far,
@@ -433,6 +443,7 @@ export function createRenderer(
       ...sky.unmirrored,
     ]);
     water.setMirror(mirror.live());
+    flora?.drawFor("frame");
 
     renderer.render(scene, camera);
     cost.calls = renderer.info.render.calls + pass.calls + marks.calls;

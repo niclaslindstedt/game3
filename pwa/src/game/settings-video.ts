@@ -435,26 +435,71 @@ export type DistanceLook = {
 
 /** THE DISTANCE LADDER — how much coast there IS.
  *
- * The cheapest frames on the page, because almost everything it takes away was
+ * The cheapest frames on the page, because everything it takes away was
  * already invisible: a level is some seventeen hundred metres across and the
- * clearest sky the game deals closes at under six hundred, so the design point
- * itself can drop the far half of the shore and the wood on it without
- * changing one pixel. That is what MEDIUM is — the picture the game was tuned
- * on, minus the geometry nobody could see.
+ * clearest sky the game deals closes at 588 m, so the design point itself can
+ * drop the far two thirds of the shore and the wood on it without changing one
+ * pixel. That is what MEDIUM is — the picture the game was tuned on, minus the
+ * geometry nobody could see.
  *
  * LOW is where the row starts costing something, and it costs it in AIR: the
- * fog comes in to a bit over half its range so the shore can end at four
- * hundred and sixty metres inside it. The day is hazier. Nothing is missing.
+ * fog comes in to a bit over half its range so the shore can end at three
+ * hundred and fifty metres inside it. The day is hazier. Nothing is missing.
  *
  * HIGH spends a fast machine's headroom on the opposite trade — the fog pushed
  * out a stop past what the sky authored, and the coast drawn out to meet it.
  * Modestly: the shore's own skirt runs out only so far, and a view long enough
- * to reach the end of the world is a worse picture than a short one. */
+ * to reach the end of the world is a worse picture than a short one.
+ *
+ * EVERY RADIUS SITS ABOUT A TWENTIETH PAST ITS OWN STOP'S FOG, and that slack
+ * is the whole of it. A radius further out than that is not a longer view —
+ * the air in front of it is already opaque — it is a wood submitted into a
+ * wall, and on this coast the wood is two thirds of the frame's triangles.
+ * `tests/video_test.ts` holds the table to both sides of that: never inside
+ * the fog, never far outside it. */
 export const DISTANCE_LOOK: Record<DistanceLevel, DistanceLook> = {
-  low: { shore: 460, cover: 380, haze: 0.55 },
-  medium: { shore: 900, cover: 700, haze: 1 },
-  high: { shore: 1500, cover: 1150, haze: 1.15 },
+  low: { shore: 350, cover: 340, haze: 0.55 },
+  medium: { shore: 640, cover: 620, haze: 1 },
+  high: { shore: 740, cover: 710, haze: 1.15 },
 };
+
+/** THE PIXEL LINE — how tall a plant has to stand in the frame before it is
+ * worth submitting, px at the reference viewport (720 rows through a 60°
+ * vertical lens, the middle of the camera ladder). Six is about a fingernail's
+ * width held at arm's length: below it a stem is a green speck against a shore
+ * of the same green, and the eye cannot tell whether it was drawn. */
+const COVER_PIXELS = 6;
+
+/** Pixels per metre of height, per metre of range, at that reference frame —
+ * `rows / (2 · tan(fov / 2))`. A thing `h` metres tall at `d` metres stands
+ * `PIXELS_PER_METRE · h / d` pixels high. Taken at a fixed lens rather than at
+ * the camera's own: the chase rig widens its field with speed, and a reach
+ * that breathed with the throttle would re-lay every instance buffer on the
+ * frames the rider can least afford it. */
+const PIXELS_PER_METRE = 720 / (2 * Math.tan((60 * Math.PI) / 180 / 2));
+
+/** HOW FAR OUT ONE SPECIES OF COVER IS WORTH DRAWING, m — the range at which a
+ * plant `height` metres tall falls under the pixel line. The DISTANCE row's
+ * `cover` is the other half of the answer and the caller takes the smaller of
+ * the two: this says when a plant stops being worth a triangle, that says when
+ * the air in front of it has closed.
+ *
+ * The row's reach is one number for the whole roster and the roster is not one
+ * thing: a 19 m spruce and a 40 cm heather mat were being submitted to the
+ * same horizon, and on this coast there are five and a half thousand of the
+ * heather. A mat that size is under a pixel past forty metres — it was costing
+ * a sixth of the cover's triangles to draw nothing at all — while the trees
+ * that actually make the shore's silhouette were reaching no further than the
+ * grass. This is that one number split thirteen ways: the trees keep the whole
+ * of the row, and everything under knee height stops where it stopped being
+ * visible.
+ *
+ * Take `height` from the top of a species' band (`Look.height.max`), not its
+ * middle: the reach has to hold for the tallest plant the builder can make of
+ * it, and a stand culled on its average would drop its own biggest tree. */
+export function coverReach(height: number): number {
+  return (PIXELS_PER_METRE * height) / COVER_PIXELS;
+}
 
 /** What share of the DEVICE'S OWN pixels each stop draws — a multiplier on the
  * ratio the page has already capped at `MAX_DPR`, not a second ceiling over
