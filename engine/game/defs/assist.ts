@@ -108,8 +108,12 @@ export const ASSIST = {
   },
 
   /** THE RAMP'S HAND (`rampAssist`, `GameState.rampAssist`): the run up
-   * a deck four metres wide (R8's `ramp.width`), with a hull a metre and
-   * a bit in the beam on it.
+   * a deck eight metres wide (R8's `ramp.width`, times whatever R33's
+   * dial dealt this run), with a hull a metre and a bit in the beam on
+   * it. Every number below is a FRACTION of the deck's half-width rather
+   * than a distance, so the hand is the same hand on any width of ramp;
+   * the bench it was measured on was four metres, the deck R8 drew at the
+   * time and the bottom rung of R33's dial today.
    *
    * A hull on a ramp has nothing in the water — no keel to bite, no
    * nozzle to steer with, and a wet deck under it (`contact.rampFriction`
@@ -141,7 +145,17 @@ export const ASSIST = {
      * at 0.25, 91.5% at 0.5, 92.0% here, 93.1% at 0.75 and 98.3% at 1.
      * Past the knee of that ladder and well short of its top, where the
      * hand is firm enough to hold a hull that climbed on properly
-     * sideways — a save the rider has not earned. */
+     * sideways — a save the rider has not earned.
+     *
+     * THAT BENCH RAN ON THE FOUR-METRE DECK, which R33 made the bottom
+     * rung of the ramp dial rather than the deck R8 draws. The ladder's
+     * SHAPE carries — every number in this group is a fraction of the
+     * half-width, so the hand is the same hand on any width — but its
+     * percentages are that deck's: on the eight-metre one the bare
+     * physics keeps far more of these jumps unaided, so the floor of the
+     * ladder is higher and the hand is doing less of the work. Re-running
+     * it is `craft-physics`'s to do, and it would move this default, not
+     * the model. */
     strength: 0.6,
     /** How fast the deck takes the sideways slide out, 1/s — the keel
      * bite a hull on a ramp does not have. It is a DAMPER and only a

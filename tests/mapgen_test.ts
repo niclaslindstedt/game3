@@ -21,6 +21,7 @@ import {
   airCorridor,
   arcHeight,
   biomeOf,
+  clampDial,
   cumulative,
   DECLINATION,
   SEASONS,
@@ -31,6 +32,7 @@ import {
   insideBounds,
   oceanRun,
   polylineDistance,
+  RAMP_DIAL,
   rampSurface,
   ringPlacement,
   sampleField,
@@ -841,6 +843,85 @@ describe("R32 — the rule book at a speed class", () => {
         P.ramp.runUp - R.ramp.runUp + (P.air.landing - R.air.landing),
         0,
       );
+    }
+  });
+});
+
+describe("R33 — the ramp dial", () => {
+  // Two seeds, for the same reason R32 uses two: what is held is the dial's
+  // arithmetic and the generator's ability to satisfy it, neither of which
+  // varies by seed.
+  const DIAL_SEEDS = [11, 102];
+  const DIAL = RAMP_DIAL;
+
+  it("hands the stock dial the stock book, by identity", () => {
+    // The same promise R32's stock class makes, and it is what keeps this
+    // free on every level anyone has ridden: a copy here re-rolls every
+    // seed, because the table it returns is what the placer keeps out of.
+    expect(rulesAtPace(1, 1)).toBe(R);
+    expect(rulesAtPace(1)).toBe(R);
+  });
+
+  it("moves the deck and nothing else", () => {
+    const P = rulesAtPace(1.5, 2);
+    expect(P.ramp.width).toBeCloseTo(R.ramp.width * 2);
+    // The dial is R33's alone: the class stretched the run-up and the lead
+    // in the same group, and neither may move with the deck.
+    expect(P.ramp.length).toEqual(R.ramp.length);
+    expect(P.ramp.angle).toEqual(R.ramp.angle);
+    expect(P.ramp.beam).toBe(R.ramp.beam);
+    expect(P.ramp.runUp).toBeCloseTo(rulesAtPace(1.5).ramp.runUp);
+    expect(P.ramp.lead).toEqual(rulesAtPace(1.5).ramp.lead);
+    // …and the ring the jump is aimed through is the same ring, which is
+    // what makes the dial an easier LIP rather than an easier jump.
+    expect(P.air.width).toBe(R.air.width);
+    expect(P.air.height).toEqual(R.air.height);
+  });
+
+  it("holds a dealt dial inside the band the rule book allows", () => {
+    expect(clampDial(0)).toBe(DIAL.min);
+    expect(clampDial(99)).toBe(DIAL.max);
+    expect(clampDial(1.25)).toBe(1.25);
+  });
+
+  it("builds a clean level at both ends of the dial, and carries what it built", () => {
+    // The whole loop, off stock. The analyzer holds every deck to the width
+    // the level was dealt (R8's width check reads `level.rampWidth`), so a
+    // dial that reached the rule book but not the `Level` — or the reverse
+    // — fails here rather than shipping a level scored against a book
+    // nothing built it to.
+    for (const rampWidth of [DIAL.min, 1, DIAL.max]) {
+      for (const seed of DIAL_SEEDS) {
+        const level = generateLevel(seed, { rampWidth });
+        expect(level.rampWidth).toBe(rampWidth);
+        const decks = level.course.gates.flatMap((g) => (g.ramp ? [g.ramp.width] : []));
+        expect(decks.length).toBeGreaterThan(0);
+        for (const w of decks) expect(w).toBeCloseTo(R.ramp.width * rampWidth);
+        const a = analyzeLevel(level);
+        expect(
+          a.findings.filter((f) => f.severity === "error").map((f) => `${f.code}: ${f.message}`),
+        ).toEqual([]);
+        expect(a.ok).toBe(true);
+      }
+    }
+  });
+
+  it("keeps the rocks out of the wider deck's run-up", () => {
+    // R9's corridor is measured across the DECK, so a dial that widened the
+    // ramp without widening the keep-out is a boulder on a run-up nobody
+    // may steer on. `airCorridor` reads the built ramp rather than the
+    // rule, which is what makes that automatic — and this is the test that
+    // says so out loud.
+    const level = generateLevel(DIAL_SEEDS[0], { rampWidth: DIAL.max });
+    const air = level.course.gates.filter((g) => g.kind === "air");
+    expect(air.length).toBeGreaterThan(0);
+    for (const gate of air) {
+      const c = airCorridor(gate, level.pace);
+      expect(c.halfWidth).toBeCloseTo((R.ramp.width * DIAL.max) / 2 + R.course.solidMargin);
+      for (const s of level.solids) {
+        const d = segmentDistance(s.x, s.z, c.x0, c.z0, c.x1, c.z1);
+        expect(d).toBeGreaterThanOrEqual(s.r + c.halfWidth - 1e-6);
+      }
     }
   });
 });

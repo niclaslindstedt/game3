@@ -422,7 +422,8 @@ describe("the backflip", () => {
   });
 });
 
-// THE RAMP'S HAND. A four-metre deck with no keel in the water under it:
+// THE RAMP'S HAND. A deck with no keel in the water under it (R8's own
+// width, which R33 made a dial and this bench reads off the level):
 // whatever sideways way a hull climbs aboard with is the way it leaves,
 // and the jump is lost to a line the rider never saw he had not made.
 // The two sides here are the same two the air's hand is held to — it does
@@ -581,11 +582,24 @@ describe("the ramp's hand", () => {
   }
 
   it("follows a jump through that the bare physics skids off the side of", () => {
-    // A metre off the centreline and six degrees off the axis, which is a
-    // line a rider would call lined up: bare, the hull is over the flank
-    // two metres before the lip; with the hand, it leaves off the end.
-    expect(runUp(0, 1, 0.1)).toBeLessThan(RAMP.length - 1.5);
-    expect(runUp(1, 1, 0.1)).toBeGreaterThan(RAMP.length - 0.2);
+    // Two fifths of the way out to the flank and eleven degrees off the
+    // axis: bare, the hull is over the flank less than half way up; with
+    // the hand, it leaves off the end.
+    //
+    // A FRACTION of the half-width rather than a distance, because R33
+    // made the deck a dial and every number in `TUNING.assist.ramp` is a
+    // fraction for the same reason — and the ANGLE moved with the width.
+    // On the four-metre deck this bench was first written against, a metre
+    // off the centreline and six degrees off the axis was already a jump
+    // the bare physics lost. On R8's eight-metre deck that same line goes
+    // over the lip with nothing helping it: mapped across the deck, the
+    // bare hull now follows through everywhere inside two fifths out and
+    // eight degrees off, and the line that still loses the jump is one a
+    // rider would SEE he had not made. That is the widening doing exactly
+    // what it is for, and the case the hand exists for is what is left.
+    const off = HALF * 0.4;
+    expect(runUp(0, off, 0.2)).toBeLessThan(RAMP.length - 1.5);
+    expect(runUp(1, off, 0.2)).toBeGreaterThan(RAMP.length - 0.2);
   });
 
   it("leaves a jump already lined up exactly where it was", () => {

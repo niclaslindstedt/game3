@@ -68,10 +68,15 @@ const args = parseArgs(
       default: 1,
       help: "the speed class the level is built for (R32) — 1 is STOCK",
     },
+    ramp: {
+      kind: "number",
+      default: 1,
+      help: "R33's ramp dial — the multiple of R8's stock deck width; 1 is STOCK",
+    },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--track coast|circuit] [--pace k] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--track coast|circuit] [--pace k] [--ramp k] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -84,11 +89,15 @@ if (args.track !== "coast" && args.track !== "circuit") {
 
 // ── Build it ────────────────────────────────────────────────────────────
 const t0 = Date.now();
-const level = generateLevel(args.seed, { track: args.track, pace: args.pace });
+const level = generateLevel(args.seed, {
+  track: args.track,
+  pace: args.pace,
+  rampWidth: args.ramp,
+});
 // The rules the LISTING quotes are the ones this level was built to (R32),
 // and the hulls it quotes launch speeds for are at the same class — a run-up
 // measured against the stock book is a number the level never had to meet.
-const R = rulesAtPace(level.pace);
+const R = rulesAtPace(level.pace, level.rampWidth);
 const atClass = (id) => craftAtClass(craftById(id), level.pace);
 const built = Date.now() - t0;
 const depthAt = (x, z) => -sampleField(level.ground, x, z);
@@ -285,7 +294,8 @@ for (const r of rows) {
   if (r.ramp) {
     const rp = r.ramp;
     lines.push(
-      `        ${rp.id} at (${rp.x.toFixed(0)}, ${rp.z.toFixed(0)}): ${rp.angle.toFixed(0)}° × ${rp.length.toFixed(1)} m ` +
+      `        ${rp.id} at (${rp.x.toFixed(0)}, ${rp.z.toFixed(0)}): ${rp.angle.toFixed(0)}° × ` +
+        `${rp.length.toFixed(1)} m long, ${rp.width.toFixed(1)} m wide ` +
         `(lip ${rp.lipY.toFixed(2)} m up, ${rp.depthAtHinge.toFixed(1)} m of water at the hinge), ` +
         `ring ${rp.leadToRing.toFixed(1)} m past the hinge at ${rp.ringHeight.toFixed(2)} m — ` +
         `lip → ring ${rp.lipToRing.toFixed(1)} m out, ${rp.lipToRingHeight >= 0 ? "+" : ""}${rp.lipToRingHeight.toFixed(2)} m up`,

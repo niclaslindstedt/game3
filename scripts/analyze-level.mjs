@@ -58,9 +58,14 @@ const args = parseArgs(
       default: 1,
       help: "the speed class the level is built for (R32) — 1 is STOCK",
     },
+    ramp: {
+      kind: "number",
+      default: 1,
+      help: "R33's ramp dial — the multiple of R8's stock deck width; 1 is STOCK",
+    },
     json: { kind: "string", help: "write every analysis to this file" },
   },
-  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--track coast|circuit] [--pace k] [--findings n] [--json path]",
+  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--track coast|circuit] [--pace k] [--ramp k] [--findings n] [--json path]",
 );
 const seeds = args.seeds
   ? args.seeds.map(Number)
@@ -73,7 +78,7 @@ const seeds = args.seeds
 const pad = (v, n) => String(v).padStart(n);
 const padEnd = (v, n) => String(v).padEnd(n);
 const mark = { error: "!!", warn: " !" };
-const R = rulesAtPace(args.pace);
+const R = rulesAtPace(args.pace, args.ramp);
 
 // The rules quoted are the ones this TRACK was built to: a circuit answers
 // to R29's offshore floor and R30's whole ride, not to R1's coastal band
@@ -81,7 +86,8 @@ const R = rulesAtPace(args.pace);
 // checking the numbers against a rule the level never had.
 const circuit = args.track === "circuit";
 console.log(
-  `analyze — engine ${engineVersion} · ${args.track} · class ${args.pace} · seeds ${seeds.join(",")} · ` +
+  `analyze — engine ${engineVersion} · ${args.track} · class ${args.pace} · ramp ×${args.ramp} · ` +
+    `seeds ${seeds.join(",")} · ` +
     (circuit
       ? `rules: ${R.circuit.inshore.min}–${R.circuit.inshore.max} m off the beach, ` +
         `out to ${R.circuit.reach.min}–${R.circuit.reach.max} m, depth ≥ ${R.course.minDepth} m, ` +
@@ -122,7 +128,7 @@ let failed = 0;
 for (const seed of seeds) {
   let level;
   try {
-    level = generateLevel(seed, { track: args.track, pace: args.pace });
+    level = generateLevel(seed, { track: args.track, pace: args.pace, rampWidth: args.ramp });
   } catch (err) {
     console.log(`${padEnd(seed, 6)}  !! the generator gave up: ${err.message}`);
     failed += 1;

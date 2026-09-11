@@ -13,6 +13,7 @@ import { afterAll, beforeAll } from "vitest";
 import {
   createHeightfield,
   fillField,
+  LEVEL_RULES,
   type Level,
   type Gate,
   type Solid,
@@ -45,10 +46,12 @@ export type SyntheticOptions = {
   /** The bed's depth out at sea, m (default 8) — deepen it for a sea the
    * shallows would break. */
   depth?: number;
-  /** The air gate's ramp: its angle, rad (default 0.35), and length, m
-   * (default 8). The ring moves up with the ramp's lip. */
+  /** The air gate's ramp: its angle, rad (default 0.35), its length, m
+   * (default 8) and its deck's width, m (default R8's own stock width).
+   * The ring moves up with the ramp's lip. */
   rampAngle?: number;
   rampLength?: number;
+  rampWidth?: number;
   /** The sky over it (default clear). */
   weather?: Weather;
 };
@@ -98,7 +101,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     z: 40,
     heading: east,
     length: rampLength,
-    width: 5,
+    width: opts.rampWidth ?? LEVEL_RULES.ramp.width,
     angle: rampAngle,
   };
   // The ring stands where a hull that took the ramp at the pace this
@@ -140,6 +143,11 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // chapter of the rule book (R24), not R29's lap out at sea.
     track: "coast",
     pace: 1,
+    // R33 — the bench's deck is the stock one, so the dial is stock too.
+    // A test that wants a narrower or wider ramp passes `rampWidth` in
+    // METRES above; this field is the MULTIPLE the generator dealt, and
+    // nothing scores a hand-built level against it.
+    rampWidth: 1,
     bounds,
     ground,
     offshore,
