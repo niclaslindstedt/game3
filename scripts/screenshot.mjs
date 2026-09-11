@@ -117,10 +117,23 @@ const SURFACES = {
   pause: { params: { paused: "1" }, wait: ".menu-card-pause", settle: 700 },
 };
 
-/** The two reference viewports (§35.2). */
+/** The two reference viewports (§35.2) — and the phone is a TOUCHSCREEN,
+ * not a narrow desktop window.
+ *
+ * Chromium opens a page as a machine with a mouse: `maxTouchPoints` 0 and
+ * `pointer: fine`. So every surface that asks the device what it IS was
+ * answered for a machine nobody holds — the HUD's thumb zones (`hasTouch`
+ * in hud.tsx), the splash's TAP against PRESS (`pointer: coarse`), the door
+ * to the key bindings (`hasKeyboard` in input.ts) — and the phone shot
+ * photographed a card a phone never draws, which is worse than no shot:
+ * it is evidence FOR the thing that is not true.
+ *
+ * `hasTouch` alone is what flips it; `isMobile` would also swap in the
+ * mobile visual viewport and move the layout under the camera, which is a
+ * second change and not this one's. */
 const VIEWPORTS = {
   desktop: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 },
-  phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2 },
+  phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true },
 };
 
 const args = parseArgs(
@@ -226,8 +239,7 @@ let failures = 0;
  * are printed under the file name: a screenshot of a frame the app threw
  * on is a screenshot of the wrong thing. */
 async function capture(name, params, viewportName, script, surface) {
-  const { viewport, deviceScaleFactor } = VIEWPORTS[viewportName];
-  const page = await browser.newPage({ viewport, deviceScaleFactor });
+  const page = await browser.newPage({ ...VIEWPORTS[viewportName] });
   const problems = [];
   page.on("pageerror", (err) => problems.push(`pageerror: ${err.message}`));
   page.on("console", (msg) => {
