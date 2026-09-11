@@ -13,6 +13,18 @@ import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
 import { craftBars, craftFacts, steadiness, turnRate } from "../pwa/src/game/craft-stats.ts";
+import {
+  DEFAULT_KEYS,
+  KEYS_PER_ACTION,
+  KEY_ACTIONS,
+  bindKey,
+  boundLabel,
+  clashesWith,
+  freshKeys,
+  isHeldAction,
+  keyLabel,
+  type KeyAction,
+} from "../pwa/src/game/settings-input.ts";
 import { pickNeighbour, type NavRect } from "../pwa/src/game/menu-cursor.ts";
 import {
   NO_HOLD,
@@ -658,5 +670,130 @@ describe("what survives a stored settings blob (settings.ts)", () => {
   it("ignores settings a build has dropped, rather than choking on them", () => {
     const old = mergeSettings({ gearbox: "manual", audio: { music: 0.5 }, hud: { on: true } });
     expect(old).toEqual(DEFAULT_SETTINGS);
+  });
+});
+
+describe("the key bindings", () => {
+  const ACTIONS = Object.keys(DEFAULT_KEYS) as KeyAction[];
+
+  it("prints every action the game has, once", () => {
+    // The page is a hand-written ORDER over a table the type system checks,
+    // so this is the one thing that can drift: an action added to the
+    // bindings and not to the list would be a key nobody could rebind, and
+    // the compiler would say nothing.
+    const printed = KEY_ACTIONS.map((entry) => entry.id);
+    expect([...printed].sort()).toEqual([...ACTIONS].sort());
+    expect(new Set(printed).size).toBe(printed.length);
+    for (const entry of KEY_ACTIONS) expect(entry.label).not.toBe("");
+  });
+
+  it("ships S on the brake and leaves the arrow cluster the handlebar", () => {
+    // The left hand gets the driving set — W throttle, S brake and reverse,
+    // A D steer — and the arrows stay the rider's body: ↓ leans back, and
+    // the brake is NOT on it.
+    expect(DEFAULT_KEYS.throttle).toContain("KeyW");
+    expect(DEFAULT_KEYS.reverse).toContain("KeyS");
+    expect(DEFAULT_KEYS.reverse).toContain("Space");
+    expect(DEFAULT_KEYS.leanBack).toEqual(["ArrowDown"]);
+    expect(DEFAULT_KEYS.leanBack).not.toContain("KeyS");
+  });
+
+  it("keeps SHIFT for the tuck alone, with the lean it displaced on Q", () => {
+    // A rider holding himself down behind the bars must not also be pushing
+    // the nose down, so the two never share a key.
+    expect(DEFAULT_KEYS.crouch).toEqual(["ShiftLeft", "ShiftRight"]);
+    expect(DEFAULT_KEYS.leanForward).toEqual(["KeyQ", "ArrowUp"]);
+    expect(clashesWith(DEFAULT_KEYS, "crouch")).toEqual([]);
+  });
+
+  it("keeps R for the press a rider makes mid-run, and the shutter on ENTER", () => {
+    // R is the one of the two reached for with the craft upside down in the
+    // surf; standing the whole run back up is the rarer press and gets a key
+    // of its own beside it. Neither is on Enter, which is the shutter.
+    expect(DEFAULT_KEYS.reset).toEqual(["KeyR"]);
+    expect(DEFAULT_KEYS.restart).toEqual(["KeyB"]);
+    expect(DEFAULT_KEYS.shot).toEqual(["Enter"]);
+  });
+
+  it("ships no key on two actions at once", () => {
+    for (const action of ACTIONS) expect(clashesWith(DEFAULT_KEYS, action)).toEqual([]);
+  });
+
+  it("knows which actions are HELD and which happen on the press", () => {
+    expect(isHeldAction("throttle")).toBe(true);
+    expect(isHeldAction("reverse")).toBe(true);
+    expect(isHeldAction("leanForward")).toBe(true);
+    expect(isHeldAction("reset")).toBe(false);
+    expect(isHeldAction("camera")).toBe(false);
+    expect(isHeldAction("pause")).toBe(false);
+  });
+
+  it("reads a key code the way it is printed on the cap", () => {
+    expect(keyLabel("KeyS")).toBe("S");
+    expect(keyLabel("Space")).toBe("SPACE");
+    expect(keyLabel("ArrowDown")).toBe("DOWN ARROW");
+    expect(keyLabel("ShiftLeft")).toBe("L SHIFT");
+    expect(keyLabel("Digit4")).toBe("4");
+    expect(keyLabel("Numpad7")).toBe("NUM 7");
+    expect(keyLabel("Enter")).toBe("ENTER");
+    expect(boundLabel(["KeyS", "Space"])).toBe("S / SPACE");
+    expect(boundLabel([])).not.toBe("");
+  });
+
+  it("replaces a whole binding with the one key pressed, and touches nothing else", () => {
+    const bound = bindKey(DEFAULT_KEYS, "reverse", "KeyB");
+    expect(bound.reverse).toEqual(["KeyB"]);
+    expect(bound.throttle).toEqual(DEFAULT_KEYS.throttle);
+    // The defaults are not the rider's to rebind.
+    expect(DEFAULT_KEYS.reverse).toContain("KeyS");
+  });
+
+  it("says when a key is doing two jobs", () => {
+    const shared = bindKey(DEFAULT_KEYS, "reset", "KeyW");
+    expect(clashesWith(shared, "reset")).toEqual(["throttle"]);
+    expect(clashesWith(shared, "throttle")).toEqual(["reset"]);
+    expect(clashesWith(shared, "camera")).toEqual([]);
+    // An action with no key on it clashes with nothing, however many other
+    // actions are also unbound.
+    const none = { ...shared, camera: [], pause: [] };
+    expect(clashesWith(none, "camera")).toEqual([]);
+  });
+
+  it("hands out bindings nothing else holds a reference to", () => {
+    const fresh = freshKeys();
+    expect(fresh).toEqual(DEFAULT_KEYS);
+    for (const action of ACTIONS) expect(fresh[action]).not.toBe(DEFAULT_KEYS[action]);
+    expect(freshSettings().keys.reverse).not.toBe(DEFAULT_KEYS.reverse);
+  });
+
+  it("keeps a rider's own keys across a visit, and drops what this build cannot use", () => {
+    const stored = mergeSettings({
+      keys: {
+        reverse: ["KeyB"],
+        // An action this build does not have, a code that is not a string,
+        // one that is empty, and a list longer than any keyboard needs.
+        handbrake: ["KeyH"],
+        camera: ["KeyV", 7, "", "KeyN"],
+        restart: ["KeyP", "KeyP", "KeyO", "KeyI", "KeyU", "KeyY"],
+        left: "KeyJ",
+      },
+    });
+    expect(stored.keys.reverse).toEqual(["KeyB"]);
+    expect(stored.keys.camera).toEqual(["KeyV", "KeyN"]);
+    expect(stored.keys.restart).toHaveLength(KEYS_PER_ACTION);
+    expect(stored.keys.restart).toEqual(["KeyP", "KeyO", "KeyI", "KeyU"]);
+    // Not an array, so the row keeps the key it shipped with.
+    expect(stored.keys.left).toEqual(DEFAULT_KEYS.left);
+    expect("handbrake" in stored.keys).toBe(false);
+    // Everything the blob said nothing about is the shipped layout.
+    expect(stored.keys.throttle).toEqual(DEFAULT_KEYS.throttle);
+  });
+
+  it("lets a rider unbind an action, and reads a blob that is not bindings at all", () => {
+    // An empty list is a choice — an action a rider wants no key on — and
+    // the manager simply never presses it.
+    expect(mergeSettings({ keys: { restart: [] } }).keys.restart).toEqual([]);
+    expect(mergeSettings({ keys: "wasd" }).keys).toEqual(DEFAULT_KEYS);
+    expect(mergeSettings({ hud: { on: false } }).keys).toEqual(DEFAULT_KEYS);
   });
 });

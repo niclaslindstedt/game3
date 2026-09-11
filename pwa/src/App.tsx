@@ -66,7 +66,7 @@
 //                  a report about it is handed on
 //   ?splash=0/1    force the attract card off, or back on
 //   ?menu=start    open the front door ON that page (root | start | craft |
-//                  options | developer) — how the screenshot lab
+//                  options | keys | developer) — how the screenshot lab
 //                  photographs a menu surface, and how a link points at
 //                  one. `developer` lets the developer menu out with it: a
 //                  URL that names the page has, by definition, found it
@@ -319,11 +319,24 @@ export function App() {
     setRumble(settings.rumble);
   }, [settings.rumble]);
 
+  // A key rebound on the card reaches the manager before the card is even
+  // closed — the same rule as every row above. Which matters more here than
+  // it looks: the binding page is over a bot-ridden sea, so a rider who has
+  // just moved the throttle to a new key can walk out and use it, and one
+  // that did not take would look like a page that stored nothing.
+  useEffect(() => {
+    inputRef.current?.setKeys(settings.keys);
+  }, [settings.keys]);
+
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
     connectOutput();
-    const input = createInputManager(window, () => playerRides(shellRef.current));
+    const input = createInputManager(
+      window,
+      () => playerRides(shellRef.current),
+      settingsRef.current.keys,
+    );
     inputRef.current = input;
     const renderer = createRenderer(canvas, settingsRef.current.video);
     rendererRef.current = renderer;
