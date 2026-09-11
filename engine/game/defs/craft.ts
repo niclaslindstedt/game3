@@ -17,8 +17,18 @@
 // | ------------- | ------ | --------------------------- | -------------------------- |
 // | `runabout`    | skiff  | quick off the line, nimble  | skittish in chop           |
 // | `musclecraft` | marlin | the top speed, the long leg | needs revs, needs room     |
-// | `tourer`      | otter  | soft over a wave, unshakable| slow to plane, slow to turn|
-// | `stand-up`    | dart   | pivots, flips, tightest line| slowest, will throw you    |
+// | `tourer`      | otter  | soft over a wave, unshakable| slowest away, slow to turn |
+// | `stand-up`    | dart   | pivots, flips, tightest line| the lowest top end, throws you |
+//
+// EACH OWNS EXACTLY ONE OF THE FOUR THINGS THE CARD BILLS THEM ON, and
+// that is a constraint rather than an observation. The card's bars
+// (`pwa/src/game/craft-stats.ts`) scale ACCELERATION, TOP SPEED, TURNING
+// and STABILITY across the roster's own spread, so a craft that leads two
+// of them reads as strictly better than the rest at a glance — which one
+// of these once did, holding the best acceleration AND the best top speed
+// AND second place in the other two. A roster is a choice or it is a
+// ladder; keep every ceiling to one owner, and keep every craft's worst
+// axis somewhere it can afford to be worst.
 //
 // WHAT A WATERCRAFT HAS THAT A CAR DOES NOT. A car's sheet is torque,
 // gears, redline, top speed. A personal watercraft has NO GEARBOX and no
@@ -217,12 +227,19 @@ export const CRAFT: readonly CraftSpec[] = [
     deadrise: 18,
     displacement: 0.66,
     cog: { y: 0.42, z: -0.31 },
-    powerKw: 96,
+    powerKw: 125,
     maxRpm: 7600,
     idleRpm: 1500,
-    torque: marineCurve(96, 7600, 1.12),
+    torque: marineCurve(125, 7600, 1.12),
     boost: { peak: 0, onset: 0 },
-    nozzleDiameter: 0.0675,
+    // A HOLE-SHOT PUMP — the exact mirror of the musclecraft's. Short
+    // gearing through a wide nozzle moves a lot of water slowly: all the
+    // thrust is at the bottom, where a hull is heaviest in its own bow
+    // wave, and the ceiling it buys down the straight is modest. This
+    // craft and the marlin carry almost the same power for their weight
+    // and spend it at opposite ends of the rev range, which is what makes
+    // one of them quick away from a buoy and the other quick between two.
+    nozzleDiameter: 0.074,
     nozzleAngle: 24 * DEG,
     impellerPitch: 0.283,
     // The reference craft: every dimensionless knob below is 1 here, and
@@ -230,7 +247,16 @@ export const CRAFT: readonly CraftSpec[] = [
     // a manual trim lever — what a rec-lite runabout actually carries.
     bucket: { reverse: 0.5, deploy: 0.45 },
     trimRange: 4 * DEG,
-    sponsonBite: 1,
+    // THE ROSTER'S TURNING CIRCLES, and they sit close together on
+    // purpose. Benched flat at half top speed under full lock, the four
+    // used to span 18 m of radius to 80 m: the stand-up could thread any
+    // buoy on the course and neither big hull could make one at all, so
+    // gates — and therefore races — went to whoever turned hardest and
+    // nothing else counted. They now span about two to one. The ORDER is
+    // untouched, every craft keeping the circle its archetype implies;
+    // only the gap between them is small enough that a rider can choose a
+    // hull for something other than its steering.
+    sponsonBite: 1.06,
     ridePlate: 1,
     bowRise: 1,
     riderAuthority: 1,
@@ -238,8 +264,8 @@ export const CRAFT: readonly CraftSpec[] = [
     lateralCd: 1.25,
     riderMass: 80,
     riderHeight: 0.55,
-    topSpeed: 88,
-    accel0to50: 2.7,
+    topSpeed: 95,
+    accel0to50: 2.0,
   },
   {
     id: "marlin",
@@ -253,37 +279,61 @@ export const CRAFT: readonly CraftSpec[] = [
     deadrise: 22,
     displacement: 0.92,
     cog: { y: 0.45, z: -0.35 },
-    powerKw: 225,
+    powerKw: 175,
     maxRpm: 8000,
     idleRpm: 1600,
-    torque: marineCurve(225, 8000, 1.1, 0.45),
-    // BLOWN, and the only one here that is: 225 kW at the limiter out of a
-    // 155 kW engine, with none of it under 55% of the rev range. It is the
-    // fastest craft on the water and the one that has to be kept singing.
+    torque: marineCurve(175, 8000, 1.1, 0.45),
+    // BLOWN, and the only one here that is: 175 kW at the limiter out of a
+    // 121 kW engine, with none of it under 55% of the rev range.
     boost: { peak: 0.45, onset: 0.55 },
-    nozzleDiameter: 0.0853,
-    nozzleAngle: 22 * DEG,
+    // THE SMALLEST NOZZLE HERE, on the tallest gearing — top-end pump
+    // tuning, and the other half of why this craft still owns the end of
+    // the straight on less power. A narrow nozzle passes less water, so
+    // there is less thrust to break the hump with; what leaves still
+    // leaves FAST, and the speed a hull can hold is set by how far the jet
+    // outruns it. Thrust everywhere against thrust where it matters.
+    nozzleDiameter: 0.072,
+    // THE NARROWEST STEER HERE — the "needs room" in its own blurb, made a
+    // number. A hull this long carrying this much way cannot be asked to
+    // hook a tight buoy, and paying for the top speed in the corners is
+    // what stops the fastest craft also being the one that takes the
+    // shortest line.
+    //
+    // NARROWEST, NOT CRIPPLED, and the difference is measured: at 17° the
+    // bot could not turn this hull away from the shore and put it aground
+    // twenty-nine times over ten seeds against thirteen before. A craft
+    // that cannot stay off the beach is not a craft that needs room, it is
+    // one nobody can ride.
+    nozzleAngle: 21 * DEG,
     impellerPitch: 0.305,
-    // A quick electronic bucket with a lot of mass behind it, a long ride
-    // plate for 110 km/h, and sponsons set to run wide rather than hook.
+    // A quick electronic bucket with a lot of mass behind it, and a long
+    // ride plate for the top speed. The sponsons still run wider than
+    // anything else here — this is the hull that needs room — but they
+    // bite enough to get it round a buoy, which at 0.9 they did not.
     bucket: { reverse: 0.45, deploy: 0.35 },
     trimRange: 6 * DEG,
-    sponsonBite: 0.9,
+    sponsonBite: 1.14,
     ridePlate: 1.1,
     bowRise: 0.9,
     riderAuthority: 0.85,
-    cdA: 0.85,
+    // THE SLIPPERIEST HULL HERE, and the reason this craft still owns the
+    // top speed on a good deal less power than it used to carry. Aero drag
+    // is what caps a hull that is already planing, so a low, faired deck
+    // buys the end of the straight without buying the launch with it —
+    // where raw power bought BOTH, which is how one craft came to be best
+    // at everything.
+    cdA: 0.7,
     lateralCd: 1.35,
     riderMass: 82,
     riderHeight: 0.58,
     topSpeed: 108,
-    accel0to50: 1.8,
+    accel0to50: 2.2,
   },
   {
     id: "otter",
     name: "Otter",
     archetype: "tourer",
-    blurb: "Heavy and soft over a wave. Slow to come round, hard to unsettle.",
+    blurb: "Heavy and soft over a wave. Slow away, but it will run all day.",
     mass: 420,
     length: 3.55,
     beam: 1.32,
@@ -291,13 +341,26 @@ export const CRAFT: readonly CraftSpec[] = [
     deadrise: 20,
     displacement: 1.05,
     cog: { y: 0.46, z: -0.36 },
-    powerKw: 130,
+    powerKw: 150,
     maxRpm: 7300,
     idleRpm: 1500,
-    torque: marineCurve(130, 7300, 1.15),
+    torque: marineCurve(150, 7300, 1.15),
     boost: { peak: 0, onset: 0 },
-    nozzleDiameter: 0.0868,
-    nozzleAngle: 20 * DEG,
+    // THE LONG LEGS THE CLASS IS SOLD ON. A touring hull is not a slow
+    // hull — it is a big engine in a big boat, built to hold a cruise all
+    // day — and the widest nozzle here passes the water to do it. What it
+    // still cannot do is LEAVE: four hundred and twenty kilos in their own
+    // bow wave is the slowest hump on the roster whatever the pump is
+    // doing, which is the honest cost and the one this craft keeps.
+    nozzleDiameter: 0.092,
+    // A touring hull steers its nozzle FURTHER than a sportier one, because
+    // it is the only authority it has: heavy, long-plated and soft-sponsoned,
+    // it cannot bank a corner the way a runabout does, so the jet has to do
+    // the work the hull will not. It is still the second-slowest here to
+    // come round — the mass and the yaw inertia see to that — but it can
+    // now make a buoy, which is the difference between a gentle craft and
+    // an unusable one.
+    nozzleAngle: 25 * DEG,
     impellerPitch: 0.275,
     // Everything a touring hull carries and a racer strips: the strongest
     // brake here, electric trim with the widest range, the longest ride
@@ -310,7 +373,7 @@ export const CRAFT: readonly CraftSpec[] = [
     // the one thing this hull is not (`make sim`'s dive column, measured).
     bucket: { reverse: 0.6, deploy: 0.3 },
     trimRange: 7 * DEG,
-    sponsonBite: 0.95,
+    sponsonBite: 1.16,
     ridePlate: 1.08,
     bowRise: 0.8,
     riderAuthority: 0.9,
@@ -318,8 +381,8 @@ export const CRAFT: readonly CraftSpec[] = [
     lateralCd: 1.15,
     riderMass: 85,
     riderHeight: 0.6,
-    topSpeed: 85,
-    accel0to50: 2.8,
+    topSpeed: 91,
+    accel0to50: 2.4,
   },
   {
     id: "dart",
@@ -333,13 +396,24 @@ export const CRAFT: readonly CraftSpec[] = [
     deadrise: 16,
     displacement: 0.34,
     cog: { y: 0.3, z: -0.27 },
-    powerKw: 60,
+    powerKw: 76,
     maxRpm: 7000,
     idleRpm: 1400,
-    torque: marineCurve(60, 7000, 1.12),
+    torque: marineCurve(76, 7000, 1.12),
     boost: { peak: 0, onset: 0 },
-    nozzleDiameter: 0.069,
-    nozzleAngle: 26 * DEG,
+    // A wide nozzle on the shortest gearing here: everything this engine
+    // makes goes into thrust at the bottom, because a 150 kg hull with a
+    // ceiling this low has nothing to gain from top-end tuning. It leaves
+    // a buoy with anybody.
+    nozzleDiameter: 0.077,
+    // Still the quickest thing here to come round — a third of the marlin's
+    // yaw inertia sees to that without any help from the nozzle — so the
+    // deflection is pulled back to where the roster's turn rates span
+    // under two to one. At a wider setting this craft simply won the
+    // course: gates are what a run is scored on, turning is what takes
+    // them, and a hull that turns two and a half times better than the
+    // field is not an archetype, it is the answer.
+    nozzleAngle: 20 * DEG,
     impellerPitch: 0.26,
     // NO BUCKET AND NO TRIM: a freestyle stand-up carries neither, and the
     // rider is both. Deep sponsons and barely any ride plate, so it hooks
@@ -349,7 +423,10 @@ export const CRAFT: readonly CraftSpec[] = [
     // what makes it the only craft here that flips as a matter of course.
     bucket: { reverse: 0, deploy: 0 },
     trimRange: 0,
-    sponsonBite: 1.1,
+    // Still the tightest circle on the roster by a clear margin — a third
+    // of the marlin's yaw inertia is most of that, and it needs no help
+    // from the fins to keep it.
+    sponsonBite: 0.98,
     ridePlate: 0.78,
     bowRise: 1.3,
     riderAuthority: 1.5,
@@ -357,8 +434,8 @@ export const CRAFT: readonly CraftSpec[] = [
     lateralCd: 1.05,
     riderMass: 78,
     riderHeight: 0.95,
-    topSpeed: 74,
-    accel0to50: 2.9,
+    topSpeed: 78,
+    accel0to50: 2.25,
   },
 ];
 

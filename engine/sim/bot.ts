@@ -82,9 +82,16 @@ export const RIDER_BOT: BotProfile = {
   axisAhead: 14,
   axisAheadTime: 0.35,
   axisSettle: 1,
-  airPitch: 0.08,
-  airGainP: 2.5,
-  airGainD: 0.9,
+  // FLATTER, AND HELD MORE LOOSELY THAN A BARE HULL WANTS. The arcade's
+  // landing assist (`flight.ts`) is doing part of this job now, and it
+  // folds away in proportion to the lean it is handed — so a bot holding
+  // a stiff correction is a bot buying the whole levelling itself and
+  // paying the assist's share twice. Measured over ten seeds and four
+  // craft: 0.08 rad on 2.5/0.9 gave 40.9 km/h and 34 dives, this gives
+  // 43.5 and 20.
+  airPitch: 0.04,
+  airGainP: 2,
+  airGainD: 0.7,
   airRollGain: 3,
   airRollDamp: 0.6,
   airYawDamp: 1.2,
