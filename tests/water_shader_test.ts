@@ -5,15 +5,21 @@
 // material carries and every one the material carries is read, so a
 // renamed uniform cannot leave the sea lit by a default; the sky handed to
 // it is the preset's own — the glint dies behind a squall's ceiling, the
-// deck's tones replace the open gradient under a lid; and the ripples' wind
-// frame is a rotation, so the tile is turned and never sheared.
+// deck's tones replace the open gradient under a lid; the ripples' wind
+// frame is a rotation, so the tile is turned and never sheared; and the
+// COCKPIT the sea is cut out of covers every footwell and stays inside the
+// hull's skin, which is what keeps the water out of the boat without
+// notching the sea beside it.
 import { describe, expect, it } from "vitest";
 import * as THREE from "three";
 
-import { biomeOf } from "@engine";
+import { CRAFT, biomeOf, type CraftState } from "@engine";
 
+import { cockpitOf, wellCutOf } from "../pwa/src/game/craft-body.ts";
+import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import { createSkyUniforms, writeSky } from "../pwa/src/game/sky-glsl.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
+import { applyWell } from "../pwa/src/game/water-cut.ts";
 import {
   applyClock,
   applyMirror,
@@ -262,5 +268,91 @@ describe("what the water is handed for a mirror", () => {
     // Built without one, the read is still defined: one transparent texel.
     const bare = createWaterMaterial(createSkyUniforms());
     expect(bare.uniforms.uMirror.value).toBeInstanceOf(THREE.DataTexture);
+  });
+});
+
+describe("the cockpit the sea is cut out of", () => {
+  const cuts = CRAFT.map((spec) => ({
+    spec,
+    cut: wellCutOf(spec, CRAFT_STYLES[spec.id]),
+    wells: cockpitOf(spec, CRAFT_STYLES[spec.id]).wells,
+  }));
+
+  it("covers every footwell, so no water is left standing in one", () => {
+    for (const { spec, cut, wells } of cuts) {
+      // Fore and aft: the opening the wells sit in, and a little past it
+      // where the hood closes over them.
+      expect(cut.z0, spec.id).toBeLessThanOrEqual(wells.z0);
+      expect(cut.z1, spec.id).toBeGreaterThanOrEqual(wells.z1);
+      // Down to the LOWEST floor of them, so the whole tray is under the cut
+      // and nothing is left for the sea to stand on.
+      for (let i = 0; i <= 8; i++) {
+        const z = wells.z0 + ((wells.z1 - wells.z0) * i) / 8;
+        expect(cut.floorY, `${spec.id} at ${z.toFixed(2)}`).toBeLessThanOrEqual(wells.floorAt(z));
+      }
+      // …and up to the rail, which stands over that floor.
+      expect(cut.rimY, spec.id).toBeGreaterThan(cut.floorY);
+      // Out past the wells' own outer wall, at the aft end where the hull is
+      // at its widest and the wells are with it.
+      expect(cut.xFloorAft, spec.id).toBeGreaterThan(wells.outer);
+    }
+  });
+
+  it("stays inside the hull's skin, so no notch is cut out of the sea", () => {
+    for (const { spec, cut } of cuts) {
+      const half = spec.beam / 2;
+      // The topside at the sheer is the widest the hull gets before the
+      // rubber rail, and the floor is well below it.
+      expect(cut.xFloorAft, spec.id).toBeLessThan(half);
+      expect(cut.xRimAft, spec.id).toBeLessThanOrEqual(half);
+      // …and the hull TAPERS toward the bow, so the cut has to as well.
+      expect(cut.xFloorFore, spec.id).toBeLessThan(cut.xFloorAft);
+      expect(cut.xRimFore, spec.id).toBeLessThan(cut.xRimAft);
+      // The wall leans out going up, the way a topside does.
+      expect(cut.xRimAft, spec.id).toBeGreaterThan(cut.xFloorAft);
+      expect(cut.xRimFore, spec.id).toBeGreaterThan(cut.xFloorFore);
+    }
+  });
+
+  it("rides the hull, and is switched off with no craft to ride", () => {
+    const material = createWaterMaterial(createSkyUniforms());
+    const u = material.uniforms;
+    expect(u.uWellReach.value).toBe(0);
+    const { spec, cut } = cuts[0];
+    // A craft heeled hard to starboard, out at (20, 0, -5): the test is done
+    // in the BODY frame, so what the shader cuts leans with it.
+    const roll = Math.PI / 6;
+    const craft = {
+      x: 20,
+      y: 0.1,
+      z: -5,
+      q: { x: 0, y: 0, z: Math.sin(roll / 2), w: Math.cos(roll / 2) },
+    } as CraftState;
+    applyWell(material, cut, craft);
+    expect(u.uWellReach.value).toBeGreaterThan(0);
+    expect((u.uWellOrigin.value as THREE.Vector3).toArray()).toEqual([20, 0.1, -5]);
+    expect((u.uWellSpan.value as THREE.Vector4).toArray()).toEqual([
+      cut.z0,
+      cut.z1,
+      cut.floorY,
+      cut.rimY,
+    ]);
+    // The basis is the hull's rotation INVERTED: a point put out in the world
+    // by the craft's own quaternion comes back as the body point it was.
+    const body = new THREE.Vector3(cut.xRimAft, cut.rimY, cut.z0);
+    const world = body
+      .clone()
+      .applyQuaternion(new THREE.Quaternion(craft.q.x, craft.q.y, craft.q.z, craft.q.w));
+    const back = world.applyMatrix3(u.uWellBasis.value as THREE.Matrix3);
+    expect(back.x).toBeCloseTo(body.x, 6);
+    expect(back.y).toBeCloseTo(body.y, 6);
+    expect(back.z).toBeCloseTo(body.z, 6);
+    // …and the sphere it is tested behind holds every corner of the opening.
+    expect(u.uWellReach.value).toBeGreaterThan(body.lengthSq());
+    // No craft in the picture is no cut at all, rather than a stale one
+    // cutting a hole where the hull used to be.
+    applyWell(material, null);
+    expect(u.uWellReach.value).toBe(0);
+    expect(spec.id).toBe("skiff");
   });
 });

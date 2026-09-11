@@ -317,6 +317,77 @@ export function cockpitOf(spec: CraftSpec, style: CraftStyle): Cockpit {
   };
 }
 
+/** THE COCKPIT'S OPENING, in the body frame — the one thing about the hull
+ * THE SEA has to be told, because the water is a grid that knows nothing
+ * stands on it and the wells are a tray sunk to within a few centimetres of
+ * the rest waterline. A wave a hand high then draws straight through the
+ * footwell floor and the water stands INSIDE the hull with the gunwale dry
+ * either side of it, which is the one way water gets into a boat that never
+ * happens. Cut to the RAIL rather than to the coaming's lip: over the rail
+ * the sea is coming in over the side, which is a real thing a wave does and
+ * is left alone.
+ *
+ * The wall of it is THE HULL'S OWN SKIN, read at the two ends of the opening
+ * and ruled between them, because that is the one line that is outside every
+ * part of the well (so no water is left standing in a footwell) and inside
+ * the topside at every station (so no notch is ever cut out of the sea
+ * beside the hull). Both are millimetres at the ends; the hull tapers by a
+ * fifteenth over the opening, and a single width for the whole of it misses
+ * by a centimetre at the middle. */
+export type WellCut = {
+  /** The opening's reach fore and aft, body metres from the cog: the
+   * pedestal's back wall to where the hood has closed over the wells. */
+  z0: number;
+  z1: number;
+  /** The band the sea is cut over — the lowest of the wells' floors up to
+   * the rail's top. */
+  floorY: number;
+  rimY: number;
+  /** The skin at those two heights, as a half-width, at the aft end of the
+   * opening and at the fore end. */
+  xFloorAft: number;
+  xRimAft: number;
+  xFloorFore: number;
+  xRimFore: number;
+};
+
+/** How many stations the band is read over. The floor and the rail both
+ * climb toward the bow, and the cut is taken at the LOWEST of each. */
+const CUT_STATIONS = 24;
+
+export function wellCutOf(spec: CraftSpec, style: CraftStyle): WellCut {
+  const l = layout(spec, style);
+  const { B, H, L, zTransom } = l;
+  let floorY = Infinity;
+  let rimY = Infinity;
+  for (let i = 0; i <= CUT_STATIONS; i++) {
+    const s = lerp(PLATFORM, l.hoodTop, i / CUT_STATIONS);
+    floorY = Math.min(floorY, l.wellFloorAt(s));
+    rimY = Math.min(rimY, l.sheerAt(s) + l.railH);
+  }
+  /** The section at a station, the way `ring` lofts it — the chine out on
+   * the deadrise and the topside straight up to the sheer — read at a
+   * height, and the sheer's own half-beam over it. */
+  const skinAt = (s: number, y: number): number => {
+    const half = (B / 2) * l.taper(s);
+    const sheer = l.sheerAt(s);
+    const chineX = TUNING.hull.chineOut * half;
+    const chineY = Math.min(l.keelY + l.rise(s) * H + chineX * l.dead, sheer - 0.2 * H);
+    const t = (y - chineY) / (sheer - chineY);
+    return chineX + (half - chineX) * (t < 0 ? 0 : t > 1 ? 1 : t);
+  };
+  return {
+    z0: zTransom + PLATFORM * L,
+    z1: zTransom + l.hoodTop * L,
+    floorY,
+    rimY,
+    xFloorAft: skinAt(PLATFORM, floorY),
+    xRimAft: skinAt(PLATFORM, rimY),
+    xFloorFore: skinAt(l.hoodTop, floorY),
+    xRimFore: skinAt(l.hoodTop, rimY),
+  };
+}
+
 /** WHERE THE LAMP IS MOUNTED, in the body frame: on the hood's crown a
  * little short of the bow, where the deck is still high enough to throw a
  * beam over the nose, and the two sidelights either side of it at the

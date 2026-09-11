@@ -80,6 +80,7 @@ import {
   stormSeaAt,
   surfaceAt,
   type BiomeId,
+  type CraftState,
   type GameState,
   type SurfaceSample,
 } from "@engine";
@@ -87,6 +88,7 @@ import {
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import type { BuoyLamp } from "./buoys.ts";
+import type { WellCut } from "./craft-body.ts";
 import { createFoamField, FOAM_LIFE } from "./foam-field.ts";
 import {
   WATER_LOOK,
@@ -96,6 +98,7 @@ import {
 } from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
+import { applyWell } from "./water-cut.ts";
 import { layWaterGrid, snapOrigin } from "./water-grid.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 import {
@@ -296,6 +299,10 @@ export type WaterMesh = {
   /** R31 — the rounding buoys' lanterns, which light the sea round
    * themselves the way the craft's own lamp lights the sea ahead of it. */
   setBuoyLamps: (lamps: readonly BuoyLamp[]) => void;
+  /** THE CRAFT'S COCKPIT, in world terms: the opening the sea is cut out of
+   * (`wellCutOf`) and the hull's pose this frame. Every frame — the opening
+   * rides the hull. `null` is a picture with no craft in it. */
+  setWell: (cut: WellCut | null, craft?: CraftState) => void;
   /** Open or close the WINDOW — whether the near water is transparent at
    * all. Applies from the next frame; the grid is not rebuilt. */
   setWindow: (open: boolean) => void;
@@ -774,6 +781,7 @@ export function createWaterMesh(
     setMirrorLook: (look) => applyMirrorLook(material, look),
     setLamp: (lamp) => applyLamp(material, lamp),
     setBuoyLamps: (lamps) => applyBuoyLamps(material, lamps),
+    setWell: (cut, craft) => applyWell(material, cut, craft),
     setWindow: (open) => {
       windowOpen = open;
       // Blending is switched off with it: an opaque surface drawn through the

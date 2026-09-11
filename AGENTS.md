@@ -176,6 +176,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | What a COAST's water looks like: its tones, its clarity | `pwa/src/game/water-optics.ts`                              | `water-look`, `nature` |
 | The water as LIT: the glint, the sky it mirrors, the ripples, the rain's rings, the foam's texture | `pwa/src/game/water-shader.ts`   | `water-look`         |
 | THE FOAM ALREADY IN THE WATER: what a crest left behind it, and how long it lives | `pwa/src/game/foam-field.ts` (three-free, so the tests read it) | `water-look`         |
+| THE SEA CUT OUT OF THE HULL: the cockpit the water may not stand in | `pwa/src/game/water-cut.ts`, `craft-body.ts`'s `wellCutOf` | `water-look`, `craft-design` |
 | The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `wake-profile.ts` (the trail's shape, three-free), `fx-textures.ts` | `visual-effects` |
 | Footprints on the sand                                | `pwa/src/game/footprints.ts`                                  | `visual-effects`     |
 | The biomes, the shore's materials                     | `engine/mapgen/biomes.ts`, `geology.ts`, `shore.ts`           | `nature`             |
