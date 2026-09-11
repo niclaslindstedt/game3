@@ -40,7 +40,7 @@ The field is a sum of `TUNING.sea.components` = 8 components, each a linear (Air
 
    **The ocean band** (`sea.components` = 8) is the sea the wind grew over the whole coast's fetch — the long, ordered thing a race is ridden in. Its share at a point is that point's **exposure**: 1 out at sea and 1 a few metres off an open beach (R12's wind blows in off the water, so the ocean is upwind of the whole coast — _the waves come in against the shore_), 0 a hundred metres up a river the land has closed round.
 
-   **The local band** (`sea.localComponents` = 5) is the chop the local wind grows on the water it actually crossed: short, small, and quoted ONCE per level at the mean wind over `sea.localFetch` = 2 km of arcade fetch, with `localFetchScale` = 40 stretching a point's own reach (a fortieth of `fetchScale` — the fiction about a longer coast says nothing about water with a bank on both sides). Its share is `(1 − exposure) · chop`, where `chop` is the local wind sea's height at that point against the level's quote — so it fills in exactly where the ocean band does not and the two never double-count. A river ends up with a 5 m, 1.8 s ripple a few centimetres high; a wide channel behind a headland gets something between. The local band carries no phase field: a five-metre wave feels the bottom only in water a hull is already aground in, so it is a plane wave, which is a grid sample per component saved in the hottest loop in the engine. Five components over so narrow a band is more than the shape needs and is there for a different reason — a component's energy share carries the cos² directional weight, which vanishes at the edge of the spread, so a band with few components can deal one draw most of the sea; at three the steepest local component reached `a·k` 0.43 on some seeds, on the point of breaking, and at five the worst is 0.27.
+   **The local band** (`sea.localComponents` = 5) is the chop the local wind grows on the water it actually crossed: short, small, and quoted ONCE per level at the mean wind over `sea.localFetch` = 2 km of arcade fetch, with `localFetchScale` = 10 stretching a point's own reach (a tenth of `fetchScale`, and it has to stay the smaller of the two — the fiction about a longer coast is what buys the ocean band its sixty kilometres, and it says nothing about water with a bank on both sides). `localFetch` sets the band's PERIOD alone: `chop` is a ratio against that same quote, so it cancels out of the height and `localFetchScale` is the one dial deciding how big a point's own chop is. Its share is `(1 − exposure) · chop`, where `chop` is the local wind sea's height at that point against the level's quote — so it fills in exactly where the ocean band does not and the two never double-count. A river ends up with a 5 m, 1.8 s ripple a few centimetres high — a couple of tenths at a wide mouth, falling to a centimetre or two at the head; a wide channel behind a headland gets something between. The stretch was 40 until it was measured against the ride: at that value a sheltered reach hit the hull with the same 13°/s pitch rate as the open sea on a fifth of its wave height, which is a rumble strip rather than a sea. The local band carries no phase field: a five-metre wave feels the bottom only in water a hull is already aground in, so it is a plane wave, which is a grid sample per component saved in the hottest loop in the engine. Five components over so narrow a band is more than the shape needs and is there for a different reason — a component's energy share carries the cos² directional weight, which vanishes at the edge of the spread, so a band with few components can deal one draw most of the sea; at three the steepest local component reached `a·k` 0.43 on some seeds, on the point of breaking, and at five the worst is 0.27.
 
    **The open bands** (`sea.components` again, one per rung of `sea.open.rungs`) are the storm past the edge of the built level — [the open ocean](#the-open-ocean-past-the-rim-enginegameoceants) below, which owns the whole of it. Every one of their shares is 0 inside a level's bounds, so the coast's own water is untouched by them and the whole storm costs one comparison a sample: `surfaceAt` walks the field BAND BY BAND and skips a band whose share is nothing in a single test rather than once per component.
 
@@ -139,11 +139,11 @@ wind.shelter = 0.3,  wind.shelterFetch = 220 m
 | Where               | exposure | local share | wind at 2 m | Hs     | Tp    | current  |
 | ------------------- | -------- | ----------- | ----------- | ------ | ----- | -------- |
 | 358 m out           | 1.00     | 0.00        | 11.4 m/s    | 2.63 m | 6.0 s | —        |
-| 26 m off the beach  | 0.88     | 0.32        | 9.3 m/s     | 2.32 m | 6.0 s | —        |
-| at the water's edge | 0.64     | 0.84        | 9.3 m/s     | 1.72 m | 6.0 s | —        |
-| the river mouth     | 0.00     | 0.83        | 6.2 m/s     | 0.38 m | 1.9 s | 0.78 m/s |
-| 800 m up the river  | 0.00     | 0.22        | 3.6 m/s     | 0.10 m | 1.9 s | 1.49 m/s |
-| the river's head    | 0.00     | 0.09        | 3.4 m/s     | 0.04 m | 1.9 s | 1.88 m/s |
+| 26 m off the beach  | 0.88     | 0.16        | 9.3 m/s     | 2.32 m | 6.0 s | —        |
+| at the water's edge | 0.64     | 0.42        | 9.3 m/s     | 1.69 m | 6.0 s | —        |
+| the river mouth     | 0.00     | 0.42        | 6.2 m/s     | 0.19 m | 1.9 s | 0.78 m/s |
+| 800 m up the river  | 0.00     | 0.11        | 3.6 m/s     | 0.05 m | 1.9 s | 1.49 m/s |
+| the river's head    | 0.00     | 0.04        | 3.4 m/s     | 0.02 m | 1.9 s | 1.88 m/s |
 
 ## The open ocean past the rim (`engine/game/ocean.ts`)
 
@@ -361,7 +361,7 @@ The sea is built from the level's MEAN wind (the spectrum needs a wind that has 
 | ------------------------------------ | ----------- | ------ | ----------------------------------------------------------------- |
 | `sea.components`                     | 8           | —      | OCEAN band components                                             |
 | `sea.localComponents`                | 5           | —      | LOCAL band components — the chop on enclosed water                |
-| `sea.localFetch` / `localFetchScale` | 2000 / 40   | m, —   | where the local band is quoted, and the stretch on a point's own  |
+| `sea.localFetch` / `localFetchScale` | 2000 / 10   | m, —   | the local band's PERIOD, and the stretch that sets its HEIGHT     |
 | `sea.localBandLow` / `localBandHigh` | 0.8 / 1.8   | × ω_p  | the narrower band the chop is laid over                           |
 | `sea.fanSpread` / `fanRays`          | 45 / 5      | °, —   | the upwind fan the effective fetch is read on                     |
 | `sea.bandLow` / `bandHigh`           | 0.7 / 2.4   | × ω_p  | the band the components are laid over                             |

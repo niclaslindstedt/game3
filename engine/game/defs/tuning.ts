@@ -224,13 +224,30 @@ export const TUNING = {
      * The reference is deliberately short — a couple of kilometres against
      * the ocean band's sixty — because what this band is FOR is the shape
      * of enclosed water: a 1.8 s, five-metre ripple rather than a swell.
-     * `localFetchScale` is the same fiction as `fetchScale` and a
-     * fortieth of its stretch: a river ten metres across is ten real
-     * metres of fetch, and the fiction that the level is a piece of a
-     * longer coast says nothing about water with a bank on both sides. */
+     * It sets the band's PERIOD alone: `chop` is a ratio against this same
+     * quote, so `localFetch` cancels out of the height and only
+     * `localFetchScale` decides how big a point's own chop is.
+     *
+     * `localFetchScale` is the same fiction as `fetchScale`, a tenth of
+     * its stretch, and it has to stay the smaller of the two: the fiction
+     * that the level is a piece of a longer coast is what buys the ocean
+     * band its sixty kilometres, and it says nothing about water with a
+     * bank on both sides. Ten is what a river's own reach is worth — a
+     * mouth with 160 m of water upwind is quoted at 1.6 km, not the 6.4
+     * that 40 was claiming for it.
+     *
+     * MEASURED against the seed corpus, at the quarter of top speed
+     * `scenarios.ts` rides a river at, bars centred: at 40 the river hit
+     * the hull with the same 13°/s pitch rate as the open sea on a fifth
+     * of its wave height — a rumble strip rather than a sea, which is the
+     * one thing a sheltered reach is not. At 10 the wedge impact falls
+     * 182 N → 76 N and the pitch rate 12.9 → 6.0°/s, half the open sea's,
+     * so the two waters read in the right order. The open sea does not
+     * move at all: its share of this band is `1 − exposure`, which is
+     * nothing out there. */
     localComponents: 5,
     localFetch: 2_000,
-    localFetchScale: 40,
+    localFetchScale: 10,
     /** ...and the band they are laid over, as multiples of their own peak
      * — narrower than the ocean band's, because chop IS narrow: it is one
      * wind's answer over one short fetch.
