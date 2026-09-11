@@ -2,8 +2,12 @@
 // THE CAMERA, as maths. Six rigs, walked with the camera key as ONE LADDER
 // from the handlebars backwards (the ids and the order are `CAMERA_MODES`):
 //
-//   bow   — out on the foredeck ahead of everything: no hull in the frame,
-//           the sea a metre under the lens.
+//   bow   — out on the foredeck with the sea a metre under the lens and the
+//           deck's own point across the bottom of the frame. It is not
+//           ahead of everything: the headlamp and both rail lamps stand
+//           further forward still, which is why the craft puts its lamp
+//           hardware away whenever the frame is drawn from up here
+//           (`setAboard`, craft-lamps.ts).
 //   nose  — on the craft's own handlebars, looking over the bar and the
 //           hood. Both are bolted on, so they go with the hull — but only
 //           partly: the pitch and the roll they carry are DAMPED, because a
@@ -55,6 +59,7 @@ import {
   CHASE_RIGS,
   EYE_RIGS,
   FLIGHT_ROD,
+  isEyeCamera,
   type ChaseCamera,
   type EyeCamera,
   type EyeRig,
@@ -114,6 +119,14 @@ export function verticalFovFor(designFov: number, aspect: number): number {
  * to do is keep the middle of a long step out of a swell. */
 const CHANGE_CLEARANCE = 0.4;
 
+/** The shape of the craft a bolted-on lens is stood on, in body metres from
+ * the cog: how high the deck's crown is at a fore-aft position, and where
+ * the handlebars are. The renderer reads both off `craft-body.ts`. */
+export type CraftFit = {
+  deck: (z: number) => number;
+  gripZ: number;
+};
+
 export type CameraRig = {
   /** Advance the rig by `dt` seconds of the given state and read the pose.
    * `surfaceY` answers the sea's height under a plan point — the outside
@@ -125,6 +138,16 @@ export type CameraRig = {
   setMode: (mode: CameraMode) => void;
   /** Walk to the next mode. */
   cycle: () => CameraMode;
+  /** HOW THE CRAFT NOW LOADED IS SHAPED, for the two rigs bolted to it:
+   * `deck` is the height of its crowned deck at a fore-aft position and
+   * `gripZ` where its handlebars sit, both body metres from the cog. They
+   * stand their lens against these rather than at fixed offsets, because the
+   * roster's decks and bars are not in the same places and a lens inside a
+   * closed hull sees the sea straight through it (`EyeRig.anchor`). The
+   * renderer hands this over when a craft loads — it closes over `deckOf`
+   * and `cockpitOf`, which this module cannot import because they know
+   * three.js. Pass null to go back to the stand-in. */
+  setFit: (fit: CraftFit | null) => void;
   /** Forget every eased quantity: the next update stands the lens in one
    * frame. For a restart, a reset, a staged moment — there is no framing
    * worth keeping across a teleport, and none worth FLYING across one, so
@@ -156,6 +179,7 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
   let nosePitch = 0;
   let noseRoll = 0;
   let noseFov = EYE_RIGS.nose.fov;
+  let fit: CraftFit | null = null;
   const pose: CameraPose = { x: 0, y: 0, z: 0, aimX: 0, aimY: 0, aimZ: 1, fov: 60, roll: 0 };
   const body = { x: 0, y: 0, z: 0 };
   /** The craft the pose on screen was drawn around — what a hand-over holds
@@ -277,8 +301,17 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     const c = state.craft;
     const ease = (rate: number): number => (restand ? 1 : clamp(rate * dt, 0, 1));
     body.x = 0;
-    body.y = rig.up;
-    body.z = rig.forward;
+    // Placed against the HULL rather than at a fixed offset from the cog:
+    // forward of its anchor, and clear of the DECK at wherever that lands.
+    // Until a craft has loaded there is nothing to ask, and the stand-in is
+    // the hull's own keel-to-deck depth — the loft never carries a deck
+    // above that at either rig's station on any craft in the catalog, so the
+    // lens comes out high rather than low, and a lens too high is a framing
+    // the next frame corrects where a lens too low is a hole through the
+    // hull.
+    const z = (rig.anchor === "grip" ? (fit?.gripZ ?? 0) : 0) + rig.forward;
+    body.y = (fit ? fit.deck(z) : c.spec.height) + rig.overDeck;
+    body.z = z;
     const at = rotate(c.q, body);
     nosePitch += (c.pitch * rig.pitchShare - nosePitch) * ease(8);
     noseRoll += (c.roll * rig.rollShare - noseRoll) * ease(8);
@@ -307,7 +340,7 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
 
   return {
     update: (state, dt, surfaceY) => {
-      if (mode === "bow" || mode === "nose") eye(EYE_RIGS[mode], state, dt);
+      if (isEyeCamera(mode)) eye(EYE_RIGS[mode], state, dt);
       else chase(CHASE_RIGS[mode], state, dt, surfaceY);
       if (change.flying()) {
         change.fly(pose, state.craft, dt);
@@ -326,6 +359,9 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     pose: () => pose,
     mode: () => mode,
     setMode: walkTo,
+    setFit: (next) => {
+      fit = next;
+    },
     cycle: () => {
       const i = CAMERA_MODES.indexOf(mode);
       walkTo(CAMERA_MODES[(i + 1) % CAMERA_MODES.length]);

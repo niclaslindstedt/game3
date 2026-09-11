@@ -322,6 +322,37 @@ export function cockpitOf(spec: CraftSpec, style: CraftStyle): Cockpit {
  * beam over the nose, and the two sidelights either side of it at the
  * rail. Derived off the same layout the loft draws, so a restyle that moves
  * the hood moves the lamp with it. */
+/** THE DECK'S TOP AT A FORE-AFT POSITION, body metres from the cog — how
+ * high the crowned centreline stands at `z`, which is the highest the deck
+ * gets across the beam and so the line anything stood on it has to clear.
+ *
+ * It exists because the two cameras bolted to the craft are NOT placeable at
+ * a fixed height from the cog. The roster's hulls differ by a quarter of a
+ * metre in deck height at the same station, so one hand-authored offset that
+ * sits nicely over the skiff's foredeck is UNDER the otter's — and a lens
+ * inside a closed hull sees the sea straight through it, because the near
+ * plane cuts the deck open and the mesh has no back faces to close it again.
+ * `camera.ts` stands its eye rigs on this rather than on a constant.
+ *
+ * The hull's own parameter runs transom (0) to bow (1) and `z` grows with it
+ * monotonically, so the station is recovered by bisection — a few dozen
+ * evaluations, once per craft, rather than a second copy of the stem's rake
+ * living somewhere it can drift from this one. */
+export function deckOf(spec: CraftSpec, style: CraftStyle, z: number): number {
+  const l = layout(spec, style);
+  const zAt = (s: number): number => l.zTransom + s * l.L + l.rakeAt(s) * 0.5;
+  let lo = 0;
+  let hi = 1;
+  for (let i = 0; i < 32; i++) {
+    const mid = (lo + hi) / 2;
+    if (zAt(mid) < z) lo = mid;
+    else hi = mid;
+  }
+  const s = (lo + hi) / 2;
+  const deck = l.deckAt(s);
+  return l.sheerAt(s) + deck.ped + deck.crown;
+}
+
 export function lampOf(
   spec: CraftSpec,
   style: CraftStyle,

@@ -285,18 +285,52 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
 export type EyeCamera = "bow" | "nose";
 
 export type EyeRig = {
-  /** Where the eye sits on the craft, BODY metres from the centre of
-   * gravity: `up` over it, `forward` toward the bow. The body frame is the
-   * engine's (x right, y up, z forward) and the origin is the cog, which is
-   * what `craft-body.ts` lofts the hull around — so a lens forward of the
-   * saddle is a lens with the rider BEHIND it. */
-  up: number;
+  /** WHAT THE LENS IS STOOD AGAINST fore and aft: the HULL's own origin
+   * (the cog) for a lens out on the foredeck, or the GRIPS for the rider's
+   * own view, because the bar is the thing that shot looks over. The roster
+   * puts its bars anywhere from z 0.27 on the stand-up to 0.74 on the
+   * biggest runabout, so one number measured from the cog lands half a metre
+   * ahead of one hull's bar and directly ON another's — and a lens sat on
+   * the bar has it inside the near plane. */
+  anchor: "hull" | "grip";
+  /** Where the eye sits on the craft: `forward` toward the bow in BODY
+   * metres from that anchor, and `overDeck` above THE DECK ITSELF at that
+   * point rather than above the cog. The body frame is the engine's (x
+   * right, y up, z forward) and the origin is the cog, which is what
+   * `craft-body.ts` lofts the hull around — so a lens forward of the saddle
+   * is a lens with the rider BEHIND it.
+   *
+   * THE HEIGHT IS MEASURED OFF THE DECK BECAUSE THE ROSTER'S DECKS ARE NOT
+   * THE SAME HEIGHT. At the bow station the otter's deck stands 0.70 m over
+   * its cog and the dart's 0.44 m, so a single hand-authored `up` that sat
+   * 0.10 m over the skiff's foredeck was 0.08 m INSIDE the otter's. That is
+   * not a framing error, it is a hole in the picture: the near plane cuts
+   * the deck open, the hull has no back faces to close it again, and the
+   * rider sees the sea straight through his own machine. `camera.ts` asks
+   * `deckOf` where the deck is (`setDeck`, handed over by the renderer when
+   * a craft loads) and stands the lens this far above it.
+   *
+   * The clearance has to beat the NEAR PLANE, not just look right. At the
+   * widest lens the bottom of the frame leaves at ~46° below the axis and a
+   * nose-down hull tips that to ~54°, so the deck's first hit sits
+   * `overDeck / tan(54°)` along the view axis — which must stay clear of
+   * `NEAR` (0.2 m, renderer.ts). That is what puts the floor at ~0.28 m. */
   forward: number;
+  overDeck: number;
   /** How far ahead the aim point sits, m. */
   aimAhead: number;
   /** How much of the hull's pitch and roll the eye takes, 0..1 — the rest is
    * the rider's neck levelling their head against the deck. The bow lens is
-   * not a head and takes more of both. */
+   * not a head and takes more of both.
+   *
+   * THE ROLL SHARE IS SIZED AGAINST A CARVE, NOT AGAINST THE LEAN CEILING.
+   * A hull held on the pump sits at some 20° of roll and peaks near 37°
+   * (`make ride SCENARIO=carve`), so a share is worth a fifth of a radian
+   * times itself every time the rider turns — and unlike a pitch, which the
+   * frame reads as the sea rising, a rolled lens tilts the HORIZON, which is
+   * the one thing in the picture a rider balances against. Much past 5° of
+   * that in a held turn and the view stops reading as a hull leaning and
+   * starts reading as a room being tipped. */
   pitchShare: number;
   rollShare: number;
   fov: number;
@@ -304,28 +338,49 @@ export type EyeRig = {
   fovMax: number;
 };
 
+/** Whether a rung of the ladder is one of the two BOLTED TO THE CRAFT —
+ * asked of the table rather than of a list spelled out again, so a rig added
+ * to `EYE_RIGS` is aboard the craft the moment it exists. `camera.ts` uses it
+ * to pick which update runs; the renderer uses it to decide whether the
+ * craft's own lamp hardware is in front of the lens (`craft-lamps.ts`). */
+export function isEyeCamera(mode: string): mode is EyeCamera {
+  return Object.hasOwn(EYE_RIGS, mode);
+}
+
 export const EYE_RIGS: Record<EyeCamera, EyeRig> = {
-  // Out on the foredeck, ahead of everything: no hull in the frame at all,
-  // and the sea a metre under the lens. The wave the hull is about to meet
-  // is the whole picture, which is the closest this game gets to the water.
+  // Out on the foredeck with the sea a metre under the lens and the deck's
+  // own point across the bottom of the frame. The wave the hull is about to
+  // meet is the whole picture, which is the closest this game gets to the
+  // water — but it is NOT ahead of everything the craft carries: the
+  // headlamp sits half a metre further forward and the rail lamps a third of
+  // one, so this is the rung `craft-lamps.ts` hides its hardware for.
   bow: {
-    up: 0.62,
+    anchor: "hull",
     forward: 1.15,
+    overDeck: 0.32,
     aimAhead: 14,
     pitchShare: 0.6,
-    rollShare: 0.5,
+    rollShare: 0.25,
     fov: 72,
     fovPerSpeed: 0.5,
     fovMax: 92,
   },
-  // The rider's own view over the handlebars: the bar, the grips and the
-  // hood are in frame and the water is what is left over them.
+  // The rider's own view forward over the machine: the hood fills the bottom
+  // corner and the water is what is left over it. Stood a quarter of a metre
+  // AHEAD of the grips, which is the one placement that works on the whole
+  // roster — a bar sitting in the frame has to be at least the near plane
+  // away to be drawn whole, and on the two hulls whose bars reach furthest
+  // forward there is no height that buys that, so the lens goes in front of
+  // the bar instead of being cut open by it. On the skiff, whose grips sit
+  // well aft, that lands within a couple of centimetres of where this shot
+  // was originally framed.
   nose: {
-    up: 0.95,
-    forward: 0.72,
+    anchor: "grip",
+    forward: 0.25,
+    overDeck: 0.37,
     aimAhead: 12,
     pitchShare: 0.45,
-    rollShare: 0.35,
+    rollShare: 0.16,
     fov: 68,
     fovPerSpeed: 0.5,
     fovMax: 90,

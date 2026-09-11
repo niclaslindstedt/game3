@@ -17,7 +17,8 @@ import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
-import { buildCraft, cockpitOf } from "./craft-body.ts";
+import { isEyeCamera } from "./camera-rigs.ts";
+import { buildCraft, cockpitOf, deckOf } from "./craft-body.ts";
 import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { applyCraftSky, craftSurface } from "./craft-surface.ts";
@@ -238,6 +239,12 @@ export function createRenderer(
       lamps?.dispose();
       lamps = createCraftLamps(state.craft.spec, CRAFT_STYLES[id]);
       craft.add(lamps.group);
+      // …and the camera is told the shape of THIS hull, so the two rigs that
+      // stand on it clear its deck and its bar rather than sitting inside
+      // them.
+      const spec = state.craft.spec;
+      const style = CRAFT_STYLES[id];
+      rig.setFit({ deck: (z) => deckOf(spec, style, z), gripZ: cockpitOf(spec, style).grip.z });
       scene.add(craft);
     }
     wake.reset();
@@ -420,6 +427,11 @@ export function createRenderer(
     // lit by.
     if (lamps) {
       lamps.setLit(p.lamps, 1 - dayLight(p));
+      // …and their own hardware is put away when the frame is drawn from a
+      // lens bolted to the craft, because every piece of it is in front of
+      // that lens rather than in front of the viewer. The beam is not: the
+      // pool on the water is the same from every seat.
+      lamps.setAboard(isEyeCamera(rig.mode()));
       water.setLamp(lamps.light);
     }
     gates?.setNight(p.lamps);
