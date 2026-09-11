@@ -36,6 +36,8 @@
 // the displacement start from a crawl, because a hull pushed through water
 // disturbs it long before it whitens it.
 
+import { TUNING } from "@engine";
+
 import { clamp } from "../lib/util.ts";
 
 /** Kelvin's angle — the half-angle of the V a hull's diverging waves make,
@@ -329,6 +331,86 @@ export function splashAt(
   out.up = up;
   out.down = down;
   out.cover = 1 - smoothstep(0.85, 1, r / splashReach(radius, age, ring));
+}
+
+// ── THE BRAKE ─────────────────────────────────────────────────────────
+// What the reverse bucket does to the water ROUND the hull. With the gate
+// down the jet does not leave astern: it is thrown forward and under, so
+// the water alongside and ahead of the hull erupts white and stays white
+// while the lever is held — a pool the craft sits in, wider than the hull
+// and reaching past the bow, that the water shader draws with the same
+// foam term as the road. Nothing here is a trail: the pool is laid under
+// the hull every frame off its state (`bucket` and `throttleEff`, the two
+// numbers the thrust is turned by), and the road behind carries what the
+// hull has passed over. It is the one mark that says BRAKING from any
+// camera, which is why it is as wide as it is.
+
+/** A mark laid round the hull off its state — the boil under a capsized
+ * hull, the pool under a braking one. Reused, never allocated. */
+export type HullMark = {
+  /** How hard, 0..1 — the mark's churn; nothing at 0. */
+  stir: number;
+  /** The white share at the mark's centre. */
+  foam: number;
+  /** The centre's offset ahead of the centre of gravity, m. */
+  ahead: number;
+  /** Half-reaches of the ellipse, m, along the hull and across it. */
+  along: number;
+  across: number;
+  /** The share of the reach the mark holds its full strength over before
+   * feathering to nothing at the rim: a pool is flat-topped, a boil under a
+   * capsized hull peaks at its middle. */
+  core: number;
+};
+
+export function hullMark(): HullMark {
+  return { stir: 0, foam: 0, ahead: 0, along: 0, across: 0, core: 0 };
+}
+
+/** The pool's white at full, its half-reach along the hull and across it
+ * as shares of the length and the beam, how far ahead of the centre of
+ * gravity it stands as a share of the length, and what PACE adds to each:
+ * at speed the reversed jet meets water rushing the other way and the
+ * pool is thrown forward past the bow; at a stop it boils round the hull. */
+const BRAKE_FOAM = 0.65;
+const BRAKE_CORE = 0.6;
+const BRAKE_ALONG = 0.55;
+const BRAKE_ALONG_PACE = 0.35;
+const BRAKE_ACROSS = 1.1;
+const BRAKE_ACROSS_PACE = 0.5;
+const BRAKE_AHEAD = 0.1;
+const BRAKE_AHEAD_PACE = 0.3;
+/** The gate's share past which the pool starts, and the pace, m/s, at
+ * which it is thrown as far as it goes. */
+const BRAKE_FROM = 0.05;
+export const BRAKE_PACE_FULL = 12;
+/** How much wider the road behind a braking hull is laid, as a multiple of
+ * the beam at a full gate: the flow the bucket sends under the hull
+ * aerates the water it passes over, chine to chine and beyond. */
+export const BRAKE_ROAD_WIDEN = 0.6;
+
+/** The pool under a hull with its `bucket` down and its pump at
+ * `throttle`, going `along` m/s the way it points (astern negative). */
+export function brakeMark(
+  bucket: number,
+  throttle: number,
+  along: number,
+  length: number,
+  beam: number,
+  out: HullMark,
+): void {
+  const gate = clamp((bucket - BRAKE_FROM) / (1 - BRAKE_FROM), 0, 1);
+  // The pump at the throttle the lever opens on its own is the whole boil
+  // — the gate never sees more flow than that unless the rider is also on
+  // the throttle, and then it is no whiter.
+  const stir = gate * clamp(throttle / TUNING.pump.bucketThrottle, 0, 1);
+  const pace = clamp(Math.abs(along) / BRAKE_PACE_FULL, 0, 1) * Math.sign(along);
+  out.stir = stir;
+  out.foam = BRAKE_FOAM * stir;
+  out.core = BRAKE_CORE;
+  out.ahead = length * (BRAKE_AHEAD + BRAKE_AHEAD_PACE * pace);
+  out.along = length * (BRAKE_ALONG + BRAKE_ALONG_PACE * Math.abs(pace));
+  out.across = beam * (BRAKE_ACROSS + BRAKE_ACROSS_PACE * Math.abs(pace));
 }
 
 /** THE MAP the water shader reads the wake off: texels a side, and how far

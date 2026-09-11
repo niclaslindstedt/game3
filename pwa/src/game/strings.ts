@@ -11,8 +11,12 @@ import { formatTime } from "../lib/util.ts";
 export const STRINGS = {
   /** The speedometer's unit. */
   speedUnit: "km/h",
-  /** The rev bar's caption. */
+  /** The rev bar's caption — and what it reads instead while the reverse
+   * bucket is down: BRAKE while the craft is still going ahead, REVERSE
+   * once it is backing up. */
   revs: "RPM",
+  brake: "BRAKE",
+  reverse: "REVERSE",
   /** The gate counter, `passed / total`. */
   gates: (passed: number, total: number): string => `${passed} / ${total}`,
   gatesLabel: "GATES",

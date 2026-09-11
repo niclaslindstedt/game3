@@ -180,8 +180,13 @@ export function Hud({
 
       <div class="hud-speed">
         <div class="hud-revs-row">
-          <RevBar rpm={snap.rpm} idle={snap.idle} />
-          <span class="hud-chip-sub">{STRINGS.revs}</span>
+          <RevBar rpm={snap.rpm} idle={snap.idle} braking={snap.braking} />
+          {/* The caption says what the bar is doing: RPM, or the one brake
+              the craft has while its bucket is down — the keys have no lever
+              to fill the way the touch overlay's does. */}
+          <span class={`hud-chip-sub ${snap.braking ? "hud-brake" : ""}`}>
+            {snap.astern ? STRINGS.reverse : snap.braking ? STRINGS.brake : STRINGS.revs}
+          </span>
         </div>
         <div class="hud-cluster">
           <span class="hud-speed-num">{Math.round(snap.speedKmh)}</span>
