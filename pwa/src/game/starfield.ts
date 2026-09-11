@@ -134,6 +134,59 @@ const GALAXY_CORE = 0xd8b487;
 const BAND_TIGHT = 22;
 const BAND_BROAD = 5.5;
 
+/** Where the band is given up as not worth drawing. It is SUBTRACTED rather
+ * than tested against, so what is given up goes to nothing instead of
+ * stopping: tested, the halo's own falloff crosses this number at about 62°
+ * of galactic latitude and rules a hard circle round each galactic pole —
+ * eight levels of a black sky, which the eye finds. Subtracting costs the
+ * rest of the band a fraction of a per cent of a peak of one. */
+const BAND_FLOOR = 0.004;
+
+/** THE BAND'S OWN LATTICE, and why it is not the cloud one.
+ *
+ * A galaxy is mottled round a CIRCLE: galactic longitude comes back to
+ * where it started after a full turn, and value noise on an open lattice
+ * does not come back with it. Sampled at `atan`'s own longitude the two
+ * ends of the turn land in unrelated noise, and the cut rules a hard line
+ * down the sky — measured at seed 38's autumn 21:00, a step between two
+ * neighbouring pixels eight to twenty-four times the biggest step anywhere
+ * else in the band, straight through the brightest part of it. It reads as
+ * the sky repeating.
+ *
+ * So the band's field WRAPS: a whole number of noise cells to the turn,
+ * which is what lets the lattice be folded back on itself (`galNoise`).
+ * These are the counts — the clumps read fine, the dust that wanders the
+ * rift read at about half the pitch — and they MUST be whole, which is
+ * what `tests/starfield_test.ts` holds them to.
+ */
+const CLUMP_CELLS = 28;
+const DUST_CELLS = 16;
+
+/** …and how many cells the same fields are read at ACROSS the band, per
+ * sine of galactic latitude. Free of the wrap — there is nothing to come
+ * back to across a band — so this is the pitch that decides how drawn-out
+ * a star cloud is: the clumps run about three times longer along the band
+ * than across it, which is the shape of the real thing. */
+const CLUMP_ACROSS = 12.35;
+const DUST_ACROSS = 6.83;
+
+/** Where the band's two fields are sampled, given the ray's galactic
+ * longitude and the sine of its galactic latitude. Stated here rather than
+ * in the shader's own text so the wrap is a thing a test can check: a turn
+ * of longitude has to move `uv.x` by exactly the whole number of cells the
+ * lattice folds at, or the fold does not close. */
+export function galaxyUv(
+  lon: number,
+  lat: number,
+  cells: number,
+  across: number,
+): [number, number] {
+  return [(lon / TAU) * cells, lat * across];
+}
+
+/** The two fields' cell counts, for the test that holds them whole. */
+export const GALAXY_CELLS = { clumps: CLUMP_CELLS, dust: DUST_CELLS } as const;
+
 /** HOW MUCH BAND THERE IS AT ALL, over the top of everything below. The one
  * number to move when the Milky Way is too much or not enough, and it is
  * bounded on both sides: under it the band stops being visible against the
@@ -174,10 +227,10 @@ const SMUDGES: readonly { at: readonly number[]; size: number; squash: number; l
  * literal depth (`cloudNoiseGlsl` owns why), and because the caller decides
  * whether it is emitted at all.
  *
- * `cloudField${GALAXY_OCTAVES}` and `cloudHash` are the caller's to provide
- * (`cloudNoiseGlsl`, asked for this depth) — every sky that draws clouds
- * already has the lattice, and the field at three octaves is the cloud
- * chart's own mass-and-detail read, which is what a star cloud is too.
+ * `cloudHash` is the caller's to provide (`cloudNoiseGlsl`) — every sky
+ * already emits the lattice's hash, and a second one here would be a second
+ * copy of the same four lines. The FIELDS are this module's own, because
+ * the band's has to wrap where the cloud chart's must not (`galNoise`).
  *
  * The one function it leaves behind takes the ray in CELESTIAL coordinates
  * and its world elevation, and returns what to add. It is guarded on the
@@ -188,6 +241,54 @@ export function starfieldGlsl(): string {
 const vec3 GAL_POLE = ${vec3(GAL_POLE)};
 const vec3 GAL_CENTRE = ${vec3(GAL_CENTRE)};
 const vec3 GAL_SIDE = ${vec3(GAL_SIDE)};
+
+// A STAR'S OWN HASH, three dimensions in and one out. The cloud lattice's
+// takes a vec2 and the sky is a vec3 of cells, and the obvious flattening
+// — x + 57z, y + 13z — is not injective: the cells that collide are not
+// scattered about, they satisfy one linear equation, so they lie along a
+// circle on the sphere. A band of the sky comes out an EXACT copy of
+// another band, the same stars at the same brightnesses in the same places
+// in their cells. Four per cent of the coarse shell and five of the fine
+// one were duplicates of somewhere else before this.
+float starHash( vec3 p, float salt ) {
+  vec3 p3 = fract( ( p + salt ) * 0.1031 );
+  p3 += dot( p3, p3.zyx + 31.32 );
+  return fract( ( p3.x + p3.y ) * p3.z );
+}
+
+// THE BAND'S OWN LATTICE: value noise that WRAPS in x at a whole number of
+// cells, so a coordinate that goes once round the galaxy's longitude comes
+// back to the noise it started in. Folding the cell index is the trick, and
+// is why the octaves DOUBLE the lattice rather than rotating the domain the
+// cloud field's do — a rotation mixes y into x and there is no period left
+// to fold at. The offset each octave is across the band only, where there
+// is nothing to come back to.
+float galNoise( vec2 p, float period ) {
+  vec2 i = floor( p );
+  vec2 f = fract( p );
+  f = f * f * ( 3.0 - 2.0 * f );
+  float x0 = mod( i.x, period );
+  float x1 = mod( i.x + 1.0, period );
+  float a = cloudHash( vec2( x0, i.y ) );
+  float b = cloudHash( vec2( x1, i.y ) );
+  float c = cloudHash( vec2( x0, i.y + 1.0 ) );
+  float d = cloudHash( vec2( x1, i.y + 1.0 ) );
+  return mix( mix( a, b, f.x ), mix( c, d, f.x ), f.y );
+}
+
+float galField( vec2 p, float period ) {
+  float v = 0.0;
+  float a = 0.5;
+  float total = 0.0;
+  for ( int i = 0; i < ${GALAXY_OCTAVES}; i ++ ) {
+    v += a * galNoise( p, period );
+    total += a;
+    a *= 0.5;
+    p = p * 2.0 + vec2( 0.0, 19.3 );
+    period *= 2.0;
+  }
+  return v / total;
+}
 
 // The colour of one star, from a spectral class rolled 0..1: blue-white
 // through white to amber. The roll reaching this is already skewed warm,
@@ -214,10 +315,10 @@ vec3 starTone( float t ) {
 vec3 starShell( vec3 sky, float cells, float thresh, float pixel, float time, float scint ) {
   vec3 sd = sky * cells;
   vec3 cell = floor( sd );
-  float h = cloudHash( vec2( cell.x + cell.z * 57.0, cell.y + cell.z * 13.0 ) );
+  float h = starHash( cell, 0.0 );
   if ( h < thresh ) return vec3( 0.0 );
   float rank = ( h - thresh ) / max( 1.0 - thresh, 1e-4 );
-  float g = cloudHash( vec2( cell.z + h * 311.0, cell.x - cell.y * 7.0 ) );
+  float g = starHash( cell, 37.0 );
   // Where in its cell, and how bright. The magnitude is a steep power of
   // the rank, so a cell that only just qualifies is a speck and the rare
   // one at the top of the roll is a proper star.
@@ -252,15 +353,18 @@ vec3 milkyWay( vec3 sky ) {
   // A disc seen edge-on: a tight bright ridge inside a broad faint halo.
   float band = 0.72 * exp( - lat * lat * ${BAND_TIGHT.toFixed(1)} )
              + 0.28 * exp( - lat * lat * ${BAND_BROAD.toFixed(1)} );
-  if ( band <= 0.004 ) return vec3( 0.0 );
+  band -= ${BAND_FLOOR.toFixed(3)};
+  if ( band <= 0.0 ) return vec3( 0.0 );
   // THE BULGE toward the centre, and the arms falling away behind us.
   float bulge = pow( max( along, 0.0 ), ${BULGE_REACH.toFixed(1)} );
   band *= 0.42 + 0.58 * pow( max( along * 0.5 + 0.5, 0.0 ), 1.6 ) + ${BULGE_LIFT.toFixed(2)} * bulge;
   // The mottle, read along the band rather than across it, so the clumps
-  // are drawn out the way star clouds are.
-  vec2 uv = vec2( lon * 2.4, lat * 6.5 );
-  float clumps = cloudField${GALAXY_OCTAVES}( uv * 1.9 + vec2( 4.7, 1.3 ) );
-  float dust = cloudField${GALAXY_OCTAVES}( uv * 1.05 + vec2( 31.0, 7.0 ) );
+  // are drawn out the way star clouds are — and read off the WRAPPING
+  // lattice, so the turn closes where the arc tangent's own cut runs.
+  vec2 cu = vec2( lon * ${(CLUMP_CELLS / TAU).toFixed(6)}, lat * ${CLUMP_ACROSS.toFixed(2)} );
+  vec2 du = vec2( lon * ${(DUST_CELLS / TAU).toFixed(6)}, lat * ${DUST_ACROSS.toFixed(2)} );
+  float clumps = galField( cu + vec2( 0.0, 1.3 ), ${CLUMP_CELLS.toFixed(1)} );
+  float dust = galField( du + vec2( 0.0, 7.0 ), ${DUST_CELLS.toFixed(1)} );
   band *= 0.42 + 1.05 * clumps;
   // THE GREAT RIFT: dust in our own arm, a dark lane wandering down the
   // brightest part of the band and nowhere else.
