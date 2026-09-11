@@ -7,10 +7,12 @@
 //   the surface is pushed back along the surface's normal by a spring and
 //   a damper (`TUNING.contact.stiffness`, `.damping`), with Coulomb
 //   friction against the tangential slide. The ground's normal is the
-//   heightfield's gradient; a ramp is a plane hinged at the water at its
+//   heightfield's gradient; a ramp is a WEDGE hinged at the water at its
 //   rear edge, rising `angle` toward its front, with a submerged approach
 //   lip half its length behind the hinge so a hull slides onto it rather
-//   than hitting a step.
+//   than hitting a step — and with walls under the deck on its two flanks
+//   and under its lip, so a hull arriving from any side but the hinge's
+//   is stopped by a wall rather than thrown by a deck over its head.
 // - SOLIDS (skerries, boulders, reefs) are vertical cylinders resolved as
 //   an impulse at the hull's plan outline: the hull is pushed out along
 //   the radial, the closing speed is reversed by the restitution and the
@@ -162,29 +164,43 @@ export function contactForces(
         if (closing > out.groundSpeed) out.groundSpeed = closing;
       }
     }
-    // The ramps. A probe a little under the deck is riding it; a probe
-    // far under it came in through the ramp's FLANK — a hull arriving
-    // from the side meets a wall, not a deck two metres over its head —
-    // and is pushed back out across the deck's width instead.
+    // The ramps. A probe a little under the deck is riding it — including
+    // the graze that climbs aboard near the hinge, where the deck stands
+    // centimetres up. A probe FURTHER under it than `rampWallBelow` did
+    // not sink through the deck: it came in through whichever wall of the
+    // wedge is the shallowest way back out — one of the two flanks, or
+    // the end wall under the lip — and is pushed out through that one. A
+    // hull arriving from the side or from downrange meets a wall, not a
+    // deck two metres over its head; a deep probe far from every wall is
+    // a hull slammed onto the MIDDLE of the deck, and the deck pushes
+    // back. There is no rear wall — behind the hinge the deck runs down
+    // under the water as the approach lip, which a hull rides onto.
     for (const ramp of ramps) {
       const at = onRampDeck(ramp, s.px, s.pz);
       if (!at) continue;
       const deck = rampDeckY(ramp, at.along);
       if (s.py >= deck) continue;
-      const sa = Math.sin(ramp.angle);
+      const sh = Math.sin(ramp.heading);
+      const ch = Math.cos(ramp.heading);
       const ca = Math.cos(ramp.angle);
+      // How far back out of the wedge each face is, m.
       const pen = (deck - s.py) * ca;
-      const overlap = ramp.width / 2 - Math.abs(at.across);
-      if (pen > C.rampFlankBelow && overlap < C.rampFlankBand) {
+      const flank = ramp.width / 2 - Math.abs(at.across);
+      const lip = ramp.length - at.along;
+      const wall = Math.min(flank, lip);
+      if (pen > C.rampWallBelow && wall < pen) {
+        // Out through the wall, by its overlap, with the ground's
+        // friction — horizontally, and never setting `onRamp`.
         const side = at.across >= 0 ? 1 : -1;
-        const nx = side * Math.cos(ramp.heading);
-        const nz = -side * Math.sin(ramp.heading);
-        penalty(out, s, cx, cy, cz, nx, 0, nz, overlap, C.groundFriction);
+        const nx = flank <= lip ? side * ch : sh;
+        const nz = flank <= lip ? -side * sh : ch;
+        penalty(out, s, cx, cy, cz, nx, 0, nz, wall, C.groundFriction);
         continue;
       }
-      const nx = -sa * Math.sin(ramp.heading);
+      const sa = Math.sin(ramp.angle);
+      const nx = -sa * sh;
       const ny = ca;
-      const nz = -sa * Math.cos(ramp.heading);
+      const nz = -sa * ch;
       if (penalty(out, s, cx, cy, cz, nx, ny, nz, pen, C.rampFriction, C.rampDeckCap) > 0) {
         out.onRamp = true;
       }
