@@ -124,6 +124,21 @@ the dearest fill.
   the height against the sea HERE (`seaShares`), not the level's headline.
   The tile is read in wind space, stretched downwind, and the darkest holes
   stay open on the water at full share.
+- **A TILE IS BUILT FROM A SPECTRUM, NOT FROM A LIST OF WAVES, and it must
+  wrap.** A handful of directional sines is a handful of directional sines:
+  the two with the most amplitude cross into a regular lattice, and a lattice
+  on water reads as woven cloth. Fill the wavenumber plane with the sea's own
+  spectrum and a random phase on every component instead (`ripple-tile.ts`),
+  which has no favourite wavelength and repeats by construction. A noise whose
+  hash has no period does NOT repeat, and a step at the tile's edge is a ridge
+  of slope ruled across the whole sea at the tile's spacing.
+- **The roughness budget is spent ONCE.** Cox and Munk's variance is split
+  between what the ripple tile resolves and what the glint's lobe carries, and
+  the share handed back to the lobe is the tile's DISTANCE FADE — never its
+  strength, which already tracks the wind, so folding it in roughens the near
+  water twice. The layer mix is the same sum: two uncorrelated reads weighted
+  w₁ and w₂ carry w₁² + w₂² of one read's variance, so an un-normalised mix
+  delivers less slope than the lobe has been told it took.
 - **A tile seen along the water needs anisotropy.** The chase lens sits two
   metres up looking along the sea, so isotropic mips smear the ripple and
   foam tiles into streaks radiating from the lens; `TEXTURE_ANISOTROPY`

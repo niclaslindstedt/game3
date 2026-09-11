@@ -41,12 +41,14 @@
 //                metres a real ring is under a pixel, and what the eye is
 //                actually reading out there is the sheet in the air and the
 //                fog behind it.
-//   THE GLINT    the sun's image in the surface: ONE lobe, a Beckmann
-//                distribution of slopes whose variance is Cox and Munk's
-//                measurement of a wind-roughened sea (1954: σ² = 0.003 +
-//                0.00512·U, U in m/s), which is the road a low sun lays
-//                across the water toward the rider and the sparkle in it
-//                at once. Near the lens, where the ripple tile is resolved,
+//   THE GLINT    the sun's image in the surface: ONE lobe over the slope
+//                distribution Cox and Munk measured on a wind-roughened sea
+//                (1954: σ² = 0.003 + 0.00512·U, U in m/s), which is the road
+//                a low sun lays across the water toward the rider and the
+//                sparkle in it at once. ELLIPTICAL, because their surface
+//                was: a sea tilts more along the wind than across it, so the
+//                road is drawn out along the wind rather than laid down as a
+//                disc. Near the lens, where the ripple tile is resolved,
 //                the tile carries part of that variance explicitly and the
 //                lobe is tightened by the same share; where the tile has
 //                faded the whole variance is the lobe's, so the far sea
@@ -55,7 +57,8 @@
 //                geometry to BRDF, in its cheapest form). The beam's only —
 //                a sun behind a squall's ceiling has no image to give.
 //   THE RIPPLES  the wind's capillary chop, too fine for any grid: a normal
-//                tile made in code, scrolled downwind at two scales, and
+//                tile transformed out of the sea's own spectrum
+//                (`ripple-tile.ts`), scrolled downwind at two scales, and
 //                faded with distance where its own mip levels would have
 //                flattened it anyway. It changes the light and never the
 //                surface, so a probe reading the same water agrees. Its
@@ -112,10 +115,16 @@
 // under one exposure.
 
 import * as THREE from "three";
-import { valueNoise } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
+import {
+  RIPPLE_COARSE,
+  RIPPLE_METRES,
+  RIPPLE_RMS_SLOPE,
+  RIPPLE_SIZE,
+  rippleNormals,
+} from "./ripple-tile.ts";
 import {
   WATER_LOOK,
   type ReflectionLook,
@@ -126,17 +135,6 @@ import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
 import { WAKE_HEIGHT, WAKE_MAP } from "./wake-profile.ts";
 
-/** The ripple tile: texels a side, and its edge in metres at the fine
- * scale. The coarse layer is the same tile at `RIPPLE_COARSE` times that,
- * scrolled slower, so the two never line up and the tiling never shows. */
-const RIPPLE_SIZE = 256;
-const RIPPLE_METRES = 2.4;
-const RIPPLE_COARSE = 3.7;
-/** The slope the tile's normals are scaled to, RMS — the shape the texture
- * is made at; the strength the shader reads it at is set from the wind
- * (`applySea`). Set here rather than in the shader so the texture is the
- * one place a ripple has a shape. */
-const RIPPLE_RMS_SLOPE = 0.22;
 /** THE SEA'S SLOPE VARIANCE for a wind, Cox and Munk (1954) from the sun's
  * glitter photographed off Hawaii: the total mean-square slope of a
  * wind-roughened surface, `σ² = 0.003 + 0.00512·U`, U the wind in m/s. It
@@ -144,6 +142,22 @@ const RIPPLE_RMS_SLOPE = 0.22;
  * so the sparkle and the road come from one measurement. */
 const SLOPE_VAR_CALM = 0.003;
 const SLOPE_VAR_PER_WIND = 0.00512;
+/** …and the same paper's fits to the two COMPONENTS of that variance, m/s
+ * again: across the wind σ_c² = 0.003 + 0.00192·U, along it σ_u² =
+ * 0.00316·U. Only their RATIO is taken — the total above stays the paper's
+ * own total fit, so one measurement sizes the glint's lobe and the shape of
+ * it cannot drift away from the size. */
+const SLOPE_VAR_CROSS_CALM = 0.003;
+const SLOPE_VAR_CROSS_PER_WIND = 0.00192;
+const SLOPE_VAR_ALONG_PER_WIND = 0.00316;
+/** How the two ripple layers are mixed, and the factor that makes the mix
+ * carry the WHOLE of the tile's slope. Two uncorrelated fields summed with
+ * weights w1 and w2 have w1² + w2² of one field's variance, so a 0.6 / 0.4
+ * mix on its own hands the water 52% of the slope the tile was built at —
+ * while the lobe below is told the tile took its full share. */
+const RIPPLE_FINE = 0.6;
+const RIPPLE_COARSE_MIX = 0.4;
+const RIPPLE_NORM = 1 / Math.hypot(RIPPLE_FINE, RIPPLE_COARSE_MIX);
 /** How much of that variance the RIPPLE TILE carries where it is resolved;
  * the rest is under a texel and stays in the lobe. Where the tile has faded
  * with distance the lobe takes this share back. */
@@ -278,76 +292,22 @@ const WAKE_GLSL = `
     return vec2(e - w, n - s) * (edge / (2.0 * metres));
   }`;
 
-/** The ripple tile: the wind's short chop as a repeating normal map, the
- * slopes in red (east) and green (north), made once. Directional sines
- * whose wave numbers are whole so the tile repeats, crests across the
- * downwind axis (the tile's v), and value noise on a period that divides
- * the tile so nothing has a seam. */
+/** The tile as three holds it: `ripple-tile.ts`'s normal map, wrapped, and
+ * filtered for a surface seen along its own plane. Made once.
+ *
+ * Seen along the water without anisotropy the ripples are streaks radiating
+ * from the lens and the sea reads as brushed metal — the chase lens sits two
+ * metres up and looks along the sea, so every texel is minified far harder
+ * across the view than along it. How many samples is the WATER row's, so the
+ * tile is registered rather than set. */
 let ripple: THREE.DataTexture | null = null;
 function rippleTexture(): THREE.DataTexture {
   if (ripple) return ripple;
-  const n = RIPPLE_SIZE;
-  const h = new Float32Array(n * n);
-  // (across, downwind, amplitude): a short wind sea, the amplitude falling
-  // with the wave number, the crests slewed well off square so no two run
-  // parallel — parallel crests seen along the water are corduroy — and
-  // as much noise again on top, because a real wind skin is mostly
-  // disorder with a direction in it.
-  const waves: [number, number, number][] = [
-    [2, 5, 1],
-    [-3, 8, 0.7],
-    [4, 11, 0.55],
-    [-5, 15, 0.4],
-    [7, 19, 0.3],
-    [-6, 27, 0.22],
-    [9, 35, 0.15],
-  ];
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      let s = 0;
-      for (const [kx, ky, amp] of waves) {
-        const phase = ((kx * x + ky * y) / n) * Math.PI * 2 + amp * 7;
-        s += amp * Math.sin(phase);
-      }
-      s +=
-        1.6 * (valueNoise(x, y, n / 8, 5) - 0.5) +
-        1.2 * (valueNoise(x, y, n / 16, 11) - 0.5) +
-        0.7 * (valueNoise(x, y, n / 32, 23) - 0.5);
-      h[y * n + x] = s;
-    }
-  }
-  // Central differences on the torus, then the whole field scaled to the
-  // slope the light is meant to see.
-  const sx = new Float32Array(n * n);
-  const sy = new Float32Array(n * n);
-  let sum = 0;
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      const i = y * n + x;
-      sx[i] = (h[y * n + ((x + 1) % n)] - h[y * n + ((x + n - 1) % n)]) / 2;
-      sy[i] = (h[((y + 1) % n) * n + x] - h[((y + n - 1) % n) * n + x]) / 2;
-      sum += sx[i] * sx[i] + sy[i] * sy[i];
-    }
-  }
-  const gain = RIPPLE_RMS_SLOPE / Math.sqrt(sum / (n * n));
-  const data = new Uint8Array(n * n * 4);
-  for (let i = 0; i < n * n; i++) {
-    const nx = -sx[i] * gain;
-    const nz = -sy[i] * gain;
-    const inv = 1 / Math.hypot(nx, 1, nz);
-    data[i * 4] = Math.round((nx * inv * 0.5 + 0.5) * 255);
-    data[i * 4 + 1] = Math.round((nz * inv * 0.5 + 0.5) * 255);
-    data[i * 4 + 2] = Math.round(inv * 255);
-    data[i * 4 + 3] = 255;
-  }
-  ripple = new THREE.DataTexture(data, n, n, THREE.RGBAFormat);
+  ripple = new THREE.DataTexture(rippleNormals(), RIPPLE_SIZE, RIPPLE_SIZE, THREE.RGBAFormat);
   ripple.wrapS = ripple.wrapT = THREE.RepeatWrapping;
   ripple.minFilter = THREE.LinearMipmapLinearFilter;
   ripple.magFilter = THREE.LinearFilter;
   ripple.generateMipmaps = true;
-  // Seen along the water: without anisotropy the ripples are streaks
-  // radiating from the lens and the sea reads as brushed metal. How many
-  // samples is the WATER row's, so the tile is registered rather than set.
   anisotropic(ripple);
   ripple.needsUpdate = true;
   return ripple;
@@ -442,6 +402,7 @@ function fragmentFor(layers: number): string {
   uniform float uRainFall;
   uniform vec2 uRainFade;
   uniform float uSlopeVar;
+  uniform float uSlopeAlong;
   uniform sampler2D uMirror;
   uniform mat4 uMirrorMatrix;
   uniform vec3 uMirrorRight;
@@ -543,9 +504,15 @@ ${skyGlsl(mirrorBuild(layers))}
     vec2 tile = wind * vWorld.xz;
     vec2 fine = tile / ${RIPPLE_METRES.toFixed(2)} + vec2(0.0, -uTime * uRipplePace);
     vec2 coarse = (turn * tile) / ${(RIPPLE_METRES * RIPPLE_COARSE).toFixed(2)} + vec2(0.13, -uTime * uRipplePace * 0.31);
-    vec2 slope = (texture2D(uRipple, fine).rg * 2.0 - 1.0) * 0.6 + ((texture2D(uRipple, coarse).rg * 2.0 - 1.0) * turn) * 0.4;
-    float detail = uRippleStrength * (1.0 - smoothstep(uRippleFade.x, uRippleFade.y, away));
-    slope = (slope * detail) * wind;
+    vec2 slope = ((texture2D(uRipple, fine).rg * 2.0 - 1.0) * ${RIPPLE_FINE.toFixed(2)}
+      + ((texture2D(uRipple, coarse).rg * 2.0 - 1.0) * turn) * ${RIPPLE_COARSE_MIX.toFixed(2)})
+      * ${RIPPLE_NORM.toFixed(4)};
+    // How much of the tile this pixel RESOLVES, 0 to 1 — a share, and not
+    // the strength it is read at. The two are different numbers and the
+    // lobe below wants this one: past the fade there is no tile left to
+    // take a share of the variance, whatever the wind.
+    float resolved = 1.0 - smoothstep(uRippleFade.x, uRippleFade.y, away);
+    slope = (slope * uRippleStrength * resolved) * wind;
 
     // THE RAIN, on the near water only: the rings are a real surface and a
     // real surface a hundred metres out is under a pixel. uRainFade is the
@@ -640,7 +607,7 @@ ${skyGlsl(mirrorBuild(layers))}
     // below, and here it is how far the mirror's sky is blurred: a slope of
     // s bends the reflected ray by 2s, and a pixel of sea reflects the
     // gradient through a spread of them.
-    float s2 = uSlopeVar * (1.0 - ${RIPPLE_SHARE.toFixed(2)} * detail);
+    float s2 = uSlopeVar * (1.0 - ${RIPPLE_SHARE.toFixed(2)} * resolved);
     vec3 mirror = skyAlong(R, vWorld, ${MIRROR_SPREAD.toFixed(2)} * sqrt(s2));
     // A reflected ray that dips under the skyline lands on the SEA, not on
     // the fog the dome paints under its rim: the next wave's back, which is
@@ -681,9 +648,24 @@ ${skyGlsl(mirrorBuild(layers))}
     // brighter one.
     vec3 H = normalize(uSunDir + V);
     float Fh = 0.02 + 0.98 * pow(1.0 - clamp(dot(H, V), 0.0, 1.0), 5.0);
-    float cosH = max(dot(Nd, H), 1e-3);
+    // Cox and Munk's distribution is ELLIPTICAL: a sea tilts more along the
+    // wind than across it, so the sun's image in it is drawn out along the
+    // wind rather than laid down as a disc. The half vector is taken into
+    // the surface's own frame — up is the normal the ripples have already
+    // turned, the other two axes downwind and across it — and the slope it
+    // asks a facet for is weighed against each variance on its own.
+    vec3 up = Nd;
+    vec3 downwind = vec3(uWindRot.y, 0.0, uWindRot.w);
+    vec3 along = normalize(downwind - up * dot(up, downwind));
+    vec3 across = cross(up, along);
+    float cosH = max(dot(up, H), 1e-3);
+    vec2 facet = vec2(dot(H, across), dot(H, along)) / cosH;
+    float varAlong = max(s2 * uSlopeAlong, 1e-7);
+    float varAcross = max(s2 * (1.0 - uSlopeAlong), 1e-7);
     float c2 = cosH * cosH;
-    float density = exp(-(1.0 - c2) / (c2 * s2)) / (PI * s2 * c2 * c2);
+    float density =
+      exp(-0.5 * (facet.x * facet.x / varAcross + facet.y * facet.y / varAlong)) /
+      (2.0 * PI * sqrt(varAcross * varAlong) * c2 * c2);
     vec3 glint = 1.0 - exp(-uGlint * Fh * density * ${GLINT_GAIN.toFixed(2)} / max(cosV, 0.25));
     // …and the lamp's own image in the ripples, a scatter of sparks under
     // the bow: the same tight lobe, off the lamp's direction.
@@ -808,6 +790,7 @@ export function createWaterMaterial(
       uRainFall: { value: 0 },
       uRainFade: { value: new THREE.Vector2(0, 0) },
       uSlopeVar: { value: SLOPE_VAR_CALM },
+      uSlopeAlong: { value: 0.5 },
       uMirror: { value: mirror?.texture ?? blankTexture() },
       uMirrorMatrix: { value: mirror?.matrix ?? new THREE.Matrix4() },
       uMirrorRight: { value: mirror?.right ?? new THREE.Vector3(1, 0, 0) },
@@ -963,6 +946,13 @@ export function applySea(
   // tile's strength, the whole of it to the glint's lobe.
   const slopeVar = SLOPE_VAR_CALM + SLOPE_VAR_PER_WIND * windSpeed;
   u.uSlopeVar.value = slopeVar;
+  // The SHAPE of that variance, as the share of it lying along the wind.
+  // Under about 2.4 m/s the paper's two linear fits cross and the along-wind
+  // component comes out the smaller, which no sea does: a wind too light to
+  // have built its own chop is isotropic, not corrugated across itself.
+  const along = SLOPE_VAR_ALONG_PER_WIND * windSpeed;
+  const cross = SLOPE_VAR_CROSS_CALM + SLOPE_VAR_CROSS_PER_WIND * windSpeed;
+  u.uSlopeAlong.value = Math.max(0.5, along / (along + cross));
   u.uRippleStrength.value = Math.sqrt(slopeVar * RIPPLE_SHARE) / RIPPLE_RMS_SLOPE;
   u.uScatterHeight.value = crestHeight;
 }
