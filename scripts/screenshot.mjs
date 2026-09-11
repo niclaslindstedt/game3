@@ -17,7 +17,9 @@
 //     draws the new-build button as if a newer build were waiting. A real
 //     one only ever appears on a device that already had the app, which a
 //     fresh browser profile can never be, so this flag is the only way that
-//     surface is ever photographed.
+//     surface is ever photographed. It rides with `--surface` as well as
+//     with a scene: the notice stands over the front door too, and a corner
+//     nobody can photograph is a corner nobody maintains.
 //   window.__SH_READY__ === true
 //     set by the app once the world is built and the staged frame has
 //     been drawn. This tool waits for it (30 s, then a clear error).
@@ -27,6 +29,8 @@
 //   node scripts/screenshot.mjs --scene dive --seed 7 --craft otter
 //   node scripts/screenshot.mjs --scene rest --update            # the
 //        new-build button, which has no other way to be looked at
+//   node scripts/screenshot.mjs --surface menu --update          # the same
+//        notice where it stands over the front door
 //   node scripts/screenshot.mjs --drive W:4                # no scene: a
 //        plain run from the start with the W key held four seconds, then shot
 //
@@ -131,7 +135,7 @@ const args = parseArgs(
     },
     update: {
       kind: "flag",
-      help: "draw the new-build button (?update=1); the shot is named <scene>-update",
+      help: "draw the new-build button (?update=1); the shot is named <scene|surface>-update",
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
@@ -284,7 +288,12 @@ if (args.surface) {
     // `probe=0`: a surface is photographed at the picture the flags name,
     // and the first-visit probe must not move a row under the camera.
     const params = { seed: String(args.seed), craft: args.craft, probe: "0", ...surface.params };
-    for (const v of viewports) await capture(name, params, v, undefined, surface);
+    if (args.update) params.update = "1";
+    // Named apart for the same reason a forced scene is: the pair is what a
+    // review compares, so a card WITH the notice never overwrites the card
+    // without it.
+    const shot = `${name}${args.update ? "-update" : ""}`;
+    for (const v of viewports) await capture(shot, params, v, undefined, surface);
   }
 } else if (args.drive) {
   // A plain run, a key held: `--drive W:4` is four seconds of throttle
