@@ -142,6 +142,15 @@ is made on flat water or not at all.
   and half speed is what a rider actually feels going into a buoy. For a
   turn, quote lateral g and the time a 180 takes beside the radius: a radius
   alone hides that the craft also accelerated.
+- **A TURN is benched as its OWN run, re-staged, at a MATCHED entry speed.**
+  Continuing a turn out of the acceleration run measures wherever the hull
+  had drifted to — on a generated level that is a rock, a beach or the rim,
+  and what comes back is a 3 m radius at 60 km/h that reads as a hull
+  suddenly hooking. Re-stage at the outer point, give it a second or two
+  straight, then put the lock on, and watch the run's own `hit`, `ground`
+  and `capsize` events as the tell that the number is not a turn. Match the
+  entry speed across the hands being compared, too: radius goes as v², so a
+  change that raised the ceiling gets credited with a turn it never lost.
 
 ## The rules
 
@@ -217,6 +226,16 @@ is made on flat water or not at all.
   airborne while no probe is wet; the first wet probe hands the body back
   to `hull.ts`, and `land` (or `dive`) fires off that transition. Nothing
   in `flight.ts` counts time or decides a landing happened.
+- **A CONTROL GAIN IS AN ACCELERATION, NOT A TORQUE.** The roster's pitch
+  inertia runs 165 (dart) to 490 kg·m² (otter) — `inertia(spec)` in
+  `hull.ts`, worth printing before sizing anything — so a gain stated in
+  N·m means a different correction on every craft and a value tuned on the
+  skiff is wrong at both ends. State it as rad/s² per rad of error and let
+  the caller multiply by that axis's inertia: one dial, one correction on
+  every hull, and the number reads as a spring (120 is √120 ≈ 11 rad/s, a
+  quarter-period of about 0.15 s). Sizing shortcut: moving θ rad in t
+  seconds needs roughly 2θ/t² of angular acceleration, which is arithmetic
+  rather than a search.
 - **EVERY FORCE HAS UNITS AND A SOURCE.** `TUNING.hull`, `.pump`,
   `.rider`, `.planing`, `.flight`, `.assist` each carry the unit and the
   model in the comment, and say whether the number is a measurement
@@ -246,6 +265,12 @@ is made on flat water or not at all.
 5. **Re-run the lab, the tests, then `make sim`** — `npx vitest run
    tests/buoyancy_test.ts tests/craft_test.ts tests/flight_test.ts`, then
    the table (`top`, `air`, `dive`, `avg` are where a hull change shows).
+   **`tests/waves_test.ts`'s storm case is the ceiling every force change
+   owes**: the hull rides an Hs 20 m sea (`createGame({ sea: { hs: 20 } })`)
+   at full throttle with every reading finite, because each force reads the
+   surface RELATIVE to its probe rather than the absolute height. A change
+   that makes it NaN or throws the craft past `hull.maxSpeed` is a force
+   that read an absolute height or velocity somewhere.
 6. **LOOK.** `make build`, `make screenshots SCENE=chop` (and whichever
    scenario the change was about) — the hull sitting IN the water, the
    attitude reading.

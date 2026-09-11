@@ -10,10 +10,10 @@
 // KEYS (fixed; a rebinding page is future work — `settings.ts` carries
 // everything else the player chooses):
 //   W            throttle             S / ↓      lean back
-//   A / ←  D / → steer                Shift / ↑  lean forward
-//   Space        brake and reverse    R          reset to the last gate (edge)
-//   Enter        take a screenshot    B          restart the run
-//   C            next camera
+//   A / ←  D / → steer                Q / ↑      lean forward
+//   Shift        TUCK (hold)          R          reset to the last gate (edge)
+//   Space        brake and reverse    B          restart the run
+//   Enter        take a screenshot    C          next camera
 //   Escape       hold the run and put the pause card up (menu-pause.tsx);
 //                pressing it again over the card resumes, because the card's
 //                RESUME row is its `data-nav-back` and menu-nav.ts takes
@@ -35,6 +35,14 @@
 // nose up; pushing away — ↑ — is leaning forward, nose down. Which is why
 // ↑ is not also a throttle key: the throttle is W's, and the arrows are
 // the rider's body.
+//
+// SHIFT IS THE TUCK, and it is held rather than tapped: the rider gets
+// down behind the bars for a smaller hole in the air, and pays for it in
+// everything they steer with their own body (`TUNING.tuck`). It is a
+// KEYBOARD control and has no touch equivalent on purpose — both thumbs
+// are already on the bar and the lever — which is why the lean forward it
+// displaced went to Q rather than being doubled up on it: a rider holding
+// a tuck must not also be pushing the nose down.
 //
 // THERE IS NO GEARBOX, and the ONE brake is not a brake pedal: Space drops
 // the reverse BUCKET over the jet, which is the only way a watercraft
@@ -71,7 +79,9 @@ type KeyAction = keyof KeysHeld;
 
 /** Which code does what. Steer and lean each answer to two codes so the
  * arrows and WASD both ride; the throttle answers to W alone, because ↑ is
- * the handlebar's lean forward. Shift on either side of the keyboard. */
+ * the handlebar's lean forward, and Q is the WASD hand's — the ring
+ * finger, since W above S is the throttle's. The tuck is Shift on either
+ * side of the keyboard. */
 const KEY_CODES: Record<string, KeyAction> = {
   KeyW: "throttle",
   Space: "reverse",
@@ -81,9 +91,10 @@ const KEY_CODES: Record<string, KeyAction> = {
   ArrowLeft: "left",
   KeyD: "right",
   ArrowRight: "right",
-  ShiftLeft: "leanForward",
-  ShiftRight: "leanForward",
+  KeyQ: "leanForward",
   ArrowUp: "leanForward",
+  ShiftLeft: "crouch",
+  ShiftRight: "crouch",
 };
 
 /** The edges. */
@@ -124,6 +135,7 @@ export function createInputManager(
     reverse: false,
     leanBack: false,
     leanForward: false,
+    crouch: false,
   };
   const touch = neutralTouch();
   let reset = false;

@@ -30,6 +30,13 @@ export type CraftInput = {
    * it is the pitch control; afloat it also carries the nozzle's TRIM on a
    * craft that has one. */
   lean: number;
+  /** 0..1 — THE TUCK: how far the rider is asking to get down behind the
+   * bars. Analogue so a body can be walked into it, and held rather than
+   * toggled: it buys a smaller hole in the air and costs the rider every
+   * lever that is their own weight. A keyboard's key is the only thing
+   * that offers it — a thumb on the glass is already holding the bar and
+   * the lever, and has no third hand (`pwa/src/game/input-model.ts`). */
+  crouch: number;
   /** Edge-triggered: put the craft back at the last gate passed, facing
    * the next one, at rest. */
   reset: boolean;
@@ -40,6 +47,7 @@ export const NEUTRAL_INPUT: CraftInput = {
   throttle: 0,
   reverse: 0,
   lean: 0,
+  crouch: 0,
   reset: false,
 };
 
@@ -81,6 +89,14 @@ export type CraftState = {
    * and toward the craft's right. Lags the inputs. */
   riderAft: number;
   riderRight: number;
+  /** HOW FAR DOWN THE RIDER ACTUALLY IS, 0..1 — the body's own answer to
+   * `CraftInput.crouch`, lagged by `TUNING.tuck.lag` because getting down
+   * behind the bars and back up off them takes a moment. Everything the
+   * tuck does reads this and never the input: the hole in the air
+   * (`flight.ts`), the weight the rider can still shift and the lock they
+   * can still swing (`craft.ts`), and the figure the app draws
+   * (`pwa/src/game/rider-pose.ts`). */
+  crouch: number;
   /** Share of the bottom probes under the surface, 0..1, area-weighted. */
   wetted: number;
   /** True while nothing on the hull is touching water, ground or ramp;

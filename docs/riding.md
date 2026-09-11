@@ -6,7 +6,7 @@ Every number below is quoted with its unit as `TUNING` states it; the per-craft 
 
 ## The rider first
 
-The rider is a point mass in the spec (`riderMass` kg, `riderHeight` m above the centre of gravity) that nothing draws yet and the physics still carries. The inputs move it, slower than a thumb: full lean back or forward shifts it `rider.leanReach` = 0.55 m aft or forward, full steer hangs it `rider.leanIn` = 0.28 m into the turn, and both lag with a time constant of `rider.leanLag` = 0.18 s. Gravity on the two masses (the rider's at `riderHeight`, the hull's balanced below it so the pair cancels at neutral) turns the shift into a trim moment — which is the whole of what `lean` does afloat, and `tests/craft_test.ts` holds that leaning back at speed lifts the nose.
+The rider is a point mass in the spec (`riderMass` kg, `riderHeight` m above the centre of gravity) that nothing draws yet and the physics still carries. The inputs move it, slower than a thumb: full lean back or forward shifts it `rider.leanReach` = 0.55 m aft or forward, full steer hangs it `rider.leanIn` = 0.28 m into the turn, and both lag with a time constant of `rider.leanLag` = 0.18 s. A rider who is TUCKED has less of both to give — see the tuck, below. Gravity on the two masses (the rider's at `riderHeight`, the hull's balanced below it so the pair cancels at neutral) turns the shift into a trim moment — which is the whole of what `lean` does afloat, and `tests/craft_test.ts` holds that leaning back at speed lifts the nose.
 
 ## The hull as probes (`hull.ts`)
 
@@ -137,6 +137,34 @@ Afloat, the air is drag: `½·ρ_air·C_dA·|v_rel|·v_rel` against the WIND-rel
 - **The flat plate.** The hull at angle of attack `α` to the airflow with the Newtonian normal-force coefficient `C_N = 2·sin α·cos α` (Hoerner 1965; good to 45° and bounded past it) on a plate of `plateShare` = 0.55 of `length × beam`, acting `cpLead` = 0.08 of the length ahead of the centre of gravity: a nose-up hull in a headwind lifts its nose further — the flat plate's static instability, and what a rider leans against.
 - **The rider's authority**, stated as the arcade number it is: `leanTorque` = 450 N·m at full lean in pitch (nose-up for lean back), `steerRoll` = 140 N·m at full steer in roll and `steerYaw` = 60 N·m in yaw — every one of them times the craft's own `riderAuthority` (0.85–1.5, 1 = a seated rider on a runabout), because a rider standing on a 150 kg stand-up with their whole mass free to move commands far more of it than one sat behind a backrest. That number is most of what separates a freestyle machine from a boat, and `make sim`'s DIVE column is where it shows: it is the authority to LEVEL a hull for its landing, and cutting the tourer's to 0.7 in an early pass put it from 7 dives over four seeds to 3 at 0.9 (measured). Real riders do rotate a craft in the air by pulling on the bars and moving their mass; the size is chosen for what the air game needs rather than measured — the hold alone is sized for ATTITUDE: a lean held forward through a 0.7 s hang puts the nose 20–30° down, not on the water's floor, and a normal jump levels with a touch. **The pull** is what a backflip is made of, and it is a COMMITTED impulse rather than a torque: a lean held back (past 0.5) from the lip for the whole of `flight.pullWindow` = 0.25 s is the rider yanking the bars up, and at the end of that window `flight.pull` = 620 N·m·s of angular impulse is delivered once, nose-up (`craft.ts` subtracts `pull / I_x` from the pitch rate). Let go inside the window and there is no pull this flight — a touch of lean off the lip is not a flip — and a flight offers it once (`craft.pull` counts the hold, −1 once taken or let go). Pulling only — a rider standing on the hull has nothing to push the nose down against. `airPitchTorque(spec)` in `limits.ts` is the hold's number for the bot, this craft's rider included; the pull is scaled by the same number.
 - **Rotational damping** `rotDamp` = 35 N·m·s at `rotDampSpeed` = 20 m/s, scaling with airspeed (floored at 5 m/s), so a flight nobody is steering does not tumble.
+
+### The tuck (`CraftInput.crouch`, `TUNING.tuck`)
+
+The rider can get down behind the bars — a hold, on SHIFT, and a keyboard control only (a touch rider has two thumbs and both are already on the bar and the lever). `CraftInput.crouch` is 0..1 analogue; the engine lags it into `CraftState.crouch` at `tuck.lag` = 0.22 s, because getting down and back up is a body rather than a switch, and everything below reads that lagged number and never the input. A reset or a capsize stands him back up.
+
+**What it buys.** `tuck.dragCut` = 0.18 comes off `cdA`, and here is where the 18 % comes from. `cdA` is hull plus rider in roughly even shares: a runabout's deck, screen and bow present something like 0.4 m² of drag area, and a rider sat up behind them about 0.35 m² — roughly 0.35 m² of shoulders and head at a bluff-body `C_d` near 1. Dropping the head and shoulders behind the bars takes about 40 % off the RIDER's half, which is 18 % of the pair. The cross-check is cycling, where the same measurement is made often: a road rider on the hoods sits at `C_dA` 0.35–0.40 m² and in the drops at 0.28–0.32, and since the bicycle is a small part of that, the rider-alone reduction is near 30 % for a change of posture less committed than this one. It also lowers where the air pushes: `tuck.windageLeft` = 0.6 of `flight.windageY`, since what is still up there is mostly hull.
+
+**And what that is worth, which is not much, and honestly so.** A personal watercraft is stopped by the WATER: at the top of the skiff's range the aero term is some 320 N against a total the pump is holding up in the thousands. Benched flat and calm (the outermost point of seed 38, sea flattened, full throttle, entered along the offshore contour), the roster gains **0.7–1.1 km/h** at the ceiling and **nothing measurable off the line** — 0–50 km/h moves by a hundredth of a second, because at 50 km/h the air is a few per cent of the drag and the hump is all of it.
+
+What makes it a decision is the head wind, because drag goes as the CLOSING speed squared. The same 18 % on the same skiff:
+
+| Head wind | Top, sat up | Top, tucked | Gain | 70 → 90 km/h, sat up | ...tucked |
+| --------- | ----------- | ----------- | ---- | -------------------- | --------- |
+| calm      | 95.5 km/h   | 96.5        | +1.0 | 3.44 s               | 3.18 s    |
+| 8 m/s     | 92.7        | 94.1        | +1.4 | 4.90 s               | 4.05 s    |
+| 14 m/s    | 90.3        | 92.0        | +1.7 | 29.35 s              | 13.81 s   |
+
+The tuck is a headwind tool, which is what it is in life too.
+
+**What it costs**, and none of it is a tax — it is the same body. A man folded down behind the bars cannot slide back down the seat, hang off the side, sweep the bars through their full throw, or throw his mass about in the air:
+
+- `tuck.leanCut` = 0.42 off the rider's weight shift, `rider.leanReach` and `rider.leanIn` both. This is most of the cost, because hanging off IS the turn on a watercraft.
+- `tuck.lockLeft` = 0.82 of the steering lock still asked for. The nozzle's own maximum (`limits.ts`) does not move; the reach does.
+- `tuck.airLeft` = 0.45 of `riderAuthority` in the air — the hold, the roll and the yaw. Landing a jump tucked is a bad idea, on purpose.
+
+Benched at a matched entry speed (re-staged at the outer point, 60 km/h, two seconds straight, then full lock — matched because radius goes as `v²` and the tucked craft has the higher ceiling), the tightest radius grows: skiff 35.1 → 44.5 m, marlin 40.6 → 47.6, otter 42.8 → 50.8, dart 26.8 → 43.7. **The stand-up pays most**, and that is the design rather than an accident: the dart is steered by a man moving his whole mass about, so folding him up takes more of its turn than any other hull's — tuck it and you have thrown away the thing you bought it for. `tests/tuck_test.ts` holds both halves of the bargain, the size of the speed half, the ordering of the cost, and the lag.
+
+**The bot never tucks** (`sim/bot.ts`). It is the instrument the roster is balanced on, so a crouch it learned would fold the tuck's gain into every craft's `make sim` numbers and leave nothing to read the feature against. Every digest is unchanged by this control.
 
 **The events.** The hull is airborne when nothing on it touches water, ground or ramp — read, not declared. A launch is reported once the hull has been clear for `flight.minAir` = 0.2 s (a stern probe re-touching a ramp's lip for a step is not two jumps) and only if it left with at least `launchVy` = 1.2 m/s of climb (a chop hop is not a jump); a landing only after a flight that long. **AIR TIME is a further line**: a flight under `flight.airCounts` = 0.5 s is not time in the air at all — the HUD's air clock does not start for it, it earns no line in the news column, the sim does not add it to the run's air, and it cannot take the record. A hull in a head sea is clear of the water about a fifth of the steps, in skips of a few hundredths each, and every one of those still lands, still slams and still throws a sheet; it just did not go anywhere. The longest flight of a run that DID count is kept as `progress.bestAir`, and the landing that took it carries `record` so a presentation can call it once. A dive develops over the steps after a landing — the bow keeps going in — and is reported once per landing when the bow probe is `diveDepth` = 0.55 m under with the nose below `divePitch` = −0.12 rad.
 
@@ -281,6 +309,7 @@ type CraftInput = {
   reverse: number; // 0..1, analogue — the BRAKE AND REVERSE lever: the bucket
   lean: number; // −1..1, +1 = the rider leans BACK (nose up); in the air, the pitch
   //             control; afloat it also carries the nozzle's TRIM
+  crouch: number; // 0..1, analogue — the TUCK: down behind the bars (SHIFT; keys only)
   reset: boolean; // edge: back to the last gate passed, facing the next, at rest
 };
 ```
@@ -289,7 +318,7 @@ No handbrake and no gears, and the one brake is the BUCKET rather than a pedal: 
 
 ## What holds it
 
-`tests/buoyancy_test.ts` (Archimedes, the draft, righting), `tests/craft_test.ts` (the sheet, the pump, the steering), `tests/flight_test.ts` (the arc, the landing, the dive's cost, the backflip, the quaternion algebra), `tests/collision_test.ts`, `tests/course_test.ts`, `tests/place_test.ts`, `tests/simulation_test.ts` (nothing explodes; the bot finishes), `tests/determinism_test.ts`. **`make ride SCENARIO=`** (`scripts/ride-lab.mjs`) is the lab: the craft in profile every sixth of a second over the water it crossed, with speed, pitch, wetted share, rpm and air time beside each cell — required before and after any change to the hull, the planing lift, the slamming or the flight.
+`tests/buoyancy_test.ts` (Archimedes, the draft, righting), `tests/craft_test.ts` (the sheet, the pump, the steering), `tests/flight_test.ts` (the arc, the landing, the dive's cost, the backflip, the quaternion algebra), `tests/tuck_test.ts` (what the tuck buys and what it costs), `tests/collision_test.ts`, `tests/course_test.ts`, `tests/place_test.ts`, `tests/simulation_test.ts` (nothing explodes; the bot finishes), `tests/determinism_test.ts`. **`make ride SCENARIO=`** (`scripts/ride-lab.mjs`) is the lab: the craft in profile every sixth of a second over the water it crossed, with speed, pitch, wetted share, rpm and air time beside each cell — required before and after any change to the hull, the planing lift, the slamming or the flight.
 
 ## What is NOT modelled
 

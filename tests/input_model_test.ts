@@ -10,6 +10,7 @@ import { TUNING } from "@engine";
 
 import {
   BAR_REACH_PX,
+  KEY_CROUCH_ATTACK,
   KEY_STEER_ATTACK,
   LEAN_DEAD_PX,
   LEAN_REACH_PX,
@@ -103,7 +104,7 @@ describe("the key ramps", () => {
 describe("sampleInput", () => {
   it("hands the engine neutral for nothing held", () => {
     const input = sampleInput(createInputModel(), NO_KEYS, neutralTouch(), DT, false);
-    expect(input).toEqual({ steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false });
+    expect(input).toEqual({ steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false });
   });
 
   it("flips the steer sign ONCE: the right key is the engine's negative", () => {
@@ -230,5 +231,53 @@ describe("the brake against the throttle", () => {
   it("is 0 in a neutral sample", () => {
     const input = sampleInput(createInputModel(), NO_KEYS, neutralTouch(), 0.016, false);
     expect(input.reverse).toBe(0);
+  });
+});
+
+describe("the tuck", () => {
+  const hold = (steps: number, keys = { ...NO_KEYS, crouch: true }): number => {
+    const model = createInputModel();
+    let input = sampleInput(model, keys, neutralTouch(), DT, false);
+    for (let i = 1; i < steps; i++) input = sampleInput(model, keys, neutralTouch(), DT, false);
+    return input.crouch;
+  };
+
+  it("ramps in on its own key rather than arriving whole", () => {
+    // A rider getting down behind the bars, not a switch. The engine lags
+    // it AGAIN on the way in (`TUNING.tuck.lag`); this is the hand's half.
+    expect(hold(1)).toBeLessThan(0.1);
+    expect(hold(Math.round(TUNING.physicsHz / KEY_CROUCH_ATTACK))).toBeGreaterThan(0.5);
+    expect(hold(240)).toBeCloseTo(1, 3);
+  });
+
+  it("lets go, and lands on exactly zero", () => {
+    const model = createInputModel();
+    const keys = { ...NO_KEYS, crouch: true };
+    for (let i = 0; i < 240; i++) sampleInput(model, keys, neutralTouch(), DT, false);
+    let input = sampleInput(model, NO_KEYS, neutralTouch(), DT, false);
+    for (let i = 0; i < 240; i++) input = sampleInput(model, NO_KEYS, neutralTouch(), DT, false);
+    expect(input.crouch).toBe(0);
+  });
+
+  it("CANNOT BE ASKED FOR BY A THUMB", () => {
+    // The tuck is a keyboard control on purpose: both thumbs are already
+    // committed, one to the bar and one to the lever, and a third zone
+    // would have to be reached by letting go of one of them. There is no
+    // channel for it here, and a thumb on everything at once still hands
+    // the engine a rider sat up.
+    const touch = {
+      ...neutralTouch(),
+      bar: true,
+      steer: 1,
+      lean: 1,
+      lever: true,
+      throttle: 1,
+      reverse: 1,
+    };
+    const model = createInputModel();
+    let input = sampleInput(model, NO_KEYS, touch, DT, false);
+    for (let i = 0; i < 240; i++) input = sampleInput(model, NO_KEYS, touch, DT, false);
+    expect(input.crouch).toBe(0);
+    expect("crouch" in touch).toBe(false);
   });
 });
