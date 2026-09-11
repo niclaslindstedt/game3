@@ -43,6 +43,10 @@ export {
   type CraftSpec,
 } from "./game/defs/craft.ts";
 export { TUNING } from "./game/defs/tuning.ts";
+// THE AIR (game/flight.ts): the arcade landing assist and the ballistic
+// clock it is scheduled against, so a test can hold the mechanism itself
+// rather than only the flights it changes.
+export { landingAssist, timeToWater, type AeroResult } from "./game/flight.ts";
 export {
   FAUNA,
   FAUNA_IDS,

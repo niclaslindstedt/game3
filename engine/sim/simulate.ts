@@ -23,6 +23,10 @@ export type SimOptions = {
   track?: TrackKind;
   wind?: Wind;
   profile?: BotProfile;
+  /** How much of the arcade landing assist to ride with, 0..1
+   * (`GameState.assist`); the tuning's default when left out. The lab's
+   * `--assist` flag is how a before-and-after over it is taken. */
+  assist?: number;
   /** Give up after this much simulated time, seconds. */
   maxSeconds?: number;
 };
@@ -79,6 +83,7 @@ export function simulateStage(options: SimOptions): RunReport {
     level: options.level,
     track: options.track,
     wind: options.wind,
+    assist: options.assist,
     quiet: true,
   });
 

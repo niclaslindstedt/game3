@@ -47,8 +47,12 @@ const args = parseArgs(
     // The engine states the cap (`SIM_SECONDS`); the flag only overrides it.
     max: { kind: "number", default: SIM_SECONDS, help: "give up after this much run time, s" },
     json: { kind: "string", help: "also write the rows (events dropped) to this file" },
+    assist: {
+      kind: "number",
+      help: "the arcade landing assist, 0..1 (the tuning's default when left out); 0 is the bare physics",
+    },
   },
-  "usage: npm run sim -- [--seeds a,b,c] [--track coast|circuit] [--craft id] [--max s] [--json path]",
+  "usage: npm run sim -- [--seeds a,b,c] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1]",
 );
 const seeds = args.seeds.map(Number);
 if (seeds.some((s) => !Number.isInteger(s))) {
@@ -87,7 +91,13 @@ console.log(
 const rows = [];
 for (const seed of seeds) {
   for (const craft of crafts) {
-    const r = simulateStage({ seed, craft, track: args.track, maxSeconds: args.max });
+    const r = simulateStage({
+      seed,
+      craft,
+      track: args.track,
+      maxSeconds: args.max,
+      assist: args.assist,
+    });
     rows.push(r);
     console.log(
       [

@@ -183,6 +183,16 @@ export type GameState = {
    * back. */
   input: CraftInput;
   progress: Progress;
+  /** THE ARCADE DIAL, 0..1 — how much of `flight.ts`'s landing assist this
+   * run is ridden with (`TUNING.assist`). A flight predicted to end on
+   * its side or its nose is turned toward the attitude it ought to land
+   * at over the last moment before the water: 1 is the full arcade, 0
+   * the bare physics with the hull landing wherever it was thrown, and
+   * `TUNING.assist.strength` is what a run is dealt when nothing says.
+   * A difficulty setting is what is expected to move it. It is read and
+   * never written during a run and draws no randomness, so a run replays
+   * identically at any setting. */
+  assist: number;
   phase: GamePhase;
   /** This step's events, cleared at the top of each step. */
   events: GameEvent[];

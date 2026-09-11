@@ -5,6 +5,7 @@
 // app's render loop and the headless simulator drive this same function —
 // there is no other way to advance a run.
 
+import { clamp } from "../lib/math.ts";
 import { createRng } from "../lib/prng.ts";
 import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
 import type { Level, TrackKind, Weather, Wind } from "../mapgen/types.ts";
@@ -52,6 +53,10 @@ export type CreateGameOptions = {
    * ridden (`hourOfDay`). An explicit `hour` wins, being the more exact of
    * the two. */
   timeOfDay?: TimeOfDay;
+  /** How much of the arcade landing assist to ride with, 0..1
+   * (`GameState.assist`, `TUNING.assist`); the tuning's own `strength`
+   * when left out. 0 rides the bare physics. */
+  assist?: number;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
 };
@@ -143,6 +148,7 @@ export function createGame(options: CreateGameOptions): GameState {
     craft: freshCraft(spec),
     input: { ...NEUTRAL_INPUT },
     progress: freshProgress(level),
+    assist: clamp(options.assist ?? TUNING.assist.strength, 0, 1),
     phase: "running",
     events: [],
   };

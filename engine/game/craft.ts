@@ -23,7 +23,7 @@ import { clamp } from "../lib/math.ts";
 import { fromEuler, integrate, rotate, toEuler, unrotate } from "../lib/quat.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
-import { aeroForces, type AeroResult } from "./flight.ts";
+import { aeroForces, landingAssist, type AeroResult } from "./flight.ts";
 import {
   hullForces,
   hullProbes,
@@ -334,6 +334,35 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     fx += aero.fx;
     fy += aero.fy;
     fz += aero.fz;
+    tbx += aero.tx;
+    tby += aero.ty;
+    tbz += aero.tz;
+  }
+
+  // THE ARCADE'S HAND, over the last moment before the water and only
+  // when the flight is going to end badly (`flight.ts`, `landingAssist`).
+  // The height it is given is the KEEL's over the sea it is falling
+  // toward, and that sea is the mean of what the probes already read this
+  // step rather than a thirteenth wave evaluation at 120 Hz.
+  if (c.airborne && state.assist > 0) {
+    let waterY = 0;
+    for (let i = 0; i < samples.length; i++) waterY += samples[i].surface.height;
+    waterY /= samples.length;
+    landingAssist(
+      c.q,
+      c.wx,
+      c.wy,
+      c.wz,
+      I.x,
+      I.y,
+      I.z,
+      c.airTime,
+      c.y - spec.cog.y - waterY,
+      c.vy,
+      input.lean,
+      state.assist,
+      aero,
+    );
     tbx += aero.tx;
     tby += aero.ty;
     tbz += aero.tz;
