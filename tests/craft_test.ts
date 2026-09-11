@@ -10,6 +10,7 @@ import {
   CRAFT,
   TUNING,
   boostFactor,
+  craftAtClass,
   craftById,
   angleDiff,
   createGame,
@@ -430,5 +431,121 @@ describe("the trim", () => {
       expect(state.craft.trim, `${id} trimmed down`).toBeCloseTo(-range, 3);
     }
     expect(craftById("dart").trimRange).toBe(0);
+  });
+});
+
+describe("the speed class", () => {
+  const CLASSES = [0.75, 1.5] as const;
+  const IDS = ["skiff", "marlin", "otter"] as const;
+  type Rideable = (typeof IDS)[number] | "dart";
+
+  it("hands back the catalog's own spec at class 1", () => {
+    for (const spec of CRAFT) expect(craftAtClass(spec, 1)).toBe(spec);
+  });
+
+  it("takes the rider's two deflections down as the class goes up", () => {
+    const share = TUNING.pump.classSteer;
+    for (const spec of CRAFT) {
+      for (const k of CLASSES) {
+        const at = craftAtClass(spec, k);
+        expect(at.nozzleAngle).toBeCloseTo(spec.nozzleAngle * k ** -share, 9);
+        expect(at.riderAuthority).toBeCloseTo(spec.riderAuthority * k ** -share, 9);
+        // ...and it is a DEFLECTION, never a force: the class keeps every
+        // bit of the speed it promised.
+        expect(at.topSpeed).toBeCloseTo(spec.topSpeed * k, 9);
+      }
+    }
+  });
+
+  /** Full lock from 85 % of this class's own top speed: the heading swung
+   * in the first half second, per ten metres of track covered. That is what
+   * decides whether the same line still takes the same gate. */
+  function turnPerTenMetres(id: Rideable, speedClass: number): number {
+    const state = createGame({ seed: 1, craft: id, level: STRIP, speedClass, quiet: true });
+    const speed = 0.85 * topSpeedOf(craftAtClass(craftById(id), speedClass));
+    placeRun(state, { x: -50, z: 400, heading: Math.PI / 2, speed });
+    for (let i = 0; i < 0.5 * TUNING.physicsHz; i++) step(state, FULL);
+    let swung = 0;
+    let run = 0;
+    for (let i = 0; i < 0.5 * TUNING.physicsHz; i++) {
+      step(state, { ...FULL, steer: 1 });
+      swung += Math.abs(state.craft.wy) / TUNING.physicsHz;
+      run += state.craft.speed / TUNING.physicsHz;
+    }
+    return ((swung * 180) / Math.PI / run) * 10;
+  }
+
+  /** The lean held back off a 0.35 rad lip at the same share of top speed:
+   * the fastest the hull comes round over the whole flight, which is the
+   * rotation the RIDER is buying rather than the hang the class gives him
+   * to spend it in. */
+  function airPitchRate(id: Rideable, speedClass: number): number {
+    const state = createGame({
+      seed: 1,
+      craft: id,
+      level: STRIP,
+      speedClass,
+      assist: 0,
+      quiet: true,
+    });
+    const speed = 0.85 * topSpeedOf(craftAtClass(craftById(id), speedClass));
+    placeRun(state, {
+      x: -50,
+      z: 400,
+      heading: Math.PI / 2,
+      speed,
+      height: 4,
+      vy: speed * Math.sin(0.35),
+    });
+    let peak = 0;
+    for (let i = 0; i < 4 * TUNING.physicsHz; i++) {
+      step(state, { ...FULL, throttle: 0, lean: 1 });
+      if (!state.craft.airborne) break;
+      peak = Math.max(peak, -state.craft.wx);
+    }
+    return (peak * 180) / Math.PI;
+  }
+
+  // WHAT THE DIAL PROMISES, and the only honest way to hold it: a RATIO
+  // across the band rather than a number, because what has to stay put is
+  // one craft's own feel and not any figure the roster shares. A faster
+  // class may come round a little WIDER per metre of track — a bigger,
+  // faster machine should — but never SHARPER, which is the twitch that
+  // spins a rider on a gate line: at `classSteer` 0 the skiff turns 39 %
+  // harder per metre at 1.50 than at 0.75 and the marlin 47 %.
+  const SHARPER = 1.02;
+  const SOFTER = 1.25;
+
+  it("never comes round sharper per metre of track at a higher class", () => {
+    for (const id of IDS) {
+      const [slow, fast] = CLASSES.map((k) => turnPerTenMetres(id, k));
+      const note = `${id} turn ${slow.toFixed(1)} → ${fast.toFixed(1)} °/10 m`;
+      expect(fast / slow, note).toBeLessThan(SHARPER);
+      expect(slow / fast, note).toBeLessThan(SOFTER);
+    }
+  });
+
+  it("rotates a flight at roughly the same rate at either end of the band", () => {
+    for (const id of IDS) {
+      const [slow, fast] = CLASSES.map((k) => airPitchRate(id, k));
+      const note = `${id} air ${slow.toFixed(1)} → ${fast.toFixed(1)} °/s`;
+      expect(fast / slow, note).toBeLessThan(SHARPER);
+      expect(slow / fast, note).toBeLessThan(SOFTER);
+    }
+  });
+
+  // THE DART IS THE ONE THE DIAL CANNOT REACH, and this records it rather
+  // than widening the bound above until it disappears. The stand-up's turn
+  // per metre already fell across the band with `classSteer` at 0 (13.4 →
+  // 11.0), and benched at 1.50 it rolls to 25° under sustained full lock
+  // with its wetted share down to 0.05 and the yaw rate going NEGATIVE: the
+  // hull is leaving the water, not running out of nozzle, and no deflection
+  // can answer that. Held loosely here so that a catalog change which fixes
+  // it shows up as this test going green against `SOFTER` instead.
+  it("records the stand-up going soft at the top of the band", () => {
+    const [slow, fast] = CLASSES.map((k) => turnPerTenMetres("dart", k));
+    const note = `dart turn ${slow.toFixed(1)} → ${fast.toFixed(1)} °/10 m`;
+    expect(fast / slow, note).toBeLessThan(SHARPER);
+    expect(slow / fast, note).toBeLessThan(2.2);
   });
 });

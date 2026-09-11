@@ -74,6 +74,22 @@ At 1 every craft reproduces its catalog `topSpeed` exactly, and what the class p
 
 **`craftAtClass(spec, class)` in `engine/game/defs/craft.ts` is the ONE place the class is applied**, and it applies it by returning a SPEC: a taller impeller, the engine grown to swing it, and the `topSpeed`, `powerKw` and `accel0to50` the result actually has. Everything downstream — `topSpeedOf`, `jetCeiling`, the pump, the bot, the HUD's dial, the craft card's spec sheet — reads that spec and knows nothing about a class, which is what makes it impossible for two of them to disagree. `createGame` calls it once, from `options.speedClass`. The CATALOG's numbers stay the hull's own AT CLASS 1 — what separates the four must not move when a class does — and `tests/craft_test.ts` holds the physics to them times the class.
 
+**And the CONTROLS are told about it** (`TUNING.pump.classSteer`). Every steering term in the model is quoted against the water in absolute metres a second — the nozzle's side force is a share of a thrust that grew with the class, the keel's bite and the carve go as v², the flat plate in the air goes as v² — so a class that scaled only the pump hands the rider a different craft rather than a faster one.
+
+**A class is a speed, not a handling package.** The rule the dial is sized to is that one craft's classes all manoeuvre the same, and that a faster class never comes round SHARPER per metre of track than a slower one: nothing that goes faster turns tighter. A little wider is right and expected. What separates the four HULLS is untouched either way — the dial scales every craft's own numbers by the same factor, so the roster keeps its spread, and at class 1 the factor is exactly 1.
+
+The rider's two DEFLECTIONS — the nozzle's angle and his authority in the air — are scaled by `class^-classSteer` inside `craftAtClass`, so every reader still sees one spec. Measured over 0.75 → 1.50, holding full lock from 85 % of each class's own top speed and holding the lean back off a 0.35 rad ramp, at the dial's 0 and at its shipped **¾**:
+
+| craft  | turn °/10 m at 0 | at ¾        | peak yaw °/s at 0 | at ¾     | air pitch °/s at 0 | at ¾      |
+| ------ | ---------------- | ----------- | ----------------- | -------- | ------------------ | --------- |
+| skiff  | 10.8 → 15.1      | 12.5 → 11.6 | 33 → 132          | 39 → 92  | 188 → 262          | 207 → 171 |
+| marlin | 7.3 → 10.7       | 8.4 → 8.2   | 36 → 123          | 42 → 116 | 139 → 152          | 151 → 139 |
+| otter  | 8.9 → 10.9       | 10.4 → 8.6  | 27 → 93           | 33 → 61  | 123 → 136          | 136 → 123 |
+
+At 0 every hull turns sharper the faster it is ridden and gives four times the yaw acceleration off the same flick of the bars — the twitch a rider reports as "the fast class is easier to crash". At ¾ the turn per metre is flat to slightly wider. What the dial does NOT flatten is the total a jump rotates through: a faster class leaves the lip harder and hangs half again as long, and taking that back would be taking the jump itself back. `tests/craft_test.ts` holds both ratios across the band.
+
+**The dart is the one the dial cannot reach**, and it is not the dial's doing: the stand-up's turn per metre already fell across the band at 0 (13.4 → 11.0). Benched at class 1.50 it rolls to 25° under sustained full lock, its wetted share collapses to 0.05 and the yaw rate goes negative — the hull is leaving the water rather than running out of nozzle. That is the catalog's to answer, not a deflection's.
+
 **And the course is drawn to it.** A level's gates are spaced in METRES, so a class ridden on a stock course does not stretch the race — it only gives the rider less time between gates, and measured over four seeds and the whole roster at 1.5 the gates taken fell from 139 to 110 while the gates MISSED rose from 101 to 130, because a hull that overshoots a gate has to come back for it. R32 is the answer: `generateLevel` takes the class as its `pace` and `rulesAtPace` stretches every rule number that is really a time, so a race lasts the same time at any class. With the course paced to match, the same measurement reads **140 taken, 104 missed** — stock's own race, ridden faster over more ground. A level carries the class it was drawn to as `Level.pace`.
 
 `make level` and `make analyze` both take `PACE=` so a class can be inspected on its own terms; `make level SEED=7 PACE=1.5` quotes the stretched run-up and the classed hulls' launch speeds in its table.

@@ -468,17 +468,60 @@ export const CRAFT_IDS: readonly CraftId[] = CRAFT.map((c) => c.id);
  * The derived EXPECTATIONS move with it: `topSpeed` by the class itself and
  * `accel0to50` by the square of it (a class scales the thrust, not the
  * mass, so the time to a fixed speed falls as the square). What separates
- * the four hulls does not move at all — this scales all of them together. */
+ * the four hulls does not move at all — this scales all of them together.
+ *
+ * AND THE RIDER'S TWO DEFLECTIONS COME BACK DOWN — his nozzle's angle and
+ * his authority in the air, both scaled by `class^-TUNING.pump.classSteer`.
+ * Every steering term in the model is quoted against the water in ABSOLUTE
+ * metres a second (the nozzle's side force is a share of a thrust that
+ * grew, the keel's bite and the carve go as v², the plate in the air goes
+ * as v²), so a class that scaled only the pump gives the rider a different
+ * craft rather than a faster one.
+ *
+ * THE RULE IT IS SIZED TO: one craft's classes all manoeuvre the same, and
+ * a faster class never comes round SHARPER per metre of track than a slower
+ * one — nothing that goes faster turns tighter. MEASURED over 0.75 → 1.50,
+ * holding full lock from 85 % of each class's own top speed and holding the
+ * lean back off a 0.35 rad ramp, at the dial's 0 and at its shipped ¾:
+ *
+ *           turn °/10 m          peak yaw °/s      air pitch °/s
+ *           0            ¾       0         ¾       0         ¾
+ *   skiff   10.8→15.1  12.5→11.6   33→132   39→ 92   188→262   207→171
+ *   marlin   7.3→10.7   8.4→ 8.2   36→123   42→116   139→152   151→139
+ *   otter    8.9→10.9  10.4→ 8.6   27→ 93   33→ 61   123→136   136→123
+ *
+ * At 0 every hull turns sharper the faster it is ridden, which is the twitch
+ * a rider reports as "the fast class is easier to crash". At ¾ the turn per
+ * metre is flat to slightly wider, which is what a bigger, faster machine
+ * should do. What the dial does NOT flatten is the total a jump rotates
+ * through: a faster class leaves the lip harder and hangs half again as
+ * long, and taking that back would be taking the jump itself back.
+ *
+ * THE DART IS NOT AMONG THEM, and the dial is not why: the stand-up's turn
+ * per metre already FELL across the band before this existed (13.4 → 11.0 at
+ * 0). Benched at class 1.50 it rolls to 25° under sustained full lock and
+ * its wetted share collapses to 0.05 with the yaw rate going negative — the
+ * hull is coming out of the water, not running out of nozzle. That is the
+ * catalog's business (`craft-tuning`), and no deflection here can answer it.
+ *
+ * It is handed back HERE, as two spec numbers, so that every reader — the
+ * pump, the flight, the ceilings the BOT plans against (`limits.ts`), the
+ * craft card's TURNING bar — sees one spec and needs to know nothing. It
+ * scales a DEFLECTION and never a force: the class keeps every bit of the
+ * speed it promised, and at class 1 the factor is exactly 1. */
 export function craftAtClass(spec: CraftSpec, speedClass: number): CraftSpec {
   const k = Math.max(0.1, speedClass);
   if (k === 1) return spec;
   const pitch = Math.pow(k, 1 / TUNING.pump.classGain);
   const torque = pitch ** 3;
+  const authority = Math.pow(k, -TUNING.pump.classSteer);
   return {
     ...spec,
     impellerPitch: spec.impellerPitch * pitch,
     torque: spec.torque.map(([rpm, t]) => [rpm, t * torque]) as CraftSpec["torque"],
     powerKw: spec.powerKw * torque,
+    nozzleAngle: spec.nozzleAngle * authority,
+    riderAuthority: spec.riderAuthority * authority,
     topSpeed: spec.topSpeed * k,
     accel0to50: spec.accel0to50 / (k * k),
   };
