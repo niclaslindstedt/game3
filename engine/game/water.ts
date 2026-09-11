@@ -24,8 +24,8 @@
 //   in `fetch.ts`, and the component amplitudes are laid over the JONSWAP
 //   shape (γ is `TUNING.sea.peakEnhancement`) and normalised so that
 //   4·√m0 = Hs.
-// - THERE ARE TWO BANDS, because there are two kinds of water in a level
-//   and they do not carry the same waves.
+// - THERE ARE THREE BANDS, because there are three kinds of water a rider
+//   can reach and they do not carry the same waves.
 //
 //     THE OCEAN BAND is the sea the wind has grown over the whole fetch
 //     of the coast this level is a piece of — the long, ordered thing a
@@ -43,9 +43,23 @@
 //     the two never double-count, and it is what a river actually has —
 //     a ripple a couple of metres long, not a swell that came up it.
 //
-//   The local band carries no phase field: a five-metre wave feels the
-//   bottom only in water a hull is already aground in, so it is a plane
-//   wave, which is a sample per component saved in the hottest loop here.
+//     THE OPEN BAND is the storm out past the edge of the built level
+//     (`ocean.ts`). Seaward of the grid there is no coast left to shelter
+//     anything and no fetch left to grow a sea over, so this one is QUOTED
+//     rather than grown — `TUNING.sea.open.hs`, at the period
+//     `periodForHeight` gives it — and its share rises with the storm's
+//     ramp while the OCEAN band's falls away, so the sea a rider is in
+//     grows steadily from the coast's own to twenty metres the further out
+//     he holds the throttle open. Inside the level its share is exactly
+//     zero and it costs one comparison per sample.
+//
+//   Neither the local nor the open band carries a phase field. A five-metre
+//   wave feels the bottom only in water a hull is already aground in, and
+//   the open ocean has no bed worth refracting over, so both are plane
+//   waves — a field sample per component saved in the hottest loop here.
+//   The OCEAN band's field is carried past the rim analytically instead
+//   (`surfaceAt`), because a clamped field gradient is a sea that heaves in
+//   one place without travelling.
 // - The wind sea's HEIGHT and PERIOD take `TUNING.sea.heightScale` and
 //   `periodScale` — the two arcade dials that say how big and how long a
 //   wind sea is here, against what the law alone would grow. The shares
@@ -63,18 +77,23 @@
 //   (refraction) and bend in round a headland and through a river mouth
 //   (diffraction's kinematics), and the local wave vector — what the
 //   slope and the orbital motion follow — is that field's gradient.
+// - THE BED GOES ON PAST THE GRID. The depth every term here reads is
+//   `oceanDepth` (`ocean.ts`): the level's own bed inside the grid, falling
+//   on to the open ocean's floor outside it, because the sampler's clamped
+//   rim would hold a twenty-metre sea to what thirty metres of water can
+//   carry.
 // - Amplitude shoals by the linear-theory coefficient Ks = √(cg₀/cg)
 //   (Green's law √√(d₀/d) is its shallow limit) and the sea is clipped
 //   where the bed cannot hold it: the SIGNIFICANT height at the point is
 //   held to `TUNING.sea.breakingHs`·d (Nelson 1994's depth-limited sea),
 //   and every component is scaled by the same factor when it passes.
-// - THERE IS NO ARCADE CEILING. The sea is bounded by the fully developed
-//   law and by the depth under it, nothing else: a run handed a SEA
-//   OVERRIDE (`SeaOverride` — a swell quoted by its height rather than
-//   grown from the wind, the way a storm far out at sea sends one in) can
-//   stand a twenty-metre sea over deep water, and every term here — the
-//   depth table, the phase field, the orbital velocity — is sized to
-//   carry it (`tests/waves_test.ts`'s storm case).
+// - THERE IS NO ARCADE CEILING ON THE SEA'S HEIGHT. It is bounded by the
+//   fully developed law and by the depth under it, nothing else: a run
+//   handed a SEA OVERRIDE (`SeaOverride` — a swell quoted by its height
+//   rather than grown from the wind) can stand a twenty-metre sea over deep
+//   water, and so can a rider who simply rides out to the open band's
+//   storm. Every term here — the depth table, the phase field, the orbital
+//   velocity — is sized to carry it (`tests/waves_test.ts`'s storm case).
 //
 // Deterministic: the seed fixes the phases and the directional draws, and
 // t is the only clock.
@@ -88,14 +107,22 @@ import {
 import { clamp, TAU } from "../lib/math.ts";
 import { createRng, type Rng } from "../lib/prng.ts";
 import { flowAt } from "../mapgen/flow.ts";
-import type { Level, Wind } from "../mapgen/types.ts";
+import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, effectiveFetch, fetchHeight, fetchPeriod, type Shelter } from "./fetch.ts";
+import { oceanDepth, oceanOffset, stormAt, stormRamp } from "./ocean.ts";
 
 const S = TUNING.sea;
 const G = TUNING.g;
 
+/** WHICH SEA a component belongs to, and so which share it stands at —
+ * the three in the header: the coast's own ocean swell, the chop on water
+ * that swell cannot reach, and the storm past the edge of the level. */
+export type WaveBand = "ocean" | "local" | "open";
+
 export type WaveComponent = {
+  /** Which of the three seas it is part of. */
+  readonly band: WaveBand;
   /** Angular frequency, rad/s, and the deep-water wavenumber, rad/m. */
   readonly omega: number;
   readonly k0: number;
@@ -110,8 +137,9 @@ export type WaveComponent = {
    * from the plane wave at the rim, so the shallows' shortening and the
    * turning round the land are both in it, and its gradient is the local
    * wave vector. Null for the LOCAL band, whose waves are too short to
-   * feel any bed a hull can float over: those read the deep-water plane
-   * wave k₀·(d̂·x) instead. */
+   * feel any bed a hull can float over, and for the OPEN band, which
+   * stands in ocean the level's grid does not cover: both read the
+   * deep-water plane wave k₀·(d̂·x) instead. */
   readonly phaseField: Heightfield | null;
   /** Per depth row (`TUNING.sea.tableStep` apart): local wavenumber k
    * (rad/m), shoaling coefficient Ks, and coth(k·d) for the orbital
@@ -133,6 +161,11 @@ export type SeaState = {
   /** The wind the field was built from. */
   readonly windSpeed: number;
   readonly windFrom: number;
+  /** The level's bounds — where its grid, and so the coast it describes,
+   * stops. Everything past them is the OPEN band's ocean (`ocean.ts`), and
+   * the sea is the one thing that has to know: a hull reads the edge of the
+   * world off `level.bounds` itself. */
+  readonly bounds: Bounds;
   /** What the level looks like to that wind: the exposure and chop shares
    * `surfaceAt` reads, and the shelter the wind model reads (`fetch.ts`). */
   readonly shelter: Shelter;
@@ -145,11 +178,16 @@ export type SeaState = {
    * mean wind. `chop` is a share of `localHs`. */
   readonly localHs: number;
   readonly localTp: number;
-  /** The OCEAN band first, longest component first, then the local band —
-   * an order `surfaceAt`'s `count` depends on, since a caller asking for
-   * the first few components is asking for the swell. */
+  /** ...and the OPEN band's, the storm past the level's rim (`ocean.ts`):
+   * the height it is quoted at, m, and the period that height earns. 0 on a
+   * calm level, which has no storm out at sea. */
+  readonly openHs: number;
+  readonly openTp: number;
+  /** Every component of every band, LONGEST FIRST — an order `surfaceAt`'s
+   * `count` depends on, since a caller asking for the first few components
+   * is asking for the swell, and the open band's storm swell is the longest
+   * thing in the field. Each one says which band it belongs to. */
   readonly components: readonly WaveComponent[];
-  readonly oceanCount: number;
 };
 
 /** What `surfaceAt` fills: the surface height, its unit normal, and the
@@ -397,6 +435,7 @@ function buildPhaseField(
  */
 function layBand(
   rng: Rng,
+  band: WaveBand,
   hs: number,
   tp: number,
   n: number,
@@ -429,6 +468,7 @@ function layBand(
     const dirZ = Math.cos(c.dir);
     const table = buildTable(c.omega);
     return {
+      band,
       omega: c.omega,
       k0,
       dirX,
@@ -471,7 +511,17 @@ export function createSea(
   // period the field carries, whichever reaches further. A slow-peaked
   // swell needs the second or it arrives with no chop on it.
   const bandHigh = Math.max(S.bandHigh, tp / S.minPeriod);
-  const ocean = layBand(rng, hsRef, tp, S.components, S.bandLow, bandHigh, travel, level.ground);
+  const ocean = layBand(
+    rng,
+    "ocean",
+    hsRef,
+    tp,
+    S.components,
+    S.bandLow,
+    bandHigh,
+    travel,
+    level.ground,
+  );
 
   // ── The local band ────────────────────────────────────────────────────
   // Quoted once for the level, at the MEAN wind over `localFetch` — the
@@ -480,6 +530,7 @@ export function createSea(
   const localTp = fetchPeriod(u, S.localFetch) * S.periodScale;
   const local = layBand(
     rng,
+    "local",
     localHs,
     localTp,
     S.localComponents,
@@ -489,42 +540,107 @@ export function createSea(
     null,
   );
 
+  // ── The open band ─────────────────────────────────────────────────────
+  // The storm past the edge of the level (`ocean.ts`). Quoted by its HEIGHT
+  // and not grown, because out there the fetch law has nothing left to say:
+  // the coast the level is a piece of is kilometres astern and the sea is
+  // whatever weather the game says is out at sea. A sea quoted by its
+  // height takes its period — and so its WAVELENGTH, and so the angle of
+  // the face, which is what a rider reads — from `sea.steepness`, exactly
+  // as a `SeaOverride` does. A run already handed a bigger sea than the
+  // storm keeps it rather than riding out into calmer water.
+  //
+  // Drawn LAST so that every component of the other two bands, and every
+  // digest that replays one, is the draw it always was; a calm level gets
+  // no storm at all, which keeps "zero wind is zero sea" true out here too.
+  const openHs = u > 0 ? Math.max(S.open.hs, hsRef) : 0;
+  const openTp = periodForHeight(openHs);
+  const open =
+    openHs > 0
+      ? layBand(
+          rng,
+          "open",
+          openHs,
+          openTp,
+          S.components,
+          S.bandLow,
+          Math.max(S.bandHigh, openTp / S.minPeriod),
+          travel,
+          null,
+        )
+      : [];
+
   return {
     windSpeed: u,
     windFrom: wind.from,
+    bounds: level.bounds,
     shelter,
     fetchRef,
     hsRef,
     tp,
     localHs,
     localTp,
-    components: [...ocean, ...local],
-    oceanCount: ocean.length,
+    openHs,
+    openTp,
+    // Longest first across all three bands: the open band's storm swell
+    // reaches past four hundred metres and the local band's chop stops at
+    // two, so only a sort puts "the first few components" and "the swell"
+    // back together. Inside a level the open band's share is 0 and every
+    // one of its components is skipped, so the sum a coast's water returns
+    // is term for term the one it returned before there was a storm.
+    components: [...ocean, ...local, ...open].sort((a, b) => a.k0 - b.k0),
   };
 }
 
-/** What share of each band stands at a plan point: the OCEAN band's is
- * the point's exposure to the open sea, and the LOCAL band's is what is
- * left over, times the chop the sheltered wind grows on the point's own
- * water. They partition rather than add, so no water is dealt two seas. */
-export function seaShares(sea: SeaState, x: number, z: number): { ocean: number; local: number } {
-  const ocean = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
-  return { ocean, local: (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, x, z)) };
+/** What share of each band stands at a plan point.
+ *
+ * Across the coast, the OCEAN band's is the point's exposure to the open
+ * sea and the LOCAL band's is what is left over, times the chop the
+ * sheltered wind grows on the point's own water: they partition rather than
+ * add, so no water is dealt two seas.
+ *
+ * Out past the level's rim the OPEN band takes over from the ocean band on
+ * the storm's ramp (`ocean.ts`), and the handover is written so that the
+ * SIGNIFICANT HEIGHT grows straight from the coast's own sea to the storm's
+ * `openHs` — the ocean band fades by `1 − storm` and the open band's share
+ * is whatever carries the rest of the height in energy. That keeps the sea
+ * building monotonically the whole way out instead of dipping where the two
+ * spectra cross, and it is why the open band has no share of its own to
+ * tune. `storm` is 0 everywhere inside a level, so all three shares there
+ * are exactly what they were before there was an ocean beyond the rim. */
+export function seaShares(
+  sea: SeaState,
+  x: number,
+  z: number,
+  storm: number = stormAt(sea.bounds, x, z),
+): { ocean: number; local: number; open: number } {
+  const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
+  const local = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
+  if (storm <= 0) return { ocean: exposure, local, open: 0 };
+  // The coast's own sea here, what is left of it, and the height the storm
+  // has to make up: Hs² = (coast carried)² + (openHs · open)².
+  const coast = sea.hsRef * exposure;
+  const carried = coast * (1 - storm);
+  const target = coast + Math.max(0, sea.openHs - coast) * storm;
+  const open =
+    sea.openHs > 0 ? Math.sqrt(Math.max(0, target * target - carried * carried)) / sea.openHs : 0;
+  return { ocean: exposure * (1 - storm), local, open };
 }
 
 /** The sea's headline numbers at a plan point: significant height (m — the
- * two bands summed in energy, before the bed clips them) and the peak
- * period (s) of whichever band is carrying it there. Which is why a river
- * reads a tenth of a metre at a second and a half where the water off the
- * beach reads a metre and a half at four. */
+ * three bands summed in energy, before the bed clips them) and the peak
+ * period (s) of whichever band is carrying the most of it there. Which is
+ * why a river reads a tenth of a metre at a second and a half where the
+ * water off the beach reads a metre and a half at four, and why two
+ * kilometres out to sea reads twenty metres at twelve. */
 export function seaSummary(sea: SeaState, x: number, z: number): { Hs: number; Tp: number } {
-  const { ocean, local } = seaShares(sea, x, z);
+  const { ocean, local, open } = seaShares(sea, x, z);
   const hsOcean = sea.hsRef * ocean;
   const hsLocal = sea.localHs * local;
-  return {
-    Hs: Math.hypot(hsOcean, hsLocal),
-    Tp: hsOcean >= hsLocal ? sea.tp : sea.localTp,
-  };
+  const hsOpen = sea.openHs * open;
+  const Tp =
+    hsOpen >= hsOcean && hsOpen >= hsLocal ? sea.openTp : hsOcean >= hsLocal ? sea.tp : sea.localTp;
+  return { Hs: Math.hypot(hsOcean, hsLocal, hsOpen), Tp };
 }
 
 const scratch = new Float64Array(3);
@@ -533,8 +649,10 @@ const phaseAt = new Float64Array(3);
 /** Three numbers a component — the local wavenumber, the amplitude it
  * actually stands at here, and coth(k·d) — kept between the two passes
  * below so the depth table is read once per component rather than twice. */
-const held = new Float64Array(3 * (S.components + S.localComponents));
+const held = new Float64Array(3 * (2 * S.components + S.localComponents));
 const drift = { x: 0, z: 0 };
+/** How far out of the level's bounds the sample lies, per axis (`ocean.ts`). */
+const beyond = new Float64Array(2);
 
 /** The surface at a plan point and time. Writes into `out` when given so
  * a mesh of forty thousand vertices allocates nothing per frame. `count`
@@ -552,12 +670,27 @@ export function surfaceAt(
   out: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 },
   count: number = sea.components.length,
 ): SurfaceSample {
-  const depth = Math.max(-sampleField(level.ground, x, z), S.minDepth);
+  // HOW FAR PAST THE LEVEL this is (`ocean.ts`) — zero for every sample a
+  // course is ridden over, and the one number the storm's sea, its bed and
+  // its wind are all read off.
+  const past = oceanOffset(sea.bounds, x, z, beyond);
+  const storm = past > 0 ? stormRamp(past) : 0;
+  // `bedAt`, inlined: the storm's ramp is already in hand here.
+  const depth = Math.max(oceanDepth(-sampleField(level.ground, x, z), storm), S.minDepth);
   // `seaShares`, inlined: this is called thousands of times a frame by the
   // renderer's water grid and twelve times a step by the hull, and an object
   // returned per call is an allocation on every one of them.
-  const ocean = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
-  const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, x, z));
+  const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
+  const local = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
+  let ocean = exposure;
+  let open = 0;
+  if (storm > 0 && sea.openHs > 0) {
+    const coast = sea.hsRef * exposure;
+    const carried = coast * (1 - storm);
+    const target = coast + Math.max(0, sea.openHs - coast) * storm;
+    ocean = exposure * (1 - storm);
+    open = Math.sqrt(Math.max(0, target * target - carried * carried)) / sea.openHs;
+  }
   // First pass: the shoaled amplitudes each band's share leaves standing
   // here, and the depth limit the SEA they make together has to stay
   // under. The limit is on the significant height — Hs = 4·√m0 over the
@@ -573,18 +706,19 @@ export function surfaceAt(
   // clipped by what the whole sea does or the swell steps at the seam.
   //
   // A band whose share here is nothing is skipped outright rather than
-  // multiplied by zero, and that is most of a level: out at sea the local
-  // band is absent and up a river the ocean band is, so all but the water
-  // round a river mouth pays for ONE band. The threshold is a thousandth
-  // of a quoted sea — under a millimetre of water, which is nothing a
-  // hull or an eye can tell from none.
+  // multiplied by zero, and that is most of every sample: over a course the
+  // open band is absent and so is the local one, up a river the ocean band
+  // is, and out in the storm the coast's is, so almost all water pays for
+  // ONE band of the three. The threshold is a thousandth of a quoted sea —
+  // under a millimetre of water, which is nothing a hull or an eye can tell
+  // from none.
   const comps = sea.components;
   const total = comps.length;
   const n = Math.min(count, total);
   let m0 = 0;
   for (let i = 0; i < total; i++) {
     const c = comps[i];
-    const share = i < sea.oceanCount ? ocean : local;
+    const share = c.band === "ocean" ? ocean : c.band === "local" ? local : open;
     if (share <= 1e-3) {
       held[i * 3 + 1] = 0;
       continue;
@@ -615,8 +749,8 @@ export function surfaceAt(
     // wavelength shortens toward the shore and its crests turn with the
     // depth and round the land; the LOCAL WAVE VECTOR is that field's
     // gradient, and it is what the slope and the orbital motion follow.
-    // The local band is the plane wave — the same thing for a wave that
-    // never feels a bottom — and its wave vector is its heading's.
+    // The local and open bands are plane waves — the same thing for a wave
+    // that never feels a bottom — and their wave vector is their heading's.
     let spatial: number;
     let kx: number;
     let kz: number;
@@ -625,6 +759,20 @@ export function surfaceAt(
       spatial = phaseAt[0];
       kx = phaseAt[1];
       kz = phaseAt[2];
+      // PAST THE RIM the field has run out, and the sampler clamps: its
+      // value stops changing along the axis the sample left the grid by and
+      // its gradient there is zero, which is a wave standing still in the
+      // water. So the rim's own phase is carried on outward at the local
+      // rate along the component's heading — continuous, because the field
+      // was seeded at the rim with exactly that plane wave (the seaward rim
+      // is the one a wave comes IN over under R12), and travelling, because
+      // the wave vector out there is the heading's. The same carry-on
+      // `buildPhaseField` uses to fill the cells no sweep reaches.
+      if (past > 0) {
+        spatial += k * (c.dirX * beyond[0] + c.dirZ * beyond[1]);
+        if (beyond[0] !== 0) kx = k * c.dirX;
+        if (beyond[1] !== 0) kz = k * c.dirZ;
+      }
     } else {
       spatial = c.k0 * (c.dirX * x + c.dirZ * z);
       kx = k * c.dirX;

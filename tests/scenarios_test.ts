@@ -7,7 +7,17 @@
 // loop, and once on a generated level for the shore-relative placements.
 import { describe, expect, it } from "vitest";
 
-import { TUNING, createGame, sampleField, step, type GameEvent, type GameState } from "@engine";
+import {
+  TUNING,
+  createGame,
+  oceanOut,
+  sampleField,
+  seaSummary,
+  step,
+  stormAt,
+  type GameEvent,
+  type GameState,
+} from "@engine";
 
 import {
   SCENARIO_NAMES,
@@ -59,12 +69,25 @@ describe("the scenario list", () => {
       expect(Number.isFinite(s.moment.z)).toBe(true);
       expect(Number.isFinite(s.moment.heading)).toBe(true);
       expect(s.seconds).toBeGreaterThan(0);
+      // ...every scene but `ocean`, which is the one that stands the craft
+      // OUT past the rim on purpose, in the storm the coast shelters it
+      // from (`engine/game/ocean.ts`).
+      if (name === "ocean") continue;
       const b = LEVEL.bounds;
       expect(s.moment.x).toBeGreaterThanOrEqual(b.minX);
       expect(s.moment.x).toBeLessThanOrEqual(b.maxX);
       expect(s.moment.z).toBeGreaterThanOrEqual(b.minZ);
       expect(s.moment.z).toBeLessThanOrEqual(b.maxZ);
     }
+  });
+
+  it("stands `ocean` out in the open sea, in the full storm", () => {
+    const state = fresh();
+    const s = scenarioFor(state, "ocean");
+    const past = oceanOut(LEVEL.bounds, s.moment.x, s.moment.z);
+    expect(past).toBeGreaterThanOrEqual(TUNING.sea.open.reach);
+    expect(stormAt(LEVEL.bounds, s.moment.x, s.moment.z)).toBe(1);
+    expect(seaSummary(state.sea, s.moment.x, s.moment.z).Hs).toBeCloseTo(TUNING.sea.open.hs, 6);
   });
 });
 

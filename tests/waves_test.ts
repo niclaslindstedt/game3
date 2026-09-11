@@ -20,8 +20,10 @@ import {
   heightAt,
   periodForHeight,
   placeRun,
+  bedAt,
   sampleField,
   sampleFieldGradient,
+  stormAt,
   seaShares,
   seaSummary,
   shoaling,
@@ -268,6 +270,10 @@ describe("the surface", () => {
 
 describe("the phase field", () => {
   const grad = new Float64Array(3);
+  /** Where the OCEAN band's components sit in the sorted list — the ones
+   * that carry a phase field at all. */
+  const oceanBand = (sea: ReturnType<typeof createSea>): number[] =>
+    sea.components.flatMap((c, i) => (c.band === "ocean" ? [i] : []));
   /** The length the field carries at a point against the depth's own:
    * |∇φ| / k(d), 1 where the eikonal holds. */
   const lengthRatio = (
@@ -293,7 +299,7 @@ describe("the phase field", () => {
       const sea = createSea(level, seed);
       const g = level.ground;
       for (const gate of level.course.gates) {
-        for (let i = 0; i < sea.oceanCount; i++) {
+        for (const i of oceanBand(sea)) {
           const ratio = lengthRatio(sea, g, i, gate.x, gate.z);
           expect(ratio, `seed ${seed} gate (${gate.x}, ${gate.z}) component ${i}`).toBeGreaterThan(
             0.9,
@@ -312,7 +318,7 @@ describe("the phase field", () => {
           const x = g.originX + c * g.cell;
           const z = g.originZ + r * g.cell;
           if (-sampleField(g, x, z) < 2 || sampleField(sea.shelter.exposure, x, z) < 0.05) continue;
-          for (let i = 0; i < sea.oceanCount; i++) {
+          for (const i of oceanBand(sea)) {
             const ratio = lengthRatio(sea, g, i, x, z);
             samples++;
             if (ratio > 0.8 && ratio < 1.25) held++;
@@ -349,7 +355,7 @@ describe("the phase field", () => {
       return Math.acos(-grad[2] / Math.hypot(grad[1], grad[2]));
     };
     let mostTurned = 0;
-    for (let i = 0; i < sea.oceanCount; i++) {
+    for (const i of oceanBand(sea)) {
       const c = sea.components[i];
       // Out in the flat 40 m the field IS the plane wave: the gradient points
       // the component's own way and has its own length.
@@ -462,6 +468,108 @@ describe("R27 — the river runs", () => {
       const s = surfaceAt(still, level, g.x, g.z, 0);
       expect(Math.hypot(s.vx, s.vz), g.id).toBeLessThan(1e-6);
     }
+  });
+});
+
+describe("the open ocean past the rim", () => {
+  // A deep synthetic coast: the shore at z = 0, the water running out to
+  // the level's own edge at z = `seaward`, and past that the open ocean
+  // (`ocean.ts`). Everything here is measured along +z, so how far past the
+  // rim a point is is just `z − seaward`.
+  const SEAWARD = 400;
+  const level = syntheticLevel({ windSpeed: 10, depth: 40, seaward: SEAWARD });
+  const sea = createSea(level, 5);
+  const O = TUNING.sea.open;
+  const out = (past: number): number => SEAWARD + past;
+
+  it("builds the whole way out and stops at the storm", () => {
+    let last = 0;
+    for (let past = 0; past <= O.reach * 1.5; past += O.reach / 25) {
+      const { Hs } = seaSummary(sea, 400, out(past));
+      // Never a dip: the handover from the coast's spectrum to the storm's
+      // has to carry the height across, not cross through a calm belt.
+      expect(Hs, `${past} m past the rim`).toBeGreaterThanOrEqual(last - 1e-9);
+      last = Hs;
+    }
+    expect(seaSummary(sea, 400, out(0)).Hs).toBeCloseTo(sea.hsRef, 6);
+    expect(seaSummary(sea, 400, out(O.reach)).Hs).toBeCloseTo(O.hs, 6);
+    // ...and a ceiling past it, however far a rider holds the throttle open.
+    expect(seaSummary(sea, 400, out(O.reach * 40)).Hs).toBeCloseTo(O.hs, 6);
+  });
+
+  it("keeps the bed ahead of the sea, so nothing clips the storm", () => {
+    for (let past = 0; past <= O.reach; past += O.reach / 20) {
+      const z = out(past);
+      const depth = -bedAt(level, 400, z);
+      const { Hs } = seaSummary(sea, 400, z);
+      expect(Hs, `${past} m past the rim`).toBeLessThan(TUNING.sea.breakingHs * depth);
+    }
+    expect(-bedAt(level, 400, out(O.reach))).toBeCloseTo(O.depth, 6);
+  });
+
+  it("leaves the level's own water exactly as it was", () => {
+    // Inside the bounds the storm's ramp is 0, so the open band is skipped
+    // and every share is the one the coast always had.
+    for (let z = 20; z <= SEAWARD; z += 20) {
+      expect(stormAt(level.bounds, 400, z), `${z} m out`).toBe(0);
+      expect(seaShares(sea, 400, z).open, `${z} m out`).toBe(0);
+    }
+  });
+
+  it("carries the waves on travelling past the rim instead of freezing them", () => {
+    // The bug this holds shut: the phase field is a grid, its sampler
+    // clamps, and a clamped gradient is a wave vector of nothing — the sea
+    // outside the level heaving in one place with no crest going anywhere.
+    // Two points a fraction of a wavelength apart along the outward axis
+    // must not read the same surface, and the crest must move with t.
+    const z = out(O.reach * 0.3);
+    const a = heightAt(sea, level, 400, z, 0);
+    const b = heightAt(sea, level, 400, z + 12, 0);
+    expect(Math.abs(a - b)).toBeGreaterThan(0.05);
+    const later = heightAt(sea, level, 400, z, 1.7);
+    expect(Math.abs(a - later)).toBeGreaterThan(0.05);
+  });
+
+  it("meets the level's own sea at the rim without a step in it", () => {
+    // The open band is 0 at the rim and the ocean band's phase is carried
+    // on outward from the plane wave the field was seeded with there, so
+    // crossing the rim is not an event. Measured as a WALK across it: the
+    // one step that straddles the rim must be no bigger than the biggest
+    // the same sea takes anywhere else along the line. An absolute
+    // tolerance would say nothing — the shortest components here are two
+    // metres long, so the surface moves its own amplitude in a step.
+    const STEP = 0.25;
+    for (const t of [0, 3.5, 11]) {
+      let rimStep = 0;
+      let worstElsewhere = 0;
+      for (let z = SEAWARD - 20; z < SEAWARD + 20; z += STEP) {
+        const jump = Math.abs(
+          heightAt(sea, level, 400, z + STEP, t) - heightAt(sea, level, 400, z, t),
+        );
+        if (z <= SEAWARD && z + STEP > SEAWARD) rimStep = jump;
+        else worstElsewhere = Math.max(worstElsewhere, jump);
+      }
+      expect(rimStep, `t ${t}`).toBeLessThanOrEqual(worstElsewhere);
+    }
+  });
+
+  it("is finite and level everywhere out there", () => {
+    const cap = O.hs * 4;
+    for (let i = 0; i < 500; i++) {
+      const x = 100 + (i % 25) * 30;
+      const z = out((O.reach * 1.5 * Math.floor(i / 25)) / 20);
+      const s = surfaceAt(sea, level, x, z, i * 0.37);
+      for (const v of Object.values(s)) expect(Number.isFinite(v)).toBe(true);
+      expect(Math.abs(s.height), `(${x}, ${z})`).toBeLessThan(cap);
+      expect(s.ny).toBeGreaterThan(0.3);
+    }
+  });
+
+  it("has no storm out at sea on a level with no wind", () => {
+    const calm = createSea(syntheticLevel({ windSpeed: 0, depth: 40, seaward: SEAWARD }), 5);
+    expect(calm.openHs).toBe(0);
+    expect(seaSummary(calm, 400, out(O.reach * 2)).Hs).toBe(0);
+    expect(heightAt(calm, level, 400, out(O.reach * 2), 4)).toBe(0);
   });
 });
 
