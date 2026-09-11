@@ -698,6 +698,15 @@ describe("the key bindings", () => {
     expect(DEFAULT_KEYS.leanBack).not.toContain("KeyS");
   });
 
+  it("keeps R for the press a rider makes mid-run, and the shutter on ENTER", () => {
+    // R is the one of the two reached for with the craft upside down in the
+    // surf; standing the whole run back up is the rarer press and gets a key
+    // of its own beside it. Neither is on Enter, which is the shutter.
+    expect(DEFAULT_KEYS.reset).toEqual(["KeyR"]);
+    expect(DEFAULT_KEYS.restart).toEqual(["KeyB"]);
+    expect(DEFAULT_KEYS.shot).toEqual(["Enter"]);
+  });
+
   it("ships no key on two actions at once", () => {
     for (const action of ACTIONS) expect(clashesWith(DEFAULT_KEYS, action)).toEqual([]);
   });
