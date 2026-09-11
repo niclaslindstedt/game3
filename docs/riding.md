@@ -55,9 +55,11 @@ A personal watercraft has no propeller, no rudder and no gears: an axial-flow pu
 
 `staticThrust` is the pull at the dock at redline; `jetCeiling` (in `limits.ts`) is the jet's own speed at redline, which nothing pushes the hull past. The catalog test holds every pump matched to its engine at the limiter (pump torque 0.85–1.05 × engine torque) and its static pull to 0.6–1.6 × the weight — a jet ski, not a tug.
 
-## The speed class (`TUNING.pump.speedClass`)
+## The speed class (`craftAtClass`, `CLASS_BAND`)
 
-**One knob makes every craft on the roster faster or slower together**, the way a kart game's engine classes do — and it is the knob the open ocean's biggest wave is sized off ([water.md](water.md): the ceiling is quadratic in the top speed).
+**One knob makes every craft on the roster faster or slower together** — a race class, the way the sport's own ladder runs — and it is the knob the open ocean's biggest wave is sized off ([water.md](water.md): the ceiling is quadratic in the top speed) AND the knob the course is drawn to (R32 in [level-generator.md](level-generator.md)).
+
+The rider picks it on the craft card, as **CLASS**: `CLASS_BAND` is the four rungs a build offers — NOVICE 0.75, STOCK 1, LIMITED 1.25, OPEN 1.5 — and `settings.ride.speedClass` remembers it. `TUNING.pump.speedClass` is only the DEFAULT a caller gets when it passes none.
 
 It is quoted in what it BUYS: 1.4 means every hull runs 1.4× the speed the catalog quotes it at. Underneath it is a taller impeller and the engine to swing it — the pitch goes as `speedClass^(1/classGain)` and the engine's torque as the cube of that pitch, because the pump's load torque goes as pitch³ at a given shaft speed and an engine that did not grow with it would simply bog. (Measured without that cube, a class of 2 left the roster's fastest craft SLOWER than class 1.) `classGain` = 1.2 is why the pitch is the smaller number: a planing hull lifts as it speeds up, so its wetted area shrinks, its drag grows slower than v², and a pitch that doubles the jet buys more than double the speed. Measured top speed, km/h, flat out on the calm strip:
 
@@ -70,9 +72,11 @@ It is quoted in what it BUYS: 1.4 means every hull runs 1.4× the speed the cata
 
 At 1 every craft reproduces its catalog `topSpeed` exactly, and what the class promises tracks what it delivers to within 2–4 % over 1–2. Past 2 the hull is unstable at the speeds it reaches and the top falls again, so 0.75–2 is the usable ladder.
 
-`topSpeedOf` is the ONE place the class is applied (`accel0to50Of` beside it, which falls as the square of it), so the bot, the HUD's dial and the physics never disagree; `classPitch` and `classTorque` in `limits.ts` are the two factors the pump reads. The catalog's `topSpeed`, `accel0to50`, `powerKw` and torque curve all stay the hull's own numbers AT CLASS 1 — what separates the four must not move when a class does — and `tests/craft_test.ts` holds the physics to them times the class, at whatever class is set.
+**`craftAtClass(spec, class)` in `engine/game/defs/craft.ts` is the ONE place the class is applied**, and it applies it by returning a SPEC: a taller impeller, the engine grown to swing it, and the `topSpeed`, `powerKw` and `accel0to50` the result actually has. Everything downstream — `topSpeedOf`, `jetCeiling`, the pump, the bot, the HUD's dial, the craft card's spec sheet — reads that spec and knows nothing about a class, which is what makes it impossible for two of them to disagree. `createGame` calls it once, from `options.speedClass`. The CATALOG's numbers stay the hull's own AT CLASS 1 — what separates the four must not move when a class does — and `tests/craft_test.ts` holds the physics to them times the class.
 
-**It ships at 1, and the reason is the courses.** A level's gates are spaced in METRES (`mapgen/rules.ts` reads no speed at all), so a class does not stretch the course it is ridden on — it only gives the rider less time between gates. Measured at 1.5 over the sim's corpus: every craft still finishes, but the missed-gate count goes from 5 to 32 on the dart and 24 to 37 on the skiff, the dives roughly double, and the PACE falls (the marlin's 39.6 km/h to 35.6) because a hull that overshoots a gate has to come back for it; `tests/simulation_test.ts` fails outright there. Raising this is therefore a two-part change: the class, and a course whose spacing is a function of the same top speed the ocean's ceiling already reads.
+**And the course is drawn to it.** A level's gates are spaced in METRES, so a class ridden on a stock course does not stretch the race — it only gives the rider less time between gates, and measured over four seeds and the whole roster at 1.5 the gates taken fell from 139 to 110 while the gates MISSED rose from 101 to 130, because a hull that overshoots a gate has to come back for it. R32 is the answer: `generateLevel` takes the class as its `pace` and `rulesAtPace` stretches every rule number that is really a time, so a race lasts the same time at any class. With the course paced to match, the same measurement reads **140 taken, 104 missed** — stock's own race, ridden faster over more ground. A level carries the class it was drawn to as `Level.pace`.
+
+`make level` and `make analyze` both take `PACE=` so a class can be inspected on its own terms; `make level SEED=7 PACE=1.5` quotes the stretched run-up and the classed hulls' launch speeds in its table.
 
 ## Steering, and the off-throttle characteristic
 
@@ -113,7 +117,14 @@ Three properties are the whole design, and `tests/assist_test.ts` holds each:
 
 **A chop hop is not a jump.** The assist also waits for a real flight — `airTime` past `flight.minAir`, the same line the launch event is read against. At speed in a head sea the hull is clear of the water a fifth of the steps in skips of a few hundredths each, and every one of those is inside the window and hard up against it, so without that gate the assist is a pitch damper permanently fitted to the ride. It costs the bench nothing (real flights are seconds long) and it is what keeps the drumroll: `make ride SCENARIO=chop` holds a pitch range of −10°…18° against the bare physics' −14°…33°, which is the 33° wheelie going and the rhythm staying. `launch`, `apex`, `landing`, `dive` and `backflip` all come back byte-identical to `--assist 0` at the shipped setting.
 
-**It is a dial.** `GameState.assist` (0..1) is what a run is ridden with, `createGame({ assist })` sets it, `--assist` on `make ride` and `make sim` is how a before-and-after is taken, and `TUNING.assist.strength` is the default when nothing says. The ladder, over the flight bench (3360 staged launches, four craft, the rider's hands still — the share that end in a dive, a capsize or on the hull's side):
+**It is TWO dials.** `GameState.assist` (0..1) is how hard the hand pulls and `GameState.assistWindow` (s) is how long before the water it arrives; `createGame({ assist, assistWindow })` sets them, `--assist` on `make ride` and `make sim` is how a before-and-after of the strength is taken, and `TUNING.assist.strength` / `.window` are the defaults when nothing says. The window is the one that decides whether a flight is a DECISION — the whole hang above it is the rider's alone — so a difficulty setting that wants a lighter hand shortens it as well as softening it, and `TUNING.assist.band` is the ladder of the two together:
+
+| rung       | `none` | `light` | `half`     | `full` |
+| ---------- | ------ | ------- | ---------- | ------ |
+| `strength` | 0      | 0.25    | **0.5**    | 1      |
+| `window`   | 0 s    | 0.5 s   | **0.75 s** | 1.1 s  |
+
+Every rung is written down rather than computed, so the ladder can be re-measured rung by rung when the difficulty setting that reads it lands. The ladder, over the flight bench (3360 staged launches, four craft, the rider's hands still — the share that end in a dive, a capsize or on the hull's side):
 
 | `assist`     | 0     | 0.25  | 0.5      | 0.75 | 1    |
 | ------------ | ----- | ----- | -------- | ---- | ---- |

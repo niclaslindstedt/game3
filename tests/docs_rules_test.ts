@@ -7,11 +7,12 @@
 // test instead: every R-rule in the code is in the doc, every R-rule in the
 // doc is in the code, and the words are the same words.
 //
-// The rule book is TWO CHAPTERS — `rules.ts` for a coast sprint, and
+// The rule book is THREE CHAPTERS — `rules.ts` for a coast sprint,
 // `rules-circuit.ts` for the ocean circuit that replaces half of it (R29 to
-// R31) — and they are read here as one file in one order, because that is
-// what they are: one rule book, split only because the first chapter is at
-// the 1000-line cap.
+// R31), and `pace.ts` for what any of them becomes at a speed class (R32) —
+// and they are read here as one file in one order, because that is what
+// they are: one rule book, split only because the first chapter is at the
+// 1000-line cap.
 //
 // The ids are read off the code, never listed here — a new rule lands in a
 // chapter and this file asks for its mirror without being edited.
@@ -21,7 +22,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
-const CHAPTERS = ["rules.ts", "rules-circuit.ts"];
+const CHAPTERS = ["rules.ts", "rules-circuit.ts", "pace.ts"];
 const rules = CHAPTERS.map((f) => readFileSync(join(ROOT, "engine", "mapgen", f), "utf8")).join(
   "\n",
 );

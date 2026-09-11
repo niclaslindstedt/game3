@@ -61,7 +61,7 @@
 import { approach, clamp } from "../lib/math.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
-import { classTorque, classPitch, maxNozzle, maxRpm, maxTrim } from "./limits.ts";
+import { maxNozzle, maxRpm, maxTrim } from "./limits.ts";
 
 const PUMP = TUNING.pump;
 const RPM_TO_RAD = (2 * Math.PI) / 60;
@@ -72,40 +72,32 @@ export function nozzleArea(spec: CraftSpec): number {
 }
 
 /** Jet velocity at the nozzle, m/s, for an engine speed — the impeller's
- * effective pitch times its speed, under the speed class. */
+ * effective pitch times its speed. The SPEED CLASS is a taller pitch and is
+ * already in the spec (`craftAtClass`), so nothing here reads it. */
 export function jetVelocity(spec: CraftSpec, rpm: number): number {
-  return (spec.impellerPitch * classPitch() * rpm) / 60;
+  return (spec.impellerPitch * rpm) / 60;
 }
 
 /** The engine's torque at `rpm`, N·m, from the spec's curve, read linearly
  * between the points and held flat past the last. */
 export function curveTorque(spec: CraftSpec, rpm: number): number {
   const pts = spec.torque;
-  // THE SPEED CLASS's other half (`pump.speedClass`): the engine that
-  // carries the taller impeller. The pump's load torque goes as pitch³ at a
-  // given shaft speed, so an engine scaled by the same cube holds the same
-  // rpm against it — and the jet, and so the hull, come out faster by the
-  // class rather than bogging to a standstill. Measured without it, a class
-  // of 2 left the roster's fastest craft SLOWER than class 1.
-  const k = classTorque();
-  if (rpm <= pts[0][0]) return pts[0][1] * k;
+  if (rpm <= pts[0][0]) return pts[0][1];
   for (let i = 1; i < pts.length; i++) {
     const [r1, t1] = pts[i];
     if (rpm <= r1) {
       const [r0, t0] = pts[i - 1];
-      return (t0 + ((t1 - t0) * (rpm - r0)) / (r1 - r0)) * k;
+      return t0 + ((t1 - t0) * (rpm - r0)) / (r1 - r0);
     }
   }
-  return pts[pts.length - 1][1] * k;
+  return pts[pts.length - 1][1];
 }
 
 /** Peak torque on the curve, N·m — what the friction is quoted against. */
 export function peakTorque(spec: CraftSpec): number {
   let peak = 0;
   for (const [, t] of spec.torque) if (t > peak) peak = t;
-  // Under the class, like every other torque here — the friction this is
-  // quoted against grows with the engine that has to overcome it.
-  return peak * classTorque();
+  return peak;
 }
 
 /** What the blower is worth at `rpm`, as a multiple of the engine's own

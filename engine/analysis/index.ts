@@ -41,6 +41,7 @@ import {
   walkPolyline,
 } from "../mapgen/course.ts";
 import { LEVEL_RULES as R, solidBerth, withinBand } from "../mapgen/rules.ts";
+import { rulesAtPace } from "../mapgen/pace.ts";
 import { insideBounds } from "../mapgen/compile.ts";
 import type { Level, Pod, Vec2, Weather } from "../mapgen/types.ts";
 import { analyzeAirGate, analyzeRunUp } from "./air.ts";
@@ -111,6 +112,12 @@ export type LevelAnalysis = {
 /** Re-check a finished level against every rule in the rule book. */
 export function analyzeLevel(level: Level): LevelAnalysis {
   const started = Date.now();
+  // R32 — score it against the rule book AT THE PACE IT WAS BUILT TO, not
+  // the catalog's own. A level drawn for a faster class has its gates
+  // further apart on purpose, and an analyzer reading the unpaced table
+  // would call every one of them a fault — and the generator REJECTS on
+  // this verdict, so it would simply never terminate.
+  const R = rulesAtPace(level.pace);
   const rep = createReport();
   const path = level.course.path;
   const gates = level.course.gates;
@@ -392,7 +399,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   for (let i = 0; i < gates.length; i++) {
     if (gates[i].kind === "air") analyzeAirGate(level, gates[i], gateD[i], path, cum, depthAt, rep);
   }
-  analyzeRunUp(rep);
+  analyzeRunUp(rep, level.pace);
   for (const gate of gates) {
     if (gate.kind === "water" && gate.ramp)
       rep.fail("R8", "stray", `${gate.id} is a water gate with a ramp`);

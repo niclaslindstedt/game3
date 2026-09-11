@@ -321,6 +321,9 @@ export function App() {
       return createGame({
         seed: s.ride.seed ?? DEFAULT_SEED,
         craft: s.ride.craft,
+        // R32 — the CLASS: the hull is derived at it and the COURSE is paced
+        // for it, so the same seed in two classes is two different races.
+        speedClass: s.ride.speedClass,
         track: params.track,
         // The developer's own rows win where they are set: they are the
         // exact figure, and the card's is a word standing for one.

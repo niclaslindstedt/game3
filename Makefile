@@ -90,7 +90,7 @@ sim:
 # claim about "the second air gate on seed 38" is a claim about a row here.
 # `make level SEED=38` · `make level SEED=38 ARGS=--json`
 level:
-	npm run level -- $(if $(SEED),--seed $(SEED),) $(if $(TRACK),--track $(TRACK),) $(ARGS)
+	npm run level -- $(if $(SEED),--seed $(SEED),) $(if $(TRACK),--track $(TRACK),) $(if $(PACE),--pace $(PACE),) $(ARGS)
 
 # SCORE generated levels instead of looking at them: every gate within a
 # hundred metres of shore, the depth along the path, the solids clear of it,
@@ -100,7 +100,7 @@ level:
 # error finding.
 # `make analyze SEED=7` · `make analyze COUNT=24`
 analyze:
-	npm run analyze -- $(if $(SEED),--seed $(SEED),) $(if $(COUNT),--count $(COUNT),) $(if $(TRACK),--track $(TRACK),) $(ARGS)
+	npm run analyze -- $(if $(SEED),--seed $(SEED),) $(if $(COUNT),--count $(COUNT),) $(if $(TRACK),--track $(TRACK),) $(if $(PACE),--pace $(PACE),) $(ARGS)
 
 # THE WAVES LAB — the water on its own, with nothing riding it: a transect
 # from the shore out to sea at several moments, the significant height

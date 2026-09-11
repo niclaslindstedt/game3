@@ -29,7 +29,7 @@
 // a run stood up from a `?craft=` link are the same run read the same way.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import { craftById, type CraftId } from "@engine";
+import { CLASS_BAND, craftAtClass, craftById, type CraftId } from "@engine";
 
 import { COUNT_SECONDS, countAt } from "../lib/count.ts";
 import { CraftPicker } from "./craft-picker.tsx";
@@ -90,8 +90,13 @@ function Figure({ fact }: { fact: CraftFact }) {
  * with zero, because four craft within a few percent of each other on an
  * absolute scale are four identical full bars, which is a picture of
  * nothing. */
-function CraftReadings({ craft }: { craft: CraftId }) {
-  const spec = craftById(craft);
+function CraftReadings({ craft, speedClass }: { craft: CraftId; speedClass: number }) {
+  // The readings are the craft AS IT WILL BE RIDDEN: the class is a taller
+  // impeller and the engine to swing it, so the top speed, the power and
+  // the 0–50 on this sheet all move with the row above them. A sheet that
+  // quoted the catalog while the row said OPEN would be the card telling a
+  // rider one thing and the water another.
+  const spec = craftAtClass(craftById(craft), speedClass);
   return (
     <div class="craft-spec">
       <div class="craft-figures">
@@ -128,6 +133,7 @@ export function CraftPage({
 }) {
   const craft = settings.ride.craft;
   const spec = craftById(craft);
+  const speedClass = settings.ride.speedClass;
   return (
     <div class="menu-card menu-card-craft">
       <MenuHead back={onBack} backLabel={STRINGS.startTitle} title={STRINGS.craftTitle} />
@@ -152,7 +158,26 @@ export function CraftPage({
               is not using. */}
           <p class="craft-blurb">{spec.blurb}</p>
         </div>
-        <CraftReadings craft={craft} />
+        <CraftReadings craft={craft} speedClass={settings.ride.speedClass} />
+      </div>
+      {/* THE CLASS — the one row on this card, under the hull it applies
+          to. It moves the whole roster together rather than this craft
+          alone, and it PACES THE COURSE with it, so the rungs are a
+          different race and not only a faster ski. */}
+      <div class="craft-class" role="radiogroup" aria-label={STRINGS.classRow}>
+        <span class="craft-class-label">{STRINGS.classRow}</span>
+        {CLASS_BAND.map((k) => (
+          <button
+            key={k}
+            type="button"
+            role="radio"
+            aria-checked={k === speedClass}
+            class={`craft-class-chip${k === speedClass ? " is-on" : ""}`}
+            onClick={() => onSettings({ ...settings, ride: { ...settings.ride, speedClass: k } })}
+          >
+            {STRINGS.className(String(k))}
+          </button>
+        ))}
       </div>
       {/* The press that rides, wearing the front door's own START weight and
           marked as this surface's `next` — so a controller that walked in

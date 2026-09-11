@@ -36,6 +36,8 @@ export {
 export {
   CRAFT,
   CRAFT_IDS,
+  CLASS_BAND,
+  craftAtClass,
   craftById,
   isCraftId,
   type CraftArchetype,
@@ -159,9 +161,6 @@ export {
   maxReverse,
   maxRpm,
   maxTrim,
-  accel0to50Of,
-  classPitch,
-  classTorque,
   topSpeedOf,
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).

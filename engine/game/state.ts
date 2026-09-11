@@ -193,6 +193,12 @@ export type GameState = {
    * never written during a run and draws no randomness, so a run replays
    * identically at any setting. */
   assist: number;
+  /** ...and HOW LATE that hand arrives, s before the water. The second
+   * dial, because it is a different thing from the first: the strength
+   * scales the correction, this decides how much of the flight is the
+   * rider's at all. A hard difficulty shortens this rather than only
+   * softening the spring (`TUNING.assist.band`). */
+  assistWindow: number;
   phase: GamePhase;
   /** This step's events, cleared at the top of each step. */
   events: GameEvent[];

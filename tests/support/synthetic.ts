@@ -37,10 +37,10 @@ export type SyntheticOptions = {
   /** Extra plan reach to seaward, m (default 400). */
   seaward?: number;
   /** How long the level runs ALONG the shore, m (default 880, from x = −60).
-   * The drag strip lengthens it: a craft under a high `pump.speedClass`
-   * covers more than a kilometre in the seconds it takes to reach its top
-   * speed, and a strip it runs off the end of puts it out past the rim in
-   * the open ocean's storm, where it is no longer measuring its own hull. */
+   * The drag strip lengthens it: a craft at a high SPEED CLASS covers more
+   * than a kilometre in the seconds it takes to reach its top speed, and a
+   * strip it runs off the end of puts it out past the rim in the open
+   * ocean's storm, where it is no longer measuring its own hull. */
   plan?: number;
   /** The bed's depth out at sea, m (default 8) — deepen it for a sea the
    * shallows would break. */
@@ -139,6 +139,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // A coast: a straight shore with a row of gates along it is the sprint
     // chapter of the rule book (R24), not R29's lap out at sea.
     track: "coast",
+    pace: 1,
     bounds,
     ground,
     offshore,
@@ -173,16 +174,16 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
   };
 }
 
-/** Pin the SPEED CLASS (`TUNING.pump.speedClass`) for a suite, and put it
- * back afterwards.
+/** Pin the SPEED CLASS a suite's runs default to, and put it back afterwards.
  *
  * Some fixtures ride at a THROTTLE rather than to a speed — the camera rod's
  * landing, the rider's springs, a hull righting itself with the throttle
  * held open — and a class that makes the same throttle mean half as much
  * speed again moves what they measure without saying anything about their
- * subject. Those suites pin the class they were written at; anything whose
- * subject IS the roster's pace (`craft_test.ts`) reads the live class
- * through `topSpeedOf` and friends instead. */
+ * subject. Those suites pin the class they were written at. It is
+ * `TUNING.pump.speedClass` that is pinned, which is the DEFAULT `createGame`
+ * falls back to when a caller passes no class of its own; a suite whose
+ * subject IS the roster's pace passes one explicitly instead. */
 export function pinSpeedClass(k: number): void {
   const was = TUNING.pump.speedClass;
   beforeAll(() => {

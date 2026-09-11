@@ -820,6 +820,27 @@ export const TUNING = {
      * second, and what he gets then reads as a catch. */
     right: 120,
     damp: 22,
+    /** THE LADDER a difficulty setting picks from: how hard the hand
+     * catches and how late it arrives, hardest first. Two dials rather
+     * than one because they are two different things — `strength` scales
+     * the correction, `window` decides how much of the flight is the
+     * rider's — and over the flight bench a soft hand reaching far out
+     * saves the same landings as a firm one arriving late while owning
+     * most of the hang. A hard rung therefore shortens the WINDOW, which
+     * hands the flight back, rather than only softening the spring.
+     *
+     * The bad-landing rate each rung leaves, measured over the flight
+     * bench (3360 staged launches, four craft, the rider's hands still):
+     * 68.3 % at `none`, 13.9 % at a quarter, 7.7 % at `half` and 5.0 %
+     * at `full`. `half` is what a run is dealt when nothing says
+     * (`strength` above), and every rung is stated here rather than
+     * computed so the ladder can be re-measured rung by rung. */
+    band: [
+      { id: "none", strength: 0, window: 0 },
+      { id: "light", strength: 0.25, window: 0.5 },
+      { id: "half", strength: 0.5, window: 0.75 },
+      { id: "full", strength: 1, window: 1.1 },
+    ],
   },
 
   /** CONTACTS with what is not water (`collision.ts`). */

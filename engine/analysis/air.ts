@@ -20,7 +20,8 @@ import { TUNING } from "../game/defs/tuning.ts";
 import { topSpeedOf } from "../game/limits.ts";
 import { launchSpeedFor } from "../sim/bot.ts";
 import { airCorridor, distanceAlong, ringPlacement, segmentDistance } from "../mapgen/course.ts";
-import { LEVEL_RULES as R, withinBand } from "../mapgen/rules.ts";
+import { withinBand } from "../mapgen/rules.ts";
+import { rulesAtPace } from "../mapgen/pace.ts";
 import type { Gate, Level, Vec2 } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import { bandText, fmt, type Report } from "./report.ts";
@@ -34,6 +35,9 @@ export function analyzeAirGate(
   depthAt: (x: number, z: number) => number,
   rep: Report,
 ): void {
+  // R32 — the rule book at the pace this level was drawn to, shadowing the
+  // module's own: its ramp lead and run-up were stretched by the class.
+  const R = rulesAtPace(level.pace);
   if (!withinBand(gate.y, R.air.height)) {
     rep.fail(
       "R7",
@@ -144,7 +148,7 @@ export function analyzeAirGate(
   // can possibly have begun. On a lapped course the same run-up is ridden
   // once a lap, and a search of the whole path finds the first lap's copy
   // of it for every one of them, which reads as a window that bends.
-  const c = airCorridor(gate);
+  const c = airCorridor(gate, level.pace);
   const earliest = Math.max(0, at - R.ramp.lead.max - R.ramp.runUp - A.distance);
   const from = distanceAlong(path, cum, c.x0, c.z0, earliest);
   const to = distanceAlong(path, cum, c.x1, c.z1, from);
@@ -204,10 +208,14 @@ export function analyzeAirGate(
  * ramp of speed. Nothing about a level is in this; it holds the rule
  * book to the catalog, and it is here so that a catalog change that
  * makes a ring unreachable fails the generator rather than the player. */
-export function analyzeRunUp(rep: Report): void {
+export function analyzeRunUp(rep: Report, pace = 1): void {
+  const R = rulesAtPace(pace);
   const v = R.air.lipSpeed.max;
   for (const spec of CRAFT) {
-    const t = spec.accel0to50 * (v / (50 / 3.6));
+    // The catalog is quoted at class 1 and a class scales the thrust, not
+    // the mass, so the time to a fixed speed falls as the square of it
+    // (`craftAtClass`) — while the run-up above grew by the class itself.
+    const t = (spec.accel0to50 / (pace * pace)) * (v / (50 / 3.6));
     const dist = 0.5 * v * t;
     if (dist > R.ramp.runUp) {
       rep.fail(

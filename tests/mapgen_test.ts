@@ -14,6 +14,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   ANALYSIS,
+  CLASS_BAND,
   CRAFT,
   LEVEL_RULES as R,
   angleDiff,
@@ -24,6 +25,7 @@ import {
   DECLINATION,
   SEASONS,
   daylightWindow,
+  analyzeLevel,
   gateBuoys,
   generateLevel,
   insideBounds,
@@ -35,6 +37,7 @@ import {
   segmentDistance,
   solidBerth,
   solidRule,
+  rulesAtPace,
   sunAt,
   walkPolyline,
   withinBand,
@@ -736,5 +739,108 @@ describe("level generator", () => {
     }
     expect(total / seeds.length).toBeLessThan(1500);
     expect(worst).toBeLessThan(4000);
+  });
+});
+
+describe("R32 — the rule book at a speed class", () => {
+  // The corpus here is deliberately NOT `support/levels.ts`'s: every level
+  // it hands out is drawn at the stock class, and every bug this block
+  // exists to catch is one that can only appear off it. Two seeds a class
+  // is enough — what is being held is the rule book's arithmetic, which
+  // does not vary by seed, and the generator's ability to satisfy it.
+  const PACED_SEEDS = [11, 97 + 5];
+
+  it("hands the stock class the stock book, by identity", () => {
+    // Not merely equal: `rulesAtPace(1)` returns LEVEL_RULES itself, which
+    // is what makes the whole feature free on every level anyone has ever
+    // ridden. A copy here would be a silent re-roll of every seed.
+    expect(rulesAtPace(1)).toBe(R);
+    expect(rulesAtPace(0)).toBe(rulesAtPace(0.1));
+  });
+
+  it("stretches the line-along numbers and leaves the shore's alone", () => {
+    const k = 1.5;
+    const P = rulesAtPace(k);
+    // What the craft covers between one event and the next.
+    expect(P.gate.spacing.min).toBeCloseTo(R.gate.spacing.min * k);
+    expect(P.gate.spacing.max).toBeCloseTo(R.gate.spacing.max * k);
+    expect(P.course.length.min).toBeCloseTo(R.course.length.min * k);
+    expect(P.ramp.runUp).toBeCloseTo(R.ramp.runUp * k);
+    expect(P.air.landing).toBeCloseTo(R.air.landing * k);
+    expect(P.leg.at.min).toBeCloseTo(R.leg.at.min * k);
+    expect(P.leg.after).toBeCloseTo(R.leg.after * k);
+    // …and the corner, which is v²/a and so goes as the SQUARE.
+    expect(P.course.radius).toBeCloseTo(R.course.radius * k * k);
+    // The coast is a coast whatever is ridden along it.
+    expect(P.course.offshore).toEqual(R.course.offshore);
+    expect(P.route.corridor).toEqual(R.route.corridor);
+    expect(P.land.reach).toBe(R.land.reach);
+    // …and so is the hull that rides it.
+    expect(P.gate.width).toEqual(R.gate.width);
+    expect(P.air.width).toEqual(R.air.width);
+    expect(P.course.solidMargin).toBe(R.course.solidMargin);
+  });
+
+  it("builds a clean level at every class a build offers", () => {
+    // The whole loop, off stock: this is what catches a rule the stretch
+    // MISSED. A number left at its stock value while the line it measures
+    // grows is not a compile error and not a wrong-looking level — it is a
+    // window the generator cuts to one length and a reader measures at
+    // another, and the search then rejects every candidate until it gives
+    // up. Both bugs R32 shipped with were exactly that shape: R25's splice
+    // window (79 rejections a level at class 1.5) and `airCorridor`, which
+    // read the stock book and so reached past both ends of the window
+    // `layAir` had straightened on any level below stock.
+    for (const pace of CLASS_BAND) {
+      for (const seed of PACED_SEEDS) {
+        const level = generateLevel(seed, { pace });
+        expect(level.pace).toBe(pace);
+        const a = analyzeLevel(level);
+        expect(
+          a.findings.filter((f) => f.severity === "error").map((f) => `${f.code}: ${f.message}`),
+        ).toEqual([]);
+        expect(a.ok).toBe(true);
+      }
+    }
+  });
+
+  it("draws a longer course for a faster class", () => {
+    // The feature's own promise, and the reason any of the above is worth
+    // holding: a class that rides half again as fast is given half again
+    // as much course, so the race lasts the same TIME.
+    const seed = PACED_SEEDS[0];
+    let last = 0;
+    for (const pace of [...CLASS_BAND].sort((a, b) => a - b)) {
+      const level = generateLevel(seed, { pace });
+      const P = rulesAtPace(pace);
+      expect(level.course.length).toBeGreaterThan(last);
+      expect(level.course.length).toBeGreaterThanOrEqual(P.course.length.min);
+      expect(level.course.length).toBeLessThanOrEqual(P.course.length.max);
+      last = level.course.length;
+    }
+  });
+
+  it("gives an air gate the corridor its own class was cut for", () => {
+    // `airCorridor` is read by R9's straightness check and by the placer's
+    // keep-out, and neither carries a level — so the pace has to be handed
+    // to it, and a caller that forgets measures a corridor the generator
+    // never promised.
+    const level = generateLevel(PACED_SEEDS[0], { pace: 1.5 });
+    const air = level.course.gates.filter((g) => g.kind === "air");
+    expect(air.length).toBeGreaterThan(0);
+    for (const gate of air) {
+      const paced = airCorridor(gate, level.pace);
+      const stock = airCorridor(gate);
+      const span = (c: ReturnType<typeof airCorridor>) => Math.hypot(c.x1 - c.x0, c.z1 - c.z0);
+      // Both ENDS moved by the class, and by exactly the stretch in the two
+      // rules that place them — asserted as a difference rather than as a
+      // span, because the span also carries the ramp's own geometry and
+      // restating that here would only be the implementation twice.
+      const P = rulesAtPace(level.pace);
+      expect(span(paced) - span(stock)).toBeCloseTo(
+        P.ramp.runUp - R.ramp.runUp + (P.air.landing - R.air.landing),
+        0,
+      );
+    }
   });
 });

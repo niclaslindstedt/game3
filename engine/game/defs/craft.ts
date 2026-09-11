@@ -87,6 +87,8 @@ export type CraftId = "skiff" | "marlin" | "otter" | "dart";
  * that moves a craft off its archetype is a knob that needs an argument. */
 export type CraftArchetype = "runabout" | "musclecraft" | "tourer" | "stand-up";
 
+import { TUNING } from "./tuning.ts";
+
 export type CraftSpec = {
   id: CraftId;
   name: string;
@@ -440,6 +442,52 @@ export const CRAFT: readonly CraftSpec[] = [
 ];
 
 export const CRAFT_IDS: readonly CraftId[] = CRAFT.map((c) => c.id);
+
+/** THE SPEED CLASS this spec is ridden at — the kart-game class, quoted in
+ * what it BUYS: 2 means the hull runs twice the speed the catalog quotes it
+ * at. `TUNING.pump.speedClass` is the default a run is dealt when nobody
+ * picks one, and `CLASS_BAND` is what the picker offers.
+ *
+ * It is applied HERE, by deriving a spec, rather than read out of the
+ * tuning by the physics — because it is a choice a rider makes per run, and
+ * a global would make it a property of the build. Everything downstream
+ * then reads one spec and needs to know nothing: `topSpeedOf` is the spec's
+ * own number, `jetVelocity` the spec's own pitch, `curveTorque` the spec's
+ * own curve.
+ *
+ * Underneath it is a taller impeller and the engine to swing it — the pitch
+ * as `class^(1/classGain)` and the engine's torque as the CUBE of that
+ * pitch, because the pump's load torque goes as pitch³ at a given shaft
+ * speed and an engine that did not grow with it would simply bog (measured
+ * without the cube, a class of 2 left the fastest craft SLOWER than class
+ * 1). `classGain` is why the pitch is the smaller number: a planing hull
+ * lifts as it speeds up, so its wetted area shrinks, its drag grows slower
+ * than v², and a pitch that doubles the jet buys more than double the
+ * speed. Promised against achieved is within 2–4 % over the whole band.
+ *
+ * The derived EXPECTATIONS move with it: `topSpeed` by the class itself and
+ * `accel0to50` by the square of it (a class scales the thrust, not the
+ * mass, so the time to a fixed speed falls as the square). What separates
+ * the four hulls does not move at all — this scales all of them together. */
+export function craftAtClass(spec: CraftSpec, speedClass: number): CraftSpec {
+  const k = Math.max(0.1, speedClass);
+  if (k === 1) return spec;
+  const pitch = Math.pow(k, 1 / TUNING.pump.classGain);
+  const torque = pitch ** 3;
+  return {
+    ...spec,
+    impellerPitch: spec.impellerPitch * pitch,
+    torque: spec.torque.map(([rpm, t]) => [rpm, t * torque]) as CraftSpec["torque"],
+    powerKw: spec.powerKw * torque,
+    topSpeed: spec.topSpeed * k,
+    accel0to50: spec.accel0to50 / (k * k),
+  };
+}
+
+/** The classes the game offers, slowest first — a kart game's engine
+ * classes. 1 is the roster as the catalog tunes it and the one every
+ * measurement in `docs/riding.md` is quoted at. */
+export const CLASS_BAND: readonly number[] = [0.75, 1, 1.25, 1.5];
 
 export function craftById(id: string): CraftSpec {
   const spec = CRAFT.find((c) => c.id === id);

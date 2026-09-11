@@ -8,6 +8,16 @@
 
 import { formatTime } from "../lib/util.ts";
 
+/** The class ladder's words, by the multiple each rung is. Novice is the
+ * detuned ski a rider is handed first; stock is the roster as the catalog
+ * tunes it; limited and open are the paddock's own two steps above it. */
+const CLASS_NAMES: Record<string, string> = {
+  "0.75": "NOVICE",
+  "1": "STOCK",
+  "1.25": "LIMITED",
+  "1.5": "OPEN",
+};
+
 export const STRINGS = {
   /** The speedometer's unit. */
   speedUnit: "km/h",
@@ -136,6 +146,15 @@ export const STRINGS = {
   /* ── THE CRAFT CARD (menu-craft.tsx, craft-picker.tsx) ─────────────── */
   /** The second card's own title. */
   craftTitle: "CRAFT",
+  /** THE CLASS the craft is ridden in. A kart game counts its classes in
+   * engine size; the sport this one is about counts them the way its own
+   * race paddock does — a stock ski, a limited one, an open one — so the
+   * rungs are the classes a rider would actually enter, with a novice
+   * class under them for a first ride. The row moves the whole roster at
+   * once and PACES THE COURSE with it, so a class is a different race
+   * rather than only a faster hull. */
+  classRow: "CLASS",
+  className: (id: string): string => CLASS_NAMES[id] ?? id,
   /** The arrows either side of the hull, for a reader who cannot see it. */
   craftPrev: "Previous craft",
   craftNext: "Next craft",

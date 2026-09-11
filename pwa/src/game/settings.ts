@@ -18,6 +18,7 @@
 // falls back to the default rather than being carried.
 
 import {
+  CLASS_BAND,
   CRAFT_IDS,
   type CraftId,
   SEASONS,
@@ -115,6 +116,15 @@ export function conditionsFor(windMs: number): Conditions {
 
 export type RideSettings = {
   craft: CraftId;
+  /** THE CLASS the craft is ridden in — the sport's own ladder, and this
+   * game's answer to a kart game's engine sizes. It is a multiple of the
+   * catalog's own speed (`CLASS_BAND`), and it is TWO things at once: the
+   * hull is derived at it and the COURSE is paced for it, because gates
+   * are laid in metres and a faster rider needs them further apart to be
+   * the same race. So the same seed in two classes is two different
+   * courses, and the class belongs beside the craft rather than under the
+   * shore. */
+  speedClass: number;
   /** Which shore. Null is {@link DEFAULT_SEED}, which is what a player who
    * has not gone looking gets — and therefore what a bug report is about
    * until somebody says otherwise. */
@@ -259,6 +269,9 @@ export const DEFAULT_SETTINGS: Settings = {
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
     craft: "skiff",
+    // STOCK — the roster as the catalog tunes it, and the class every
+    // measurement in the docs is quoted at.
+    speedClass: 1,
     // The shore as it was dealt: its own seed, its own hour, its own wind
     // and its own sky. A generated level is a whole DAY rather than a
     // backdrop — the wind that grew the waves is the wind its sky was dealt
@@ -380,6 +393,12 @@ export function mergeSettings(parsed: unknown): Settings {
   // Checked against the catalog rather than merged: a craft this build
   // dropped is a run with no hull to build.
   if (CRAFT_IDS.some((id) => id === ride?.craft)) settings.ride.craft = ride?.craft as CraftId;
+  // The class is checked against the ladder THIS build offers, for the same
+  // reason every picture row is: a rung that has been retuned or dropped is
+  // one the card could not put the cursor back on.
+  if (CLASS_BAND.some((k) => k === ride?.speedClass)) {
+    settings.ride.speedClass = ride?.speedClass as number;
+  }
   if (typeof ride?.seed === "number" && Number.isInteger(ride.seed) && ride.seed > 0) {
     settings.ride.seed = ride.seed;
   }
