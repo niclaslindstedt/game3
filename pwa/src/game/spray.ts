@@ -39,7 +39,7 @@
 // so a staged moment always throws the same water.
 
 import * as THREE from "three";
-import { TUNING, rotate, type GameState } from "@engine";
+import { TUNING, heightAt, rotate, type GameState } from "@engine";
 
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
@@ -77,19 +77,25 @@ const TAIL_BACK_PER_THROTTLE = 5;
  *
  * With the gate down the jet does not leave astern at all — it is turned
  * FORWARD and UNDER, so the tail collapses and the water erupts alongside
- * the transom and along the hull instead: a low, wide, white boil rather
- * than an arc. Droplets a second at a full gate, how fast they are thrown
- * forward and out, and how little they are thrown up — a boil that arced
- * would just be a rooster tail pointing the wrong way. */
-const BOIL_RATE = 460;
+ * the hull instead: two wings of broken white either side of it, thrown
+ * forward and out and — at pace, where the reversed jet meets water rushing
+ * the other way — up past the deck, which is what a chase camera reads as
+ * BRAKING. Droplets a second at a full gate, how fast they are thrown
+ * forward and out, how high at a stop and what pace adds to that; a boil
+ * that arced would just be a rooster tail pointing the wrong way. */
+const BOIL_RATE = 640;
 const BOIL_FWD = 2.4;
 const BOIL_FWD_PER_THROTTLE = 3.2;
-const BOIL_OUT = 2.6;
-const BOIL_UP = 1.5;
-/** ...and how far forward along the hull the boil reaches, as a share of
- * the length from the transom: the flow runs up under the bottom rather
- * than pooling at one point. */
-const BOIL_ALONG = 0.4;
+const BOIL_OUT = 2.8;
+const BOIL_UP = 1.8;
+const BOIL_UP_PER_PACE = 2.4;
+/** ...how far forward along the hull the boil reaches, as a share of the
+ * length from the transom — to the bow: the flow runs the whole bottom —
+ * and how far above the surface a droplet is born, m. The boil is born AT
+ * THE SURFACE, never at the keel: a braking hull sits its keel a quarter
+ * of a metre under, and a droplet born there never breaks the water. */
+const BOIL_ALONG = 0.9;
+const BOIL_LIFT = 0.05;
 /** THE LANDING PLUME: the descent, m/s, past which a landing is a full
  * splash, and the droplets a full one throws. */
 const PLUME_VY = 7;
@@ -403,35 +409,42 @@ export function createSpray(stamp: FoamStamp): Spray {
 
     // THE BUCKET BOIL: the other half of the same jet. What the gate
     // catches is thrown forward and down under the hull, so it comes back
-    // up around the transom and runs along the bottom — white water low to
-    // the surface on both sides, going the way the craft is being stopped
-    // rather than the way it is pointing. Bigger, shorter-lived droplets
-    // than the tail's: a boil is broken water, not spray.
+    // up along both sides and runs the length of the bottom — broken white
+    // water going the way the craft is being stopped rather than the way
+    // it is pointing, thrown higher the faster the water is rushing past.
+    // Bigger, shorter-lived droplets than the tail's: a boil is broken
+    // water, not spray. Each is born at the SEA'S surface beside the hull
+    // (`heightAt`, sampled where it is born), because the keel of a hull
+    // under its bucket is well under it.
     if (afloat && gateDown > 0.05 && c.throttleEff > 0.08) {
       const strength = gateDown * clamp(c.throttleEff, 0, 1);
-      boilAcc += budget * BOIL_RATE * strength * dt;
+      const rush = 0.5 + 0.5 * pace;
+      boilAcc += budget * BOIL_RATE * strength * rush * dt;
       while (boilAcc >= 1) {
         boilAcc -= 1;
         const side = rng() < 0.5 ? -1 : 1;
         const along = rng();
         const p = at(
           c,
-          side * spec.beam * (0.3 + 0.24 * rng()),
-          keelY + 0.02,
+          side * spec.beam * (0.34 + 0.24 * rng()),
+          keelY,
           -L / 2 - spec.cog.z + L * BOIL_ALONG * along,
         );
+        const x = c.x + p.x;
+        const z = c.z + p.z;
+        const y = Math.max(c.y + p.y, heightAt(state.sea, state.level, x, z, state.t)) + BOIL_LIFT;
         const fwd = (BOIL_FWD + BOIL_FWD_PER_THROTTLE * strength) * (0.5 + 0.5 * rng());
         const out = BOIL_OUT * (0.3 + 0.7 * rng());
         spawn(
-          c.x + p.x,
-          c.y + p.y,
-          c.z + p.z,
+          x,
+          y,
+          z,
           c.vx * 0.3 + fwdX * fwd + rightX * side * out,
-          BOIL_UP * (0.4 + 0.6 * rng()),
+          (BOIL_UP + BOIL_UP_PER_PACE * pace) * (0.4 + 0.6 * rng()),
           c.vz * 0.3 + fwdZ * fwd + rightZ * side * out,
-          0.35 + 0.3 * rng(),
+          0.4 + 0.35 * rng(),
           0.22,
-          0.55,
+          0.6,
           0.8,
         );
       }

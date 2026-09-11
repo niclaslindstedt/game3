@@ -9,6 +9,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   BOIL_LIFE,
+  BRAKE_PACE_FULL,
+  BRAKE_ROAD_WIDEN,
   CRATER_LIFE,
   FAN_HALF_MAX,
   FAN_LIFE,
@@ -20,8 +22,10 @@ import {
   SPLASH_LIFE,
   SPLASH_STATIONS,
   WAKE_HEIGHT,
+  brakeMark,
   fanAt,
   fanHalf,
+  hullMark,
   roadAt,
   roadHalf,
   roadStrength,
@@ -240,5 +244,45 @@ describe("the splash", () => {
         expect(Math.min(...Array.from(out, (r) => Math.abs(r - crest)))).toBeLessThan(1e-5);
       }
     }
+  });
+});
+
+describe("the brake", () => {
+  const LENGTH = 3;
+
+  it("boils nothing with the gate stowed or the pump idle, and more with both", () => {
+    const m = hullMark();
+    brakeMark(0, 0.65, 10, LENGTH, BEAM, m);
+    expect(m.stir).toBe(0);
+    expect(m.foam).toBe(0);
+    brakeMark(1, 0, 10, LENGTH, BEAM, m);
+    expect(m.stir).toBe(0);
+    brakeMark(0.5, 0.65, 10, LENGTH, BEAM, m);
+    const half = m.stir;
+    brakeMark(1, 0.65, 10, LENGTH, BEAM, m);
+    expect(m.stir).toBeGreaterThan(half);
+    expect(m.foam).toBeGreaterThan(0.5);
+    expect(m.foam).toBeLessThanOrEqual(1);
+  });
+
+  it("is a pool wider than the hull that reaches past the bow, thrown further ahead at pace", () => {
+    const stopped = hullMark();
+    const fast = hullMark();
+    brakeMark(1, 0.65, 0, LENGTH, BEAM, stopped);
+    brakeMark(1, 0.65, BRAKE_PACE_FULL, LENGTH, BEAM, fast);
+    expect(stopped.across).toBeGreaterThan(BEAM);
+    expect(stopped.ahead + stopped.along).toBeGreaterThan(LENGTH / 2);
+    expect(fast.ahead).toBeGreaterThan(stopped.ahead);
+    expect(fast.along).toBeGreaterThan(stopped.along);
+    expect(fast.across).toBeGreaterThan(stopped.across);
+    // Backing up, the pool stands astern of where it stands going ahead.
+    const astern = hullMark();
+    brakeMark(1, 0.65, -3, LENGTH, BEAM, astern);
+    expect(astern.ahead).toBeLessThan(stopped.ahead);
+  });
+
+  it("lays a wider road behind a braking hull than a driven one", () => {
+    expect(BRAKE_ROAD_WIDEN).toBeGreaterThan(0);
+    expect(roadHalf(BEAM * (1 + BRAKE_ROAD_WIDEN), 10, 1)).toBeGreaterThan(roadHalf(BEAM, 10, 1));
   });
 });

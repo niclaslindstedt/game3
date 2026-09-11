@@ -13,15 +13,18 @@ const RED_FROM = 0.88;
 
 /** `rpm` and `idle` are shares of the redline, 0..1: the fill runs from
  * idle to the reading, so an engine ticking over shows nothing and the
- * bar is all headroom. */
-export function RevBar({ rpm, idle }: { rpm: number; idle: number }) {
+ * bar is all headroom. `braking` is the reverse bucket down over the jet:
+ * the revs the bar shows are then the brake's own — the lever opens the
+ * throttle to feed the gate — and the fill is painted in the brake's
+ * colour, the one the touch lever's upward throw fills with. */
+export function RevBar({ rpm, idle, braking }: { rpm: number; idle: number; braking: boolean }) {
   const span = Math.max(0.01, 1 - idle);
   const fill = Math.max(0, Math.min(1, (rpm - idle) / span));
   const redX = Math.max(0, (RED_FROM - idle) / span) * BAR_W;
   const hot = rpm >= RED_FROM;
   return (
     <svg
-      class={`hud-revs ${hot ? "hud-revs-hot" : ""}`}
+      class={`hud-revs ${hot ? "hud-revs-hot" : ""} ${braking ? "hud-revs-brake" : ""}`}
       viewBox={`0 0 ${BAR_W} ${BAR_H}`}
       preserveAspectRatio="none"
       aria-hidden="true"

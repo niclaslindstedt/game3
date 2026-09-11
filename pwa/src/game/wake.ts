@@ -25,6 +25,14 @@
 // of the hull, the rider climbing on — which is a mark under the craft laid
 // off its state every frame rather than a stamp.
 //
+// A hull under its BUCKET is the other mark laid off its state: the pool
+// the reversed jet boils up round it, wider than the hull and thrown
+// forward past the bow at pace (`brakeMark`) — the one thing on the water
+// that says braking from every camera, since the spray's boil is a flicker
+// at chase range and the road behind only pales. The road a braking hull
+// leaves is laid wider for the same reason: the flow the gate sends under
+// the hull aerates the water chine to chine and beyond.
+//
 // Two cadences. `observe(state)` runs once per ENGINE STEP and only decides
 // whether the transom has moved far enough for a new sample (and drops a
 // gap sample when the hull leaves the water OR goes astern under its
@@ -47,6 +55,7 @@ import { type GameState } from "@engine";
 import { type SplashLook } from "./settings-video.ts";
 import { type WakeMap } from "./water-shader.ts";
 import {
+  BRAKE_ROAD_WIDEN,
   FAN_LIFE,
   ROAD_LIFE,
   SPLASH_LIFE,
@@ -55,8 +64,10 @@ import {
   WAKE_MAP,
   WAKE_MAP_BACK,
   WAKE_REACH,
+  brakeMark,
   fanAt,
   fanHalf,
+  hullMark,
   roadAt,
   roadHalf,
   roadStrength,
@@ -94,6 +105,13 @@ const STAMP_SEGMENTS = 20;
 const BOIL_RISE = 0.5;
 const BOIL_PAST_BEAM = 0.6;
 const BOIL_FOAM = 0.45;
+/** ...and how much of its reach it boils at full over: the middle, where the
+ * air is coming out. */
+const BOIL_CORE = 0.25;
+/** How much of the brake's pool is laid while the gate is still swinging
+ * down, as a floor on its reach: the pool opens with the lever rather than
+ * growing out of a point. */
+const BRAKE_REACH_FLOOR = 0.6;
 
 export type Wake = {
   /** The map as the water reads it (`applyWake`): the texture and the box —
@@ -257,14 +275,23 @@ export function createWake(): Wake {
   const stamps = new THREE.Mesh(stampGeometry, material);
   stamps.frustumCulled = false;
 
-  // The boil under a capsized hull: one fan, the hull's plan as an ellipse,
-  // the mark at the centre feathering to nothing at the rim.
-  const boilVerts = STAMP_SEGMENTS + 1;
+  // The mark under the hull — the boil under a capsized one, the brake's
+  // pool under one with its bucket down: one fan, an ellipse round the
+  // hull's plan, the mark at the centre feathering to nothing at the rim.
+  // A centre, a ring at the mark's core and a ring at its rim: the mark is
+  // full from the centre out to the core and feathers to nothing at the rim.
+  const boilVerts = 2 * STAMP_SEGMENTS + 1;
   const boilPositions = new Float32Array(boilVerts * 3);
   const boilColors = new Float32Array(boilVerts * 4);
   const boilIndex: number[] = [];
   for (let s = 0; s < STAMP_SEGMENTS; s++) {
-    boilIndex.push(0, 1 + ((s + 1) % STAMP_SEGMENTS), 1 + s);
+    const n = (s + 1) % STAMP_SEGMENTS;
+    boilIndex.push(0, 1 + n, 1 + s);
+    const inner = 1 + s;
+    const innerN = 1 + n;
+    const outer = 1 + STAMP_SEGMENTS + s;
+    const outerN = 1 + STAMP_SEGMENTS + n;
+    boilIndex.push(inner, outerN, outer, inner, innerN, outerN);
   }
   const boilGeometry = new THREE.BufferGeometry();
   const boilPos = new THREE.BufferAttribute(boilPositions, 3).setUsage(THREE.DynamicDrawUsage);
@@ -282,6 +309,8 @@ export function createWake(): Wake {
   const lens = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clearColor = new THREE.Color();
   const section = wakeSection();
+  const capsize = hullMark();
+  const brake = hullMark();
   let drawn = true;
   let splash: SplashLook = { crater: 1, ring: 1, throw: 1, boil: true };
   /** Whether the map holds marks that a switched-off pass should wipe. */
@@ -310,9 +339,9 @@ export function createWake(): Wake {
   };
 
   /** The transom as it stands: where, how fast the craft is going the way
-   * it is POINTING, how white the pump churns, and whether a trail is being
-   * laid at all. Reused, never allocated. */
-  const transom = { x: 0, z: 0, along: 0, strength: 0, live: false };
+   * it is POINTING, how white the pump churns, how wide a road it cuts, and
+   * whether a trail is being laid at all. Reused, never allocated. */
+  const transom = { x: 0, z: 0, along: 0, strength: 0, beam: 0, live: false };
   const readTransom = (state: GameState): typeof transom => {
     const c = state.craft;
     const back = c.spec.length * STERN;
@@ -320,18 +349,19 @@ export function createWake(): Wake {
     transom.z = c.z - Math.cos(c.heading) * back;
     // A hull under its bucket stops and then backs up, and a craft moving
     // astern is not laying a trail: it is churning the water it is already
-    // sitting in, which the spray's boil draws and this map must not.
+    // sitting in, which the pool under it carries and the road must not.
     // Reading the sign here rather than off `speed` is the whole point —
     // `speed` is |v| and cannot tell the two apart.
     transom.along = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
     transom.live = !c.airborne && c.wetted > 0.05 && transom.along > SPEED_LIVE;
     // How white: pace, and the pump working — a hull coasting leaves a paler
-    // road than one on full throttle — and only the flow still leaving
-    // astern whitens it: with the bucket part way down, that much of the
-    // pump is going forward and under instead, and the road behind pales
-    // with it.
-    const pump = Math.max(0, c.throttleEff) * (1 - Math.min(1, Math.max(0, c.bucket)));
-    transom.strength = roadStrength(transom.along, pump);
+    // road than one on full throttle. The bucket does not stop the pump
+    // churning, it turns the churn forward and under the hull, so the road a
+    // braking hull leaves is as white as a driven one's and WIDER: what the
+    // gate sends under the bottom aerates the water chine to chine.
+    const gate = Math.min(1, Math.max(0, c.bucket));
+    transom.strength = roadStrength(transom.along, Math.max(0, c.throttleEff));
+    transom.beam = c.spec.beam * (1 + BRAKE_ROAD_WIDEN * gate);
     return transom;
   };
 
@@ -342,12 +372,12 @@ export function createWake(): Wake {
     if (!now.live) {
       // Out of the water, or stopped: one gap sample closes the trail, at
       // the transom, so the last real row fades out where it ended.
-      if (last >= 0 && !gap[last]) push(now.x, now.z, c.heading, state.t, 0, 0, c.spec.beam, true);
+      if (last >= 0 && !gap[last]) push(now.x, now.z, c.heading, state.t, 0, 0, now.beam, true);
       return;
     }
     const moved = last < 0 || Math.hypot(now.x - sx[last], now.z - sz[last]) >= SPACING;
     if (!moved) return;
-    push(now.x, now.z, c.heading, state.t, now.along, now.strength, c.spec.beam, false);
+    push(now.x, now.z, c.heading, state.t, now.along, now.strength, now.beam, false);
   };
 
   const stamp: Wake["stamp"] = (x, z, t, radius, strength, depth = 0) => {
@@ -444,7 +474,7 @@ export function createWake(): Wake {
     const c = state.craft;
     const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
     const open = now.live && last >= 0 && gap[last] === 0;
-    row(SAMPLES, now.x, now.z, c.heading, 0, now.along, now.strength, c.spec.beam, !open);
+    row(SAMPLES, now.x, now.z, c.heading, 0, now.along, now.strength, now.beam, !open);
     road.posAttr.needsUpdate = true;
     road.colAttr.needsUpdate = true;
     fan.posAttr.needsUpdate = true;
@@ -481,29 +511,46 @@ export function createWake(): Wake {
     stampPos.needsUpdate = true;
     stampCol.needsUpdate = true;
 
-    // The boil: the hull's plan under a craft on its back or being righted,
-    // churned harder the longer it has lain there, whitened by the air out
-    // of it. Folded to nothing on a hull the right way up.
-    const stir = !splash.boil ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
+    // The mark under the hull. Under a craft on its back or being righted:
+    // its plan, churned harder the longer it has lain there, whitened by the
+    // air out of it, growing out of nothing as it goes over. Under a craft
+    // with its bucket down: the brake's pool, wider than the hull and thrown
+    // ahead of it at pace. A capsized craft's gate is stowed and a braking
+    // one is upright, so the two never compete; the stronger is laid.
+    // Folded to nothing on a hull the right way up with its gate stowed.
+    const over = !splash.boil ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
+    capsize.stir = over;
+    capsize.foam = BOIL_FOAM * over;
+    capsize.ahead = 0;
+    capsize.along = (c.spec.length / 2 + c.spec.beam * BOIL_PAST_BEAM) * over;
+    capsize.across = c.spec.beam * (0.5 + BOIL_PAST_BEAM) * over;
+    capsize.core = BOIL_CORE;
+    brakeMark(c.bucket, c.throttleEff, now.along, c.spec.length, c.spec.beam, brake);
+    const opening = BRAKE_REACH_FLOOR + (1 - BRAKE_REACH_FLOOR) * brake.stir;
+    brake.along *= opening;
+    brake.across *= opening;
+    const mark = brake.stir > capsize.stir ? brake : capsize;
     const fx = Math.sin(c.heading);
     const fz = Math.cos(c.heading);
-    const along = (c.spec.length / 2 + c.spec.beam * BOIL_PAST_BEAM) * stir;
-    const across = c.spec.beam * (0.5 + BOIL_PAST_BEAM) * stir;
+    const cx = c.x + fx * mark.ahead;
+    const cz = c.z + fz * mark.ahead;
     for (let v = 0; v < boilVerts; v++) {
-      const ang = v === 0 ? 0 : ((v - 1) / STAMP_SEGMENTS) * Math.PI * 2;
-      const a = v === 0 ? 0 : along * Math.cos(ang);
-      const b = v === 0 ? 0 : across * Math.sin(ang);
-      section.foam = v === 0 ? BOIL_FOAM * stir : 0;
-      section.churn = v === 0 ? stir : 0;
+      const rim = v > STAMP_SEGMENTS;
+      const share = v === 0 ? 0 : rim ? 1 : mark.core;
+      const ang = v === 0 ? 0 : (((v - 1) % STAMP_SEGMENTS) / STAMP_SEGMENTS) * Math.PI * 2;
+      const a = mark.along * share * Math.cos(ang);
+      const b = mark.across * share * Math.sin(ang);
+      section.foam = rim ? 0 : mark.foam;
+      section.churn = rim ? 0 : mark.stir;
       section.up = 0;
       section.down = 0;
-      section.cover = stir > 0 ? 1 : 0;
+      section.cover = mark.stir > 0 ? 1 : 0;
       write(
         boilPositions,
         boilColors,
         v,
-        c.x + fx * a + Math.cos(c.heading) * b,
-        c.z + fz * a - Math.sin(c.heading) * b,
+        cx + fx * a + Math.cos(c.heading) * b,
+        cz + fz * a - Math.sin(c.heading) * b,
         section,
       );
     }

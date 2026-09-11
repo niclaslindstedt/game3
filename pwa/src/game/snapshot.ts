@@ -24,12 +24,26 @@ import { daylightOf, sunOver, type Daylight } from "./daylight.ts";
 import { SCREEN_TO_ENGINE } from "./input-model.ts";
 import { buildMinimap, type HudMinimap } from "./minimap-view.ts";
 
+/** The gate's share past which the HUD says the brake is on — the same
+ * rung the spray starts its boil at — and the way, m/s, a craft must be
+ * making astern before the word changes to REVERSE. */
+const BRAKE_SHOWN = 0.05;
+const ASTERN_FROM = 0.3;
+
 export type HudSnapshot = {
   speedKmh: number;
   /** Revs as a share of the redline, 0..1, and where idle sits on the
    * same scale — the bar starts there. */
   rpm: number;
   idle: number;
+  /** THE BRAKE: whether the reverse bucket is down over the jet — the
+   * engine's own reading of the gate, not the lever — and, while it is,
+   * whether the craft is already going ASTERN. The rev bar reads these to
+   * say so: on the keys the lever is a bar with no light of its own, and a
+   * rider who cannot see the pool the gate boils up has nothing else to
+   * tell them the only brake the craft has is on. */
+  braking: boolean;
+  astern: boolean;
   /** The run clock, s, and whether it has stopped. */
   time: number;
   finished: boolean;
@@ -73,6 +87,12 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     speedKmh: c.speed * 3.6,
     rpm: c.rpm / maxRpm(c.spec),
     idle: c.spec.idleRpm / maxRpm(c.spec),
+    braking: c.bucket > BRAKE_SHOWN,
+    // The way it points, signed — `speed` is |v| and cannot tell astern
+    // from ahead; the same reading the wake's road closes on.
+    astern:
+      c.bucket > BRAKE_SHOWN &&
+      c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading) < -ASTERN_FROM,
     time: p.time,
     finished: p.finished,
     passed: gatesReached(p),

@@ -794,6 +794,17 @@ canvas {
   fill: var(--hud-bad);
 }
 
+/* The reverse bucket down: the bar and its caption go the brake's colour —
+   the same one the touch lever's upward throw fills with — so a rider on
+   the keys, who has no lever to watch, reads the brake off the corner they
+   already read the speed off. */
+.hud-revs-brake .hud-revs-fill,
+.hud-brake {
+  fill: var(--hud-bad);
+  color: var(--hud-bad);
+  opacity: 1;
+}
+
 .hud-revs-tick {
   stroke: rgb(8 42 56 / 70%);
   stroke-width: 1;
