@@ -45,6 +45,9 @@ export const STRINGS = {
    * what stands there once the last one is behind the craft. */
   mapToNext: (metres: number): string => `${Math.round(metres)} M`,
   mapAtFinish: "FINISH",
+  /** What the minimap's scale bar is worth. Always a round figure, so it is
+   * read rather than parsed. */
+  mapScale: (metres: number): string => `${metres} M`,
   /** The two presses on the HUD's action row (hud-actions.tsx). Both are a
    * MARK rather than a word — the top bar is the one strip that has to stay
    * out of the way of the water — so these are what a hover, a screen reader

@@ -113,11 +113,17 @@ export function SeedPreview({ chart }: { chart: SeedChart }) {
             role="img"
             aria-label={STRINGS.seedChart(shown.seed, shown.gates, shown.length)}
           >
-            {/* Deep water is the plate's own ground; everything else is
-                painted over it, shallowest last. The layer order IS the
-                depth order — see minimap-scene.ts's cartoon. */}
+            {/* The deepest water is the plate's own ground; everything else
+                is painted over it, shallowest last. The layer order IS the
+                depth order — see minimap-scene.ts's cartoon. The surf under
+                the land is the same trick the map plays: a wide pale stroke
+                on the shoreline, half of it covered by the land, leaves the
+                half that belongs in the water. */}
+            <path class="seed-preview-shelf" d={shown.schematic.shelf} />
             <path class="seed-preview-shallows" d={shown.schematic.shallows} />
+            <path class="seed-preview-surf" d={shown.schematic.shore} fill="none" />
             <path class="seed-preview-land" d={shown.schematic.land} />
+            <path class="seed-preview-highland" d={shown.schematic.highland} />
             <path class="seed-preview-shore" d={shown.schematic.shore} fill="none" />
             <path class="seed-preview-reefs" d={shown.schematic.reefs} />
             <path class="seed-preview-rocks" d={shown.schematic.rocks} />

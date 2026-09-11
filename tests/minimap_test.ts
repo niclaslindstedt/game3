@@ -19,6 +19,7 @@
 import { describe, expect, it } from "vitest";
 import { createGame, gateBuoys, type GameState } from "@engine";
 
+import { TREE_LINE } from "../pwa/src/game/flora-defs.ts";
 import {
   SPAN,
   VIEW,
@@ -26,8 +27,9 @@ import {
   minimapScene,
   project,
   spanFor,
+  spanNow,
 } from "../pwa/src/game/minimap-scene.ts";
-import { buildMinimap } from "../pwa/src/game/minimap-view.ts";
+import { buildMinimap, scaleBar } from "../pwa/src/game/minimap-view.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 /** The rig: the synthetic shore — a straight coast along z = 0, six gates
@@ -102,6 +104,47 @@ describe("minimap window", () => {
     expect(spanFor(SPAN, 1e4)).toBe(flat);
     expect(spanFor(SPAN, -5)).toBe(still);
   });
+
+  it("chases the speedo rather than jumping to it", () => {
+    // `CraftState.speed` carries every crest the hull drops off, so a window
+    // wired straight to it pumps. The first reading on a level LANDS — there
+    // is nothing to chase from — and every one after it is chased.
+    const level = syntheticLevel();
+    const closed = spanNow(level, SPAN, 0, 0);
+    expect(closed).toBeCloseTo(spanFor(SPAN, 0), 6);
+
+    const open = spanFor(SPAN, 80);
+    const tick = spanNow(level, SPAN, 80, 0.1);
+    expect(tick).toBeGreaterThan(closed);
+    expect(tick).toBeLessThan(closed + (open - closed) * 0.5);
+
+    // ...and it gets there. A couple of seconds of full throttle is the
+    // window open, not a window still on its way.
+    let span = tick;
+    for (let i = 0; i < 20; i++) span = spanNow(level, SPAN, 80, 0.1 + i * 0.1);
+    expect(span).toBeGreaterThan(open * 0.97);
+    expect(span).toBeLessThanOrEqual(open);
+
+    // A clock that has gone backwards is a fresh run at the same level, and
+    // the window lands rather than sliding back down the coast.
+    expect(spanNow(level, SPAN, 0, 0)).toBeCloseTo(closed, 6);
+  });
+
+  it("rules the window in round figures that fit inside it", () => {
+    for (const span of [spanFor(SPAN, 0), SPAN, spanFor(SPAN, 80), 2000]) {
+      const bar = scaleBar(span);
+      // The bar is a share of the box, so what it is WORTH has to be read
+      // off its word — which is why the word is always round.
+      expect(bar.label).toMatch(/^(10|20|25|50|100|200|250|500|1000) M$/);
+      expect(bar.length).toBeGreaterThan(0);
+      expect(bar.length).toBeLessThanOrEqual(VIEW / 3);
+      // …and the bar means what it says: its length is its metres at the
+      // window's own scale.
+      expect(bar.length).toBeCloseTo((Number(bar.label.split(" ")[0]) * VIEW) / span, 6);
+    }
+    // A window that opens steps UP a rung rather than drawing a longer bar.
+    expect(scaleBar(spanFor(SPAN, 80)).label).not.toBe(scaleBar(spanFor(SPAN, 0)).label);
+  });
 });
 
 describe("minimap schematic", () => {
@@ -168,6 +211,35 @@ describe("minimap schematic", () => {
     const highestLand = Math.min(...points(scene.land).map(([, y]) => y));
     expect(deepest).toBeGreaterThan(VIEW / 2);
     expect(deepest).toBeLessThan(highestLand);
+  });
+
+  it("bands the ground all the way from the shelf to the tree line", () => {
+    // Every band is the whole region ABOVE its own level, so they nest: the
+    // shelf reaches furthest out to sea, the shallows stop short of it, the
+    // land short of them again. Nesting is what lets them be drawn over one
+    // another with no band having to find its own inner edge.
+    const state = game();
+    stand(state, 300, 90);
+    const scene = minimapScene(state, SPAN);
+    const seaward = (path: string): number => Math.min(...points(path).map(([, y]) => y));
+    expect(seaward(scene.shelf)).toBeLessThan(seaward(scene.shallows));
+    expect(seaward(scene.shallows)).toBeLessThan(seaward(scene.land));
+    // This shore climbs to +5 m and the wood runs to the tree line at 20,
+    // so the whole of it is wooded and none of it is bare headland.
+    expect(TREE_LINE).toBeGreaterThan(5);
+    expect(scene.highland).toBe("");
+  });
+
+  it("cuts a band's edge through the lattice rather than snapping it to one", () => {
+    // The synthetic bed is linear in z and crosses zero at z = 0, so the
+    // land's seaward edge is at z = 0 EXACTLY. A band built out of whole
+    // cells would put it up to one cell out — several view units at this
+    // framing, and the staircase a coast used to be drawn as.
+    const state = game();
+    stand(state, 300, 90);
+    const scene = minimapScene(state, SPAN);
+    const [, shoreY] = project(state, 300, 0, SPAN);
+    expect(Math.min(...points(scene.land).map(([, y]) => y))).toBeCloseTo(shoreY, 1);
   });
 
   it("tells a rock that breaks the surface from a reef that does not", () => {

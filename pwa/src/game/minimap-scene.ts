@@ -12,13 +12,19 @@
 // and which way is the line from here — is the one question that framing
 // cannot answer.
 //
-// What it draws is a CARTOON of the sea: the deep water is the plate's own
-// ground, the shallows a paler band over it, the land a solid mass, the
-// shoreline a line between them, every rock a disc, and the racing line a
+// What it draws is a CARTOON of the coast, and the whole of it is cut from
+// ONE ladder of ground heights (`BANDS`): the deepest water is the plate's
+// own ground, the shelf and the shallows are bands over it, the land is a
+// band over those and the bare headland a band over that, with the
+// shoreline stroked between. Every rock is a disc and the racing line a
 // ribbon along the shore. Nothing here is to scale except the ground itself
 // — a two-metre boulder at this framing is under a pixel, so a rock is drawn
 // with a floor under its radius and the line is drawn several times its
 // width. The exaggeration is the map.
+//
+// The bands are CUT THROUGH the lattice rather than built out of whole
+// cells of it, which is what lets the lattice stay coarse (and the cut
+// cheap) while the coast comes out a coastline instead of a staircase.
 //
 // SIGN BOUNDARY: the one flip is `input-model.ts`'s `SCREEN_TO_ENGINE`, and
 // this file is downstream of it. The renderer maps the engine's axes onto
@@ -37,6 +43,8 @@
 // while the geometry behind it is rebuilt a couple of times a second.
 
 import { sampleField, type GameState, type Level, type Solid, type Vec2 } from "@engine";
+
+import { TREE_LINE } from "./flora-defs.ts";
 
 /** The map's own square user space; everything below is in these units. */
 export const VIEW = 100;
@@ -67,14 +75,52 @@ export const SPAN = 320;
  * `at` is the speed the opening is full at (km/h — a little under the
  * fastest craft's top, so the map is fully open on the plane rather than
  * only at the limiter), `close` the fraction of `SPAN` shown at a
- * standstill, and `far` the fraction shown at `at` and above. */
-const ZOOM = { at: 80, close: 0.6, far: 1.5 };
+ * standstill, and `far` the fraction shown at `at` and above. The two stops
+ * are more than three times apart, because a breath the rider has to be
+ * told about is not one the eye reads as speed. */
+const ZOOM = { at: 80, close: 0.5, far: 1.7 };
 
 /** The window this frame: the base framing, closed or opened by the
  * speedo. */
 export function spanFor(base: number, speedKmh: number): number {
   const t = Math.min(1, Math.max(0, speedKmh / ZOOM.at));
   return base * (ZOOM.close + (ZOOM.far - ZOOM.close) * t);
+}
+
+/** How long the window takes to follow the speedo, s of e-folding.
+ *
+ * The reading it follows is `CraftState.speed`, which is `|v|` with the
+ * vertical in it — so on a chop it carries every crest the hull drops off,
+ * several a second, and a window wired straight to it PUMPS. What the zoom
+ * is for is the difference between idling and planing, which is a thing
+ * that takes seconds, so the window is given a lag about as long as a hull
+ * takes to come up on the plane: it opens as the craft winds up, holds
+ * through the slam, and settles as the throttle comes off for a buoy. */
+const ZOOM_LAG = 0.5;
+
+/** …and where it has got to. Frame state, like the cut above: the level it
+ * belongs to, the clock it was last moved on, and the span it had reached.
+ */
+let zoom: { level: Level; t: number; span: number } | null = null;
+
+/** THE WINDOW AS THE RIDER SEES IT BREATHE — `spanFor`'s answer, chased
+ * rather than jumped to.
+ *
+ * Keyed off the ENGINE's clock, so it neither runs at the browser's frame
+ * rate nor moves at all while a run is held behind the pause card. A clock
+ * that has gone backwards is a fresh run at the same level, which lands the
+ * window rather than sliding it back down the coast. */
+export function spanNow(level: Level, base: number, speedKmh: number, t: number): number {
+  const want = spanFor(base, speedKmh);
+  const last = zoom;
+  if (last === null || last.level !== level || t < last.t) {
+    zoom = { level, t, span: want };
+    return want;
+  }
+  const dt = Math.min(1, t - last.t);
+  const span = last.span + (want - last.span) * (1 - Math.exp(-dt / ZOOM_LAG));
+  zoom = { level, t, span };
+  return span;
 }
 
 /** The span the geometry is actually CUT at, m — the shown span rounded up
@@ -99,18 +145,58 @@ const REBUILD = 20;
  * stroke, so nothing pops into existence at the frame's edge. */
 const MARGIN = 16;
 
-/** The ground grid's cell, m. It is the resolution of the shoreline's fill
- * and of the shallows' edge, and it is coarse on purpose: this is a
- * schematic of where the water is deep and where it is not, and a bay with
- * a jagged rim reads as a bay at seven rem across. */
-const GROUND_CELL = 6;
+/** HOW FINE THE GROUND LATTICE IS, as cells across the box.
+ *
+ * A cell fixed in METRES is a cell that costs four times as much every time
+ * the window doubles, and the window here more than triples between a
+ * standstill and the plane: at the open end a six-metre lattice was ten
+ * thousand cells and sixty kilobytes of path, rebuilt about once a second
+ * on the thread the sea is drawn on. Fixed in CELLS ACROSS, the cut costs
+ * the same at every zoom and the map's detail is what it always was —
+ * because what the eye can resolve is a share of the box, not a number of
+ * metres.
+ *
+ * The cells are not what is drawn, either: the bands are cut THROUGH them
+ * (`cellAbove`), so a coarse lattice buys a cheap cut rather than a
+ * staircase. */
+const GROUND_CELLS = 55;
 
-/** How deep the water has to be before it stops being SHALLOWS, m. Under
- * this the sea bed is close enough that a wave stands up on it and a hull
- * dropping off one can touch it — which is what the pale band is warning
- * about. Measured against sea level, so it is a plan of the bed rather than
- * of the surface passing over it. */
-const SHALLOW_DEPTH = 3;
+/** …and the metre ladder that count is rounded onto, so the lattice takes a
+ * handful of values over a run rather than a new one per re-cut. A lattice
+ * is a cache key (`bedAt`), and one that moved with the span would throw
+ * every sampled node away on each step of the zoom. */
+const CELL_STEP = 2;
+const CELL_RANGE = { min: 4, max: 14 };
+
+/** The lattice for a window this wide, m. */
+function cellFor(span: number): number {
+  const want = Math.round(span / GROUND_CELLS / CELL_STEP) * CELL_STEP;
+  return Math.min(CELL_RANGE.max, Math.max(CELL_RANGE.min, want));
+}
+
+/** WHERE THE GROUND IS BANDED, m against sea level, lowest first — the one
+ * ladder the whole plan is cut at, water and shore alike.
+ *
+ * BELOW THE WATERLINE it is a nautical chart's idea. A two-tone plan —
+ * water and not-water — leaves the biggest thing on the map saying almost
+ * nothing: every piece of sea looks like every other, and the rider cannot
+ * tell the channel he is in from the bank he is about to run onto. So the
+ * bed gets two rungs: the SHELF, where the bottom has come up far enough to
+ * be worth knowing about, and the SHALLOWS, where a wave stands up on it
+ * and a hull dropping off one can touch.
+ *
+ * ABOVE IT the rungs are the coast's own, because a shore drawn in one flat
+ * tone is a shore the map has an opinion about and the world does not. What
+ * the rider actually goes past on this coast is granite sliding into the
+ * water, a wood over it, and bare headland above where the trees stop — so
+ * the plan says so: everything over 0 is LAND, and everything over the tree
+ * line (`flora-defs.ts`, the same number the wood itself is held to) is
+ * bare HIGHLAND. Paint the first green and the second stone and the map
+ * agrees with the shore the rider can see.
+ *
+ * Measured against sea level throughout, so it is a plan of the GROUND
+ * rather than of the water passing over it. */
+const BANDS = [-9, -3, 0, TREE_LINE] as const;
 
 /** How many ground cells are remembered. The window holds about three
  * thousand of them, so this is a couple of minutes of riding before the oldest water is
@@ -142,10 +228,18 @@ export type MinimapScene = {
    * off it (`vector-effect`), because a line drawn thinner at speed is a line
    * that reads as further away rather than as more of it. */
   zoom: number;
-  /** The water shallow enough to stand a wave up, as filled cells. */
+  /** Water with the bottom coming up under it — the outer band of the depth
+   * ramp, and the first thing on the map that says which way the shore is
+   * when no shore is in the window. */
+  shelf: string;
+  /** The water shallow enough to stand a wave up. */
   shallows: string;
-  /** Everything above sea level, as filled cells. */
+  /** Everything above sea level — the shore as the rider sees it go past:
+   * the wooded ground the coast runs on. */
   land: string;
+  /** …and the bare ground over the tree line, which is a headland rather
+   * than a wood and is painted as one. */
+  highland: string;
   /** The shoreline itself, stroked — the edge the whole course is measured
    * off, and the one line on the map that is a piece of the world rather
    * than a piece of the race. */
@@ -183,7 +277,7 @@ type Cut = {
   at: (x: number, z: number) => Pt;
 };
 
-function cutAround(x: number, z: number, span: number, cell = GROUND_CELL): Cut {
+function cutAround(x: number, z: number, span: number, cell = cellFor(span)): Cut {
   const k = VIEW / span;
   const at = (px: number, pz: number): Pt => [VIEW / 2 + (x - px) * k, VIEW / 2 + (z - pz) * k];
   return { x, z, k, reach: span / 2 + MARGIN / k, cell, at };
@@ -214,9 +308,11 @@ let cache: { level: Level; span: number; cut: Cut; scene: MinimapScene } | null 
  * which frame it must not tween (`MinimapScene.cut`). */
 let cuts = 0;
 
-/** Ground cells already sampled, keyed by their world lattice index — and
- * the level whose water they describe. */
-let ground = new Map<number, 0 | 1 | 2>();
+/** Bed heights already sampled, keyed by their world lattice NODE — and the
+ * level whose water they describe. Nodes rather than cell centres because
+ * every band below is cut through the cell between four of them, and four
+ * neighbouring cells share each one. */
+let ground = new Map<number, number>();
 let groundOf: Level | null = null;
 
 function built(p: Pt): boolean {
@@ -261,66 +357,169 @@ function lines(runs: readonly (readonly Vec2[])[], cut: Cut): string {
   return runs.map((run) => line(run, cut)).join(" ");
 }
 
-/** What the ground under one cell is: open water, shallows, or land. Cached
- * per world cell, because the window re-cut every twenty metres re-asks for
- * all but one row of the water it asked about last time. */
-function groundAt(level: Level, i: number, j: number, cell: number): 0 | 1 | 2 {
-  // Hashed rather than a string key: this runs a few thousand times
-  // per cut and a template literal per cell is the cut's biggest cost. The
-  // CELL is in the key because an index means a different piece of sea bed
-  // at a different lattice, and two framings share this cache.
+/** How high the bed stands at one lattice NODE, m against sea level. Cached
+ * per world node, because the window re-cut every twenty metres re-asks for
+ * all but one row of the water it asked about last time — and because all
+ * three bands are cut from the same numbers, so a node sampled for the
+ * shoreline is a node the shelf gets for nothing. */
+function bedAt(level: Level, i: number, j: number, cell: number): number {
+  // Hashed rather than a string key: this runs a few thousand times per cut
+  // and a template literal per node is the cut's biggest cost. The CELL is
+  // in the key because an index means a different piece of sea bed at a
+  // different lattice, and two framings share this cache.
   const key = i * 73_856_093 + j * 19_349_663 + cell * 83_492_791;
   const seen = ground.get(key);
   if (seen !== undefined) return seen;
-  const bed = sampleField(level.ground, (i + 0.5) * cell, (j + 0.5) * cell);
-  const kind: 0 | 1 | 2 = bed >= 0 ? 2 : bed > -SHALLOW_DEPTH ? 1 : 0;
+  const bed = sampleField(level.ground, i * cell, j * cell);
   if (ground.size >= GROUND_MEMORY) ground.clear();
-  ground.set(key, kind);
-  return kind;
+  ground.set(key, bed);
+  return bed;
 }
 
-/** The ground layers: one walk of a WORLD-ALIGNED lattice, emitting each
- * row's runs as rectangles. World-aligned so a cell belongs to a piece of sea
- * bed rather than to the window — without it the whole coast crawls sideways
- * every time the map is re-cut. */
-function groundLayers(level: Level, cut: Cut): { shallows: string; land: string } {
+/** ONE BAND being built up across the lattice: the depth it is drawn above,
+ * the path so far, and the run of whole cells the current row is holding
+ * open. */
+type Band = { at: number; out: string; from: number; open: boolean };
+
+/** THE BANDS, cut through a WORLD-ALIGNED lattice of ground heights.
+ *
+ * World-aligned so a cell belongs to a piece of sea bed rather than to the
+ * window — without it the whole coast crawls sideways every time the map is
+ * re-cut.
+ *
+ * A cell whose four corners are all deeper than a band's level contributes
+ * nothing to it; one whose corners are all shallower is a whole rectangle,
+ * and those are run-length merged along the row so the open sea inside a
+ * band costs one path command per row rather than one per cell. The cells
+ * the CONTOUR actually crosses are the interesting ones: the band's edge is
+ * cut through them by interpolating each crossed side, which is what turns
+ * a six-metre lattice into a coastline instead of a staircase. A coarse
+ * lattice is then a cheap cut rather than a visible one, and the same walk
+ * pays for every band at once.
+ *
+ * The bands NEST — each is the whole region above its level, not a ring —
+ * so they are drawn over one another back to front and the ramp is what the
+ * eye adds up. Nesting is also why nothing here has to find a band's inner
+ * edge: the band above it covers it. */
+function bandsOf(level: Level, cut: Cut, levels: readonly number[]): string[] {
   const cell = cut.cell;
   const i0 = Math.floor((cut.x - cut.reach) / cell);
   const i1 = Math.ceil((cut.x + cut.reach) / cell);
   const j0 = Math.floor((cut.z - cut.reach) / cell);
   const j1 = Math.ceil((cut.z + cut.reach) / cell);
-  let shallows = "";
-  let land = "";
+  const bands: Band[] = levels.map((at) => ({ at, out: "", from: i0, open: false }));
+  // One row of node heights carried forward: the cells in row j read nodes
+  // on rows j and j + 1, and row j + 1's are row j + 1's own top edge.
+  let top: number[] = [];
+  for (let i = i0; i <= i1 + 1; i++) top.push(bedAt(level, i, j0, cell));
   for (let j = j0; j <= j1; j++) {
+    const bottom: number[] = [];
+    for (let i = i0; i <= i1 + 1; i++) bottom.push(bedAt(level, i, j + 1, cell));
     // The row's own two view-space edges, computed once: the lattice is
     // axis-aligned in world space and the projection is a flip and a scale,
     // so every cell in a row shares them.
     const [, ya] = cut.at(0, j * cell);
     const [, yb] = cut.at(0, (j + 1) * cell);
-    const top = Math.min(ya, yb);
-    const bottom = Math.max(ya, yb);
-    let run = 0 as 0 | 1 | 2;
-    let from = i0;
-    const flush = (to: number): void => {
-      if (run === 0) return;
-      const [xa] = cut.at(from * cell, 0);
-      const [xb] = cut.at(to * cell, 0);
-      const left = Math.min(xa, xb);
-      const right = Math.max(xa, xb);
-      const rect = `M ${n(left)} ${n(top)} H ${n(right)} V ${n(bottom)} H ${n(left)} Z `;
-      if (run === 1) shallows += rect;
-      else land += rect;
-    };
-    for (let i = i0; i <= i1; i++) {
-      const kind = groundAt(level, i, j, cell);
-      if (kind === run) continue;
-      flush(i);
-      run = kind;
-      from = i;
+    for (const band of bands) {
+      band.open = false;
+      band.from = i0;
     }
-    flush(i1 + 1);
+    for (let i = i0; i <= i1; i++) {
+      const k = i - i0;
+      // The cell's four corners, clockwise from its top-left in world terms.
+      const a = top[k];
+      const b = top[k + 1];
+      const c = bottom[k + 1];
+      const d = bottom[k];
+      const lo = Math.min(a, b, c, d);
+      const hi = Math.max(a, b, c, d);
+      for (const band of bands) {
+        const whole = lo >= band.at;
+        if (whole) {
+          if (!band.open) {
+            band.open = true;
+            band.from = i;
+          }
+          continue;
+        }
+        if (band.open) {
+          band.out += rowRun(cut, band.from, i, cell, ya, yb);
+          band.open = false;
+        }
+        if (hi >= band.at) band.out += cellAbove(cut, i, j, cell, [a, b, c, d], band.at);
+      }
+    }
+    for (const band of bands) {
+      if (band.open) band.out += rowRun(cut, band.from, i1 + 1, cell, ya, yb);
+    }
+    top = bottom;
   }
-  return { shallows, land };
+  return bands.map((band) => band.out);
+}
+
+/** A run of whole cells in one row, as a rectangle. */
+function rowRun(cut: Cut, from: number, to: number, cell: number, ya: number, yb: number): string {
+  const [xa] = cut.at(from * cell, 0);
+  const [xb] = cut.at(to * cell, 0);
+  const left = Math.min(xa, xb);
+  const right = Math.max(xa, xb);
+  const t = Math.min(ya, yb);
+  const b = Math.max(ya, yb);
+  return `M ${n(left)} ${n(t)} H ${n(right)} V ${n(b)} H ${n(left)} Z `;
+}
+
+/** The part of ONE cell that stands above a level, as a polygon.
+ *
+ * The cell's four corners are walked in order; a corner above the level is
+ * kept, and a side with the level crossing it contributes the point where it
+ * crosses, found by interpolating between the two corners. Three to five
+ * points come back and they are the cell's share of the band's edge.
+ *
+ * The two ends of a crossed side are the same two heights whichever of the
+ * two cells sharing it asks, so neighbouring cells agree on the point to the
+ * last bit and the edge comes out continuous. The one case this reads wrong
+ * is a saddle — two high corners diagonally opposite — which it joins one
+ * way rather than the other; at six metres on a coast that is a decision
+ * about a corner smaller than the stroke drawn over it. */
+function cellAbove(
+  cut: Cut,
+  i: number,
+  j: number,
+  cell: number,
+  v: readonly [number, number, number, number],
+  at: number,
+): string {
+  const corner = (k: number): Pt => {
+    const ci = i + (k === 1 || k === 2 ? 1 : 0);
+    const cj = j + (k === 2 || k === 3 ? 1 : 0);
+    return cut.at(ci * cell, cj * cell);
+  };
+  let out = "";
+  let started = false;
+  const put = (p: Pt): void => {
+    out += `${started ? "L" : "M"} ${n(p[0])} ${n(p[1])} `;
+    started = true;
+  };
+  for (let k = 0; k < 4; k++) {
+    const k2 = (k + 1) & 3;
+    if (v[k] >= at) put(corner(k));
+    if (v[k] >= at !== v[k2] >= at) {
+      const f = (at - v[k]) / (v[k2] - v[k]);
+      const p = corner(k);
+      const q = corner(k2);
+      put([p[0] + (q[0] - p[0]) * f, p[1] + (q[1] - p[1]) * f]);
+    }
+  }
+  return started ? `${out}Z ` : "";
+}
+
+/** The plan's four layers, lowest first — the ladder of `BANDS`, drawn back
+ * to front. */
+type Ground = { shelf: string; shallows: string; land: string; highland: string };
+
+function groundLayers(level: Level, cut: Cut): Ground {
+  const [shelf, shallows, land, highland] = bandsOf(level, cut, BANDS);
+  return { shelf, shallows, land, highland };
 }
 
 /** A rock, as a disc: two half-arcs, which is a whole circle in one path
@@ -359,8 +558,10 @@ function rocks(solids: readonly Solid[], cut: Cut): { rocks: string; reefs: stri
  * than on the thread the sea is being drawn on.
  */
 export type LevelSchematic = {
+  shelf: string;
   shallows: string;
   land: string;
+  highland: string;
   shore: string;
   rocks: string;
   reefs: string;
@@ -405,8 +606,10 @@ export function levelSchematic(level: Level): LevelSchematic {
   const bed = groundLayers(level, cut);
   const stone = rocks(level.solids, cut);
   return {
+    shelf: bed.shelf,
     shallows: bed.shallows,
     land: bed.land,
+    highland: bed.highland,
     shore: lines(level.shore, cut),
     rocks: stone.rocks,
     reefs: stone.reefs,
@@ -446,8 +649,10 @@ export function minimapScene(state: GameState, span: number = SPAN): MinimapScen
         offset: { x: 0, y: 0 },
         cut: ++cuts,
         zoom: 1,
+        shelf: bed.shelf,
         shallows: bed.shallows,
         land: bed.land,
+        highland: bed.highland,
         shore: lines(level.shore, cut),
         rocks: stone.rocks,
         reefs: stone.reefs,

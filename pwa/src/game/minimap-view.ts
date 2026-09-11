@@ -28,7 +28,7 @@ import {
   inView,
   minimapScene,
   project,
-  spanFor,
+  spanNow,
   type MinimapScene,
 } from "./minimap-scene.ts";
 import { STRINGS } from "./strings.ts";
@@ -72,6 +72,37 @@ export type MinimapChevron = { x: number; y: number; angle: number };
  * was launched from, and the line it is riding for. */
 export type MinimapEnd = { x: number; y: number; kind: "start" | "finish" };
 
+/** THE SCALE BAR: a rule along the frame's foot, and what it is worth.
+ * `length` is in view units. */
+export type MinimapScale = { length: number; label: string };
+
+/** The round figures a scale bar is allowed to be worth, m. A rule reading
+ * 137 m is a rule nobody reads; the bar changes LENGTH with the zoom and
+ * steps between these as the window opens. */
+const SCALE_RUNGS: readonly number[] = [10, 20, 25, 50, 100, 200, 250, 500, 1000];
+
+/** …and the most of the frame's width one may take. Long enough to measure
+ * a leg against, short enough to leave the foot of the map to the readout. */
+const SCALE_MAX = 30;
+
+/** The bar for this window: the biggest round distance that still fits the
+ * allowance, and how long it is in view units.
+ *
+ * A window that breathes is a window that has to say what it is showing —
+ * without a rule, a coast pulling back under acceleration is the same
+ * picture as a coast receding, and the rider has no way to tell a gate
+ * fifty metres off from one two hundred out. With one, the zoom stops being
+ * something that happens TO the map and becomes the map reporting speed. */
+export function scaleBar(span: number): MinimapScale {
+  const k = VIEW / span;
+  let metres = SCALE_RUNGS[0];
+  for (const rung of SCALE_RUNGS) {
+    if (rung * k > SCALE_MAX) break;
+    metres = rung;
+  }
+  return { length: metres * k, label: STRINGS.mapScale(metres) };
+}
+
 export type HudMinimap = {
   /** The coast around the craft, as paths (minimap-scene.ts). */
   scene: MinimapScene;
@@ -84,6 +115,9 @@ export type HudMinimap = {
    * it (the gate's own mark carries it then) and on a finished run. */
   chevron: MinimapChevron | null;
   ends: MinimapEnd[];
+  /** The rule along the frame's foot, which is what makes the breathing
+   * window readable rather than merely alive. */
+  scale: MinimapScale;
   /** Gauge fill, 0..1 — the share of the course's gates that has been
    * reached, missed ones included, which is exactly what the HUD's own gate
    * counter says in figures. */
@@ -187,8 +221,9 @@ export function buildMinimap(state: GameState): HudMinimap {
   // speedo's own reading, which is |v| with the vertical in it: a hull
   // dropping off a wave is not covering ground any faster, but it is a hull
   // whose next second happens further away, and the map that opens for it is
-  // the map that was useful.
-  const span = spanFor(SPAN, state.craft.speed * 3.6);
+  // the map that was useful. `spanNow` is what keeps the same reading's
+  // wave-by-wave noise out of the picture.
+  const span = spanNow(state.level, SPAN, state.craft.speed * 3.6, state.t);
   const bearing = bearingToNext(state);
   const total = state.level.course.gates.length;
   return {
@@ -199,6 +234,7 @@ export function buildMinimap(state: GameState): HudMinimap {
     heading: -state.craft.heading * (180 / Math.PI),
     chevron: chevronFor(state, span),
     ends: endMarks(state, span),
+    scale: scaleBar(span),
     // The gauge and the HUD's own `n / N` are the same reading in two forms,
     // so both ask the engine for it rather than each summing the book.
     progress: total === 0 ? 0 : Math.min(1, gatesReached(state.progress) / total),

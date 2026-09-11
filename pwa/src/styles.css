@@ -24,6 +24,11 @@
   --sky: #d7e9f0;
   --foam: #f2f7f8;
   --buoy: #f28c28;
+  /* The SHORE's two, for the minimap's plan of it: the wood and the bare
+     stone over the tree line, which is what `terrain.ts` paints the world's
+     own coast in. */
+  --pine: #274d33;
+  --granite: #8d9298;
   /* HOW FAR THE HUD'S CHROME IS DIPPED, 0..1 — the day value. `hud.tsx`
      writes the live one onto `.hud` off the craft's own lamp switch, and
      the ramp every token below it takes is documented there. It is stated
@@ -575,10 +580,17 @@ canvas {
   display: block;
   width: var(--hud-map);
   height: var(--hud-map);
-  /* The plate's ground is the DEEP water, and after dark it is the ground
-     under the only lit rectangle left on the screen — so it goes down with
-     the rest of the chrome (`--hud-dark`, the night dressing on `.hud`). */
-  background: color-mix(in srgb, var(--sea-deep), #05101a calc(var(--hud-dark) * 62%));
+  /* The plate's ground is the DEEPEST water — the bottom rung of the depth
+     ramp the two bands are drawn over, so it is set below `--sea-deep`
+     rather than at it: three tones that step have to step. After dark it is
+     the ground under the only lit rectangle left on the screen, so it goes
+     down with the rest of the chrome (`--hud-dark`, the night dressing on
+     `.hud`). */
+  background: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--sea-deep), #041a26 34%),
+    #05101a calc(var(--hud-dark) * 62%)
+  );
   border-radius: calc(var(--hud-map) * 0.175);
   filter: drop-shadow(0 2px 3px rgb(0 0 0 / 45%));
   /* The schematic fills the whole box and runs off every side of it: the
@@ -638,33 +650,132 @@ canvas {
    the racing line at this framing really is not — it is a metre of truth
    drawn twenty wide so it can be read at all. */
 .hud-minimap-shoreline,
+.hud-minimap-surf,
 .hud-minimap-route-case,
 .hud-minimap-route {
   vector-effect: non-scaling-stroke;
 }
 
+/* THE SEA'S OWN SURFACE, under every band: a sparse swell running across
+   the water, the oldest mark on any chart for "this is not land".
+
+   It rides INSIDE the travelling group, so it slides past under the craft
+   and opens out as the window does — which is the difference between a map
+   of a sea and a map that reads as one being crossed. The bands over it are
+   translucent, so the swell carries through all three and only the shore
+   puts it out: every piece of water on the plate is textured, and no piece
+   of land is. */
+.hud-minimap-sea {
+  fill: url(#hud-map-swell);
+}
+
+.hud-minimap-swell {
+  fill: none;
+  stroke: rgb(160 214 230 / calc(23% - 9% * var(--hud-dark)));
+  stroke-width: 0.6;
+  stroke-linecap: round;
+}
+
+/* THE DEPTH RAMP — the shelf, then the shallows over it, then the shore.
+   Each is the whole region above its own level rather than a ring, so they
+   are drawn over one another and the ramp is what the eye adds up
+   (minimap-scene.ts's `bedBands`).
+
+   The hairline stroke on each is not decoration: a band is thousands of
+   abutting cell polygons, and abutting edges antialias into visible seams.
+   Stroking the path in its own fill closes them, and the group `opacity`
+   below is what keeps the overlaps from darkening where they meet. */
+.hud-minimap-shelf,
+.hud-minimap-shallows {
+  stroke-width: 0.35;
+  vector-effect: non-scaling-stroke;
+}
+
+/* Where the bottom has come up far enough to be worth knowing about, but
+   not far enough to be a warning. It is the band that tells a rider which
+   way the shore is when no shore is in the window at all. */
+.hud-minimap-shelf {
+  fill: var(--sea);
+  stroke: var(--sea);
+  opacity: calc(0.5 - 0.14 * var(--hud-dark));
+}
+
 /* Water shallow enough to stand a wave up and to ground a hull dropping off
-   one. A band between the deep water and the beach, and the only warning on
-   the map that is about the sea bed rather than about a thing on it. */
+   one. The inner band of the ramp, and the only warning on the map that is
+   about the sea bed rather than about a thing on it. */
 .hud-minimap-shallows {
   fill: var(--sea-shallow);
-  opacity: calc(0.42 - 0.16 * var(--hud-dark));
+  stroke: var(--sea-shallow);
+  opacity: calc(0.52 - 0.18 * var(--hud-dark));
 }
 
-/* THE SHORE IS THE BIGGEST BLOCK OF LIGHT ON A NIGHT SCREEN. Sand at 92%
-   over a quarter of the chart is brighter than anything the frame behind it
-   holds after dark — a lit window in the corner of the eye, and the first
-   thing a rider's pupil gives up the sea for. It goes to wet slate with the
-   rest of the chrome. What stands ON it does not: the gates, the craft's
-   own mark and the chevron are the signal, and they keep their colour. */
+/* THE SHORE, PAINTED AS WHAT IT IS. This coast is granite sliding into the
+   water under a pine wood, with bare headland where the trees stop — which
+   is what `terrain.ts` paints out in the world and therefore what the map
+   owes the rider. A flat beige for all of it read as a beach, and a beach
+   is the one thing most of this shore is not.
+
+   So: the land is WOODED GREEN, stippled with its own canopy, and the
+   ground over the tree line is bare STONE. The two tones are the world's,
+   pulled toward the light so they read at seven rem over dark water —
+   `--pine`/`--granite` are `identity.ts`'s, restated here the way the sea's
+   three already are. When a second coast lands, this pair is what a
+   biome-side table hands the map, the way `water-optics.ts` hands it the
+   sea's; one coast does not earn the table.
+
+   Muted all the same, because the rider is on the WATER: the sea is the
+   thing being read and the land is its edge, so the land may not be the
+   brightest mass on the plate.
+
+   THE SHORE IS ALSO THE BIGGEST BLOCK OF LIGHT ON A NIGHT SCREEN — a lit
+   window in the corner of the eye, and the first thing a rider's pupil
+   gives up the sea for — so both go to wet slate with the rest of the
+   chrome. What stands ON them does not: the gates, the craft's own mark and
+   the chevron are the signal, and they keep their colour. */
+.hud-minimap-ground {
+  fill: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--pine), #b9c79a 44%),
+    rgb(30 37 45) calc(var(--hud-dark) * 82%)
+  );
+}
+
+.hud-minimap-grain {
+  fill: color-mix(in srgb, rgb(30 66 42 / 46%), rgb(14 19 26 / 46%) calc(var(--hud-dark) * 80%));
+}
+
 .hud-minimap-land {
-  fill: color-mix(in srgb, rgb(226 220 198 / 92%), rgb(38 46 56 / 92%) calc(var(--hud-dark) * 66%));
+  fill: url(#hud-map-grain);
 }
 
-/* The shoreline itself — the edge the whole course is measured off. */
+/* Over the tree line: bare rock, flat and paler than the wood under it, so
+   a headland reads as a headland rather than as a hole in the canopy. It
+   takes no stipple — the stipple IS the wood. */
+.hud-minimap-highland {
+  fill: color-mix(
+    in srgb,
+    color-mix(in srgb, var(--granite), #e2ddcc 30%),
+    rgb(44 50 58) calc(var(--hud-dark) * 80%)
+  );
+}
+
+/* The shoreline itself — the edge the whole course is measured off, drawn
+   twice: a pale surf line laid in the WATER along it, then the coast's own
+   dark edge over the top. The surf is the chart-maker's trick and it is
+   worth its one extra stroke — it is what stops the two sides of the line
+   being a matter of interpretation at seven rem, and it puts the brightest
+   thing on the plate in the water rather than on the sand. */
+.hud-minimap-surf {
+  fill: none;
+  stroke: rgb(226 244 250 / calc(52% - 24% * var(--hud-dark)));
+  stroke-width: 3.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .hud-minimap-shoreline {
   fill: none;
-  stroke: rgb(12 44 58 / 70%);
+  stroke: rgb(12 44 58 / 78%);
   stroke-width: 1.2;
   stroke-linecap: round;
   stroke-linejoin: round;
@@ -689,15 +800,15 @@ canvas {
 .hud-minimap-route-case {
   fill: none;
   stroke: rgb(6 30 42 / 70%);
-  stroke-width: 4.6;
+  stroke-width: 3.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
 
 .hud-minimap-route {
   fill: none;
-  stroke: rgb(242 247 248 / calc(72% - 28% * var(--hud-dark)));
-  stroke-width: 2.2;
+  stroke: rgb(242 247 248 / calc(66% - 26% * var(--hud-dark)));
+  stroke-width: 1.8;
   stroke-linecap: round;
   stroke-linejoin: round;
 }
@@ -808,24 +919,68 @@ canvas {
 /* THE CRAFT, in the middle of the window — the one glyph that never moves,
    because the window is centred on it. Only its heading changes, and that is
    tweened between the HUD's 12 Hz snapshots, like the wind vane, so the icon
-   swings instead of stepping. */
+   swings instead of stepping.
+
+   It is the one mark on the plate that must be findable over ANY ground —
+   near-black deep water, a pale beach, the route's white ribbon — so it is
+   built out of its own contrast rather than out of a colour chosen to beat
+   one background (minimap.tsx). Held off the zoom entirely: the icon is a
+   glyph, not a piece of the world, and a craft that shrank as the window
+   opened would be a craft that disappeared exactly when the map got busy. */
 .hud-minimap-craft {
   transition: transform 120ms linear;
 }
 
-.hud-minimap-craft-hull {
-  fill: var(--hud-bad);
-  stroke: rgb(6 30 42 / 85%);
-  stroke-width: 1.2;
+/* The disc under the lot. Dark and soft-edged, so the glyph always has the
+   same ground however loud the water under it is. */
+.hud-minimap-craft-plinth {
+  fill: rgb(4 20 30 / 34%);
+  stroke: rgb(4 20 30 / 18%);
+  stroke-width: 2.2;
+}
+
+/* The heading thrown forward of the bow — the one mark on the plate a rider
+   reads without looking at the plate. Faint on purpose: it is a direction,
+   not a route, and it must not be mistaken for the racing line. */
+.hud-minimap-craft-ray {
+  fill: rgb(255 255 255 / 20%);
+}
+
+/* `paint-order` is what makes the outline a HALO rather than a bite: a
+   centred stroke on a glyph eight units wide spends half its width eating
+   the hull it is meant to be separating, and the icon came back reading as
+   a white blob with a red middle. Drawn stroke-first, the whole width lands
+   outside the fill and the hull keeps its own shape. */
+.hud-minimap-craft-hull,
+.hud-minimap-craft-sponsons {
+  paint-order: stroke fill;
   stroke-linejoin: round;
 }
 
+.hud-minimap-craft-hull {
+  fill: var(--hud-bad);
+  stroke: rgb(250 252 253 / 92%);
+  stroke-width: 1.5;
+}
+
 .hud-minimap-craft-seat {
-  fill: rgb(10 40 70 / 70%);
+  fill: rgb(8 32 52 / 70%);
 }
 
 .hud-minimap-craft-sponsons {
-  fill: rgb(6 30 42 / 90%);
+  fill: rgb(12 40 54 / 92%);
+  stroke: rgb(250 252 253 / 55%);
+  stroke-width: 0.9;
+}
+
+/* THE BOW, as an arrowhead struck INTO the hull's own colour. A hull this
+   small is nearly symmetric fore and aft, and a rider glancing at the map
+   has to come away with the heading and not merely with the position — so
+   the mark that carries it is set in the darkest ink on the glyph rather
+   than in the light the outline is already drawn in, where it read as the
+   halo bleeding round the nose. */
+.hud-minimap-craft-bow {
+  fill: rgb(8 32 52 / 82%);
 }
 
 .hud-minimap-ring-track {
@@ -840,20 +995,55 @@ canvas {
   transition: stroke-dasharray 160ms linear;
 }
 
-/* The readout rides the frame's bottom edge, inside the gauge. There is a
-   map under it and the map is the instrument, so it is set smaller than a
-   HUD figure that has the screen to itself. */
-.hud-minimap-read {
+/* THE SCALE RULE, drawn in the face's own units so the bar it lays down IS
+   the distance its word claims. It has a casing for the same reason the
+   route does: a bare hairline over a textured sea has no edge of its own. */
+.hud-minimap-rule {
+  fill: none;
+  stroke: rgb(242 247 248 / calc(82% - 26% * var(--hud-dark)));
+  stroke-width: 1.3;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  filter: drop-shadow(0 0 1.2px rgb(4 20 30 / 90%));
+}
+
+/* THE FOOT: the rule's word on the left, the run's next gate on the right.
+   The readout used to be set across the middle of the bottom edge, where it
+   crossed whatever water was under it; on a plate this size a centred figure
+   is a figure standing ON the map rather than under it. Split to the two
+   corners, both halves are read at a glance and the coast between them is
+   still coast. */
+.hud-minimap-foot {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 5.5%;
-  opacity: 0.92;
-  font-size: clamp(0.44rem, 1.45vmin, 0.62rem);
+  bottom: 3.5%;
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  padding: 0 7%;
+  font-size: clamp(0.4rem, 1.25vmin, 0.54rem);
   font-variant-numeric: tabular-nums;
   letter-spacing: 0.06em;
-  text-align: center;
   pointer-events: none;
+  /* Both words sit over moving water, so each carries its own shadow rather
+     than a plate: a chip in this corner would be a second frame inside the
+     gauge that IS this thing's frame. */
+  text-shadow: 0 0 3px rgb(4 20 30 / 95%);
+}
+
+/* The rule's word is a CAPTION — it says what the picture is worth, which is
+   a thing read once a minute. The readout beside it is a number that changes
+   every second and is read at a glance, so the two are not set the same. */
+.hud-minimap-scale {
+  font-size: 0.82em;
+  opacity: 0.8;
+}
+
+.hud-minimap-read {
+  font-weight: 700;
+  opacity: 0.96;
 }
 
 /* The bottom-left corner is the instrument panel: revs over speed. */
@@ -2467,17 +2657,51 @@ button.knob-read:focus-visible {
   color: var(--hud-info);
 }
 
+/* The same depth ramp the map draws, at a whole course's scale: the shelf,
+   the shallows over it, the shore over them. The hairline stroke on each
+   closes the seams between the cell polygons a band is built from, exactly
+   as it does on the map (minimap-scene.ts's `bedBands`). */
+.seed-preview-shelf,
 .seed-preview-shallows {
-  fill: var(--sea-shallow);
-  opacity: 0.42;
+  stroke-width: 0.2;
 }
 
+.seed-preview-shelf {
+  fill: var(--sea);
+  stroke: var(--sea);
+  opacity: 0.5;
+}
+
+.seed-preview-shallows {
+  fill: var(--sea-shallow);
+  stroke: var(--sea-shallow);
+  opacity: 0.52;
+}
+
+/* The shore, in the map's own two tones: the wood, and the bare ground over
+   the tree line. Flat rather than stippled — a canopy grain over a whole
+   two-kilometre coast at this size is noise, not texture. */
 .seed-preview-land {
-  fill: rgb(226 220 198 / 92%);
+  fill: color-mix(in srgb, var(--pine), #b9c79a 44%);
+}
+
+/* Softer than the map's, because a whole coast at this size carries dozens
+   of bare hilltops and at full contrast they read as things standing on the
+   shore rather than as the relief of it. */
+.seed-preview-highland {
+  fill: color-mix(in srgb, var(--granite), #e2ddcc 30%);
+  opacity: 0.55;
+}
+
+.seed-preview-surf {
+  stroke: rgb(226 244 250 / 52%);
+  stroke-width: 1.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 
 .seed-preview-shore {
-  stroke: rgb(12 44 58 / 70%);
+  stroke: rgb(12 44 58 / 78%);
   stroke-width: 0.5;
   stroke-linecap: round;
   stroke-linejoin: round;
