@@ -1220,10 +1220,12 @@ canvas {
   animation: hud-anchor-in 100ms steps(2);
 }
 
+/* `top` is written inline from the throw's own length (hud-touch.tsx): the
+   drawing hangs above the thumb, so how far above is the lever's business
+   and not a number to keep in step here. */
 .hud-lever-svg {
   position: absolute;
   left: -22px;
-  top: -22px;
   filter: drop-shadow(2px 2px 0 rgb(var(--hud-plate) / 60%));
 }
 

@@ -30,20 +30,24 @@ import {
 const DT = TUNING.dt;
 
 describe("the throttle lever", () => {
-  it("is closed at the anchor and above it", () => {
-    expect(leverThrottle(0)).toBe(0);
-    expect(leverThrottle(-40)).toBe(0);
+  it("is WIDE OPEN at the anchor, and stays open below it", () => {
+    // The whole point of the anchor: a thumb that lands anywhere — low on
+    // the glass included, where there is no room left to drag — is already
+    // asking for everything the pump has.
+    expect(leverThrottle(0)).toBe(1);
+    expect(leverThrottle(40)).toBe(1);
+    expect(leverThrottle(LEVER_FULL_PX * 3)).toBe(1);
   });
 
-  it("opens with a drag DOWN, analogue, full at the stated travel", () => {
-    expect(leverThrottle(LEVER_FULL_PX / 2)).toBeCloseTo(0.5, 9);
-    expect(leverThrottle(LEVER_FULL_PX)).toBe(1);
-    expect(leverThrottle(LEVER_FULL_PX * 3)).toBe(1);
-    // Monotonic the whole way: more pull is never less pump.
-    let last = 0;
-    for (let px = 0; px <= LEVER_FULL_PX; px += 5) {
+  it("closes with a drag UP, analogue, shut at the stated travel", () => {
+    expect(leverThrottle(-LEVER_FULL_PX / 2)).toBeCloseTo(0.5, 9);
+    expect(leverThrottle(-LEVER_FULL_PX)).toBe(0);
+    expect(leverThrottle(-LEVER_FULL_PX * 3)).toBe(0);
+    // Monotonic the whole way: more lift is never more pump.
+    let last = 1;
+    for (let px = 0; px >= -LEVER_FULL_PX; px -= 5) {
       const v = leverThrottle(px);
-      expect(v).toBeGreaterThanOrEqual(last);
+      expect(v).toBeLessThanOrEqual(last);
       last = v;
     }
   });
@@ -177,16 +181,18 @@ describe("sampleInput", () => {
 });
 
 describe("the brake and reverse lever", () => {
-  it("is the same anchor's other half: up is brake, down is nothing", () => {
+  it("is the far end of the same throw: nothing until the throttle has shut", () => {
     expect(leverReverse(0)).toBe(0);
     expect(leverReverse(40)).toBe(0);
-    expect(leverReverse(-LEVER_REVERSE_PX / 2)).toBeCloseTo(0.5, 9);
-    expect(leverReverse(-LEVER_REVERSE_PX)).toBe(1);
-    expect(leverReverse(-LEVER_REVERSE_PX * 3)).toBe(1);
+    expect(leverReverse(-LEVER_FULL_PX / 2)).toBe(0);
+    expect(leverReverse(-LEVER_FULL_PX)).toBe(0);
+    expect(leverReverse(-LEVER_FULL_PX - LEVER_REVERSE_PX / 2)).toBeCloseTo(0.5, 9);
+    expect(leverReverse(-LEVER_FULL_PX - LEVER_REVERSE_PX)).toBe(1);
+    expect(leverReverse(-LEVER_FULL_PX - LEVER_REVERSE_PX * 3)).toBe(1);
   });
 
-  it("and the two throws never open at once", () => {
-    for (let px = -LEVER_REVERSE_PX * 2; px <= LEVER_FULL_PX * 2; px += 5) {
+  it("and the two never open at once — one throw, the pump then the bucket", () => {
+    for (let px = -(LEVER_FULL_PX + LEVER_REVERSE_PX) * 2; px <= LEVER_FULL_PX * 2; px += 5) {
       expect(Math.min(leverThrottle(px), leverReverse(px)), `at ${px}px`).toBe(0);
     }
   });

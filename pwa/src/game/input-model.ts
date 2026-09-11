@@ -63,36 +63,48 @@ export function rampToward(
   return target === 0 && Math.abs(next) < KEY_AXIS_SNAP ? 0 : next;
 }
 
-/** THE THROTTLE LEVER. A touch anchors at nothing; dragging DOWN the glass
- * pulls the lever, and this many pixels of travel is wide open. Down rather
- * than up because a thumb resting at the bottom of a phone has room to
- * pull toward the palm and none to push away from it — and because a lever
- * is squeezed toward the rider, never pushed. */
+/** THE THROTTLE LEVER, AND WHICH WAY IT RESTS. A touch anchors at WIDE
+ * OPEN, and the throw runs UPWARD from there: the first `LEVER_FULL_PX` of
+ * travel up the glass closes the throttle, and everything below the anchor
+ * is still wide open.
+ *
+ * That is the real lever's sense as well as the useful one. A watercraft's
+ * throttle is a sprung finger lever squeezed against the bar: the rider
+ * HOLDS it open and eases it to slow, so touching the glass is squeezing
+ * the lever and lifting toward the top of the screen is letting it back
+ * out. It also puts the travel where a thumb actually has room — the
+ * player is almost always asking for all of it, and a thumb that landed
+ * low on the glass used to have its remaining throw off the bottom of the
+ * phone, which took full throttle away from exactly the grip a hurried
+ * hand makes. */
 export const LEVER_FULL_PX = 90;
 
-/** ...and UP from the same anchor is the BRAKE AND REVERSE lever, the
- * craft's other one. Shorter travel than the throttle's, because it is
- * reached for in a hurry and because the thumb has less room going that
- * way; the bucket's own swing is what makes it gradual, not the glass. */
+/** ...and PAST the shut mark the same throw becomes the BRAKE AND REVERSE
+ * lever, the craft's other one: this much further up the glass is the
+ * bucket all the way down. Shorter travel than the throttle's, because it
+ * is reached for in a hurry; the bucket's own swing is what makes it
+ * gradual, not the glass. */
 export const LEVER_REVERSE_PX = 60;
 
-/** How open the throttle lever is for a thumb `dyPx` below its anchor
- * (screen y grows downward, so a drag down is positive). Analogue and
- * clamped: half the travel is half the pump. Above the anchor is nothing —
- * that half of the throw belongs to `leverReverse`. */
+/** How open the throttle is for a thumb `dyPx` from its anchor (screen y
+ * grows downward, so a drag UP is negative). Wide open at the anchor and
+ * anywhere below it, closing analogue over `LEVER_FULL_PX` of travel up,
+ * shut past that — where the throw becomes `leverReverse`'s. */
 export function leverThrottle(dyPx: number): number {
-  return clamp(dyPx / LEVER_FULL_PX, 0, 1);
+  return clamp(1 + dyPx / LEVER_FULL_PX, 0, 1);
 }
 
 /** ...and how far the brake is pulled for the same thumb: the travel
- * ABOVE the anchor, 0..1. Below it is nothing. One anchor, two levers, and
- * the neutral between them is where the thumb started. */
+ * beyond the shut mark, 0..1. Nothing until the throttle has closed, so
+ * one throw carries both and a rider can never be asking for the pump and
+ * the bucket at once. */
 export function leverReverse(dyPx: number): number {
-  // At or below the anchor is nothing, and stated as an early return so
-  // the answer is +0: negating a zero drag gives -0, and a -0 is the same
-  // wart here that `sampleInput` guards the steer against.
-  if (dyPx >= 0) return 0;
-  return clamp(-dyPx / LEVER_REVERSE_PX, 0, 1);
+  // Stated as an early return so the answer is +0 rather than the -0 a
+  // negated zero gives — the same wart `sampleInput` guards the steer
+  // against.
+  const past = -dyPx - LEVER_FULL_PX;
+  if (past <= 0) return 0;
+  return clamp(past / LEVER_REVERSE_PX, 0, 1);
 }
 
 /** THE HANDLEBAR. Thumb travel sideways from the anchor for full lock —

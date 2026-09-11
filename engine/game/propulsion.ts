@@ -16,7 +16,11 @@
 //   flow Q = A_nozzle·V_j, and the thrust T = ρ·Q·(V_j − V_in) with V_in the
 //   inflow velocity, which is the hull's speed through the water less the
 //   boundary layer (`inflowFactor`). Scaled by an overall thrust efficiency
-//   for the duct and nozzle losses.
+//   for the duct and nozzle losses. That difference CHANGES SIGN: with the
+//   throttle shut the jet is slower than the water coming in, and the duct
+//   takes momentum out of the hull instead of adding it. `thrust` returns
+//   the positive half and `intakeDrag` the negative one, separately,
+//   because they do not act in the same place — see `intakeDrag`.
 // - The PUMP LOAD: the jet's kinetic power ½·ρ·Q·V_j² over the pump's
 //   hydraulic efficiency, which is ∝ rpm³ since Q and V_j are both ∝ rpm —
 //   so the shaft torque is ∝ rpm². The load is what the engine revs
@@ -150,6 +154,72 @@ export function thrust(
   const q = nozzleArea(spec) * vj;
   const vin = Math.max(speedThroughWater, 0) * PUMP.inflowFactor;
   return Math.max(0, PUMP.thrustEfficiency * density * q * (vj - vin));
+}
+
+/** THE INTAKE'S RAM DRAG, N — the other half of the very expression
+ * `thrust` returns the positive half of, and a force rather than a
+ * bookkeeping sign. The pump swallows water already travelling at the
+ * hull's speed and throws it out at `V_j`: with the throttle shut and the
+ * engine back at idle, `V_j` falls well under the inflow, ρ·Q·(V_j − V_in)
+ * goes NEGATIVE, and the duct is taking momentum OUT of the hull. Every
+ * waterjet has it, and it is the first thing a rider feels on lifting off
+ * the throttle — before the hull has come off the plane, before anything
+ * else in the model has had time to answer.
+ *
+ * It is returned on its own, as a magnitude, because it does not act where
+ * the thrust does. The ram drag is the INTAKE's — under the hull, ahead of
+ * the pump — so the nozzle cannot aim it and the bucket cannot turn it
+ * forward: it pulls along the hull's own line whatever the bars and the
+ * gate are doing. Exactly one of this and `thrust` is non-zero at a time,
+ * so nothing is counted twice. */
+export function intakeDrag(
+  spec: CraftSpec,
+  density: number,
+  rpm: number,
+  speedThroughWater: number,
+  wet: boolean,
+): number {
+  if (!wet || rpm <= 0) return 0;
+  const vj = jetVelocity(spec, rpm);
+  const q = nozzleArea(spec) * vj;
+  const vin = Math.max(speedThroughWater, 0) * PUMP.inflowFactor;
+  return Math.max(0, PUMP.thrustEfficiency * density * q * (vin - vj));
+}
+
+/** THE DEPLOYED BUCKET'S OWN DRAG, N. The gate is not only a mirror held
+ * up to the jet: dropped at speed it is a plate hanging in the water
+ * behind the transom, and what meets it is the HULL's speed rather than
+ * the pump's flow.
+ *
+ * That is the half of a watercraft's brake momentum theory alone cannot
+ * see, and the half that matters. Jet thrust FALLS as the hull speeds up —
+ * `V_in` closes on `V_j` — so a brake made only of reversed thrust is
+ * weakest exactly where a rider reaches for it, which is not how a real
+ * one behaves: a modern electronic gate roughly halves a stopping distance
+ * from fifty, and it does that by putting a plate in the stream and
+ * burying the bow, not by pushing backwards with a jet that has almost
+ * nothing left to give. Going as v², it is also nothing at all at the
+ * walking pace reverse actually runs at, which is why the gate can be both
+ * a brake and a reverse.
+ *
+ * Quoted as a drag area (C_d·A) in multiples of the nozzle's own area, so
+ * a bigger pump carries a bigger gate without a second number, and scaled
+ * by how far down the gate has swung and by how much of the flow that
+ * craft's gate takes (`spec.bucket.reverse`) — the same measure of how
+ * much of it is in the stream. A craft with no gate fitted has none of
+ * this. */
+export function bucketDrag(
+  spec: CraftSpec,
+  density: number,
+  bucket: number,
+  speedThroughWater: number,
+  wet: boolean,
+): number {
+  const d = clamp(bucket, 0, 1);
+  if (!wet || d <= 0 || spec.bucket.reverse <= 0) return 0;
+  const v = Math.max(speedThroughWater, 0);
+  const area = PUMP.bucketDragArea * nozzleArea(spec) * d * spec.bucket.reverse;
+  return 0.5 * density * area * v * v;
 }
 
 /** Static thrust, N — the pull at the dock with the engine at redline. */
