@@ -496,6 +496,10 @@ ${shader.vertexShader}`
 \tvColor = mix(vColor, uHaze, clamp(under / ${num(clarity)}, 0.0, 1.0) * ${num(HAZE_MAX)});`,
       );
   };
+  // Three's default key is the graft's source text, which is the same for
+  // every species; the key has to say whose bend and whose axis were baked
+  // in, or the second species compiled swims with the first one's tail.
+  material.customProgramCacheKey = () => `fauna:${spec.id}`;
   return material;
 }
 

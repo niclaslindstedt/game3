@@ -99,6 +99,19 @@ export type VideoSettings = {
    * gradient four times over for every pixel and vertex it touches. OFF is
    * genuinely off: no pass, no map, no reads. */
   wake: WakeLevel;
+  /** WHAT A HULL GOING IN DOES TO THE WATER — a landing, the bow driven
+   * under in a dive, the hull coming down on its side: the crater it knocks
+   * in the sea and the ring wave that rolls out of it (stamped into the
+   * wake's map, `wake.ts`), the wall of water a dive throws over the rider
+   * and the sheet a hull going over throws off its side (`spray.ts`), and
+   * the boil under a hull lying on its back. Part of DETAIL, and it applies
+   * the instant it is set. OFF is the arcade generation's own splash — the
+   * plume and a patch of foam on a sea that does not take the blow — SOME
+   * is the sea taking it, and FULL is the ring wave too. Cheap in every
+   * frame but the ones it happens in, which is why it is a lever on DETAIL
+   * rather than a row: it is an amount of world, not a cost a machine can
+   * feel on the straight. */
+  splash: SplashLevel;
   /** WHETHER ANYTHING SWIMS HERE (R20) — the pods under the surface, drawn
    * only inside the see-through radius anyway. Part of DETAIL, and it applies
    * the instant it is set. Two stops rather than three because there is no
@@ -174,6 +187,9 @@ export type SprayLevel = (typeof SPRAY_LEVELS)[number];
 
 export const WAKE_LEVELS = ["off", "flat", "full"] as const;
 export type WakeLevel = (typeof WAKE_LEVELS)[number];
+
+export const SPLASH_LEVELS = ["off", "some", "full"] as const;
+export type SplashLevel = (typeof SPLASH_LEVELS)[number];
 
 export const FLORA_LEVELS = ["sparse", "normal", "lush"] as const;
 export type FloraLevel = (typeof FLORA_LEVELS)[number];
@@ -267,6 +283,31 @@ export const WAKE_LOOK: Record<WakeLevel, WakeLook> = {
   off: { map: false, relief: false },
   flat: { map: true, relief: false },
   full: { map: true, relief: true },
+};
+
+/** What one stop of the SPLASH lever draws: whether a splash's crater is
+ * stamped into the map at all (its depth, as a share of what the spray
+ * asks for), how much of the ring wave rolls out of it, what share of the
+ * droplets a dive's wall and a capsize's sheet throw, and whether the
+ * water boils under a hull on its back. The relief only shows where the
+ * WAKE lever reads it (`WAKE_LOOK.relief`), which every DETAIL preset that
+ * stamps one turns on. */
+export type SplashLook = {
+  crater: number;
+  ring: number;
+  throw: number;
+  boil: boolean;
+};
+
+/** THE SPLASH LADDER. OFF is the splash the game had before the sea took
+ * the blow: the plume, the patch of foam, nothing bent. SOME is the water
+ * taking it — the crater under the hull, the boil round one on its back,
+ * half the throw — and FULL is all of it, with the ring wave rolling out to
+ * say where the water went. */
+export const SPLASH_LOOK: Record<SplashLevel, SplashLook> = {
+  off: { crater: 0, ring: 0, throw: 0, boil: false },
+  some: { crater: 1, ring: 0, throw: 0.5, boil: true },
+  full: { crater: 1, ring: 1, throw: 1, boil: true },
 };
 
 export const REFLECTION_LEVELS = ["off", "soft", "sharp"] as const;
@@ -466,7 +507,7 @@ export const FLORA_SCALE: Record<FloraLevel, number> = {
  * instead of a silent omission from both. */
 export type DetailSettings = Pick<
   VideoSettings,
-  "spray" | "wake" | "fauna" | "flora" | "sky" | "rain" | "reflections"
+  "spray" | "wake" | "splash" | "fauna" | "flora" | "sky" | "rain" | "reflections"
 >;
 
 export const DETAIL_LEVELS = ["low", "medium", "high"] as const;
@@ -490,6 +531,7 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
   low: {
     spray: "low",
     wake: "flat",
+    splash: "off",
     fauna: false,
     flora: "sparse",
     sky: "low",
@@ -500,6 +542,7 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
   medium: {
     spray: "full",
     wake: "full",
+    splash: "some",
     fauna: true,
     flora: "normal",
     sky: "medium",
@@ -508,13 +551,16 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
   },
   // A machine with headroom: a thicker shore, a sharper mirror, the cloud's
   // edges read a stop deeper, the whole sheet of rain and its rings out to
-  // where the near grid gives way. The spray is already every droplet the hull throws, the wake
-  // already everything the map carries and the sea life already every pod
-  // the rider can see into, so those have nowhere left to go — a stop that
-  // promised more would be the page inventing work to sell.
+  // where the near grid gives way, and the whole of a splash — the ring
+  // wave and every droplet of the wall. The spray is already every droplet
+  // the hull throws, the wake already everything the map carries and the
+  // sea life already every pod the rider can see into, so those have
+  // nowhere left to go — a stop that promised more would be the page
+  // inventing work to sell.
   high: {
     spray: "full",
     wake: "full",
+    splash: "full",
     fauna: true,
     flora: "lush",
     sky: "high",

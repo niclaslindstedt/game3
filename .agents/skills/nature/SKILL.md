@@ -1,6 +1,6 @@
 ---
 name: nature
-description: "Use when working on the NATURE the levels run along — the shore's materials (bedrock slabs, boulder fields, sand pockets, the skerries standing offshore), the biome-as-data model behind them, what the renderer's terrain.ts paints for each, the rocks it stands up, the sea life under the water (R20), the flora above the waterline, and — later — the countries beyond the taiga. Owns the engine's biome row, the surface classifier's vocabulary, the terrain's paint, the placement rules that keep every solid in the engine's field, and the look-first verification loop."
+description: "Use when working on the NATURE the levels run along — the shore's materials (bedrock slabs, boulder fields, sand pockets, the skerries standing offshore), the biome-as-data model behind them, what the renderer's terrain.ts paints for each, the rocks it stands up, the sea life under the water (R20), the flora above the waterline, the birds over the shore and the skeins crossing it, and — later — the countries beyond the taiga. Owns the engine's biome row, the surface classifier's vocabulary, the terrain's paint, the placement rules that keep every solid in the engine's field, and the look-first verification loop."
 ---
 
 # The nature: the shore, its stone, and what will grow on it
@@ -37,6 +37,10 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | `pwa/src/game/flora-plan.ts` | THE PLACER: candidates thrown along `level.shore` — which the river's banks are part of (R26) — and each point offered to every row, one species picked weighted by share. Three-free, so `tests/flora_test.ts` holds the habitats |
 | `pwa/src/game/flora-shapes.ts` | THE BUILDERS: seven parametric low-poly forms carrying the thirteen rows, each one flat-shaded vertex-coloured geometry off the shared `lowpoly` Builder, with the facet budget that gives a 30 cm plant a bipyramid and a spruce a lump |
 | `pwa/src/game/flora.ts` | The wiring: one instanced mesh a species, the per-instance matrix and tint, and the DETAIL row's thinning |
+| `pwa/src/game/bird-defs.ts` | THE BIRDS' ROSTER: eight rows — for each what it IS (span, length, the neck's reach, the wing's chord, taper, sweep and wrist), how it FLIES (the beat, the stroke, the glide share, the dihedral, the airspeed, the altitude band, the loop's size), where it LIVES (`home`: a raft on the water, a rock, a tree's crown, the shore; the roost's spread; the rest-and-flight cycle and its flown share; a plunge, wings dried), how common it is (`perKm`, flocks per km of course), which seasons it is here, and — for the geese, the swans and the cranes — the `passage` it crosses on and the seasons it crosses |
+| `pwa/src/game/bird-plan.ts` | THE PLACER AND THE MODEL, three-free: `planBirds` lays every flock the season allows (a raft in the lee of a skerry, a colony on a rock or a buoy, the eagle on the tallest pine — read off the cover as planted at its sparsest, so the perch is always drawn — and always within reach of the course), and decides what crosses; `birdPose` is where every bird is at a moment, a pure function of the flock and the clock (the cycle scaled by `activityAt`'s day, the loop, the formation and the weave, the wing gate, the tern's plunge, the cormorant's drying, the flush a raft answers a hull with); `crossingAt` / `crossingPose` are the skeins, pure in their index, north in spring and south in autumn |
+| `pwa/src/game/bird-shapes.ts` | THE LOOK: `BIRD_STYLES` (mantle, underside, wingtip, head, bill, an eagle's white tail, a crane's legs) and the parametric body — a spindle, the neck and head, the tail fan, and a two-faced wing with a wrist — plus the material with the FLAP and the FOLD grafted into its vertex shader per instance |
+| `pwa/src/game/birds.ts` | The wiring: one instanced mesh a species, the per-instance matrix and the two wing attributes, the reach cull from the LENS, the sea sampled once per raft, and the one memory — when each flock was last flushed |
 
 Biome → material ids are strings on purpose: `biomes.ts` imports nothing from
 the renderer, and the terrain painter throws on an unknown `Surface`, so a new
@@ -121,6 +125,37 @@ wrong at the water, and a shore drawn from it reads as a screensaver:
   is the ladder side by side; `make screenshots SCENE=river` is whether
   the delta reads. And `make profile` before and after, always: the cover
   is the biggest single block of geometry in the frame.
+
+## The birds over the shore
+
+Eight rows, renderer-side like the cover and for the same reason: nothing
+with wings is a solid. What makes them read:
+
+- **A flock is a ROUTINE, not a position.** A home, a loop, a cycle; where
+  a bird is at a moment is `birdPose`, pure in the flock and the engine's
+  clock, so a seed flies the same birds on every ride and a replay puts
+  every one of them back. A behaviour that needs memory (the flush) keeps
+  it in `birds.ts` beside the wake's, and hands the moment in.
+- **Seen from BELOW.** The water looks up at a bird, so the underside is
+  the paint that matters: a gull is white with black tips from the water,
+  and a wing painted grey on both faces is a crow. Every wing is two faces.
+- **The wing has a wrist.** A bird on a rock has its wings FOLDED — the arm
+  back at the shoulder, the hand back at the wrist — and a bird that sits
+  with its wings spread flat is a decoy. The fold is a per-instance number
+  the shader reads, so a raft settling is one attribute sliding to 1.
+- **The day is the sun's.** `activityAt` reads the same sun the sky is lit
+  by: a run ridden into the night rides under birds going to roost. Nothing
+  keys on a word for the light.
+- **The season is the point of a skein.** In spring they go north, in
+  autumn south, on `SOUTH`'s compass; in summer the geese and the swans are
+  down on the sheltered water instead, and in winter only the gulls, the
+  eider and the eagle are left.
+- **Judge the roster on the sheet, the flock in the app.** `make birds` is
+  the silhouettes side by side, gliding, beating and perched; `make
+  screenshots SCENE=birds` runs the craft at a raft and photographs it
+  getting up; `SCENE=cruise` at a few seeds is whether the sky reads alive
+  at riding pace. `make profile` before and after: it is a handful of draw
+  calls, and it should stay one.
 
 ## The biome model
 
@@ -218,6 +253,9 @@ materials present in the biome's stated shares).
   `make analyze` over a sweep (the depth and clearance checks read the bed).
 - A flora change → `make flora`, `make screenshots SCENE=river` and
   `SCENE=rest`, and `make profile` before and after.
+- A bird change → `make birds`, `make screenshots SCENE=birds`, and
+  `make profile` before and after; `tests/birds_test.ts` holds the roster,
+  the placer and the model.
 - A `biomes.ts` change → the corpus digest, before and after.
 - `docs/level-generator.md` for anything the rules quote; a changeset
   fragment — the shore is what the player looks at.

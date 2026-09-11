@@ -17,7 +17,13 @@
 // one sample per metre or so of travel, and two ribbons through it, a
 // narrow long-lived one for the road and a wide short-lived one for the
 // fan, both rasterised ADDITIVELY so where they overlap the map carries
-// both. A landing's foam is a disc stamped into the same map (`stamp`).
+// both. A SPLASH — a landing, a bow driven under, a hull coming down on its
+// side — is stamped into the same map (`stamp`): the foam patch, the crater
+// the hull knocked in the water and the ring wave rolling out of it, laid
+// as a fan of rings whose radii sit on those features. And a hull lying on
+// its back, or being righted, has the water round it BOILING — the air out
+// of the hull, the rider climbing on — which is a mark under the craft laid
+// off its state every frame rather than a stamp.
 //
 // Two cadences. `observe(state)` runs once per ENGINE STEP and only decides
 // whether the transom has moved far enough for a new sample (and drops a
@@ -38,10 +44,13 @@
 import * as THREE from "three";
 import { type GameState } from "@engine";
 
+import { type SplashLook } from "./settings-video.ts";
 import { type WakeMap } from "./water-shader.ts";
 import {
   FAN_LIFE,
   ROAD_LIFE,
+  SPLASH_LIFE,
+  SPLASH_STATIONS,
   WAKE_HEIGHT,
   WAKE_MAP,
   WAKE_MAP_BACK,
@@ -51,6 +60,8 @@ import {
   roadAt,
   roadHalf,
   roadStrength,
+  splashAt,
+  splashStations,
   wakeSection,
 } from "./wake-profile.ts";
 
@@ -71,12 +82,18 @@ const SPEED_LIVE = 1;
  * crest (`RIDGE` in the profile) rather than spread evenly. */
 const ROAD_ACROSS = 4;
 const FAN_S = [-1, -0.85, -0.6, -0.3, 0.3, 0.6, 0.85, 1];
-/** The landing stamps: how many ride the water at once, how long one lives,
- * s, how fast it spreads, m/s, and its ring's segments. */
+/** The splash stamps: how many ride the water at once, and the segments
+ * round each of their rings. */
 const STAMPS = 6;
-const STAMP_LIFE = 2.6;
-const STAMP_SPREAD = 0.9;
 const STAMP_SEGMENTS = 20;
+/** THE BOIL under a hull on its back: how long after it goes over the water
+ * round it is boiling at full, s — the air coming out of the hull — and how
+ * far past the hull's own plan it reaches, as a share of the beam. Its
+ * churn is what the map carries most of; a capsized hull is not laying
+ * white, it is stirring the water it lies in. */
+const BOIL_RISE = 0.5;
+const BOIL_PAST_BEAM = 0.6;
+const BOIL_FOAM = 0.45;
 
 export type Wake = {
   /** The map as the water reads it (`applyWake`): the texture and the box —
@@ -86,9 +103,17 @@ export type Wake = {
   map: WakeMap;
   /** Once per engine step: sample the transom. */
   observe: (state: GameState) => void;
-  /** A landing's foam: a disc of `radius` m at `strength` 0..1, stamped at
-   * the clock's `t`. */
-  stamp: (x: number, z: number, t: number, radius: number, strength: number) => void;
+  /** A splash: a disc of `radius` m at `strength` 0..1 of white, stamped at
+   * the clock's `t`, with a crater `depth` m deep at full (0 for foam alone)
+   * and the ring wave that depth throws. */
+  stamp: (
+    x: number,
+    z: number,
+    t: number,
+    radius: number,
+    strength: number,
+    depth?: number,
+  ) => void;
   /** Once per frame: lay the trail and draw the map. Returns the pass's
    * draw calls and triangles, for the frame's own bill. */
   render: (renderer: THREE.WebGLRenderer, state: GameState) => { calls: number; triangles: number };
@@ -96,6 +121,10 @@ export type Wake = {
    * Off, `render` is free and the map is cleared once so nothing stale is
    * ever read off it. */
   setDrawn: (drawn: boolean) => void;
+  /** How much of a splash the map carries — the DETAIL row's `SPLASH_LOOK`:
+   * the crater's share, the ring's, and whether a capsized hull's boil is
+   * laid. Applies to the stamps already on the water as well as the next. */
+  setSplashLook: (look: SplashLook) => void;
   reset: () => void;
   dispose: () => void;
 };
@@ -187,22 +216,36 @@ export function createWake(): Wake {
   const road = ribbon(ROWS, ROAD_ACROSS, material);
   const fan = ribbon(ROWS, FAN_S.length, material);
 
-  // The stamps: a fan of triangles each, the mark at the centre feathering
-  // to nothing at the rim.
+  // The stamps: a centre vertex and a ring of segments at each station out
+  // from it, the stations' radii laid on the splash's features each frame
+  // (`splashStations`), so the crater's rim and the ring's crest are each a
+  // ring of vertices and never a gap between two.
   const stampX = new Float32Array(STAMPS);
   const stampZ = new Float32Array(STAMPS);
   const stampT = new Float32Array(STAMPS).fill(-1e9);
   const stampR = new Float32Array(STAMPS);
   const stampS = new Float32Array(STAMPS);
+  const stampD = new Float32Array(STAMPS);
   let stampCursor = 0;
-  const ringVerts = STAMP_SEGMENTS + 1;
-  const stampPositions = new Float32Array(STAMPS * ringVerts * 3);
-  const stampColors = new Float32Array(STAMPS * ringVerts * 4);
+  const stations = new Float32Array(SPLASH_STATIONS);
+  const stampVerts = 1 + (SPLASH_STATIONS - 1) * STAMP_SEGMENTS;
+  const stampPositions = new Float32Array(STAMPS * stampVerts * 3);
+  const stampColors = new Float32Array(STAMPS * stampVerts * 4);
   const stampIndex: number[] = [];
   for (let p = 0; p < STAMPS; p++) {
-    const base = p * ringVerts;
+    const base = p * stampVerts;
+    // The centre's fan to the first ring…
     for (let s = 0; s < STAMP_SEGMENTS; s++) {
       stampIndex.push(base, base + 1 + ((s + 1) % STAMP_SEGMENTS), base + 1 + s);
+    }
+    // …then a band of quads between each ring and the next.
+    for (let k = 1; k + 1 < SPLASH_STATIONS; k++) {
+      const inner = base + 1 + (k - 1) * STAMP_SEGMENTS;
+      const outer = inner + STAMP_SEGMENTS;
+      for (let s = 0; s < STAMP_SEGMENTS; s++) {
+        const n = (s + 1) % STAMP_SEGMENTS;
+        stampIndex.push(inner + s, outer + n, outer + s, inner + s, inner + n, outer + n);
+      }
     }
   }
   const stampGeometry = new THREE.BufferGeometry();
@@ -214,14 +257,33 @@ export function createWake(): Wake {
   const stamps = new THREE.Mesh(stampGeometry, material);
   stamps.frustumCulled = false;
 
+  // The boil under a capsized hull: one fan, the hull's plan as an ellipse,
+  // the mark at the centre feathering to nothing at the rim.
+  const boilVerts = STAMP_SEGMENTS + 1;
+  const boilPositions = new Float32Array(boilVerts * 3);
+  const boilColors = new Float32Array(boilVerts * 4);
+  const boilIndex: number[] = [];
+  for (let s = 0; s < STAMP_SEGMENTS; s++) {
+    boilIndex.push(0, 1 + ((s + 1) % STAMP_SEGMENTS), 1 + s);
+  }
+  const boilGeometry = new THREE.BufferGeometry();
+  const boilPos = new THREE.BufferAttribute(boilPositions, 3).setUsage(THREE.DynamicDrawUsage);
+  const boilCol = new THREE.BufferAttribute(boilColors, 4).setUsage(THREE.DynamicDrawUsage);
+  boilGeometry.setAttribute("position", boilPos);
+  boilGeometry.setAttribute("color", boilCol);
+  boilGeometry.setIndex(boilIndex);
+  const boil = new THREE.Mesh(boilGeometry, material);
+  boil.frustumCulled = false;
+
   // The map's own scene and lens. The lens is never read — the material
   // places every vertex off the box — but three wants one to draw with.
   const marks = new THREE.Scene();
-  marks.add(road.mesh, fan.mesh, stamps);
+  marks.add(road.mesh, fan.mesh, stamps, boil);
   const lens = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clearColor = new THREE.Color();
   const section = wakeSection();
   let drawn = true;
+  let splash: SplashLook = { crater: 1, ring: 1, throw: 1, boil: true };
   /** Whether the map holds marks that a switched-off pass should wipe. */
   let dirty = false;
 
@@ -288,7 +350,7 @@ export function createWake(): Wake {
     push(now.x, now.z, c.heading, state.t, now.along, now.strength, c.spec.beam, false);
   };
 
-  const stamp: Wake["stamp"] = (x, z, t, radius, strength) => {
+  const stamp: Wake["stamp"] = (x, z, t, radius, strength, depth = 0) => {
     const p = stampCursor;
     stampCursor = (stampCursor + 1) % STAMPS;
     stampX[p] = x;
@@ -296,6 +358,9 @@ export function createWake(): Wake {
     stampT[p] = t;
     stampR[p] = radius;
     stampS[p] = strength;
+    // A height channel is eight bits of `WAKE_HEIGHT`, so a crater asked
+    // for deeper than that is one the bytes would clamp.
+    stampD[p] = Math.min(WAKE_HEIGHT, Math.max(0, depth));
   };
 
   /** Write one vertex of a mark: its plan place, and the section's four
@@ -385,34 +450,65 @@ export function createWake(): Wake {
     fan.posAttr.needsUpdate = true;
     fan.colAttr.needsUpdate = true;
 
-    // The stamps: a disc each, spreading and paling, its churn dying ahead
-    // of its foam the way a splash settles before its bubbles pop.
+    // The stamps: each splash's section at every station, round every
+    // segment. A dead stamp is folded to its centre with no cover.
     for (let p = 0; p < STAMPS; p++) {
-      const base = p * ringVerts;
-      const life = (t - stampT[p]) / STAMP_LIFE;
-      const alive = life >= 0 && life < 1;
-      const radius = alive ? stampR[p] + STAMP_SPREAD * (t - stampT[p]) : 0;
-      const fade = alive ? Math.pow(1 - life, 1.6) : 0;
-      for (let v = 0; v < ringVerts; v++) {
-        const ang = v === 0 ? 0 : ((v - 1) / STAMP_SEGMENTS) * Math.PI * 2;
-        const r = v === 0 ? 0 : radius;
-        section.foam = v === 0 ? stampS[p] * fade * 0.7 : 0;
-        section.churn = v === 0 ? stampS[p] * fade * (1 - life) : 0;
-        section.up = 0;
-        section.down = 0;
-        section.cover = alive ? 1 : 0;
-        write(
-          stampPositions,
-          stampColors,
-          base + v,
-          stampX[p] + Math.cos(ang) * r,
-          stampZ[p] + Math.sin(ang) * r,
-          section,
-        );
+      const base = p * stampVerts;
+      const age = t - stampT[p];
+      const alive = age >= 0 && age < SPLASH_LIFE;
+      const depth = stampD[p] * splash.crater;
+      if (alive) splashStations(stampR[p], age, splash.ring, stations);
+      else stations.fill(0);
+      for (let k = 0; k < SPLASH_STATIONS; k++) {
+        const r = stations[k];
+        if (alive) splashAt(r, stampR[p], age, stampS[p], depth, splash.ring, section);
+        else section.cover = 0;
+        const count = k === 0 ? 1 : STAMP_SEGMENTS;
+        const first = k === 0 ? base : base + 1 + (k - 1) * STAMP_SEGMENTS;
+        for (let s = 0; s < count; s++) {
+          const ang = (s / STAMP_SEGMENTS) * Math.PI * 2;
+          write(
+            stampPositions,
+            stampColors,
+            first + s,
+            stampX[p] + Math.cos(ang) * r,
+            stampZ[p] + Math.sin(ang) * r,
+            section,
+          );
+        }
       }
     }
     stampPos.needsUpdate = true;
     stampCol.needsUpdate = true;
+
+    // The boil: the hull's plan under a craft on its back or being righted,
+    // churned harder the longer it has lain there, whitened by the air out
+    // of it. Folded to nothing on a hull the right way up.
+    const stir = !splash.boil ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
+    const fx = Math.sin(c.heading);
+    const fz = Math.cos(c.heading);
+    const along = (c.spec.length / 2 + c.spec.beam * BOIL_PAST_BEAM) * stir;
+    const across = c.spec.beam * (0.5 + BOIL_PAST_BEAM) * stir;
+    for (let v = 0; v < boilVerts; v++) {
+      const ang = v === 0 ? 0 : ((v - 1) / STAMP_SEGMENTS) * Math.PI * 2;
+      const a = v === 0 ? 0 : along * Math.cos(ang);
+      const b = v === 0 ? 0 : across * Math.sin(ang);
+      section.foam = v === 0 ? BOIL_FOAM * stir : 0;
+      section.churn = v === 0 ? stir : 0;
+      section.up = 0;
+      section.down = 0;
+      section.cover = stir > 0 ? 1 : 0;
+      write(
+        boilPositions,
+        boilColors,
+        v,
+        c.x + fx * a + Math.cos(c.heading) * b,
+        c.z + fz * a - Math.sin(c.heading) * b,
+        section,
+      );
+    }
+    boilPos.needsUpdate = true;
+    boilCol.needsUpdate = true;
   };
 
   const render: Wake["render"] = (renderer, state) => {
@@ -448,6 +544,9 @@ export function createWake(): Wake {
     setDrawn: (next) => {
       drawn = next;
     },
+    setSplashLook: (look) => {
+      splash = look;
+    },
     reset: () => {
       head = 0;
       filled = 0;
@@ -457,6 +556,7 @@ export function createWake(): Wake {
       road.geometry.dispose();
       fan.geometry.dispose();
       stampGeometry.dispose();
+      boilGeometry.dispose();
       material.dispose();
       target.dispose();
     },

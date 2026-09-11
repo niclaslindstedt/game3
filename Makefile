@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -117,8 +117,8 @@ waves:
 # second over the water it crossed, with the numbers that decide the next
 # step beside each cell: speed, pitch, wetted share, rpm and air time. One
 # staged scenario at a time (scripts/lib/ride-scenarios.mjs names them:
-# rest, cruise, carve, chop, swell, launch, landing, dive, offshore,
-# backflip — the app's pwa/src/game/scenarios.ts is the same list for the
+# rest, cruise, carve, chop, swell, launch, landing, dive, capsize,
+# offshore, backflip — the app's pwa/src/game/scenarios.ts is the same list for the
 # browser), through the real engine and a canvas, so what is drawn is
 # isolated from everything that is not the physics. Required before/after
 # any change to the hull, the planing lift, the slamming or the flight.
@@ -184,6 +184,16 @@ sky:
 # `make flora` · `make flora ARGS="--rows=reed,alder"` · `make flora ARGS=--skip-build`
 flora:
 	node scripts/flora-preview.mjs $(ARGS)
+
+# EVERY BIRD ON THE COAST SIDE BY SIDE: one contact sheet, one cell per row
+# of the bird roster, each drawn gliding, mid-beat and perched with its
+# wings folded over a metre rule, seen from below — `previews/birds.png`. A
+# bird in a run is a dozen pixels a hundred metres up; the roster is a
+# ladder of silhouettes and a ladder is judged side by side. Same Chromium
+# requirements as `screenshots`.
+# `make birds` · `make birds ARGS="--rows=gull,eagle"` · `make birds ARGS=--skip-build`
+birds:
+	node scripts/birds-preview.mjs $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as

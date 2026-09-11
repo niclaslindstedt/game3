@@ -354,14 +354,18 @@ export function App() {
 
     /** What this step is ridden on: the scenario's script while it runs, the
      * player's hands after — and the BOT whenever a card is up, because the
-     * sea behind a menu is a game that is still being played. */
+     * sea behind a menu is a game that is still being played. The script
+     * comes FIRST, whatever surface is up: a scene is stood and pre-rolled
+     * before the shell has settled on a surface, and a pre-roll the bot
+     * rode would level a hull the scene had thrown nose-down, so the still
+     * that came back would be of a landing and not of the dive it names. */
     const inputFor = (): CraftInput => {
-      if (!playerRides(shellRef.current)) return botInput(state);
       if (scenario) {
         const at = state.t - scriptFrom;
         if (at <= scenario.seconds) return scenario.script(at);
         scenario = null;
       }
+      if (!playerRides(shellRef.current)) return botInput(state);
       return input.sample(TUNING.dt);
     };
 

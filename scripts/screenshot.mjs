@@ -54,7 +54,7 @@ const outDir = join(root, "previews");
 
 /** The scenes the app stages (`SCENARIO_NAMES` in scenarios.ts). Restated
  * here rather than imported because the app module pulls the engine in
- * under the `@engine` alias and a list of sixteen words is not worth the
+ * under the `@engine` alias and a list of seventeen words is not worth the
  * loader hook; `--all` with a name the app does not know prints the app's
  * own error in the console lines below the capture. */
 const SCENES = [
@@ -68,11 +68,13 @@ const SCENES = [
   "apex",
   "landing",
   "dive",
+  "capsize",
   "offshore",
   "storm",
   "backflip",
   "wildlife",
   "breach",
+  "birds",
   "mark",
   "river",
 ];

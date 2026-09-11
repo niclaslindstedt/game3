@@ -116,6 +116,16 @@ describe("staging", () => {
     expect(dive.some((e) => e.kind === "dive")).toBe(true);
   });
 
+  it("capsize goes over on its first steps and the rider rights it", () => {
+    const state = fresh();
+    const events = ride(state, "capsize", 3);
+    expect(state.craft.capsizedFor).toBeGreaterThanOrEqual(0);
+    expect(events.some((e) => e.kind === "capsize")).toBe(true);
+    // …and is back on its bottom by the end, righted.
+    expect(Math.abs(state.craft.roll)).toBeLessThan(0.5);
+    expect(state.craft.righting).toBe(0);
+  });
+
   it("backflip leaves the lip rotating, nose up, rider hauled back", () => {
     const state = fresh();
     const s = stageScenario(state, "backflip");

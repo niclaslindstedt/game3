@@ -35,6 +35,8 @@ import {
   sampleField,
 } from "@engine";
 
+import { FLUSH_SECONDS, birdPose, freshBirdPose, planBirds, type Flock } from "./bird-plan.ts";
+
 export type ScenarioName =
   | "rest"
   | "cruise"
@@ -46,11 +48,13 @@ export type ScenarioName =
   | "apex"
   | "landing"
   | "dive"
+  | "capsize"
   | "offshore"
   | "storm"
   | "backflip"
   | "wildlife"
   | "breach"
+  | "birds"
   | "mark"
   | "river";
 
@@ -65,11 +69,13 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "apex",
   "landing",
   "dive",
+  "capsize",
   "offshore",
   "storm",
   "backflip",
   "wildlife",
   "breach",
+  "birds",
   "mark",
   "river",
 ];
@@ -99,6 +105,17 @@ function input(steer: number, throttle: number, lean: number): CraftInput {
 function braking(steer: number, reverse: number): CraftInput {
   return { steer, throttle: 0, reverse, lean: 0, reset: false };
 }
+
+/** THE CAPSIZE: how far over the hull is stood, rad, and how fast it is
+ * still going, rad/s — past a right angle and rolling, so the first steps
+ * put it on its back and the engine's rule (`TUNING.capsize`) takes over
+ * from there: the sheet off the side it comes down on, the boil round a
+ * hull on its back, and the rider righting it a second and a half later.
+ * The speed is a crawl's: a hull goes over in a turn it has already
+ * scrubbed off, not on the plane. */
+const CAPSIZE_ROLL = 1.75;
+const CAPSIZE_ROLL_RATE = 3;
+const CAPSIZE_SPEED = 4;
 
 /** The unit vector pointing out to sea at a plan point — up the `offshore`
  * distance field. */
@@ -290,6 +307,39 @@ function nextBreach(level: Level, from: number): { pod: Pod; index: number; at: 
   return best;
 }
 
+/** How far off a RAFT the birds shot is stood, m, and how fast it rides at
+ * it: close enough that the seconds that follow carry the hull into the
+ * raft's flush radius and put the birds up, which is the one moment they
+ * answer to the craft. A rock's flock does not flush, so a shot of one
+ * stands nearer and still, at a moment the flock is wheeling over it. */
+const BIRDS_RUN_IN = 48;
+const BIRDS_STANDOFF = 28;
+
+/** The flock the birds shot is about: a raft on the water if the coast has
+ * one, since a raft is the thing that gets up for a hull; otherwise the
+ * first flock there is. */
+export function shotFlock(level: Level): Flock | null {
+  const plan = planBirds(level);
+  return plan.flocks.find((f) => f.home.kind === "water") ?? plan.flocks[0] ?? null;
+}
+
+/** The soonest moment after `from` the flock's leader is where the shot
+ * wants it — sitting, for a raft about to be put up; flying, for a flock
+ * on a rock — found by searching the model rather than restating its
+ * cycle. */
+function flockMoment(flock: Flock, from: number, sitting: boolean): number {
+  const pose = freshBirdPose();
+  for (let t = from; t < from + flock.cycle * 1.5; t += 0.25) {
+    const air = birdPose(flock, 0, t, pose).airborne;
+    if (
+      sitting ? air === 0 && birdPose(flock, 0, t + FLUSH_SECONDS, pose).airborne === 0 : air === 1
+    ) {
+      return t;
+    }
+  }
+  return from;
+}
+
 /** How far back down the racing line the MARK shot stands from the
  * rounding, m. Far enough that the rock is a thing on the water ahead
  * rather than a wall filling the frame, and near enough that a rider would
@@ -428,6 +478,23 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         seconds: 3,
       };
     }
+    case "capsize": {
+      // Going over, at the start, with nothing on the throttle: the hull is
+      // past vertical and still rolling, and everything after — the side
+      // coming down, the wait on its back, the righting — is the engine's.
+      return {
+        moment: {
+          x: start.x,
+          z: start.z,
+          heading: start.heading,
+          speed: CAPSIZE_SPEED,
+          roll: CAPSIZE_ROLL,
+          rollRate: CAPSIZE_ROLL_RATE,
+        },
+        script: () => NEUTRAL,
+        seconds: 4,
+      };
+    }
     case "offshore": {
       const at = outToSea(level, mid.x, mid.z, 200);
       const sea = seawardAt(level, at.x, at.z);
@@ -533,6 +600,90 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         // would have left the frame before the leap.
         script: () => NEUTRAL,
         seconds: BREACH_WATCH,
+      };
+    }
+    case "birds": {
+      // THE FLUSH: a raft of birds on the water ahead, and the craft run
+      // at it so the seconds that follow put the whole raft up off the sea
+      // in front of the bow. Stood on the course's side of the raft,
+      // pointed at it, at the moment the birds are sitting; a coast with no
+      // raft stands off its first flock's rock while the flock is wheeling.
+      const flock = shotFlock(level);
+      if (!flock) return scenarioFor(state, "swell");
+      const raft = flock.home.kind === "water";
+      const home = flock.home;
+      let nearest = level.course.path[0];
+      let best = Infinity;
+      for (const p of level.course.path) {
+        const d = Math.hypot(p.x - home.x, p.z - home.z);
+        if (d < best) {
+          best = d;
+          nearest = p;
+        }
+      }
+      const toPath = Math.atan2(nearest.x - home.x, nearest.z - home.z);
+      const off = raft ? BIRDS_RUN_IN : BIRDS_STANDOFF;
+      // Stood off the flock on OPEN WATER with a clear run in: a raft sits
+      // in the lee of a rock, so a point a boat length up the beach from
+      // it is a craft stood on the shore, and a line drawn straight at it
+      // from the racing line is a craft that hits the skerry on the way.
+      // The line's side is tried first, then the raft's open side (away
+      // from the nearest rock), then bearings either way; the standoff is
+      // walked out until the water is deep and the whole run in is clear
+      // of every solid. The line's own nearest point is the fallback.
+      let rock: { x: number; z: number } | null = null;
+      let rockD = Infinity;
+      for (const s of level.solids) {
+        const d = Math.hypot(s.x - home.x, s.z - home.z);
+        if (d < rockD) {
+          rockD = d;
+          rock = s;
+        }
+      }
+      const open = rock ? Math.atan2(home.x - rock.x, home.z - rock.z) : toPath;
+      const clear = (x: number, z: number): boolean =>
+        sampleField(level.offshore, x, z) > 6 && sampleField(level.ground, x, z) < -1.5;
+      const runIn = (x: number, z: number): boolean => {
+        const d = Math.hypot(home.x - x, home.z - z);
+        for (let k = 0; k <= d; k += 3) {
+          const px = x + ((home.x - x) * k) / d;
+          const pz = z + ((home.z - z) * k) / d;
+          if (!clear(px, pz)) return false;
+          for (const s of level.solids) {
+            if (Math.hypot(s.x - px, s.z - pz) < s.r + 4) return false;
+          }
+        }
+        return true;
+      };
+      let at = { x: nearest.x, z: nearest.z };
+      search: for (const bearing of [
+        toPath,
+        open,
+        toPath + 0.7,
+        toPath - 0.7,
+        toPath + 1.4,
+        toPath - 1.4,
+      ]) {
+        for (let d = off; d < off + 40; d += 4) {
+          const x = home.x + Math.sin(bearing) * d;
+          const z = home.z + Math.cos(bearing) * d;
+          if (runIn(x, z)) {
+            at = { x, z };
+            break search;
+          }
+        }
+      }
+      return {
+        moment: {
+          x: at.x,
+          z: at.z,
+          heading: Math.atan2(home.x - at.x, home.z - at.z),
+          speed: raft ? top * 0.45 : 0,
+          nextGate: mid.index,
+          clock: flockMoment(flock, state.t, raft),
+        },
+        script: () => (raft ? input(0, 0.7, 0) : NEUTRAL),
+        seconds: raft ? 4 : 2,
       };
     }
     case "mark": {

@@ -22,6 +22,7 @@ import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { applyCraftSky, craftSurface } from "./craft-surface.ts";
 import { cullByDistance } from "./draw-distance.ts";
+import { createBirds, type Birds } from "./birds.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
@@ -39,6 +40,7 @@ import {
   RAIN_LOOK,
   REFLECTION_LOOK,
   RESOLUTION_SCALE,
+  SPLASH_LOOK,
   SPRAY_SCALE,
   WAKE_LOOK,
   WATER_LOOK,
@@ -145,6 +147,7 @@ export function createRenderer(
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
   let fauna: Fauna | null = null;
+  let birds: Birds | null = null;
   let flora: Flora | null = null;
   let gates: Gates | null = null;
   let buoys: Buoys | null = null;
@@ -176,6 +179,7 @@ export function createRenderer(
         scene.remove(world);
         if (terrain) disposeTerrain(terrain);
         fauna?.dispose();
+        birds?.dispose();
         flora?.dispose();
       }
       level = state.level;
@@ -191,6 +195,10 @@ export function createRenderer(
       // reed in the river's margins and the loose stone at the waterline.
       flora = createFlora(level);
       flora.setDensity(FLORA_SCALE[video.flora]);
+      // THE BIRDS (birds.ts): the flocks on the rocks, the rafts on the
+      // water, the eagle in the pine, and whatever is crossing this season.
+      birds = createBirds(level);
+      birds.group.visible = video.fauna;
       world = new THREE.Group();
       world.add(
         terrain,
@@ -200,6 +208,7 @@ export function createRenderer(
         gates.group,
         buoys.group,
         fauna.group,
+        birds.group,
       );
       scene.add(world);
       // The sky is the level's: its hour, its coast's latitude and the
@@ -291,11 +300,18 @@ export function createRenderer(
       resize();
     }
     spray.setBudget(SPRAY_SCALE[next.spray]);
+    // The wildlife switch is one switch: the sea life under the hull and
+    // the birds over it go together.
+    if (birds) birds.group.visible = next.fauna;
     // THE WAKE is two halves that have to agree: the pass that draws the map
     // and the shader that reads it. Off is both off; the map is cleared once
     // on the way out so a stale road is never read back by a later press.
     wake.setDrawn(WAKE_LOOK[next.wake].map);
     water.setWakeLook(WAKE_LOOK[next.wake]);
+    // THE SPLASH is the same two halves again: what the map stamps and what
+    // the spray throws.
+    wake.setSplashLook(SPLASH_LOOK[next.splash]);
+    spray.setSplashThrow(SPLASH_LOOK[next.splash].throw);
     sky.setRainSheet(RAIN_LOOK[next.rain].sheet);
     flora?.setDensity(FLORA_SCALE[next.flora]);
     mirror.setScale(REFLECTION_LOOK[next.reflections].scale);
@@ -362,6 +378,9 @@ export function createRenderer(
     // bed rather than a second rule about what to draw down there.
     const reach = video.fauna ? water.seeThrough() : 0;
     fauna?.update(state, c.x, c.z, reach);
+    // The birds are culled from the LENS, like the cover: a flock is a
+    // thing in the picture, not a thing under the hull.
+    if (video.fauna) birds?.update(state, pose.x, pose.z);
     spray.update();
 
     // HOW MUCH WORLD IS SUBMITTED — from the LENS rather than from the craft,
@@ -447,6 +466,7 @@ export function createRenderer(
       wake.observe(state);
       spray.observe(state);
       rider?.observe(state);
+      birds?.observe(state);
     },
     camera: rig,
     cost: () => cost,
@@ -463,6 +483,7 @@ export function createRenderer(
       water.dispose();
       mirror.dispose();
       fauna?.dispose();
+      birds?.dispose();
       wake.dispose();
       spray.dispose();
       rider?.dispose();

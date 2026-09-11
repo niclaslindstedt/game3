@@ -42,7 +42,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `collision` | The hull meeting what is not water: solids, grounding, ramps, gates and misses, bounds; what the events mean |
 | `engine-system` | Adding or changing a gameplay system, engine-first |
 | `mapgen-improvement` | The shore generator: rules / search / geometry, the R-rules, the analyze → fix → `make level` loop |
-| `nature` | The shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, the sea life (R20), the cover above the waterline; `make flora` |
+| `nature` | The shore's materials as biome-as-data, what `terrain.ts` paints, the rocks, the sea life (R20), the cover above the waterline, the birds over it; `make flora`, `make birds` |
 | `atmosphere` | The sky and the air under it: the sun by hour, season and latitude, the ladder of looks, the weathers, the clouds, the night, the haze, the rain; `make sky` |
 | `water-look` | The sea as DRAWN: the grid of rings, the far grid, the light (the mirror, the glint, the ripples, the foam), a coast's optics, the see-through radius; judged at two skies, zoomed |
 | `visual-effects` | What the craft throws off and what the rider feels: the spray, the wake as a map, the footprints, the vibration table; event → effect, presentation only |

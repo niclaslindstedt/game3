@@ -522,11 +522,12 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       fauna: false,
       flora: "sparse",
       // A row the stored blob has never heard of — this one was written
-      // before the wake, the sky, the rain, the mirror and the draw distance
+      // before the wake, the splash, the sky, the rain, the mirror and the draw distance
       // were levers — comes back at THIS build's default rather than off, so
       // an old blob is a picture with a row added to it and not a picture
       // with a row missing.
       wake: DEFAULT_SETTINGS.video.wake,
+      splash: DEFAULT_SETTINGS.video.splash,
       sky: DEFAULT_SETTINGS.video.sky,
       rain: DEFAULT_SETTINGS.video.rain,
       reflections: DEFAULT_SETTINGS.video.reflections,
