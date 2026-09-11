@@ -807,7 +807,8 @@ export function App() {
           not reach it: a setting worded "the readouts over the water" must
           not quietly turn off the one thing the app ever says on its own
           initiative. With the HUD up it rides in the top bar where
-          `update-button.tsx` argues it belongs; everywhere else — the HUD
+          `update-button.tsx` argues it belongs — the foot of the news
+          column, hard in the bottom-right corner; everywhere else — the HUD
           switched off, and THE FRONT DOOR, which is the surface a player is
           most likely to be looking at when a deploy lands — it stands in the
           same corner, in the same chrome, on its own. The attract and
@@ -817,10 +818,8 @@ export function App() {
           an empty box. */}
       {!hudUp && (hudOver(shell) || shell === "menu") && (
         <div class={shell === "menu" ? "hud hud-over-card" : "hud"}>
-          <div class="hud-topright">
-            <div class="hud-topright-row">
-              <UpdateButton />
-            </div>
+          <div class="hud-right">
+            <UpdateButton />
           </div>
         </div>
       )}

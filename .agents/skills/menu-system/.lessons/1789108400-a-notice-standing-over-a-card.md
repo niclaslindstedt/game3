@@ -21,11 +21,13 @@ standalone corner box when it is not, so the box's condition must be exactly
 the negation of the HUD's own (`!hudUp`, the whole predicate, `snap !== null`
 included) or both draw for the frames before the first snapshot.
 
-**Any fixed corner is under a card at 390×844.** `.menu-card` is
+**Any fixed corner is nearly under a card at 390×844.** `.menu-card` is
 `max-height: 100%` in a 1rem gutter, so a card long enough to need the height
-(OPTIONS) reaches within a few pixels of every corner, and moving the mark
-only changes which page it overhangs. Hold the line at over the card's EDGE,
-never over a control, and read that off the shots.
+(OPTIONS) reaches within a few pixels of every corner. Hold the line at over
+the card's EDGE, never over a control, and read that off the shots — the
+BOTTOM-right corner, where the mark now stands, clears even OPTIONS, because
+the card's foot is its most generously padded end (a dashed RESTORE DEFAULTS
+row) while its head is a title hard against the top gutter.
 
 The lab had a matching hole: `--update` was spliced into the SCENE url only,
 so `--surface menu --update` photographed a card with no notice and looked

@@ -6,12 +6,11 @@ concepts: [touch, zones, layout, hit-testing, portrait, overlays, minimap]
 ---
 
 The zones' top was once a bare fraction of the viewport, while everything
-they must clear — the top-right cluster, its two presses, the new-build mark
-hanging under it in portrait — is clamped rem, a FIXED pixel height. The two
-scale opposite ways: the shorter the screen, the further the zone climbs into
-the cluster. At 390×844 the old 22% cleared the mark by 14 px and looked
-fine; at 375×667 it covered it completely, and a tap meant for the button
-opened the throttle.
+they must clear — the top-right cluster and its two presses — is clamped rem,
+a FIXED pixel height. The two scale opposite ways: the shorter the screen,
+the further the zone climbs into the cluster. At 390×844 the old 22% cleared
+the cluster's foot by 14 px and looked fine; at 375×667 it covered it
+completely, and a tap meant for a button opened the throttle.
 
 `.hud-zone`'s top is now `max(40%, …)` over the cluster's OWN arithmetic —
 the top inset, `--hud-map`, the gap the presses hang on, and half a map for
@@ -30,7 +29,9 @@ legitimately fall outside its own shape). `?update=1` forces the new-build
 mark so it can be probed at all, and `__SH_READY__` flips a frame before the
 first HUD snapshot, so wait on `document.querySelector('.hud')` instead.
 
-Geometry is only half of it. `.hud-touch` is a LATER sibling than
-`.hud-topright`, so at `z-index: auto` the zone wins the hit test wherever
-they overlap, however the clearance is tuned. `z-index: 1` on the cluster
-makes that structural rather than arithmetical.
+Geometry is only half of it, and for a control that stands INSIDE a zone on
+purpose — the new-build mark in the bottom-right corner — it is the whole of
+it. `.hud-touch` is a LATER sibling than every readout cluster, so at
+`z-index: auto` the zone wins wherever they overlap, however the clearance is
+tuned. `z-index: 1` on the container (`.hud-topright`, `.hud-right`) makes
+that structural, and the probe above is what proves it.
