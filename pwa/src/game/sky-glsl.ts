@@ -31,7 +31,7 @@ import * as THREE from "three";
 
 import { MAX_LAYERS, cloudNoiseGlsl, type CloudLayer } from "./cloud-field.ts";
 import { GLOW_FOCUS, GLOW_REACH, RIM_BAND, SKY_CURVE, type Preset } from "./sky.ts";
-import { GALAXY_OCTAVES, starfieldGlsl, type SkyTurn, turnBasis } from "./starfield.ts";
+import { starfieldGlsl, type SkyTurn, turnBasis } from "./starfield.ts";
 
 /**
  * WHAT ONE COPY OF THE SKY WAS COMPILED FOR.
@@ -154,10 +154,6 @@ export function skyGlsl(build: SkyBuild): string {
   const field = `cloudField${build.octaves}`;
   const sunField = `cloudField${sunlitOctaves(build.octaves)}`;
   const fields = build.sunlit ? [build.octaves, sunlitOctaves(build.octaves)] : [build.octaves];
-  // The night reads the galaxy's mottle off the same lattice the sheets are
-  // cut from, at its own depth — so the dome's copy asks for that depth
-  // too, and the water's, which carries no night, does not.
-  if (build.sun) fields.push(GALAXY_OCTAVES);
   // ONLY WHAT THIS BUILD READS IS DECLARED. The bundle is shared, so a
   // build takes the part of it that build needs — a sky with no sheets in
   // it carries no layer arrays, and the water carries no sun. An unused
