@@ -34,7 +34,12 @@
 // feeds the probe one frame at a time from the loop and applies the verdict.
 
 import { FPS_STALL_MS } from "./frame-rate.ts";
-import { DEFAULT_VIDEO, DETAIL_PRESETS, type VideoSettings } from "./settings-video.ts";
+import {
+  DEFAULT_VIDEO,
+  DETAIL_PRESETS,
+  WATER_PRESETS,
+  type VideoSettings,
+} from "./settings-video.ts";
 
 /** Frames drawn before the first one is measured. The first seconds of a
  * visit are the shore's shaders compiling and the browser's own tier-up,
@@ -139,7 +144,13 @@ export function videoUntouched(video: VideoSettings): boolean {
  */
 export function promoteVideo(video: VideoSettings): VideoSettings {
   if (!videoUntouched(video)) return video;
-  return { ...video, water: "high", distance: "high", ...DETAIL_PRESETS.high };
+  return {
+    ...video,
+    water: "high",
+    ...WATER_PRESETS.high,
+    distance: "high",
+    ...DETAIL_PRESETS.high,
+  };
 }
 
 /** The probe as the loop feeds it: one call a drawn frame, a verdict once. */

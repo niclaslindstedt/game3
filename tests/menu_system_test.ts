@@ -38,6 +38,7 @@ import {
   freshSettings,
   mergeSettings,
 } from "../pwa/src/game/settings.ts";
+import { WATER_PRESETS } from "../pwa/src/game/settings-video.ts";
 import { SHELLS, canPause, hudOver, playerRides, simulates } from "../pwa/src/game/shell.ts";
 import {
   SPLASH_MIN_MS,
@@ -508,7 +509,6 @@ describe("what survives a stored settings blob (settings.ts)", () => {
         water: "high",
         resolution: "low",
         seeThrough: false,
-        spray: "off",
         fauna: false,
         flora: "sparse",
       },
@@ -518,22 +518,37 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       water: "high",
       resolution: "low",
       seeThrough: false,
-      spray: "off",
       fauna: false,
       flora: "sparse",
       // A row the stored blob has never heard of — this one was written
-      // before the wake, the splash, the sky, the rain, the mirror and the draw distance
-      // were levers — comes back at THIS build's default rather than off, so
-      // an old blob is a picture with a row added to it and not a picture
-      // with a row missing.
-      wake: DEFAULT_SETTINGS.video.wake,
-      splash: DEFAULT_SETTINGS.video.splash,
+      // before the sky, the rain and the draw distance were levers — comes
+      // back at THIS build's default rather than off, so an old blob is a
+      // picture with a row added to it and not a picture with a row missing.
       sky: DEFAULT_SETTINGS.video.sky,
       rain: DEFAULT_SETTINGS.video.rain,
-      reflections: DEFAULT_SETTINGS.video.reflections,
       distance: DEFAULT_SETTINGS.video.distance,
       frameRate: DEFAULT_SETTINGS.video.frameRate,
+      // The four the WATER stop expands into are the stop's, not the blob's:
+      // `water: "high"` is a high sea in every part of itself.
+      ...WATER_PRESETS.high,
     });
+  });
+
+  it("expands the WATER stop over anything the blob stored beside it", () => {
+    // THE DECOUPLING, held at the door. A blob from the build where the
+    // spray, the wake, the splash and the mirror hung off DETAIL carries them
+    // at DETAIL's stop; honouring one would leave a sharp mirror on a sea the
+    // rider asked to be cheap, which is the fault the row was moved to end.
+    const stale = mergeSettings({
+      video: { water: "low", spray: "full", wake: "full", splash: "full", reflections: "sharp" },
+    });
+    expect(stale.video.water).toBe("low");
+    for (const [key, value] of Object.entries(WATER_PRESETS.low)) {
+      expect(stale.video[key as keyof typeof stale.video]).toBe(value);
+    }
+    // ...and the levers around the water are untouched by it.
+    expect(stale.video.flora).toBe(DEFAULT_SETTINGS.video.flora);
+    expect(stale.video.sky).toBe(DEFAULT_SETTINGS.video.sky);
   });
 
   it("keeps a frame-rate cap the rider set and drops one this build does not offer", () => {
@@ -554,17 +569,17 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       video: {
         water: "ultra",
         resolution: "high",
-        spray: "off",
+        sky: "low",
         flora: "jungle",
-        wake: "flat",
+        distance: "low",
         rain: "sometimes",
       },
     });
     expect(stored.video.water).toBe(DEFAULT_SETTINGS.video.water);
     expect(stored.video.flora).toBe(DEFAULT_SETTINGS.video.flora);
     expect(stored.video.resolution).toBe("high");
-    expect(stored.video.spray).toBe("off");
-    expect(stored.video.wake).toBe("flat");
+    expect(stored.video.sky).toBe("low");
+    expect(stored.video.distance).toBe("low");
     expect(stored.video.rain).toBe(DEFAULT_SETTINGS.video.rain);
   });
 

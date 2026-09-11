@@ -36,13 +36,10 @@ import {
   FLORA_LEVELS,
   FRAME_RATE_LEVELS,
   RAIN_LEVELS,
-  REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   SKY_LEVELS,
-  SPRAY_LEVELS,
-  WAKE_LEVELS,
-  SPLASH_LEVELS,
   WATER_LEVELS,
+  WATER_PRESETS,
   type VideoSettings,
 } from "./settings-video.ts";
 
@@ -353,17 +350,19 @@ export function mergeSettings(parsed: unknown): Settings {
     const on = <T extends string>(stops: readonly T[], value: unknown): T | null =>
       stops.some((id) => id === value) ? (value as T) : null;
     settings.video.water = on(WATER_LEVELS, video.water) ?? settings.video.water;
+    // THE WATER ROW IS ONE WORD, EXPANDED — the spray, the wake, the splash
+    // and the mirror are read off the stop above rather than out of the blob,
+    // so a sea the rider asked to be cheap is cheap in every part of itself.
+    // Any of the four stored beside it is a leftover from the build where
+    // they hung off DETAIL, and honouring one would keep a sharp mirror on a
+    // LOW sea for ever — the exact disagreement the row was moved to end.
+    Object.assign(settings.video, WATER_PRESETS[settings.video.water]);
     settings.video.distance = on(DISTANCE_LEVELS, video.distance) ?? settings.video.distance;
     settings.video.resolution =
       on(RESOLUTION_LEVELS, video.resolution) ?? settings.video.resolution;
-    settings.video.spray = on(SPRAY_LEVELS, video.spray) ?? settings.video.spray;
-    settings.video.wake = on(WAKE_LEVELS, video.wake) ?? settings.video.wake;
-    settings.video.splash = on(SPLASH_LEVELS, video.splash) ?? settings.video.splash;
     settings.video.flora = on(FLORA_LEVELS, video.flora) ?? settings.video.flora;
     settings.video.sky = on(SKY_LEVELS, video.sky) ?? settings.video.sky;
     settings.video.rain = on(RAIN_LEVELS, video.rain) ?? settings.video.rain;
-    settings.video.reflections =
-      on(REFLECTION_LEVELS, video.reflections) ?? settings.video.reflections;
     settings.video.frameRate = on(FRAME_RATE_LEVELS, video.frameRate) ?? settings.video.frameRate;
     if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
     if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;

@@ -42,11 +42,13 @@ import {
   SKY_LOOK,
   SPLASH_LEVELS,
   SPLASH_LOOK,
+  SPRAY_LEVELS,
   SPRAY_SCALE,
   WAKE_LEVELS,
   WAKE_LOOK,
   WATER_LEVELS,
   WATER_LOOK,
+  WATER_PRESETS,
   coverReach,
   detailOf,
 } from "../pwa/src/game/settings-video.ts";
@@ -348,14 +350,14 @@ describe("the picture's other ladders", () => {
       expect(Number(over.boil)).toBeGreaterThanOrEqual(Number(under.boil));
     }
     // A crater the map stamps is a crater the WAKE lever has to read: every
-    // DETAIL stop that stamps one reads the relief.
-    for (const id of DETAIL_LEVELS) {
-      const preset = DETAIL_PRESETS[id];
+    // WATER stop that stamps one reads the relief.
+    for (const id of WATER_LEVELS) {
+      const preset = WATER_PRESETS[id];
       if (SPLASH_LOOK[preset.splash].crater > 0) expect(WAKE_LOOK[preset.wake].relief).toBe(true);
     }
-    expect(DETAIL_PRESETS.low.splash).toBe("off");
-    expect(DETAIL_PRESETS.medium.splash).toBe("some");
-    expect(DETAIL_PRESETS.high.splash).toBe("full");
+    expect(WATER_PRESETS.low.splash).toBe("off");
+    expect(WATER_PRESETS.medium.splash).toBe("some");
+    expect(WATER_PRESETS.high.splash).toBe("full");
   });
 
   it("lets the spray be turned off outright and never past full", () => {
@@ -402,21 +404,23 @@ describe("the DETAIL row's reverse reading (detailOf)", () => {
   });
 
   it("breaks a tie toward the CHEAPER picture", () => {
-    // `medium` and `high` agree on the spray, the wake and the sea life, so a
-    // blob that carries only those agrees equally with both — and must never
-    // be handed the heavier one.
-    expect(detailOf({ spray: "full", wake: "full", fauna: true })).toBe("medium");
+    // `medium` and `high` agree on the sea life, so a blob that carries only
+    // that agrees equally with both — and must never be handed the heavier
+    // one.
+    expect(detailOf({ fauna: true })).toBe("medium");
   });
 
-  it("never parks a stop on a craft that leaves no mark", () => {
-    // The bottom of DETAIL is a phone that wants frames, not a craft on a
-    // painting: the road and the spray stay at every preset, thinned, and
-    // only the levers a rider cannot see the craft moving by go all the way
-    // off. The WAKE lever's own OFF is for a blob that asks for it by name.
-    for (const id of DETAIL_LEVELS) {
-      expect(DETAIL_PRESETS[id].wake).not.toBe("off");
-      expect(DETAIL_PRESETS[id].spray).not.toBe("off");
+  it("has no opinion about the sea at all", () => {
+    // THE DECOUPLING, held from the DETAIL side: none of the levers drawn on
+    // the water is on this row, so a blob whose sea is at one stop and whose
+    // shore is at another reads back as the shore's. A key that crept back
+    // onto both rows would make DETAIL raise a sea the rider turned down.
+    const detail = Object.keys(DETAIL_PRESETS.medium);
+    for (const key of Object.keys(WATER_PRESETS.medium)) {
+      expect(detail).not.toContain(key);
     }
+    expect(detailOf({ ...DETAIL_PRESETS.high, ...WATER_PRESETS.low })).toBe("high");
+    expect(detailOf({ ...DETAIL_PRESETS.low, ...WATER_PRESETS.high })).toBe("low");
   });
 
   it("calls a blob with no opinion the design point, not the floor", () => {
@@ -428,6 +432,51 @@ describe("the DETAIL row's reverse reading (detailOf)", () => {
     expect(detailOf(DEFAULT_VIDEO)).toBe("medium");
     expect(DEFAULT_VIDEO.water).toBe("medium");
     expect(DEFAULT_VIDEO.seeThrough).toBe(true);
+  });
+});
+
+describe("the WATER row's own levers (WATER_PRESETS)", () => {
+  it("moves every mark on the sea in step with the grid under it", () => {
+    // The row's promise: one word, one sea. A stop up may never draw less of
+    // anything, or the ladder would be a trade rather than a ladder.
+    const rank = {
+      spray: SPRAY_LEVELS,
+      wake: WAKE_LEVELS,
+      splash: SPLASH_LEVELS,
+      reflections: REFLECTION_LEVELS,
+    } as const;
+    const levers = Object.keys(rank) as (keyof typeof rank)[];
+    for (let i = 1; i < WATER_LEVELS.length; i++) {
+      const under = WATER_PRESETS[WATER_LEVELS[i - 1]];
+      const over = WATER_PRESETS[WATER_LEVELS[i]];
+      for (const key of levers) {
+        const stops: readonly string[] = rank[key];
+        expect(stops.indexOf(over[key])).toBeGreaterThanOrEqual(stops.indexOf(under[key]));
+      }
+      // ...and it is a real step somewhere, or it is a chip nobody would move
+      // to. The grid moves at every stop (the WATER ladder's own test), so
+      // this holds the marks on it to changing too.
+      expect(levers.some((key) => over[key] !== under[key])).toBe(true);
+    }
+  });
+
+  it("never parks a stop on a craft that leaves no mark", () => {
+    // The bottom of WATER is a phone that wants frames, not a craft on a
+    // painting: the road and the spray stay at every stop, thinned, and only
+    // the levers a rider cannot see the craft moving by go all the way off.
+    // Each lever's own OFF is for a blob that asks for it by name.
+    for (const id of WATER_LEVELS) {
+      expect(WATER_PRESETS[id].wake).not.toBe("off");
+      expect(WATER_PRESETS[id].spray).not.toBe("off");
+    }
+  });
+
+  it("ships the design point, and the design point is what the row expands to", () => {
+    // `DEFAULT_VIDEO` spreads the preset, so this is the assertion that the
+    // shipped picture and the MEDIUM stop are the same picture.
+    for (const [key, value] of Object.entries(WATER_PRESETS.medium)) {
+      expect(DEFAULT_VIDEO[key as keyof typeof DEFAULT_VIDEO]).toBe(value);
+    }
   });
 });
 
@@ -628,6 +677,11 @@ describe("the first-visit probe (video-probe.ts)", () => {
     expect(high.water).toBe("high");
     expect(high.distance).toBe("high");
     expect(detailOf(high)).toBe("high");
+    // The WATER stop carries its own levers, so a promoted picture is a HIGH
+    // sea rather than a HIGH grid with the design point's marks on it.
+    for (const [key, value] of Object.entries(WATER_PRESETS.high)) {
+      expect(high[key as keyof typeof high]).toBe(value);
+    }
     expect(high.resolution).toBe(DEFAULT_VIDEO.resolution);
     expect(high.seeThrough).toBe(DEFAULT_VIDEO.seeThrough);
     expect(high.frameRate).toBe(DEFAULT_VIDEO.frameRate);
@@ -642,6 +696,7 @@ describe("the first-visit probe (video-probe.ts)", () => {
       { ...DEFAULT_VIDEO, frameRate: "30" as const },
       { ...DEFAULT_VIDEO, seeThrough: false },
       { ...DEFAULT_VIDEO, ...DETAIL_PRESETS.high },
+      { ...DEFAULT_VIDEO, water: "high" as const, ...WATER_PRESETS.high },
     ]) {
       expect(videoUntouched(touched)).toBe(false);
       expect(promoteVideo(touched)).toBe(touched);
