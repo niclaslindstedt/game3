@@ -28,6 +28,7 @@ import * as THREE from "three";
 import { buoyLightAt, surfaceAt, type GameState, type Level, type Solid } from "@engine";
 
 import { glowTexture } from "./fx-textures.ts";
+import { BUOY_LAMPS } from "./water-shader.ts";
 
 /** The can: how far it stands out of the water and how far under, m. A can
  * drawn to the waterline reads as a disc painted on the sea, and the draft
@@ -114,6 +115,12 @@ type Lit = {
 };
 
 const sample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
+/** `nearestLamps`' own scratch: the picked lamps and the squared range of
+ * each, held across frames so the pick allocates nothing in the render
+ * loop. */
+const picked: BuoyLamp[] = [];
+const pickedAt: number[] = [];
+const sources: (readonly BuoyLamp[])[] = [[], []];
 const up = new THREE.Vector3();
 const world = new THREE.Vector3();
 const Y = new THREE.Vector3(0, 1, 0);
@@ -224,6 +231,50 @@ function build(solid: Solid): Lit {
     lamp: new THREE.Vector3(solid.x, solid.top, solid.z),
     water: { x: solid.x, y: solid.top, z: solid.z, lit: 0 },
   };
+}
+
+/** R31 — THE LAMPS THE WATER CARRIES THIS FRAME, nearest first.
+ *
+ * The sea can hold `BUOY_LAMPS` of them (water-shader.ts) and a level puts
+ * more than that on the water: a lap has up to four rounding marks and a
+ * coast sprint has two gate marks per gate, forty of them down the shore.
+ * Which four matter is decided by RANGE, because a pool is a local thing —
+ * `BUOY_REACH` is under a hundred metres, so a lamp further off than the
+ * four nearest could not have lit the water under the rider anyway.
+ *
+ * Dark lamps are dropped rather than ranked: a lantern between its flashes,
+ * and every mark behind a rider on a course whose lamps go out as they are
+ * crossed, would otherwise spend a slot lighting nothing.
+ */
+export function nearestLamps(
+  gates: readonly BuoyLamp[],
+  marks: readonly BuoyLamp[],
+  x: number,
+  z: number,
+): readonly BuoyLamp[] {
+  picked.length = 0;
+  sources[0] = gates;
+  sources[1] = marks;
+  for (const list of sources) {
+    for (const lamp of list) {
+      if (lamp.lit <= 0) continue;
+      const d = (lamp.x - x) * (lamp.x - x) + (lamp.z - z) * (lamp.z - z);
+      let at = picked.length;
+      while (at > 0 && pickedAt[at - 1] > d) {
+        if (at < BUOY_LAMPS) {
+          picked[at] = picked[at - 1];
+          pickedAt[at] = pickedAt[at - 1];
+        }
+        at--;
+      }
+      // Past the last slot and further off than everything in it: a lamp
+      // that could not reach the water under the rider even if it were lit.
+      if (at >= BUOY_LAMPS) continue;
+      picked[at] = lamp;
+      pickedAt[at] = d;
+    }
+  }
+  return picked;
 }
 
 export function createBuoys(level: Level): Buoys {
