@@ -52,6 +52,9 @@ export type Reflection = {
   /** How big the texture is, as a share of the frame's own pixels; 0 is
    * off, and nothing is drawn. */
   setScale: (share: number) => void;
+  /** …and what it was last set to, so a caller culling against `frustum` can
+   * ask how much of its detail this picture could resolve. */
+  scale: () => number;
   /** Whether the mirror has a picture this frame — off, or the lens under
    * the water, where a mirror in the surface faces the wrong way. */
   live: () => boolean;
@@ -182,6 +185,7 @@ export function createReflection(): Reflection {
       if (share <= 0) live = false;
     },
     live: () => live,
+    scale: () => scale,
     aim,
     render,
     dispose: () => target.dispose(),

@@ -15,10 +15,10 @@
 // `make screenshots`.
 import { describe, expect, it } from "vitest";
 
-import { FLORA_TILE, tileSpots } from "../pwa/src/game/flora.ts";
+import { FLORA_TILE, floraTile, tileSpots } from "../pwa/src/game/flora.ts";
 import { FLORA, TREE_LINE } from "../pwa/src/game/flora-defs.ts";
 import { planFlora } from "../pwa/src/game/flora-plan.ts";
-import { FLORA_SCALE } from "../pwa/src/game/settings-video.ts";
+import { FLORA_SCALE, coverReach } from "../pwa/src/game/settings-video.ts";
 import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
 
 /** The seeds this file plants. Fewer than the corpus, because planting a
@@ -210,5 +210,44 @@ describe("the cover in tiles (flora.ts)", () => {
     // whole point is that a chase camera sees a dozen of them out of many.
     const wood = spots[FLORA.findIndex((spec) => spec.id === "birch")];
     expect(tileSpots(wood, FLORA_TILE).length).toBeGreaterThan(12);
+  });
+
+  it("buckets a species small enough that its own reach is worth having", () => {
+    // A tile is kept while any part of it reaches inside the radius, so the
+    // square has to shrink with the reach or a short one is blunted back into
+    // a long one: a heather mat culled at 40 m inside a 128 m square is a
+    // heather mat culled at 110. Half the reach is the bar — a tile admitted
+    // for grazing the radius carries nothing much more than half as far again
+    // past it — and nothing may be bucketed finer than the floor, where the
+    // per-frame walk over the tiles costs more than the triangles it saves.
+    for (const spec of FLORA) {
+      const reach = coverReach(spec.look.height.max);
+      const tile = floraTile(reach);
+      expect(tile, spec.id).toBeLessThanOrEqual(FLORA_TILE);
+      expect(tile, spec.id).toBeGreaterThanOrEqual(32);
+      if (reach < 2 * FLORA_TILE) expect(tile, spec.id).toBeLessThanOrEqual(Math.max(32, reach));
+    }
+  });
+
+  it("keeps every plant in exactly one tile at the finest bucket too", () => {
+    // The buckets are per species now, so the invariant has to hold at the
+    // floor as well as at the ceiling: a plant lost or doubled by the ground
+    // cover's own tiling is a plant lost or doubled on screen.
+    spots.forEach((list, s) => {
+      const tile = floraTile(coverReach(FLORA[s].look.height.max));
+      const tiles = tileSpots(list, tile);
+      expect(
+        tiles.reduce((n, t) => n + t.length, 0),
+        FLORA[s].id,
+      ).toBe(list.length);
+      for (const square of tiles) {
+        const ix = Math.floor(square[0].x / tile);
+        const iz = Math.floor(square[0].z / tile);
+        for (const p of square) {
+          expect(Math.floor(p.x / tile)).toBe(ix);
+          expect(Math.floor(p.z / tile)).toBe(iz);
+        }
+      }
+    });
   });
 });

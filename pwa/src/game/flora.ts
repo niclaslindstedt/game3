@@ -23,14 +23,43 @@
 //
 // So the plants are laid out in TILES inside each species' one instance
 // buffer — a tile is a contiguous run of matrices, with a bounding sphere —
-// and each frame the tiles the frustum and the DISTANCE row's reach admit
-// are copied to the front of the buffer and the mesh draws that many.
-// Thirteen draw calls as before, the triangles of a dozen tiles rather than
-// a hundred, and the copy only happens on a frame the set of visible tiles
-// CHANGED, which while riding is a few times a second and while standing is
-// never. The reach is `DISTANCE_LOOK.cover` (`settings-video.ts`), and the
-// same row pulls the fog in over it, so a tile dropped for distance was
-// already inside solid fog; the frustum is what the fog can never do.
+// and each frame the tiles the frustum and the reach admit are copied to the
+// front of the buffer and the mesh draws that many. Thirteen draw calls as
+// before, the triangles of a dozen tiles rather than a hundred, and the copy
+// only happens on a frame the set of visible tiles CHANGED, which while
+// riding is a few times a second and while standing is never.
+//
+// AND THE REACH IS PER SPECIES, which is the other half of the saving and the
+// bigger one. `DISTANCE_LOOK.cover` is where the fog has closed and so is a
+// ceiling for everything; but a 19 m spruce and a 40 cm heather mat stop
+// being visible at wildly different ranges, and drawing both out to the fog
+// spent a third of the cover's triangles on stems nobody could resolve.
+// `coverReach` (`settings-video.ts`) turns a species' own height into the
+// range at which it falls under the pixel line, and each stand is culled on
+// the smaller of that and the row's. The trees keep the whole of the row; the
+// grass, the heather and the shingle stop within a hundred metres.
+//
+// The TILE follows the reach for the same reason. A tile is kept while any
+// part of it reaches inside the radius, so a 128 m square blunts a 40 m reach
+// into a 110 m one — the bucket has to shrink with the species or the reach
+// buys much less than it says. Each row is bucketed at half its own reach
+// instead, floored so a mat is not a thousand tiles and capped at
+// `FLORA_TILE` so a wood is not a hundred.
+//
+// AND THE WATER'S MIRROR GETS ITS OWN, SHORTER REACH. The reflection pass
+// draws the whole shore a SECOND time, so on a frame with the mirror live the
+// cover is paid for twice — but the mirror draws into a texture a fraction of
+// the frame's pixels a side (`REFLECTION_LOOK.scale`), and a plant standing
+// that share of its screen height is under the same pixel line at that share
+// of the range. So a stand is worth reflecting out to `reach · share` and no
+// further: the shore in the water is the NEAR shore, which is the only part
+// of it a grazing angle leaves room for anyway.
+//
+// Both passes read ONE instance buffer, so the mirror cannot be handed a
+// different set — but it can be handed a PREFIX of the same one. The relay
+// lays the tiles the mirror wants first and the rest after, and `drawFor`
+// moves `count` between the two totals: the mirror pass draws the near half,
+// the picture draws the lot, and nothing is uploaded in between.
 
 import * as THREE from "three";
 import { type Level } from "@engine";
@@ -38,13 +67,25 @@ import { type Level } from "@engine";
 import { FLORA } from "./flora-defs.ts";
 import { planFlora, type FloraSpot } from "./flora-plan.ts";
 import { buildFlora, floraMaterial } from "./flora-shapes.ts";
-import { FLORA_SCALE } from "./settings-video.ts";
+import { coverReach, FLORA_SCALE } from "./settings-video.ts";
 
-/** The tile's edge, m. Big enough that a coast is a manageable number of
- * them, small enough that the cull is worth something: at this size the
- * cover a chase camera actually sees is a dozen tiles or so out of a
- * coast's hundred and more. */
+/** The COARSEST tile edge, m, and what anything the row draws to the fog is
+ * bucketed at. Big enough that a coast is a manageable number of them, small
+ * enough that the cull is worth something: at this size the cover a chase
+ * camera actually sees is a dozen tiles or so out of a coast's hundred and
+ * more. */
 export const FLORA_TILE = 128;
+
+/** …and the finest, m. Under this a species' tiles outnumber its plants and
+ * the per-frame walk costs more than the triangles it saves. */
+const FLORA_TILE_MIN = 32;
+
+/** The square one species is bucketed into, m: half its own reach, so a tile
+ * kept for grazing the radius carries nothing much more than half as far
+ * again past it. */
+export function floraTile(reach: number): number {
+  return Math.round(Math.min(FLORA_TILE, Math.max(FLORA_TILE_MIN, reach / 2)));
+}
 
 const m = new THREE.Matrix4();
 const pos = new THREE.Vector3();
@@ -82,6 +123,9 @@ type Tile = {
   order: number[];
   sphere: THREE.Sphere;
   visible: boolean;
+  /** …and close enough to be worth drawing into the water as well. Always
+   * false when it is not visible at all. */
+  mirrored: boolean;
 };
 
 type Stand = {
@@ -91,6 +135,21 @@ type Stand = {
   tints: Float32Array;
   tiles: Tile[];
   total: number;
+  /** Where this species falls under the pixel line, m — the DISTANCE row's
+   * `cover` caps it, it never extends it. */
+  reach: number;
+  /** How many of the laid-out instances the mirror pass draws — the prefix
+   * `relay` put the reflected tiles in — and how many the picture draws. */
+  inWater: number;
+  drawn: number;
+};
+
+/** The water's mirror, as the cull sees it: where the mirrored lens looks,
+ * and the share of the frame's pixels a side it draws at — which is the share
+ * of the real reach a stand has to stand inside to be worth reflecting. */
+export type CoverMirror = {
+  frustum: THREE.Frustum;
+  share: number;
 };
 
 export type Flora = {
@@ -98,17 +157,23 @@ export type Flora = {
   /** How much of the cover is drawn, as a share of the design density —
    * the DETAIL row's `FLORA_SCALE`. Applies on the next frame. */
   setDensity: (share: number) => void;
-  /** Where the lens stands and what it sees this frame, and how far out the
-   * cover is drawn at all, m — the DISTANCE row's `cover`. Every tile the
-   * frustum refuses or that stands further off than the reach is left out of
-   * the draw. Applies on this frame. */
+  /** Where the lens stands and what it sees this frame, and the furthest any
+   * cover is drawn at all, m — the DISTANCE row's `cover`, which caps every
+   * species' own reach. Every tile the frustum refuses, or that stands further
+   * off than its species is worth drawing, is left out of the draw. Applies on
+   * this frame. */
   update: (
     frustum: THREE.Frustum,
     eyeX: number,
     eyeZ: number,
-    reach: number,
-    mirror?: THREE.Frustum,
+    cover: number,
+    mirror?: CoverMirror,
   ) => void;
+  /** Which of the two passes is about to be drawn. The mirror gets the prefix
+   * of the laid-out instances `update` admitted to it; the picture gets all of
+   * them. Costs one `count` assignment a species and uploads nothing, so it is
+   * called either side of the reflection pass every frame. */
+  drawFor: (surface: "mirror" | "frame") => void;
   dispose: () => void;
 };
 
@@ -128,7 +193,11 @@ export function createFlora(level: Level): Flora {
     // so how far it reaches from its foot scales with it: the sphere's own
     // radius plus its centre's offset, which for a tree is most of a crown.
     const sphere = geometry.boundingSphere;
-    const reach = sphere ? sphere.center.length() + sphere.radius : 1;
+    const crown = sphere ? sphere.center.length() + sphere.radius : 1;
+    // How far this species is worth drawing, and the square it is bucketed
+    // into to deliver that — both off the tallest plant the builder can make
+    // of it, so a stand is never culled on the average of its own band.
+    const reach = coverReach(spec.look.height.max);
     const roster = spots[s];
     const total = roster.length;
     const place = new Map(roster.map((p, i) => [p, i]));
@@ -136,7 +205,7 @@ export function createFlora(level: Level): Flora {
     const tints = new Float32Array(Math.max(1, total) * 3);
     const tiles: Tile[] = [];
     let at = 0;
-    for (const list of tileSpots(roster, FLORA_TILE)) {
+    for (const list of tileSpots(roster, floraTile(reach))) {
       let cx = 0;
       let cy = 0;
       let cz = 0;
@@ -163,7 +232,7 @@ export function createFlora(level: Level): Flora {
       // furthest plant plus its crown.
       let radius = 0;
       for (const p of list) {
-        radius = Math.max(radius, Math.hypot(p.x - cx, p.y - cy, p.z - cz) + p.h * reach);
+        radius = Math.max(radius, Math.hypot(p.x - cx, p.y - cy, p.z - cz) + p.h * crown);
       }
       tiles.push({
         start: at,
@@ -172,6 +241,7 @@ export function createFlora(level: Level): Flora {
         order: list.map((p) => place.get(p) ?? 0),
         sphere: new THREE.Sphere(new THREE.Vector3(cx, cy, cz), radius),
         visible: false,
+        mirrored: false,
       });
       at += list.length;
     }
@@ -187,22 +257,29 @@ export function createFlora(level: Level): Flora {
     mesh.frustumCulled = false;
     mesh.matrixAutoUpdate = false;
     group.add(mesh);
-    stands.push({ mesh, matrices, tints, tiles, total });
+    stands.push({ mesh, matrices, tints, tiles, total, reach, inWater: 0, drawn: 0 });
   });
 
-  /** Lay the visible tiles' plants at the front of each species' buffers
-   * and draw that many. */
+  /** Lay the visible tiles' plants at the front of each species' buffers,
+   * the ones the water mirrors first, and record where the two totals fall. */
   const relay = (): void => {
     for (const stand of stands) {
       const matrix = stand.mesh.instanceMatrix;
       const colour = stand.mesh.instanceColor as THREE.InstancedBufferAttribute;
       let n = 0;
-      for (const t of stand.tiles) {
-        if (!t.visible || t.kept === 0) continue;
-        matrix.array.set(stand.matrices.subarray(t.start * 16, (t.start + t.kept) * 16), n * 16);
-        colour.array.set(stand.tints.subarray(t.start * 3, (t.start + t.kept) * 3), n * 3);
-        n += t.kept;
+      // Two sweeps rather than a sort: the mirror's tiles are a subset of the
+      // visible ones, so laying that subset down and then the remainder puts
+      // the reflection's share in one run at the front.
+      for (const pass of [true, false]) {
+        for (const t of stand.tiles) {
+          if (!t.visible || t.kept === 0 || t.mirrored !== pass) continue;
+          matrix.array.set(stand.matrices.subarray(t.start * 16, (t.start + t.kept) * 16), n * 16);
+          colour.array.set(stand.tints.subarray(t.start * 3, (t.start + t.kept) * 3), n * 3);
+          n += t.kept;
+        }
+        if (pass) stand.inWater = n;
       }
+      stand.drawn = n;
       stand.mesh.count = n;
       // Only the prefix in use goes to the GPU, not the whole coast's worth.
       matrix.clearUpdateRanges();
@@ -232,23 +309,33 @@ export function createFlora(level: Level): Flora {
       }
       dirty = true;
     },
-    update: (frustum, eyeX, eyeZ, reach, mirror) => {
+    update: (frustum, eyeX, eyeZ, cover, mirror) => {
       for (const stand of stands) {
+        // The row's ceiling or the species' own line, whichever comes first.
+        const reach = Math.min(cover, stand.reach);
+        const mirrored = mirror ? reach * mirror.share : 0;
         for (const t of stand.tiles) {
           const c = t.sphere.center;
           // In the frame, or in the water: a stand the mirrored lens can see
-          // is drawn into the reflection whether or not the real one can.
-          const visible =
-            Math.hypot(c.x - eyeX, c.z - eyeZ) - t.sphere.radius <= reach &&
-            (frustum.intersectsSphere(t.sphere) ||
-              (mirror !== undefined && mirror.intersectsSphere(t.sphere)));
-          if (visible !== t.visible) {
+          // is drawn into the reflection whether or not the real one can — but
+          // only out to the mirror's own shorter reach.
+          const near = Math.hypot(c.x - eyeX, c.z - eyeZ) - t.sphere.radius;
+          const inWater =
+            mirror !== undefined && near <= mirrored && mirror.frustum.intersectsSphere(t.sphere);
+          const visible = inWater || (near <= reach && frustum.intersectsSphere(t.sphere));
+          if (visible !== t.visible || inWater !== t.mirrored) {
             t.visible = visible;
+            t.mirrored = inWater;
             dirty = true;
           }
         }
       }
       if (dirty) relay();
+    },
+    drawFor: (surface) => {
+      for (const stand of stands) {
+        stand.mesh.count = surface === "mirror" ? stand.inWater : stand.drawn;
+      }
     },
     dispose: () => {
       for (const stand of stands) stand.mesh.geometry.dispose();
