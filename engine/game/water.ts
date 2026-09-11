@@ -110,7 +110,7 @@ import { flowAt } from "../mapgen/flow.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, effectiveFetch, fetchHeight, fetchPeriod, type Shelter } from "./fetch.ts";
-import { coastAstern, oceanDepth, oceanOffset, oceanOut, stormRamp } from "./ocean.ts";
+import { oceanDepth, oceanOffset, oceanOut, STORM_CEILING, stormRamp } from "./ocean.ts";
 import { buildPhaseField, buildTable, tableAt } from "./wave-bed.ts";
 
 const S = TUNING.sea;
@@ -390,13 +390,25 @@ export function createSea(
   // band scaled up and down (`SeaBand`). A run already handed a bigger sea
   // than a rung keeps its own rather than riding out into calmer water.
   //
+  // HOW BIG the storm may be is not a number anywhere: it is the biggest sea
+  // the roster's fastest craft can still fly over the rim of and down to the
+  // floor of (`STORM_CEILING`, `ocean.ts`), so it grows with the square of
+  // whatever the speed class buys.
+  //
   // Drawn LAST so that every component of the other two bands, and every
   // digest that replays one, is the draw it always was; a calm level gets
   // no storm at all, which keeps "zero wind is zero sea" true out here too.
+  //
+  // WHICH storm this coast is dealt is drawn HERE, once, uniformly over the
+  // top of what the craft can jump (`open.vary`): the ocean is not the same
+  // every ride, and the biggest is rare — a seed has one chance in ten of
+  // landing in the top tenth of the band. Drawn before the rungs because the
+  // rungs are shares of it.
+  const storm = u > 0 ? STORM_CEILING * (O.vary + (1 - O.vary) * rng.next()) : 0;
   const rungs: { hs: number; tp: number; comps: WaveComponent[] }[] = [];
   if (u > 0) {
-    for (const [, rungHs] of O.ladder) {
-      const hs = Math.max(rungHs, hsRef);
+    for (const share of O.rungs) {
+      const hs = Math.max(storm * share, hsRef);
       const rungTp = periodForHeight(hs);
       rungs.push({
         hs,
@@ -559,23 +571,23 @@ function fillShares(sea: SeaState, x: number, z: number, past: number, out: Floa
     out[0] = exposure;
     return;
   }
-  // The coast's own sea, fading out as the coast goes ASTERN — the short
-  // ramp, done with by the ladder's first rung — and the storm standing
-  // over it, which is the ladder's own height (`stormRamp` is its profile).
-  const astern = coastAstern(past);
-  const coast = sea.hsRef * exposure;
-  const carried = coast * (1 - astern);
-  out[0] = exposure * (1 - astern);
+  // ONE ramp: the coast's own sea fades out on it as the coast goes astern
+  // and the storm rises on it in the same breath, so the significant height
+  // grows STRAIGHT from the one to the other with no dip where the two
+  // spectra cross.
   const storm = stormRamp(past);
+  const coast = sea.hsRef * exposure;
+  const carried = coast * (1 - storm);
+  out[0] = exposure * (1 - storm);
   // Hs² = carried² + need², and the sea here is what is left of the coast's
-  // plus the storm over it — so at every rung, where the coast is long
-  // gone, the sea is that rung's own authored metre and nothing else.
+  // plus the storm over it — so at the full reach, where the coast is gone,
+  // the sea is exactly the storm this level was dealt.
   const target = carried + sea.openHs * storm;
   const need = Math.sqrt(Math.max(0, target * target - carried * carried));
   if (need <= 0) return;
-  // WHICH rungs carry it. Each rung's own place on the ramp is its height
-  // over the ladder's top, by construction of `stormRamp`, so the height
-  // standing here sits between two of them — and those two share it.
+  // WHICH rungs carry it. A rung's own place on the ramp is its height over
+  // the storm's, so the height standing here sits between two of them — and
+  // those two share it.
   let r = 2;
   let below = 0;
   while (r < bands.length - 1 && storm > bands[r].hs / sea.openHs) {
@@ -623,13 +635,13 @@ const phaseAt = new Float64Array(3);
  * below so the depth table is read once per component rather than twice.
  *
  * Sized for the whole field: the ocean band, the local band, and one open
- * band per rung of the storm ladder. A typed array silently DROPS a write
+ * band per rung of the storm (`open.rungs`). A typed array silently DROPS a write
  * past its end and reads `undefined` back, so a band added without this
  * growing with it is not an error but a surface full of NaN — and a
  * `surfaceAt` ten times slower for the deopt. */
-const held = new Float64Array(3 * (S.components * (1 + O.ladder.length) + S.localComponents));
+const held = new Float64Array(3 * (S.components * (1 + O.rungs.length) + S.localComponents));
 /** Every band's share at the sample, by band index (`fillShares`). */
-const shares = new Float64Array(2 + O.ladder.length);
+const shares = new Float64Array(2 + O.rungs.length);
 const drift = { x: 0, z: 0 };
 /** How far out of the level's bounds the sample lies, per axis (`ocean.ts`). */
 const beyond = new Float64Array(2);

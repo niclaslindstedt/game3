@@ -161,20 +161,21 @@ export const TUNING = {
      * The axis is √d, not d — row `i` sits at (i·`tableRoot`)² metres — so
      * the pitch is in m^½ and the SPACING it gives is 2·`tableRoot`·√d:
      * eight centimetres where the bed breaks the surface, a metre at 25 m,
-     * and twelve metres out on the abyssal plain. That is the shape of the
-     * question: every coefficient in the table moves with k·d and is flat
-     * once k·d is past π, so the resolution is wanted in the shallows and
-     * wasted in deep water. A uniform tenth-of-a-metre axis reaching the
-     * open ocean's floor would be forty thousand rows per component.
+     * and three out where the open ocean's floor is. That is the shape of
+     * the question: every coefficient in the table moves with k·d and is
+     * flat once k·d is past π, so the resolution is wanted in the shallows
+     * and wasted in deep water. Measured against the exact functions, it is
+     * closer than a uniform tenth-of-a-metre axis where the bed breaks the
+     * surface (2.8 % against 6.7 %) and costs a fifth of the rows.
      *
      * The reach has to cover the DEEPEST water the model ever samples,
-     * because the table's read clamps to its last row: past it a
-     * kilometre-long storm swell would be read at a depth it is not in,
-     * shoaled and given several times the orbital velocity it has. That
-     * depth is the open ocean's floor (`open.depth`). The generator's own
-     * bed stops at −25 m. */
+     * because the table's read clamps to its last row: past it a long storm
+     * swell would be read at a depth it is not in, shoaled and given
+     * several times the orbital velocity it has. That depth is the open
+     * ocean's floor (`open.depth`), and this stands well past it. The
+     * generator's own bed stops at −25 m. */
     tableRoot: 0.1,
-    tableDepth: 4_000,
+    tableDepth: 250,
     /** Significant steepness Hs/L₀, dimensionless — what turns a sea
      * quoted by its height alone (`SeaOverride`) into a period, and so
      * into a WAVELENGTH: L₀ = Hs/steepness. It is the one number that
@@ -244,104 +245,78 @@ export const TUNING = {
      * throttle open rides out into the storm the coast is sheltering him
      * from, and it builds the whole way.
      *
-     * It is the same fiction `baseFetch` runs on, carried one step
-     * further. Inside the level the sea is GROWN from the wind over the
-     * fetch; out here it is QUOTED, the way a `SeaOverride` is, and the
-     * LADDER below says how big the quoted sea is at each distance out.
-     * Both the ladder and the ramp between its rungs are ARCADE DIALS: how
-     * much of the storm a rider is in is a geometry the game chose, not a
-     * law the ocean obeys. */
+     * HOW BIG IT GETS IS NOT A NUMBER HERE. It is the biggest sea the
+     * roster's fastest craft can still fly over the rim of and down to the
+     * floor of — `jumpableHs` in `ocean.ts`, off `topSpeedOf` and so off
+     * `speedClass`. A wave's width grows with its height (the `steepness`
+     * dial fixes the ratio) while a flight's reach does not, so past that
+     * height the ocean stops being something a rider jumps and becomes a
+     * hillside he crawls over, and there is no reason to build it. Turn the
+     * speed class up and the ocean grows to match. */
     open: {
-      /** THE STORM LADDER — how far past the level's rim, m, and the
-       * significant height, m, the quoted sea stands at there. Read as a
-       * straight line between rungs (`stormRamp`), 0 at the rim and held at
-       * the last rung's height past it: the ceiling every term that
-       * multiplies an amplitude needs beside it.
+      /** ...and the storm a given coast is DEALT is not the ceiling every
+       * time: it is drawn once per level, uniformly over the top of what
+       * the craft can jump, from this share of the ceiling up to it. A
+       * uniform draw over the band is what makes the biggest rare in the
+       * plainest way there is — a seed has one chance in ten of landing in
+       * the top tenth of it. At the shipped class that band is about 24 m
+       * to 32 m. */
+      vary: 0.75,
+      /** How far past the level's own rim the dealt storm stands in full,
+       * m. At a catalog top speed of 30–45 m/s that is a minute or two of
+       * riding out with the sea building every second of it, and it is a
+       * CEILING: past here the sea stops growing. */
+      reach: 2_500,
+      /** THE RUNGS the open band is laid on, as shares of the dealt storm's
+       * height. One band would have to serve every height along the way
+       * out, and a sea quoted by its height takes its WAVELENGTH from that
+       * height (`periodForHeight`) — so a single band laid at the storm's
+       * full height and scaled down to the sea a rider meets halfway would
+       * deal him the storm's wavelength at a quarter of its face, an ocean
+       * tilting rather than a wave. A rung each keeps every height at its
+       * own steepness, and neighbouring rungs hand over on the height.
        *
-       * The ladder is authored in DISTANCE because distance is what the
-       * model has — but it was CHOSEN in time, as how long a rider holds
-       * the throttle open before the sea reaches each height. The reference
-       * speed is 25 m/s, the catalog's mean top speed (88.75 km/h over the
-       * four craft), so every rung is 45 km of open water and half an hour
-       * of riding:
+       * Three is enough because the error is what the gap between rungs
+       * costs: at a quarter-and-half ladder no sea is ever drawn from a
+       * band more than twice its own height. */
+      rungs: [0.25, 0.5, 1],
+      /** The band a rung is laid over, as a multiple of its own peak — the
+       * one place the open band does not use `minPeriod`.
        *
-       *   rung      out     riding   Hs
-       *   ────  ───────  ─────────  ─────
-       *   rim     2.5 km    1.7 min    20 m   the storm the coast hides
-       *      1     45 km     30 min   100 m
-       *      2     90 km     60 min   200 m
-       *      3    135 km     90 min   400 m
-       *      4    180 km    120 min   600 m
-       *      5    225 km    150 min  1000 m   the ceiling
-       *
-       * The first rung is the twenty-metre storm the model was originally
-       * sized to carry, kept where it was so that everything within a
-       * couple of kilometres of a level — every staged offshore moment,
-       * every ride and sim baseline — reads exactly as it did. Past it the
-       * sea goes on growing for two and a half hours of riding into a
-       * thousand-metre swell: at `steepness` that is an eleven-kilometre
-       * wave with the same face angle as the twenty-metre one, so what
-       * changes riding out is the SCALE of the water and not its slope.
-       *
-       * `depth` below has to stay ahead of every rung (the sea is clipped
-       * to `breakingHs`·d), which is why one ramp carries both. */
-      ladder: [
-        [2_500, 20],
-        [45_000, 100],
-        [90_000, 200],
-        [135_000, 400],
-        [180_000, 600],
-        [225_000, 1_000],
-      ],
-      /** THE BAND a rung is laid over, as a multiple of its OWN peak — the
-       * one place the ladder does not use `minPeriod`.
-       *
-       * `minPeriod` is an ABSOLUTE floor in seconds, and against an
-       * eighty-four-second swell it asks for a band 0.7–33.7 f_p: forty-
-       * eight times the frequency range a coastal sea's 0.7–2.4 covers, on
-       * the same eight components. That breaks on the cos² directional
-       * weight, which VANISHES at the edge of the spread — when the longest
-       * component's draw lands out there, its energy is normalised onto
-       * whatever is left, and across a band that wide the next candidate is
-       * a far shorter wave. MEASURED over the seed corpus: the worst
-       * component reached a·k 0.89 with 90 % of its band's energy, a wave
-       * several times past breaking that the renderer paints entirely in
-       * foam. More components barely helped (a·k 0.49 at twenty-four),
-       * because the width is the fault and not the resolution. It is the
-       * `localComponents` trap, one band wider.
-       *
-       * So a rung gets the band the twenty-metre storm has always had — its
-       * peak over 4.8, which for that rung IS `Tp/minPeriod` to two decimal
-       * places, so the sea a rider can actually reach is untouched. What
-       * each bigger rung loses is chop measured in single seconds, which on
-       * a thirteen-kilometre swell is nothing an eye or a hull could find;
-       * what it keeps is chop in PROPORTION — the thousand-metre sea still
-       * carries waves from fourteen kilometres down to five hundred metres. */
+       * `minPeriod` is an ABSOLUTE floor in seconds, and against a slow
+       * storm swell it asks for a band many times a coastal sea's frequency
+       * range on the same eight components. That breaks on the cos²
+       * directional weight, which VANISHES at the edge of the spread: when
+       * the longest component's draw lands out there its energy is
+       * normalised onto whatever is left, and across a wide band that is a
+       * far shorter wave. MEASURED over the seed corpus at a thousand-metre
+       * quote, the worst component reached a·k 0.89 with 90 % of its band's
+       * energy — a wave several times past breaking, which the renderer
+       * paints entirely in foam — and more components barely helped (0.49
+       * at twenty-four), because the width is the fault and not the
+       * resolution. At 4.8, which is what the twenty-metre storm has always
+       * had, the worst is 0.462 against that storm's own 0.461. */
       bandHigh: 4.8,
-      /** The mean wind out there, m/s at 10 m, reached at the ladder's FIRST
-       * rung (`coastAstern`). A violent storm, and not an arbitrary one: it
-       * is about the wind a fully developed sea of that rung's twenty
+      /** The mean wind out there, m/s at 10 m. A violent storm, and not an
+       * arbitrary one: it is about the wind a fully developed sea of twenty
        * metres is grown by under Pierson–Moskowitz with `heightScale` on it
        * (Hs = 0.21·U²/g). A level whose own wind is already stronger keeps
        * it.
        *
-       * This is the one place the ladder is NOT followed, and deliberately:
-       * inverting the same law at the top rung asks for 176 m/s, and the
-       * wind is the one weather a rider feels DIRECTLY — the aero term and
-       * the air control read it, and fifty times the pressure blows the
-       * craft off the water before he has seen any of the sea he rode out
-       * for. So the wind saturates at the first rung and the sea climbs on
-       * past it: out there the swell is bigger than the wind over it could
-       * have built, which is what a quoted sea is for. */
+       * It does NOT follow the ceiling, and deliberately: inverting the same
+       * law at a fifty-metre sea asks for 220 m/s, and the wind is the one
+       * weather a rider feels DIRECTLY — the aero term and the air control
+       * read it, and that much pressure blows the craft off the water
+       * before he has seen any of the sea he rode out for. */
       wind: 25,
-      /** The bed out there, m below the surface, reached at the ladder's
-       * last rung: the level's own rim depth falls on to this along the
-       * same ramp the sea climbs. It is not a seabed a hull can ever touch
-       * — it is what keeps the depth-limited clip (`breakingHs`·d) off the
-       * storm, which at a thousand metres needs 1.8 km of water under it.
-       * An abyssal plain, and about twice what the clip asks for at every
-       * rung, because both sides ramp together. */
-      depth: 4_000,
+      /** The bed out there, m below the surface, reached at `reach`: the
+       * level's own rim depth falls on to this. It is not a seabed a hull
+       * can ever touch — it is what keeps the depth-limited clip
+       * (`breakingHs`·d) off the storm, which at the shipped ceiling needs
+       * some sixty metres and is given more than twice it.
+       * `tests/waves_test.ts` holds it ahead of the ceiling, so a speed
+       * class that outgrew this bed would fail rather than quietly clip. */
+      depth: 150,
     },
   },
 
@@ -565,6 +540,58 @@ export const TUNING = {
 
   /** THE PUMP and the engine (`propulsion.ts`). */
   pump: {
+    /** THE SPEED CLASS — the one knob that makes every craft on the roster
+     * faster or slower TOGETHER, the way a kart game's engine classes do,
+     * and the knob the open ocean's biggest wave is sized off (`ocean.ts`).
+     *
+     * It is quoted in what it BUYS: 1.4 means every hull runs 1.4× the
+     * speed the catalog quotes it at. Underneath it is a taller impeller
+     * and the engine to swing it — the pitch goes as `speedClass^(1 /
+     * classGain)` and the engine's torque as the cube of that pitch,
+     * because the pump's load torque goes as pitch³ at a given shaft speed
+     * and an engine that did not grow with it would simply bog. MEASURED
+     * top speed, km/h, flat out on the calm strip, at the pitch each class
+     * asks for:
+     *
+     *   class    0.75    1.00    1.15    1.30    1.50    1.75    2.00
+     *   skiff      58      95     115     134     157     190     195
+     *   marlin     62     108     130     150     179     205     246
+     *   otter      57      91     110     128     153     185     217
+     *   dart       50      78      95     111     133     164     194
+     *
+     * At 1 every craft reproduces its catalog `topSpeed` exactly. Past 2 the
+     * hull is unstable at the speeds it reaches and the top falls again, so
+     * 0.75–2 is the usable ladder.
+     *
+     * IT SHIPS AT 1, AND THE REASON IS THE COURSES. A level's gates are
+     * spaced in METRES (`mapgen/rules.ts` reads no speed at all), so a class
+     * does not stretch the course it is ridden on — it only gives the rider
+     * less time between gates. MEASURED at 1.5 over the sim's corpus: every
+     * craft still finishes, but the missed-gate count goes from 5 to 32 on
+     * the dart and 24 to 37 on the skiff, the dives roughly double, and the
+     * PACE falls (the marlin's 39.6 km/h to 35.6) because a hull that
+     * overshoots a gate has to come back for it. `tests/simulation_test.ts`
+     * fails outright there. Raising this is therefore a two-part change: the
+     * class, and a course whose spacing is a function of the same top speed
+     * the ocean's ceiling already reads.
+     *
+     * Why here and not on a craft: what separates the four hulls is
+     * `defs/craft.ts`'s business and must not move when a class does. This
+     * scales all four at once and leaves every difference between them
+     * where it was — the catalog's `topSpeed` stays the hull's own number,
+     * at class 1, and `topSpeedOf` is the one place the class is applied. */
+    speedClass: 1,
+    /** ...and how much faster a taller impeller actually makes a hull: the
+     * exponent in speed ∝ pitch^`classGain`. It is not 1, and the reason is
+     * the hull rather than the pump — a planing hull lifts as it speeds up,
+     * so its wetted area shrinks and its drag grows SLOWER than v², and a
+     * pitch that doubles the jet buys more than double the speed.
+     *
+     * A MEASUREMENT, fitted over the table above: 1.2 holds every class from
+     * 1.15 to 2 to within 2 %. It is here so the class can be quoted in what
+     * a player would notice — "half as fast again" — rather than in impeller
+     * pitch, which is the thing nobody outside this file thinks in. */
+    classGain: 1.2,
     /** Overall thrust efficiency against the ideal momentum-theory jet —
      * intake duct loss, nozzle loss, impeller slip. Marine waterjets run
      * 0.6–0.75 overall (Bulten 2006); the lower half because a PWC's short

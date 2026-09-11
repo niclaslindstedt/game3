@@ -40,6 +40,7 @@ import {
   withinBand,
   type Level,
   type Surface,
+  topSpeedOf,
 } from "@engine";
 
 import { LEVEL_SEEDS, analysisFor, levelFor } from "./support/levels.ts";
@@ -318,7 +319,7 @@ describe("level generator", () => {
 
   it("R18 — every ring sits on the design arc, and the slowest craft can bring the speed", () => {
     const g = 9.81;
-    const slowest = Math.min(...CRAFT.map((c) => c.topSpeed)) / 3.6;
+    const slowest = Math.min(...CRAFT.map((c) => topSpeedOf(c)));
     for (const seed of LEVEL_SEEDS) {
       for (const gate of levelFor(seed).course.gates) {
         if (gate.kind !== "air") continue;

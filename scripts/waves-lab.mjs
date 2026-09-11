@@ -44,7 +44,6 @@ const {
   seaShares,
   seaSummary,
   stormAt,
-  STORM_REACH,
   oceanOut,
   bedAt,
   surfaceAt,
@@ -295,19 +294,16 @@ for (const c of sea.components) {
 // ── Out into the open ocean ─────────────────────────────────────────────
 // The transect CONTINUED, straight on past the edge of the built level
 // (`ocean.ts`). The whole claim is in this table: the sea builds every
-// metre of the way out, the wind freshens over the first couple of
-// kilometres of it, the bed keeps falling so that nothing clips the sea on
-// the way up, and all of it stops at the ladder's top rather than running
-// away. A dip anywhere in the Hs column is the handover between the coast's
-// spectrum and the storm's going wrong.
+// metre of the way out, the wind freshens with it, the bed keeps falling so
+// that nothing clips the sea on the way up, and both stop at the storm this
+// level was DEALT rather than running away. A dip anywhere in the Hs column
+// is the handover between the coast's spectrum and the storm's going wrong.
 //
-// The stations are the STORM LADDER's own rungs and their midpoints
-// (`TUNING.sea.open.ladder`), not an even walk: the rungs are half an hour
-// of riding apart at the top and the first one is ninety seconds out, so an
-// even walk over two hundred kilometres would step straight past the sea
-// every level is actually ridden beside. `min` is how long a rider holds
-// the throttle open to reach the station, at the catalog's mean top speed
-// — the units the ladder was authored in.
+// How big that storm may be is not a number anywhere: it is the biggest sea
+// the roster's fastest craft can still fly over the rim of and down to the
+// floor of (`STORM_CEILING`), and each level draws its own over the top
+// quarter of it. `min` is how long a rider holds the throttle open to reach
+// the station, at the roster's mean top speed.
 {
   const rim = (() => {
     for (let s = 0; s < 20_000; s += 4) {
@@ -337,17 +333,9 @@ for (const c of sea.components) {
         pad("H/λ", 6),
       ].join(" "),
     );
-    // Every rung of the ladder and the midpoint below it, then one station
-    // past the top to show the ceiling holding.
-    const stops = [0];
-    let below = 0;
-    for (const [out] of TUNING.sea.open.ladder) {
-      stops.push(Math.round((below + out) / 2), out);
-      below = out;
-    }
-    stops.push(Math.round(STORM_REACH * 1.2));
-    for (const past of stops) {
-      const st = station(rim + past);
+    const full = TUNING.sea.open.reach;
+    for (let i = 0; i <= 12; i++) {
+      const st = station(rim + Math.round((full * 1.2 * i) / 12));
       console.log(
         [
           pad(st.s, 6),

@@ -108,16 +108,12 @@ export {
 // and the wind that go with it. The sea out there is `water.ts`'s OPEN band.
 export {
   bedAt,
-  coastAstern,
-  coastAsternAt,
+  jumpableHs,
   oceanDepth,
   oceanOffset,
   oceanOut,
   oceanWind,
-  STORM_HS,
-  STORM_NEAR_HS,
-  STORM_NEAR_REACH,
-  STORM_REACH,
+  STORM_CEILING,
   stormAt,
   stormRamp,
 } from "./game/ocean.ts";
@@ -163,6 +159,9 @@ export {
   maxReverse,
   maxRpm,
   maxTrim,
+  accel0to50Of,
+  classPitch,
+  classTorque,
   topSpeedOf,
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).

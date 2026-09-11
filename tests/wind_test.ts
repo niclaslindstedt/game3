@@ -5,16 +5,7 @@
 // and the Ornstein–Uhlenbeck gust (mean-reverting, bounded, seeded).
 import { describe, expect, it } from "vitest";
 
-import {
-  STORM_NEAR_REACH,
-  STORM_REACH,
-  TUNING,
-  createRng,
-  createWind,
-  stepWind,
-  windAt,
-  windSpeedAt,
-} from "@engine";
+import { TUNING, createRng, createWind, stepWind, windAt, windSpeedAt } from "@engine";
 
 import { syntheticLevel } from "./support/synthetic.ts";
 
@@ -69,16 +60,13 @@ describe("the wind past the level's rim", () => {
   it("freshens into the storm the further out a rider holds the throttle open", () => {
     expect(at(0)).toBeCloseTo(8, 3);
     let last = 0;
-    for (let past = 0; past <= STORM_NEAR_REACH; past += STORM_NEAR_REACH / 20) {
+    for (let past = 0; past <= O.reach; past += O.reach / 20) {
       expect(at(past), `${past} m past the rim`).toBeGreaterThanOrEqual(last - 1e-9);
       last = at(past);
     }
-    expect(at(STORM_NEAR_REACH)).toBeCloseTo(O.wind, 3);
-    // ...and it is a ceiling, not a ramp that runs away. The SEA goes on
-    // climbing its ladder for two hundred kilometres past this rung; the
-    // wind does not, because the rider feels it directly (`ocean.ts`).
-    expect(at(STORM_NEAR_REACH * 50)).toBeCloseTo(O.wind, 3);
-    expect(at(STORM_REACH)).toBeCloseTo(O.wind, 3);
+    expect(at(O.reach)).toBeCloseTo(O.wind, 3);
+    // ...and it is a ceiling, not a ramp that runs away.
+    expect(at(O.reach * 50)).toBeCloseTo(O.wind, 3);
   });
 
   it("opens the coast's own shelter out as the coast falls astern", () => {
@@ -88,18 +76,13 @@ describe("the wind past the level's rim", () => {
     const ashore = createWind(syntheticLevel({ windSpeed: 8, seaward: SEAWARD }));
     const sheltered = windSpeedAt(ashore, TUNING.wind.referenceHeight, 400, -110);
     expect(sheltered).toBeLessThan(8 * 0.6);
-    const far = windSpeedAt(
-      ashore,
-      TUNING.wind.referenceHeight,
-      400,
-      ashore.bounds.minZ - STORM_NEAR_REACH,
-    );
+    const far = windSpeedAt(ashore, TUNING.wind.referenceHeight, 400, ashore.bounds.minZ - O.reach);
     expect(far).toBeCloseTo(O.wind, 3);
   });
 
   it("leaves a calm level calm, however far out it is ridden", () => {
     const calm = createWind(syntheticLevel({ windSpeed: 0, seaward: SEAWARD }));
-    expect(windSpeedAt(calm, 10, 400, SEAWARD + STORM_NEAR_REACH * 2)).toBe(0);
+    expect(windSpeedAt(calm, 10, 400, SEAWARD + O.reach * 2)).toBe(0);
   });
 });
 

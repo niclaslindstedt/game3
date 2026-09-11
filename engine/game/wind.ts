@@ -20,11 +20,9 @@
 //   at a bank: it changes slowly, and so does what a rider feels.
 // - ...and PAST THE LEVEL'S RIM it goes on freshening (`ocean.ts`): the
 //   shelter field has run out and the coast is astern, so the mean itself
-//   climbs toward `TUNING.sea.open.wind` over the storm's WIND ramp —
-//   which saturates at the ladder's first rung, far short of where the sea
-//   stops growing, because this is the weather a rider feels directly. He
-//   meets the wind the twenty-metre sea out there is grown in, and feels it
-//   through the same aero term as any gust.
+//   climbs toward `TUNING.sea.open.wind` over the storm's ramp. A rider who
+//   keeps heading out meets the weather the storm out there is grown in,
+//   and feels it through the same aero term as any gust.
 // - An ORNSTEIN–UHLENBECK gust factor: a mean-reverting random process
 //   with the turbulence intensity's stationary deviation and the gust
 //   integral time scale's memory, stepped from `state.rng` so a seed
@@ -37,7 +35,7 @@ import type { Rng } from "../lib/prng.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, type Shelter } from "./fetch.ts";
-import { coastAsternAt, oceanWind } from "./ocean.ts";
+import { oceanWind, stormAt } from "./ocean.ts";
 
 const W = TUNING.wind;
 
@@ -104,7 +102,7 @@ export function windSpeedAt(wind: WindState, y: number, x: number, z: number): n
   const h = Math.max(y, W.minHeight);
   const profile = Math.log(h / W.roughness) / Math.log(W.referenceHeight / W.roughness);
   const shelter = sampleField(wind.shelter.shelter, x, z);
-  const mean = oceanWind(wind.meanSpeed, shelter, coastAsternAt(wind.bounds, x, z));
+  const mean = oceanWind(wind.meanSpeed, shelter, stormAt(wind.bounds, x, z));
   return mean * wind.gust * profile;
 }
 

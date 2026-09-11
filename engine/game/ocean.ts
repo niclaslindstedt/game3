@@ -21,26 +21,17 @@
 //                  cell of every field a sample lies — which is what
 //                  `water.ts` carries a wave's phase on by.
 //   `stormRamp`    that distance as a share of the storm, 0 at the rim and
-//                  1 at the top of `sea.open.ladder`: how much of the storm
-//                  a point is in. THE one ramp for the two things the
-//                  breaking clip couples — the sea's height and the bed's
-//                  depth — so they cannot drift apart. It is the LADDER's
-//                  own shape, read straight between its rungs, so the sea
-//                  out here is authored by the height it stands at each
-//                  distance rather than by a line to one far number.
-//   `coastAstern`  the same distance as a share of the LADDER'S FIRST RUNG:
-//                  how completely the coast is astern. The level's own sea
-//                  fades out on it, and the wind reaches the storm's
-//                  strength on it, because both are the coast's weather
-//                  ending rather than the ocean's building — and a wind
-//                  that kept pace with the top of the ladder is felt
-//                  directly by the rider and blows the craft off the water.
+//                  1 at `sea.open.reach`: how much of the storm a point is
+//                  in. THE one ramp — the sea's height, the bed's depth and
+//                  the wind's strength are all read off it, so they cannot
+//                  drift apart.
 //   `oceanDepth`   the bed out there: the rim's own depth falling on to
 //                  `sea.open.depth`, which is what keeps the depth-limited
 //                  clip off a sea this size, and a clamped rim from standing
 //                  a plateau of land out in the open ocean (`bedAt`).
 //
-// The sea itself is `water.ts`'s OPEN band — quoted by `STORM_HS`, the way
+// The sea itself is `water.ts`'s OPEN band — quoted by the storm the level
+// was dealt against `STORM_CEILING`, the way
 // a `SeaOverride` is, because out here there is no fetch left to grow it
 // over — and the wind is `wind.ts`'s mean ramped toward `sea.open.wind`.
 // Neither restates a ramp. And the EDGE of the world is `collision.ts`:
@@ -52,8 +43,11 @@
 
 import { sampleField } from "../lib/heightfield.ts";
 import { clamp } from "../lib/math.ts";
+import { smooth } from "../lib/noise.ts";
 import type { Bounds, Level } from "../mapgen/types.ts";
+import { CRAFT } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
+import { topSpeedOf } from "./limits.ts";
 
 const O = TUNING.sea.open;
 
@@ -80,80 +74,68 @@ export function oceanOut(bounds: Bounds, x: number, z: number): number {
   return oceanOffset(bounds, x, z, offset);
 }
 
-/** The top of the storm ladder: the significant height, m, the open band is
- * laid at, and how far past the rim it stands in full. Everything asks for
- * these rather than restating the ladder's last rung. */
-export const STORM_HS: number = O.ladder[O.ladder.length - 1][1];
-export const STORM_REACH: number = O.ladder[O.ladder.length - 1][0];
+/** THE BIGGEST SEA WORTH BUILDING, m — the one a craft doing `speed` m/s can
+ * still fly over the rim of and down to the floor of.
+ *
+ * A sea quoted by its height is a wave of L₀ = Hs / `sea.steepness`, so the
+ * run from its crest to its trough — the wave's WIDTH — is Hs/(2·steepness)
+ * and grows with its height. A flight's reach does not: it is the craft's
+ * own. So the two cross exactly once, and past that height the ocean stops
+ * being something a rider jumps and becomes a hillside he crawls over.
+ *
+ * Launching off the wave's own steepest face — atan(π·steepness), a constant
+ * the dial sets, 15.8° at 0.09 — at `speed` and dropping Hs, the ballistic
+ * flight spans the width when
+ *
+ *   Hs = v²·(8·s²·cos²θ + 4·s·sinθ·cosθ) / g,   θ = atan(π·s)
+ *
+ * which is the closed form below: QUADRATIC in the speed, so the ocean grows
+ * with the square of whatever the speed class buys.
+ *
+ * It is the ceiling of what is POSSIBLE, off a perfect launch. Measured in
+ * the engine, a hull riding into a real sea spans about 0.45 of it on a
+ * typical attempt — it leaves the water near the crest where the face has
+ * already flattened, loses way climbing, and carries aero drag through the
+ * flight. That gap is the difficulty, and it is deliberate: a sea nobody
+ * could fail to clear is not a sea worth riding out to. */
+export function jumpableHs(speed: number): number {
+  const s = TUNING.sea.steepness;
+  const face = Math.atan(Math.PI * s);
+  const cos = Math.cos(face);
+  return (speed * speed * (8 * s * s * cos * cos + 4 * s * Math.sin(face) * cos)) / TUNING.g;
+}
 
-/** ...and the FIRST rung, the twenty-metre storm the coast is sheltering a
- * rider from. It is what a staged offshore moment means by "out at sea":
- * far enough that the rim is astern and the level's own water is gone, near
- * enough to ride to, and the sea the model was first sized to carry. */
-export const STORM_NEAR_HS: number = O.ladder[0][1];
-export const STORM_NEAR_REACH: number = O.ladder[0][0];
+/** ...at the roster's FASTEST craft, under the speed class — the ceiling the
+ * open ocean is sized to, and the one number a level's own storm is dealt
+ * against (`water.ts`). The fastest rather than an average because this is a
+ * question about what CAN be ridden, and a sea the best craft can jump is
+ * one the others can ride out to and be beaten by. */
+export const STORM_CEILING: number = jumpableHs(Math.max(...CRAFT.map(topSpeedOf)));
 
 /** How much of the storm stands `out` metres past the rim: 0 at the rim, 1
- * at `STORM_REACH` and past it.
+ * at `sea.open.reach` and past it, easing out of the one and into the other.
+ * What reads as an ocean getting worse is a sea that grows every second you
+ * hold the throttle open, and it is CAPPED, because every term that
+ * multiplies an amplitude needs a ceiling beside it. An arcade dial, not a
+ * law.
  *
- * It is the LADDER's own shape — the significant height authored at each
- * distance (`sea.open.ladder`), as a share of the top rung, read straight
- * between rungs — because what the sea does riding out is something the
- * game authors rung by rung rather than a single line to one far number.
- * The ramp is what `water.ts` multiplies the open band's height by AND what
- * `oceanDepth` falls to the abyss on, so the two stay in step and the
- * depth-limited clip never catches the storm.
- *
- * Monotone and CAPPED, because every term that multiplies an amplitude
- * needs a ceiling beside it. An arcade dial, not a law. */
+ * EASED rather than straight, and the reason is the handover in `water.ts`:
+ * the storm's height is carried in ENERGY over what is left of the coast's
+ * sea, so the open band's amplitude comes out as the square root of this
+ * ramp. A straight ramp therefore leaves the rim with an infinite slope —
+ * a kink in the water exactly where a rider crosses out of the level, and
+ * one `tests/waves_test.ts` measures as a step. A Hermite fade starts flat,
+ * so the square root of it is straight; TWICE is flatter still, which is
+ * what it takes for the biggest step across the rim to be no bigger than
+ * the steps the same sea takes either side of it. The sea eases out of the
+ * coast's own instead of jumping off it. */
 export function stormRamp(out: number): number {
-  if (out <= 0) return 0;
-  let prevOut = 0;
-  let prevHs = 0;
-  for (let i = 0; i < O.ladder.length; i++) {
-    const rungOut = O.ladder[i][0];
-    const rungHs = O.ladder[i][1];
-    if (out < rungOut) {
-      const t = (out - prevOut) / (rungOut - prevOut);
-      return (prevHs + (rungHs - prevHs) * t) / STORM_HS;
-    }
-    prevOut = rungOut;
-    prevHs = rungHs;
-  }
-  return 1;
+  return smooth(smooth(clamp(out / O.reach, 0, 1)));
 }
 
 /** The same, at a plan point. */
 export function stormAt(bounds: Bounds, x: number, z: number): number {
   return stormRamp(oceanOut(bounds, x, z));
-}
-
-/** How completely the coast is ASTERN `out` metres past the rim: 0 at the
- * rim, 1 at the ladder's first rung and past it, straight in between.
- *
- * The second ramp, and the shorter one. Two things end with the coast
- * rather than growing with the ocean, and both are on it:
- *
- * - THE LEVEL'S OWN SEA. `water.ts` fades the ocean band out over this, so
- *   the storm's first rung is the storm's own height and not that plus a
- *   coast's swell still lingering two hundred kilometres out. Inside the
- *   first rung it is the whole handover, which is why the water a rider
- *   can actually reach is exactly the water it was before the ladder.
- * - THE WIND. It saturates here while the sea climbs for two hundred
- *   kilometres past it, so far out the swell is bigger than the wind over
- *   it could have built — which is what a QUOTED sea is for, and the
- *   reason is that the rider feels the wind DIRECTLY: it is the aero term
- *   and the air control, and the wind that would raise a thousand-metre
- *   sea under Pierson–Moskowitz (about 176 m/s) is fifty times the
- *   pressure and blows the craft off the water before he has seen any of
- *   the sea he rode out for. */
-export function coastAstern(out: number): number {
-  return clamp(out / STORM_NEAR_REACH, 0, 1);
-}
-
-/** The same, at a plan point. */
-export function coastAsternAt(bounds: Bounds, x: number, z: number): number {
-  return coastAstern(oceanOut(bounds, x, z));
 }
 
 /** The depth of water, m, where the level's own bed reads `bed` metres and
@@ -195,9 +177,6 @@ export function bedAt(level: Level, x: number, z: number): number {
  * the open ocean's storm as the coast falls astern — the mean freshening
  * toward `sea.open.wind` and the shelter opening out to 1, because a coast
  * two kilometres upwind shelters nothing.
- *
- * `storm` here is `coastAstern`'s ramp, not the sea's: the wind is full a
- * couple of kilometres out and the sea goes on building far past it.
  *
  * A level already blowing harder than the storm keeps its own wind rather
  * than dropping to it. Zero stays zero — a calm level has no storm out at

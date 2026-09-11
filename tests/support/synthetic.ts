@@ -8,12 +8,15 @@
 // with its ramp, and two skerries off the line. Anything that needs a
 // GENERATED level calls the generator itself.
 
+import { afterAll, beforeAll } from "vitest";
+
 import {
   createHeightfield,
   fillField,
   type Level,
   type Gate,
   type Solid,
+  TUNING,
   type Weather,
 } from "@engine";
 
@@ -33,6 +36,12 @@ export type SyntheticOptions = {
   noSolids?: boolean;
   /** Extra plan reach to seaward, m (default 400). */
   seaward?: number;
+  /** How long the level runs ALONG the shore, m (default 880, from x = −60).
+   * The drag strip lengthens it: a craft under a high `pump.speedClass`
+   * covers more than a kilometre in the seconds it takes to reach its top
+   * speed, and a strip it runs off the end of puts it out past the rim in
+   * the open ocean's storm, where it is no longer measuring its own hull. */
+  plan?: number;
   /** The bed's depth out at sea, m (default 8) — deepen it for a sea the
    * shallows would break. */
   depth?: number;
@@ -56,7 +65,7 @@ export function syntheticGround(z: number, depth = 8): number {
 
 export function syntheticLevel(opts: SyntheticOptions = {}): Level {
   const seaward = opts.seaward ?? 400;
-  const bounds = { minX: -60, maxX: 820, minZ: -120, maxZ: seaward };
+  const bounds = { minX: -60, maxX: -60 + (opts.plan ?? 880), minZ: -120, maxZ: seaward };
   const cols = Math.ceil((bounds.maxX - bounds.minX) / CELL) + 1;
   const rows = Math.ceil((bounds.maxZ - bounds.minZ) / CELL) + 1;
   const ground = createHeightfield(bounds.minX, bounds.minZ, CELL, cols, rows);
@@ -162,4 +171,24 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // standing under weather it did not ask for.
     weather: opts.weather ?? "clear",
   };
+}
+
+/** Pin the SPEED CLASS (`TUNING.pump.speedClass`) for a suite, and put it
+ * back afterwards.
+ *
+ * Some fixtures ride at a THROTTLE rather than to a speed — the camera rod's
+ * landing, the rider's springs, a hull righting itself with the throttle
+ * held open — and a class that makes the same throttle mean half as much
+ * speed again moves what they measure without saying anything about their
+ * subject. Those suites pin the class they were written at; anything whose
+ * subject IS the roster's pace (`craft_test.ts`) reads the live class
+ * through `topSpeedOf` and friends instead. */
+export function pinSpeedClass(k: number): void {
+  const was = TUNING.pump.speedClass;
+  beforeAll(() => {
+    (TUNING.pump as { speedClass: number }).speedClass = k;
+  });
+  afterAll(() => {
+    (TUNING.pump as { speedClass: number }).speedClass = was;
+  });
 }

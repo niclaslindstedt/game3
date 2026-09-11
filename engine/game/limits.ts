@@ -34,10 +34,30 @@ export function maxReverse(spec: CraftSpec): number {
 /** The rider's full lean, either way, as the input scale: 1. */
 export const MAX_LEAN = 1;
 
+/** THE SPEED CLASS's two factors, stated here because this file is what a
+ * craft CAN do and because `propulsion.ts` reads its ceilings from here
+ * (the other direction would be a cycle).
+ *
+ * `classPitch` is the impeller pitch the class asks for, as a multiple of
+ * the spec's own: the class is quoted in the SPEED it buys and a planing
+ * hull's drag grows slower than v², so the pitch behind it is the smaller
+ * number (`pump.classGain`). `classTorque` is what the engine has to grow
+ * by to swing it — the cube, which is what the pump's load torque goes as
+ * at a given shaft speed. Both are 1 at class 1. */
+export function classPitch(): number {
+  return Math.pow(TUNING.pump.speedClass, 1 / TUNING.pump.classGain);
+}
+
+export function classTorque(): number {
+  return classPitch() ** 3;
+}
+
 /** The jet's own speed at redline, m/s — nothing pushes the hull faster
- * through the water than the water leaving the nozzle. */
+ * through the water than the water leaving the nozzle. Under the class,
+ * which is a taller impeller: the jet has to stay ahead of the hull it is
+ * pushing, and `tests/craft_test.ts` holds it there at any class. */
 export function jetCeiling(spec: CraftSpec): number {
-  return (spec.impellerPitch * spec.maxRpm) / 60;
+  return (spec.impellerPitch * classPitch() * spec.maxRpm) / 60;
 }
 
 /** The rider's pitch authority in the air, N·m at full lean — the same
@@ -46,8 +66,19 @@ export function airPitchTorque(spec: CraftSpec): number {
   return TUNING.flight.leanTorque * spec.riderAuthority;
 }
 
-/** The expected top speed the spec documents, m/s. The bot reads it to
- * know what "flat out" looks like; the physics is what delivers it. */
+/** The expected top speed, m/s: the spec's own number under the SPEED CLASS
+ * (`pump.speedClass`), which is the one place the class is applied. The bot
+ * reads it to know what "flat out" looks like, the open ocean's biggest wave
+ * is sized off it (`ocean.ts`), and the physics is what delivers it —
+ * `tests/craft_test.ts` holds the three together at whatever class is set. */
 export function topSpeedOf(spec: CraftSpec): number {
-  return spec.topSpeed / 3.6;
+  return (spec.topSpeed * TUNING.pump.speedClass) / 3.6;
+}
+
+/** The expected 0–50 km/h, s: the spec's own number under the SPEED CLASS.
+ * A class scales the thrust rather than the mass, so the time to a fixed
+ * speed falls as the SQUARE of it — measured over the roster, 1/k² holds
+ * every class from 1 to 2 to within a few per cent. */
+export function accel0to50Of(spec: CraftSpec): number {
+  return spec.accel0to50 / TUNING.pump.speedClass ** 2;
 }

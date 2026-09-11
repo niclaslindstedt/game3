@@ -53,7 +53,7 @@ comment's claim has to stay true.
 | What the water under the surface is doing | The orbital velocity of the same components (the tangent of the water particle's circle) | `surfaceAt`'s `vx, vy, vz` |
 | The mean wind, and the gusts on it | A log-law height profile, the shelter field over the plan, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y, x, z)` |
 | The summary a level or a lab quotes | Hs = 4√m₀ over every band at its share, Tp of whichever is carrying it there | `seaSummary(sea, x, z) → { Hs, Tp }` |
-| How big the sea is PAST the level's rim | An authored LADDER of (distance, Hs) rungs — 20 m a couple of km out to 1000 m at 225 km — read straight between rungs, with one quoted band per rung so each height keeps its own wavelength | `TUNING.sea.open.ladder`, `stormRamp` (`ocean.ts`), `SeaBand` |
+| How big the sea is PAST the level's rim | The biggest a craft can still fly over the rim of and down to the floor of — a closed form QUADRATIC in the top speed, since a wave's width grows with its height and a flight's reach does not. Each level deals its own storm just under it, so the biggest is rare | `jumpableHs`, `STORM_CEILING` (`ocean.ts`), `TUNING.sea.open` |
 
 The knobs are `TUNING.sea` (`engine/game/defs/tuning.ts`): the component
 count, the spectrum's peak-enhancement γ (3.3 is JONSWAP's), the spreading
