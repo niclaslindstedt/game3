@@ -10,7 +10,7 @@ The picture is six rows, and they are pressed over the live sea behind the card 
 
 **The developer page.** Hold **START** for seven seconds and it appears under OPTIONS. Behind it, in the options page's own two columns, are the same seed the start card picks, a wind and a sea in exact figures to override the level's own, the staged moments, and a COPY REPRO LINK that writes the lot back out as a URL — which is the point of it: a frame you found is a frame you can hand to somebody else.
 
-**What a run is.** The course is a line of gates, in order. A **water gate** is two buoys; cross the line between them, the right way round, and it counts. An **air gate** is a ring hanging over the water with a floating **ramp** moored before it: hit the ramp with pace, lean back, and fly through the ring. Skip a gate by passing the one after it and the missed one is still counted as reached, with a penalty on the clock. The last gate is the finish. **R** puts you back at the last gate you passed, facing the next one; **Enter** restarts the whole run on the same shore.
+**What a run is.** The course is a line of gates, in order. A **water gate** is two buoys; cross the line between them, the right way round, and it counts. An **air gate** is a ring hanging over the water with a floating **ramp** moored before it: hit the ramp with pace, lean back, and fly through the ring. Skip a gate by passing the one after it and the missed one is still counted as reached, with a penalty on the clock. The last gate is the finish. **R** puts you back at the last gate you passed, facing the next one; **B** restarts the whole run on the same shore.
 
 **Choosing a level.** Every level is generated from a seed, so a URL is a level: `?seed=38` opens seed 38, and `?craft=marlin` picks the craft (`skiff`, `marlin`, `otter`, `dart`); `?camera=heli` opens on a rung of the camera ladder; add `?start=1` to skip the cards and ride it. The seed is in the HUD corner, beside the build label — send both with a bug report and whoever reads it stands on the same water. The whole set of parameters is in [configuration.md](configuration.md).
 
@@ -27,14 +27,17 @@ The picture is six rows, and they are pressed over the live sea behind the card 
 | ↓ / S     | Lean back — nose up; in the air, pitch the nose up          |
 | ↑ / Shift | Lean forward — nose down; in the air, pitch the nose down   |
 | Space     | Brake and reverse — the bucket over the jet                 |
-| R         | Reset to the last gate passed                               |
-| Enter     | Restart the run                                             |
+| R         | Reset to the last gate passed (also the HUD button)         |
+| B         | Restart the run from the beginning                          |
+| Enter     | Take a screenshot (also the HUD button)                     |
 | C         | Camera: the next rung of the ladder (also the HUD button)   |
 | Escape    | Pause: hold the run and put the pause card up               |
 
 The arrow cluster is the handlebar: ← → steer it, ↑ ↓ lean on it, the same way the thumb's bar on a phone does — pull toward you for nose up, push away for nose down.
 
 On a menu card the arrow keys (or WASD) walk the rows, Enter or Space presses one, and Escape goes back a page.
+
+**Screenshots.** **Enter** takes a picture of the frame you are looking at — the sea, the craft and the sky the renderer drew, with the HUD over it as it stood when you pressed, and the game's mark in the corner. On a phone the shutter is the third button under the minimap, since there is no Enter key to reach for. The picture lands a frame or three later and the news column says so; the run never stops for it. Every picture is kept in the browser on the machine it was taken on — the last forty, oldest falling off — and **GALLERY** on the front door is where they are looked at, flipped through, and **shared**, **copied** or **saved** to a file. Nothing is ever uploaded anywhere.
 
 **Pausing.** Press Escape, or press the **minimap** — on a phone the map is the way in, since there is no Escape key to reach for. The run stops exactly where it stands: the wave holds, the spray hangs, the clock waits. The card carries **RESUME** (also what Escape and a press on the backdrop do, because a card opened by a thumb aiming for the map has to cost one press to leave), then a short strip of the settings a rider actually stops mid-run for — the **sound** too loud for the room, the **camera** you cannot see out of, the **HUD** in the way of the water, and the **frame rate** — and then **MAIN MENU**, which hands the same craft back to the bot and comes back to the front door over the shore you were just on. The full OPTIONS page is not offered here: a picture row is judged against a sea that is moving, and the one thing this card does is stop it.
 

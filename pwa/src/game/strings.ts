@@ -54,6 +54,10 @@ export const STRINGS = {
    * and the keyboard hint get. */
   resetTitle: "Back to the last gate (R)",
   cameraTitle: "Next camera (C)",
+  /** ...and the third, the SHUTTER. Named for what it keeps rather than for
+   * what it does, because the picture landing somewhere is the half a rider
+   * cannot see happen. */
+  shotTitle: "Take a screenshot (Enter)",
   /** The build corner: which stage and which craft this frame is of. */
   stage: (seed: number): string => `SEED ${seed}`,
   /** ...and the two diagnostics that share it. The frame rate is rounded to
@@ -106,6 +110,7 @@ export const STRINGS = {
   /** The game's own billing, under the wordmark on the front door. */
   menuTag: "ride the northern shores",
   menuStart: "START",
+  menuGallery: "GALLERY",
   menuOptions: "OPTIONS",
   menuDeveloper: "DEVELOPER",
   /** The way out of every page under the front door. */
@@ -343,4 +348,49 @@ export const STRINGS = {
   /** What the minimap does when it is pressed — the way into the card on a
    * screen with no Escape key to press. */
   pauseOpen: "Pause (Esc)",
+
+  /* ── THE SHUTTER AND THE GALLERY (screenshots.ts, menu-gallery.tsx) ── */
+  /** The one line of context a picture carries — the same two words the
+   * pause card bills a held run with, because a picture of a run and a card
+   * over one should name it the same way. It is the gallery's caption and,
+   * slugged, half of the file's name. */
+  shotLabel: (seed: number, craft: string): string => `SEED ${seed} · ${craft.toUpperCase()}`,
+  /** The receipt, in the news column. A picture is filed frames after the
+   * press that asked for it, so the press gets an answer either way — the
+   * one thing worse than a failed capture is a shutter that says nothing. */
+  shotKept: "PICTURE SAVED",
+  shotFailed: "PICTURE FAILED",
+  /** The gallery. The subtitle counts the roll against its cap, because the
+   * oldest picture falling off is the one thing about this page a player
+   * would otherwise discover by losing something. */
+  galleryTitle: "GALLERY",
+  gallerySub: (kept: number, cap: number): string => `${kept}/${cap} — the oldest falls off`,
+  /** Before the roll has been read, and after it has come back empty. Two
+   * different sentences on purpose: a player with forty pictures must not be
+   * told for a frame that they have none. */
+  galleryReading: "Reading the roll…",
+  galleryEmpty: "Nothing here yet. Press ENTER during a run and the picture lands here.",
+  /** The three ways a picture leaves the game, offered only where the
+   * browser will actually do them (lib/share-image.ts), and the two-step
+   * delete beside them — a stray press must not destroy a picture that
+   * cannot be taken again, because the shore it was taken on has long since
+   * been rebuilt. */
+  galleryShare: "SHARE",
+  galleryCopy: "COPY",
+  gallerySave: "SAVE",
+  galleryDelete: "DELETE",
+  galleryDeleteArm: "SURE?",
+  /** What each of them says afterwards. A dismissed share sheet is an
+   * ordinary outcome rather than a failure, and says so. */
+  galleryShareOff: "SHARE CANCELLED",
+  galleryCopied: "COPIED",
+  galleryCopyOff: "COPY REFUSED",
+  gallerySaved: "SAVED",
+  gallerySaveOff: "SAVE REFUSED",
+  /** Which picture of how many, and when it was taken, in the reader's own
+   * clock. */
+  galleryAt: (at: number, of: number, when: string): string => `${at}/${of} · ${when}`,
+  galleryPrev: "Previous screenshot",
+  galleryNext: "Next screenshot",
+  galleryThumb: (n: number): string => `Screenshot ${n}`,
 } as const;

@@ -24,10 +24,10 @@
 //!   opened and nothing is saved by name. The second menu is RIDE, which is
 //!   what its rows are actually about.
 //! - **A bare-key accelerator.** Every binding below carries ⌘. The game reads
-//!   the keyboard directly (Enter restarts, R resets, C walks the camera) and
-//!   a menu accelerator wins before the page ever sees the key, so binding a
-//!   naked Escape or C to a row would quietly take that key away from the
-//!   craft.
+//!   the keyboard directly (Enter takes a picture, B restarts, R resets, C
+//!   walks the camera) and a menu accelerator wins before the page ever sees
+//!   the key, so binding a naked Escape or C to a row would quietly take that
+//!   key away from the craft.
 //! - **Enable/disable state.** A row the game cannot serve where it stands
 //!   does nothing rather than greying out, because greying out means the shell
 //!   tracking what the page is showing — a whole second copy of the game's
@@ -154,8 +154,8 @@ const APP_MENU: &[Entry] = &[
 ];
 
 /// RIDE, not File — see the module header. Both rows are keys the player can
-/// already press: Enter stands the run back up, R banks a reset to the last
-/// gate taken.
+/// already press: B stands the run back up, R banks a reset to the last gate
+/// taken.
 const RIDE_MENU: &[Entry] = &[
     command(
         "restart",
@@ -187,14 +187,23 @@ const EDIT_MENU: &[Entry] = &[
     Entry::Native(Native::SelectAll),
 ];
 
-/// What the player is LOOKING at: the rung of the camera ladder, and whether
-/// the window is the whole screen.
+/// What the player is LOOKING at: the rung of the camera ladder, a picture of
+/// it, and whether the window is the whole screen.
 const VIEW_MENU: &[Entry] = &[
     command(
         "camera",
         "Next Camera",
         Some("Shift+CmdOrCtrl+C"),
         Target::Page("camera"),
+    ),
+    // The shutter. It belongs with the camera rather than in RIDE: both rows
+    // are about what the player is LOOKING at, and the picture the game keeps
+    // is the rung of the ladder they chose, photographed.
+    command(
+        "shot",
+        "Take Screenshot",
+        Some("Shift+CmdOrCtrl+S"),
+        Target::Page("shot"),
     ),
     Entry::Separator,
     command(

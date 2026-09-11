@@ -84,7 +84,7 @@ fn the_page_commands_are_the_ones_the_game_answers() {
         })
         .collect();
     sent.sort_unstable();
-    assert_eq!(sent, ["camera", "reset", "restart"]);
+    assert_eq!(sent, ["camera", "reset", "restart", "shot"]);
 }
 
 #[test]

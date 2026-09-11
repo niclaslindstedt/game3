@@ -97,6 +97,15 @@
 // noise only with the player's hands on the craft: a gate the bot takes
 // under the menu is not news.
 //
+// THE SHUTTER IS A REQUEST, NOT A FREEZE. ENTER (and the HUD's own shutter
+// where there is no keyboard) asks for a picture; the HUD is serialized at
+// the PRESS, because the clock and the gate count the picture has to carry
+// are the ones that were on screen when the button went down, and the frame
+// that serves it is one or three later — the drawing buffer can only be
+// read inside the animation callback that filled it (`game/screenshots.ts`).
+// Everything after the grab waits: the stamp, the encode and the write into
+// the roll the GALLERY reads (`game/menu-gallery.tsx`).
+//
 // AND THE MOTOR FOLLOWS THE HANDS. The rumble (`game/haptics.ts`) is fed
 // the same events and the same frames the sound is, minus the bot's: a
 // phone buzzing in a pocket while the attract card rides a sea nobody is
@@ -109,6 +118,7 @@ import {
   type GameState,
   TUNING,
   botInput,
+  craftById,
   createGame,
   step,
 } from "@engine";
@@ -130,6 +140,8 @@ import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
 import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
+import { captureFrame } from "./game/screenshots.ts";
+import { readHudLayer, type HudLayer } from "./game/shot-hud.ts";
 import {
   CONDITION_DAY,
   DEFAULT_SEED,
@@ -198,6 +210,13 @@ function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null
   }
 }
 
+/** The one line of context a picture carries: which shore it was taken on
+ * and which hull was under the rider. It is the gallery's caption and half
+ * of the file's name (`game/screenshots.ts`). */
+function shotLabel(state: GameState): string {
+  return STRINGS.shotLabel(state.seed, craftById(state.craft.spec.id).name);
+}
+
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snap, setSnap] = useState<HudSnapshot | null>(null);
@@ -259,6 +278,10 @@ export function App() {
     resume: () => {},
     toMenu: () => {},
   });
+  /** ...and the SHUTTER, which the HUD's own action row presses — the whole
+   * feature on a screen with no ENTER key to press. Boxed for the same
+   * reason: the picture is served by the loop, so the loop owns the ask. */
+  const shotRef = useRef<() => void>(() => {});
 
   // Every change is written through, so a visit's choices survive the tab
   // being closed. Cheap: a settings change is a press, not a frame.
@@ -374,6 +397,32 @@ export function App() {
       if (!playerRides(shellRef.current)) return botInput(state);
       return input.sample(TUNING.dt);
     };
+
+    /** A line in the news column that no engine event earned — today the
+     * shutter's receipt, which is the one thing the app says about a press
+     * whose answer arrives several frames after it. */
+    const say = (text: string, tone: HudFlash["tone"]): void => {
+      live.push({ id: flashId++, text, tone, until: wall + FLASH_LIFE });
+    };
+
+    /** The picture asked for and not yet served: the label it will carry and
+     * the HUD as it stood at the press. Served by the frame loop, in the
+     * same task as the render that filled the buffer. */
+    let wantedShot: { label: string; hud: HudLayer | null } | null = null;
+
+    /** THE SHUTTER. Only where there is a run to photograph and a HUD to
+     * answer on — under the front door the frame is the bot's demo behind a
+     * card, and the news column the receipt would go in is not on screen.
+     * The pause card counts: a held frame is a frame, and the card standing
+     * over it is part of what was on the screen. */
+    const takeShot = (): void => {
+      if (!hudOver(shellRef.current)) return;
+      // One at a time. A held key repeats, and a second request landing on
+      // the same frame would replace the first one's label with its own.
+      if (wantedShot) return;
+      wantedShot = { label: shotLabel(state), hud: readHudLayer() };
+    };
+    shotRef.current = takeShot;
 
     const stepOnce = (): void => {
       step(state, inputFor());
@@ -578,6 +627,12 @@ export function App() {
         runRef.current.pause();
         return;
       }
+      // The shutter, like the pause card, is reached from the held frame as
+      // well as the moving one — so it is answered before the gate below.
+      if (action === "shot") {
+        takeShot();
+        return;
+      }
       if (shellRef.current !== "run") return;
       if (action === "restart") {
         frozen = false;
@@ -676,6 +731,21 @@ export function App() {
         input.sample(TUNING.dt);
       }
       renderer.render(state, held || clock.paused() ? 0 : dtFrame);
+      // THE PICTURE, IF ONE WAS ASKED FOR — lifted here and nowhere else:
+      // the context keeps no back buffer for anyone who asks later, so the
+      // pixels have to come off in the same task as the render that filled
+      // them. Everything after the grab can wait, and does.
+      if (wantedShot) {
+        const wanted = wantedShot;
+        wantedShot = null;
+        const canvasNow = canvasRef.current;
+        if (!canvasNow) say(STRINGS.shotFailed, "bad");
+        else {
+          void captureFrame(canvasNow, wanted.label, wanted.hud).then((capture) =>
+            say(capture ? STRINGS.shotKept : STRINGS.shotFailed, capture ? "good" : "bad"),
+          );
+        }
+      }
       // The beds follow the same frames the engine took: fed whenever the
       // sea moved, hushed whenever it did not — see this file's header.
       if (!frozen && !held && !clock.paused()) {
@@ -800,6 +870,7 @@ export function App() {
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
           onCamera={() => rendererRef.current?.camera.cycle()}
+          onShot={() => shotRef.current()}
           onPause={() => runRef.current.pause()}
         />
       )}

@@ -91,7 +91,7 @@ grows one, and F11 works either way.
 
 **The menu bar presses the game's own keys.** Three words cross —
 `restart`, `reset`, `camera` — and each is a key the player can already press
-(Enter, R, C). `App.tsx` lands every one of them on the very handler the key
+(B, R, C, Enter). `App.tsx` lands every one of them on the very handler the key
 lands on, so a menu row can never become a second button; the words are listed
 in `pwa/src/shell-host.ts` and `tests/tauri_test.ts` holds the two lists
 together.

@@ -4,7 +4,7 @@
 // bot-ridden run behind this card the whole time it is up. A menu that
 // stopped the water would be a menu that announces the game is not running.
 //
-// THREE ROWS, AND THE MIDDLE ONE IS THE POINT.
+// FOUR ROWS, AND THE FIRST ONE IS THE POINT.
 //
 //   START      → the start card (menu-start.tsx): the shore, the hour and
 //                the day; then the craft card (menu-craft.tsx), where the
@@ -17,6 +17,10 @@
 //                all lead to the same shore would be a door telling four
 //                lies. Campaign, Time Trial and the rest arrive as rows here
 //                on the day `campaign.ts` stops being a placeholder.
+//   GALLERY    → the pictures the player took (menu-gallery.tsx), and the
+//                only place one is ever shown. It stands above OPTIONS
+//                because it is the player's own, and under START because
+//                nothing gets into it without a run first.
 //   OPTIONS    → the knobs the game actually has (menu-options.tsx).
 //   DEVELOPER  → hidden until START has been HELD for seven seconds
 //                (menu-hold.ts, `DEV_HOLD_MS`), and out for good once found.
@@ -45,6 +49,7 @@ import {
 } from "./menu-hold.ts";
 import { CraftPage } from "./menu-craft.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
+import { GalleryPage } from "./menu-gallery.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
 import { STRINGS } from "./strings.ts";
@@ -53,6 +58,7 @@ export type MenuPage =
   | { page: "root" }
   | { page: "start" }
   | { page: "craft" }
+  | { page: "gallery" }
   | { page: "options" }
   | { page: "developer" };
 
@@ -256,6 +262,14 @@ function RootPage({
         <button
           type="button"
           class="menu-item"
+          data-menu="gallery"
+          onClick={() => onNavigate({ page: "gallery" })}
+        >
+          <span class="menu-item-name">{STRINGS.menuGallery}</span>
+        </button>
+        <button
+          type="button"
+          class="menu-item"
           data-menu="options"
           onClick={() => onNavigate({ page: "options" })}
         >
@@ -322,6 +336,7 @@ export function MainMenu({
           onRide={onStart}
         />
       )}
+      {page.page === "gallery" && <GalleryPage onBack={() => onNavigate({ page: "root" })} />}
       {page.page === "options" && (
         <OptionsPage
           settings={settings}

@@ -12,11 +12,22 @@
 //   W            throttle             S / ↓      lean back
 //   A / ←  D / → steer                Shift / ↑  lean forward
 //   Space        brake and reverse    R          reset to the last gate (edge)
-//   Enter        restart the run      C          next camera
+//   Enter        take a screenshot    B          restart the run
+//   C            next camera
 //   Escape       hold the run and put the pause card up (menu-pause.tsx);
 //                pressing it again over the card resumes, because the card's
 //                RESUME row is its `data-nav-back` and menu-nav.ts takes
 //                Escape upstream of this manager
+//
+// ENTER IS THE SHUTTER, and the two restarts moved off it rather than
+// sharing it. A picture is the press a rider makes while everything is
+// still going well, and the key it is on has to be the one the hand is
+// already resting near and the one every other game has put it on — so
+// Enter takes the picture (screenshots.ts files it and the gallery keeps
+// it), R still puts the craft back at the last gate it passed, and B stands
+// the whole run back up from the beginning. The two of them are the same
+// verb at two distances, which is why they are neighbours on the row rather
+// than on opposite ends of the keyboard.
 //
 // THE ARROW CLUSTER IS THE HANDLEBAR, not a left-handed copy of WASD: ← →
 // steer it and ↑ ↓ lean on it, with the same sign the thumb's bar carries
@@ -42,7 +53,7 @@ import {
 } from "./input-model.ts";
 
 /** The presses the app reacts to rather than the craft. */
-export type InputAction = "restart" | "camera" | "pause";
+export type InputAction = "restart" | "camera" | "pause" | "shot";
 
 export type InputManager = {
   /** Produce this step's input; advances the ramps by `dt`. */
@@ -78,7 +89,8 @@ const KEY_CODES: Record<string, KeyAction> = {
 /** The edges. */
 const EDGE_CODES: Record<string, "reset" | InputAction> = {
   KeyR: "reset",
-  Enter: "restart",
+  KeyB: "restart",
+  Enter: "shot",
   KeyC: "camera",
   // The way out of a run. It is a key the browser and the OS both have
   // opinions about (full screen, pointer lock), which is exactly why it is

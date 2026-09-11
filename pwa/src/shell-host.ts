@@ -92,15 +92,15 @@ export function askShellRumble(ms: number, strength: number): void {
  * EVERY ROW IS A THING THE WEBSITE ALREADY DOES. The menu is a second way to
  * reach the game's own buttons, never a place a feature lives — a shell-only
  * feature is the one thing the shells may not have. The list grows as the
- * game's own buttons do (a pause card, a gallery, settings). */
+ * game's own buttons do (a pause card, settings). */
 export const SHELL_COMMAND = "sh-shell-command";
 
 /** What a menu row may ask the game to do. Every word is a key the player
- * can already press without a menu bar: Enter, R and C. */
-export type ShellCommand = "restart" | "reset" | "camera";
+ * can already press without a menu bar: B, R, C and Enter. */
+export type ShellCommand = "restart" | "reset" | "camera" | "shot";
 
 /** The words above, as a value, so a shell's list can be held to them. */
-export const SHELL_COMMANDS: readonly ShellCommand[] = ["restart", "reset", "camera"];
+export const SHELL_COMMANDS: readonly ShellCommand[] = ["restart", "reset", "camera", "shot"];
 
 /** Hear every menu row the shell presses, until the hand-back is called. A
  * no-op in a browser, where no menu bar exists to press one. */
