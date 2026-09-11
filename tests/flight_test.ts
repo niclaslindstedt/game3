@@ -112,6 +112,47 @@ describe("a flight", () => {
     expect(state.craft.airTime).toBe(0);
   });
 
+  it("a hop shorter than the counting line is not air time", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    // Dropped 1.2 m onto calm water: clear of it for about 0.41 s, which is
+    // a real landing — it slams, it splashes — and no time in the air.
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.2 });
+    const landings = ride(state, 4, () => COAST).filter((e) => e.kind === "land");
+    expect(landings.length).toBeGreaterThan(0);
+    for (const e of landings) {
+      if (e.kind !== "land") continue;
+      expect(e.airTime).toBeLessThan(TUNING.flight.airCounts);
+      expect(e.record).toBe(false);
+    }
+    expect(state.progress.bestAir).toBe(0);
+  });
+
+  it("the longest flight of the run holds the record, and only it is marked", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    const flown: { airTime: number; record: boolean }[] = [];
+    // Four flights in one run, in this order: one that counts, a hop under
+    // the line, a shorter flight that counts, and one that beats the lot.
+    for (const [height, vy] of [
+      [1.5, 3],
+      [1.2, 0],
+      [1.5, 1],
+      [1.5, 9],
+    ]) {
+      placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height, vy });
+      for (const e of ride(state, 4, () => COAST)) {
+        if (e.kind === "land") flown.push({ airTime: e.airTime, record: e.record });
+      }
+    }
+    expect(flown.length).toBe(4);
+    expect(flown.map((f) => f.record)).toEqual([true, false, false, true]);
+    // The third flight counts as air time and still takes nothing: the run
+    // has been up longer already.
+    expect(flown[2].airTime).toBeGreaterThan(TUNING.flight.airCounts);
+    expect(flown[2].airTime).toBeLessThan(flown[0].airTime);
+    expect(state.progress.bestAir).toBeCloseTo(flown[3].airTime, 9);
+    expect(flown[3].airTime).toBeGreaterThan(flown[0].airTime);
+  });
+
   it("a ramp at 12 m/s launches the hull", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
     const ramp = rampOf(FLAT);

@@ -35,6 +35,14 @@ export type RunMoment = {
    * air, with `vy` m/s of climb. */
   height?: number;
   vy?: number;
+  /** ...and how long it has ALREADY been up, s, when the moment staged is
+   * part-way through a flight rather than the instant one began. It is the
+   * air clock's own line that makes this worth saying (`flight.airCounts`):
+   * a hull stood at the top of its arc has been in the air for about a
+   * second, and one stood with the clock at zero photographs as a hop.
+   * Left out, the flight starts where it is stood. Ignored with no
+   * `height`. */
+  airTime?: number;
   /** Attitude, rad: nose up positive, right side down positive. */
   pitch?: number;
   roll?: number;
@@ -81,7 +89,7 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   if (height > 0) {
     c.y = heightAt(state.sea, state.level, moment.x, moment.z, state.t) + height;
     c.airborne = true;
-    c.airTime = 0.01;
+    c.airTime = Math.max(moment.airTime ?? 0, 0.01);
     c.launchVy = c.vy;
   } else {
     // A hull under way rides higher than one at rest.

@@ -152,8 +152,6 @@ import { clamp } from "./lib/util.ts";
 const HUD_TICK = 1 / 12;
 /** How long a line stays in the news column, s. */
 const FLASH_LIFE = 3.2;
-/** A flight shorter than this is a wave, not a jump, and gets no line. */
-const AIR_WORTH_A_LINE = 0.6;
 /** How long the loading card takes to fade off the run underneath. Must
  * match the `.loading.leaving` transition in styles.css. */
 const LOAD_FADE_MS = 260;
@@ -187,7 +185,12 @@ function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null
     case "ground":
       return { text: STRINGS.grounded, tone: "bad" };
     case "land":
-      return e.airTime >= AIR_WORTH_A_LINE
+      // THE RECORD IS THE BETTER NEWS. A landing that took the run's
+      // longest flight is called out as one; every other flight that
+      // counted gets the plain reading, and a hop that was not air time at
+      // all (`flight.airCounts`) is a wave, not a jump, and gets no line.
+      if (e.record) return { text: STRINGS.airRecord(e.airTime), tone: "good" };
+      return e.airTime > TUNING.flight.airCounts
         ? { text: STRINGS.landed(e.airTime), tone: "info" }
         : null;
     default:

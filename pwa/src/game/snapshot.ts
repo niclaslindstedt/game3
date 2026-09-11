@@ -11,6 +11,7 @@
 // rule in the shell (§23.2), and there are none.
 
 import {
+  TUNING,
   biomeOf,
   gatesReached,
   maxRpm,
@@ -65,6 +66,12 @@ export type HudSnapshot = {
   windAngle: number;
   windMs: number;
   airborne: boolean;
+  /** THE AIR CLOCK, s — the flight so far, and 0 until it has lasted
+   * `flight.airCounts`. A hop off a crest is not air time, and a readout
+   * that counted it would flicker through a whole head sea, so
+   * the clock starts at the line rather than at the water. `airborne` is
+   * the hull's own truth and stays honest: the spray and the sound read
+   * the state, this is what is READ OUT. */
   airTime: number;
   seed: number;
   craft: CraftId;
@@ -109,7 +116,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     windAngle: (blowsTo - c.heading) * SCREEN_TO_ENGINE,
     windMs: Math.hypot(wind.vx, wind.vz),
     airborne: c.airborne,
-    airTime: c.airTime,
+    airTime: c.airTime > TUNING.flight.airCounts ? c.airTime : 0,
     seed: state.seed,
     craft: c.spec.id,
     minimap: buildMinimap(state),

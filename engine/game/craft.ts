@@ -524,6 +524,9 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
         airTime: c.airTime,
         pitch: c.pitch,
         speed: c.speed,
+        // Whether it was the run's longest is the RUN's to say; the craft
+        // only knows how long this one was (`step.ts`).
+        record: false,
       });
       c.landing = 0;
     }

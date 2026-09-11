@@ -808,6 +808,17 @@ export const TUNING = {
      * stay clear, s, before a launch or a landing is reported at all. */
     launchVy: 1.2,
     minAir: 0.2,
+    /** ...and how long it has to stay clear for the flight to be AIR TIME,
+     * s. A different question from `minAir`, which is the line a flight is
+     * read to have HAPPENED at: a hull skipping off a crest for a third of
+     * a second still lands, still slams, still throws a sheet, and all of
+     * that is reported. It just did not go anywhere, and in a head sea it
+     * does it a fifth of the steps — so a clock that started for those
+     * would flicker over the horizon all run. Nothing under this counts:
+     * the air clock does not start, no line is printed, and no record can
+     * fall on it. Half a second is about the shortest flight a rider reads
+     * as one. */
+    airCounts: 0.5,
     /** A landing whose bow buries deeper than this, m, with the nose this
      * far down, rad, is a DIVE. */
     diveDepth: 0.55,

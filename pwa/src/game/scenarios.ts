@@ -397,6 +397,14 @@ const RIVER_UP = 0.34;
  * when it meets the hinge. */
 export const LAUNCH_RUN_UP = 60;
 
+/** ...and how long the hull stood at the TOP of that flight has already
+ * been in the air, s. A launch that reaches a ring standing a few metres up
+ * has been climbing for about a second, and the moment is staged as the
+ * flight it belongs to rather than as one beginning: the air clock ignores
+ * anything shorter than half a second (`flight.airCounts`), so a hang stood
+ * with its clock at zero photographs as a hop. */
+const APEX_FLOWN = 1;
+
 /** Build a scenario against a state's level and craft. */
 export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
   const level = state.level;
@@ -493,6 +501,11 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
           height: air.y,
           vy: 0,
           pitch: 0.28,
+          // The top of the arc is a second into the flight, not the first
+          // frame of one: a launch that reaches a ring this high has been
+          // up about that long, and the air clock reads the flight rather
+          // than the staging.
+          airTime: APEX_FLOWN,
         }),
         script: () => input(0, 1, 0),
         seconds: 3,

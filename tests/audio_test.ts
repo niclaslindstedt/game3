@@ -162,7 +162,7 @@ const EVERY_EVENT: GameEvent[] = [
   { kind: "airGate", t: 1, gate: 1, split: 20, height: 3 },
   { kind: "missedGate", t: 1, gate: 2, penalty: 5 },
   { kind: "launch", t: 1, vy: 4, speed: 20 },
-  { kind: "land", t: 1, vy: -4, airTime: 0.8, pitch: 0.1, speed: 18 },
+  { kind: "land", t: 1, vy: -4, airTime: 0.8, pitch: 0.1, speed: 18, record: false },
   { kind: "dive", t: 1, depth: 0.8, speed: 15 },
   { kind: "hit", t: 1, solid: "skerry", speed: 9 },
   { kind: "ground", t: 1, speed: 4 },
@@ -255,8 +255,24 @@ describe("the route (audio/route.ts)", () => {
   });
 
   it("sizes a landing by its descent and picks the slammed one by descent or attitude", () => {
-    const soft = soundForEvent({ kind: "land", t: 0, vy: -2, airTime: 0.4, pitch: 0, speed: 15 })!;
-    const hard = soundForEvent({ kind: "land", t: 0, vy: -9, airTime: 1.5, pitch: 0, speed: 20 })!;
+    const soft = soundForEvent({
+      kind: "land",
+      t: 0,
+      vy: -2,
+      airTime: 0.4,
+      pitch: 0,
+      speed: 15,
+      record: false,
+    })!;
+    const hard = soundForEvent({
+      kind: "land",
+      t: 0,
+      vy: -9,
+      airTime: 1.5,
+      pitch: 0,
+      speed: 20,
+      record: false,
+    })!;
     const nose = soundForEvent({
       kind: "land",
       t: 0,
@@ -264,6 +280,7 @@ describe("the route (audio/route.ts)", () => {
       airTime: 0.4,
       pitch: -0.5,
       speed: 15,
+      record: false,
     })!;
     expect(soft.id).toBe("land_soft");
     expect(hard.id).toBe("land_hard");
@@ -291,6 +308,7 @@ describe("the route (audio/route.ts)", () => {
       airTime: 0.5,
       pitch: 0,
       speed: 15,
+      record: false,
     })!;
     const dive = bubblesForEvent({ kind: "dive", t: 0, depth: 1, speed: 15 })!;
     const over = bubblesForEvent({ kind: "capsize", t: 0, speed: 1 })!;

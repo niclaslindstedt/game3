@@ -46,8 +46,13 @@ export type RunReport = {
   /** Course length, m. */
   courseLength: number;
   topSpeed: number;
-  /** Seconds spent with nothing on the hull touching anything. */
+  /** Seconds of AIR TIME — the flights that counted, summed whole. A hull
+   * clear of the water for less than `flight.airCounts` did not go
+   * anywhere, and in a head sea it does that a fifth of the steps, so
+   * counting every airborne step would report the chop as flying. */
   airTime: number;
+  /** ...and the longest single flight of the run, s, on the same line. */
+  bestAir: number;
   launches: number;
   dives: number;
   hits: number;
@@ -121,11 +126,11 @@ export function simulateStage(options: SimOptions): RunReport {
       else if (e.kind === "hit") hits += 1;
       else if (e.kind === "ground") groundings += 1;
       else if (e.kind === "reset") resets += 1;
+      else if (e.kind === "land" && e.airTime > TUNING.flight.airCounts) airTime += e.airTime;
       else if (e.kind === "capsize") capsizes += 1;
     }
     const c = state.craft;
     if (c.speed > topSpeed) topSpeed = c.speed;
-    if (c.airborne) airTime += TUNING.dt;
     steps += 1;
     if (steps % 30 === 0) {
       mix(c.x);
@@ -151,6 +156,7 @@ export function simulateStage(options: SimOptions): RunReport {
     courseLength: state.level.course.length,
     topSpeed,
     airTime,
+    bestAir: p.bestAir,
     launches,
     dives,
     hits,

@@ -148,6 +148,12 @@ export type Progress = {
    * is measured from whichever came later. */
   lastGatePassedAt: number;
   lastResetAt: number;
+  /** THE RUN'S AIR RECORD: the longest flight flown so far, s, counted from
+   * `flight.airCounts` — 0 until one has been up that long. A landing that
+   * beats it carries `record`, so a presentation flashes it once and the
+   * number is here to read back after. It stands across a reset: the rider
+   * flew it, and being put back at a gate does not un-fly it. */
+  bestAir: number;
 };
 
 export type GameEvent =
@@ -157,8 +163,21 @@ export type GameEvent =
   /** The hull leaving the water with `vy` m/s upward, off a ramp or a wave. */
   | { kind: "launch"; t: number; vy: number; speed: number }
   /** The hull arriving. `vy` is the descent, m/s (negative), `airTime` how
-   * long it was up, `pitch` the attitude it met the water at. */
-  | { kind: "land"; t: number; vy: number; airTime: number; pitch: number; speed: number }
+   * long it was up, `pitch` the attitude it met the water at. `record` is
+   * true when that flight is the longest of the run so far and long enough
+   * to count at all (`flight.airCounts`) — the run's new best, decided
+   * where the run is orchestrated (`step.ts`) rather than by whoever reads
+   * the event, because two readers comparing clocks of their own would
+   * disagree about which landing set it. */
+  | {
+      kind: "land";
+      t: number;
+      vy: number;
+      airTime: number;
+      pitch: number;
+      speed: number;
+      record: boolean;
+    }
   /** A landing that buried the bow: the nose went in `depth` metres. */
   | { kind: "dive"; t: number; depth: number; speed: number }
   /** A solid met at `speed` m/s closing. */
