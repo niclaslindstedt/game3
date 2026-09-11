@@ -35,9 +35,11 @@ export function analyzeAirGate(
   depthAt: (x: number, z: number) => number,
   rep: Report,
 ): void {
-  // R32 — the rule book at the pace this level was drawn to, shadowing the
-  // module's own: its ramp lead and run-up were stretched by the class.
-  const R = rulesAtPace(level.pace);
+  // R32, R33 — the rule book at the pace this level was drawn to and under
+  // the dials it was dealt, shadowing the module's own: its ramp lead and
+  // run-up were stretched by the class, and its decks were built to R33's
+  // dial rather than to the stock width.
+  const R = rulesAtPace(level.pace, level.rampWidth);
   if (!withinBand(gate.y, R.air.height)) {
     rep.fail(
       "R7",

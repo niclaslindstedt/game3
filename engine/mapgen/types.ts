@@ -45,6 +45,12 @@ export type GenerateOptions = {
    * `TUNING.pump.speedClass`. Gates are laid in metres, so a faster class
    * needs them further apart to be the same race (`rulesAtPace`). */
   pace?: number;
+  /** R33 — THE RAMP DIAL: the multiple of R8's stock deck width every ramp
+   * on this level is built at, held inside `LEVEL_RULES.ramp.widthDial`.
+   * Defaults to 1, the deck the rule book draws. This is the difficulty
+   * knob that lives in the LEVEL — `createGame`'s `assist` and
+   * `rampAssist` are the two that live in the run. */
+  rampWidth?: number;
   /** Bounded sub-seed attempts before the generator throws; defaults to
    * `LEVEL_RULES.search.attempts`. */
   attempts?: number;
@@ -241,6 +247,11 @@ export type Level = {
    * carries it because the analyzer is handed a `Level` and nothing else,
    * and has to score it against the rules it was actually built to. */
   readonly pace: number;
+  /** R33 — the RAMP DIAL it was built at: the multiple of R8's stock deck
+   * width every ramp on it is, carried for the same reason `pace` is —
+   * the analyzer is handed a `Level` and nothing else, and has to score
+   * the decks it finds against the width they were asked for. */
+  readonly rampWidth: number;
   readonly bounds: Bounds;
   /** Ground height against sea level: the sea bed under the water, the land
    * above it. Land is only meaningful within ~100 m of the shore. */

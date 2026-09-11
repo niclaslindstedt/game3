@@ -126,6 +126,16 @@ is made on flat water or not at all.
 - **Spin up before measuring.** `placeRun`'s `speed` is a placement, not a
   trimmed-out hull; give it ~14 s at full throttle first or the figure is a
   craft still accelerating.
+- **On the RAMP bench, state a case as a FRACTION of the deck's half-width.**
+  Every number in `TUNING.assist.ramp` is one, and R33 made the deck's width
+  a per-run dial, so a case written in metres stops being marginal the
+  moment the dial moves: doubling R8's deck turned "a metre off the
+  centreline, six degrees off the axis" from a jump the bare physics lost
+  into one it keeps unaided, and `tests/assist_test.ts` failed on a change
+  that was working. Map the deck before repicking a case — `across` over
+  fractions of the half-width against a few yaws takes seconds — and put
+  the probe in `tests/`: vitest's `include` is `tests/**/*_test.ts`, so a
+  scratch file anywhere else is silently "no test files found".
 - **Quote a rate at a FIXED TIME and a time to half** — g at 0.5 s and 1 s,
   then seconds and metres to half speed. An average to a full stop is mostly
   the v² tail (a craft sits above walking pace for the best part of a minute),

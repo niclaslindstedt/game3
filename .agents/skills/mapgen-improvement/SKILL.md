@@ -264,6 +264,23 @@ undoes it without knowing it was ever a rule.
   edge is at sea level, its angle is what launches the craft, and the ring
   it serves stands where a launch from it goes. Move the ramp's numbers in
   `rules.ts` and the ring height moves with them — that coupling is a check.
+  Its WIDTH is coupled the other way: R9's run-up corridor is
+  `ramp.width / 2 + solidMargin`, so widening a deck changes what
+  `courseKeepOut` refuses and therefore where `laySolids` puts stone. The
+  routes and courses stay bit-identical and the ROCKS move, which is why a
+  ramp change is read off sim TALLIES over a wide sweep and never off a
+  seed's row.
+- **A PER-RUN DIAL goes in `pace.ts` beside R32, never in `rules.ts`.** A
+  knob a difficulty setting will move (the speed class, the ramp's width)
+  is four edits: a `GenerateOptions` field, a `Level` field carrying what
+  was actually built (the analyzer is handed a `Level` and nothing else), a
+  case in `rulesAtPace`, and the clamp applied ONCE in `generateLevel`.
+  `rules.ts` is AT the §20.5 cap with no headroom, so the dial's band and
+  its rule's prose live in `pace.ts`; and `rulesAtPace` must keep returning
+  `LEVEL_RULES` ITSELF when every dial is stock, because the placer's
+  keep-out reads that table and a copy re-rolls every seed. Most consumers
+  need no threading at all — anything reading the built `Ramp` follows the
+  dial for free.
 - **Vocabulary numbers are a coupled system.** Gate spacing, the bot's
   aiming lookahead, the craft's top speeds and the run-up length all agree
   with each other. Lengthen the offshore band and the fetch — and so the

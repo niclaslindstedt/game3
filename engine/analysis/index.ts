@@ -116,8 +116,10 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // the catalog's own. A level drawn for a faster class has its gates
   // further apart on purpose, and an analyzer reading the unpaced table
   // would call every one of them a fault — and the generator REJECTS on
-  // this verdict, so it would simply never terminate.
-  const R = rulesAtPace(level.pace);
+  // this verdict, so it would simply never terminate. R33's dial travels
+  // with it for the same reason: the decks were built to the width this
+  // level was dealt.
+  const R = rulesAtPace(level.pace, level.rampWidth);
   const rep = createReport();
   const path = level.course.path;
   const gates = level.course.gates;

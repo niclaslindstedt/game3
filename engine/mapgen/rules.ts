@@ -827,7 +827,11 @@ export const LEVEL_RULES = {
     /** Deck length along the water, m — the plan footprint; the lip is
      * `length · tan(angle)` up. */
     length: { min: 8, max: 10 },
-    width: 4,
+    /** Deck width across the water, m — the STOCK deck R33's dial is a
+     * multiple OF. Twice the four metres it was drawn at: four is three
+     * hull beams (0.90–1.32 m in the catalog), a deck a rider AIMS at, and
+     * covering for that is most of what `TUNING.assist.ramp` does. */
+    width: 8,
     /** Rise from the water, rad. */
     angle: { min: 15 * DEG, max: 22 * DEG },
     /** Straight, clear, deep water before the hinge, m.

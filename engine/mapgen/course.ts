@@ -484,12 +484,14 @@ export function layCourse(
   water: Water,
   wind: Wind,
   pace = 1,
+  rampWidth = 1,
 ): CoursePlan | null {
-  // R32 — the rule book AT THIS LEVEL'S PACE, shadowing the module's own.
-  // Gates are laid in METRES, so a faster class needs them further apart to
-  // be the same race; everything below reads the stretched numbers without
-  // knowing they were stretched.
-  const R = rulesAtPace(pace);
+  // R32, R33 — the rule book AT THIS LEVEL'S PACE and under its own dials,
+  // shadowing the module's own. Gates are laid in METRES, so a faster class
+  // needs them further apart to be the same race, and R33's deck is whatever
+  // width this run was dealt; everything below reads the transformed numbers
+  // without knowing they were transformed.
+  const R = rulesAtPace(pace, rampWidth);
   const S = R.search;
   const band = {
     min: R.course.offshore.min + S.offshoreSlack,
@@ -666,9 +668,10 @@ export function layCircuitCourse(
   water: Water,
   wind: Wind,
   pace = 1,
+  rampWidth = 1,
 ): CoursePlan | null {
-  // R32 — the paced rule book, as in `layCourse`.
-  const R = rulesAtPace(pace);
+  // R32, R33 — the paced and dialled rule book, as in `layCourse`.
+  const R = rulesAtPace(pace, rampWidth);
   const C = R.circuit;
   const S = R.search;
   const needDepth = R.course.minDepth + S.depthSlack;

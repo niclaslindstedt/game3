@@ -26,10 +26,26 @@
 //       scores it against the book it was actually built to, and the stock
 //       class is the stock book by identity — no level anyone has ridden
 //       re-rolls.
+//   R33 THE DECK IS A DIAL. R8's ramp is `ramp.width` metres across at the
+//       stock setting, and a run may be dealt a `rampWidth` MULTIPLE of it
+//       inside `RAMP_DIAL` — the one number a difficulty ladder moves
+//       in the LEVEL rather than in the run, `TUNING.assist`'s two hands
+//       being the rider's. A wider deck is an easier jump for the reason
+//       the assist exists: a hull on a ramp has nothing in the water, so
+//       the sideways way it climbed aboard is the sideways way it leaves,
+//       and the only cure the geometry has is flank to spare. Nothing but
+//       the deck moves with it — the ring stays `air.width` across, the
+//       arc R18 derives is the same arc, and the run-up stays as long —
+//       so the dial changes how much of a lip a rider may miss by and
+//       nothing about what the jump is. What DOES follow is the keep-out:
+//       R6's margin is measured from the deck's edge and R9's run-up is
+//       clear across the deck's width, so a wider ramp asks the search for
+//       a wider corridor of open water, and the stock dial is the stock
+//       book by identity — no level anyone has ridden re-rolls.
 //
 // Split out of `rules.ts` for the §20.5 cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
-// they become at a pace.
+// they become at a pace and under a run's own dials.
 
 import { LEVEL_RULES } from "./rules.ts";
 
@@ -68,14 +84,23 @@ export type PacedRules = Widen<typeof LEVEL_RULES>;
  * course alone took the gates taken from 110 to 93, and squaring the radius
  * with it recovered them to 121.
  *
- * Memoised per class: the generator asks for it once a level, the analyzer
- * once a report, and the table is a dozen objects. */
-const PACED = new Map<number, PacedRules>();
+ * `rampWidth` is R33's dial and the one number here that is NOT about the
+ * class: the deck's width, times whatever a difficulty setting dealt this
+ * run. It rides in this function because it is the same kind of thing — a
+ * per-run transform of the one rule book, applied once so that the two
+ * course layers, R6's keep-out, R9's run-up corridor and the analysis all
+ * read a single number instead of four agreeing about it.
+ *
+ * Memoised per class and dial: the generator asks for it once a level, the
+ * analyzer once a report, and the table is a dozen objects. */
+const PACED = new Map<string, PacedRules>();
 
-export function rulesAtPace(pace: number): PacedRules {
+export function rulesAtPace(pace: number, rampWidth = 1): PacedRules {
   const k = Math.max(0.1, pace);
-  if (k === 1) return LEVEL_RULES;
-  const held = PACED.get(k);
+  const w = clampDial(rampWidth);
+  if (k === 1 && w === 1) return LEVEL_RULES;
+  const key = `${k}|${w}`;
+  const held = PACED.get(key);
   if (held) return held;
   const band = (b: { min: number; max: number }) => ({ min: b.min * k, max: b.max * k });
   const R = LEVEL_RULES;
@@ -103,9 +128,27 @@ export function rulesAtPace(pace: number): PacedRules {
     // in it: 79 rejections a level at class 1.5 against 2 at stock, which
     // is a generator that gives up on about one seed in thirty.
     leg: { ...R.leg, at: band(R.leg.at), after: R.leg.after * k },
-    ramp: { ...R.ramp, runUp: R.ramp.runUp * k, lead: band(R.ramp.lead) },
+    // R33's dial is applied to the WIDTH alone; everything else in this
+    // group is R32's business.
+    ramp: { ...R.ramp, runUp: R.ramp.runUp * k, lead: band(R.ramp.lead), width: R.ramp.width * w },
     air: { ...R.air, landing: R.air.landing * k },
   };
-  PACED.set(k, paced);
+  PACED.set(key, paced);
   return paced;
+}
+
+/** R33 — THE RAMP DIAL'S BAND: the multiples of `ramp.width` a run may be
+ * dealt. Stated here rather than in `rules.ts` because R33 is stated here
+ * and because that file is at the §20.5 cap. The floor is the four-metre
+ * deck R8 drew until the width was doubled, and the ceiling is twice the
+ * one it draws now; past either end the ramp stops being the thing the
+ * assist, the bot and the analysis were argued against. */
+export const RAMP_DIAL = { min: 0.5, max: 2 } as const;
+
+/** R33 — a dealt `rampWidth` held inside that band. Exported because the
+ * generator clamps the option before it puts the result on the `Level`,
+ * and a level carrying a dial this function would have narrowed is a level
+ * the analyzer scores against a book nothing built it to. */
+export function clampDial(rampWidth: number): number {
+  return Math.min(Math.max(rampWidth, RAMP_DIAL.min), RAMP_DIAL.max);
 }

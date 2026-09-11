@@ -12,7 +12,7 @@ export {
   type LevelRules,
   type SolidRule,
 } from "./rules.ts";
-export { rulesAtPace, type PacedRules } from "./pace.ts";
+export { clampDial, RAMP_DIAL, rulesAtPace, type PacedRules } from "./pace.ts";
 export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";

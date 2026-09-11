@@ -43,6 +43,8 @@ export type LevelPlan = {
   readonly track: TrackKind;
   /** R32 — the speed class the course was paced for. */
   readonly pace: number;
+  /** R33 — the multiple of R8's stock width its ramps were built at. */
+  readonly rampWidth: number;
   readonly bounds: Bounds;
   /** The two grids, already baked (`layBasin`, `bakeGround`). */
   readonly offshore: Heightfield;
@@ -122,6 +124,7 @@ export function compileLevel(plan: LevelPlan): Level {
     biome: biome.id,
     track: plan.track,
     pace: plan.pace,
+    rampWidth: plan.rampWidth,
     bounds,
     ground,
     offshore,
