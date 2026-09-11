@@ -465,6 +465,48 @@ export const RUN_BANK: SoundBank = {
     ],
   },
 
+  air_record: {
+    description:
+      "THE RUN'S LONGEST FLIGHT, landed: a four-note arpeggio straight up a " +
+      "major triad, each note brighter than the last, with a shimmer of " +
+      "detune on the top one and the shore's echo under all of it. Played " +
+      "OVER the landing it belongs to rather than instead of it, so it is " +
+      "pitched clear of the splash — high, thin sines with no body at all, " +
+      "where the water is all body and no top.",
+    voices: [
+      { call: "tone", type: "sine", from: 1175, durationMs: 150, volume: 0.026, echo: 0.12 },
+      {
+        call: "tone",
+        type: "sine",
+        from: 1480,
+        durationMs: 150,
+        volume: 0.028,
+        delayMs: 70,
+        echo: 0.14,
+      },
+      {
+        call: "tone",
+        type: "sine",
+        from: 1760,
+        durationMs: 180,
+        volume: 0.03,
+        delayMs: 140,
+        echo: 0.16,
+      },
+      {
+        call: "tone",
+        type: "sine",
+        from: 2349,
+        durationMs: 420,
+        volume: 0.032,
+        delayMs: 210,
+        holdMs: 90,
+        detuneCents: 8,
+        echo: 0.22,
+      },
+    ],
+  },
+
   // ── THE BIRDS ─────────────────────────────────────────────────────────
   // Raised by `bird-bed.ts` off the flocks `bird-plan.ts` laid over the
   // level, never by an event: a cry is presentation, sized by how far off

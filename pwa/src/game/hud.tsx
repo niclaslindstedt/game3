@@ -209,11 +209,31 @@ export function Hud({
           enough to BE one (`snapshot.ts`, `flight.airCounts`) and is gone at
           the water, so the middle of the frame is empty whenever it is not a
           hull's whole job — and a head sea, which throws the hull clear a
-          fifth of the steps, never flickers a clock over the horizon. */}
+          fifth of the steps, never flickers a clock over the horizon.
+
+          It FADES in rather than arriving, and it GROWS with the flight:
+          `--air-grow` is the snapshot's 0..1 from the line to a flight worth
+          the whole size, and the styling turns it into the tile's scale. A
+          readout that says how big the moment is by how big it is needs no
+          second glance to be read at speed.
+
+          A record STICKS — `airRecord` covers both the flight already past
+          the run's best and the moment after the landing that took it — and
+          the word goes beside the clock rather than under it, so the number
+          never moves off the centreline to make room for news. */}
       {snap.airTime > 0 && (
-        <div class="hud-air">
-          <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
-          <span class="hud-chip-sub">{STRINGS.airLabel}</span>
+        <div
+          class={`hud-air ${snap.airRecord ? "hud-air-record" : ""}`}
+          style={{ "--air-grow": String(snap.airGrow) }}
+        >
+          <div class="hud-air-tile">
+            <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
+            <span class="hud-chip-sub">{STRINGS.airLabel}</span>
+            {/* INSIDE the tile, hung off its right edge: out of the flow, so
+                the clock keeps the centreline, and carried by the tile's own
+                pulse, so the gap between the two never closes. */}
+            {snap.airRecord && <span class="hud-air-best">{STRINGS.airRecordLabel}</span>}
+          </div>
         </div>
       )}
 

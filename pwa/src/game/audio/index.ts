@@ -27,11 +27,11 @@ import { sfx } from "./bus.ts";
 import { listenerFor, type Listener } from "./listener.ts";
 import { playSound } from "./play.ts";
 import { createRideBed, type RideBed } from "./ride-bed.ts";
-import { bubblesForEvent, heardFrom, soundForEvent } from "./route.ts";
+import { bubblesForEvent, heardFrom, recordForEvent, soundForEvent } from "./route.ts";
 
 export { setAudioVolumes, unlockAudio } from "./bus.ts";
 export { RUN_BANK } from "./bank.ts";
-export { bubblesForEvent, soundForEvent } from "./route.ts";
+export { bubblesForEvent, recordForEvent, soundForEvent } from "./route.ts";
 
 export type RunAudio = {
   /** Translate one step's events into sound. */
@@ -76,6 +76,11 @@ export function createRunAudio(): RunAudio {
         playSound(sfx, RUN_BANK, hit.id, heardFrom(hit.shape, ear));
         const tail = bubblesForEvent(event);
         if (tail) bubbleBurst(sfx, tail.count, tail.big, tail.gain * ear.events);
+        // ...and the news over the top of it: a landing that took the run's
+        // longest flight is two sounds, the water and the word for it. The
+        // dedupe above is the landing's; a record happens once a step.
+        const best = recordForEvent(event);
+        if (best) playSound(sfx, RUN_BANK, best.id, heardFrom(best.shape, ear));
       }
     },
 

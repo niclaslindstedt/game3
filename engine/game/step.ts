@@ -204,7 +204,8 @@ export function createGame(options: CreateGameOptions): GameState {
  * The craft knows how long it was up; only the run knows whether anything
  * has been up longer, so the comparison is here and the landing that won it
  * is marked as it goes past — one event, one flash, and `progress.bestAir`
- * left holding the number. A flight under `flight.airCounts` is not air
+ * and `bestAirAt` left holding the number and the moment it was set, so a
+ * readout can hold it on screen without a clock of its own. A flight under `flight.airCounts` is not air
  * time at all and cannot take it. */
 function noteAirRecord(state: GameState, events: GameEvent[]): void {
   for (let i = 0; i < events.length; i++) {
@@ -212,6 +213,7 @@ function noteAirRecord(state: GameState, events: GameEvent[]): void {
     if (e.kind !== "land") continue;
     if (e.airTime <= TUNING.flight.airCounts || e.airTime <= state.progress.bestAir) continue;
     state.progress.bestAir = e.airTime;
+    state.progress.bestAirAt = state.t;
     e.record = true;
   }
 }

@@ -108,6 +108,20 @@ export function soundForEvent(event: GameEvent): { id: string; shape?: PlayShape
   }
 }
 
+/** THE RECORD'S OWN SOUND, over the top of the landing that took it.
+ *
+ * A second decision about the same event rather than a rung in the table
+ * above, for the reason `bubblesForEvent` is one: the landing still sounds
+ * like a landing — sized by how hard the hull arrived — and the news is a
+ * separate voice laid over it. Folding the two together would mean a bank
+ * carrying a second copy of every landing, one of them wearing a chime.
+ *
+ * `record` is the ENGINE's word (`step.ts`), decided where the run is
+ * orchestrated, so nothing here compares clocks. */
+export function recordForEvent(event: GameEvent): { id: string; shape?: PlayShape } | null {
+  return event.kind === "land" && event.record ? { id: "air_record" } : null;
+}
+
 /** The bubbles an event leaves in the water after its own sound: how many,
  * how big (0..1 toward the deep end), how loud. Null for an event that
  * puts no air under the surface. */

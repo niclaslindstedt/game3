@@ -8,6 +8,14 @@
 // clock that started for every one of those would flicker over the horizon
 // all run. It starts at `flight.airCounts` instead — a hop is not air time
 // — and the state's own `airborne` stays honest beside it.
+//
+// Two more things ride on it, and both are the SNAPSHOT's rather than the
+// styling's: how big the clock is drawn (`airGrow`, so a rider reading the
+// shape of the thing knows whether this one is big) and whether it is
+// showing a record (`airRecord`, which covers the flight already past the
+// run's best AND the moment it is held on screen after the landing that
+// took it). The hold is measured off the engine's `progress.bestAirAt`, so
+// the claim "the HUD keeps no clock of its own" is testable here.
 
 import { describe, expect, it } from "vitest";
 import {
@@ -42,6 +50,45 @@ function clockThroughFlight(height: number, vy: number): { airTime: number; cloc
   return read;
 }
 
+/** The whole air readout at this instant, beside the hull's own truth. */
+function airRead(state: GameState): {
+  clock: number;
+  grow: number;
+  record: boolean;
+  airborne: boolean;
+} {
+  const snap = takeSnapshot(state);
+  return {
+    clock: snap.airTime,
+    grow: snap.airGrow,
+    record: snap.airRecord,
+    airborne: state.craft.airborne,
+  };
+}
+
+/** A flight staged from `height` m over calm water with `vy` m/s of climb,
+ * read every step to the water and for `after` seconds past it — which is
+ * where the record's hold lives. */
+function airThroughFlight(
+  height: number,
+  vy: number,
+  after: number,
+  state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true }),
+): ReturnType<typeof airRead>[] {
+  placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height, vy });
+  const read: ReturnType<typeof airRead>[] = [];
+  while (state.craft.airborne) {
+    read.push(airRead(state));
+    step(state, COAST);
+  }
+  const until = state.t + after;
+  while (state.t < until) {
+    read.push(airRead(state));
+    step(state, COAST);
+  }
+  return read;
+}
+
 describe("the air clock", () => {
   it("does not start until the flight has lasted long enough to be one", () => {
     const read = clockThroughFlight(1.5, 6);
@@ -64,6 +111,71 @@ describe("the air clock", () => {
     expect(read.length).toBeGreaterThan(0);
     expect(read.every((r) => r.airTime < TUNING.flight.airCounts)).toBe(true);
     expect(read.every((r) => r.clock === 0)).toBe(true);
+  });
+});
+
+describe("how big the air clock is drawn", () => {
+  it("starts at nothing and grows with the flight, never past the whole size", () => {
+    const read = airThroughFlight(30, 10, 0).filter((r) => r.clock > 0);
+    // The first step past the line is one step's worth of growth, not a jump.
+    expect(read[0].grow).toBeLessThan(0.01);
+    for (let i = 1; i < read.length; i++) {
+      expect(read[i].grow).toBeGreaterThanOrEqual(read[i - 1].grow);
+      expect(read[i].grow).toBeLessThanOrEqual(1);
+    }
+    // A flight of nearly four seconds is worth the whole size.
+    expect(read[read.length - 1].grow).toBe(1);
+    // ...and a short one is nowhere near it, so the size is still saying
+    // something across the flights a rider actually flies.
+    const hop = airThroughFlight(1.5, 6, 0).filter((r) => r.clock > 0);
+    expect(hop[hop.length - 1].grow).toBeLessThan(0.5);
+  });
+});
+
+describe("the run's best on the air clock", () => {
+  it("says so while the flight is still up, once it has passed the best", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    state.progress.bestAir = 1;
+    state.progress.bestAirAt = -1000;
+    const read = airThroughFlight(30, 10, 0, state).filter((r) => r.airborne && r.clock > 0);
+    for (const r of read) expect(r.record).toBe(r.clock > 1);
+    expect(read.some((r) => r.record)).toBe(true);
+  });
+
+  it("holds the winning number on screen after the landing, then lets it go", () => {
+    const read = airThroughFlight(
+      30,
+      10,
+      4,
+      createGame({
+        seed: 1,
+        craft: "skiff",
+        level: FLAT,
+        quiet: true,
+      }),
+    );
+    const flown = read.filter((r) => r.airborne).pop()!.clock;
+    const held = read.filter((r) => !r.airborne && r.clock > 0);
+    expect(held.length).toBeGreaterThan(0);
+    // The clock STOPS at the flight it is reporting rather than running on,
+    // and the word is beside it the whole time it is held.
+    for (const r of held) {
+      expect(r.clock).toBeCloseTo(flown, 6);
+      expect(r.record).toBe(true);
+    }
+    // ...and it is gone well before the end of the four seconds ridden on.
+    const last = read[read.length - 1];
+    expect(last.clock).toBe(0);
+    expect(last.record).toBe(false);
+  });
+
+  it("leaves a flight that beat nothing without the word", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    state.progress.bestAir = 30;
+    state.progress.bestAirAt = -1000;
+    const read = airThroughFlight(30, 10, 1, state);
+    expect(read.some((r) => r.clock > 0)).toBe(true);
+    expect(read.every((r) => !r.record)).toBe(true);
   });
 });
 
