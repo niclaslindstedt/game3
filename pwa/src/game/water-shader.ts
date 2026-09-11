@@ -97,6 +97,10 @@
 //                the map's gradient on every vertex and pixel it covers —
 //                and a stop can keep the foam and the churn without it, or
 //                read no map at all.
+//   THE COCKPIT  the one place the sea is told the hull is there: a fragment
+//                inside the craft's cockpit opening and under its rail is
+//                dropped rather than lit, so the sea cannot stand in a
+//                footwell with the gunwale dry either side. `water-cut.ts`.
 //   THE WINDOW   what is LEFT after the mirror has taken its share is what
 //                went through, and the water is drawn transparent by
 //                exactly that much: `alpha = mix(aWindow, 1, F) + foam`.
@@ -134,6 +138,7 @@ import {
 import { mirrorBuild, skyGlsl, type SkyUniforms } from "./sky-glsl.ts";
 import { type Preset } from "./sky.ts";
 import { WAKE_HEIGHT, WAKE_MAP } from "./wake-profile.ts";
+import { WELL_GLSL, wellUniforms } from "./water-cut.ts";
 
 /** THE SEA'S SLOPE VARIANCE for a wind, Cox and Munk (1954) from the sun's
  * glitter photographed off Hawaii: the total mean-square slope of a
@@ -425,6 +430,7 @@ function fragmentFor(layers: number): string {
   varying vec2 vWakeUv;
   #include <fog_pars_fragment>
 ${WAKE_GLSL}
+${WELL_GLSL}
 ${skyGlsl(mirrorBuild(layers))}
 
   // Three uncorrelated draws for one cell of the rain grid: where in the
@@ -474,6 +480,9 @@ ${skyGlsl(mirrorBuild(layers))}
     vec3 toEye = cameraPosition - vWorld;
     float away = length(toEye);
     vec3 V = toEye / max(1e-3, away);
+
+    // THE COCKPIT IS NOT THE SEA (water-cut.ts).
+    if (insideTheHull(vWorld)) discard;
 
     // THE WAKE: what the craft did to this water (wake.ts's map) — its foam
     // share, its churn, and the slope of its relief off the map's own
@@ -802,6 +811,7 @@ export function createWaterMaterial(
       },
       uBuoyColor: { value: Array.from({ length: BUOY_LAMPS }, () => new THREE.Color(0x000000)) },
       uBuoyReach: { value: BUOY_REACH },
+      ...wellUniforms(),
       uLampPos: { value: new THREE.Vector3(0, -100, 0) },
       uLampDir: { value: new THREE.Vector3(0, -1, 0) },
       uLampColor: { value: new THREE.Color(0x000000) },

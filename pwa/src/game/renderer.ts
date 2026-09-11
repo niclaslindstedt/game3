@@ -18,7 +18,7 @@ import { heightAt, type CraftId, type GameState, type Level } from "@engine";
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { isEyeCamera } from "./camera-rigs.ts";
-import { buildCraft, cockpitOf, deckOf } from "./craft-body.ts";
+import { buildCraft, cockpitOf, deckOf, wellCutOf, type WellCut } from "./craft-body.ts";
 import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { applyCraftSky, craftSurface } from "./craft-surface.ts";
@@ -164,6 +164,10 @@ export function createRenderer(
   let rider: Rider | null = null;
   let lamps: CraftLamps | null = null;
   let craftId: CraftId | null = null;
+  /** The cockpit the SEA is cut out of, measured off the hull that was just
+   * built (`wellCutOf`) — the water is a grid that knows nothing floats on
+   * it, and this is the one thing it is told. */
+  let wellCut: WellCut | null = null;
   let level: Level | null = null;
 
   const cost: FrameCost = { waterMs: 0, frameMs: 0, calls: 0, triangles: 0 };
@@ -251,6 +255,7 @@ export function createRenderer(
       const spec = state.craft.spec;
       const style = CRAFT_STYLES[id];
       rig.setFit({ deck: (z) => deckOf(spec, style, z), gripZ: cockpitOf(spec, style).grip.z });
+      wellCut = wellCutOf(spec, style);
       scene.add(craft);
     }
     wake.reset();
@@ -386,6 +391,10 @@ export function createRenderer(
     // against both before either draws.
     mirror.aim(camera);
 
+    // …and where the hull's cockpit stands this frame, so the sea is not
+    // drawn inside it. Before the water's own update, like everything else
+    // it has to be told before it draws.
+    water.setWell(craft ? wellCut : null, c);
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state, camera);
     buoys?.update(state, camera);
