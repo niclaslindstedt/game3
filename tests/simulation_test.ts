@@ -107,6 +107,7 @@ describe("nothing explodes", () => {
         throttle: 1,
         reverse: 0,
         lean: 0,
+        crouch: 0,
         reset: false,
       };
       step(state, input);
@@ -132,6 +133,7 @@ describe("nothing explodes", () => {
         throttle: 0.5 + 0.5 * Math.sin(t),
         reverse: 0,
         lean: Math.sin(t * 0.5),
+        crouch: 0,
         reset: i === 30 * TUNING.physicsHz,
       };
       step(state, input);
@@ -150,7 +152,7 @@ describe("nothing explodes", () => {
     c.wx = 6;
     c.wz = 4;
     for (let i = 0; i < 30 * TUNING.physicsHz; i++) {
-      step(state, { steer: 1, throttle: 1, reverse: 0, lean: -1, reset: false });
+      step(state, { steer: 1, throttle: 1, reverse: 0, lean: -1, crouch: 0, reset: false });
       expect(finite(state), `step ${i}`).toBe(true);
     }
   });

@@ -20,8 +20,11 @@
 //
 // WHAT MOVES IT. Everything deliberate is a `CraftState` field the engine
 // wrote — `riderAft` and `riderRight` are where the engine has put the
-// rider's MASS, so the drawn lean is the lean the physics is feeling, and
-// `throttleEff` and `speed` say how far into the wind to tuck. Everything
+// rider's MASS, so the drawn lean is the lean the physics is feeling;
+// `throttleEff` and `speed` say how far into the wind to lean; and
+// `crouch` is the TUCK the rider has actually asked for, which folds the
+// chest down to the bars and the knees under. The tuck has no HUD light,
+// so the figure is the whole of the feedback that it is on. Everything
 // involuntary is the body as a mass on springs (`createRiderDynamics`):
 // the torso swings back when the pump opens and forward when a rock is
 // hit, lags the hull's pitching and rolling by a share, compresses when
@@ -139,6 +142,16 @@ export const STANCE = {
    * neck looking up), and the up-look on top of that, rad. */
   headFollow: 0.3,
   headUp: 0.15,
+  /** THE TUCK (`CraftState.crouch`, 0..1): what a full one adds to the
+   * torso's lean forward, rad, and how much of the standing height it
+   * takes off a stand-up's crouch as a share of the legs. Together they
+   * are the whole read of the control — chest down toward the bars,
+   * knees folded under — and they are sized to be unmistakable from the
+   * chase camera, because the tuck has no HUD light and the figure is
+   * the only thing that tells the rider it is on. The lean's own clamp
+   * (`leanMax`) is what stops the torso folding through the bars. */
+  tuckLean: 0.42,
+  tuckDrop: 0.1,
   /** THE CRUSH (m, from the dynamics): a compression folds the torso by
    * this much per metre; an extension lifts the pelvis off the seat by
    * its full amount. */
@@ -186,6 +199,8 @@ export type RiderRead = {
   /** `throttleEff`, 0..1, and the speed as a share of the top speed. */
   throttle: number;
   pace: number;
+  /** `CraftState.crouch`, 0..1 — how far into the tuck the rider is. */
+  tuck: number;
   airborne: boolean;
   /** The springs: the torso's pitch forward and roll right relative to the
    * stance, rad, and the body's compression, m. */
@@ -200,6 +215,7 @@ export const REST_READ: RiderRead = {
   right: 0,
   throttle: 0,
   pace: 0,
+  tuck: 0,
   airborne: false,
   bob: 0,
   sway: 0,
@@ -290,7 +306,8 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   let lean =
     (standUp ? STANCE.standingLean : STANCE.seatedLean) +
     STANCE.throttleLean * read.throttle +
-    STANCE.paceLean * read.pace -
+    STANCE.paceLean * read.pace +
+    STANCE.tuckLean * read.tuck -
     STANCE.leanPerMetre * read.aft +
     read.bob +
     fold;
@@ -303,7 +320,8 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     ankleZ = wells.z0 + STANCE.standAt * (wells.z1 - wells.z0);
     const legs = BODY.thigh + BODY.shin;
     const stand = clamp(
-      legs * (STANCE.crouch - STANCE.crouchThrottle * read.throttle) - read.crush,
+      legs * (STANCE.crouch - STANCE.crouchThrottle * read.throttle - STANCE.tuckDrop * read.tuck) -
+        read.crush,
       legs * 0.5,
       legs * 0.97,
     );
@@ -543,6 +561,7 @@ export function createRiderDynamics(): RiderDynamics {
     return {
       aft: c.riderAft,
       right: c.riderRight,
+      tuck: c.crouch,
       throttle: c.throttleEff,
       pace: clamp(c.speed / top, 0, 1),
       airborne: c.airborne,

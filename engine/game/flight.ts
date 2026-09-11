@@ -23,6 +23,9 @@
 //   most of what separates a freestyle stand-up from a touring hull.
 // - Rotational damping ∝ airspeed, an added-mass figure rather than a
 //   measured one.
+// - THE TUCK: the rider down behind the bars is a smaller C_dA, a lower
+//   windage point and much less body to throw the craft about with
+//   (`TUNING.tuck`, which carries where the 18 % comes from).
 //
 // What the ARCADE does with the last moment of a flight is not here: the
 // hand on the rider's shoulder is `assist.ts`, which models nothing and
@@ -34,6 +37,7 @@ import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 
 const F = TUNING.flight;
+const K = TUNING.tuck;
 const RHO = TUNING.air.density;
 
 export type AeroResult = {
@@ -48,7 +52,12 @@ export type AeroResult = {
 
 /** The air's forces on the hull. `airShare` (0..1) is how much of the hull
  * is out of the water — the plate force, the control authority and the
- * rotational damping are the air's alone, and fade in with it. */
+ * rotational damping are the air's alone, and fade in with it.
+ *
+ * `crouch` (0..1) is how far down behind the bars the rider is
+ * (`CraftState.crouch`): it shrinks the drag area, lowers the point the
+ * air pushes on, and takes away most of what a rider can do with their
+ * body in flight (`TUNING.tuck`). */
 export function aeroForces(
   spec: CraftSpec,
   q: Quat,
@@ -63,6 +72,7 @@ export function aeroForces(
   steer: number,
   lean: number,
   airShare: number,
+  crouch: number,
   out: AeroResult,
 ): void {
   const rx = vx - windX;
@@ -73,11 +83,20 @@ export function aeroForces(
   // above the hull and a little aft — over the water's lateral centre,
   // so a crosswind pushes the hull sideways where the water resists it
   // and does not weathervane the bow downwind on every straight.
-  const drag = 0.5 * RHO * spec.cdA * speed;
+  // THE TUCK takes its share of the hole in the air, and takes the
+  // rider's shoulders down with it: what is left of the windage is mostly
+  // hull, so the push acts lower on the craft.
+  const tuck = clamp(crouch, 0, 1);
+  const cdA = spec.cdA * (1 - K.dragCut * tuck);
+  const drag = 0.5 * RHO * cdA * speed;
   out.fx = -drag * rx;
   out.fy = -drag * ry;
   out.fz = -drag * rz;
-  const at = { x: 0, y: F.windageY, z: F.windageZ * spec.length };
+  const at = {
+    x: 0,
+    y: F.windageY * (1 - (1 - K.windageLeft) * tuck),
+    z: F.windageZ * spec.length,
+  };
   const fb = unrotate(q, { x: out.fx, y: out.fy, z: out.fz });
   out.tx = at.y * fb.z - at.z * fb.y;
   out.ty = at.z * fb.x - at.x * fb.z;
@@ -105,7 +124,7 @@ export function aeroForces(
   // of the craft this craft's rider actually commands (`riderAuthority`):
   // a rider standing on a stand-up throws their whole mass about, one sat
   // behind a backrest on a touring hull throws very little.
-  const rider = spec.riderAuthority * airShare;
+  const rider = spec.riderAuthority * airShare * (1 - (1 - K.airLeft) * tuck);
   out.tx -= clamp(lean, -1, 1) * F.leanTorque * rider;
   out.tz -= clamp(steer, -1, 1) * F.steerRoll * rider;
   out.ty += clamp(steer, -1, 1) * F.steerYaw * rider;

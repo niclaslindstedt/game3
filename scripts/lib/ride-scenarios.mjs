@@ -16,7 +16,7 @@ import { TUNING, oceanOut, onRampDeck, sampleField, topSpeedOf } from "../../eng
 // engine's public surface yet, so it is read from the module that owns it.
 import { launchSpeedFor } from "../../engine/sim/bot.ts";
 
-const NEUTRAL = { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
+const NEUTRAL = { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false };
 const clamp = (v, lo, hi) => Math.min(hi, Math.max(lo, v));
 
 /** The first air gate of a level, with its ramp. */
@@ -125,6 +125,14 @@ export const SCENARIOS = {
     stage: (level) => ({
       moment: { x: level.start.x, z: level.start.z, heading: level.start.heading, speed: 12 },
       input: () => ({ ...NEUTRAL, throttle: 1 }),
+    }),
+  },
+  tuck: {
+    blurb: "flat out with the rider tucked down behind the bars",
+    seconds: 8,
+    stage: (level) => ({
+      moment: { x: level.start.x, z: level.start.z, heading: level.start.heading, speed: 12 },
+      input: () => ({ ...NEUTRAL, throttle: 1, crouch: 1 }),
     }),
   },
   carve: {

@@ -20,20 +20,23 @@ The picture is six rows, and they are pressed over the live sea behind the card 
 
 **Desktop (keyboard).**
 
-| Key       | Action                                                      |
-| --------- | ----------------------------------------------------------- |
-| W         | Throttle — analogue in spirit: it ramps up while held       |
-| ← → / A D | Steer — ramped, so a tap is a nudge and a hold is full lock |
-| ↓ / S     | Lean back — nose up; in the air, pitch the nose up          |
-| ↑ / Shift | Lean forward — nose down; in the air, pitch the nose down   |
-| Space     | Brake and reverse — the bucket over the jet                 |
-| R         | Reset to the last gate passed (also the HUD button)         |
-| B         | Restart the run from the beginning                          |
-| Enter     | Take a screenshot (also the HUD button)                     |
-| C         | Camera: the next rung of the ladder (also the HUD button)   |
-| Escape    | Pause: hold the run and put the pause card up               |
+| Key          | Action                                                                                                |
+| ------------ | ----------------------------------------------------------------------------------------------------- |
+| W            | Throttle — analogue in spirit: it ramps up while held                                                 |
+| ← → / A D    | Steer — ramped, so a tap is a nudge and a hold is full lock                                           |
+| ↓ / S        | Lean back — nose up; in the air, pitch the nose up                                                    |
+| ↑ / Q        | Lean forward — nose down; in the air, pitch the nose down                                             |
+| Shift (hold) | **Tuck** — get down behind the bars: less air resistance, less of everything you steer with your body |
+| Space        | Brake and reverse — the bucket over the jet                                                           |
+| R            | Reset to the last gate passed (also the HUD button)                                                   |
+| B            | Restart the run from the beginning                                                                    |
+| Enter        | Take a screenshot (also the HUD button)                                                               |
+| C            | Camera: the next rung of the ladder (also the HUD button)                                             |
+| Escape       | Pause: hold the run and put the pause card up                                                         |
 
 The arrow cluster is the handlebar: ← → steer it, ↑ ↓ lean on it, the same way the thumb's bar on a phone does — pull toward you for nose up, push away for nose down.
+
+**The tuck.** Hold SHIFT and the rider gets down behind the bars. It takes about a fifth off the hole the craft makes in the air, which on flat calm water is worth about a km/h at the top — a watercraft is stopped by the water, not by the air, so do not expect a new machine. Punching into a blow is where it lands: drag goes as the closing speed squared, so into 14 m/s of head wind the skiff takes the last stretch to 90 km/h in half the time tucked. It costs you the turn, because on a watercraft you steer with your body as much as with the bars: tucked, you cannot slide back down the seat, hang off the side, sweep the bars their full throw, or throw your weight about in the air. The stand-up pays most, since that is nearly all it steers with. Getting down and back up takes a moment — it is a body, not a switch — so a tuck grabbed on the way into a buoy is still costing you at the apex. It is a keyboard control and has no touch equivalent: both thumbs are already busy.
 
 On a menu card the arrow keys (or WASD) walk the rows, Enter or Space presses one, and Escape goes back a page.
 
@@ -45,7 +48,7 @@ There is no handbrake and no gear: a jet ski has a throttle, a nozzle, and — o
 
 **The brake is the bucket** — and it is how you make a corner at speed. Space (or dragging the right thumb up past the shut mark) swings a clamshell down over the jet: the flow goes forward and under instead of back, and the gate itself becomes a plate hanging in the water, which is most of the braking once you are moving. It stops the craft hard — about half a g, twice what letting go of the throttle gives you — puts the bow down while it does, and held past the stop it backs you up at a walking pace — and because the nozzle sits upstream of the gate, the steering works BACKWARDS in reverse. It takes a third of a second or so to swing, so it is a thing to reach for before the buoy rather than at it. You can see it working: the water either side of the hull erupts white and the craft sits in a pool of foam that reaches past the bow, and the rev bar's caption reads BRAKE — REVERSE once you are backing up — in the lever's own alarm colour. **The stand-up has no bucket at all** — no brake and no reverse — which is part of what makes it the hardest of the four to place on a tight line.
 
-**Phone (touch).** The LOWER-LEFT of the screen is the handlebar: touch anywhere and move your thumb — sideways travel steers, vertical travel leans (down toward you is back, nose up). The LOWER-RIGHT is the LEVER, and the touch itself is WIDE OPEN — a finger landing anywhere in that half is already asking for everything the pump has, which is both what you want almost all the time and what a watercraft's own sprung finger lever does: you hold it on and ease it out. The throw runs UP the glass from where you touched, and it is one throw with two halves — about ninety pixels closes the throttle, and about sixty past that pulls the brake and reverse, drawn in the alarm colour so a thumb never has to ask which half it is in. Both are analogue, only one can be open at a time, held for as long as the finger is down, and let go the moment it lifts. Because the anchor is full throttle rather than nothing, a grip low on the glass costs you nothing: there is no travel to spend off the bottom of the phone. Both overlays are drawn under the thumb that owns them. Both stop at the lower three fifths of the screen, so the readouts along the top — and the RESET and CAMERA buttons among them — keep their own presses instead of losing them to the throttle. The one press that does stand inside a zone is the new-build mark in the bottom-right corner, which takes its own small patch of the lever's glass on the rare day there is a new build to offer. Works in portrait and landscape.
+**Phone (touch).** The LOWER-LEFT of the screen is the handlebar: touch anywhere and move your thumb — sideways travel steers, vertical travel leans (down toward you is back, nose up). The LOWER-RIGHT is the LEVER, and the touch itself is WIDE OPEN — a finger landing anywhere in that half is already asking for everything the pump has, which is both what you want almost all the time and what a watercraft's own sprung finger lever does: you hold it on and ease it out. The throw runs UP the glass from where you touched, and it is one throw with two halves — about ninety pixels closes the throttle, and about sixty past that pulls the brake and reverse, drawn in the alarm colour so a thumb never has to ask which half it is in. Both are analogue, only one can be open at a time, held for as long as the finger is down, and let go the moment it lifts. Because the anchor is full throttle rather than nothing, a grip low on the glass costs you nothing: there is no travel to spend off the bottom of the phone. Both overlays are drawn under the thumb that owns them. There is no tuck on touch — both thumbs are already on the bar and the lever, and a third zone would have to be reached by letting go of one of them. Both stop at the lower three fifths of the screen, so the readouts along the top — and the RESET and CAMERA buttons among them — keep their own presses instead of losing them to the throttle. The one press that does stand inside a zone is the new-build mark in the bottom-right corner, which takes its own small patch of the lever's glass on the rare day there is a new build to offer. Works in portrait and landscape.
 
 ### How a run reads
 

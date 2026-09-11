@@ -174,7 +174,7 @@ describe("the chase rig", () => {
     const rig = createCameraRig();
     for (let f = 0; f < 240; f++) {
       for (let i = 0; i < 2; i++)
-        step(state, { steer: 0.6, throttle: 1, reverse: 0, lean: 0, reset: false });
+        step(state, { steer: 0.6, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
       const pose = rig.update(state, 2 * TUNING.dt, FLAT);
       const c = state.craft;
       const d = Math.hypot(pose.x - c.x, pose.y - c.y, pose.z - c.z);
@@ -318,7 +318,7 @@ function flyAndLand(mode: ChaseCamera = "chase"): {
   let landed = -1;
   for (let f = 0; f < 300; f++) {
     for (let i = 0; i < 2; i++)
-      step(state, { steer: 0, throttle: 0.6, reverse: 0, lean: 0, reset: false });
+      step(state, { steer: 0, throttle: 0.6, reverse: 0, lean: 0, crouch: 0, reset: false });
     const pose = rig.update(state, 2 * TUNING.dt, FLAT);
     // The first frames are the placement itself, not a flight.
     if (f < 12) continue;

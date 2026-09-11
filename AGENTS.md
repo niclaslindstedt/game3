@@ -124,7 +124,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 
 | Area                                                  | Lives in                                                      | Skill                |
 | ----------------------------------------------------- | ------------------------------------------------------------- | -------------------- |
-| The sea: the wave field, its spectrum, the gusts      | `engine/game/water.ts`, `wind.ts`, `TUNING.sea` / `.wind`     | `water-feel`         |
+| The sea: the wave field, its spectrum, the gusts      | `engine/game/water.ts`, `wind.ts`, `TUNING.sea` / `.wind` (stated in `defs/sea.ts`) | `water-feel`         |
 | How fast the whole roster goes: the speed class      | `craftAtClass` / `CLASS_BAND` in `engine/game/defs/craft.ts`  | `craft-tuning`       |
 | The rule book AT a speed class: what stretches, what does not | `engine/mapgen/pace.ts` (`rulesAtPace`, R32), `Level.pace` | `mapgen-improvement`, `craft-tuning` |
 | What the BED does to a wave: dispersion, shoaling, the depth table, the eikonal phase field | `engine/game/wave-bed.ts`   | `water-feel`         |
@@ -136,6 +136,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | The pump, the nozzle, the engine                      | `engine/game/propulsion.ts`, `TUNING.pump`                    | `craft-physics`      |
 | Flight, the air, the rider's authority                | `engine/game/flight.ts`, `TUNING.flight`                      | `craft-physics`      |
 | THE HELP THE RIDER IS GIVEN: the landing caught, the ramp followed through | `engine/game/assist.ts`, `TUNING.assist` | `craft-physics`    |
+| THE TUCK: the rider down behind the bars, and what it costs | `CraftInput.crouch` → `CraftState.crouch` in `engine/game/craft.ts`, the drag half in `flight.ts`, `TUNING.tuck` | `craft-physics`      |
 | What separates one craft from another                 | `engine/game/defs/craft.ts`                                   | `craft-tuning`       |
 | Hitting things: rocks, the ground, ramps, the bounds  | `engine/game/collision.ts`, `TUNING.contact`                  | `collision`          |
 | Gates, splits, the miss, the reset, the finish        | `engine/game/course.ts`, `TUNING.course`                      | `collision`          |
@@ -217,7 +218,7 @@ And the pieces that belong to no skill in particular:
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
 | Run orchestration (create, step, phase, events)    | `engine/game/step.ts`                                                                                      |
 | The state shape and the events                     | `engine/game/state.ts` — only `craft.ts`, `collision.ts`, `course.ts` and `step.ts` write it during a run (`place.ts` stands one at a moment)              |
-| A number that shapes the FEEL, shared by every craft | `engine/game/defs/tuning.ts` — every number carries its unit; the model it feeds cites its source          |
+| A number that shapes the FEEL, shared by every craft | `engine/game/defs/tuning.ts` — every number carries its unit; the model it feeds cites its source. Two blocks are stated next door and folded in under the same names, to keep it under the §20.5 cap: `defs/assist.ts` → `TUNING.assist`, `defs/sea.ts` → `TUNING.sea` / `.wind` |
 | Level geometry / compilation                       | `engine/mapgen/compile.ts` (bakes the two heightfields ONCE; nothing downstream regenerates any of it)      |
 | A generic grid, a quaternion, noise, the PRNG      | `engine/lib/` — the generic pool, nothing of THIS game in it (§23.7 rule 5)                                |
 | The app's frame loop (the §37 accumulator)         | `pwa/src/game/run-loop.ts` — the clamp is one constant beside the step rate, stated nowhere else            |
@@ -282,7 +283,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 
 | When this changes                            | Update this                                                                                           |
 | -------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| The wave model, the wind (`water.ts`, `wind.ts`, `TUNING.sea`/`.wind`) | `docs/water.md`, then `make waves`                                          |
+| The wave model, the wind (`water.ts`, `wind.ts`, `TUNING.sea`/`.wind` in `defs/sea.ts`) | `docs/water.md`, then `make waves`                                          |
 | The hull, the pump, flight, the contacts, the catalog | `docs/riding.md`, then `make ride` and `make sim`                                            |
 | Generator rules (`mapgen/rules.ts`)          | `docs/level-generator.md` (the R-rules VERBATIM — `tests/docs_rules_test.ts` holds it), `examples/seeds.md` |
 | Bot, sim harness, the `RunReport`, the sim CLI | `docs/simulation.md`                                                                                |

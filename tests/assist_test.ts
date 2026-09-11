@@ -36,8 +36,15 @@ import {
 import { syntheticLevel } from "./support/synthetic.ts";
 
 const FLAT = syntheticLevel({ windSpeed: 0, noSolids: true });
-const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
-const CRUISE: CraftInput = { steer: 0, throttle: 0.6, reverse: 0, lean: 0, reset: false };
+const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false };
+const CRUISE: CraftInput = {
+  steer: 0,
+  throttle: 0.6,
+  reverse: 0,
+  lean: 0,
+  crouch: 0,
+  reset: false,
+};
 
 type Flight = {
   /** The attitude the hull actually arrived at, rad. */
@@ -398,6 +405,7 @@ describe("the backflip", () => {
         throttle: 1,
         reverse: 0,
         lean: c.airborne || c.onRamp ? 1 : 0,
+        crouch: 0,
         reset: false,
       });
       events.push(...state.events);
@@ -566,7 +574,7 @@ describe("the ramp's hand", () => {
     let best = -Infinity;
     let aboard = false;
     for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
-      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
+      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
       const c = state.craft;
       aboard ||= c.onRamp;
       const at = onRampDeck(RAMP, c.x, c.z);

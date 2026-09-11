@@ -43,6 +43,7 @@ import { clamp } from "../lib/util.ts";
 export type ScenarioName =
   | "rest"
   | "cruise"
+  | "tuck"
   | "carve"
   | "brake"
   | "chop"
@@ -66,6 +67,7 @@ export type ScenarioName =
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "rest",
   "cruise",
+  "tuck",
   "carve",
   "brake",
   "chop",
@@ -103,14 +105,14 @@ export type Scenario = {
 const NEUTRAL = NEUTRAL_INPUT;
 
 function input(steer: number, throttle: number, lean: number): CraftInput {
-  return { steer, throttle, reverse: 0, lean, reset: false };
+  return { steer, throttle, reverse: 0, lean, crouch: 0, reset: false };
 }
 
 /** ...and the same with the BRAKE LEVER pulled instead of the throttle:
  * the bucket dropping over the jet. The throttle is shut, because the
  * bucket asks the engine for the flow it needs on its own. */
 function braking(steer: number, reverse: number): CraftInput {
-  return { steer, throttle: 0, reverse, lean: 0, reset: false };
+  return { steer, throttle: 0, reverse, lean: 0, crouch: 0, reset: false };
 }
 
 /** THE CAPSIZE: how far over the hull is stood, rad, and how fast it is
@@ -425,6 +427,17 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.45 },
         script: () => input(0, 0.6, 0),
         seconds: 5,
+      };
+    case "tuck":
+      // THE TUCK, flat out: the rider down behind the bars. It is staged
+      // as its own moment because the crouch is the ONE control with no
+      // HUD light — the figure is the whole of the feedback — so it has to
+      // be judged by looking at him, from behind, at chase range. Long
+      // enough that `tuck.lag` has finished putting him there.
+      return {
+        moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.8 },
+        script: () => ({ ...input(0, 1, 0), crouch: 1 }),
+        seconds: 4,
       };
     case "carve": {
       // Wound on hard on the pump: the hull banks in and the stern comes

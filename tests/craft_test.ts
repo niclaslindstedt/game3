@@ -35,7 +35,7 @@ import { syntheticLevel } from "./support/synthetic.ts";
 
 // A long flat sea with nothing on it: the drag strip.
 const STRIP = syntheticLevel({ windSpeed: 0, noSolids: true, seaward: 1200 });
-const FULL: CraftInput = { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false };
+const FULL: CraftInput = { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false };
 
 function flatOut(id: string, seconds: number): { top: number; t50: number; state: GameState } {
   const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
@@ -157,7 +157,7 @@ describe("steering", () => {
     let radius = Infinity;
     let maxRoll = 0;
     for (let i = 0; i < 4 * TUNING.physicsHz; i++) {
-      step(state, { steer: 1, throttle, reverse: 0, lean: 0, reset: false });
+      step(state, { steer: 1, throttle, reverse: 0, lean: 0, crouch: 0, reset: false });
       const c = state.craft;
       heading += angleDiff(last, c.heading);
       last = c.heading;
@@ -210,15 +210,15 @@ describe("steering", () => {
   it("the nozzle follows the hand, at the cable's rate", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: STRIP, quiet: true });
     placeRun(state, { x: 100, z: 400, heading: 0, speed: 10 });
-    step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, reset: false });
+    step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
     const first = state.craft.nozzle;
     expect(first).toBeGreaterThan(0);
     expect(first).toBeLessThan(state.craft.spec.nozzleAngle);
     for (let i = 0; i < 60; i++)
-      step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, reset: false });
+      step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
     expect(state.craft.nozzle).toBeCloseTo(state.craft.spec.nozzleAngle, 6);
     for (let i = 0; i < 60; i++)
-      step(state, { steer: -1, throttle: 1, reverse: 0, lean: 0, reset: false });
+      step(state, { steer: -1, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
     expect(state.craft.nozzle).toBeCloseTo(-state.craft.spec.nozzleAngle, 6);
   });
 
@@ -228,7 +228,7 @@ describe("steering", () => {
       placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 12 });
       let sum = 0;
       for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
-        step(state, { steer: 0, throttle: 1, reverse: 0, lean, reset: false });
+        step(state, { steer: 0, throttle: 1, reverse: 0, lean, crouch: 0, reset: false });
         if (i > 2 * TUNING.physicsHz) sum += state.craft.pitch;
       }
       return sum / TUNING.physicsHz;
@@ -277,7 +277,14 @@ describe("the reverse bucket", () => {
     const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: (spec.topSpeed / 3.6) * 0.7 });
     const v0 = state.craft.speed;
-    const BRAKE: CraftInput = { steer: 0, throttle: 0, reverse: 1, lean: 0, reset: false };
+    const BRAKE: CraftInput = {
+      steer: 0,
+      throttle: 0,
+      reverse: 1,
+      lean: 0,
+      crouch: 0,
+      reset: false,
+    };
     let stopped = -1;
     let lowestPitch = 0;
     for (let i = 0; i < seconds * TUNING.physicsHz; i++) {
@@ -307,6 +314,7 @@ describe("the reverse bucket", () => {
       throttle: 0,
       reverse: 0,
       lean: 0,
+      crouch: 0,
       reset: false,
       ...given,
     };
@@ -374,7 +382,7 @@ describe("the reverse bucket", () => {
     let bow = 0;
     let last = state.craft.heading;
     for (let i = 0; i < 2 * TUNING.physicsHz; i++) {
-      step(state, { steer: 1, throttle: 0, reverse: 1, lean: 0, reset: false });
+      step(state, { steer: 1, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false });
       bow += angleDiff(last, state.craft.heading);
       last = state.craft.heading;
     }
@@ -402,7 +410,14 @@ describe("the reverse bucket", () => {
     const state = createGame({ seed: 1, craft: "otter", level: STRIP, quiet: true });
     const deploy = state.craft.spec.bucket.deploy;
     placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 15 });
-    const BRAKE: CraftInput = { steer: 0, throttle: 0, reverse: 1, lean: 0, reset: false };
+    const BRAKE: CraftInput = {
+      steer: 0,
+      throttle: 0,
+      reverse: 1,
+      lean: 0,
+      crouch: 0,
+      reset: false,
+    };
     step(state, BRAKE);
     // Not there on the first step — a gate that snapped down would be a
     // brake with no travel in it.
@@ -411,7 +426,7 @@ describe("the reverse bucket", () => {
     for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) step(state, BRAKE);
     expect(state.craft.bucket).toBeCloseTo(1, 3);
     for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) {
-      step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false });
+      step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false });
     }
     expect(state.craft.bucket).toBe(0);
   });
@@ -469,6 +484,7 @@ describe("what the drive costs", () => {
         throttle: 0,
         reverse: 0,
         lean: 0,
+        crouch: 0,
         reset: false,
         ...given,
       };
@@ -499,13 +515,13 @@ describe("the trim", () => {
       const range = state.craft.spec.trimRange;
       placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 15 });
       for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
-        step(state, { steer: 0, throttle: 1, reverse: 0, lean: 1, reset: false });
+        step(state, { steer: 0, throttle: 1, reverse: 0, lean: 1, crouch: 0, reset: false });
       }
       // Leaning back trims UP, to the craft's own stop — and the stand-up
       // has no trim system at all, so it stays at nothing.
       expect(state.craft.trim, `${id} trimmed`).toBeCloseTo(range, 3);
       for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
-        step(state, { steer: 0, throttle: 1, reverse: 0, lean: -1, reset: false });
+        step(state, { steer: 0, throttle: 1, reverse: 0, lean: -1, crouch: 0, reset: false });
       }
       expect(state.craft.trim, `${id} trimmed down`).toBeCloseTo(-range, 3);
     }

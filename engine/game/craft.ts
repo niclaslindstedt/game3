@@ -164,6 +164,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.throttleEff = 0;
     c.trim = 0;
     c.bucket = 0;
+    c.crouch = 0;
     const r = toEuler(c.q);
     c.heading = r.heading;
     c.pitch = r.pitch;
@@ -176,10 +177,19 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   }
   // THE RIDER moves first: a body on a seat, slower than a thumb. Back is
   // aft; a turn is leaned INTO.
+  //
+  // THE TUCK is the same body getting down behind the bars, and it is
+  // walked in on its own lag because it is a posture rather than a switch.
+  // What it costs is stated once, here and at the nozzle below: a rider
+  // folded up has less reach to slide back down the seat with and less of
+  // themselves to hang off the side with, so BOTH weight shifts shrink
+  // with it. The hole it makes in the air is `flight.ts`'s.
   {
+    c.crouch += (clamp(input.crouch, 0, 1) - c.crouch) * (1 - Math.exp(-dt / T.tuck.lag));
+    const reach = 1 - T.tuck.leanCut * c.crouch;
     const k = 1 - Math.exp(-dt / T.rider.leanLag);
-    c.riderAft += (clamp(input.lean, -1, 1) * T.rider.leanReach - c.riderAft) * k;
-    c.riderRight += (clamp(input.steer, -1, 1) * T.rider.leanIn - c.riderRight) * k;
+    c.riderAft += (clamp(input.lean, -1, 1) * T.rider.leanReach * reach - c.riderAft) * k;
+    c.riderRight += (clamp(input.steer, -1, 1) * T.rider.leanIn * reach - c.riderRight) * k;
   }
 
   // THE WATER under every probe.
@@ -249,7 +259,13 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   const engine = stepEngine(spec, density, c.rpm, c.throttleEff, throttle, wet, dt);
   c.rpm = engine.rpm;
   c.throttleEff = engine.throttleEff;
-  c.nozzle = stepNozzle(spec, c.nozzle, input.steer, dt);
+  // ...and the other half of the tuck's price: how much of the bars a
+  // rider folded over them can still sweep. The nozzle's own maximum
+  // (`limits.ts`) is untouched — what shrinks is the lock that can be
+  // asked for, and everything the nozzle drives (the jet's side vector and
+  // the keel's yaw below) follows from `c.nozzle` and needs nothing here.
+  const lock = 1 - (1 - T.tuck.lockLeft) * c.crouch;
+  c.nozzle = stepNozzle(spec, c.nozzle, input.steer * lock, dt);
   c.trim = stepTrim(spec, c.trim, input.lean, dt);
   c.bucket = stepBucket(spec, c.bucket, up.y > 0 ? brake : 0, dt);
   const throughWater =
@@ -403,6 +419,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       input.steer,
       input.lean,
       airShare,
+      c.crouch,
       aero,
     );
     fx += aero.fx;

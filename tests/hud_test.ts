@@ -26,7 +26,7 @@ import { takeSnapshot } from "../pwa/src/game/snapshot.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 const FLAT = syntheticLevel({ windSpeed: 0, noSolids: true });
-const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
+const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false };
 
 /** A flight staged from `height` m over calm water with `vy` m/s of climb,
  * read every step: the clock the HUD would have shown, against the flight

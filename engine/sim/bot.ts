@@ -292,7 +292,7 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   const gates = state.level.course.gates;
   const n = state.progress.nextGate;
   if (state.phase !== "running" || n >= gates.length) {
-    return { steer: 0, throttle: 0, reverse: 0, lean: 0, reset: false };
+    return { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false };
   }
   const gate = rideFor(gates, n, c.x, c.z, profile.giveUpPast);
   const aim = aimFor(gate, c.x, c.z, c.vx, c.vz, c.spec.cog.y, topSpeedOf(c.spec), profile);
@@ -415,5 +415,10 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   // — and a reverse the sweep never asks for is one the sweep cannot
   // credit a craft for. Anything that tunes a bucket is measured by hand
   // (`make ride SCENARIO=brake`), not off `make sim`.
-  return { steer, throttle, reverse: 0, lean, reset };
+  // ...NOR THE TUCK, for the same reason and one more: the bot is the
+  // instrument the roster is balanced on (`make sim`), so a crouch it
+  // learned would fold the tuck's gain into every craft's numbers and
+  // there would be nothing left to read the feature against. It is the
+  // rider's to take.
+  return { steer, throttle, reverse: 0, lean, crouch: 0, reset };
 }

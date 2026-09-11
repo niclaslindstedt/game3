@@ -46,6 +46,14 @@ export const KEY_REVERSE_RELEASE = 14;
  * and coming back to centre is quicker than going out. */
 export const KEY_LEAN_ATTACK = 5;
 export const KEY_LEAN_RELEASE = 8;
+/** THE TUCK's ramp, 1/s. The same shape as the lean's and a touch slower
+ * to ask for, because it is a bigger move of the same body: the rider is
+ * getting right down behind the bars, not shifting on the seat. The
+ * engine lags it AGAIN on its own (`TUNING.tuck.lag`) — this ramp is the
+ * hand's, that one is the body's, and a key tapped mid-corner must not
+ * read as a posture the rider never got into. */
+export const KEY_CROUCH_ATTACK = 4;
+export const KEY_CROUCH_RELEASE = 9;
 
 /** Walk `value` toward `target` at `attack` per second when the target is
  * away from centre and `release` when it is centre, over `dt` seconds. A
@@ -145,6 +153,7 @@ export type KeysHeld = {
   reverse: boolean;
   leanBack: boolean;
   leanForward: boolean;
+  crouch: boolean;
 };
 
 export const NO_KEYS: KeysHeld = {
@@ -154,11 +163,19 @@ export const NO_KEYS: KeysHeld = {
   reverse: false,
   leanBack: false,
   leanForward: false,
+  crouch: false,
 };
 
 /** What the thumb zones have written, screen-space, at pointer rate. A
  * zone that is not being touched writes zeros and `false`; the one that IS
- * being touched overrides the keyboard on the axes it owns. */
+ * being touched overrides the keyboard on the axes it owns.
+ *
+ * THERE IS NO TUCK HERE, AND THERE IS NOT MEANT TO BE. A touch rider has
+ * two thumbs and both are already committed — one to the handlebar, one
+ * to the throttle lever — so the tuck is a KEYBOARD control and only a
+ * keyboard control. A third zone would have to be reached for by letting
+ * go of one of the two the craft is actually ridden with, which is a
+ * worse trade than the one the tuck is offering. */
 export type TouchChannel = {
   /** The handlebar: steer and lean, and whether a thumb is on it. */
   steer: number;
@@ -183,10 +200,11 @@ export type InputModel = {
   throttle: number;
   reverse: number;
   lean: number;
+  crouch: number;
 };
 
 export function createInputModel(): InputModel {
-  return { steer: 0, throttle: 0, reverse: 0, lean: 0 };
+  return { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0 };
 }
 
 /** One step's input: advance the keyboard ramps by `dt`, merge the thumbs
@@ -225,6 +243,13 @@ export function sampleInput(
   );
   const leanTarget = (keys.leanBack ? 1 : 0) - (keys.leanForward ? 1 : 0);
   model.lean = rampToward(model.lean, leanTarget, dt, KEY_LEAN_ATTACK, KEY_LEAN_RELEASE);
+  model.crouch = rampToward(
+    model.crouch,
+    keys.crouch ? 1 : 0,
+    dt,
+    KEY_CROUCH_ATTACK,
+    KEY_CROUCH_RELEASE,
+  );
 
   const steer = touch.bar ? touch.steer : model.steer;
   const lean = touch.bar ? touch.lean : model.lean;
@@ -236,6 +261,9 @@ export function sampleInput(
     throttle: reverse > 0 ? 0 : clamp(throttle, 0, 1),
     reverse,
     lean: clamp(lean, -1, 1),
+    // The keyboard's alone: no thumb writes it, so there is nothing to
+    // merge and a touch rider is always sat up.
+    crouch: clamp(model.crouch, 0, 1),
     reset,
   };
 }

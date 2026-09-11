@@ -68,7 +68,7 @@ function throws(
   const apex: number[] = [];
   let peak = 0;
   for (let i = 0; i < TUNING.physicsHz * seconds; i++) {
-    step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
+    step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
     if (c.airborne) {
       const water = surfaceAt(game.sea, level, c.x, c.z, game.t).height;
       peak = Math.max(peak, c.y - water);
@@ -338,7 +338,7 @@ describe("what the tornado does to a rider", () => {
     // Held at full throttle STRAIGHT OUT TO SEA the whole time: the rider is
     // doing everything he can to get further away, and still ends up nearer.
     for (let i = 0; i < TUNING.physicsHz * 30; i++) {
-      step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
+      step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
     }
     const after = Math.hypot(c.x - level.start.x, c.z - level.start.z);
     expect(after).toBeLessThan(before - 200);
@@ -351,7 +351,7 @@ describe("what the tornado does to a rider", () => {
     let events = 0;
     let last = -Infinity;
     for (let i = 0; i < TUNING.physicsHz * 30; i++) {
-      step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
+      step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
       for (const e of game.events) {
         if (e.kind !== "tornado") continue;
         expect(e.wind).toBeGreaterThanOrEqual(BLOW * T.eventShare);
@@ -370,7 +370,7 @@ describe("what the tornado does to a rider", () => {
     standCraft(game, 400, b.maxZ + far, 0);
     const gate = game.progress.nextGate;
     for (let i = 0; i < TUNING.physicsHz * 30; i++) {
-      step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, reset: false });
+      step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
       for (const e of game.events) expect(e.kind).not.toBe("reset");
     }
     expect(game.phase).toBe("running");
@@ -400,7 +400,7 @@ describe("the tornado and the rest of the engine", () => {
       standCraft(game, 400, level.bounds.maxZ + far, 0);
       const path: number[] = [];
       for (let i = 0; i < TUNING.physicsHz * 15; i++) {
-        step(game, { steer: 0.2, throttle: 1, reverse: 0, lean: 0, reset: false });
+        step(game, { steer: 0.2, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
         if (i % 120 === 0) path.push(c.x, c.y, c.z, c.speed);
       }
       return path;

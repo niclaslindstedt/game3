@@ -50,6 +50,7 @@ function scripted(t: number): CraftInput {
     throttle: 0.5 + 0.5 * Math.sin(t * 0.3) ** 2,
     reverse: 0,
     lean: Math.sin(t * 1.3) > 0.8 ? 1 : 0,
+    crouch: 0,
     reset: false,
   };
 }
