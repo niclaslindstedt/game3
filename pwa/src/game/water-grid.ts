@@ -35,6 +35,11 @@ export type WaterGrid = {
   /** How far each vertex stands from the centre, as a share of `reach`
    * (Chebyshev), for the fade to the far water. */
   edge: Float32Array;
+  /** The cell each vertex SPEAKS FOR, m — the finest ring's cell of the
+   * rings that touch it. A sample is one reading of a whole cell of sea, and
+   * anything that spreads a vertex's answer over the water it stands for
+   * (the foam field) needs to know how much water that is. */
+  step: Float32Array;
   /** Triangle indices, wound so the face normal is +y. */
   index: Uint32Array;
   /** The reach either side of the origin, m. */
@@ -73,7 +78,10 @@ export function layWaterGrid(look: WaterLook): WaterGrid {
   const ids = new Map<number, number>();
   const xs: number[] = [];
   const zs: number[] = [];
-  const at = (ix: number, iz: number): number => {
+  // The finest cell, in lattice units, of the rings that have claimed each
+  // vertex — a seam vertex is shared, and it speaks for the FINER side.
+  const sts: number[] = [];
+  const at = (ix: number, iz: number, st: number): number => {
     const key = (ix + span) * width + (iz + span);
     let id = ids.get(key);
     if (id === undefined) {
@@ -81,7 +89,8 @@ export function layWaterGrid(look: WaterLook): WaterGrid {
       ids.set(key, id);
       xs.push(ix);
       zs.push(iz);
-    }
+      sts.push(st);
+    } else if (st < sts[id]) sts[id] = st;
     return id;
   };
   const index: number[] = [];
@@ -105,7 +114,7 @@ export function layWaterGrid(look: WaterLook): WaterGrid {
         // The corners in cyclic order, and which edge (if any) lies on the
         // seam with the finer ring inside: that edge carries a fine vertex
         // at its midpoint, and the cell fans onto it.
-        const corners = [at(x0, z0), at(x1, z0), at(x1, z1), at(x0, z1)];
+        const corners = [at(x0, z0, step), at(x1, z0, step), at(x1, z1, step), at(x0, z1, step)];
         const inner = hole * step;
         const zIn = z0 >= -inner && z1 <= inner;
         const xIn = x0 >= -inner && x1 <= inner;
@@ -125,7 +134,7 @@ export function layWaterGrid(look: WaterLook): WaterGrid {
         const b = corners[(seam + 1) % 4];
         const c = corners[(seam + 2) % 4];
         const d = corners[(seam + 3) % 4];
-        const m = at((xs[a] + xs[b]) / 2, (zs[a] + zs[b]) / 2);
+        const m = at((xs[a] + xs[b]) / 2, (zs[a] + zs[b]) / 2, step / 2);
         tri(a, m, d);
         tri(m, b, c);
         tri(m, c, d);
@@ -136,15 +145,18 @@ export function layWaterGrid(look: WaterLook): WaterGrid {
   const ox = new Float32Array(count);
   const oz = new Float32Array(count);
   const edge = new Float32Array(count);
+  const stride = new Float32Array(count);
   for (let k = 0; k < count; k++) {
     ox[k] = xs[k] * cell;
     oz[k] = zs[k] * cell;
     edge[k] = Math.max(Math.abs(ox[k]), Math.abs(oz[k])) / reach;
+    stride[k] = sts[k] * cell;
   }
   return {
     ox,
     oz,
     edge,
+    step: stride,
     index: new Uint32Array(index),
     reach,
     snap: cell * 2 ** rings,

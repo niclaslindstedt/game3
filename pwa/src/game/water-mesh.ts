@@ -54,16 +54,29 @@
 // and a FOAM SHARE in the colour's alpha where the surface is steep or the
 // water is shallow enough to break — the breaking itself is the engine's
 // clip (`TUNING.sea.breakingRatio`), and the tint reads its symptoms rather
-// than restating the rule — and WHITECAPS on the crests once the wind is
-// fresh enough to blow them: the top of a wave standing higher than most,
-// on its steep face, in a wind past `WHITECAP_WIND`. What the LIGHT does
-// with all of that — the sky each face reflects, the sun's glint, the
-// ripples, the foam's texture — is per pixel and `water-shader.ts`'s.
+// than restating the rule — and WHITECAPS on the crests once the wind THIS
+// WATER FEELS is fresh enough to blow them: the top of a wave standing
+// higher than most, on its steep face, in a wind past `WHITECAP_WIND`.
+//
+// THAT SHARE IS WHAT IS BREAKING NOW, AND IT IS NOT THE FOAM. Every term
+// above is read off the surface at this instant, and a world point stands
+// at the top of a wavelet for about a tenth of a second, so on its own the
+// rule draws sparks rather than whitecaps. The foam the rider sees is the
+// AIR LEFT IN THE WATER after the crest has gone on without it, and that is
+// `foam-field.ts`: a world-anchored store this loop SOWS what is breaking
+// into and READS BACK what has not yet died. The louder of the two is the
+// share, so a crest going over is still drawn at the grid's own fineness
+// and the field only ever adds the tail. What the LIGHT does with all of
+// that — the sky each face reflects, the sun's glint, the ripples, the
+// foam's texture — is per pixel and `water-shader.ts`'s.
 
 import * as THREE from "three";
 import {
   BIOME_IDS,
+  oceanOut,
+  oceanWind,
   sampleField,
+  stormRamp,
   stormSeaAt,
   surfaceAt,
   type BiomeId,
@@ -74,6 +87,7 @@ import {
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import type { BuoyLamp } from "./buoys.ts";
+import { createFoamField, FOAM_LIFE } from "./foam-field.ts";
 import {
   WATER_LOOK,
   type ReflectionLook,
@@ -217,7 +231,16 @@ const BREAK_CREST_TO = 0.45;
  * one standard deviation of a sea whose Hs is four — to a half, the crest
  * of a significant wave; anything higher is a rare event and a rule keyed
  * to it caps nothing); and the tilt band (1 − n_y) that says the cap is on
- * the steep face. */
+ * the steep face.
+ *
+ * THE WIND IS THE ONE THIS WATER FEELS, not the level's headline: the mean
+ * under the point's own `shelter` (`fetch.ts`), freshening toward the open
+ * ocean's storm as the coast falls astern — `oceanWind`, the same reading
+ * the sea itself is grown from. A bay in the lee of a headland is glassy
+ * for exactly the reason its water is flat, and judged by the level's mean
+ * it caps as readily as the open sea two kilometres out: seed 28's mean is
+ * 8.6 m/s and its course is ridden in 7.4, which is a quarter of the caps
+ * rather than the whole of them. */
 const WHITECAP_WIND = 7;
 const WHITECAP_WIND_FULL = 14;
 const WHITECAP_CREST = 0.25;
@@ -407,6 +430,15 @@ export function createWaterMesh(
   /** The STORM standing at the craft (`stormSeaAt`), read once a frame: both
    * 0 inside a level, so every threshold below is the level's own there. */
   const storm = { Hs: 0, Tp: 0 };
+  /** THE FOAM ALREADY IN THE WATER (`foam-field.ts`). It reaches half a
+   * coarse cell past the grid, which is the furthest the craft can stand
+   * off the snapped origin, so every vertex the loop below visits is inside
+   * it. */
+  const foamField = createFoamField(grid.reach + grid.snap);
+  /** The engine clock the field was last aged to, s. A run that starts over
+   * or a level that changes under it hands the field water it has never
+   * seen, so it forgets rather than smearing the last sea over this one. */
+  let foamT = -1;
   /** The far grid's height at a plan point, off its last displacement and
    * sunk as it stands — what the near grid's edge fades to. Bilinear over
    * the far cells. */
@@ -465,6 +497,87 @@ export function createWaterMesh(
 
   /** The widest cell of the near grid, at its rim. */
   const maxCell = grid.snap;
+
+  /** THE BANDS THIS SEA BREAKS AT, worked out once a frame and read by every
+   * vertex: the two tilt bands (the breaking one and the whitecaps'), and
+   * how much of the open ocean's storm stands over the craft. */
+  let foamFrom = 0.04;
+  let foamTo = 0.09;
+  let capTiltFrom = WHITECAP_TILT;
+  let capTiltTo = WHITECAP_TILT_FULL;
+  let stormHere = 0;
+
+  /** WHAT IS BREAKING at a plan point, off a surface already sampled there:
+   * the steep crests, the shallows the bed trips, and the whitecaps the
+   * wind blows off the tops. This is what is sown into the foam field — the
+   * INSTANT, never the foam, which is the field's answer.
+   *
+   * It is a reading and not a loop of its own so the priming pass below can
+   * ask the same question of a moment that has already gone by. */
+  const breakingAt = (
+    sea: GameState["sea"],
+    wx: number,
+    wz: number,
+    depth: number,
+    s: SurfaceSample,
+  ): number => {
+    const tilt = 1 - s.ny;
+    // How high a crest stands HERE is judged against the sea that runs
+    // here — the two bands' heights by their shares at this point
+    // (`seaShares`, inlined so nothing is allocated) plus the storm over
+    // them — and not against the level's headline height: sheltered water
+    // inside a bay runs a fraction of the open sea, and judged against
+    // the open sea's height its crests would never cap at all.
+    const ocean = clamp(sampleField(sea.shelter.exposure, wx, wz), 0, 1);
+    const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, wx, wz));
+    const hsHere = Math.max(0.05, Math.hypot(sea.hsRef * ocean, sea.localHs * local, storm.Hs));
+    // The whitecaps' wind is the one THIS WATER FEELS: the mean under its
+    // own shelter, freshening to the storm's out past the rim.
+    const lee = clamp(sampleField(sea.shelter.shelter, wx, wz), 0, 1);
+    const whitecaps = clamp(
+      (oceanWind(sea.windSpeed, lee, stormHere) - WHITECAP_WIND) /
+        (WHITECAP_WIND_FULL - WHITECAP_WIND),
+      0,
+      1,
+    );
+    const cap =
+      whitecaps *
+      smoothstep(WHITECAP_CREST * hsHere, WHITECAP_CREST_FULL * hsHere, s.height) *
+      smoothstep(capTiltFrom, capTiltTo, tilt);
+    const crestGate = smoothstep(BREAK_CREST_FROM * hsHere, BREAK_CREST_TO * hsHere, s.height);
+    return clamp(
+      smoothstep(foamFrom, foamTo, tilt) * crestGate +
+        smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt) +
+        cap * 0.8,
+      0,
+      1,
+    );
+  };
+
+  /** FILLING THE FIELD BEFORE THE FIRST FRAME. Foam is the last few seconds
+   * of this sea, and a field that starts empty starts a run on a sea that
+   * has never broken — the whitecaps grow in over the first five seconds,
+   * which is a fault a rider sees every time they press RIDE and a
+   * screenshot, which draws ONE frame, can never see past. So a field that
+   * has just been cleared is handed the moments it missed: the same reading,
+   * at `PRIME_STEP` back and back again, aged between as the run would have
+   * aged it. The frustum is left out — the rider may turn at once. */
+  const PRIME_PASSES = 6;
+  const PRIME_STEP = 0.6;
+  const primeFoam = (state: GameState, cx: number, cz: number, sx: number, sz: number): void => {
+    const { level } = state;
+    for (let k = PRIME_PASSES; k >= 1; k--) {
+      const t = state.t - k * PRIME_STEP;
+      foamField.advance(cx, cz, PRIME_STEP);
+      for (let v = 0; v < count; v++) {
+        const wx = sx + grid.ox[v];
+        const wz = sz + grid.oz[v];
+        surfaceAt(state.sea, level, wx, wz, t, sample);
+        const depth = -sampleField(level.ground, wx, wz);
+        foamField.sow(wx, wz, grid.step[v], breakingAt(state.sea, wx, wz, depth, sample));
+      }
+    }
+  };
 
   const update = (state: GameState, cx: number, cz: number, frustum?: THREE.Frustum): number => {
     const t0 = performance.now();
@@ -547,15 +660,25 @@ export function createWaterMesh(
     };
     const seaSlope = Math.max(slopeOf(sea.hsRef, sea.tp), slopeOf(storm.Hs, storm.Tp));
     const seaTilt = 1 - 1 / Math.hypot(1, seaSlope);
-    const foamFrom = Math.max(0.04, FOAM_REL_FROM * seaTilt);
-    const foamTo = Math.max(0.09, FOAM_REL_TO * seaTilt);
-    const capTiltFrom = Math.max(WHITECAP_TILT, FOAM_REL_FROM * seaTilt * 0.3);
-    const capTiltTo = Math.max(WHITECAP_TILT_FULL, FOAM_REL_TO * seaTilt * 0.4);
-    const whitecaps = clamp(
-      (sea.windSpeed - WHITECAP_WIND) / (WHITECAP_WIND_FULL - WHITECAP_WIND),
-      0,
-      1,
-    );
+    foamFrom = Math.max(0.04, FOAM_REL_FROM * seaTilt);
+    foamTo = Math.max(0.09, FOAM_REL_TO * seaTilt);
+    capTiltFrom = Math.max(WHITECAP_TILT, FOAM_REL_FROM * seaTilt * 0.3);
+    capTiltTo = Math.max(WHITECAP_TILT_FULL, FOAM_REL_TO * seaTilt * 0.4);
+    // How much of the open ocean's storm stands here — once a frame, like
+    // the storm's own height above, and for the same reason.
+    stormHere = stormRamp(oceanOut(sea.bounds, cx, cz));
+    // Age the foam and carry it along with the craft — after the bands,
+    // which is what a reading is judged against. A clock that has gone
+    // backwards, or jumped further than the foam would have lived anyway,
+    // is a different run, and a field that has just been cleared is filled
+    // with the seconds it missed before this frame is drawn off it.
+    const foamDt = t - foamT;
+    const fresh = foamT < 0 || foamDt < 0 || foamDt > 4 * FOAM_LIFE;
+    if (fresh) {
+      foamField.clear();
+      primeFoam(state, cx, cz, sx, sz);
+    } else foamField.advance(cx, cz, foamDt);
+    foamT = t;
     for (let v = 0; v < count; v++) {
       const wx = sx + grid.ox[v];
       const wz = sz + grid.oz[v];
@@ -610,34 +733,13 @@ export function createWaterMesh(
       r += (toward.r - r) * lift;
       g += (toward.g - g) * lift;
       bl += (toward.b - bl) * lift;
-      const tilt = 1 - sample.ny;
-      // How high a crest stands HERE is judged against the sea that runs
-      // here — the two bands' heights by their shares at this point
-      // (`seaShares`, inlined so nothing is allocated) plus the storm over
-      // them — and not against the level's headline height: sheltered water
-      // inside a bay runs a fraction of the open sea, and judged against
-      // the open sea's height its crests would never cap at all.
-      const ocean = clamp(sampleField(sea.shelter.exposure, wx, wz), 0, 1);
-      const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, wx, wz));
-      const hsHere = Math.max(0.05, Math.hypot(sea.hsRef * ocean, sea.localHs * local, storm.Hs));
-      // Breaking foam on the steep crests and the shallow, and whitecaps on
-      // the high crests' steep faces once the wind blows them.
-      const cap =
-        whitecaps *
-        smoothstep(WHITECAP_CREST * hsHere, WHITECAP_CREST_FULL * hsHere, sample.height) *
-        smoothstep(capTiltFrom, capTiltTo, tilt);
-      const crestGate = smoothstep(
-        BREAK_CREST_FROM * hsHere,
-        BREAK_CREST_TO * hsHere,
-        sample.height,
-      );
-      const foam = clamp(
-        smoothstep(foamFrom, foamTo, tilt) * crestGate +
-          smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt) +
-          cap * 0.8,
-        0,
-        1,
-      );
+      // WHAT IS BREAKING NOW, sown into the foam field, which holds it while
+      // the wave rolls on out from under it; the share the vertex carries is
+      // the louder of the two — this instant's break at the grid's own
+      // fineness, over the tail of every break the water remembers.
+      const breaking = breakingAt(sea, wx, wz, depth, sample);
+      foamField.sow(wx, wz, grid.step[v], breaking);
+      const foam = Math.max(breaking, foamField.read(wx, wz));
       const q = v * 4;
       colors[q] = r;
       colors[q + 1] = g;

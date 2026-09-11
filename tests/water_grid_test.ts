@@ -125,4 +125,30 @@ describe("the water grid", () => {
       }
     }
   });
+
+  it("tells every vertex how much sea it speaks for", () => {
+    for (const look of looks) {
+      const grid = layWaterGrid(look);
+      let core = 0;
+      for (let k = 0; k < grid.ox.length; k++) {
+        // A vertex's step is its own ring's cell — and a seam vertex, shared
+        // between two rings, speaks for the FINER of them, which is the one
+        // its own lattice belongs to.
+        const d = Math.max(Math.abs(grid.ox[k]), Math.abs(grid.oz[k]));
+        let half = (look.core / 2) * look.cell;
+        let cell = look.cell;
+        while (d > half + 1e-4) {
+          half *= 2;
+          cell *= 2;
+        }
+        expect(grid.step[k]).toBeCloseTo(cell, 4);
+        if (cell === look.cell) core++;
+      }
+      // The core is really there — a step array that came out all one value
+      // would pass every case above but tell the foam field nothing.
+      expect(core).toBeGreaterThan(0);
+      expect(core).toBeLessThan(grid.ox.length);
+      expect(Math.max(...grid.step)).toBeCloseTo(grid.snap, 4);
+    }
+  });
 });
