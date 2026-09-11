@@ -204,6 +204,21 @@ export const SCENARIOS = {
     seconds: 5,
     stage: (level, spec) => overRing(firstAirGate(level), spec, { pitch: -0.35, vy: -3, lean: -1 }),
   },
+  capsize: {
+    blurb: "past vertical and still rolling at a crawl: over, a wait on its back, and the righting",
+    seconds: 4,
+    stage: (level) => ({
+      moment: {
+        x: level.start.x,
+        z: level.start.z,
+        heading: level.start.heading,
+        speed: 4,
+        roll: 1.75,
+        rollRate: 3,
+      },
+      input: () => NEUTRAL,
+    }),
+  },
   offshore: {
     blurb: "flat out back along the course from its outermost point, where the sea is biggest",
     seconds: 8,

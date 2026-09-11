@@ -46,6 +46,7 @@ export type ScenarioName =
   | "apex"
   | "landing"
   | "dive"
+  | "capsize"
   | "offshore"
   | "storm"
   | "backflip"
@@ -65,6 +66,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "apex",
   "landing",
   "dive",
+  "capsize",
   "offshore",
   "storm",
   "backflip",
@@ -99,6 +101,17 @@ function input(steer: number, throttle: number, lean: number): CraftInput {
 function braking(steer: number, reverse: number): CraftInput {
   return { steer, throttle: 0, reverse, lean: 0, reset: false };
 }
+
+/** THE CAPSIZE: how far over the hull is stood, rad, and how fast it is
+ * still going, rad/s — past a right angle and rolling, so the first steps
+ * put it on its back and the engine's rule (`TUNING.capsize`) takes over
+ * from there: the sheet off the side it comes down on, the boil round a
+ * hull on its back, and the rider righting it a second and a half later.
+ * The speed is a crawl's: a hull goes over in a turn it has already
+ * scrubbed off, not on the plane. */
+const CAPSIZE_ROLL = 1.75;
+const CAPSIZE_ROLL_RATE = 3;
+const CAPSIZE_SPEED = 4;
 
 /** The unit vector pointing out to sea at a plan point — up the `offshore`
  * distance field. */
@@ -426,6 +439,23 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: pastGate(air, 4, { speed: top * 0.9, height: 3, pitch: -0.45 }),
         script: () => input(0, 0, -1),
         seconds: 3,
+      };
+    }
+    case "capsize": {
+      // Going over, at the start, with nothing on the throttle: the hull is
+      // past vertical and still rolling, and everything after — the side
+      // coming down, the wait on its back, the righting — is the engine's.
+      return {
+        moment: {
+          x: start.x,
+          z: start.z,
+          heading: start.heading,
+          speed: CAPSIZE_SPEED,
+          roll: CAPSIZE_ROLL,
+          rollRate: CAPSIZE_ROLL_RATE,
+        },
+        script: () => NEUTRAL,
+        seconds: 4,
       };
     }
     case "offshore": {

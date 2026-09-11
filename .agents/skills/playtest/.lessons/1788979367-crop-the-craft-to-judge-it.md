@@ -12,8 +12,10 @@ no sharp and no PNG decoder in the tree, but playwright-core and Chromium are
 there for the screenshots already: a scratch script that `setContent`s an
 `<img>` whose `src` is the PNG as a base64 data URL (a `file://` src stays
 blank), offsets it by the crop and `transform: scale(3)`s it, then
-`page.screenshot`s a viewport of the crop's size, is a zoom in twenty lines.
-Crop the craft region (about x 520–760, y 340–560 in the desktop frame at
+`page.screenshot`s a viewport of the crop's size, is a zoom in twenty lines — run it from inside the tree (drop it under
+`scripts/` for the run and delete it after), because Node resolves
+`playwright-core` from the script's own directory and a scratchpad outside
+the repo cannot find it. Crop the craft region (about x 520–760, y 340–560 in the desktop frame at
 the chase rig's default) and judge THAT; the same trick crops a `make
 crafts` cell. A pose that reads there and not in the full frame is a
 contrast problem, not a geometry one.

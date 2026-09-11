@@ -39,6 +39,8 @@ import {
   RESOLUTION_SCALE,
   SKY_LEVELS,
   SKY_LOOK,
+  SPLASH_LEVELS,
+  SPLASH_LOOK,
   SPRAY_SCALE,
   WAKE_LEVELS,
   WAKE_LOOK,
@@ -289,6 +291,32 @@ describe("the picture's other ladders", () => {
     }
     expect(RAIN_LOOK.near.sheet).toBeGreaterThanOrEqual(0.4);
     expect(RAIN_LOOK.near.sheet).toBeLessThanOrEqual(0.6);
+  });
+
+  it("takes the splash from nothing to the crater to the ring, and never past full", () => {
+    // OFF is the arcade splash: no crater, no ring, no throw, no boil. Each
+    // stop up adds and takes nothing away; the ring is the top stop's.
+    expect(SPLASH_LOOK.off).toEqual({ crater: 0, ring: 0, throw: 0, boil: false });
+    expect(SPLASH_LOOK.full).toEqual({ crater: 1, ring: 1, throw: 1, boil: true });
+    expect(SPLASH_LOOK.some.ring).toBe(0);
+    expect(SPLASH_LOOK.some.crater).toBeGreaterThan(0);
+    for (let i = 1; i < SPLASH_LEVELS.length; i++) {
+      const under = SPLASH_LOOK[SPLASH_LEVELS[i - 1]];
+      const over = SPLASH_LOOK[SPLASH_LEVELS[i]];
+      expect(over.crater).toBeGreaterThanOrEqual(under.crater);
+      expect(over.ring).toBeGreaterThanOrEqual(under.ring);
+      expect(over.throw).toBeGreaterThanOrEqual(under.throw);
+      expect(Number(over.boil)).toBeGreaterThanOrEqual(Number(under.boil));
+    }
+    // A crater the map stamps is a crater the WAKE lever has to read: every
+    // DETAIL stop that stamps one reads the relief.
+    for (const id of DETAIL_LEVELS) {
+      const preset = DETAIL_PRESETS[id];
+      if (SPLASH_LOOK[preset.splash].crater > 0) expect(WAKE_LOOK[preset.wake].relief).toBe(true);
+    }
+    expect(DETAIL_PRESETS.low.splash).toBe("off");
+    expect(DETAIL_PRESETS.medium.splash).toBe("some");
+    expect(DETAIL_PRESETS.high.splash).toBe("full");
   });
 
   it("lets the spray be turned off outright and never past full", () => {
