@@ -840,8 +840,36 @@ canvas {
   letter-spacing: 0.06em;
 }
 
-/* The bottom-right corner: the air time while the hull is up, and the
-   news column under it. */
+/* THE AIR CLOCK, top centre — over the nose where the rider is aiming, and
+   drawn only while the hull is off the water. Centred on the frame rather
+   than laid out between the two top corners: it is never up at the same
+   time as anything that would crowd it, and a number that moved sideways
+   with the clock's width would be harder to read at a glance than one that
+   is always in the same place. Sized to the smaller axis so it stays clear
+   of the clock and the map on a phone held upright. */
+.hud-air {
+  position: absolute;
+  top: max(0.6rem, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  text-align: center;
+  white-space: nowrap;
+  color: var(--hud-good);
+  animation: hud-flash-pop 180ms ease-out;
+}
+
+.hud-air-num {
+  font-size: clamp(2rem, 7vmin, 3.4rem);
+  font-weight: 700;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+/* The bottom-right corner: the news column. */
 .hud-right {
   position: absolute;
   right: max(1rem, env(safe-area-inset-right));
@@ -851,17 +879,6 @@ canvas {
   align-items: flex-end;
   gap: 0.4rem;
   text-align: right;
-}
-
-.hud-air {
-  align-items: flex-end;
-  color: var(--hud-good);
-}
-
-.hud-air-num {
-  font-size: clamp(1.6rem, 6vmin, 3rem);
-  font-weight: 700;
-  line-height: 1;
 }
 
 .hud-flashes {
@@ -1145,6 +1162,16 @@ canvas {
 @media (orientation: portrait) {
   .hud-top {
     gap: 0.35rem;
+  }
+
+  /* The air clock cannot sit level with the two top corners on a narrow
+     screen: the gate count reaches the middle of the frame there and the map
+     comes down to meet it. So it drops below both of them — still on the
+     centreline, still over the nose, and now with the whole width of the
+     frame to itself. */
+  .hud-air {
+    top: auto;
+    bottom: 62%;
   }
 
   .hud-top-row {

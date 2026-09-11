@@ -15,8 +15,10 @@
 //                 up — with the RESET and CAMERA presses hung under it, and
 //                 the new-build mark over it on the days there is one
 //   bottom left   the rev bar and the speed
-//   bottom right  the air time while the hull is off the water, and the
-//                 news column — a split, a missed gate, a dive
+//   top centre    the AIR CLOCK, while the hull is off the water — the one
+//                 number a rider is trying to make go up, so it sits where
+//                 he is already looking to aim the landing
+//   bottom right  the news column — a split, a missed gate, a dive
 //
 // …and under the minimap, when they have been asked for, the DIAGNOSTICS:
 // the frame rate (OPTIONS ▸ FPS) and what the frame cost (the developer
@@ -194,13 +196,21 @@ export function Hud({
         </div>
       </div>
 
+      {/* THE AIR CLOCK, top centre. It is the one readout on this screen a
+          rider is trying to make GO UP, and it belongs where his eyes
+          already are — on the horizon, over the nose, where he is aiming the
+          landing — rather than down in the corner he only checks between
+          gates. It appears out of nothing at the lip and is gone at the
+          water, so the middle of the frame is empty whenever it is not a
+          hull's whole job. */}
+      {snap.airborne && (
+        <div class="hud-air">
+          <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
+          <span class="hud-chip-sub">{STRINGS.airLabel}</span>
+        </div>
+      )}
+
       <div class="hud-right">
-        {snap.airborne && (
-          <div class="hud-chip hud-air">
-            <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
-            <span class="hud-chip-sub">{STRINGS.airLabel}</span>
-          </div>
-        )}
         <div class="hud-flashes">
           {flashes.map((f) => (
             <span key={f.id} class={`hud-flash hud-flash-${f.tone}`}>

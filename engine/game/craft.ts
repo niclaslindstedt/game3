@@ -46,6 +46,7 @@ import {
   thrust,
 } from "./propulsion.ts";
 import type { CraftInput, CraftState, GameEvent, GameState } from "./state.ts";
+import { tornadoAt, tornadoBlow, tornadoColumn, tornadoLift } from "./tornado.ts";
 import { surfaceAt } from "./water.ts";
 import { windAt } from "./wind.ts";
 
@@ -323,11 +324,40 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     tbz -= T.hull.rotDamp.z * c.wz * wetShare;
   }
 
+  // HOW HIGH THE KEEL IS OVER THE SEA IT IS FALLING TOWARD, m — the mean of
+  // what the probes already read this step rather than a thirteenth wave
+  // evaluation at 120 Hz. Two things want it: the tornado's column below,
+  // and the arcade's hand further down.
+  let waterY = 0;
+  for (let i = 0; i < samples.length; i++) waterY += samples[i].surface.height;
+  waterY /= samples.length;
+  const keelOverWater = c.y - spec.cog.y - waterY;
+
   // THE AIR: drag always; the plate, the rider's authority and the air's
   // damping in proportion to how much of the hull is out of the water.
   {
     const wind = windAt(state.wind, c.y, c.x, c.z);
     const airShare = c.airborne ? 1 : clamp(1 - hull.wetted * 3, 0, 1);
+
+    // ...and PAST THE FAR EDGE OF THE OPEN OCEAN, the column that wind is
+    // standing in (`tornado.ts`). The horizontal half is already in `wind`
+    // and needs nothing here; the updraft is its own force because it works
+    // on the hull's plan area and not on `spec.cdA`. `airShare` is what
+    // makes it the effect it is: shoved about on the water, and taken the
+    // moment a wave throws him clear of it.
+    const grip = tornadoAt(level.bounds, level.pace, c.x, c.z);
+    if (grip > 0) {
+      const top = tornadoColumn(level, c.x, c.z);
+      fy += tornadoLift(spec, grip, keelOverWater, top, c.vy, airShare);
+      if (c.tornadoCooldown <= 0 && airShare > 0.5) {
+        const blow = Math.hypot(wind.vx, wind.vz);
+        if (blow >= tornadoBlow(level.pace) * T.wind.tornado.eventShare) {
+          events.push({ kind: "tornado", t: state.t, grip, wind: blow, speed: c.speed });
+          c.tornadoCooldown = T.wind.tornado.eventGap;
+        }
+      }
+    }
+
     aeroForces(
       spec,
       c.q,
@@ -354,13 +384,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
 
   // THE ARCADE'S HAND, over the last moment before the water and only
   // when the flight is going to end badly (`flight.ts`, `landingAssist`).
-  // The height it is given is the KEEL's over the sea it is falling
-  // toward, and that sea is the mean of what the probes already read this
-  // step rather than a thirteenth wave evaluation at 120 Hz.
   if (c.airborne && state.assist > 0) {
-    let waterY = 0;
-    for (let i = 0; i < samples.length; i++) waterY += samples[i].surface.height;
-    waterY /= samples.length;
     landingAssist(
       c.q,
       c.wx,
@@ -370,7 +394,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       I.y,
       I.z,
       c.airTime,
-      c.y - spec.cog.y - waterY,
+      keelOverWater,
       c.vy,
       input.lean,
       state.assist,
@@ -447,6 +471,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.onGround = contact.onGround;
   c.hitCooldown = Math.max(0, c.hitCooldown - dt);
   c.groundCooldown = Math.max(0, c.groundCooldown - dt);
+  c.tornadoCooldown = Math.max(0, c.tornadoCooldown - dt);
   c.landing = Math.min(c.landing + dt, 1e6);
 
   // FLIGHT is read, not declared: the hull is airborne when nothing on it

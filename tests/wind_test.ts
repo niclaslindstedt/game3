@@ -5,7 +5,17 @@
 // and the Ornstein–Uhlenbeck gust (mean-reverting, bounded, seeded).
 import { describe, expect, it } from "vitest";
 
-import { TUNING, createRng, createWind, stepWind, windAt, windSpeedAt } from "@engine";
+import {
+  TORNADO_EDGE,
+  TUNING,
+  createRng,
+  createWind,
+  stepWind,
+  tornadoBand,
+  tornadoBlow,
+  windAt,
+  windSpeedAt,
+} from "@engine";
 
 import { syntheticLevel } from "./support/synthetic.ts";
 
@@ -65,8 +75,11 @@ describe("the wind past the level's rim", () => {
       last = at(past);
     }
     expect(at(O.reach)).toBeCloseTo(O.wind, 3);
-    // ...and it is a ceiling, not a ramp that runs away.
-    expect(at(O.reach * 50)).toBeCloseTo(O.wind, 3);
+    // ...and it is a ceiling, not a ramp that runs away. Read short of
+    // `TORNADO_EDGE`, because past THAT edge the wind climbs again and for a
+    // different reason: the storm has stopped building and the tornado has
+    // started (`tornado.ts`), which `tests/tornado_test.ts` owns.
+    expect(at(TORNADO_EDGE - 1)).toBeCloseTo(O.wind, 3);
   });
 
   it("opens the coast's own shelter out as the coast falls astern", () => {
@@ -80,9 +93,23 @@ describe("the wind past the level's rim", () => {
     expect(far).toBeCloseTo(O.wind, 3);
   });
 
-  it("leaves a calm level calm, however far out it is ridden", () => {
+  it("leaves a calm level's STORM calm, however far out it is ridden", () => {
     const calm = createWind(syntheticLevel({ windSpeed: 0, seaward: SEAWARD }));
-    expect(windSpeedAt(calm, 10, 400, SEAWARD + O.reach * 2)).toBe(0);
+    expect(windSpeedAt(calm, 10, 400, SEAWARD + O.reach)).toBe(0);
+    expect(windSpeedAt(calm, 10, 400, SEAWARD + TORNADO_EDGE - 1)).toBe(0);
+  });
+
+  it("...but stands the tornado there all the same", () => {
+    // The storm out at sea is GROWN by the level's own wind, so a calm level
+    // has none of it. The tornado is not: it is the edge of the built world
+    // rather than weather this coast made, and a calm seed that let a rider
+    // ride to infinity would be a calm seed with no edge at all.
+    const calm = createWind(syntheticLevel({ windSpeed: 0, seaward: SEAWARD }));
+    const far = SEAWARD + TORNADO_EDGE + tornadoBand(TUNING.pump.speedClass);
+    expect(windSpeedAt(calm, TUNING.wind.referenceHeight, 400, far)).toBeCloseTo(
+      tornadoBlow(TUNING.pump.speedClass),
+      3,
+    );
   });
 });
 

@@ -145,6 +145,24 @@ export function rumbleForEvent(event: GameEvent): Rumble | null {
     case "capsize":
       return { ms: RUMBLE.longest, strength: 1 };
 
+    // THE TORNADO TAKING HIM, out past the far edge of the open ocean. Read
+    // off the event's `grip` — how much of the tornado stands where he is —
+    // rather than off the wind in m/s, because the wind out there is quoted
+    // against what the craft can do and means a different thing at every
+    // speed class, where the grip is 0..1 at all of them. The
+    // exception to this surface's rule about news, and to its rule about
+    // `launch`: this is not the game telling the rider something, it is a
+    // wall of air picking his craft up off the water, and it is the only
+    // moment in the game where the hull leaves the sea because something
+    // else decided it should. It is worth the whole motor for that reason —
+    // and it can afford it, because `tornado.eventGap` already holds it to
+    // one telling a throw and nothing else is happening in the hands while
+    // a rider is twenty metres up in a column of air.
+    case "tornado": {
+      const hard = ramp(event.grip, TUNING.wind.tornado.eventShare, 1);
+      return { ms: RUMBLE.longest, strength: 0.8 + 0.2 * hard };
+    }
+
     default:
       return null;
   }

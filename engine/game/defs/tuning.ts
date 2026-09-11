@@ -371,6 +371,76 @@ export const TUNING = {
      * what the craft feels changes slowly across the level and never
      * steps. */
     cell: 100,
+
+    /** THE TORNADO — the wall of weather at the far edge of the open ocean
+     * (`engine/game/tornado.ts`), and the answer to "what if I just keep
+     * going". The storm past the rim stops building at `open.reach`, and past
+     * there a rider is on a ceiling sea no level was built for. Out there
+     * instead: a wind toward the level's start line from every direction at
+     * once, and a column that takes a hull the moment a wave throws it clear
+     * of the water. A HAZARD, not a wall — the rider is thrown, lands and
+     * rides on; nothing is reset or stopped.
+     *
+     * NOT ONE ABSOLUTE NUMBER IN HERE: the ocean out there is sized off
+     * `STORM_CEILING`, quadratic in the speed class, so a hazard quoted in
+     * metres and m/s is right at one class and wrong at every other. Every
+     * dial is a RATIO, shipped value beside it; `docs/water.md` has the board,
+     * the class sweep, and which of them read the RUN's own class. */
+    tornado: {
+      /** How long past the storm's reach a rider gets, and how long the
+       * tornado takes to come up — both s of riding at the roster's best, so
+       * the same few seconds at any class. 1 800 m, 490 m shipped. */
+      grace: 60,
+      band: 16,
+      /** THE HORIZONTAL WIND at full strength, × the roster's TOP SPEED —
+       * 65 m/s shipped, EF3 and the bottom of what throws vehicles. Against
+       * the top speed because the one thing it must be true about is that a
+       * hull cannot push through it. */
+      blow: 2.17,
+      /** THE CLIMB the column buys a hull, × √(g·`STORM_CEILING`), the speed
+       * of a wave out there. 24 m/s shipped. A CLIMB and not an updraft: the
+       * air speed at which a hull HOVERS is its mass over its plan area
+       * (`hoverSpeed`, 34–38 m/s) and moves with neither class nor sea, so an
+       * updraft quoted outright is a different throw on every hull — and, low
+       * enough, under it: a tornado that lifts nothing, silently. */
+      climb: 2.0,
+      /** HOW TALL THE COLUMN IS, as SECONDS OF THAT CLIMB: full at the water,
+       * gone at the top. 18 m and 20 m shipped. Two of them because a tornado
+       * is only as big as the water under it — `shore` over the shallows a
+       * rider reaches along the coast, `ocean` over the open sea.
+       * IT IS THE HEIGHT AND NOT THE CLIMB THAT SETS THE THROW: how long a
+       * rider is UP is how long the column holds him, and one with no top
+       * held the roster at 150 m for seventeen seconds. SECONDS, not metres of
+       * sea: against the ceiling it goes as the class SQUARED — 5 m and no
+       * lift at half, a 30 s hang at double. */
+      column: { shore: 0.76, ocean: 0.85 },
+      /** How far out the offshore field must read for the column to be the
+       * OCEAN's rather than the shore's, m — a level's seaward reach does not
+       * move with the class (R14), so this IS a distance. */
+      openReach: 600,
+      /** The drag coefficient the hull's PLAN area is worked against in the
+       * column (Hoerner 1965: a flat plate normal to the flow) — and why the
+       * updraft is its own force and not a third component on the wind: `cdA`
+       * is the drag area NOSE-ON, and a hull rising is not going forwards. */
+      plateCd: 1.2,
+      /** THE MOST THE COLUMN MAY PUSH, × the craft's own weight. The plate
+       * drag goes as the SQUARE of the relative speed, so on a hull FALLING
+       * into a column still rising the two add and a fast class turns it into
+       * a trampoline (44 s of air at ×4). Uncapped it is 2.8 weights at the
+       * shipped class, so it barely binds where the game is. */
+      liftCap: 3,
+      /** How far the inflow spirals off the straight line home, rad — 34°,
+       * mid-range for a tornado's surface inflow, and what makes a throw a
+       * ride round rather than a shove down a corridor. Cyclonic: in this
+       * engine's clockwise-from-above heading, a NEGATIVE turn. */
+      swirl: 0.6,
+      /** How much of the full blow a hull must be taken by before the run is
+       * told, and how long before it can be told again, s. A share because
+       * `blow` moves with the class; the event carries its `grip` back the
+       * same way, so a presentation never reads a wind in m/s. */
+      eventShare: 0.45,
+      eventGap: 6,
+    },
   },
 
   /** THE HULL IN THE WATER (`hull.ts`): buoyancy and the drags. */
