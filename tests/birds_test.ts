@@ -20,6 +20,7 @@ import { BIRDS, BIRD_IDS, birdById, isBirdId } from "../pwa/src/game/bird-defs.t
 import {
   CROSSING_LEAD,
   CROSSING_PAST,
+  FLUSH_RADIUS,
   FLUSH_SECONDS,
   activityAt,
   birdPose,
@@ -27,6 +28,9 @@ import {
   crossingBearing,
   crossingPose,
   crossingSeconds,
+  flightShare,
+  flushAt,
+  flushable,
   forEachCrossing,
   formationOffset,
   freshBirdPose,
@@ -397,6 +401,41 @@ describe("where a bird is", () => {
     const a = birdPose(flock, 0, flying, freshBirdPose());
     const b = birdPose(flock, 0, flying, freshBirdPose(), 1, 0, flying - 3);
     expect(b).toEqual(a);
+  });
+
+  it("states the flush rule once: a raft goes up for a hull inside the radius, re-armed after the flush", () => {
+    const raft = flockOf("eider");
+    expect(flushable(raft)).toBe(true);
+    const far = raft.home.x + FLUSH_RADIUS + raft.roost + 1;
+    const near = raft.home.x + FLUSH_RADIUS + raft.roost - 1;
+    expect(flushAt(raft, far, raft.home.z, 10, -Infinity)).toBe(-Infinity);
+    expect(flushAt(raft, near, raft.home.z, 10, -Infinity)).toBe(10);
+    // Sitting in the raft holds it: not again until the flush is over.
+    expect(flushAt(raft, near, raft.home.z, 10 + FLUSH_SECONDS, 10)).toBe(10);
+    expect(flushAt(raft, near, raft.home.z, 10 + FLUSH_SECONDS + 1, 10)).toBe(
+      10 + FLUSH_SECONDS + 1,
+    );
+    // A gull on its rock watches the hull go by.
+    const rock = { ...flockOf("gull"), home: { ...flockOf("gull").home, kind: "skerry" as const } };
+    expect(flushable(rock)).toBe(false);
+    expect(flushAt(rock, rock.home.x, rock.home.z, 10, -Infinity)).toBe(-Infinity);
+  });
+
+  it("reads how much of a flock is in the air without posing a bird", () => {
+    const raft = flockOf("eider");
+    let rest = 0;
+    let loop = 0;
+    for (let t = 0; t < raft.cycle; t += 0.5) {
+      if (airborne(raft, t) === 0 && airborne(raft, t + FLUSH_SECONDS + 5) === 0) rest = t;
+      if (airborne(raft, t) === 1) loop = t;
+    }
+    expect(flightShare(raft, rest)).toBe(0);
+    expect(flightShare(raft, loop)).toBe(1);
+    expect(flightShare(raft, rest, 0)).toBe(0);
+    // Put up at rest: in the air by the leader's own reading, and down again after.
+    expect(flightShare(raft, rest + 4, 1, rest)).toBeCloseTo(airborne(raft, rest + 4, 1, rest), 9);
+    expect(flightShare(raft, rest + 4, 1, rest)).toBeGreaterThan(0.9);
+    expect(flightShare(raft, rest + FLUSH_SECONDS + 1, 1, rest)).toBe(0);
   });
 
   it("rides a raft on the sea it was handed", () => {

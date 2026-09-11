@@ -29,32 +29,34 @@ curve.
                                 ▲
                         audio/bus.ts  (one context, the fader's view)
                                 │
-          ┌─────────────────────┴──────────────────────┐
-     bank.ts + bubbles.ts                   engine-voice.ts  water-voice.ts
-     (discrete sounds, the tails)           (the LAYERS: built once, steered)
-          │                                              ▲
-       route.ts                                     ride-bed.ts  ← reads GameState
-   (GameEvent → sound)                                   ▲          once per frame
-          └──────────── listener.ts ─────────────────────┘
+          ┌─────────────────────┴──────────────────────┬──────────────────┐
+     bank.ts + bubbles.ts                   engine-voice.ts  water-voice.ts   bird-voice.ts
+     (discrete sounds, the tails)           (the LAYERS: built once, steered) (who says what)
+          │                                              ▲                        ▲
+       route.ts                                     ride-bed.ts  ← reads     bird-bed.ts ← reads
+   (GameEvent → sound)                                   ▲       GameState        ▲       GameState +
+          └──────────── listener.ts ─────────────────────┴────────────────────────┘       bird-plan.ts
                      (what the camera does to the mix)
                                 ▲
                           audio/index.ts  ← App.tsx's one door
 ```
 
-| Module                               | What it owns                                                                                                                                                                                                 |
-| ------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
-| `pwa/src/lib/voice.ts`               | The vocabulary: every parameter a sound may be written in, the `Synth` interface, the `Layer` a bed is made of, and the arithmetic worth testing (`envelopeShape`, `safeCutoff`, the shaper). **DOM-free.**  |
-| `pwa/src/lib/synth.ts`               | The instrument. `tone()` and `noise()` for one-shots, `layer()` for the beds, one shared echo bus, a master limiter, and the whole audio-context lifecycle.                                                  |
-| `pwa/src/game/audio/bus.ts`          | One synth, one volume-scaled view for the effects fader. A score, when it comes, is a second view — never a second synth.                                                                                    |
-| `pwa/src/game/audio/bank.ts`         | Every discrete sound the run makes, as data: the slap, two landings, the dive, a hull on a rock, the keel on the bottom, the capsize, the launch, the buoy's chime, the ring, the miss, the reset, the line. |
-| `pwa/src/game/audio/bubbles.ts`      | The tail every splash gets: Minnaert's bubble, a sine chirping up, in a burst the router sizes.                                                                                                              |
-| `pwa/src/game/audio/route.ts`        | Which sound a `GameEvent` makes, how big, which bubbles it leaves, and how it is heard from the seat it is watched from.                                                                                     |
-| `pwa/src/game/audio/listener.ts`     | What each rung of the camera ladder does to the mix — one row per `CameraMode`.                                                                                                                              |
-| `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as eight layers: where each should be for a set of revs, a throttle, a load, a wet intake, the jet's slip and how far the exhaust has cleared the water.                            |
-| `pwa/src/game/audio/water-voice.ts`  | The hull in the water, the wind and the sea, as seven layers: the wash, the spray, the chop, the wind, the swell, the surf and its foam.                                                                     |
-| `pwa/src/game/audio/rack.ts`         | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it.                                                                                                                      |
-| `pwa/src/game/audio/ride-bed.ts`     | The scheduler: the state, once a frame, into every layer's target — and the one cue nothing reports, the slap.                                                                                               |
-| `pwa/src/game/audio/index.ts`        | The front door `App.tsx` talks to: events in, the bed fed, the seat, `silence()`, `reset()`.                                                                                                                 |
+| Module                               | What it owns                                                                                                                                                                                                                        |
+| ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pwa/src/lib/voice.ts`               | The vocabulary: every parameter a sound may be written in, the `Synth` interface, the `Layer` a bed is made of, and the arithmetic worth testing (`envelopeShape`, `safeCutoff`, the shaper). **DOM-free.**                         |
+| `pwa/src/lib/synth.ts`               | The instrument. `tone()` and `noise()` for one-shots, `layer()` for the beds, one shared echo bus, a master limiter, and the whole audio-context lifecycle.                                                                         |
+| `pwa/src/game/audio/bus.ts`          | One synth, one volume-scaled view for the effects fader. A score, when it comes, is a second view — never a second synth.                                                                                                           |
+| `pwa/src/game/audio/bank.ts`         | Every discrete sound the run makes, as data: the slap, two landings, the dive, a hull on a rock, the keel on the bottom, the capsize, the launch, the buoy's chime, the ring, the miss, the reset, the line — and the birds' cries. |
+| `pwa/src/game/audio/bubbles.ts`      | The tail every splash gets: Minnaert's bubble, a sine chirping up, in a burst the router sizes.                                                                                                                                     |
+| `pwa/src/game/audio/route.ts`        | Which sound a `GameEvent` makes, how big, which bubbles it leaves, and how it is heard from the seat it is watched from.                                                                                                            |
+| `pwa/src/game/audio/listener.ts`     | What each rung of the camera ladder does to the mix — one row per `CameraMode`.                                                                                                                                                     |
+| `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as eight layers: where each should be for a set of revs, a throttle, a load, a wet intake, the jet's slip and how far the exhaust has cleared the water.                                                   |
+| `pwa/src/game/audio/water-voice.ts`  | The hull in the water, the wind and the sea, as seven layers: the wash, the spray, the chop, the wind, the swell, the surf and its foam.                                                                                            |
+| `pwa/src/game/audio/rack.ts`         | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it.                                                                                                                                             |
+| `pwa/src/game/audio/ride-bed.ts`     | The scheduler: the state, once a frame, into every layer's target — and the one cue nothing reports, the slap.                                                                                                                      |
+| `pwa/src/game/audio/bird-voice.ts`   | What the birds say: which cry each species makes, how often on the wing and on the rock, how far off it is heard, and the hashed draw that deals a flock's cries per quarter second. **DOM-free, plan-free.**                       |
+| `pwa/src/game/audio/bird-bed.ts`     | The birds' scheduler: the one plan the renderer draws from, asked for by level; once a frame, which flocks are in earshot, how much of each is up, and the cries owed since the last frame — and the flush.                         |
+| `pwa/src/game/audio/index.ts`        | The front door `App.tsx` talks to: events in, the bed fed, the seat, `silence()`, `reset()`.                                                                                                                                        |
 
 ## An event, a cue, or a bed
 
@@ -78,7 +80,7 @@ noise. Three kinds of sound come out the other side:
   `CraftState`, and the bed decides when a slam is a slap — past a third of
   a g, at most one per seventh of a second, and never inside the three
   tenths after a landing, which the landing already owns. **Presentation
-  never becomes a `GameEvent`.**
+  never becomes a `GameEvent`.** The BIRDS are the other cue — see below.
 - **Beds** have no beginning and no end. They are LAYERS — see below.
 
 Every splash — a landing, a dive, a capsize, a reset — also leaves
@@ -210,6 +212,55 @@ panned through the input model's one screen flip), how big the ocean band is
 ones do; the FOAM is the same break's top end, the wash running up the sand a
 moment after each set.
 
+## What the birds say
+
+The sky is heard between things, never over them. The birds the renderer
+draws (`bird-plan.ts` — the flocks, their roosts, their loops, the skeins
+crossing on passage) cry through `bird-bed.ts`, which asks for the SAME plan
+(`birdPlanFor`, kept against the level), so the ear and the eye agree without
+either being told about the other. Six of the eight speak (`bird-voice.ts`, `BIRD_CALLS`): the gull's
+'kyow' — a driven sawtooth gliding down through a nasal band with the throat's
+wobble on it, the everyday racket off the skerries; the tern's 'kee-arr', the
+harshest and smallest; the drake eider's soft 'ah-ooo' off a raft, the quietest
+on purpose; the goose's nasal double honk, the whooper's rising bugle and the
+crane's rattling trumpet, which are what a skein going over sounds like from
+a hundred metres down. The cormorant and the eagle keep quiet: the eagle's
+thin yelp is a thing a coast hears a few times a year, and its silence over
+the water is the character. Every cry is a small driven oscillator with its
+own FORMANT (a bandpass sat where the syrinx resonates) and a glide, because
+every call a bird makes is a glide; the long ones sit on the echo bus so they
+come off the shore. All of them are authored under the water's smallest
+splash, and `tests/audio_test.ts` holds them there.
+
+**A cry is a cue, never an event**, and it is a HASH, not a die. Each species
+has a rate per bird per minute on the wing and another at rest (`callRate`,
+blended by how much of the flock is up — `flightShare`, read off the plan
+without posing a bird — and with the roost dimmed toward a night floor by
+the same sun the sky is lit by). The bed turns that into a chance per
+quarter-second slot (Poisson, capped so a bigger flock is not a busier one)
+and draws each slot of the window since the last frame off the flock's own
+scatter with `hash2` — the draw the plan places its birds with — so a seed
+cries the same cries on every ride, a replay cries them again, and nothing
+touches `state.rng`. A flock is heard from where it IS (its rock at rest, its
+beat in the air), at its authored level inside a reference distance and on
+the inverse square past it, faded to nothing over the last third of its
+reach; panned to the side it stands through the input model's one screen
+flip; and pitched a little differently every time, because a colony is many
+throats. A skein is heard from its leader with the height in the distance,
+so it is faint by construction. The window a frame owes is capped at a
+second, and `silence()` forgets it, so a tab that was away for a minute does
+not come back to a minute of gulls at once.
+
+**The flush is the one bird sound the craft causes.** The rule — a raft or a
+shore flock goes up for a hull inside `FLUSH_RADIUS` of its home, re-armed
+only once the flush is over — is `flushAt` in `bird-plan.ts`, stated once
+and kept twice: the renderer's memory draws the raft going up, the bed's
+plays it. The eider's whirr (pink bursts at a wingbeat's cadence, each softer
+than the last as the birds clear the surface, over a wash of the water they
+threw) and three shouts of the flock's own cry, louder than an ordinary one
+and spread over the second the birds take to get up, booked on the ENGINE's
+clock so a pause holds them with the run.
+
 ## The listener
 
 The picture moves from the foredeck to a helicopter and the sound moves with
@@ -278,5 +329,9 @@ with the pace, only the wind survives the air, the surf falls with the
 distance to the shore and breathes inside its floor, the listener has a row
 per rung, the bed builds its layers once and steers them every frame, books
 nothing ahead, rebuilds them on a replaced context, says its silence, raises
-the slap once per gap and never inside a landing — and every cutoff,
-authored or steered, stays under the headset's Nyquist.
+the slap once per gap and never inside a landing, every bird that speaks
+names a sound the bank has and stays under the smallest splash, the cries
+are dealt the same twice and never two in a slot, a flock is heard within
+its reach and not past it, a flushed raft shouts once and forgets it on a
+reset, and the bird bed follows the seat, the duck and its silence — and
+every cutoff, authored or steered, stays under the headset's Nyquist.
