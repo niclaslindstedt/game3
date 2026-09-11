@@ -378,14 +378,6 @@ canvas {
   z-index: 1600;
 }
 
-/* The row the new-build mark stands on its own in with the HUD switched off
-   (App.tsx) — the readouts are gone, and the notice is not one of them. */
-.hud-topright-row {
-  display: flex;
-  align-items: flex-start;
-  gap: 0.5rem;
-}
-
 /* THE TWO PRESSES, side by side under the map: two targets a thumb finds
    without leaving the water, hung off the one square in this corner whose
    size and place the rider already knows (hud-actions.tsx). */
@@ -465,16 +457,23 @@ canvas {
 
 /* ── The new-build button ────────────────────────────────────────────────
 
-   A mark at the end of the top bar, and nothing more: an update is never
-   urgent, so it is offered rather than announced. It stands there because
-   every other edge of this screen is spoken for — the instrument panel and
-   the build stamp bottom-left, the air time and the news column
-   bottom-right, and on a phone the lower three fifths is the two thumb
-   zones.
+   A mark in the bottom-right corner, and nothing more: an update is never
+   urgent, so it is offered rather than announced. It is the foot of the news
+   column (`.hud-right`), which is how it keeps the corner to itself — a
+   flash arriving stacks ABOVE it rather than pushing it about — and the same
+   corner holds it over the front door, where a deploy is most likely to be
+   seen landing.
 
-   It wears the RESET button's chrome (`.hud-mini`) so the row reads as one
-   row, and is a circle until the first press turns it into a word. Small
-   enough that it takes no room from the vane beside it. */
+   ON A PHONE IT STANDS INSIDE THE LEVER'S GLASS, which is the cost of this
+   corner and is paid rather than argued away: `.hud-right` carries the
+   `z-index` that wins the hit test, so the throttle loses one button's worth
+   of anchor in the very corner — the poorest place on that glass to start a
+   downward drag — and the two-press arming is what keeps a stray thumb from
+   reloading the page out from under a run.
+
+   It wears the RESET button's chrome (`.hud-mini`'s colours) so every plate
+   on this screen reads as one set, and is a circle until the first press
+   turns it into a word. */
 .update-nudge {
   display: flex;
   align-items: center;
@@ -964,9 +963,19 @@ canvas {
   font-variant-numeric: tabular-nums;
 }
 
-/* The bottom-right corner: the news column. */
+/* The bottom-right corner: the news column, with the new-build mark pinned
+   under it (hud.tsx, and App.tsx over the front door). The column grows
+   UPWARD from the corner, so the mark keeps the corner and the flashes stack
+   over it.
+
+   `z-index` for the same reason `.hud-topright` carries one: `.hud-touch` is
+   a later sibling, and at `auto` the lever's glass would win the hit test
+   over the whole of this corner and eat the one press the app ever asks for.
+   The flashes are not pressable, so nothing else here takes glass from the
+   thumb. */
 .hud-right {
   position: absolute;
+  z-index: 1;
   right: max(1rem, env(safe-area-inset-right));
   bottom: max(1rem, env(safe-area-inset-bottom));
   display: flex;
@@ -1105,13 +1114,17 @@ canvas {
    middle. The bar or the lever anchors wherever the thumb lands in its zone.
 
    WHY A PROPORTION, AND WHY IT IS A FLOOR RATHER THAN THE WHOLE RULE. The
-   readouts and their two buttons (RESET, and the new-build mark that hangs
-   under the cluster in portrait) are sized in clamped rem, so the top-right
-   cluster is a FIXED number of pixels tall while the zone's top is a
-   fraction of the viewport. The shorter the screen, the further the zone
-   climbs into that cluster, and a zone that reaches a button eats the
-   press: at 375×667 the lever zone covered the new-build mark completely,
-   so tapping it opened the throttle instead.
+   readouts and their two presses (RESET and CAMERA, hung under the map) are
+   sized in clamped rem, so the top-right cluster is a FIXED number of pixels
+   tall while the zone's top is a fraction of the viewport. The shorter the
+   screen, the further the zone climbs into that cluster, and a zone that
+   reaches a button eats the press: at 375×667 a bare 22% covered the
+   cluster's foot completely, so tapping a button there opened the throttle
+   instead.
+
+   THE NEW-BUILD MARK IS THE ONE PRESS THIS RULE DOES NOT COVER: it sits in
+   the bottom-right corner, deep inside the lever's own zone by design, and
+   keeps its press on `z-index` instead (`.hud-right`).
 
    So the top is the LOWER of the two: three fifths of the screen is where a
    thumb on a held phone can reach, and it is taken unless the cluster
@@ -1293,19 +1306,6 @@ canvas {
 
   .hud-right {
     max-width: 46vw;
-  }
-
-  /* The new-build button drops out of the top row and hangs UNDER the
-     cluster: 390 px has no width for a third thing beside two touch targets
-     sized off the map, and the word the mark becomes when armed needs sixty
-     px more again. Anchored to the cluster it left (which is itself
-     absolute), so it follows the map's own height instead of restating it,
-     and arming widens it leftward into empty sky. */
-  .hud-topright .update-nudge {
-    position: absolute;
-    top: 100%;
-    right: 0;
-    margin-top: 0.35rem;
   }
 
   .hud-flash {

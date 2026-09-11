@@ -155,11 +155,6 @@ export function Hud({
       </div>
 
       <div class="hud-topright">
-        {/* Nothing on the days there is no new build, which is nearly all of
-            them: it draws itself or it draws nothing. Over the map rather
-            than under it, so a mark that appears out of nowhere never moves
-            the two presses a thumb has learned the place of. */}
-        <UpdateButton />
         <Minimap map={snap.minimap} onOpen={onPause} />
         {/* THE PRESSES, UNDER THE MAP. The map is the thing in this corner
             that is LOOKED at, so it takes the top of it, hard against the
@@ -226,6 +221,12 @@ export function Hud({
             </span>
           ))}
         </div>
+        {/* Nothing on the days there is no new build, which is nearly all of
+            them: it draws itself or it draws nothing. At the FOOT of this
+            column, so it is the one thing pinned to the corner and the news
+            stacks above it — a flash that arrives never moves a button a
+            thumb is on its way to. */}
+        <UpdateButton />
       </div>
 
       {/* §38.3: the build says what it is — version and commit, linked to

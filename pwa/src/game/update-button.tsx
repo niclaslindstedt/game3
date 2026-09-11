@@ -4,37 +4,38 @@
 //
 // A BUTTON, NOT A CARD. An update that arrives is never urgent — the build
 // in the tab keeps riding, and the new one installs whenever the player
-// feels like it — so it gets a mark in the top bar and nothing else: no
+// feels like it — so it gets a mark in a corner and nothing else: no
 // heading, no version line, no plate lying across the water. Being this
 // small is also why there is no way to dismiss it: ignoring it costs less
 // than the press that would have hidden it.
 //
-// WHY THE TOP BAR, when the sibling game puts the same mark in a bottom
-// corner: on this screen neither bottom corner is free. The left is the
-// instrument panel with the build stamp under it, and the right is the air
-// time and the news column — and on a phone the lower three fifths is the
-// two thumb zones, the throttle lever's being exactly the right-hand one.
-// The top-right cluster is above both zones and already holds a button
-// (RESET), so the mark stands at the end of that row. In portrait this mark
-// hangs UNDER the cluster, which is the part that has to clear the lever
-// zone — styles.css argues that clearance where it sets the zone's top.
+// THE BOTTOM-RIGHT CORNER, which is the sibling game's corner for the same
+// mark. It goes at the FOOT of the news column (`.hud-right`), the one place
+// on this screen where a thing can be pinned to a corner and still have
+// somewhere to grow: a flash arrives above it, and the mark itself never
+// moves. Never over the minimap — the map is what is LOOKED at while the sea
+// is moving, and a mark that appears out of nowhere above it pushes the whole
+// cluster, the two presses a thumb has learned the place of included.
+//
+// ON A PHONE THIS CORNER IS THE LEVER'S GLASS. The lower three fifths of the
+// screen is the two thumb zones and the right-hand one is the throttle, so
+// this mark stands inside it and keeps its press on `z-index` alone
+// (styles.css, `.hud-right`). What the throttle loses is one button's worth
+// of anchor in the very corner — the last place on that glass a thumb would
+// start a downward drag from — and what stops a stray tap from reloading the
+// page is the arming below, not the geometry.
 //
 // THE SAME CORNER ON THE FRONT DOOR. A deploy that lands while a tab is open
 // most often lands on a tab nobody is riding, so a mark only a RUN could show
 // is a mark most players would never see — `App.tsx` stands it in the same
 // corner, in the same chrome, over the menu, lifted over the card's wash
-// (styles.css's `.hud-over-card`). Measured at both reference viewports: the
-// cards are centred and clear it everywhere except OPTIONS at 390×844, which
-// is tall enough that the mark overhangs its top-right corner by a couple of
-// pixels — over the card's edge, not over a control, and the corner it would
-// have to move to is under a card on that viewport too.
+// (styles.css's `.hud-over-card`).
 //
 // TWO PRESSES, because the press throws the run away: the page reloads onto
-// the new build and the ride in progress goes with it, and this mark stands
-// one gap from the RESET button. The first press arms it and the mark
-// becomes the word; the second reloads. It disarms itself after a few
-// seconds, so a mis-tap decays back to a corner mark rather than sitting
-// there loaded. The word is RELOAD rather than RESTART because Enter
+// the new build and the ride in progress goes with it. The first press arms
+// it and the mark becomes the word; the second reloads. It disarms itself
+// after a few seconds, so a mis-tap decays back to a corner mark rather than
+// sitting there loaded. The word is RELOAD rather than RESTART because Enter
 // already restarts the RUN, and one screen may not spell two things alike.
 //
 // The state it renders comes from `lib/pwa-update.ts`; only the look, the
