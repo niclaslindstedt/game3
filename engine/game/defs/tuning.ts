@@ -646,6 +646,35 @@ export const TUNING = {
      * nozzle per (m/s)² — the sponsons and the hull's turned attitude turn
      * it a little without thrust, the way a real one barely answers. */
     keelYaw: 0.6,
+    /** THE HIGH-SPEED STEER — how much more everything the nozzle is worth
+     * (the jet's side thrust and `keelYaw` alike) buys at the craft's OWN
+     * top speed, ramping in with the square of the speed so the bottom half
+     * of the range barely moves.
+     *
+     * An ARCADE DIAL, and what asks for it is geometry rather than the
+     * pump: a turn rate is the lateral acceleration over the speed, so the
+     * same force on the same hull swings it half as fast at twice the
+     * speed. An honest model therefore hands the rider a machine that stops
+     * answering the bars exactly where a course needs it most — and the 90s
+     * arcade generation this game is measured against did not.
+     *
+     * MEASURED on the flat strip, full lock held for 4 s from 0.95 of each
+     * craft's top speed: degrees of heading turned, and the tightest radius
+     * it comes round at, m — at 0 and at this value.
+     *
+     *   craft      deg →        radius →
+     *   skiff    121   134      40.5  33.4
+     *   marlin   112   120      40.8  38.7
+     *   otter     91   104      54.6  46.9
+     *   dart     145   161      26.0  23.0
+     *
+     * — about a tenth more turn for a tenth off the radius, nothing at all
+     * below half speed, and SUB-LINEAR past here: another 0.1 on the dial is
+     * worth about 2 % more turn, because at these speeds most of the yaw is
+     * already the hull's own. What holds it where it is rather than higher is
+     * `make sim` over eight seeds: at 0.35 every craft's pace rises and the
+     * resets halve, and at 0.45 the bot starts grounding instead. */
+    steerHighSpeed: 0.35,
   },
 
   /** THE RIDER as a point mass the inputs move (`craft.ts`). */
