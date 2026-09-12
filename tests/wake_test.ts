@@ -12,6 +12,7 @@ import {
   BRAKE_PACE_FULL,
   BRAKE_ROAD_WIDEN,
   CRATER_LIFE,
+  CUSP_WAVE,
   FAN_HALF_MAX,
   FAN_LIFE,
   KELVIN_TAN,
@@ -21,9 +22,13 @@ import {
   SPEED_MIN,
   SPLASH_LIFE,
   SPLASH_STATIONS,
+  TURN_FULL,
   WAKE_HEIGHT,
+  WAKE_MAP_BACK,
+  WAKE_REACH,
   brakeMark,
   fanAt,
+  fanCusp,
   fanHalf,
   hullMark,
   roadAt,
@@ -32,6 +37,8 @@ import {
   splashAt,
   splashReach,
   splashStations,
+  trailAction,
+  turnBias,
   wakeSection,
   washOf,
 } from "../pwa/src/game/wake-profile.ts";
@@ -47,11 +54,21 @@ describe("the road", () => {
   });
 
   it("is widest at the transom — the boil — and necks in behind it", () => {
+    // The narrowest the road ever is comes AFTER the transom, not at it:
+    // the boil's bulb collapses in under a second, the road necks in behind
+    // it, and only then does it start creeping wider again.
     const transom = roadHalf(BEAM, 15, 0);
-    const behind = roadHalf(BEAM, 15, 3 * BOIL_LIFE);
-    expect(transom).toBeGreaterThan(behind * 1.4);
-    // …then spreads, slowly, with age.
-    expect(roadHalf(BEAM, 15, ROAD_LIFE)).toBeGreaterThan(behind);
+    let neck = Infinity;
+    let neckAge = 0;
+    for (let age = 0; age < ROAD_LIFE; age += 0.05) {
+      const half = roadHalf(BEAM, 15, age);
+      if (half < neck) [neck, neckAge] = [half, age];
+    }
+    expect(neckAge).toBeGreaterThan(BOIL_LIFE);
+    expect(transom).toBeGreaterThan(neck * 1.3);
+    // …then spreads, slowly, with age — the road is the THIN bright line
+    // down the middle of the photograph; what opens is the fan round it.
+    expect(roadHalf(BEAM, 15, ROAD_LIFE)).toBeGreaterThan(neck);
   });
 
   it("outlives its boil and fades into nothing, never negative", () => {
@@ -100,17 +117,81 @@ describe("the road", () => {
 
 describe("the fan", () => {
   it("spreads at Kelvin's angle with the speed, up to a cap", () => {
-    const slow = fanHalf(BEAM, 5, 2);
-    const fast = fanHalf(BEAM, 15, 2);
-    expect(fast - slow).toBeCloseTo(10 * 2 * KELVIN_TAN, 5);
-    expect(fanHalf(BEAM, 30, FAN_LIFE)).toBe(FAN_HALF_MAX);
+    // The V opens at Kelvin's angle with the speed the hull was making. The
+    // cusps ride on top of that, so the claim is the RATE: twice the age,
+    // twice the spread, whatever the wobble at this point along the trail.
+    const at = (speed: number, age: number) => fanHalf(BEAM, speed, age);
+    expect((at(15, 2) - at(5, 2)) / (at(15, 4) - at(5, 4))).toBeCloseTo(0.5, 5);
+    expect(at(15, 4) - at(5, 4)).toBeGreaterThan(10 * 4 * KELVIN_TAN * 0.9);
+    // …and the cap holds it: a faster hull does not open a wider V once it
+    // is there, and the cap is a width, not a wobble.
+    expect(at(30, FAN_LIFE)).toBe(at(60, FAN_LIFE));
+    expect(at(30, FAN_LIFE)).toBeGreaterThan(FAN_HALF_MAX * 0.9);
+    expect(at(30, FAN_LIFE)).toBeLessThan(FAN_HALF_MAX * 1.1);
   });
 
-  it("is aerated water with a bow wave along its edge, paler than the road", () => {
+  it("keeps opening the length of the trail, and is still white where it ends", () => {
+    // The aerial photographs' claim: the V is wider every metre further
+    // back, and the trail leaves the frame white rather than fading out
+    // inside it. The map reaches WAKE_MAP_BACK + WAKE_REACH behind the
+    // craft, so the whole of it must still be opening and still lit.
+    const reach = WAKE_MAP_BACK + WAKE_REACH;
+    const speed = 20;
+    const edge = reach / speed;
+    expect(edge).toBeLessThan(FAN_LIFE);
+    expect(fanHalf(BEAM, speed, edge)).toBeGreaterThan(fanHalf(BEAM, speed, edge / 2) * 1.5);
     const s = wakeSection();
-    fanAt(0.85, 0.5, 15, 1, s);
+    fanAt(0.8, edge, speed, 1, s);
+    expect(s.foam).toBeGreaterThan(0.2);
+    // …and the road under it outlives the map too.
+    expect(ROAD_LIFE).toBeGreaterThan(edge);
+  });
+
+  it("is two rails at the transom and a filled wedge once it has aged", () => {
+    // The reference photograph twice over: right behind the hull the fan is
+    // a pair of diverging crests with merely aerated water between them;
+    // several seconds back the rails have broken inward and the whole
+    // wedge is broken white.
+    const s = wakeSection();
+    fanAt(0.8, 0.2, 15, 1, s);
+    const railYoung = s.foam;
+    fanAt(0.2, 0.2, 15, 1, s);
+    const middleYoung = s.foam;
+    expect(railYoung).toBeGreaterThan(middleYoung * 4);
+    fanAt(0.2, 3, 15, 1, s);
+    const middleOld = s.foam;
+    expect(middleOld).toBeGreaterThan(middleYoung);
+    fanAt(0.8, 3, 15, 1, s);
+    expect(middleOld).toBeGreaterThan(s.foam * 0.6);
+  });
+
+  it("carries most of the white in the picture, and settles before it pales", () => {
+    const s = wakeSection();
+    // The fan, not the road, is what an aerial photograph is mostly made
+    // of: past the boil it covers many times the water the road does, at a
+    // share the lace still draws as white rather than as a chain of
+    // speckles. The first pass had the fan at half this and it read as a
+    // grey smear beside the road.
+    expect(fanHalf(BEAM, 15, 2)).toBeGreaterThan(roadHalf(BEAM, 15, 2) * 4);
+    fanAt(0.8, 2, 15, 1, s);
+    expect(s.foam).toBeGreaterThan(0.45);
+    const rail = { ...s };
+    // …but the rails have not separated from the boil AT the transom, where
+    // laying them on top of the road only saturates the lace into a blanket.
+    fanAt(0.8, 0.02, 15, 1, s);
+    expect(s.foam).toBeLessThan(rail.foam * 0.25);
+    // The surface settles long before the bubbles pop: a section still
+    // white at four seconds is no longer stirring the water it lies in.
+    fanAt(0.8, 4, 15, 1, s);
+    expect(s.foam).toBeGreaterThan(0.2);
+    expect(s.churn).toBeLessThan(rail.churn * 0.5);
+  });
+
+  it("has a bow wave along its edge, with flat water toward the road", () => {
+    const s = wakeSection();
+    fanAt(0.8, 0.5, 15, 1, s);
     const edge = { ...s };
-    fanAt(0.55, 0.5, 15, 1, s);
+    fanAt(0.5, 0.5, 15, 1, s);
     const behind = { ...s };
     fanAt(0.1, 0.5, 15, 1, s);
     const inside = { ...s };
@@ -122,20 +203,62 @@ describe("the fan", () => {
     expect(behind.up).toBe(0);
     expect(inside.down).toBe(0);
     expect(edge.foam).toBeGreaterThan(inside.foam);
-    expect(edge.foam).toBeLessThan(0.5);
-    roadAt(0, 0.5, 15, 1, s);
-    expect(s.foam).toBeGreaterThan(edge.foam);
     fanAt(1, 0.5, 15, 1, s);
     expect(s.cover).toBe(0);
     fanAt(0, FAN_LIFE + 0.01, 15, 1, s);
     expect(s.cover).toBe(0);
   });
 
+  it("breaks its edge into crescents anchored to the water, not to the craft", () => {
+    // The cusps must stand still while the craft runs away from them: the
+    // wobble is a function of the sample's distance along the trail alone.
+    const at = (run: number) => fanHalf(BEAM, 15, 2, run);
+    const runs = Array.from({ length: 64 }, (_, i) => at(i * 0.25));
+    const spread = Math.max(...runs) - Math.min(...runs);
+    expect(spread).toBeGreaterThan(0.1);
+    expect(at(3)).toBe(at(3));
+    // …and it is a wobble, not a ripple: two wavelengths that do not divide
+    // one another, so no short window repeats.
+    expect(fanCusp(0)).not.toBeCloseTo(fanCusp(CUSP_WAVE), 3);
+    // A cusp that bulges is brighter than the notch beside it.
+    const s = wakeSection();
+    let brightest = 0;
+    let dimmest = 1;
+    for (let i = 0; i < 64; i++) {
+      fanAt(0.8, 1, 15, 1, s, i * 0.25);
+      brightest = Math.max(brightest, s.foam);
+      dimmest = Math.min(dimmest, s.foam);
+    }
+    expect(brightest).toBeGreaterThan(dimmest * 1.2);
+  });
+
+  it("throws its wash to the OUTSIDE of a carve and lays little on the inside", () => {
+    // Turning toward +s (the craft's right) makes the LEFT the outside.
+    const right = TURN_FULL;
+    expect(turnBias(-1, right)).toBeCloseTo(1, 5);
+    expect(turnBias(1, right)).toBeCloseTo(-1, 5);
+    expect(turnBias(1, 0)).toBe(0);
+    expect(turnBias(0, right)).toBe(0);
+    // Symmetric running straight; thrown wide and whiter outboard carving.
+    expect(fanHalf(BEAM, 15, 2, 0, turnBias(-1, 0))).toBeCloseTo(
+      fanHalf(BEAM, 15, 2, 0, turnBias(1, 0)),
+      5,
+    );
+    const outside = fanHalf(BEAM, 15, 2, 0, turnBias(-1, right));
+    const inside = fanHalf(BEAM, 15, 2, 0, turnBias(1, right));
+    expect(outside).toBeGreaterThan(inside * 1.8);
+    const s = wakeSection();
+    fanAt(-0.8, 1, 15, 1, s, 0, turnBias(-1, right));
+    const outFoam = s.foam;
+    fanAt(0.8, 1, 15, 1, s, 0, turnBias(1, right));
+    expect(outFoam).toBeGreaterThan(s.foam * 1.8);
+  });
+
   it("is stirred, not whitened, by a crawl", () => {
     const s = wakeSection();
     const crawl = SPEED_MIN - 0.5;
     expect(washOf(crawl)).toBeGreaterThan(0);
-    fanAt(0.85, 0.3, crawl, roadStrength(crawl, 1), s);
+    fanAt(0.8, 0.3, crawl, roadStrength(crawl, 1), s);
     expect(s.foam).toBe(0);
     expect(s.churn).toBeGreaterThan(0);
     expect(s.up).toBeGreaterThan(0);
@@ -143,7 +266,7 @@ describe("the fan", () => {
     // bow wave — the wave grows with the square of the wash.
     const stirred = s.churn;
     const lifted = s.up;
-    fanAt(0.85, 0.3, 15, roadStrength(15, 1), s);
+    fanAt(0.8, 0.3, 15, roadStrength(15, 1), s);
     expect(s.churn).toBeGreaterThan(stirred);
     expect(s.up).toBeGreaterThan(lifted * 4);
     expect(s.foam).toBeGreaterThan(0);
@@ -284,5 +407,30 @@ describe("the brake", () => {
   it("lays a wider road behind a braking hull than a driven one", () => {
     expect(BRAKE_ROAD_WIDEN).toBeGreaterThan(0);
     expect(roadHalf(BEAM * (1 + BRAKE_ROAD_WIDEN), 10, 1)).toBeGreaterThan(roadHalf(BEAM, 10, 1));
+  });
+});
+
+describe("the trail's breaks", () => {
+  it("closes where the hull leaves the water and OPENS where it comes back", () => {
+    // The landing bug, as arithmetic. A trail is one ribbon, so a dead row
+    // stitched straight to the next live one spans the whole flight with a
+    // single quad — a wedge of road pointing back at the take-off, which is
+    // the one stretch of water there is no wake on. A trail that resumes
+    // must open with a dead row of its own so the void is spanned by two.
+    expect(trailAction(false, "sample", false)).toBe("close");
+    expect(trailAction(true, "gap", true)).toBe("open");
+    expect(trailAction(true, "gap", false)).toBe("open");
+    // The first sample of a run opens too: its neighbour is an unused slot
+    // sitting at the world's origin.
+    expect(trailAction(true, "none", true)).toBe("open");
+  });
+
+  it("lays a sample only once the transom has travelled, and closes once", () => {
+    expect(trailAction(true, "sample", true)).toBe("lay");
+    expect(trailAction(true, "sample", false)).toBe("none");
+    // Already closed, and still out of the water: nothing, however long the
+    // flight — one dead row, not one a step.
+    expect(trailAction(false, "gap", false)).toBe("none");
+    expect(trailAction(false, "none", true)).toBe("none");
   });
 });

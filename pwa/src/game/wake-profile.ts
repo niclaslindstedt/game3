@@ -18,13 +18,15 @@
 //              widest, whitest, most turbulent water in the picture, and
 //              gone in under a second, which is what necks the road in
 //              behind it.
-//   THE FAN    the V either side, Kelvin's angle whatever the speed, of
-//              water the hull has aerated rather than whitened: paler than
-//              the sea, speckled, its outer edge the diverging wave's crest
-//              and the one line in the fan that reads as foam. It spreads
-//              with SPEED — a crawl leaves a ripple, a craft on the plane
-//              leaves a fan a dozen metres across — and fades in a few
-//              seconds.
+//   THE FAN    the V either side, Kelvin's angle whatever the speed. At the
+//              transom it is a pair of rails — the diverging crests — with
+//              water the hull has merely aerated between them; with AGE the
+//              rails break inward until the whole wedge is broken white,
+//              and the wedge KEEPS OPENING the length of the trail. It is
+//              the fan, not the road, that carries most of the white in an
+//              aerial photograph, and it outlives the boil by many seconds:
+//              the trail leaves the frame still white rather than fading
+//              out inside it.
 //
 // Each section carries four things the map has a channel for: FOAM (the
 // white share, drawn by the water's own foam term), CHURN (how broken the
@@ -53,14 +55,22 @@ export const SPEED_FULL = 14;
 export const WASH_FULL = 8;
 
 /** How long the road's white lives, s, and the power its fade runs on —
- * steep at first, then a long pale tail. */
-export const ROAD_LIFE = 5;
+ * steep at first, then a long pale tail. The LIFE is what the reference
+ * photographs are about: a road still visible where it leaves the frame.
+ * The POWER must stay above one all the same, because the lace only cuts
+ * holes in the road once its share has come off full — hold the road near
+ * 1 for two seconds and the whole of it is a flat white blanket with no
+ * tile in it, which is what a 3× capture at the transom shows and a 1280 px
+ * frame does not. */
+export const ROAD_LIFE = 7;
 const ROAD_FADE_POWER = 1.2;
 /** The road's half-width at the transom as a share of the beam, what a m/s
- * of pace adds to it, m, and how fast it spreads with age, m/s. */
+ * of pace adds to it, m, and how fast it spreads with age, m/s. The road is
+ * the THIN bright line down the middle of the photograph — what opens is
+ * the fan round it — so it spreads slowly. */
 const ROAD_HALF_BEAM = 0.42;
 const ROAD_HALF_PER_SPEED = 0.008;
-const ROAD_SPREAD = 0.1;
+const ROAD_SPREAD = 0.12;
 /** Where the road's flat top ends, as a share of its half-width; outside it
  * the section feathers to nothing. */
 const ROAD_CORE = 0.55;
@@ -88,15 +98,73 @@ function relief(age: number, life: number): number {
   return (1 - Math.exp(-age / RELIEF_RISE)) * Math.exp(-age / life);
 }
 
-/** How long the fan's aeration lives, s; its half-width at the transom as a
- * share of the beam, and the most it may ever spread to, m. */
-export const FAN_LIFE = 3.2;
+/** How long the fan's foam lives, s, and the power its fade runs on — under
+ * one, so the wedge holds its white while it opens and then breaks into
+ * patches, rather than dissolving as fast as it spreads. Its half-width at
+ * the transom as a share of the beam, and the most it may ever spread to,
+ * m: the cap is past the far edge of the map, so the V is still opening
+ * wherever the rider can see it. */
+export const FAN_LIFE = 6;
+const FAN_FADE_POWER = 0.75;
 const FAN_HALF_BEAM = 0.6;
-export const FAN_HALF_MAX = 14;
-/** The fan's foam at full pace — light: the fan is aerated water, and only
- * its outer crest reads white — and its churn. */
-const FAN_FOAM = 0.4;
+export const FAN_HALF_MAX = 34;
+/** The fan's foam at full pace — the loudest white in the picture, which is
+ * what the aerial photographs say and the first pass did not: a fan at 0.4
+ * sat under the lace's threshold and read as a grey smear beside the road.
+ * Its churn, and the churn's own life, s — SHORTER than the foam's, because
+ * the surface settles long before the bubbles pop, and a churn as long-lived
+ * as the foam would hold the window shut over the whole wedge. */
+const FAN_FOAM = 0.7;
 const FAN_CHURN = 0.9;
+const FAN_CHURN_LIFE = 2.4;
+/** How long the rails take to SEPARATE from the boil, s. At the transom
+ * there is no fan yet — the diverging train has not left the chine — and a
+ * rail laid on top of the road there is buried in it anyway: all it does is
+ * drive the summed share past the lace's saturation, and a saturated share
+ * is a flat white blanket rather than white with the tile's holes cut in. */
+const FAN_RISE = 0.45;
+/** HOW THE WEDGE FILLS IN. At the transom the fan is two rails — the
+ * diverging crests — with aerated water between them; by `FAN_FILL_AGE`
+ * seconds the rails have broken inward and the whole wedge is white. The
+ * share the interior reaches, against the rails' own. */
+const FAN_FILL = 0.78;
+const FAN_FILL_AGE = 1.8;
+/** THE RAILS: where across the fan the broken crest stands, as shares of
+ * the half-width — full over the plateau, feathering in to `RAIL_FROM` and
+ * out to the rim. The fan's vertices are placed on these. */
+const RAIL_IN = 0.72;
+const RAIL_OUT = 0.88;
+const RAIL_FROM = 0.5;
+/** THE CUSPS: the edge of a real wake is not a ruled line but a row of
+ * crescents — the diverging train breaking one crest at a time — so the
+ * fan's half-width is wobbled along the TRAIL by two sines at
+ * incommensurate wavelengths, m, by this share of the half-width. Anchored
+ * to the sample's distance along the trail, never to its age, or the
+ * scallops would crawl down a wake that should be standing still in the
+ * water. */
+export const CUSP_WAVE = 3.7;
+const CUSP_WAVE_LONG = 6.1;
+const CUSP_SHARE = 0.07;
+/** …and how much of the rails' white a cusp carries with it: a crescent
+ * that bulges is brighter than the notch beside it. */
+const CUSP_FOAM = 0.3;
+/** THE TURN'S SHOULDER. A hull carving does not lay the symmetric V of a
+ * hull running straight: it throws its wash to the OUTSIDE of the turn,
+ * where the aerial photographs show a broad brilliant band, and lays
+ * almost nothing on the inside, where the hull is sliding away from the
+ * water it just left. The heading rate, rad/s, at which that bias is full,
+ * and how much wider and whiter the outside runs at it. */
+export const TURN_FULL = 0.7;
+const TURN_WIDEN = 0.5;
+const TURN_FOAM = 0.45;
+
+/** Which side of a turn a section's `s` is on: +1 fully the OUTSIDE, −1
+ * fully the inside, 0 on a hull running straight. `turn` is the heading
+ * rate, rad/s, positive turning toward +s (the craft's right). */
+export function turnBias(s: number, turn: number): number {
+  if (s === 0 || turn === 0) return 0;
+  return clamp((-Math.sign(s) * turn) / TURN_FULL, -1, 1);
+}
 /** THE BOW WAVE: the water the hull shoved aside, travelling outward along
  * the fan's edge as a crest with a trough drawn in behind it — how high the
  * crest stands and how deep the trough runs at full wash, m, and how long
@@ -109,11 +177,12 @@ const CREST = 0.18;
 const TROUGH = 0.09;
 const CREST_LIFE = 2.5;
 /** Where across the fan the crest stands, as a share of its half-width, and
- * where it rises from; the trough sits just inside it. */
-const RIDGE = 0.85;
-const RIDGE_FROM = 0.6;
-const TROUGH_AT = 0.55;
-const TROUGH_FROM = 0.3;
+ * where it rises from; the trough sits just inside it. The crest rides the
+ * rails, so these sit on the same stations. */
+const RIDGE = 0.8;
+const RIDGE_FROM = 0.62;
+const TROUGH_AT = 0.5;
+const TROUGH_FROM = 0.25;
 
 /** One cross-section's worth of a channel each: reused, never allocated. */
 export type WakeSection = {
@@ -152,10 +221,22 @@ export function roadHalf(beam: number, speed: number, age: number): number {
   );
 }
 
+/** The cusp wobble at `run` m along the trail, −1..1: two sines whose
+ * wavelengths do not divide one another, so the edge reads as crescents
+ * rather than as a ripple pattern. */
+export function fanCusp(run: number): number {
+  const a = Math.sin((2 * Math.PI * run) / CUSP_WAVE);
+  const b = Math.sin((2 * Math.PI * run) / CUSP_WAVE_LONG + 1.7);
+  return 0.6 * a + 0.4 * b;
+}
+
 /** The fan's half-width at an age, m: Kelvin's V at the speed the hull was
- * making, capped so a long trail at pace is not a map full of fan. */
-export function fanHalf(beam: number, speed: number, age: number): number {
-  return Math.min(FAN_HALF_MAX, beam * FAN_HALF_BEAM + age * speed * KELVIN_TAN);
+ * making, scalloped by where the sample sits along the trail (`run`, m),
+ * thrown wide on the outside of a turn (`bias`, `turnBias`) and capped so a
+ * long trail at pace is not a map full of fan. */
+export function fanHalf(beam: number, speed: number, age: number, run = 0, bias = 0): number {
+  const half = Math.min(FAN_HALF_MAX, beam * FAN_HALF_BEAM + age * speed * KELVIN_TAN);
+  return half * (1 + CUSP_SHARE * fanCusp(run)) * (1 + TURN_WIDEN * bias);
 }
 
 function smoothstep(a: number, b: number, x: number): number {
@@ -178,20 +259,35 @@ export function roadAt(s: number, age: number, speed: number, strength: number, 
   out.cover = age < ROAD_LIFE ? edge * edge : 0;
 }
 
-/** THE FAN'S SECTION at `s` across it (−1..1 of `fanHalf`). */
-export function fanAt(s: number, age: number, speed: number, strength: number, out: WakeSection) {
+/** THE FAN'S SECTION at `s` across it (−1..1 of `fanHalf`), for a sample
+ * laid `run` m back along the trail, on the `bias` side of a turn. */
+export function fanAt(
+  s: number,
+  age: number,
+  speed: number,
+  strength: number,
+  out: WakeSection,
+  run = 0,
+  bias = 0,
+) {
   const a = Math.abs(s);
   const wash = washOf(speed);
-  const life = Math.exp(-age / FAN_LIFE);
-  // The crest along the outer edge, and the aeration inside it fading
-  // toward the road: two profiles, the louder wins.
+  const life = Math.pow(Math.max(0, 1 - age / FAN_LIFE), FAN_FADE_POWER);
+  // The rails along the outer edge — the crests breaking — and the wedge
+  // between them, which starts as aerated water and fills with white as the
+  // rails break inward. The louder of the two wins, so a young section is
+  // two bands and an old one is a solid broken wedge.
+  const rail = smoothstep(RAIL_FROM, RAIL_IN, a) * (1 - smoothstep(RAIL_OUT, 1, a));
+  const fill = FAN_FILL * smoothstep(0, FAN_FILL_AGE, age) * (1 - smoothstep(RAIL_OUT, 1, a));
+  const profile = Math.max(rail * (1 + CUSP_FOAM * fanCusp(run)), fill) * (1 + TURN_FOAM * bias);
+  // The bow wave rides the rails: the crest at the fan's edge, the trough
+  // drawn in behind it.
   const ridge = smoothstep(RIDGE_FROM, RIDGE, a) * (1 - smoothstep(RIDGE, 1, a));
   const trough = smoothstep(TROUGH_FROM, TROUGH_AT, a) * (1 - smoothstep(TROUGH_AT, RIDGE_FROM, a));
-  const inside = 0.3 * (1 - a);
-  const profile = Math.max(ridge, inside);
   const wave = wash * wash * relief(age, CREST_LIFE);
-  out.foam = FAN_FOAM * strength * life * profile;
-  out.churn = FAN_CHURN * wash * life * profile;
+  const rise = smoothstep(0, FAN_RISE, age);
+  out.foam = Math.max(0, FAN_FOAM * strength * life * rise * profile);
+  out.churn = FAN_CHURN * wash * Math.exp(-age / FAN_CHURN_LIFE) * Math.max(0, profile);
   out.up = CREST * wave * ridge;
   out.down = TROUGH * wave * trough;
   out.cover = age < FAN_LIFE ? 1 - smoothstep(0.9, 1, a) : 0;
@@ -411,6 +507,39 @@ export function brakeMark(
   out.ahead = length * (BRAKE_AHEAD + BRAKE_AHEAD_PACE * pace);
   out.along = length * (BRAKE_ALONG + BRAKE_ALONG_PACE * Math.abs(pace));
   out.across = beam * (BRAKE_ACROSS + BRAKE_ACROSS_PACE * Math.abs(pace));
+}
+
+// ── THE TRAIL'S BREAKS ────────────────────────────────────────────────
+// The trail is ONE ribbon of rows, so every row is stitched to the next
+// whether or not the hull was in the water between them. A flight is the
+// case that matters: the hull leaves the water, one dead row closes the
+// trail where it left, and the next live row is laid where it came down —
+// a whole air's worth of water away. Stitched, those two rows are a single
+// quad stretched across the entire flight, its white ramping from nothing
+// at the take-off to full at the touchdown: a wedge of road pointing back
+// at where the rider jumped from, which is the one place there is no wake.
+//
+// The cure is topological, not a number: a trail that RESUMES opens with a
+// dead row of its own, at the transom, so the void is spanned by two dead
+// rows — no width, no cover, no area — instead of by one dead row and one
+// live one. The same rule covers a hull backing up under its bucket, and
+// covers the first sample of a run, whose neighbour is an unused slot
+// sitting at the world's origin.
+
+/** What the end of the trail is: nothing yet, a row that closed it, or a
+ * live sample. */
+export type TrailEnd = "none" | "gap" | "sample";
+/** What a step does to it: nothing, close it where the hull left the water,
+ * open it again with a dead row at the transom, or lay a live sample. */
+export type TrailAction = "none" | "close" | "open" | "lay";
+
+/** The trail's next move, for a hull that is or is not laying a trail
+ * (`live`), an `end` as it stands, and whether the transom has travelled a
+ * sample's spacing since the last one (`moved`). */
+export function trailAction(live: boolean, end: TrailEnd, moved: boolean): TrailAction {
+  if (!live) return end === "sample" ? "close" : "none";
+  if (end !== "sample") return "open";
+  return moved ? "lay" : "none";
 }
 
 /** THE MAP the water shader reads the wake off: texels a side, and how far

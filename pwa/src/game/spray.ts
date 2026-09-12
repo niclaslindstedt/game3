@@ -11,8 +11,9 @@
 // leaves ON the water is not drawn here at all: it is stamped into the
 // wake's map (`wake.ts`) through the `stamp` handed in, and the water
 // shader draws it as it draws every other foam. The budget is spent where
-// the camera is: everything here happens within a hull length of the
-// craft, and the far water is left to the water mesh.
+// the camera is: all of it happens within the first second or so of trail —
+// on the hull, or out on the rails just astern where the wake is still
+// BREAKING — and the far water is left to the map and the water mesh.
 //
 // Two cadences, like the wake. `observe(state)` runs once per ENGINE STEP:
 // it reads the craft (`planing`, `wetted`, `throttleEff`, `bucket`,
@@ -44,6 +45,7 @@ import { TUNING, heightAt, rotate, type GameState } from "@engine";
 import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import { spriteTexture } from "./fx-textures.ts";
+import { fanHalf } from "./wake-profile.ts";
 
 /** Droplets in the pool. Dead ones cost a vertex and nothing else. */
 const POOL = 2400;
@@ -73,6 +75,34 @@ const TAIL_UP = 3;
 const TAIL_UP_PER_THROTTLE = 4.5;
 const TAIL_BACK = 3;
 const TAIL_BACK_PER_THROTTLE = 5;
+/** THE WAKE'S BREAK: the drops the trail itself throws.
+ *
+ * Everything else the craft throws is born ON the hull; this is born on the
+ * WATER, out on the two diverging crests a few metres astern, where the
+ * rails are folding over and breaking. It is what stops the trail reading
+ * as a decal: the map behind the craft is flat by construction — it is a
+ * texture on the surface — and the eye only believes broken water when
+ * some of it is in the AIR above the break. Further back than this the
+ * wake really is foam lying on the water and the map carries it alone.
+ *
+ * Droplets a second at full planing and pace; the ages along the trail,
+ * s, they are born between (the rails have separated from the boil by the
+ * first and are past breaking by the second); how far out and up off the
+ * crest they are thrown, m/s, and how much of the craft's own way they
+ * keep — a crest's drop is water the hull has already left behind, so it
+ * keeps very little. Finer and dimmer than the chine sheets and thrown in
+ * greater numbers: a sheet is water leaving the hull in a slab, a break is
+ * mist coming off a crest, and at the same size the two read as one effect. */
+const BREAK_RATE = 420;
+const BREAK_AGE_FROM = 0.25;
+const BREAK_AGE_TO = 1.1;
+const BREAK_OUT = 1.5;
+const BREAK_UP = 2.2;
+const BREAK_INHERIT = 0.12;
+/** How far above the water a crest's drop is born, m, and how far either
+ * side of the rail it may be: the break is a band, not a line. */
+const BREAK_LIFT = 0.08;
+const BREAK_SCATTER = 0.9;
 /** THE BUCKET BOIL: what the reverse gate makes instead of a tail.
  *
  * With the gate down the jet does not leave astern at all — it is turned
@@ -109,6 +139,15 @@ const PLUNGE_PER_RATE = 5;
  * and at a full slam, m. */
 const LAND_CRATER = 0.1;
 const LAND_CRATER_FULL = 0.22;
+/** THE LANDING'S PATCH: the disc the touchdown throws, as a share of the
+ * beam at a touch and at a full slam. A hull arriving from a long air
+ * throws the water SIDEWAYS — that burst, and the ring rolling out of it,
+ * is the whole mark a landing leaves. Nothing about it belongs BEHIND the
+ * craft: the road astern is what the hull lays once it is driving again. A
+ * full slam is wider than the relief blur, so the ring it throws actually
+ * moves water rather than sitting in the map unseen. */
+const LAND_PATCH = 1.2;
+const LAND_PATCH_FULL = 2.8;
 /** THE DIVE: the droplets the bow's wall throws, how hard it goes up and
  * how far along the hull it rises from (shares of the length from the
  * centre of gravity), and how much of the bow's depth the crater takes. */
@@ -319,6 +358,7 @@ export function createSpray(stamp: FoamStamp): Spray {
   let prevRighting = 0;
   let sheetAcc = 0;
   let tailAcc = 0;
+  let breakAcc = 0;
   let boilAcc = 0;
   const body = { x: 0, y: 0, z: 0 };
 
@@ -374,6 +414,38 @@ export function createSpray(stamp: FoamStamp): Spray {
         );
       }
     } else sheetAcc = 0;
+
+    // THE WAKE'S BREAK: drops off the two rails astern, where the diverging
+    // crests are folding over. Born on the WATER rather than on the hull —
+    // the rails are metres out to either side and the sea under them is not
+    // the sea under the keel — so the birth height is the surface itself,
+    // read where the drop actually starts (`heightAt`).
+    if (afloat && c.planing > 0.1 && c.speed > 6) {
+      breakAcc += budget * BREAK_RATE * c.planing * pace * dt;
+      while (breakAcc >= 1) {
+        breakAcc -= 1;
+        const side = rng() < 0.5 ? -1 : 1;
+        const age = BREAK_AGE_FROM + (BREAK_AGE_TO - BREAK_AGE_FROM) * rng();
+        const back = c.speed * age;
+        const out = fanHalf(spec.beam, c.speed, age) + (rng() - 0.5) * BREAK_SCATTER;
+        const x = c.x - fwdX * back + rightX * side * out;
+        const z = c.z - fwdZ * back + rightZ * side * out;
+        const y = heightAt(state.sea, state.level, x, z, state.t) + BREAK_LIFT;
+        const kick = (0.4 + 0.6 * rng()) * pace;
+        spawn(
+          x,
+          y,
+          z,
+          c.vx * BREAK_INHERIT + rightX * side * BREAK_OUT * kick,
+          BREAK_UP * kick,
+          c.vz * BREAK_INHERIT + rightZ * side * BREAK_OUT * kick,
+          0.3 + 0.3 * rng(),
+          0.1,
+          0.2 + 0.14 * pace,
+          0.62,
+        );
+      }
+    } else breakAcc = 0;
 
     // THE ROOSTER TAIL: the pump's jet breaking the surface behind the
     // transom, thrown up and back with the throttle — and only what the
@@ -459,7 +531,7 @@ export function createSpray(stamp: FoamStamp): Spray {
         c.x,
         c.z,
         state.t,
-        spec.beam * 1.2,
+        spec.beam * (LAND_PATCH + (LAND_PATCH_FULL - LAND_PATCH) * strength),
         0.5 + 0.5 * strength,
         LAND_CRATER + (LAND_CRATER_FULL - LAND_CRATER) * strength,
       );
@@ -656,6 +728,7 @@ export function createSpray(stamp: FoamStamp): Spray {
       life.fill(0);
       prevAirborne = false;
       prevVy = 0;
+      breakAcc = 0;
       prevSub = 0;
       prevOver = false;
       prevRighting = 0;
