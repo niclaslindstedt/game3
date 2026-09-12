@@ -112,6 +112,20 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
   compounds — is a sea that eventually throws the craft into orbit, on a
   seed nobody rendered. `tests/waves_test.ts`'s bounded-heights case
   sweeps for it.
+- **A DISTRIBUTION IS DRAWN FROM, NEVER WEIGHTED INTO THE ENERGY.** A
+  component gets its heading by inverse transform of the directional spread
+  (`spreadQuantile`), one equal-energy stratum each, and its amplitude from
+  the JONSWAP density alone. Folding the spread into the energy weight
+  instead — which is what `layBand` used to do — hands a component that
+  lands at the edge of the fan nearly no energy and lets its neighbours take
+  the whole sea, so a band of sixteen arrives as two or three waves, the
+  survivor can be steeper than any wave stands (`a·k` 0.63 against Michell's
+  0.44 over the corpus, and 100 % rms face in the open storm), and the sea
+  realises a third of the spread it is quoted at. The same rule holds for
+  the frequency: stratify inside the slice, never sit at its midpoint. The
+  check is one sweep per BAND over the seed corpus — the worst `c.amp *
+  c.k0` and the biggest single `amp² / Σamp²` — and it is worth running
+  whenever a band's width, count or draw changes.
 - **THE SPECTRUM READS THE FETCH, AND THE FETCH IS WHAT THE WIND CROSSED.**
   `Hs ∝ U √F` is the whole reason one stretch of a level is rougher than
   another, and the reason R12 draws the wind off the sea. `F` is NOT the
@@ -184,13 +198,18 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
    `offshore`, plateaus), the breaking cap (H/d ≤ 0.78 everywhere), bounded
    heights (a sweep over seeds, winds and points never exceeds the cap),
    and the wind's gust statistics.
-5. **Then the hull** — `make ride SCENARIO=chop` and `SCENARIO=swell`,
+5. **Measure the SLOPE, not only the height.** Hs is what the spectrum is
+   quoted at; the rms surface slope (and its p99) is what the hull feels and
+   what reads as a wave. A change that leaves Hs identical to three figures
+   can still move the slope a tenth — and a tenth of the slope is a quarter
+   of the air in a bot run.
+6. **Then the hull** — `make ride SCENARIO=chop` and `SCENARIO=swell`,
    because a sea change is a hull change: taller water is more slams, more
    launches, more dives. And `make sim`: the `Hs`, `air`, `dive` and `avg`
    columns are where a sea change shows.
-6. **LOOK.** `make build`, `make screenshots SCENE=swell` (and `chop`,
+7. **LOOK.** `make build`, `make screenshots SCENE=swell` (and `chop`,
    `offshore`) — the surface, the specular, the hull sitting IN the water.
-7. Docs: `docs/water.md` — the models, the constants, the lab.
+8. Docs: `docs/water.md` — the models, the constants, the lab.
 
 ## The traps
 

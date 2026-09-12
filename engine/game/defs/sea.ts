@@ -29,10 +29,25 @@
  * LONG (the scale), how SHARP (the shape), how CONFUSED (the spread),
  * and what WATER it stands in. `docs/water.md` has the whole board. */
 export const SEA = {
-  /** How many Gerstner components the field is summed from. Eight is
-   * enough to lose the visible periodicity of a single sine and few enough
-   * that the renderer can displace a two-hundred-metre mesh with it. */
-  components: 8,
+  /** How many components the field is summed from. Few enough that the
+   * renderer can displace a two-hundred-metre mesh with it — and this is
+   * ALSO how far the sea gets before it repeats, which is what calm water
+   * seen from the saddle is a picture of.
+   *
+   * A sum of n components beats against itself over roughly n/2 of its own
+   * wavelengths, because that is how far apart in frequency neighbouring
+   * components have to sit to cover the band: at eight that is a couple of
+   * hundred metres, well inside the drawn sea, and the swell out there
+   * reads as corduroy — a pattern, not a sea. MEASURED over the seed
+   * corpus as the biggest autocorrelation down the wind between 1.5 and 8
+   * peak wavelengths: 0.23 at eight, 0.21 at twelve, 0.14 at sixteen.
+   *
+   * It costs both ways and neither is free: one `surfaceAt` is ~6 ns a
+   * component against ~220 ns of fixed work, and `createSea` builds a
+   * PHASE FIELD per ocean component, which is 20 ms each — a third of a
+   * run's whole build at eight. Sixteen is where the repeat has left the
+   * drawn sea and the level still stands up in under a second. */
+  components: 16,
   /** The frequency band the components are laid over, as multiples of the
    * spectrum's peak: JONSWAP's energy sits between ~0.7 and ~2 f_p, and
    * the tail past 2.5 f_p is too short to feel through a hull. */
@@ -49,12 +64,39 @@ export const SEA = {
    * The floor is what the water mesh can still draw — 2.5 s is a ten-
    * metre wave, some six cells at the craft. */
   minPeriod: 2.5,
-  /** Directional spread half-width about the wind, radians (~35°) — a
-   * cos² spread (Longuet-Higgins 1963) truncated there. How CONFUSED
-   * the sea is across the frame: at 0 every component runs the same
-   * way and the sea is a corduroy of parallel crests; wide, the crests
-   * cross and the surface is a chop with no direction to it. */
+  /** Directional spread half-width AT THE PEAK, radians (~35°) — a cos²
+   * spread (Longuet-Higgins 1963) truncated there, drawn by inverse
+   * transform so a component's heading is distributed by it rather than
+   * merely weighted against it. How CONFUSED the sea is across the frame:
+   * at 0 every component runs the same way and the sea is a corduroy of
+   * parallel crests; wide, the crests cross and the surface is a chop
+   * with no direction to it. */
   spread: 0.6,
+  /** ...AND IT IS NARROWEST AT THE PEAK. A real sea is not one fan: the
+   * swell that carries the energy runs nearly together, and the shorter
+   * waves riding on it are increasingly confused, which is why open water
+   * reads as texture over order rather than as corduroy. Mitsuyasu et al.
+   * (1975) and Hasselmann et al. (1980) measure the spreading parameter s
+   * peaking at f_p and falling as (f/f_p)^5 below it and (f/f_p)^-2.5
+   * above; with D(θ) ∝ cos^2s(θ/2) the width goes as s^-1/2, so the
+   * HALF-WIDTH here is `spread` times (ω/ω_p) to these two exponents —
+   * three times the peak's width at 2.4 f_p, and wider still below it,
+   * where `spreadMax` is what actually holds the fan.
+   *
+   * MEASUREMENTS, not dials: change one and you are claiming the ocean's
+   * directional shape is wrong. */
+  spreadBelowPeak: -2.5,
+  spreadAbovePeak: 1.25,
+  /** ...held under this half-width, radians (~57°). The law above has no
+   * ceiling in it — at 4.8 f_p (the open ocean's short end) it asks for
+   * 2.2 rad, which is a component running back INTO the wind, and at the
+   * bottom of a band it asks for 1.5. Measured directional widths do not
+   * go past about this even in the tail (Mitsuyasu et al. 1975), and the
+   * eikonal is the other reason: a component crossing the wind
+   * this steeply enters the level's grid by one rim only, and the field
+   * swept from that rim alone holds |∇φ| = k(d) to a few per cent less
+   * well than one fed from two (`tests/waves_test.ts`). */
+  spreadMax: 1.0,
   /** JONSWAP's peak enhancement γ, dimensionless — how much of the
    * sea's energy sits AT the peak period rather than spread around it.
    * 3.3 is Hasselmann et al. (1973)'s mean for the North Sea and the
@@ -76,8 +118,19 @@ export const SEA = {
    * the bow every two seconds instead of every three — and over 1 it
    * stretches into a longer, gentler swell. Steepness Hs/L₀ goes as
    * `heightScale / periodScale²`, so these two together are the whole
-   * of how a wind sea reads. An ARCADE DIAL. */
-  periodScale: 1.0,
+   * of how a wind sea reads. An ARCADE DIAL.
+   *
+   * It is a twentieth under 1 to hold the sea's FACES where they have
+   * always been. A band's energy is sampled once per component, and at
+   * eight components the top slice of a log-spaced band is an octave
+   * wide — so the sea carried more of its energy at short wavelengths
+   * than its own spectrum says, and stood about a tenth steeper than
+   * JONSWAP asks for. Sampling the band finely enough to draw an
+   * unrepeating sea (`components`) took that tenth away with it, and the
+   * ride felt it: rms surface slope 4.35 % → 3.97 %, and a quarter off
+   * the air a bot run turns in. The dial puts it back where the accident
+   * had it, which is where it belongs — a number somebody chose. */
+  periodScale: 0.95,
   /** THE FETCH the level's shore is stood in front of. A level is a
    * kilometre of coast, but the fetch-limited growth laws work in tens of
    * kilometres: a hundred metres of real fetch grows a four-centimetre
@@ -217,14 +270,16 @@ export const SEA = {
    * — narrower than the ocean band's, because chop IS narrow: it is one
    * wind's answer over one short fetch.
    *
-   * FIVE of them over that narrow a band is more than the shape needs
-   * and is there for a different reason: a component's share of the
-   * energy carries the cos² directional weight, which VANISHES at the
-   * edge of the spread, so a band with few components can deal one
-   * draw most of the sea. MEASURED over the seed corpus — at three the
-   * steepest local component reached a·k 0.43, on the point of breaking
-   * and a face the renderer paints entirely in foam; at five the worst
-   * is 0.27, in line with the ocean band's own. */
+   * FIVE of them over that narrow a band is more than the shape needs,
+   * and the reason it once had — a component's share of the energy
+   * carried the cos² directional weight, which VANISHES at the edge of
+   * the spread, so a band with few components could deal one draw most
+   * of the sea — is gone: the heading is DRAWN through that cos² now
+   * (`spreadQuantile`) rather than weighted against it, and a component's
+   * energy is the spectrum's alone. What five still buys is the chop's
+   * own texture at close range, where the local band is most of what is
+   * under the hull. MEASURED over the seed corpus: the steepest local
+   * component reached a·k 0.32 while the draw was weighted, 0.15 now. */
   localBandLow: 0.8,
   localBandHigh: 1.8,
   /** THE OPEN OCEAN — the sea past the edge of the built level
@@ -274,17 +329,19 @@ export const SEA = {
      *
      * `minPeriod` is an ABSOLUTE floor in seconds, and against a slow
      * storm swell it asks for a band many times a coastal sea's frequency
-     * range on the same eight components. That breaks on the cos²
-     * directional weight, which VANISHES at the edge of the spread: when
-     * the longest component's draw lands out there its energy is
-     * normalised onto whatever is left, and across a wide band that is a
-     * far shorter wave. MEASURED over the seed corpus at a thousand-metre
-     * quote, the worst component reached a·k 0.89 with 90 % of its band's
-     * energy — a wave several times past breaking, which the renderer
-     * paints entirely in foam — and more components barely helped (0.49
-     * at twenty-four), because the width is the fault and not the
-     * resolution. At 4.8, which is what the twenty-metre storm has always
-     * had, the worst is 0.462 against that storm's own 0.461. */
+     * range on the same components — and a band that wide lumps: the
+     * worst component over the seed corpus reached a·k 0.89 carrying 90 %
+     * of its band's energy, several times past breaking and painted
+     * entirely in foam, where capping the band at a multiple of its OWN
+     * peak brought it to 0.462.
+     *
+     * The lumping itself has since been fixed at its source — the heading
+     * is drawn THROUGH the cos² spread rather than weighted against it,
+     * so no component is robbed of its spectral share by where it happens
+     * to point, and the corpus's worst open component is now a·k 0.148.
+     * The cap stays: a band that wide would still hand one component a
+     * whole octave of a spectrum, and 4.8 is what the twenty-metre storm
+     * has always had. */
     bandHigh: 4.8,
     /** The mean wind out there, m/s at 10 m. A violent storm, and not an
      * arbitrary one: it is about the wind a fully developed sea of twenty
@@ -401,7 +458,16 @@ export const WIND = {
      * rider is UP is how long the column holds him, and one with no top
      * held the roster at 150 m for seventeen seconds. SECONDS, not metres of
      * sea: against the ceiling it goes as the class SQUARED — 5 m and no
-     * lift at half, a 30 s hang at double. */
+     * lift at half, a 30 s hang at double.
+     *
+     * The HEIGHT is what these numbers hold, and the TIME follows from the
+     * sea as much as from them: a throw's apex is a bounded twenty-odd
+     * metres whatever the storm is shaped like, but how long it lasts is
+     * also how long the water under it takes to come back up. The median
+     * throw doubled, 5 s to 9 s, on the day the open band's energy stopped
+     * lumping into one breaking-steep component — the rms face out there
+     * fell from 100 % to 33 % and the apex did not move at all. Do not
+     * recalibrate these against a flight TIME; measure the apex. */
     column: { shore: 0.76, ocean: 0.85 },
     /** How far out the offshore field must read for the column to be the
      * OCEAN's rather than the shore's, m — a level's seaward reach does not

@@ -74,21 +74,32 @@ describe("the bot on the synthetic shore", () => {
   }
 
   it("rides the skerries' level without hitting them, and threads the ring", () => {
-    const report = simulateStage({
-      seed: 3,
-      craft: "skiff",
-      level: syntheticLevel({ windSpeed: 5 }),
-      maxSeconds: 120,
-    });
-    expect(report.finished).toBe(true);
-    expect(report.hits).toBe(0);
     // The rocks and the ring are what this case is about. A buoy is not:
     // under this shore's 0.8 m beam sea the bot weaves several metres
     // either side of the line at 80 km/h, and on some seeds that puts it
     // a metre outside a buoy, which the engine charges and the rider
     // carries on from (`course.missWide`) rather than looping back for.
-    expect(report.gatesMissed).toBeLessThanOrEqual(1);
-    expect(report.events.some((e) => e.kind === "airGate")).toBe(true);
+    //
+    // OVER A HANDFUL OF SEEDS, and not one: the sea a seed deals is a draw,
+    // and whether the run up to the ramp is clean enough to leave the deck
+    // on the ring's line is a draw with it. One seed passing says the bot
+    // got a good sea, and a case pinned to one is a case that fails the
+    // next time the wave field legitimately changes.
+    const seeds = [1, 2, 3, 4, 5];
+    let threaded = 0;
+    for (const seed of seeds) {
+      const report = simulateStage({
+        seed,
+        craft: "skiff",
+        level: syntheticLevel({ windSpeed: 5 }),
+        maxSeconds: 120,
+      });
+      expect(report.finished, `seed ${seed}`).toBe(true);
+      expect(report.hits, `seed ${seed}`).toBe(0);
+      expect(report.gatesMissed, `seed ${seed}`).toBeLessThanOrEqual(1);
+      if (report.events.some((e) => e.kind === "airGate")) threaded++;
+    }
+    expect(threaded).toBeGreaterThanOrEqual(seeds.length - 1);
   });
 });
 
