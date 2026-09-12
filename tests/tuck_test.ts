@@ -76,6 +76,27 @@ function flatOut(
   return { top, t50, t90 };
 }
 
+/** How far ahead the tucked rider is, km/h, `seconds` into a flat-out run
+ * along the strip into `windSpeed` of head wind. */
+function leadAt(seconds: number, windSpeed: number): number {
+  const run = (crouch: number): number => {
+    const state = createGame({
+      seed: 1,
+      craft: "skiff",
+      level: STRIP,
+      wind: { from: EAST, speed: windSpeed },
+      sea: { hs: 0.01 },
+      assist: 0,
+      quiet: true,
+    });
+    placeRun(state, { x: -50, z: 400, heading: EAST });
+    const input = ride({ crouch });
+    for (let i = 0; i < seconds * TUNING.physicsHz; i++) step(state, input);
+    return state.craft.speed * 3.6;
+  };
+  return run(1) - run(0);
+}
+
 /** The radius of a full-lock turn, m, entered at the SAME speed whether
  * tucked or not: radius goes as v², so letting each hand enter at its own
  * ceiling would credit the tuck with a turn it had not lost. */
@@ -150,13 +171,21 @@ describe("what the tuck buys", () => {
     expect(blow).toBeGreaterThan(calm * 1.3);
   });
 
-  it("holds speed into a blow the sat-up rider is losing", () => {
-    // The end of the range is where the tuck lands: into 14 m/s the skiff
-    // crawls the last 20 km/h sat up and walks it tucked.
-    const up = flatOut("skiff", 0, 14);
-    const down = flatOut("skiff", 1, 14);
-    expect(down.t90).toBeGreaterThan(0);
-    expect(down.t90).toBeLessThan(up.t90 * 0.8);
+  it("is worth more the deeper into the range it is held", () => {
+    // The END OF THE RANGE is where the tuck lands: the drag it takes off
+    // goes as the closing speed squared, so the lead it opens keeps growing
+    // while the hull is still gaining, and is widest where the sat-up rider
+    // has run out of range.
+    //
+    // Measured as the lead at two FIXED TIMES rather than as a time to a
+    // fixed speed. A time-to-90 into a blow is a reading off the asymptote
+    // — the sat-up hand settles within a couple of km/h of it — so it
+    // swings from 35 s to 9 s on a ceiling that moved by 1.7, which says
+    // nothing about what the tuck is worth.
+    const early = leadAt(6, 14);
+    const late = leadAt(15, 14);
+    expect(early, "the tuck already pays at 6 s").toBeGreaterThan(1);
+    expect(late, "...and pays more by 15 s").toBeGreaterThan(early);
   });
 });
 

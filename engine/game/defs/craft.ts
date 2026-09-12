@@ -113,7 +113,24 @@ export type CraftSpec = {
    * floats lower. */
   displacement: number;
   /** Where the centre of gravity of hull-plus-rider sits: `y` above the
-   * keel and `z` ahead of the hull's mid-length, m. */
+   * keel and `z` ahead of the hull's mid-length, m — so every row's `z` is
+   * negative, the mass sitting AFT of mid the way an engine amidships and a
+   * rider over the pump put it.
+   *
+   * Every craft carries it at 12% of its OWN length, because what the trim
+   * answers to is the fraction rather than the metres: the same offset
+   * would trim the 2.7 m stand-up and the 3.55 m tourer differently. Far
+   * enough aft that the hull rests level to a degree bow-up and planes at
+   * 2.1–2.7°, inside the band Savitsky's lift is fitted over. It is also
+   * the bow's clearance in a FOLLOWING SEA, which is what set it: trimmed
+   * any further forward the hull is swallowed by the wave it overtakes,
+   * the flow angle over the bottom goes negative, the planing lift stops
+   * firing altogether and the craft wallows at a third of its speed.
+   * Further aft than this buys little more of that and starts costing the
+   * reverse gate its lever — the nozzle is a fixed point at the transom,
+   * so every millimetre the mass moves back is a millimetre off the arm
+   * the bucket turns the hull on, and the marlin's braked corner is the
+   * first thing to go. */
   cog: { y: number; z: number };
   /** Engine: rated power, kW, at `maxRpm` — the number a spec sheet
    * quotes, so BOOST INCLUDED where there is any; idle and redline, rpm;
@@ -228,7 +245,7 @@ export const CRAFT: readonly CraftSpec[] = [
     height: 0.62,
     deadrise: 18,
     displacement: 0.66,
-    cog: { y: 0.42, z: -0.31 },
+    cog: { y: 0.42, z: -0.372 },
     powerKw: 125,
     maxRpm: 7600,
     idleRpm: 1500,
@@ -280,7 +297,7 @@ export const CRAFT: readonly CraftSpec[] = [
     height: 0.68,
     deadrise: 22,
     displacement: 0.92,
-    cog: { y: 0.45, z: -0.35 },
+    cog: { y: 0.45, z: -0.414 },
     powerKw: 175,
     maxRpm: 8000,
     idleRpm: 1600,
@@ -342,7 +359,7 @@ export const CRAFT: readonly CraftSpec[] = [
     height: 0.72,
     deadrise: 20,
     displacement: 1.05,
-    cog: { y: 0.46, z: -0.36 },
+    cog: { y: 0.46, z: -0.426 },
     powerKw: 150,
     maxRpm: 7300,
     idleRpm: 1500,
@@ -397,7 +414,7 @@ export const CRAFT: readonly CraftSpec[] = [
     height: 0.5,
     deadrise: 16,
     displacement: 0.34,
-    cog: { y: 0.3, z: -0.27 },
+    cog: { y: 0.3, z: -0.324 },
     powerKw: 76,
     maxRpm: 7000,
     idleRpm: 1400,

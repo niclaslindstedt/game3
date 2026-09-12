@@ -480,14 +480,30 @@ export function hullForces(
     // part of it still to be wetted (1 − fill), then the whole hull's slam
     // is capped (`slamCapG`) because the pile-up Wagner (1932) doubles c
     // by is a pressure real hulls spread and real riders' knees absorb.
-    // The closing speed is the SMALLER of two: the descent into the water
-    // (world vertical) and the closing normal to the bottom. A bow driven
-    // in nose-down has its bottom moving away from the water and takes no
-    // slam there (the deck does the scooping, and buries); a hull on the
-    // plane has its bottom closing on the flow at its trim every step,
-    // which is the lift Savitsky already prices and no slam at all; a hull
-    // arriving flat has both and meets the water square.
-    const closing = Math.min(-relY, -(relX * up.x + relY * up.y + relZ * up.z));
+    // The closing speed is the SMALLER of two: how fast the probe is being
+    // driven INTO the water, and the closing normal to the bottom. A bow
+    // driven in nose-down has its bottom moving away from the water and
+    // takes no slam there (the deck does the scooping, and buries); a hull
+    // on the plane has its bottom closing on the flow at its trim every
+    // step, which is the lift Savitsky already prices and no slam at all; a
+    // hull arriving flat has both and meets the water square.
+    //
+    // The first of those is read along the SURFACE's own normal rather than
+    // the world's vertical, because that projection IS the rate the probe's
+    // immersion grows: differentiate depth = η(x, z, t) − y along the
+    // probe's path and substitute the free surface's kinematic condition
+    // (w = η_t + u·η_x + v·η_z) and what is left is exactly −rel·n over the
+    // unnormalised normal (−η_x, 1, −η_z). The vertical reading is that
+    // same quantity with η_x = η_z = 0, so on level water this is the
+    // number it has always been. A WAVE IS A FACE, though, and read
+    // vertically a hull driving into the back of the wave ahead in a
+    // following sea — the water under it falling away at a couple of metres
+    // a second while the face rises into its path — reads as RECEDING from
+    // water it is meeting at five, so no slam fires and the bow knifes in.
+    const closing = Math.min(
+      -(relX * s.surface.nx + relY * s.surface.ny + relZ * s.surface.nz),
+      -(relX * up.x + relY * up.y + relZ * up.z),
+    );
     if (s.depth > -0.02 && s.fill < 1 && closing > 0 && p.kind !== "deck") {
       const slam = 0.5 * density * closing * closing * Math.PI * cotDeadrise * H.slamShare;
       const force = slam * p.area * (1 - s.fill);
@@ -588,8 +604,13 @@ export function hullForces(
     }
     // A BURIED SECTION — a bow driven in past the depth a planing hull ever
     // runs at — pushes water ahead of itself as the bluff body it then is,
-    // whatever the speed: the dive's deceleration.
-    const buried = Math.max(0, s.depth - H.diveDepth * p.height);
+    // whatever the speed: the dive's deceleration. Bounded by the probe's
+    // own band, because that is the whole SECTION it has to push with: a
+    // hull a metre under presents the same area as one just buried, only
+    // deeper. Charged by depth without a bound it is the biggest drag on
+    // the hull in a following sea, braking a stuffed bow at eleven g and
+    // pinning the run to walking pace.
+    const buried = clamp(s.depth - H.diveDepth * p.height, 0, p.height);
     if (buried > 0) {
       const frontal = spec.beam * buried * p.lateralShare;
       fFwd -= 0.5 * density * H.diveCd * frontal * Math.abs(uFwd) * uFwd;
