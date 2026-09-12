@@ -328,6 +328,47 @@ describe("the reverse bucket", () => {
     return (heading * 180) / Math.PI;
   }
 
+  /** HOW MUCH WATER A CORNER TAKES: metres of path travelled to swing the
+   * bow through a right angle on full lock from `speed`, and the seconds it
+   * took — `Infinity` for a craft that never gets there. It is the honest
+   * measure of a turn when the thumb is also braking, because a hull that
+   * comes round in the same DEGREES while shedding speed has come round in
+   * far less water, and it is the space a rider is actually short of. */
+  function cornerFrom(
+    id: string,
+    speed: number,
+    given: Partial<CraftInput>,
+    seconds = 6,
+  ): { path: number; t: number } {
+    const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x: 100, z: 700, heading: Math.PI / 2, speed });
+    const input: CraftInput = {
+      steer: 1,
+      throttle: 0,
+      reverse: 0,
+      lean: 0,
+      crouch: 0,
+      reset: false,
+      ...given,
+    };
+    let last = state.craft.heading;
+    let turned = 0;
+    let path = 0;
+    let px = state.craft.x;
+    let pz = state.craft.z;
+    for (let i = 0; i < seconds * TUNING.physicsHz; i++) {
+      step(state, input);
+      const c = state.craft;
+      path += Math.hypot(c.x - px, c.z - pz);
+      px = c.x;
+      pz = c.z;
+      turned += angleDiff(last, c.heading);
+      last = c.heading;
+      if (turned >= Math.PI / 2) return { path, t: (i + 1) / TUNING.physicsHz };
+    }
+    return { path: Infinity, t: Infinity };
+  }
+
   it("stops a craft that has one, and backs it up at walking pace", () => {
     for (const spec of CRAFT) {
       const r = onTheBrake(spec.id, 14);
@@ -351,10 +392,11 @@ describe("the reverse bucket", () => {
   it("brakes INTO the turn the bars are pointing, and harder than a coast", () => {
     // The gate is downstream of the nozzle and its side walls send what it
     // catches forward on the side the nozzle threw it, so the steering
-    // reaction keeps one sign however far down the gate is. A brake pulled
-    // with way still on therefore turns the way the bars point — and turns
-    // BETTER than a coast, because the gate is holding the throttle open
-    // (`pump.bucketThrottle`) and burying the bow into its own sponsons.
+    // reaction keeps one sign — and the same magnitude — however far down the
+    // gate is. A brake pulled with way still on therefore turns the way the
+    // bars point, and turns BETTER than a coast because the gate is holding
+    // the throttle open (`pump.bucketThrottle`) and burying the bow into its
+    // own sponsons.
     for (const spec of CRAFT) {
       const speed = topSpeedOf(spec) * 0.7;
       const brake = withLock(spec.id, speed, { reverse: 1 });
@@ -368,6 +410,37 @@ describe("the reverse bucket", () => {
       // the skiff 20° the OTHER way over the same three seconds.
       expect(brake, `${spec.id} brakes into the turn`).toBeGreaterThan(0);
       expect(brake / coast, `${spec.id} brake over coast`).toBeGreaterThan(1.8);
+    }
+  });
+
+  it("is the TIGHTEST LINE the rider has — a corner in half the water", () => {
+    // THE PROMISE THE BRAKE BUTTON MAKES (`pump.brakeSteer`,
+    // `hull.brakeBite`): pull it into a corner and the craft comes round in
+    // half the space, paid for in speed. Two bugs lived where this now looks
+    // — the gate was scaling the nozzle's side force down as if reversing a
+    // vector's axial component shrank its lateral one, and the carve was
+    // reading `planing` as though a hull with its bow buried had nothing in
+    // the water — and between them they made the brake the WORST line on the
+    // craft, which is the opposite of what the button is for.
+    for (const spec of CRAFT) {
+      const speed = topSpeedOf(spec) * 0.7;
+      const brake = cornerFrom(spec.id, speed, { reverse: 1 });
+      const power = cornerFrom(spec.id, speed, { throttle: 1 });
+      const coast = cornerFrom(spec.id, speed, {});
+      // Whatever else is true, a closed throttle runs on: nothing here beats
+      // the throttle by simply letting go of it.
+      expect(coast.path, `${spec.id} coasts on`).toBeGreaterThan(power.path);
+      if (spec.bucket.reverse <= 0) {
+        // The stand-up has no gate, so its brake key IS a closed throttle.
+        // Held so a gate fitted to it later is a deliberate change to the
+        // roster rather than an accident.
+        expect(brake.path, `${spec.id} has no gate`).toBeCloseTo(coast.path, 6);
+        continue;
+      }
+      // Half the water for the same right angle — and sooner, not merely
+      // tighter: the brake is the quick way round as well as the short one.
+      expect(brake.path, `${spec.id} braked corner`).toBeLessThan(power.path * 0.7);
+      expect(brake.t, `${spec.id} braked corner, seconds`).toBeLessThan(power.t);
     }
   });
 

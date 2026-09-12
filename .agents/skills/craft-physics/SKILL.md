@@ -141,7 +141,11 @@ is made on flat water or not at all.
   the v² tail (a craft sits above walking pace for the best part of a minute),
   and half speed is what a rider actually feels going into a buoy. For a
   turn, quote lateral g and the time a 180 takes beside the radius: a radius
-  alone hides that the craft also accelerated.
+  alone hides that the craft also accelerated. And when the thumb is also on
+  the BRAKE, neither degrees nor radius will do — quote the METRES OF PATH to
+  swing the bow 90°, against the same corner on full throttle: a hull turning
+  the same degrees while shedding speed has used far less water, and a radius
+  measured down to a standstill reads a pivot as a corner.
 - **A TURN is benched as its OWN run, re-staged, at a MATCHED entry speed.**
   Continuing a turn out of the acceleration run measures wherever the hull
   had drifted to — on a generated level that is a rock, a beach or the rim,

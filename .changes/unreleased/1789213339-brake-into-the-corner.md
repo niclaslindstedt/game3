@@ -1,0 +1,6 @@
+---
+type: Fixed
+title: The brake is the tightest line the craft has
+---
+
+Braking into a corner now turns the craft instead of standing it up. Two faults made the brake the WORST line on the machine rather than the best: the reverse gate was scaling the nozzle's side force down, as though reversing a jet's fore-and-aft sense shrank the part of it thrown sideways, and the carve was reading the planing surface alone, as though a hull with its bow buried had nothing in the water. Between them, a rider holding the brake at sixty could not bring any of the three gated craft through a right angle at all. Now the gate takes nothing off the steering — the nozzle is upstream of it and has already thrown the flow to one side — and the buried bow puts its forefoot and the front half of its keel into water a planing hull keeps them clear of, which is grip the craft does not otherwise have. A braked corner comes round in a little over half the water the same corner takes flat out, and in less time, paid for in the speed the gate was already scrubbing. Straight-line braking is unchanged, the stand-up still carries no bucket, and the marlin is still the tracker — even it halves the space its corner needs. A new `brakeTurn` staged moment takes the carve's corner on the gate instead of the pump.

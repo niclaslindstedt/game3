@@ -338,7 +338,18 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // runabout flat out answers the bars about as well as a bus. It ramps in
   // with the SQUARE of the craft's own top speed, so the bottom half of the
   // range is untouched and only the end a rider is fighting moves.
-  const steerGain = 1 + T.pump.steerHighSpeed * Math.min(1, (throughWater / topSpeedOf(spec)) ** 2);
+  // ...and THE BRAKE'S OWN SHARE OF IT (`pump.brakeSteer`): the gate down
+  // squats the stern, buries the bow and wets the forefoot and the front
+  // half of the keel, which is lateral grip a planing hull does not have.
+  // It rides on the same multiplier as the high-speed steer because it is
+  // the same hull answering the same nozzle with more of itself in the
+  // water — so it lifts the jet's side thrust and `keelYaw` together, and
+  // needs the gate to be making flow rather than thrust to be worth
+  // anything. A craft with no gate fitted never leaves `c.bucket` 0.
+  const steerGain =
+    1 +
+    T.pump.steerHighSpeed * Math.min(1, (throughWater / topSpeedOf(spec)) ** 2) +
+    T.pump.brakeSteer * c.bucket;
   if (push > 0) {
     // The jet leaves the transom turned by the nozzle; the reaction on the
     // hull is the jet's opposite. A nozzle swung for a clockwise turn
@@ -346,15 +357,16 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     //
     // The BUCKET is downstream of it: what the gate catches goes forward
     // and under instead, so `axial` is what is left driving the hull along
-    // its own line — while `lateral` is the whole flow the nozzle is still
-    // aiming SIDEWAYS, which the gate cannot flip because it sends what it
-    // catches forward on the side the nozzle threw it (`propulsion.ts`). So
-    // the brake steers the way the bars point, and what inverts in reverse
-    // is the hull's direction of travel, not this. The TRIM aims what still
+    // its own line — while the SIDE force is the whole jet's, undiminished,
+    // because the nozzle gave the flow its lateral momentum before the gate
+    // saw any of it and reversing an axial component does not touch a
+    // lateral one (`propulsion.ts`). So the brake steers the way the bars
+    // point, harder than the throttle does, and what inverts in reverse is
+    // the hull's direction of travel, not this. The TRIM aims what still
     // leaves through the nozzle above or below the axis.
     const gate = bucketVector(spec, c.bucket);
     const along = push * gate.axial * Math.cos(c.trim);
-    const side = push * gate.lateral * Math.cos(c.trim) * steerGain;
+    const side = push * Math.cos(c.trim) * steerGain;
     const bx = -side * Math.sin(c.nozzle);
     const bz = along * Math.cos(c.nozzle);
     // Aimed up, the jet leaves upward and the reaction is DOWNWARD; what
@@ -408,7 +420,17 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // heeled by a crosswind has both chines dry and no rudder — and past it
   // sin(2·bank), peaking at 45° so a hull rolled further is not a hull
   // turning faster.
+  //
+  // It is `planing` that says there is a bottom to carve ON, and dropping
+  // the gate takes that reading away: the hull comes down off the plane and
+  // the carve goes with it, which is the biggest single reason a braked turn
+  // used to be the WORST line a rider had. But a hull with its bow buried
+  // and its forefoot in the water is not a hull with nothing in the water —
+  // it is a different bottom, wetted further forward. So the gate puts its
+  // own floor under the reading (`hull.brakeBite`), scaled by the flow that
+  // craft's gate turns down, exactly as the bow-down moment is.
   const bank = Math.max(0, Math.abs(c.roll) - T.hull.carveDead) * Math.sign(c.roll);
+  const bottom = Math.max(c.planing, T.hull.brakeBite * c.bucket);
   tby +=
     T.hull.carve *
     0.5 *
@@ -416,7 +438,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     throughWater *
     throughWater *
     wetShare *
-    c.planing *
+    bottom *
     spec.sponsonBite;
 
   // THE WATER'S ROTATIONAL DAMPING beyond the probes'. THE RIDE PLATE is

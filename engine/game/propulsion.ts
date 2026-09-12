@@ -46,18 +46,29 @@
 //   thrust itself acts below the centre of gravity and pushes the same
 //   way, so the two agree.
 //
-//   WHAT THE GATE DOES NOT DO IS SWAP THE HULL'S SIDES. The nozzle is
-//   UPSTREAM of it, so the gate catches a jet already thrown to one side
-//   and its side walls send it forward on that same side: what the gate
-//   reverses is the flow's axial sense, not which side of the transom it
-//   leaves from. So the steering reaction keeps ONE sign however far down
-//   the gate is, and `lateral` is the whole flow the nozzle is aiming —
-//   what still goes aft plus what the gate turns forward. The inversion a
-//   rider feels in reverse is not a flipped moment: it is a hull travelling
-//   STERN-FIRST, where a bow swung right walks the craft left. It therefore
-//   needs no model of its own, and the brake pulled with way still on
-//   steers the way the bars are pointing, which is the only thing a rider
-//   braking into a turn can use.
+//   WHAT THE GATE DOES NOT DO IS TOUCH THE STEERING. The nozzle is
+//   UPSTREAM of it, so it has already given the whole flow its lateral
+//   momentum before the gate sees any of it; the gate catches a jet already
+//   thrown to one side and its side walls send it forward on that same
+//   side. Reversing a vector's axial component does not touch its lateral
+//   one, so the side reaction on the hull is the SAME MAGNITUDE and the
+//   same sign however far down the gate is — the gate is a brake, not a
+//   rudder, and `bucketVector` returns no sideways share at all. The
+//   inversion a rider feels in reverse is not a flipped moment: it is a
+//   hull travelling STERN-FIRST, where a bow swung right walks the craft
+//   left. It therefore needs no model of its own, and the brake pulled with
+//   way still on steers the way the bars are pointing.
+// - AND IT IS THE TURN-TIGHTENER (`TUNING.pump.brakeSteer`). Everything
+//   above is why braking cannot LOSE the rider the turn; what buys him more
+//   of it than the throttle would is the gate burying the bow. A planing
+//   hull rides on a hand's breadth of bottom aft with its forefoot clear of
+//   the water and almost nothing to bite sideways with; drop the gate and
+//   the stern squats, the bow goes down, the forefoot and the front half of
+//   the keel wet, and the hull gets a lateral grip it does not have on the
+//   plane. That is the brake-and-turn a rider actually uses, and it is
+//   applied where the high-speed steer is — over everything the nozzle is
+//   worth — because it is the same hull answering the same nozzle with more
+//   of itself in the water.
 // - THE TRIM: the nozzle pivots vertically, so the thrust line leaves the
 //   axis. Aimed UP, the reaction is downward at the transom, and a
 //   downward force behind the centre of gravity lifts the bow.
@@ -284,21 +295,28 @@ export function stepBucket(spec: CraftSpec, bucket: number, reverse: number, dt:
 /** What the gate does to the jet, given how far down it is: the share
  * still leaving THROUGH the nozzle (which is the only share the trim can
  * aim), the share of the thrust still acting ALONG the hull (negative once
- * the gate is past its neutral), the share the nozzle is still steering
- * SIDEWAYS (always positive — the gate turns the flow's axial sense, not
- * the side of the hull it leaves from), and the share thrown DOWNWARD
- * under the transom. */
+ * the gate is past its neutral), and the share thrown DOWNWARD under the
+ * transom.
+ *
+ * THERE IS NO SIDEWAYS SHARE, and that is the point. The nozzle is
+ * UPSTREAM of the gate, so it has already given the whole flow its lateral
+ * momentum before the gate sees any of it; the gate then turns the flow's
+ * AXIAL sense and leaves it on the side the nozzle threw it (its side
+ * walls are what make that true). Reversing a vector's z component does
+ * not touch its x component, so the side reaction on the hull is the same
+ * whatever the gate is doing, and the caller multiplies the side force by
+ * nothing at all. What inverts in reverse is the hull's direction of
+ * travel, not this. */
 export function bucketVector(
   spec: CraftSpec,
   bucket: number,
-): { through: number; axial: number; lateral: number; down: number } {
+): { through: number; axial: number; down: number } {
   const d = clamp(bucket, 0, 1);
   const authority = spec.bucket.reverse;
-  if (d <= 0 || authority <= 0) return { through: 1, axial: 1, lateral: 1, down: 0 };
+  if (d <= 0 || authority <= 0) return { through: 1, axial: 1, down: 0 };
   return {
     through: 1 - d,
     axial: 1 - d - d * authority,
-    lateral: 1 - d + d * authority,
     down: d * authority * PUMP.bucketDown,
   };
 }
