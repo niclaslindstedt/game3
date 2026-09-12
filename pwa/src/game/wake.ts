@@ -57,6 +57,7 @@ import { type WakeMap } from "./water-shader.ts";
 import {
   BRAKE_ROAD_WIDEN,
   FAN_LIFE,
+  JET_ROWS,
   ROAD_LIFE,
   SPLASH_LIFE,
   SPLASH_STATIONS,
@@ -68,6 +69,10 @@ import {
   fanAt,
   fanHalf,
   hullMark,
+  jetAt,
+  jetBlast,
+  jetHalf,
+  jetMark,
   roadAt,
   roadHalf,
   roadStrength,
@@ -95,6 +100,8 @@ const SPEED_LIVE = 1;
  * crest (`RIDGE` in the profile) rather than spread evenly. */
 const ROAD_ACROSS = 4;
 const FAN_S = [-1, -0.88, -0.72, -0.5, -0.25, 0.25, 0.5, 0.72, 0.88, 1];
+/** Vertices across the jet's tongue: a core and two feathered edges. */
+const JET_ACROSS = 5;
 /** The splash stamps: how many ride the water at once, and the segments
  * round each of their rings. */
 const STAMPS = 6;
@@ -252,6 +259,12 @@ export function createWake(): Wake {
   const material = markMaterial(box);
   const road = ribbon(ROWS, ROAD_ACROSS, material);
   const fan = ribbon(ROWS, FAN_S.length, material);
+  // THE JET: a short ribbon astern of the nozzle, laid off the craft's state
+  // every frame rather than sampled into the trail — it is attached to the
+  // pump, not to the water, and it is the FIRST thing on the sea when the
+  // throttle opens.
+  const jet = ribbon(JET_ROWS, JET_ACROSS, material);
+  const blast = jetMark();
 
   // The stamps: a centre vertex and a ring of segments at each station out
   // from it, the stations' radii laid on the splash's features each frame
@@ -324,7 +337,7 @@ export function createWake(): Wake {
   // The map's own scene and lens. The lens is never read — the material
   // places every vertex off the box — but three wants one to draw with.
   const marks = new THREE.Scene();
-  marks.add(road.mesh, fan.mesh, stamps, boil);
+  marks.add(road.mesh, fan.mesh, jet.mesh, stamps, boil);
   const lens = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clearColor = new THREE.Color();
   const section = wakeSection();
@@ -544,6 +557,35 @@ export function createWake(): Wake {
     fan.posAttr.needsUpdate = true;
     fan.colAttr.needsUpdate = true;
 
+    // THE JET, astern of the nozzle: a tongue along the heading, widening
+    // from the transom to its reach. Folded to nothing when the throttle is
+    // shut or the hull is up to pace, at which point the road has it.
+    jetBlast(Math.max(0, c.throttleEff), now.along, c.spec.length, c.spec.beam, blast);
+    const jx = Math.sin(c.heading);
+    const jz = Math.cos(c.heading);
+    const jrx = Math.cos(c.heading);
+    const jrz = -Math.sin(c.heading);
+    for (let r = 0; r < JET_ROWS; r++) {
+      const u = r / (JET_ROWS - 1);
+      const half = jetHalf(u, c.spec.beam);
+      const back = blast.reach * u;
+      for (let a = 0; a < JET_ACROSS; a++) {
+        const sAcross = (a / (JET_ACROSS - 1)) * 2 - 1;
+        if (blast.blast > 0) jetAt(u, sAcross, blast.blast, section);
+        else section.cover = 0;
+        write(
+          jet.positions,
+          jet.colors,
+          r * JET_ACROSS + a,
+          now.x - jx * back + jrx * half * sAcross,
+          now.z - jz * back + jrz * half * sAcross,
+          section,
+        );
+      }
+    }
+    jet.posAttr.needsUpdate = true;
+    jet.colAttr.needsUpdate = true;
+
     // The stamps: each splash's section at every station, round every
     // segment. A dead stamp is folded to its centre with no cover.
     for (let p = 0; p < STAMPS; p++) {
@@ -667,6 +709,7 @@ export function createWake(): Wake {
     dispose: () => {
       road.geometry.dispose();
       fan.geometry.dispose();
+      jet.geometry.dispose();
       stampGeometry.dispose();
       boilGeometry.dispose();
       material.dispose();

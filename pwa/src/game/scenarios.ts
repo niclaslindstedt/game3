@@ -42,6 +42,7 @@ import { clamp } from "../lib/util.ts";
 
 export type ScenarioName =
   | "rest"
+  | "jet"
   | "cruise"
   | "tuck"
   | "stand"
@@ -67,6 +68,7 @@ export type ScenarioName =
 
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "rest",
+  "jet",
   "cruise",
   "tuck",
   "stand",
@@ -423,6 +425,18 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: { x: start.x, z: start.z, heading: start.heading },
         script: () => NEUTRAL,
         seconds: 2,
+      };
+    case "jet":
+      // THE THROTTLE OPENED FROM A DEAD STOP. Everything else the craft
+      // lays on the water is something its PASSAGE left behind, so this is
+      // the one moment where the only thing on the sea is what the PUMP is
+      // doing: the jet blasting astern of the nozzle before the hull has
+      // moved far enough to lay a trail. Short, because the whole subject
+      // is over in a second and a half — walk it with `--t`.
+      return {
+        moment: { x: start.x, z: start.z, heading: start.heading },
+        script: () => input(0, 1, 0),
+        seconds: 1.6,
       };
     case "cruise":
       return {

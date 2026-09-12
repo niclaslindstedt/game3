@@ -75,6 +75,19 @@ const TAIL_UP = 3;
 const TAIL_UP_PER_THROTTLE = 4.5;
 const TAIL_BACK = 3;
 const TAIL_BACK_PER_THROTTLE = 5;
+/** …and the share of that rate a hull at a DEAD STOP throws. The pump is
+ * moving its whole mass flow whether or not the craft has begun to move, so
+ * a standing start is not a third of a tail — it is nearly all of one, aimed
+ * flat ASTERN instead of up, which is what the `planing` term on the throw's
+ * height already does: a submerged nozzle blasts backward, a planing one
+ * arcs. At the first pass's 0.35 the one moment the jet is the only thing on
+ * the water was also the one moment it threw almost nothing. */
+const TAIL_AT_REST = 0.75;
+/** How far astern of the transom, m, a tail droplet may be born. Every one
+ * of them born at the one point is a PUFF sitting on the transom; born
+ * along the first stretch of the stream they read as flow leaving the
+ * nozzle, which is the whole difference between a blast and a cloud. */
+const TAIL_SPREAD = 1.8;
 /** THE WAKE'S BREAK: the drops the trail itself throws.
  *
  * Everything else the craft throws is born ON the hull; this is born on the
@@ -457,17 +470,34 @@ export function createSpray(stamp: FoamStamp): Spray {
     const astern = 1 - gateDown;
     if (afloat && c.throttleEff * astern > 0.08) {
       const thr = clamp(c.throttleEff, 0, 1) * astern;
-      tailAcc += budget * TAIL_RATE * thr * (0.35 + 0.65 * pace) * dt;
+      tailAcc += budget * TAIL_RATE * thr * (TAIL_AT_REST + (1 - TAIL_AT_REST) * pace) * dt;
       while (tailAcc >= 1) {
         tailAcc -= 1;
-        const p = at(c, (rng() - 0.5) * 0.18, keelY + 0.05, -L / 2 - spec.cog.z);
+        const p = at(
+          c,
+          (rng() - 0.5) * 0.18,
+          keelY + 0.05,
+          -L / 2 - spec.cog.z - rng() * TAIL_SPREAD,
+        );
+        // BORN AT THE SURFACE, never at the keel. A planing hull skims its
+        // keel along the water and the two are the same point; a hull at a
+        // DEAD STOP floats its keel a fifth of a metre under, and a droplet
+        // born there is thrown up through water and never breaks it — so
+        // the one moment the jet is the only thing on the sea was also the
+        // one moment it threw nothing into the air at all. Reading the sea
+        // at BIRTH is a few calls a step and does not break the rule that a
+        // droplet reads nothing off it afterwards.
+        const tx = c.x + p.x;
+        const tz = c.z + p.z;
+        const ty =
+          Math.max(c.y + p.y, heightAt(state.sea, state.level, tx, tz, state.t)) + BOIL_LIFT;
         const back = TAIL_BACK + TAIL_BACK_PER_THROTTLE * thr;
         const up =
           (TAIL_UP + TAIL_UP_PER_THROTTLE * thr * (0.3 + 0.7 * c.planing)) * (0.6 + 0.4 * rng());
         spawn(
-          c.x + p.x,
-          c.y + p.y,
-          c.z + p.z,
+          tx,
+          ty,
+          tz,
           c.vx * 0.2 - fwdX * back + rightX * (rng() - 0.5) * 1.6,
           up,
           c.vz * 0.2 - fwdZ * back + rightZ * (rng() - 0.5) * 1.6,
