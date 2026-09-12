@@ -50,7 +50,7 @@ export const SEA = {
    * long, and spread evenly over the band they are an octave apart and
    * beat inside the water a rider can see. Raising the count to fix a
    * repeat is paying a frame for what a cut costs nothing. */
-  components: 8,
+  components: 5,
   /** HOW THE BAND IS CUT INTO ONE SLICE PER COMPONENT: the exponent the
    * spectral density is raised to before the cut is made even. 0 cuts
    * evenly in log frequency — a plain octave ladder, one slice the same
@@ -274,6 +274,101 @@ export const SEA = {
    * it, not the angle it is measured at. */
   fanSpread: 45 * (Math.PI / 180),
   fanRays: 5,
+  /** THE SWELL — the sea a coast has that its OWN WIND did not make.
+   *
+   * Every other band here is grown from the wind blowing over this level's
+   * water, and that is a short sea: the fetch law at the bottom of R12's
+   * band gives 1.2 m at a 4.2 s period, a 28 m wave under a 3.5 m hull, and
+   * it reads as texture rather than as ocean however much of it there is.
+   * A real coast is not that. It also carries GROUNDSWELL — waves radiated
+   * by weather hundreds or thousands of kilometres away, which have sorted
+   * themselves by frequency on the way (dispersion runs the long ones out
+   * in front) and arrive long, slow, almost all travelling one way, whether
+   * or not there is any wind here at all. It is what makes surf on a calm
+   * morning, and it is the thing a rider means by "the ocean".
+   *
+   * So it is QUOTED, never grown — it has no fetch here to grow over — and
+   * everything about it is the opposite of the wind sea beside it:
+   *
+   * - LONG. `period` is the seconds at its peak; at 11 s that is a 190 m
+   *   wave in deep water, five times the wind sea's, and it SHOALS into the
+   *   shallows the way nothing short enough to ignore the bottom can. That
+   *   shoaling is where "big waves just outside the shore" comes from: the
+   *   model already has Ks and the depth-limited clip, so a 2 m swell over
+   *   25 m of water stands up and breaks on a 4 m bar without a rule of
+   *   its own.
+   * - NARROW-BANDED. `components` over `bandLow`..`bandHigh` of its own
+   *   peak — a tenth of an octave, against the wind sea's octave and a
+   *   half. Three components that close beat into GROUPS hundreds of metres
+   *   long, which is what a set of waves IS: three or four big ones, then
+   *   flat water. Nothing else in the model makes sets.
+   * - NEARLY UNIDIRECTIONAL. `spread` is a third of the wind sea's, because
+   *   distance sorts direction as well as frequency. Long crests, all
+   *   marching the same way.
+   *
+   * WHAT IT COSTS: one component is ~140 ns of every `surfaceAt` and the
+   * water mesh calls that per vertex per frame, so three of them is ~0.4 ms
+   * of a 10 ms frame, and a phase field each is ~20 ms of `createSea`. It
+   * is the dearest thing in this file per component and it buys the most. */
+  swell: {
+    /** How big the groundswell is, m of significant height, before the
+     * level's own draw. Two metres is a middling ocean swell — the North
+     * Atlantic's median is nearer three, the Baltic's nearer nothing, and
+     * this coast is a taiga shore on an open sea. An ARCADE DIAL: it is
+     * the one number that says how much OCEAN a level has in it. */
+    hs: 3.0,
+    /** ...and how much of that a given coast is DEALT, as the bottom of a
+     * uniform draw up to the whole of it. A coast is not the same ocean
+     * every morning: at 0.55 a seed can get anything from a 1.1 m ripple
+     * of old swell to the full two metres, and the draw is the plainest
+     * way to make the big days feel like big days. */
+    vary: 0.55,
+    /** HOW STEEP it is quoted at, Hs/L₀ — and so, through L₀ = g·T²/2π,
+     * how LONG it is. An ARCADE DIAL, and the most important one here.
+     *
+     * A real groundswell is about 0.008: three metres over three hundred
+     * and fifty, an ocean that heaves. IT IS INVISIBLE FROM A CHASE
+     * CAMERA — three metres over a hundred and seventy of horizontal run
+     * is a two-degree slope, and a rider a few metres above the water
+     * looking down his own wake sees a plane that slowly tilts, not a
+     * wave. Quoted at nature's steepness the swell measured 26 m of crest
+     * length and read as nothing at all.
+     *
+     * The other end of the scale is `steepness` = 0.09, which is what this
+     * file already quotes the open ocean's storm at — a wave a third as
+     * long as nature's, which is a wall. This sits between the two: at
+     * 0.035 a 3 m swell is 86 m long with a 7.4 s period, twice the length
+     * of the wind chop riding on it and three times its height, and its
+     * face is steep enough to SEE from behind. The compromise is deliberate
+     * and it is the arcade's, not the ocean's. */
+    steepness: 0.035,
+    /** ...and how much the level's draw may move that steepness, as a
+     * share of it: some coasts get a longer, lazier swell and some a
+     * shorter, harder one at the same height. */
+    steepVary: 0.25,
+    /** The band it is laid over, as multiples of its own peak — a tenth of
+     * an octave either side. This is what makes SETS: components this
+     * close beat with each other over hundreds of metres, so the swell
+     * arrives in groups of three or four with flatter water between them,
+     * and a rider reads the groups rather than the components. */
+    bandLow: 0.93,
+    bandHigh: 1.08,
+    /** How many. Three is what a narrow band needs, and each one is real
+     * money in the frame (see above). */
+    components: 3,
+    /** Its directional half-width about its own heading, radians (~9°) —
+     * a third of the wind sea's, because a thousand kilometres of open
+     * water sorts direction as surely as it sorts frequency. This is the
+     * band that has to hold LONG CRESTS, and the crest length is what a
+     * rider reads as a wave at all. */
+    spread: 0.16,
+    /** How far the swell's own heading may sit from the wind sea's travel,
+     * radians (~25°), drawn per level. The weather that made it is not
+     * this coast's weather, so the two need not agree — but R12 points the
+     * local wind off the sea, and a swell that did not also come in off
+     * the sea would be a swell with a continent upwind of it. */
+    off: 0.44,
+  },
   /** THE LOCAL BAND — the wind chop that grows on water the ocean's own
    * sea cannot reach: a river, a creek, the far end of a channel. It is
    * quoted ONCE per level, at the mean wind over `localFetch` metres of
