@@ -454,7 +454,14 @@ describe("the reverse bucket", () => {
     const z0 = state.craft.z;
     let bow = 0;
     let last = state.craft.heading;
-    for (let i = 0; i < 2 * TUNING.physicsHz; i++) {
+    // Read at a QUARTER TURN of bow rather than at a fixed time. Full lock
+    // astern is a pirouette — it is how a rider turns one round in its own
+    // length — and once the hull has swung far enough, "astern" and "to the
+    // left" are no longer the directions it started in, so a clock would be
+    // measuring the spin rate instead of the rule. The rule is about the
+    // craft's first quarter turn, and it holds at any rate the hull comes
+    // round at.
+    for (let i = 0; i < 4 * TUNING.physicsHz && bow < Math.PI / 4; i++) {
       step(state, { steer: 1, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false });
       bow += angleDiff(last, state.craft.heading);
       last = state.craft.heading;
@@ -462,8 +469,8 @@ describe("the reverse bucket", () => {
     // Heading east: +z is to the left of the hull, +x is ahead of it.
     const along = state.craft.x - x0;
     const across = state.craft.z - z0;
-    expect(bow, "the bow swings right").toBeGreaterThan(0.1);
-    expect(along, "it goes astern").toBeLessThan(-0.5);
+    expect(bow, "the bow swings right").toBeGreaterThanOrEqual(Math.PI / 4);
+    expect(along, "it goes astern").toBeLessThan(-0.1);
     expect(across, "and walks to the left").toBeGreaterThan(0.2);
   });
 
@@ -502,6 +509,57 @@ describe("the reverse bucket", () => {
       step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false });
     }
     expect(state.craft.bucket).toBe(0);
+  });
+});
+
+describe("going astern", () => {
+  /** The brake lever held well past the stop, with `steer` on the bars the
+   * whole way, so the craft is genuinely making way backwards. */
+  function backing(id: string, steer: number, seconds = 12): GameState {
+    const spec = craftById(id);
+    const state = createGame({ seed: 1, craft: id as "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: (spec.topSpeed / 3.6) * 0.7 });
+    for (let i = 0; i < seconds * TUNING.physicsHz; i++)
+      step(state, { steer, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false });
+    return state;
+  }
+
+  function way(state: GameState): number {
+    const c = state.craft;
+    return c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
+  }
+
+  it("sits the rider up and square once the hull has changed ends", () => {
+    // Both weight shifts are forward technique. Sliding back down the seat
+    // unsticks a bow being driven under; hanging off holds a carve. A craft
+    // crawling backwards off a mark at walking pace is doing neither, and a
+    // rider who kept doing them is a rider about to swim.
+    const state = backing("skiff", 1);
+    expect(way(state)).toBeLessThan(-TUNING.rider.asternFade);
+    expect(Math.abs(state.craft.riderRight)).toBeLessThan(0.01);
+    expect(Math.abs(state.craft.riderAft)).toBeLessThan(0.01);
+  });
+
+  it("still hangs him off at the same lock going forwards", () => {
+    // The control: the stand-down is the ASTERN case and nothing else. Held
+    // at the same lock with way on, the rider is out over the side where he
+    // belongs — `rider.leanIn` at the bars' full travel.
+    const state = createGame({ seed: 1, craft: "skiff", level: STRIP, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18 });
+    for (let i = 0; i < 2 * TUNING.physicsHz; i++)
+      step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
+    expect(way(state)).toBeGreaterThan(1);
+    expect(state.craft.riderRight).toBeGreaterThan(0.8 * TUNING.rider.leanIn);
+  });
+
+  it("backs up flat instead of lying on one chine", () => {
+    // With the bars straight there is nothing to bank for, and a hull
+    // reversing at walking pace has no plane under it to bank ON. The rider
+    // hanging off through a reverse used to hold the skiff at 53° of steady
+    // heel — a machine lying on its ear while it crawled backwards.
+    const state = backing("skiff", 0);
+    expect(way(state)).toBeLessThan(-1);
+    expect(Math.abs(state.craft.roll)).toBeLessThan(5 * (Math.PI / 180));
   });
 });
 

@@ -285,6 +285,63 @@ describe("the body on its springs", () => {
     expect(r.pace).toBeLessThanOrEqual(1);
   });
 
+  it("does not throw the torso the wrong way when the craft gathers way astern", () => {
+    // THE SURGE IS SIGNED. Differenced off |v|, a craft gathering way
+    // backwards reads as one accelerating — so the body was thrown BACK by
+    // a jet pushing it at the bars, and the torso snapped through the
+    // vertical at the instant the hull changed ends. That snap is most of
+    // what reads as the rider lurching about while backing off a mark.
+    const state = fresh();
+    placeRun(state, { x: 100, z: 200, heading: 0, speed: 16 });
+    const dyn = createRiderDynamics();
+    const cockpit = cockpits().find(([id]) => id === "skiff")![1];
+    const lean = (): number => poseRider(cockpit, dyn.read(state)).lean;
+    const BRAKE = { steer: 0, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false };
+    let was = lean();
+    let worst = 0;
+    let crossed = false;
+    for (let i = 0; i < 12 * TUNING.physicsHz; i++) {
+      step(state, BRAKE);
+      dyn.observe(state);
+      const c = state.craft;
+      const way = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
+      if (way < -1) crossed = true;
+      const now = lean();
+      worst = Math.max(worst, Math.abs(now - was));
+      was = now;
+    }
+    expect(crossed).toBe(true);
+    // Nothing the body does is a step: every motion is a spring or the
+    // engine's own lag, so no single 120 Hz step may move the torso by a
+    // degree. The flip through the stop was worth nine of them.
+    expect(worst).toBeLessThan(1 * (Math.PI / 180));
+    // ...and he ends the reverse SAT UP, at the posture a runabout is
+    // cruised in, not folded over the bars in a racing crouch.
+    expect(lean()).toBeLessThan(STANCE.seatedLean + 0.12);
+  });
+
+  it("buys no crouch with the throttle the brake lever opens for the bucket", () => {
+    // The gate can only turn flow the pump is already making, so the brake
+    // opens the throttle itself (`pump.bucketThrottle` = 0.65). Read raw,
+    // that made a rider hard on the brake read as a rider hard on the gas —
+    // sat in a racing tuck at walking pace with the gate down. What the gate
+    // has turned around is not driving him into any wind.
+    const state = fresh();
+    placeRun(state, { x: 100, z: 200, heading: 0, speed: 16 });
+    const dyn = createRiderDynamics();
+    for (let i = 0; i < 10 * TUNING.physicsHz; i++) {
+      step(state, { steer: 0, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false });
+      dyn.observe(state);
+    }
+    const c = state.craft;
+    expect(c.bucket).toBeGreaterThan(0.9);
+    expect(c.throttleEff).toBeGreaterThan(0.5);
+    expect(dyn.read(state).throttle).toBeLessThan(0.1);
+    // ...and the pace buys none either: there is no wind on a man crawling
+    // astern at walking pace.
+    expect(dyn.read(state).pace).toBe(0);
+  });
+
   it("comes off the machine as the hull goes over, and back on as it is righted", () => {
     const state = fresh();
     expect(riderHaul(state)).toBe(0);

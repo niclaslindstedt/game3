@@ -302,7 +302,7 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
     flight: 0.6,
     clearance: 1.5,
   },
-  // STRAIGHT DOWN from twice the helicopter's height: the plan view, and the
+  // STRAIGHT DOWN from four times the helicopter's height: the plan view, and the
   // one shot in the game that is about the WATER rather than about the
   // horizon. A swell has no silhouette from up here — the crest against the
   // sky that makes a sea read as a sea is simply not in the frame — so what
@@ -312,19 +312,30 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
   // streaks the wind has combed across the surface.
   //
   // The lens is stood directly over the craft (no standoff at all) and the
-  // aim is led 2.5 m ahead of it, which at 18 m up is 8° off the vertical —
+  // aim is led 5 m ahead of it, which at 36 m up is 8° off the vertical —
   // enough that the frame has a direction to be built from, little enough
   // that nothing but the water is in it. That lead is the ONLY horizontal
   // run between the lens and its aim, which is what makes the craft's nose
   // point reliably up the frame; `swing` and `lookThrough` are zero for the
   // same reason, and the rod takes no share of the flight, because a boom of
   // no length swung onto a flight path only moves the lens sideways.
+  //
+  // THE HEIGHT IS THE SUBJECT HERE, and the subject is the WAKE. What this
+  // rung is for is the only thing it can see, and at 18 m the V had barely
+  // opened before it ran off the bottom of the frame — the shot was of a
+  // craft with a stub of foam behind it. Everything is therefore doubled
+  // TOGETHER: the height, what pace adds to it, and the lead — the lead
+  // because it is the whole of the shot's tilt, and halving that tilt by
+  // raising the lens alone would have centred the craft and cropped the
+  // very wake the height was bought to show. Doubled, the 8° holds, the
+  // craft sits the same distance up the frame, and what has grown is the
+  // water behind it.
   drone: {
     dist: 0,
     distPerSpeed: 0.03,
-    height: 18,
-    heightPerSpeed: 0.06,
-    aimAhead: 2.5,
+    height: 36,
+    heightPerSpeed: 0.12,
+    aimAhead: 5,
     aimHeight: 0,
     fov: 55,
     fovPerSpeed: 0.25,

@@ -9,7 +9,7 @@
 // framing rules.
 import { describe, expect, it } from "vitest";
 
-import { TUNING, createGame, placeRun, step, type GameState } from "@engine";
+import { TUNING, angleDiff, createGame, placeRun, step, type GameState } from "@engine";
 
 import {
   CAMERA_MODES,
@@ -491,13 +491,13 @@ describe("the ladder", () => {
 });
 
 describe("the drone rig", () => {
-  it("stands straight over the craft at twice the helicopter's height", () => {
+  it("stands straight over the craft at four times the helicopter's height", () => {
     const state = fresh();
     placeRun(state, { x: 60, z: -40, heading: -1.1 });
     const { pose } = settle(state, 240, "drone");
     const r = relative(pose, state);
     expect(r.above).toBeCloseTo(CHASE_RIGS.drone.height, 1);
-    expect(r.above).toBeCloseTo(2 * CHASE_RIGS.heli.height, 1);
+    expect(r.above).toBeCloseTo(4 * CHASE_RIGS.heli.height, 1);
     // Directly over it: no standoff at rest, and nothing to either side —
     // a lens that drifts off the plumb line turns the picture instead of
     // moving it, because the frame is built out of the little horizontal
@@ -516,6 +516,15 @@ describe("the drone rig", () => {
     const offVertical = Math.atan2(Math.hypot(dx, dz), -dy);
     expect(offVertical).toBeGreaterThan(2 * DEG);
     expect(offVertical).toBeLessThan(12 * DEG);
+    // The tilt is the LEAD OVER THE HEIGHT, and raising the lens to show
+    // more wake without raising the lead with it would have flattened the
+    // shot toward the plumb line — centring the craft and cropping the very
+    // water the height was bought for. The two move together, so the tilt
+    // the row was designed around survives any change to either.
+    expect(Math.atan2(CHASE_RIGS.drone.aimAhead, CHASE_RIGS.drone.height)).toBeCloseTo(
+      offVertical,
+      2,
+    );
     // …and the lead is the craft's own heading, which is what puts its nose
     // up the frame: with no swing and no look-through, the only horizontal
     // run in the shot is the aim's, so the frame's up is the nose's.
@@ -553,6 +562,79 @@ describe("the drone rig", () => {
     // nothing — from up here a hull arriving at the lens is the one way
     // this shot can be lost.
     expect(pose.y - state.craft.y).toBeGreaterThan(CHASE_RIGS.heli.height);
+  });
+});
+
+describe("a craft going astern", () => {
+  // The brake lever held past the stop. A hull travelling backwards sits a
+  // whisker off 180° from its own nose, and the SLIP — the framing's reading
+  // of a hull being carried sideways — is built out of that difference. So
+  // this is the one state where it has no sign it can trust: taken raw it
+  // saturates at the rig's ceiling the whole time the craft is backing, and
+  // swaps ends whenever the stern wanders across dead astern.
+  //
+  // The aim is what the slip moves. The BOOM stands at the eased heading
+  // either way, so a test that only looked at where the lens was standing
+  // would pass over all of this.
+  function backing(seaState: number): GameState {
+    const state = createGame({
+      seed: 3,
+      craft: "skiff",
+      level: LEVEL,
+      quiet: true,
+      sea: { hs: seaState },
+    });
+    placeRun(state, { x: 0, z: 0, heading: 0, speed: 18 });
+    for (let i = 0; i < 9 * TUNING.physicsHz; i++)
+      step(state, { steer: 0, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false });
+    return state;
+  }
+
+  /** How far the aim is swung off the craft's nose, rad. */
+  function aimOffNose(pose: CameraPose, state: GameState): number {
+    return angleDiff(Math.atan2(pose.aimX - pose.x, pose.aimZ - pose.z), state.craft.heading);
+  }
+
+  it("is actually going backwards, so the rest of this describe means something", () => {
+    const c = backing(0.01).craft;
+    const way = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
+    expect(way).toBeLessThan(-1);
+    // ...and fast enough that the slip's own speed gate is open: below it
+    // the reading falls back to the heading and nothing here is exercised.
+    expect(Math.hypot(c.vx, c.vz)).toBeGreaterThan(3);
+  });
+
+  it("aims down the nose rather than swung to the rig's slip ceiling", () => {
+    const state = backing(0.01);
+    const { pose } = settle(state, 240, "chase");
+    // Backing straight IS no slip: the hull is not being carried sideways
+    // across the water, it is going the other way. Read off the travel's
+    // direction instead of its axis this saturated, and the shot spent the
+    // whole reverse looking a quarter of a radian off the machine.
+    expect(Math.abs(aimOffNose(pose, state))).toBeLessThan(CHASE.slipMax / 4);
+  });
+
+  it("does not swap ends when the stern wanders across dead astern", () => {
+    // A real sea, so the travel direction crosses the nose's own line
+    // rather than sitting exactly on it as it does on a mirror.
+    const state = backing(0.6);
+    const rig = createCameraRig("chase");
+    let pose = rig.update(state, DT, FLAT);
+    let worst = 0;
+    let swing = 0;
+    for (let f = 0; f < 240; f++) {
+      const was = aimOffNose(pose, state);
+      for (let i = 0; i < 2; i++)
+        step(state, { steer: 0, throttle: 0, reverse: 1, lean: 0, crouch: 0, reset: false });
+      pose = rig.update(state, 2 * TUNING.dt, FLAT);
+      const now = aimOffNose(pose, state);
+      worst = Math.max(worst, Math.abs(now - was));
+      swing = Math.max(swing, Math.abs(now));
+    }
+    // The aim may drift with the hull; it may not jump, and it may not
+    // travel to the ceiling and back. A sign flip is worth two ceilings.
+    expect(worst).toBeLessThan(CHASE.slipMax / 4);
+    expect(swing).toBeLessThan(CHASE.slipMax / 2);
   });
 });
 

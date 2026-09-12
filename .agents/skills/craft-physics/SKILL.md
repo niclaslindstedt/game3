@@ -269,6 +269,36 @@ is made on flat water or not at all.
   hull-GEOMETRY knob measures the first variant every time and comes back
   with "no effect". Compare geometry across separate processes, or give the
   variant its own id.
+- **SIGNS BITE THREE WAYS, AND ALL THREE READ AS SOMETHING ELSE.** None of
+  these looks like a sign bug from the symptom, so check them before tuning.
+  - *A body torque about axis `a` swings a fixed WORLD direction the other
+    way round it.* Anything steering toward an attitude works on
+    `unrotate(q, worldUp)`, and the axis that carries the vector onto its
+    target, `n = upBody × target`, is the NEGATIVE of the torque axis. Apply
+    `+n` and every correction drives the attitude further off: `landingAssist`
+    shipped this way for one round and came back WORSE than no assist (bad
+    landings 68 % → 79 %, capsizes nearly doubled), because a hand that rights
+    a hull on its side is, mirrored, one that rolls it the rest of the way
+    over. The tell is a controller that is large, smooth and consistently
+    wrong; a mistuned gain oscillates, a flipped one converges confidently on
+    the wrong attitude. Bench it: hull rolled right must come back +z, nose
+    down must come back −x (`tests/assist_test.ts`).
+  - *Euler pitch WRAPS at ±90°, in MEASUREMENT as well as in state.* A bench
+    summing `c.pitch − prev` reads a steady nose-up rotation through vertical
+    as a reversal, because `toEuler` folds pitch back and flips the roll 180°
+    to compensate — 1.5 backflips were reported as −150° of nose-DOWN, twice,
+    on two differently written counters. Count `∫ −wx dt` over each airborne
+    stretch instead: `wx` is body-frame and does not wrap.
+  - *A MAGNITUDE has no direction in it.* `c.speed` is `hypot(vx, vy, vz)`, so
+    differencing it for a surge calls a craft gathering way ASTERN one that is
+    accelerating, and turns round at the stop. Anything that means "how fast
+    forwards" reads the way made good along the craft's own nose, taken out of
+    `c.q` and flattened — and NEVER off `c.heading`, which is the same Euler
+    trap one bullet up: heading swings a clean 180° as `toEuler` folds the
+    pitch at ±90°, so a hull half way round a flip reads as one going
+    backwards. Gate anything built on it to the hull being AFLOAT as well: an
+    inverted hull at the top of a flip genuinely is travelling backwards along
+    its nose, and there is no water under it to go astern through.
 - **EVERY FORCE HAS UNITS AND A SOURCE.** `TUNING.hull`, `.pump`,
   `.rider`, `.planing`, `.flight`, `.assist` each carry the unit and the
   model in the comment, and say whether the number is a measurement

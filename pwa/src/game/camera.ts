@@ -22,7 +22,7 @@
 //   far   — stood back and a little higher: less drama, more warning.
 //   heli  — the shot a chase helicopter would fly, and the furthest back the
 //           ladder goes while still looking ACROSS the sea.
-//   drone — straight down from twice the helicopter's height. A swell has
+//   drone — straight down from four times the helicopter's height. A swell has
 //           no silhouette from up here — a crest only reads as a crest
 //           against the sky — so this rung buys none of what the other six
 //           are framed for, and is the only one that shows what is
@@ -228,11 +228,22 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     // travel direction into the framing while the hull is being carried
     // sideways across the water — never in the air, where the nose and the
     // travel come apart on purpose.
+    // ...and the slip is taken off the travel's AXIS, not its direction —
+    // the travel folded into the hemisphere the nose is in. A hull GOING
+    // ASTERN under the brake travels within a few degrees of straight
+    // backwards, so the raw difference is a whisker off 180° and its SIGN
+    // is decided by which side of dead astern the drift happens to be on
+    // this frame. That flipped between +slipMax and −slipMax as the stern
+    // wandered, and the framing slammed across the shot each time: the
+    // whole of the camera's glitch while backing off a mark. Folded, a
+    // craft backing straight reads as no slip at all and one backing askew
+    // reads as the few degrees it is askew by — continuous through the
+    // stop, and it never has to decide which way round a hull is.
     const planSpeed = Math.hypot(c.vx, c.vz);
     const travel = planSpeed > 3 ? Math.atan2(c.vx, c.vz) : c.heading;
-    const wantSlip = c.airborne
-      ? 0
-      : soften(angleDiff(c.heading, travel) * rig.slipWeight, rig.slipMax);
+    const off = angleDiff(c.heading, travel);
+    const axis = Math.abs(off) > Math.PI / 2 ? off - Math.sign(off) * Math.PI : off;
+    const wantSlip = c.airborne ? 0 : soften(axis * rig.slipWeight, rig.slipMax);
     slip += (wantSlip - slip) * ease(rig.followRate);
     // ...but a HEADING IS ONLY A HEADING WHILE THE NOSE IS ON THE HORIZON.
     // It is the craft's forward axis projected onto the plan, and half way

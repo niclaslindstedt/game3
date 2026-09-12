@@ -119,6 +119,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     submergedDepth: 0,
     slam: 0,
     speed: 0,
+    way: 0,
     landing: 1e6,
     onRamp: false,
     onGround: false,

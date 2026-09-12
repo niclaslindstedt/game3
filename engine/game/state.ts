@@ -130,6 +130,14 @@ export type CraftState = {
   slam: number;
   /** |v|, m/s — what the speedo reads. */
   speed: number;
+  /** THE WAY MADE GOOD, m/s: the velocity on the craft's own nose, flattened.
+   * Signed, so a hull going astern reads negative where `speed` cannot — and
+   * stated once here because the physics, the rider's body and anything else
+   * that has to know which way the craft is actually travelling must not each
+   * derive it. Taken off the nose out of `q`, NEVER off `heading`: heading is
+   * `toEuler`'s, which swings a clean 180° as the pitch folds at ±90°, so a
+   * hull half way round a flip would read as one going backwards. */
+  way: number;
   /** Seconds since the last landing; starts large so nothing reads a
    * landing that never happened. */
   landing: number;
