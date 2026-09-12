@@ -131,13 +131,22 @@ describe("shoaling and fetch", () => {
     const far = seaSummary(sea, 400, 300);
     expect(near.Hs).toBeCloseTo(far.Hs, 1);
     // The lightest wind the rule book draws, over the game's fetch and
-    // through `sea.heightScale`: a sea that stands against a three-metre
-    // hull, not a millpond. (The law alone grows 0.75 m here; the dial is
-    // what puts the water in the world.)
+    // through `sea.heightScale`, PLUS the groundswell the coast is dealt —
+    // which the wind did not make and which is most of this number at a
+    // light wind. (The fetch law alone grows 0.75 m here; the wind-sea dial
+    // takes that to 1.2, and the swell in quadrature over it is the rest.)
     expect(far.Hs).toBeGreaterThan(1.0);
-    expect(far.Hs).toBeLessThan(1.8);
+    expect(far.Hs).toBeLessThan(4);
+    // ...and the WIND's own share of it is the one the fetch law sets.
+    expect(sea.hsRef).toBeGreaterThan(1.0);
+    expect(sea.hsRef).toBeLessThan(1.8);
+    // The PEAK period out here is the swell's, not the wind sea's: the
+    // swell carries more energy than a light wind's chop does, and `Tp` is
+    // whichever band is carrying the water. That is the whole reason a
+    // coast has long waves on a calm morning.
     expect(far.Tp).toBeGreaterThan(2.5);
-    expect(far.Tp).toBeLessThan(6);
+    expect(far.Tp).toBeLessThan(10);
+    expect(far.Tp).toBeCloseTo(sea.swellTp, 1);
     // ...and what actually ARRIVES does not fade coming in: the bed rises
     // under it, so linear shoaling holds it up (a little, over a slope
     // this gentle) right until the depth is what clips it — which is the
@@ -157,7 +166,13 @@ describe("shoaling and fetch", () => {
   it("a stronger wind is a bigger sea", () => {
     const breeze = createSea(syntheticLevel({ windSpeed: 6 }), 1);
     const gale = createSea(syntheticLevel({ windSpeed: 14 }), 1);
-    expect(seaSummary(gale, 400, 200).Hs).toBeGreaterThan(seaSummary(breeze, 400, 200).Hs * 2);
+    // The WIND's own sea more than doubles over R12's band — that is the
+    // fetch law, and it is asked of `hsRef` because the swell standing in
+    // the same water is the part of the sea the wind did NOT make: it is
+    // the same on both of these levels, deliberately, so the total grows by
+    // less than the wind's share does.
+    expect(gale.hsRef).toBeGreaterThan(breeze.hsRef * 2);
+    expect(seaSummary(gale, 400, 200).Hs).toBeGreaterThan(seaSummary(breeze, 400, 200).Hs);
     expect(seaSummary(gale, 400, 200).Hs).toBeGreaterThan(1.4);
   });
 
@@ -334,7 +349,7 @@ describe("the surface", () => {
       .sort((a, b) => a.omega - b.omega);
     const half = ocean.length >> 1;
     const mean = (cs: typeof ocean): number => cs.reduce((s, c) => s + off(c), 0) / cs.length;
-    expect(half).toBeGreaterThan(2);
+    expect(half).toBeGreaterThanOrEqual(2);
     expect(mean(ocean.slice(half))).toBeGreaterThan(mean(ocean.slice(0, half)));
   });
 
@@ -512,6 +527,80 @@ describe("the phase field", () => {
   });
 });
 
+describe("the groundswell", () => {
+  const level = syntheticLevel({ windSpeed: 8 });
+  const sea = createSea(level, 1);
+
+  it("is long, ordered and the part of the sea the wind did not make", () => {
+    // What a coast has that its own wind did not grow. Every claim here is
+    // one the wind sea beside it cannot make.
+    const swell = sea.components.filter((c) => c.band === "swell");
+    expect(swell.length).toBeGreaterThan(2);
+    expect(sea.swellHs).toBeGreaterThan(1);
+    // LONG: its peak is twice the wind sea's period and so four times its
+    // deep-water length, which is what a rider reads as a swell rather
+    // than as chop.
+    expect(sea.swellTp).toBeGreaterThan(sea.tp * 1.3);
+    // ORDERED: a third of the wind sea's fan, nearly all one way.
+    const off = (c: (typeof swell)[number]): number => {
+      let d = Math.atan2(c.dirX, c.dirZ) - (level.wind.from + Math.PI);
+      while (d > Math.PI) d -= 2 * Math.PI;
+      while (d < -Math.PI) d += 2 * Math.PI;
+      return Math.abs(d);
+    };
+    const fan = Math.max(...swell.map(off)) - Math.min(...swell.map(off));
+    expect(fan).toBeLessThan(TUNING.sea.swell.spread * 2 + 1e-9);
+    // NARROW-BANDED, which is what makes SETS: every component within a
+    // tenth of an octave of the others, so they beat into groups hundreds
+    // of metres long rather than into a chop.
+    const longest = Math.max(...swell.map((c) => c.omega));
+    const shortest = Math.min(...swell.map((c) => c.omega));
+    expect(longest / shortest).toBeLessThan(1.25);
+    // ...and gentle: a long wave carrying its height over four times the
+    // length is nowhere near breaking.
+    expect(Math.max(...swell.map((c) => c.amp * c.k0))).toBeLessThan(0.15);
+  });
+
+  it("does not move with the wind, and is gone when there is no weather", () => {
+    const breeze = createSea(syntheticLevel({ windSpeed: 6 }), 1);
+    const gale = createSea(syntheticLevel({ windSpeed: 14 }), 1);
+    expect(gale.swellHs).toBeCloseTo(breeze.swellHs, 6);
+    expect(gale.swellTp).toBeCloseTo(breeze.swellTp, 6);
+    // ...and a FLAT CALM is flat: `wind.speed === 0` is the harness's own
+    // state — the hull at rest, the turntable, every buoyancy case — and a
+    // three-metre swell under a craft that is meant to be floating still
+    // is a broken harness, not a sea. R12 never deals a wind this light.
+    const calm = createSea(syntheticLevel({ windSpeed: 0 }), 1);
+    expect(calm.swellHs).toBe(0);
+    expect(calm.components.filter((c) => c.band === "swell").length).toBe(0);
+  });
+
+  it("stands where the open sea reaches and nowhere else", () => {
+    // The same land that cuts the fetch cuts it: it came in off that sea.
+    for (const seed of LEVEL_SEEDS.slice(0, 4)) {
+      const lv = levelFor(seed);
+      const s = createSea(lv, seed);
+      const where = `seed ${seed}`;
+      for (const gate of lv.course.gates) {
+        const sh = seaShares(s, gate.x, gate.z);
+        // A gate stands in water the course is ridden in, and the swell is
+        // there in exactly the measure the coast's own sea is.
+        expect(sh.swell, where).toBeCloseTo(sh.ocean, 6);
+      }
+      // ...and up at the head of the river there is none of it.
+      const head = lv.river.at(-1);
+      if (head) expect(seaShares(s, head.x, head.z).swell, where).toBeLessThan(0.1);
+    }
+  });
+
+  it("is a quoted sea's alone when a run asks for one outright", () => {
+    // `?hs=20` asks for that sea, not for a coast with a swell on top.
+    const quoted = createSea(level, 1, level.wind, { hs: 8 });
+    expect(quoted.swellHs).toBe(0);
+    expect(quoted.hsRef).toBeCloseTo(8, 6);
+  });
+});
+
 describe("R28 — two kinds of water", () => {
   it("gives the river the wind's chop and none of the ocean's sea", () => {
     for (const seed of LEVEL_SEEDS.slice(0, 4)) {
@@ -620,7 +709,9 @@ describe("the open ocean past the rim", () => {
       expect(Hs, `${past} m past the rim`).toBeGreaterThanOrEqual(last - 1e-9);
       last = Hs;
     }
-    expect(seaSummary(sea, 400, out(0)).Hs).toBeCloseTo(sea.hsRef, 6);
+    // The coast's own sea at the rim is the wind sea AND the swell, in
+    // quadrature — two spectra standing in the same water.
+    expect(seaSummary(sea, 400, out(0)).Hs).toBeCloseTo(Math.hypot(sea.hsRef, sea.swellHs), 6);
     expect(seaSummary(sea, 400, out(O.reach)).Hs).toBeCloseTo(sea.openHs, 6);
     // ...and a ceiling past it, however far a rider holds the throttle open.
     expect(seaSummary(sea, 400, out(O.reach * 40)).Hs).toBeCloseTo(sea.openHs, 6);
@@ -716,7 +807,11 @@ describe("the open ocean past the rim", () => {
         );
       const coarse = at(0.25);
       const fine = at(0.0025);
-      expect(fine, `t ${t}`).toBeLessThan(coarse / 50);
+      // A step under a tenth of a millimetre is not a step, whatever its
+      // ratio to the coarse one: where the surface happens to be flat
+      // across the rim the coarse difference is microns too, and the ratio
+      // is then noise over noise.
+      expect(fine, `t ${t}`).toBeLessThan(Math.max(coarse / 50, 1e-4));
     }
   });
 

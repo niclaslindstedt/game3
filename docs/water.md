@@ -36,11 +36,19 @@ The field is a sum of `TUNING.sea.components` = 8 components, each a linear (Air
 
    **The steepness is the dial that decides whether a big sea reads as a wave at all**, because what the eye reads is the FACE and the face's angle is the steepness, not the height. A mature ocean sea runs 0.03–0.05 (Toba 1972), which is why a real twenty-metre sea is a five-hundred-metre swell with a ten-degree face — at sea you feel it and from a boat you cannot see it. 0.09 buys the young, wind-driven storm sea instead: a twenty-metre sea is a twelve-second, 222 m wave you have to climb. It stays clear of Michell's 1/7 = 0.142 breaking limit deliberately: a sea sitting ON the limit is one the renderer paints entirely in foam, and a twenty-metre swell comes out looking like a snowfield. The fetch still shapes an overridden sea: the height quoted is the course's and it grows to seaward by the wind's own law (uniform when there is no wind). **There is no arcade ceiling**: the field is bounded by the fully developed law and by the depth under it (below) and by nothing else, and every term — the depth table, the phase field, the orbital velocity — is sized so a twenty-metre sea over deep water stands (`tests/waves_test.ts`'s storm case rides one for ten seconds), and past the level's rim the same terms carry the storm out there (below). **A wave only stands its full height in water it cannot feel the bottom of**, so where the sea is quoted matters as much as what it is quoted at: over the 25 m at the foot of R3's coastal shelf the clip holds a twenty-metre sea to some fourteen, and it is only itself out past 400 m where the bed has fallen to the open sea's 60 m. The `storm` scenario stands the craft there.
 
-3. **The components — THREE BANDS (R28).** There are three kinds of water a rider can reach and they do not carry the same waves, so the field is laid in three bands and every point takes a share of each.
+3. **The components — FOUR BANDS (R28).** There are four kinds of wave a rider can meet and they do not come from the same weather, so the field is laid in four bands and every point takes a share of each.
 
    **The ocean band** (`sea.components` = 8) is the sea the wind grew over the whole coast's fetch — the long, ordered thing a race is ridden in. Its share at a point is that point's **exposure**: 1 out at sea and 1 a few metres off an open beach (R12's wind blows in off the water, so the ocean is upwind of the whole coast — _the waves come in against the shore_), 0 a hundred metres up a river the land has closed round.
 
    **The local band** (`sea.localComponents` = 5) is the chop the local wind grows on the water it actually crossed: short, small, and quoted ONCE per level at the mean wind over `sea.localFetch` = 2 km of arcade fetch, with `localFetchScale` = 10 stretching a point's own reach (a tenth of `fetchScale`, and it has to stay the smaller of the two — the fiction about a longer coast is what buys the ocean band its sixty kilometres, and it says nothing about water with a bank on both sides). `localFetch` sets the band's PERIOD alone: `chop` is a ratio against that same quote, so it cancels out of the height and `localFetchScale` is the one dial deciding how big a point's own chop is. Its share is `(1 − exposure) · chop`, where `chop` is the local wind sea's height at that point against the level's quote — so it fills in exactly where the ocean band does not and the two never double-count. A river ends up with a 5 m, 1.8 s ripple a few centimetres high — a couple of tenths at a wide mouth, falling to a centimetre or two at the head; a wide channel behind a headland gets something between. The stretch was 40 until it was measured against the ride: at that value a sheltered reach hit the hull with the same 13°/s pitch rate as the open sea on a fifth of its wave height, which is a rumble strip rather than a sea. The local band carries no phase field: a five-metre wave feels the bottom only in water a hull is already aground in, so it is a plane wave, which is a grid sample per component saved in the hottest loop in the engine. Five components over so narrow a band is more than the shape needs, and the reason it once had is gone: a component's energy share used to carry the cos² directional weight, which vanishes at the edge of the spread, so a band with few components could deal one draw most of the sea (at three the steepest local component reached `a·k` 0.43, on the point of breaking). The heading is DRAWN through that cos² now rather than weighted against it, and the corpus's steepest local component is `a·k` 0.15 against the 0.32 the weighted draw left. What five still buys is the chop's own texture at close range, where this band is most of what is under the hull.
+
+   **The swell** (`sea.swell.components` = 3) is the sea this coast's own wind did NOT make — groundswell, radiated by weather a thousand kilometres away, sorted by frequency on the way (dispersion runs the long waves out in front) and arriving long, slow and nearly all one way whether or not there is any wind here. It is what makes surf on a calm morning, and without it every wave in the game is a locally grown wind sea: at the bottom of R12's band that is 1.2 m at a 4.2 s period, a 28 m wave under a 3.5 m hull, and it reads as texture rather than as ocean however much of it there is.
+
+   So it is QUOTED rather than grown — there is no fetch here to grow it over — and everything about it is the opposite of the wind sea beside it. `swell.hs` = 3 m before the level's own draw (`vary` = 0.55, so a seed gets anything from 1.65 m of old swell to the whole of it); its period follows from its height and `swell.steepness` the way the storm ladder's does, NOT from the wind; `swell.components` = 3 over `bandLow`..`bandHigh` = 0.93–1.08 of its own peak, a tenth of an octave, so the three beat into **sets** hundreds of metres long — three or four big waves and then flatter water, which nothing else in the model makes; and `swell.spread` = 0.16 rad (~9°) is a third of the wind sea's, because distance sorts direction as surely as it sorts frequency. Its share is the same **exposure** the ocean band's is — it came in off the open sea, so the same land cuts it, and a river a hundred metres up has none of it — but it does not fade with the local wind, which is the whole point of carrying it. It carries a phase field, so it shoals and refracts: that is where a coast's big water outside the surf line comes from.
+
+   `swell.steepness` = 0.035 is the most important dial here and it is the arcade's, not the ocean's. A real groundswell is about 0.008 — three metres over three hundred and fifty — and **it is invisible from a chase camera**: three metres over a hundred and seventy of horizontal run is a two-degree slope, and a rider a few metres above the water looking down his own wake sees a plane that slowly tilts. Quoted at nature's steepness the swell measured 34 m of crest length and read as nothing. At 0.035 a 3 m swell is 86 m long with a 7.4 s period — twice the wind chop's length, three times its height, and a face steep enough to see. The other end of the same scale is `sea.steepness` = 0.09, which is what the open ocean's storm is quoted at, and that is a wall.
+
+   **A flat calm has no swell.** `wind.speed === 0` gates it off, the same way the storm ladder is gated, and that is not a physical claim — a groundswell does not care what the local wind is doing, which is the point of it. It is that zero wind in this engine means a flat calm: the state every physics test stages its hull at rest on, and every turntable and rest scene is drawn over. R12 never deals a wind under 6 m/s, so no ridden level takes that branch.
 
    **The open bands** (`sea.components` again, one per rung of `sea.open.rungs`) are the storm past the edge of the built level — [the open ocean](#the-open-ocean-past-the-rim-enginegameoceants) below, which owns the whole of it. Every one of their shares is 0 inside a level's bounds, so the coast's own water is untouched by them and the whole storm costs one comparison a sample: `surfaceAt` walks the field BAND BY BAND and skips a band whose share is nothing in a single test rather than once per component.
 
@@ -352,6 +360,8 @@ v_x,v_z += flowAt(level.flow, x, z)             (R27: the water itself, where a 
 
 A band whose share at the point is under a thousandth — under a millimetre of water — is skipped outright rather than multiplied by zero, and that is most of a level: out at sea the local band is absent and up a river the ocean band is, so all but the water round a river mouth pays for one band. Each component's depth table is read ONCE and held between the two passes.
 
+How a band of components is LAID over a spectrum — the slices, the headings, the fan — is `engine/game/wave-band.ts`, beside `wave-bed.ts`: one is what the spectrum does and the other is what the bed does, and `water.ts` is the sum of both under §20.5's cap.
+
 **What a component costs, and where it is paid.** The fixed work — the shares, the depth, the clip — is about 300 ns a call, and a component is about **140 ns on top of it**, whether or not it carries a phase field (the field's gradient read is not the expensive part; the sines, the crest correction, the normal and the orbital velocity are). The water mesh calls this once per vertex per frame — 5400 of them at the design WATER row — so the eight ocean components and the five local ones are most of a 10 ms frame, and every component added is another 0.75 ms of it. That is why `sea.components` is 8 and why a repeat is fixed by where the slices SIT (`sliceMix`) rather than by laying more of them: sixteen put the same frame at 17 ms.
 
 **Measure it where the band is actually carried.** A band whose share is nothing is skipped in one comparison, so a benchmark that samples a point the ocean band does not reach — a river mouth, a sheltered start — measures the local band and a skipped branch, and reports an ocean component as nearly free. Check `seaShares` at the sample point before believing a per-component cost.
@@ -377,47 +387,51 @@ The sea is built from the level's MEAN wind (the spectrum needs a wind that has 
 
 ## The numbers, in one place
 
-| Knob                                 | Value       | Unit   | What it buys                                                      |
-| ------------------------------------ | ----------- | ------ | ----------------------------------------------------------------- |
-| `sea.components`                     | 8           | —      | OCEAN band components — the FRAME's budget sets it                |
-| `sea.sliceMix`                       | 0.7         | —      | 0 cuts the band evenly in frequency, 1 evenly in ENERGY           |
-| `sea.localComponents`                | 5           | —      | LOCAL band components — the chop on enclosed water                |
-| `sea.localFetch` / `localFetchScale` | 2000 / 10   | m, —   | the local band's PERIOD, and the stretch that sets its HEIGHT     |
-| `sea.localBandLow` / `localBandHigh` | 0.8 / 1.8   | × ω_p  | the narrower band the chop is laid over                           |
-| `sea.fanSpread` / `fanRays`          | 45 / 5      | °, —   | the upwind fan the effective fetch is read on                     |
-| `sea.bandLow` / `bandHigh`           | 0.7 / 2.4   | × ω_p  | the band the components are laid over                             |
-| `sea.minPeriod`                      | 2.5         | s      | absolute short end of the band — the chop on a slow swell         |
-| `sea.spread`                         | 0.45        | rad    | nominal cos² half-width AT THE PEAK (~26°, realising ~11°)        |
-| `sea.spreadTilt`                     | 1.25        | —      | how that half-width opens ABOVE the peak (Mitsuyasu 1975)         |
-| `sea.spreadMax`                      | 0.75        | rad    | ...and the widest it ever gets (~43°)                             |
-| `sea.peakEnhancement`                | 3.3         | —      | JONSWAP's γ — energy at the peak vs spread around it              |
-| `sea.heightScale`                    | 1.5         | ×      | HOW BIG: multiple on what the fetch law grows                     |
-| `sea.periodScale`                    | 0.95        | ×      | HOW LONG: multiple on the wind sea's peak period (λ ∝ this²)      |
-| `sea.baseFetch` / `fetchScale`       | 30000 / 100 | m, —   | the ocean band's stretched fetch: `30000 + 100·reach`             |
-| `sea.minDepth`                       | 0.15        | m      | floor on the depth the model reads                                |
-| `sea.breakingRatio`                  | 0.78        | —      | McCowan's H/d for one wave — quoted, not applied                  |
-| `sea.breakingHs`                     | 0.55        | —      | Nelson's depth-limited Hs/d — what the field is clipped to        |
-| `sea.crestSharpness`                 | 1.6         | ×      | HOW SHARP: multiple on Stokes' second-order crest term            |
-| `sea.crestMaxSteepness`              | 0.32        | a·k    | the steepness that correction is evaluated at, at most            |
-| `sea.tableRoot` / `tableDepth`       | 0.1 / 250   | m^½, m | the per-component depth table, on a √d axis                       |
-| `sea.steepness`                      | 0.09        | —      | Hs/L₀ of a QUOTED sea — its period, and so its wavelength         |
-| `sea.open.vary`                      | 0.75        | —      | the band the dealt storm is drawn over, as a share of the ceiling |
-| `sea.open.reach`                     | 2500        | m      | how far past the rim the dealt storm stands in full               |
-| `sea.open.rungs`                     | 3           | —      | the shares of it the open band is laid on                         |
-| `sea.open.bandHigh`                  | 4.8         | f_p    | the band a rung is laid over, as a multiple of its own peak       |
-| `sea.open.wind`                      | 25          | m/s    | the wind out there at 10 m                                        |
-| `sea.open.depth`                     | 150         | m      | the ocean floor out there, so nothing clips the storm             |
-| `contact.boundsOpenDepth`            | 15          | m      | how deep a rim must be for the bounds to let a rider out          |
-| `water.viscosity`                    | 1.14·10⁻⁶   | m²/s   | kinematic viscosity for the ITTC-57 line (fresh water at ~15 °C)  |
-| `wind.roughness`                     | 2·10⁻⁴      | m      | the log law's z₀                                                  |
-| `wind.referenceHeight` / `minHeight` | 10 / 0.3    | m      | where the mean is quoted; the profile's floor                     |
-| `wind.intensity` / `gustTime`        | 0.11 / 12   | —, s   | the gust process                                                  |
-| `wind.veer` / `veerTime`             | 0.12 / 25   | rad, s | the direction's wander                                            |
-| `wind.gustMin` / `gustMax`           | 0.55 / 1.6  | × mean | the gust factor's bounds                                          |
-| `wind.shelter` / `shelterFetch`      | 0.3 / 220   | ×, m   | what a wind off the land keeps, and the run it recovers over      |
-| `wind.cell`                          | 100         | m      | the square the shelter is averaged onto                           |
-| `flow.gather`                        | 0.8         | —      | how the river's discharge falls going up (R27)                    |
-| `flow.max` / `flow.plume`            | 3.5 / 90    | m/s, m | the current's ceiling, and how far its plume carries out          |
+| Knob                                 | Value        | Unit   | What it buys                                                      |
+| ------------------------------------ | ------------ | ------ | ----------------------------------------------------------------- |
+| `sea.components`                     | 5            | —      | WIND-SEA band components — the FRAME's budget sets it             |
+| `sea.swell.hs` / `vary`              | 3 / 0.55     | m, —   | the GROUNDSWELL a coast is dealt, and the bottom of its draw      |
+| `sea.swell.steepness` / `steepVary`  | 0.035 / 0.25 | —      | how steep it is quoted at, and so how LONG — the arcade's dial    |
+| `sea.swell.components`               | 3            | —      | ...and how many, over a tenth of an octave: what makes SETS       |
+| `sea.swell.spread` / `off`           | 0.16 / 0.44  | rad    | its own fan (~9°), and how far its heading sits from the wind's   |
+| `sea.sliceMix`                       | 0.7          | —      | 0 cuts the band evenly in frequency, 1 evenly in ENERGY           |
+| `sea.localComponents`                | 5            | —      | LOCAL band components — the chop on enclosed water                |
+| `sea.localFetch` / `localFetchScale` | 2000 / 10    | m, —   | the local band's PERIOD, and the stretch that sets its HEIGHT     |
+| `sea.localBandLow` / `localBandHigh` | 0.8 / 1.8    | × ω_p  | the narrower band the chop is laid over                           |
+| `sea.fanSpread` / `fanRays`          | 45 / 5       | °, —   | the upwind fan the effective fetch is read on                     |
+| `sea.bandLow` / `bandHigh`           | 0.7 / 2.4    | × ω_p  | the band the components are laid over                             |
+| `sea.minPeriod`                      | 2.5          | s      | absolute short end of the band — the chop on a slow swell         |
+| `sea.spread`                         | 0.45         | rad    | nominal cos² half-width AT THE PEAK (~26°, realising ~11°)        |
+| `sea.spreadTilt`                     | 1.25         | —      | how that half-width opens ABOVE the peak (Mitsuyasu 1975)         |
+| `sea.spreadMax`                      | 0.75         | rad    | ...and the widest it ever gets (~43°)                             |
+| `sea.peakEnhancement`                | 3.3          | —      | JONSWAP's γ — energy at the peak vs spread around it              |
+| `sea.heightScale`                    | 1.5          | ×      | HOW BIG: multiple on what the fetch law grows                     |
+| `sea.periodScale`                    | 0.95         | ×      | HOW LONG: multiple on the wind sea's peak period (λ ∝ this²)      |
+| `sea.baseFetch` / `fetchScale`       | 30000 / 100  | m, —   | the ocean band's stretched fetch: `30000 + 100·reach`             |
+| `sea.minDepth`                       | 0.15         | m      | floor on the depth the model reads                                |
+| `sea.breakingRatio`                  | 0.78         | —      | McCowan's H/d for one wave — quoted, not applied                  |
+| `sea.breakingHs`                     | 0.55         | —      | Nelson's depth-limited Hs/d — what the field is clipped to        |
+| `sea.crestSharpness`                 | 1.6          | ×      | HOW SHARP: multiple on Stokes' second-order crest term            |
+| `sea.crestMaxSteepness`              | 0.32         | a·k    | the steepness that correction is evaluated at, at most            |
+| `sea.tableRoot` / `tableDepth`       | 0.1 / 250    | m^½, m | the per-component depth table, on a √d axis                       |
+| `sea.steepness`                      | 0.09         | —      | Hs/L₀ of a QUOTED sea — its period, and so its wavelength         |
+| `sea.open.vary`                      | 0.75         | —      | the band the dealt storm is drawn over, as a share of the ceiling |
+| `sea.open.reach`                     | 2500         | m      | how far past the rim the dealt storm stands in full               |
+| `sea.open.rungs`                     | 3            | —      | the shares of it the open band is laid on                         |
+| `sea.open.bandHigh`                  | 4.8          | f_p    | the band a rung is laid over, as a multiple of its own peak       |
+| `sea.open.wind`                      | 25           | m/s    | the wind out there at 10 m                                        |
+| `sea.open.depth`                     | 150          | m      | the ocean floor out there, so nothing clips the storm             |
+| `contact.boundsOpenDepth`            | 15           | m      | how deep a rim must be for the bounds to let a rider out          |
+| `water.viscosity`                    | 1.14·10⁻⁶    | m²/s   | kinematic viscosity for the ITTC-57 line (fresh water at ~15 °C)  |
+| `wind.roughness`                     | 2·10⁻⁴       | m      | the log law's z₀                                                  |
+| `wind.referenceHeight` / `minHeight` | 10 / 0.3     | m      | where the mean is quoted; the profile's floor                     |
+| `wind.intensity` / `gustTime`        | 0.11 / 12    | —, s   | the gust process                                                  |
+| `wind.veer` / `veerTime`             | 0.12 / 25    | rad, s | the direction's wander                                            |
+| `wind.gustMin` / `gustMax`           | 0.55 / 1.6   | × mean | the gust factor's bounds                                          |
+| `wind.shelter` / `shelterFetch`      | 0.3 / 220    | ×, m   | what a wind off the land keeps, and the run it recovers over      |
+| `wind.cell`                          | 100          | m      | the square the shelter is averaged onto                           |
+| `flow.gather`                        | 0.8          | —      | how the river's discharge falls going up (R27)                    |
+| `flow.max` / `flow.plume`            | 3.5 / 90     | m/s, m | the current's ceiling, and how far its plume carries out          |
 
 The level contributes `wind.speed` (6–14 m/s, R12) and `wind.from` (always off the sea — R12, which is what puts the ocean upwind of the whole coast), its `offshore`, `ground` and `flow` fields, `river.discharge` (120–600 m³/s, R27), and `water.density` (1005 kg/m³ on the taiga coast — brackish; R13), which is the density every hydrostatic and hydrodynamic force uses.
 
