@@ -619,15 +619,81 @@ export const TUNING = {
      * sized for attitude: a lean held forward through a 0.7 s hang puts
      * the nose 20–30° down, not on the water's floor. */
     leanTorque: 450,
-    /** THE PULL: the angular impulse, N·m·s, a lean held back through the
-     * first `pullWindow` seconds off the lip is worth — the rider yanking
-     * the bars up. Together with the hold it is what a backflip is made
-     * of: with the lean held back, a 1.5 s hang completes one and not much
-     * more (`flight_test`), and a lean let go inside the window is no pull
-     * at all. Nose-up only: a rider stood on the hull has nothing to push
-     * the nose down against. */
-    pull: 620,
-    pullWindow: 0.25,
+    /** THE PUMP: the angular impulse, N·m·s, one YANK on the bars is
+     * worth. Nose-up only — a rider stood on the hull has nothing to push
+     * the nose down against — and together with the hold it is what a
+     * backflip is made of.
+     *
+     * A yank is EARNED every time the lean-back input rises `pumpRise`
+     * above its own low-water mark, and SPENT the moment the hull is light
+     * enough to be thrown with the lean still back. So one input does both
+     * jobs a rider does with it: hold it back off a lip and the hull takes
+     * one yank at the lip, TAP it — off a crest, or again and again through
+     * a hang — and it takes one a tap, which is how a flip comes round off
+     * a ramp no craft could carry one off in a single pull.
+     *
+     * What a yank is worth is the craft's own and nothing here: `pump ·
+     * riderAuthority / I_x` spans 1.1 rad/s on the tourer to 5.7 on the
+     * stand-up, so how many taps a flip costs IS the archetype, and no
+     * craft carries a knob of its own for it. */
+    pump: 620,
+    /** How far the lean-back input must RISE above its low-water mark to
+     * read as a fresh yank, 0..1 — and, read the other way, how far back
+     * it must STILL be when the yank is spent, because a rider who has let
+     * go of the bars has let go of the pull.
+     *
+     * MEASURED against the ramp the app's keyboard actually puts on that
+     * axis (`KEY_LEAN_ATTACK` 5 / `KEY_LEAN_RELEASE` 8 in
+     * `input-model.ts`), because a tap does not reach the ends of it: a key
+     * worked at 3 Hz swings the axis 0.50, at 5 Hz 0.36, at 6 Hz 0.29 and
+     * at 8 Hz only 0.20. So this earns a yank a tap anywhere a hand
+     * actually taps and stops earning above about 7 Hz — a rider cannot
+     * machine-gun it — and a player HOLDING the key gets exactly one,
+     * because a mark that only ever falls cannot be risen above twice on
+     * one stroke. */
+    pumpRise: 0.22,
+    /** ...and the nose-up rate, rad/s, ALL the strokes of one spell may add
+     * up to, times the craft's own `riderAuthority`. This is the bound on
+     * the whole mechanism, and the reason there is no count of taps: it is
+     * what one rider has to give one flight, and the tenth tap draws on
+     * what the first nine left.
+     *
+     * It bounds THE PUMP'S OWN CONTRIBUTION (`CraftState.pumped`) and not
+     * the hull's rate, which is the only version of it that works: a steep
+     * ramp hands the hull 3 rad/s of nose-up at the hinge before the rider
+     * has done anything, and a ceiling read off the total would answer a
+     * pull off a good lip by cancelling most of it. Read this way the FIRST
+     * haul of a spell is always the whole of `pump` — a lean held back off
+     * a lip earns exactly what it has always earned — and the taps after it
+     * divide what is left.
+     *
+     * How many taps that takes is the craft's, and it is the clearest thing
+     * the archetypes do in the air: the stand-up is most of the way there on
+     * its first yank, the tourer taps five or six times to get to the same
+     * place, and a rider who stops tapping stops turning faster.
+     *
+     * 2π inside the 1.4–1.9 s of air a ramp the generator actually builds
+     * (R8: 15–22°) gives is 3.3–4.5 rad/s, so this is the number that
+     * decides whether a regular ramp flips at all — and scaling it by the
+     * rider makes the ladder the roster's rather than the ramp's. */
+    pumpCeiling: 8,
+    /** How far a spent yank throws the rider back, m on top of
+     * `rider.leanReach`, and how long it lasts, s. This is what the player
+     * SEES when the taps land (`CraftState.yank` → `riderAft` → the pose),
+     * and while it lasts it is a real nose-up couple off the rider's own
+     * weight rather than a flourish. */
+    yankReach: 0.3,
+    yankFade: 0.45,
+    /** ...and how far the last one must have FADED before the next haul
+     * counts, 0..1 of it — the rider's weight has to come back before he can
+     * throw it again. Against `yankFade` this is a floor of about an eighth
+     * of a second between hauls, so a hand working the key at up to eight a
+     * second loses nothing, and nothing FASTER than a hand can count.
+     *
+     * It is here because a controller is not a hand: the bot's levelling
+     * loop hands the engine a raw PD output that oscillates at tens of hertz,
+     * and every upswing of it read as a fresh haul. */
+    pumpReady: 0.75,
     /** Where the windage stands: this high above the centre of gravity, m,
      * and this share of the length AFT of it — the rider's body, over
      * the water's lateral centre. */

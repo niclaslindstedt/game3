@@ -261,6 +261,136 @@ describe("a flight", () => {
     expect(state.craft.airborne).toBe(false);
   });
 
+  /** A ramp the GENERATOR actually builds (R8: 15–22°, 8–10 m), ridden the
+   * way a rider rides one — the lean held back up the deck, then worked
+   * from the lip. `key` is the keyboard's own lean ramp
+   * (`KEY_LEAN_ATTACK` 5 / `KEY_LEAN_RELEASE` 8), because the pump is read
+   * off the SHAPE of that axis and a raw square wave is not one. */
+  function ramped(value: number, target: number): number {
+    return value + (target - value) * Math.min(1, (target === 0 ? 8 : 5) * TUNING.dt);
+  }
+
+  function jump(
+    craft: "skiff" | "marlin" | "otter" | "dart",
+    tap: boolean,
+  ): { flips: number; air: number } {
+    const level = syntheticLevel({
+      windSpeed: 0,
+      noSolids: true,
+      rampAngle: (18 * Math.PI) / 180,
+      rampLength: 9,
+    });
+    const state = createGame({ seed: 1, craft, level, quiet: true });
+    const r = rampOf(level);
+    placeRun(state, { x: r.x - 60, z: r.z, heading: Math.PI / 2, speed: 24 });
+    // THE LONGEST FLIGHT of the run, not the first: a hull crossing a deck
+    // lifts a probe clear for a fifth of a second on the way, which is a
+    // launch and a landing the engine reports and not the jump.
+    let rotation = 0;
+    let air = 0;
+    let best = { flips: 0, air: 0 };
+    let lean = 0;
+    let aloft = 0;
+    ride(state, 8, (s) => {
+      const c = s.craft;
+      if (c.airborne) {
+        rotation += -c.wx * TUNING.dt;
+        air = Math.max(air, c.airTime);
+        aloft += TUNING.dt;
+      } else {
+        if (air > best.air) best = { flips: rotation / (2 * Math.PI), air };
+        rotation = 0;
+        air = 0;
+      }
+      // Hold it back up the deck; from the lip on, either keep holding or
+      // work the key at five taps a second.
+      const back = c.onRamp || !tap ? c.airborne || c.onRamp : c.airborne && aloft % 0.2 < 0.1;
+      lean = ramped(lean, back ? 1 : 0);
+      return { steer: 0, throttle: 1, reverse: 0, lean, crouch: 0, reset: false };
+    });
+    return air > best.air ? { flips: rotation / (2 * Math.PI), air } : best;
+  }
+
+  it("a REGULAR ramp comes round on the taps where a hold alone will not", () => {
+    // The tourer is the hull that cannot flip on a hold — 0.4 of a turn off
+    // an 18° ramp with the lean pinned back — and the pump is what puts the
+    // trick within its reach. Measured across the roster in the PR.
+    const held = jump("otter", false);
+    const pumped = jump("otter", true);
+    expect(held.air).toBeGreaterThan(1.4);
+    expect(held.flips).toBeLessThan(0.7);
+    expect(pumped.flips).toBeGreaterThan(1);
+    // ...and the hang is the ramp's, not the rider's: the taps buy rotation
+    // and nothing else.
+    expect(Math.abs(pumped.air - held.air)).toBeLessThan(0.25);
+  });
+
+  it("the archetypes cost different numbers of taps", () => {
+    // The stand-up is over on its first haul and the tourer taps its way
+    // there, which is `riderAuthority / I_x` and no knob of their own.
+    const flips = (["dart", "skiff", "marlin", "otter"] as const).map((id) => jump(id, true).flips);
+    expect(flips[0]).toBeGreaterThan(flips[3] * 1.5);
+    for (const f of flips) expect(f).toBeGreaterThan(1);
+  });
+
+  it("a hold earns one yank and a mash earns one a tap", () => {
+    const level = syntheticLevel({ windSpeed: 0, noSolids: true });
+    function yanks(key: (t: number) => number): number {
+      const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+      placeRun(state, { x: 200, z: 160, heading: 0, speed: 20, height: 14, vy: 6 });
+      let lean = 0;
+      let was = false;
+      let n = 0;
+      let t = 0;
+      ride(state, 3, (s) => {
+        lean = ramped(lean, key(t));
+        t += TUNING.dt;
+        // A stroke is `pumpRising` turning true — counted here rather than
+        // off `yank`, so that the strokes the budget has nothing left for
+        // still count as strokes.
+        if (s.craft.pumpRising && !was) n++;
+        was = s.craft.pumpRising;
+        return { steer: 0, throttle: 0, reverse: 0, lean, crouch: 0, reset: false };
+      });
+      return n;
+    }
+    // A key that never comes back up is one stroke however long it is held.
+    expect(yanks(() => 1)).toBe(1);
+    // ...and one worked at five a second is one stroke each.
+    expect(yanks((t) => (t % 0.2 < 0.1 ? 1 : 0))).toBeGreaterThan(6);
+    // Nothing at all for a rider who is not asking.
+    expect(yanks(() => 0)).toBe(0);
+  });
+
+  it("a yank waits for the flight and is lost if the rider lets go first", () => {
+    // Asked for with the hull in the water: it lands when the hull is
+    // flying, not before, and not at all if the bars come back first.
+    function rotationOf(letGoOnTheDeck: boolean): number {
+      const level = syntheticLevel({
+        windSpeed: 0,
+        noSolids: true,
+        rampAngle: (18 * Math.PI) / 180,
+        rampLength: 9,
+      });
+      const state = createGame({ seed: 1, craft: "skiff", level, quiet: true, assist: 0 });
+      const r = rampOf(level);
+      placeRun(state, { x: r.x - 60, z: r.z, heading: Math.PI / 2, speed: 24 });
+      let lean = 0;
+      let rotation = 0;
+      ride(state, 6, (s) => {
+        const c = s.craft;
+        const ask = letGoOnTheDeck ? c.onRamp && !c.airborne : c.onRamp || c.airborne;
+        lean = ramped(lean, ask ? 1 : 0);
+        if (c.airborne) rotation += -c.wx * TUNING.dt;
+        return { steer: 0, throttle: 1, reverse: 0, lean, crouch: 0, reset: false };
+      });
+      return rotation;
+    }
+    // Both ride the same lip; only the one still holding at `minAir` is
+    // given the haul.
+    expect(rotationOf(true)).toBeLessThan(rotationOf(false) - 1);
+  });
+
   it("in the air the throttle does nothing and the steer rolls", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 8, vy: 4 });

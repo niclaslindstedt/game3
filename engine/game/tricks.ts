@@ -8,7 +8,7 @@
 //
 // Two things are scored so far, because two things are reachable: the time
 // the hull spends off the water, and the revolutions it turns nose-over-tail
-// while it is up there (`TUNING.flight.pull` is what throws one). A hull on
+// while it is up there (THE PUMP throws one: `TUNING.flight.pump`). A hull on
 // its tail, a barrel roll and a trick taken off a buoy are the same
 // machinery with another term in it — `TrickState` is shaped for them and
 // this module is where they land.

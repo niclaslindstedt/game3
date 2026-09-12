@@ -49,6 +49,13 @@ export type ContactResult = {
    * the ramp this step actually found instead of searching for it again.
    * A hull over two decks at once is not a thing the generator builds. */
   ramp: Ramp | null;
+  /** ...and whether any probe is over a deck's FOOTPRINT at all, touching
+   * it or not. A hull crossing a ramp lifts clear of the deck and drops
+   * back onto it on the way up, which `onRamp` reads as two rides and the
+   * flight bookkeeping reads as two jumps — so anything that must not fire
+   * until the hull is off the ramp for good (`craft.ts`'s pump) asks this
+   * rather than either of them. */
+  overRamp: boolean;
   /** Fastest closing speed into the ground this step, m/s. */
   groundSpeed: number;
 };
@@ -147,6 +154,7 @@ export function contactForces(
   out.onGround = false;
   out.onRamp = false;
   out.ramp = null;
+  out.overRamp = false;
   out.groundSpeed = 0;
   const ramps: Ramp[] = [];
   for (const gate of level.course.gates) if (gate.ramp) ramps.push(gate.ramp);
@@ -184,6 +192,7 @@ export function contactForces(
     for (const ramp of ramps) {
       const at = onRampDeck(ramp, s.px, s.pz);
       if (!at) continue;
+      out.overRamp = true;
       const deck = rampDeckY(ramp, at.along);
       if (s.py >= deck) continue;
       const sh = Math.sin(ramp.heading);

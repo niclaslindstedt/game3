@@ -16,9 +16,10 @@
 //   The hand takes some of that slide out and turns the bow up the deck.
 //
 // BOTH FOLD AWAY UNDER THE RIDER'S OWN HAND, and that is what keeps
-// either of them from reading as a rail the game is on: `lean` retires
-// the air's hand in proportion, `steer` the ramp's. A rider working the
-// bars gets the bare physics and no argument.
+// either of them from reading as a rail the game is on: `flown` — the lean,
+// and a yank of the pump still fading — retires the air's hand in
+// proportion, `steer` the ramp's. A rider working the bars gets the bare
+// physics and no argument.
 
 import { integrate, rotate, unrotate, type Quat } from "../lib/quat.ts";
 import { angleDiff, clamp } from "../lib/math.ts";
@@ -67,14 +68,16 @@ export function timeToWater(height: number, vy: number): number {
  * craft would be steering it, and where the rider is pointing is the
  * rider's.
  *
- * AND THE AIR IS THE RIDER'S BEFORE IT IS THE ARCADE'S. `lean` folds the
- * hand away in proportion, either way it is held: a rider working the
- * bars — winding a flip round, or stuffing the nose because that is what
- * he meant to do — gets no help and no interference, and the hand is
- * there for the rider who is not flying it. It has to be the INPUT that
- * says so rather than the rotation, because a hull half way through a
- * flip is genuinely predicted to land on its head and only the rider
- * knows that is on purpose.
+ * AND THE AIR IS THE RIDER'S BEFORE IT IS THE ARCADE'S. `flown` is how
+ * much of this flight the rider is flying himself, 0..1, and it folds the
+ * hand away in proportion: a rider working the bars — winding a flip round,
+ * or stuffing the nose because that is what he meant to do — gets no help
+ * and no interference, and the hand is there for the rider who is not
+ * flying it. It has to come off the INPUT rather than off the rotation,
+ * because a hull half way through a flip is genuinely predicted to land on
+ * its head and only the rider knows that is on purpose. `craft.ts` is where
+ * it is read: the lean either way it is held, and a yank of the pump still
+ * fading, so the gaps in a tapped flip do not let the hand back in.
  *
  * `strength` and `window` are the run's two dials (`GameState.assist`,
  * `.assistWindow`): how hard the hand catches and how late it arrives. At
@@ -92,7 +95,7 @@ export function landingAssist(
   airTime: number,
   height: number,
   vy: number,
-  lean: number,
+  flown: number,
   strength: number,
   window: number,
   out: AeroResult,
@@ -103,7 +106,7 @@ export function landingAssist(
   out.tx = 0;
   out.ty = 0;
   out.tz = 0;
-  const dial = clamp(strength, 0, 1) * (1 - clamp(Math.abs(lean), 0, 1));
+  const dial = clamp(strength, 0, 1) * (1 - clamp(Math.abs(flown), 0, 1));
   if (dial <= 0) return;
   // A CHOP HOP IS NOT A JUMP, and the line is the one the launch event is
   // already read against (`flight.minAir`). At speed in a head sea the

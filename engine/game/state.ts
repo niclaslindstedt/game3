@@ -154,9 +154,22 @@ export type CraftState = {
    * once the rider is climbing back on (0 when not). */
   capsizedFor: number;
   righting: number;
-  /** Seconds the lean has been held back since the lip, while the pull
-   * is still on offer; −1 once it has been taken or let go this flight. */
-  pull: number;
+  /** THE PUMP's stroke detector (`TUNING.flight`, `craft.ts`). `pumpMark`
+   * is where the lean-back input has got to on this stroke, 0..1: its PEAK
+   * while `pumpRising` (so a key held down cannot haul twice), and its
+   * trough once the bars have started back (so the next rise of
+   * `flight.pumpRise` is a fresh haul). Both are reset by every step the
+   * hull is not flying. */
+  pumpMark: number;
+  pumpRising: boolean;
+  /** How hard the last yank threw the rider back, 0..1, decaying over
+   * `flight.yankFade`: the extra reach aft it is worth (`riderAft`), and
+   * what the pose draws. */
+  yank: number;
+  /** Nose-up rate the pump has put into this spell of flight, rad/s —
+   * what `flight.pumpCeiling` bounds, and zeroed the moment the water or
+   * a deck has the hull again. */
+  pumped: number;
 };
 
 export type Progress = {
@@ -195,8 +208,8 @@ export type Progress = {
 
 /** What the hull did in the air to earn a multiplier. Both directions are
  * counted because both are rotations about the same axis; only the backflip
- * is reachable with the pull the rider has (`TUNING.flight.pull` is nose-up
- * only), so a frontflip is what an unlucky launch off a steep face buys. */
+ * is one the rider can ASK for (THE PUMP is nose-up only), so a frontflip is
+ * what an unlucky launch off a steep face buys. */
 export type TrickKind = "backflip" | "frontflip";
 
 /** THE SCORE'S STATE — the run's banked points and the combo still riding
