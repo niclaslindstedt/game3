@@ -35,16 +35,32 @@ describe("water optics", () => {
 
   it("refuses a coast whose water nobody has drawn", () => {
     expect(() => waterOpticsOf("atoll")).toThrow(/atoll/);
+    expect(() => waterOpticsOf("fjord")).toThrow(/fjord/);
   });
 
-  it("keeps the taiga's water the app's own palette", () => {
-    // `identity.ts` is the one source of the app's colours, and the taiga's
-    // sea IS the sea the palette was authored around — so this row cites it
-    // rather than restating three hexes that would then drift from the icon.
+  it("paints the taiga a cold grey-green and the mangrove a clear turquoise", () => {
+    // The two coasts are told apart by their water before anything else,
+    // and each has to be its own sea: the taiga's is grey and green — a
+    // northern sea never reads blue — and the mangrove's is bluer, brighter
+    // and clearer than it in every tone. Neither is the brand palette's
+    // teal, which is the icon's colour and not a sea's.
+    const hsl = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 });
     const taiga = waterOpticsOf("taiga");
-    expect(taiga.shallow).toBe(PALETTE.seaShallow);
-    expect(taiga.sea).toBe(PALETTE.sea);
-    expect(taiga.deep).toBe(PALETTE.seaDeep);
+    const mangrove = waterOpticsOf("mangrove");
+    for (const tone of ["shallow", "sea", "deep"] as const) {
+      const cold = hsl(taiga[tone]);
+      const warm = hsl(mangrove[tone]);
+      // Green side of cyan for the taiga (hue under 180°), cyan-to-blue for
+      // the mangrove; and the warm coast more saturated and lighter.
+      expect(cold.h * 360, `taiga ${tone}`).toBeLessThan(182);
+      expect(warm.h * 360, `mangrove ${tone}`).toBeGreaterThan(cold.h * 360);
+      expect(warm.s, `mangrove ${tone}`).toBeGreaterThan(cold.s);
+      expect(warm.l, `mangrove ${tone}`).toBeGreaterThan(cold.l);
+      expect(taiga[tone]).not.toBe(PALETTE.sea);
+    }
+    // A cold humic sea is not one the eye gets far into; a clear salt one is.
+    expect(mangrove.clarity).toBeGreaterThan(taiga.clarity * 2);
+    expect(mangrove.deepTo).toBeGreaterThan(taiga.deepTo);
   });
 
   for (const id of BIOME_IDS) {

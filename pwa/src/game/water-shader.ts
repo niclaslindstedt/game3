@@ -123,6 +123,7 @@
 import * as THREE from "three";
 
 import { PALETTE } from "../identity.ts";
+import type { WaterOptics } from "./water-optics.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
 import { WAKE_FOAM_GAIN, foamGlsl } from "./water-foam.ts";
 import {
@@ -739,8 +740,6 @@ function blankTexture(): THREE.DataTexture {
   return blank;
 }
 
-const SHALLOW = new THREE.Color(PALETTE.seaShallow);
-
 /** How many cloud sheets each material was COMPILED for. Not on the material
  * itself, because that is three's object and this is a fact about the source
  * standing in it. */
@@ -825,6 +824,19 @@ export function createWaterMaterial(
  * `layers` is the only thing about that sky this material has to be
  * recompiled for.
  */
+/** The coast's own SHALLOW tone per material — what a crest passes when the
+ * light is behind it. Kept beside the material rather than as a uniform,
+ * because the shader never reads it directly: `applySky` folds it into
+ * `uScatter` under the key's light on every retone. The palette's is only
+ * what a material starts with before a level has said which coast it is. */
+const coastShallow = new WeakMap<WaterMaterial, THREE.Color>();
+const PALETTE_SHALLOW = new THREE.Color(PALETTE.seaShallow);
+
+/** WHICH COAST'S WATER this is. Set once per level; `applySky` reads it. */
+export function applyCoast(m: WaterMaterial, optics: WaterOptics): void {
+  coastShallow.set(m, new THREE.Color(optics.shallow));
+}
+
 export function applySky(
   m: WaterMaterial,
   p: Preset,
@@ -840,8 +852,10 @@ export function applySky(
   // The glint is the sun's own light, at its own strength, for the share of
   // it that is a BEAM: a sun behind a squall's ceiling has no image to give.
   (u.uGlint.value as THREE.Color).copy(key.color).multiplyScalar(p.sunIntensity * p.beam);
-  // What a crest passes: the shallow's green, in the key's light.
-  (u.uScatter.value as THREE.Color).copy(SHALLOW).multiply(u.uKey.value as THREE.Color);
+  // What a crest passes: the coast's shallow tone, in the key's light.
+  (u.uScatter.value as THREE.Color)
+    .copy(coastShallow.get(m) ?? PALETTE_SHALLOW)
+    .multiply(u.uKey.value as THREE.Color);
   if (builtLayers.get(m) !== layers) {
     builtLayers.set(m, layers);
     m.fragmentShader = fragmentFor(layers);

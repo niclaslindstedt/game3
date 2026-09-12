@@ -11,11 +11,13 @@ import type { CraftId } from "../game/defs/craft.ts";
 import { createGame, step } from "../game/step.ts";
 import type { GameEvent } from "../game/state.ts";
 import { seaSummary } from "../game/water.ts";
-import type { Level, TrackKind, Wind } from "../mapgen/types.ts";
+import type { BiomeId, Level, TrackKind, Wind } from "../mapgen/types.ts";
 import { botInput, RIDER_BOT, type BotProfile } from "./bot.ts";
 
 export type SimOptions = {
   seed: number;
+  /** Which coast the seed is built on; the taiga when left out. */
+  biome?: BiomeId;
   craft?: CraftId;
   /** A level to ride instead of the seed's own. */
   level?: Level;
@@ -95,6 +97,7 @@ export function simulateStage(options: SimOptions): RunReport {
   const maxSeconds = options.maxSeconds ?? SIM_SECONDS;
   const state = createGame({
     seed: options.seed,
+    biome: options.biome,
     craft,
     level: options.level,
     track: options.track,

@@ -25,6 +25,7 @@
 // URL PARAMS, the whole set (the developer page's REPRO LINK writes exactly
 // these, so a frame is always handed on as a URL):
 //   ?seed=38       which level (default 38)
+//   ?biome=taiga   which COAST the seed is built on (taiga | mangrove)
 //   ?craft=skiff   which craft (skiff | marlin | otter | dart)
 //   ?scene=launch  stand the run in a staged moment (scenarios.ts) and ride
 //                  its script; without it the run starts at `level.start`
@@ -35,8 +36,8 @@
 //   ?wind=12       ride in this wind, m/s, from the level's own quarter
 //   ?hs=20         ...or in a sea quoted by its significant height, m
 //   ?hour=20.5     ride at this hour on the clock in place of the level's
-//   ?weather=rain  ...and under this sky (clear | high | overcast | rain |
-//                  squall) — the sea stays the wind's
+//   ?weather=rain  ...and under this sky (clear | haze | high | overcast |
+//                  rain | squall) — the sea stays the wind's
 //   ?time=sunset   the start card's TIME row: sunrise | day | sunset,
 //                  resolved against this coast's own daylight (R13) in the
 //                  season being ridden
@@ -396,6 +397,7 @@ export function App() {
       const day = s.ride.conditions === null ? null : CONDITION_DAY[s.ride.conditions];
       return createGame({
         seed: s.ride.seed ?? DEFAULT_SEED,
+        biome: s.ride.biome,
         craft: s.ride.craft,
         // R32 — the CLASS: the hull is derived at it and the COURSE is paced
         // for it, so the same seed in two classes is two different races.

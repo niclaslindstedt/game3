@@ -29,6 +29,7 @@ function clamp01(v: number): number {
  * is the fault that makes a player stop believing any of it. */
 const FALL: Record<Weather, [number, number]> = {
   clear: [0, 0],
+  haze: [0, 0],
   high: [0, 0],
   overcast: [0, 0],
   rain: [0.55, 0.85],

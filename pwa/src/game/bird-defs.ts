@@ -14,22 +14,50 @@
 // renderer's OWN generator and posed off the engine's OWN clock, so a seed
 // flies the same birds every time without costing the run a single draw.
 //
-// WHY THESE EIGHT on a Bothnian coast. The gull, the tern, the cormorant
-// and the eider are the shore's own — what is standing on every skerry and
-// rafting in the lee of it from the ice going out to the ice coming back.
-// The sea eagle is the taiga coast's raptor, one to a stretch of shore, and
-// it perches at the top of the tallest pine rather than on any rock. The
-// goose, the swan and the crane are the birds that CROSS: in vees and lines
-// at height in spring and autumn, which is the one thing in this sky that
-// says which way the year is going, and — the goose and the swan — down on
-// the sheltered water through the summer between.
+// WHY THESE FOURTEEN, over two coasts. Each row says which coasts it lives
+// on (`biomes`), the planner lays only the flocks of the coast it is on,
+// and two birds live on both.
+//
+// THE TAIGA COAST. The gull, the tern, the cormorant and the eider are the
+// shore's own — what is standing on every skerry and rafting in the lee of
+// it from the ice going out to the ice coming back. The sea eagle is the
+// taiga coast's raptor, one to a stretch of shore, and it perches at the
+// top of the tallest pine rather than on any rock. The goose, the swan and
+// the crane are the birds that CROSS: in vees and lines at height in
+// spring and autumn, which is the one thing in this sky that says which
+// way the year is going, and — the goose and the swan — down on the
+// sheltered water through the summer between.
+//
+// THE MANGROVE COAST. The pelican is the coast: a line of them beating low
+// over the water and one folding up and going in like a dropped sack. The
+// osprey is its raptor, one to a stretch, over the flats on a crooked
+// wing. The egret and the ibis and the spoonbill are the wading birds of
+// the mangrove edge — white, white, and PINK — that get up off the mud in
+// lines when the craft comes past; the frigatebird hangs at height on the
+// longest wing for its weight in the sky and never seems to move. The gull
+// and the cormorant are here too, because they are everywhere. Nothing
+// crosses: a warm coast is where the skeins were going.
 //
 // The look (the paint, the wingtips, the bill) belongs to `bird-shapes.ts`.
 
-import type { Season } from "@engine";
+import type { BiomeId, Season } from "@engine";
 
 /** Every bird in the roster. */
-export type BirdId = "gull" | "tern" | "cormorant" | "eider" | "eagle" | "goose" | "swan" | "crane";
+export type BirdId =
+  | "gull"
+  | "tern"
+  | "cormorant"
+  | "eider"
+  | "eagle"
+  | "goose"
+  | "swan"
+  | "crane"
+  | "pelican"
+  | "osprey"
+  | "egret"
+  | "ibis"
+  | "spoonbill"
+  | "frigatebird";
 
 export type Band = { readonly min: number; readonly max: number };
 
@@ -54,7 +82,7 @@ export type Passage = {
   readonly birds: Band;
   readonly shapes: readonly Formation[];
   /** Its weight among the birds crossing that season: of every hundred
-   * skeins over a Bothnian shore most are geese, some are cranes, and a
+   * skeins over a northern shore most are geese, some are cranes, and a
    * line of white birds is the one you tell somebody about. */
   readonly share: number;
 };
@@ -63,6 +91,9 @@ export type BirdSpec = {
   readonly id: BirdId;
   /** The name a sheet or a plan shows. */
   readonly name: string;
+  /** WHICH COASTS IT LIVES ON OR CROSSES — ids from `engine/mapgen/biomes.ts`.
+   * The planner lays only the rows of the coast it is on. */
+  readonly biomes: readonly BiomeId[];
   /** Wingtip to wingtip, m, and bill to tail, m — the real ones. */
   readonly span: number;
   readonly length: number;
@@ -131,6 +162,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "gull",
     name: "Herring gull",
+    biomes: ["taiga", "mangrove"],
     span: 1.45,
     length: 0.6,
     neck: 0.38,
@@ -159,6 +191,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "tern",
     name: "Arctic tern",
+    biomes: ["taiga"],
     span: 0.8,
     length: 0.35,
     neck: 0.36,
@@ -191,6 +224,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "cormorant",
     name: "Great cormorant",
+    biomes: ["taiga", "mangrove"],
     span: 1.35,
     length: 0.85,
     // The long neck held straight out and the long tail behind: from below
@@ -221,6 +255,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "eider",
     name: "Common eider",
+    biomes: ["taiga"],
     span: 0.98,
     length: 0.62,
     neck: 0.34,
@@ -250,6 +285,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "eagle",
     name: "White-tailed eagle",
+    biomes: ["taiga"],
     span: 2.3,
     length: 0.85,
     neck: 0.36,
@@ -279,6 +315,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "goose",
     name: "Greylag goose",
+    biomes: ["taiga"],
     span: 1.6,
     length: 0.85,
     neck: 0.375,
@@ -313,6 +350,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "swan",
     name: "Whooper swan",
+    biomes: ["taiga"],
     span: 2.4,
     length: 1.5,
     // The neck as long as the back: the whole silhouette.
@@ -347,6 +385,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "crane",
     name: "Common crane",
+    biomes: ["taiga"],
     span: 2.2,
     length: 1.15,
     // Neck out front and legs trailing behind: the longest thing in the sky.
@@ -377,7 +416,202 @@ export const BIRDS: readonly BirdSpec[] = [
     },
     passes: ["spring", "autumn"],
   },
+  // ── The mangrove coast ────────────────────────────────────────────────
+  {
+    id: "pelican",
+    name: "Brown pelican",
+    biomes: ["mangrove"],
+    span: 2.1,
+    length: 1.2,
+    // The bill is a third of the bird: the head reaches far out front.
+    neck: 0.44,
+    // A broad, deep wing, the primaries splayed at the tip.
+    wing: { chord: 0.19, taper: 0.5, sweep: 0.14, wrist: 0.5 },
+    beatHz: 2.0,
+    stroke: 0.6,
+    // A few slow beats and a long glide a wing's height off the water.
+    glide: 0.6,
+    dihedral: 0.03,
+    speed: 12,
+    flock: { min: 3, max: 9 },
+    formation: "line",
+    altitude: { min: 3, max: 12 },
+    beat: { min: 60, max: 150 },
+    // Sits on the sea between fishing runs, a raft of big brown birds.
+    home: "water",
+    roost: 8,
+    cycle: { min: 120, max: 260 },
+    airShare: 0.45,
+    // THE PLUNGE: from ten metres up, wings folding back on the way down,
+    // and a splash the size of a hull's. The coast's signature moment.
+    dive: 22,
+    dries: false,
+    // The everyday bird of the warm coast, as the gull is of the cold one.
+    perKm: 1.4,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "osprey",
+    name: "Osprey",
+    biomes: ["mangrove"],
+    span: 1.6,
+    length: 0.58,
+    neck: 0.36,
+    // THE CROOKED WING: a long hand angled back at a prominent wrist, so
+    // the bird reads as a shallow M from below — the field mark.
+    wing: { chord: 0.19, taper: 0.55, sweep: 0.2, wrist: 0.48 },
+    beatHz: 2.4,
+    stroke: 0.65,
+    glide: 0.55,
+    dihedral: 0.02,
+    speed: 12,
+    flock: { min: 1, max: 1 },
+    formation: "loose",
+    // Over the flats, looking down: the height a fish can be seen from.
+    altitude: { min: 25, max: 70 },
+    beat: { min: 50, max: 120 },
+    home: "tree",
+    roost: 0,
+    cycle: { min: 150, max: 300 },
+    airShare: 0.55,
+    // Feet first, from the hover — every half minute or so on a good flat.
+    dive: 40,
+    dries: false,
+    // One to a stretch of coast, like the eagle it replaces.
+    perKm: 0.5,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "egret",
+    name: "Great egret",
+    biomes: ["mangrove"],
+    span: 1.5,
+    length: 1.0,
+    // A heron flies with its neck FOLDED, so the head sits back on the
+    // shoulders and the legs trail: the reach out front is short for so
+    // long a bird.
+    neck: 0.3,
+    // Broad, deep and rounded.
+    wing: { chord: 0.22, taper: 0.6, sweep: 0.08, wrist: 0.5 },
+    beatHz: 2.2,
+    stroke: 0.6,
+    glide: 0.15,
+    dihedral: 0.02,
+    speed: 10,
+    flock: { min: 1, max: 3 },
+    formation: "loose",
+    altitude: { min: 4, max: 15 },
+    beat: { min: 40, max: 100 },
+    // Stands on the mangrove edge and the mud, and gets up when the craft
+    // comes past.
+    home: "shore",
+    roost: 5,
+    cycle: { min: 200, max: 400 },
+    airShare: 0.2,
+    dive: 0,
+    dries: false,
+    perKm: 1.0,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "ibis",
+    name: "White ibis",
+    biomes: ["mangrove"],
+    span: 0.95,
+    length: 0.6,
+    // Neck OUT in flight, unlike the heron's, with the curved bill ahead
+    // of it.
+    neck: 0.4,
+    wing: { chord: 0.19, taper: 0.5, sweep: 0.1, wrist: 0.5 },
+    beatHz: 3.4,
+    stroke: 0.7,
+    glide: 0.2,
+    dihedral: 0.02,
+    speed: 13,
+    flock: { min: 5, max: 14 },
+    // A line of white birds low along the shore — the mangrove edge's own
+    // cormorant line, in white with black tips.
+    formation: "line",
+    altitude: { min: 8, max: 30 },
+    beat: { min: 60, max: 150 },
+    home: "shore",
+    roost: 8,
+    cycle: { min: 150, max: 320 },
+    airShare: 0.35,
+    dive: 0,
+    dries: false,
+    perKm: 0.9,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "spoonbill",
+    name: "Roseate spoonbill",
+    biomes: ["mangrove"],
+    span: 1.3,
+    length: 0.8,
+    neck: 0.42,
+    wing: { chord: 0.2, taper: 0.55, sweep: 0.1, wrist: 0.5 },
+    beatHz: 2.6,
+    stroke: 0.65,
+    glide: 0.2,
+    dihedral: 0.03,
+    speed: 12,
+    flock: { min: 3, max: 9 },
+    formation: "line",
+    altitude: { min: 6, max: 25 },
+    beat: { min: 60, max: 140 },
+    home: "shore",
+    roost: 7,
+    cycle: { min: 200, max: 400 },
+    airShare: 0.25,
+    dive: 0,
+    dries: false,
+    // A flock on a flat, and not every flat: the one PINK thing in the
+    // game, and the sighting a rider tells somebody about.
+    perKm: 0.35,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "frigatebird",
+    name: "Magnificent frigatebird",
+    biomes: ["mangrove"],
+    span: 2.3,
+    length: 1.0,
+    neck: 0.35,
+    // THE LONGEST WING FOR ITS WEIGHT IN THE SKY: narrow, pointed, and
+    // deeply angled back at the wrist — a W hung under the sun.
+    wing: { chord: 0.13, taper: 0.2, sweep: 0.4, wrist: 0.45 },
+    beatHz: 1.4,
+    stroke: 0.5,
+    // Hardly ever beats: it hangs.
+    glide: 0.92,
+    dihedral: 0.02,
+    speed: 11,
+    flock: { min: 1, max: 3 },
+    formation: "loose",
+    altitude: { min: 80, max: 200 },
+    beat: { min: 100, max: 220 },
+    home: "tree",
+    roost: 3,
+    cycle: { min: 300, max: 600 },
+    airShare: 0.85,
+    dive: 0,
+    dries: false,
+    perKm: 0.25,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
 ];
+
+/** The rows a coast flies, in roster order. */
+export function birdsOf(biome: BiomeId): readonly BirdSpec[] {
+  return BIRDS.filter((b) => b.biomes.includes(biome));
+}
 
 export const BIRD_IDS: readonly BirdId[] = BIRDS.map((b) => b.id);
 

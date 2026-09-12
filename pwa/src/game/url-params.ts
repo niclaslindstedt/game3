@@ -19,6 +19,8 @@ import {
   WEATHER_IDS,
   type Weather,
   isCraftId,
+  type BiomeId,
+  isBiomeId,
 } from "@engine";
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
@@ -66,6 +68,8 @@ export type Params = {
   season: Season | undefined;
   day: Conditions | undefined;
   weather: Weather | undefined;
+  /** The start card's COAST row: which biome the seed is built on. */
+  biome: BiomeId | undefined;
   /** The picture rows a link names — the same three ladders and the same
    * switch OPTIONS ▸ VIDEO turns, and settings in the same way: laid over the
    * stored ones, never read straight into the renderer. */
@@ -140,6 +144,7 @@ export function readParams(search: string): Params {
     day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
       ? (p.get("day") as Conditions)
       : undefined,
+    biome: isBiomeId(p.get("biome")) ? (p.get("biome") as BiomeId) : undefined,
     camera: stop(CAMERA_MODES, "camera"),
     water: stop(WATER_LEVELS, "water"),
     resolution: stop(RESOLUTION_LEVELS, "res"),
@@ -187,6 +192,7 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.frameRate !== undefined) settings.video.frameRate = params.frameRate;
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;
+  if (params.biome !== undefined) settings.ride.biome = params.biome;
   if (params.time !== undefined) settings.ride.time = params.time;
   if (params.season !== undefined) settings.ride.season = params.season;
   if (params.day !== undefined) settings.ride.conditions = params.day;

@@ -140,15 +140,15 @@ export const SEA = {
   spreadMax: 0.75,
   /** JONSWAP's peak enhancement γ, dimensionless — how much of the
    * sea's energy sits AT the peak period rather than spread around it.
-   * 3.3 is Hasselmann et al. (1973)'s mean for the North Sea and the
+   * 3.3 is Hasselmann et al. (1973)'s mean over the sea they measured and the
    * value the spectrum is usually quoted at; 1 collapses JONSWAP to
    * Pierson–Moskowitz (a broad, fully developed sea, every wavelength
    * represented); 7 is a narrow, ordered swell where wave follows wave
    * at nearly one length. Higher reads as ORDER, lower as confusion. */
   peakEnhancement: 3.3,
   /** HOW BIG, as a plain multiple of what the fetch law grows — the one
-   * place the wind sea's height is allowed to be more than the Baltic
-   * would give a 2–12 m/s wind. The growth SHAPE is untouched (the
+   * place the wind sea's height is allowed to be more than a sheltered
+   * northern sea would give a 2–12 m/s wind. The growth SHAPE is untouched (the
    * fetch ratio is a ratio, so it cancels): only the metre the sea is
    * quoted in moves. 1 is the honest ocean. An ARCADE DIAL. */
   heightScale: 1.5,
@@ -257,7 +257,7 @@ export const SEA = {
    * both wrong and unreadable: a face at the limit everywhere is a
    * face the renderer paints entirely in foam, and a twenty-metre sea
    * comes out looking like a snowfield. An ARCADE DIAL: the deliberate
-   * place the sea is steeper than the Baltic would give. */
+   * place the sea is steeper than a northern sea would give. */
   steepness: 0.09,
   /** THE UPWIND FAN the fetch at a point is measured over: its half
    * width, rad, and how many rays it is read on. SPM (1984)'s effective
@@ -313,8 +313,9 @@ export const SEA = {
   swell: {
     /** How big the groundswell is, m of significant height, before the
      * level's own draw. Two metres is a middling ocean swell — the North
-     * Atlantic's median is nearer three, the Baltic's nearer nothing, and
-     * this coast is a taiga shore on an open sea. An ARCADE DIAL: it is
+     * open ocean's median is nearer three, a sheltered sea's nearer
+     * nothing, and the coast's own row (`Biome.sea.swell`) says how much of
+     * it arrives. An ARCADE DIAL: it is
      * the one number that says how much OCEAN a level has in it. */
     hs: 3.0,
     /** ...and how much of that a given coast is DEALT, as the bottom of a

@@ -118,6 +118,7 @@ import {
   applySky,
   applyWake,
   applyWakeLook,
+  applyCoast,
   createWaterMaterial,
   type MirrorSeat,
   type WakeMap,
@@ -532,6 +533,7 @@ export function createWaterMesh(
 
   const setCoast = (biome: BiomeId): void => {
     optics = waterOpticsOf(biome);
+    applyCoast(material, optics);
     // The far water is the deep tone whatever is under it: at that range
     // there is no bed anybody could see through it.
     const { deep } = seaTones(optics);

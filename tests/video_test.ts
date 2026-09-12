@@ -279,7 +279,14 @@ describe("the SKY ladder", () => {
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
       for (const weather of WEATHER_IDS) {
-        const deck = skyAt(12, biomeOf(level.biome).latitude, weather, 0.5).deck;
+        const deck = skyAt(
+          12,
+          biomeOf(level.biome).latitude,
+          weather,
+          0.5,
+          "summer",
+          level.biome,
+        ).deck;
         const dealt = dressSky(level, weather, skyCover(level.wind.speed), deck ? deck.base : null);
         most = Math.max(most, dealt.layers.length);
       }

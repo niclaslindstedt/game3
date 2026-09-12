@@ -12,9 +12,9 @@
 // A coast's water is FOUR THINGS, and only the first is a colour:
 //
 //   THE TONES     what the body is, over nothing, over the shelf and over
-//                 the deep. The taiga's are the app's own palette — this
-//                 IS the sea the game was drawn around. A warm coast's
-//                 will not be.
+//                 the deep. The taiga's are a cold grey-green, the
+//                 mangrove's a clear turquoise; neither is the app's
+//                 palette, which is the icon's teal and not a sea.
 //   THE RAMP      how many metres of bed it takes to get from one to the
 //                 next. A brackish northern sea is at its deep tone over
 //                 twenty metres; a lagoon is still turquoise over thirty,
@@ -46,7 +46,6 @@
 import * as THREE from "three";
 import { type BiomeId } from "@engine";
 
-import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 
 export type WaterOptics = {
@@ -81,30 +80,61 @@ export type WaterOptics = {
  * BUILT, and a coast without one is not a coast this game can draw. */
 export const WATER_OPTICS: Readonly<Partial<Record<BiomeId, WaterOptics>>> = {
   taiga: {
-    // The app's own palette IS the taiga's water: a northern brackish sea,
-    // green-teal rather than blue, going to near-black over the deep.
-    shallow: PALETTE.seaShallow,
-    sea: PALETTE.sea,
-    deep: PALETTE.seaDeep,
+    // A COLD SKERRY COAST'S WATER: grey-green, never blue. Over sand in a
+    // sheltered bay it is a pale milky jade; over the slabs a cold
+    // grey-teal; and over the deep it goes to a green so dark it is nearly
+    // black, because most of what the eye gets back from a northern sea is
+    // the unlit bottom and the grey sky it mirrors. NOT the app's palette,
+    // which is the brand's teal and reads two seas too warm for this coast
+    // — the palette is the icon's, and the water is the shore's.
+    shallow: "#73a695",
+    sea: "#2b6763",
+    deep: "#10302c",
     shallowTo: 4,
-    deepTo: 22,
+    deepTo: 20,
     // The bottom of a northern sea, unlit: the dark olive the bed's own
     // paint already runs to before the water finishes the job.
     bed: "#14241c",
-    // A skin you cannot see a great deal through even under the rider. The
-    // Bothnian Sea carries the whole northern forest's runoff — humic,
-    // green, and the reason a summer Secchi reading there is a dozen metres
-    // in a good week and half that in a bad one.
+    // A skin you cannot see a great deal through even under the rider. A
+    // cold coast's water carries the whole forest's runoff and a summer's
+    // plankton — humic, green, and the reason a summer clarity reading
+    // there is eight metres in a good week and half that in a bad one.
     //
     // THE DEEP STOP IS SET BY THE SEA LIFE, not by the water. Whatever the
     // surface keeps for itself it keeps from the animals under it too, and
     // they hold at two to six metres where nothing else is left to hide: at
     // 0.76 a pair of porpoises eight metres down goes from faint to one of
     // them gone (`--scene wildlife --seed 19`, the two builds side by side).
-    // 0.68 is the last stop that still reads. What made this coast less
+    // 0.7 is the last stop that still reads. What made this coast less
     // see-through is not this number but the bottom leaving.
-    window: [0.3, 0.68],
-    clarity: 12,
+    window: [0.32, 0.7],
+    clarity: 9,
+  },
+  mangrove: {
+    // THE WATER EVERYBODY MEANS BY "TROPICAL": pale turquoise over the
+    // white sand of the flats, an emerald green over the seagrass and the
+    // shelf, and a deep blue only where the bottom is finally out of reach.
+    // None of the three is the app's palette, and none of them is the
+    // taiga's green: this sea is blue because there is nothing in it.
+    shallow: "#8fe3d6",
+    sea: "#2aa6b8",
+    deep: "#0f4f6e",
+    // The ramp is what says tropical more than the hue does: still
+    // turquoise over seven metres of bed, and not at its deep tone until
+    // the bottom is forty metres down.
+    shallowTo: 7,
+    deepTo: 40,
+    // What the bottom goes to once the water has taken it: a dark
+    // blue-green, well under the deep tone, so the deep water keeps its
+    // weight under the bright shallows.
+    bed: "#1c3a3c",
+    // A clear salt sea with no river in it: a summer reading of twenty-odd
+    // metres is ordinary here, and the surface is a window a rider looks
+    // through rather than a skin. The deep stop is still set by the sea
+    // life — a hammerhead at six metres has to read — and this water is
+    // clear enough that the stop can sit lower than the taiga's.
+    window: [0.22, 0.6],
+    clarity: 24,
   },
 };
 

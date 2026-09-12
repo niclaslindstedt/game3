@@ -26,9 +26,8 @@ import process from "node:process";
 import { parseArgs, craftList } from "./lib/cli.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { simulateStage, SIM_SECONDS, CRAFT_IDS, engineVersion, TUNING } = await import(
-  join(root, "engine/index.ts")
-);
+const { simulateStage, SIM_SECONDS, CRAFT_IDS, engineVersion, TUNING, BIOME_IDS, isBiomeId } =
+  await import(join(root, "engine/index.ts"));
 
 /** The default seed set — the ones `examples/seeds.md` describes, so the
  * table CI prints is a table somebody has looked at the plans of. */
@@ -38,6 +37,11 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     seeds: { kind: "list", default: DEFAULT_SEEDS, help: "seeds to ride, comma-separated" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast the seed is built on (taiga, mangrove)",
+    },
     track: {
       kind: "string",
       default: "coast",
@@ -56,8 +60,12 @@ const args = parseArgs(
       help: "the ramp's hand alone, 0..1 — overrides --assist for the deck",
     },
   },
-  "usage: npm run sim -- [--seeds a,b,c] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1] [--ramp-assist 0..1]",
+  "usage: npm run sim -- [--seeds a,b,c] [--biome taiga|mangrove] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1] [--ramp-assist 0..1]",
 );
+if (!isBiomeId(args.biome)) {
+  console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);
+  process.exit(2);
+}
 const seeds = args.seeds.map(Number);
 if (seeds.some((s) => !Number.isInteger(s))) {
   console.error(`--seeds wants integers, got ${args.seeds.join(",")}`);
@@ -69,7 +77,7 @@ const pad = (v, n) => String(v).padStart(n);
 const kmh = (ms) => (ms * 3.6).toFixed(0);
 
 console.log(
-  `sim — engine ${engineVersion} at ${TUNING.physicsHz} Hz · ${args.track} · seeds ${seeds.join(",")} · ` +
+  `sim — engine ${engineVersion} at ${TUNING.physicsHz} Hz · ${args.biome} ${args.track} · seeds ${seeds.join(",")} · ` +
     `crafts ${crafts.join(",")} · max ${args.max} s`,
 );
 console.log(
@@ -98,6 +106,7 @@ for (const seed of seeds) {
   for (const craft of crafts) {
     const r = simulateStage({
       seed,
+      biome: args.biome,
       craft,
       track: args.track,
       maxSeconds: args.max,

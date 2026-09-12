@@ -28,9 +28,9 @@ export type Season = (typeof SEASONS)[number];
 /**
  * THE SUN'S DECLINATION in the middle of each season, degrees.
  *
- * The seasons are the METEOROLOGICAL ones, as the Swedish weather service
+ * The seasons are the METEOROLOGICAL ones, as a northern weather service
  * defines them — by the daily mean temperature crossing 0 °C and 10 °C for
- * a run of days, so their dates are a fact about a place. On the Bothnian
+ * a run of days, so their dates are a fact about a place. On the taiga
  * coast at 62°N the normals put spring's arrival in early April, summer's
  * in early June, autumn's around the middle of September and winter's in
  * early November, and each season's declination here is the sun's on the
@@ -55,7 +55,7 @@ export type Season = (typeof SEASONS)[number];
  *                                 the longest night of the four
  *
  * WINTER IS NOVEMBER, NOT JANUARY, because the sea is open in November and
- * not in January: the Bothnian Sea's ice season normally runs from the
+ * not in January: a brackish northern sea's ice season normally runs from the
  * start of December to the middle of May, and in all but a mild winter
  * most of the sea freezes, coasts first. The middle weeks of meteorological
  * winter before the ice are the only winter water a craft can be ridden on

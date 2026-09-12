@@ -214,6 +214,9 @@ export function planFlora(level: Level, scale: number): FloraSpot[][] {
   };
   const tries = Math.round(((stations.length * STATION) / 1000) * PER_KM * scale);
   const b = level.bounds;
+  // Only the rows of THIS coast are offered a point: a spruce is a claim
+  // about the taiga, and its share on the mangrove is nothing.
+  const here = FLORA.map((spec) => spec.biomes.includes(level.biome));
   for (let i = 0; i < tries; i++) {
     const at = stations[rng.int(0, stations.length - 1)];
     // Biased toward the water's edge rather than spread over the disc: the
@@ -230,6 +233,10 @@ export function planFlora(level: Level, scale: number): FloraSpot[][] {
     let measured = false;
     let total = 0;
     for (let s = 0; s < FLORA.length; s++) {
+      if (!here[s]) {
+        shares[s] = 0;
+        continue;
+      }
       if (FLORA[s].habitat.shelter !== undefined && !measured) {
         g.shelter = shelterAt(level, x, z);
         measured = true;

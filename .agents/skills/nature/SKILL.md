@@ -1,6 +1,6 @@
 ---
 name: nature
-description: "Use when working on the NATURE the levels run along — the shore's materials (bedrock slabs, boulder fields, sand pockets, the skerries standing offshore), the biome-as-data model behind them, what the renderer's terrain.ts paints for each, the rocks it stands up, the sea life under the water (R20), the flora above the waterline, the birds over the shore and the skeins crossing it, and — later — the countries beyond the taiga. Owns the engine's biome row, the surface classifier's vocabulary, the terrain's paint, the placement rules that keep every solid in the engine's field, and the look-first verification loop."
+description: "Use when working on the NATURE the levels run along — the shore's materials (bedrock slabs, boulder fields, sand pockets, the skerries standing offshore), the biome-as-data model behind them, what the renderer's terrain.ts paints for each, the rocks it stands up, the sea life under the water (R20), the flora above the waterline, the birds over the shore and the skeins crossing it, and the coasts beyond the taiga — the mangrove today. Owns the engine's biome row, the surface classifier's vocabulary, the terrain's paint, the placement rules that keep every solid in the engine's field, and the look-first verification loop."
 ---
 
 # The nature: the shore, its stone, and what will grow on it
@@ -21,12 +21,13 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 
 | File | Owns |
 | --- | --- |
-| `engine/mapgen/biomes.ts` | Biomes AS DATA, engine side: one row per `BiomeId` — the shore's material mix, the relief (how high the slabs, how dense the boulders, how big the sand pockets), the skerry field offshore, the water's density and temperature band, the wind band. `taiga` is the only built row; `archipelago`, `fjord`, `atoll`, `delta`, `arctic` are reserved ids with no row yet |
+| `engine/mapgen/biomes.ts` | Biomes AS DATA, engine side: one row per `BiomeId` — the relief, the rock densities, the boulder field, how much of the waterline is beach (`shore.sand`), the water's density and temperature band, the latitude, how big a sea the wind grows and how much swell arrives (`sea`), the skies it offers, what swims in it. `taiga` (a cold skerry coast) and `mangrove` (a warm flat one) are built; `archipelago`, `fjord`, `atoll`, `delta`, `arctic` are reserved ids with no row yet. A biome is a kind of coast, never a place |
 | `engine/mapgen/shore.ts` | The shoreline for the biome and the surface classifier behind `level.materialAt(x, z) → Surface` (`bedrock`, `rock`, `sand`, `water`) — the vocabulary every painter reads |
 | `engine/mapgen/geology.ts` | The ground's SHAPE: the sea bed's slope, the land's low rise and its plateau, the noise (`engine/lib/noise.ts`) that makes bedrock read as slabs rather than a ramp |
 | `engine/mapgen/compile.ts` | Bakes the ground heightfield and the solids — where every skerry, boulder and reef STANDS, because the craft can hit them (the `collision` skill owns the contact) |
 | `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.materialAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
+| `pwa/src/game/shore-paint.ts` | WHAT A COAST'S SHORE IS PAINTED, the other app-side half of a biome row: the hex for each surface the classifier names, the bed and how far out it remembers the beach, where the wood's floor starts, and the stone the standing rocks are carved in (`terrain.ts` and `rocks.ts` read it; nothing else states a shore colour) |
 | `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF, the app side of a biome row: its three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are all written against. A coast in `BIOMES` without a row here throws on its first level (`tests/water_optics_test.ts`). The see-through model those numbers feed is `water-look`'s |
 | `pwa/src/game/water-mesh.ts` | NOT this skill's — but its colour-by-depth reads the same `ground` and the same optics row, so a bed that changes shape changes what the water looks like over it (`water-look`) |
 | `engine/game/defs/fauna.ts` | THE CATALOG (R20): the ten animals, and for each what it is — length, beam, cruising speed, the depth it holds at, the water it needs, its offshore band, its school size, how often it comes up (`breath` / `bask`) and how deep it holds when it does (`awash`), whether its bulls breach (`breach`), its temperature band — and `perKm`, how rare it is. `rarityOf` turns that one number into the word; nothing states the word |
@@ -93,8 +94,10 @@ water, and that one fact decides everything about the fauna's look:
 
 ## The cover above the waterline
 
-Thirteen rows, and the reason there are thirteen is that a taiga COAST is
-not the taiga. The picture people carry inland — a wall of spruce — is
+Two rosters, each row saying which coast it grows on (`biomes`), and the
+placer plants only the coast's own. The taiga's has thirteen rows, and the
+reason there are thirteen is that a taiga COAST is not the taiga. The
+picture people carry inland — a wall of spruce — is
 wrong at the water, and a shore drawn from it reads as a screensaver:
 
 - **The shore is a LADDER, and the ladder is the design.** Reed in the
@@ -163,8 +166,8 @@ with wings is a solid. What makes them read:
   row (`engine/mapgen/biomes.ts`: what the shore is made of, the relief, the
   water, the wind) and, when the renderer grows one, the app's row (a
   palette and later a flora roster). Which one a level is on is `level.biome`,
-  drawn from the seed's options; nothing else in the engine names a country.
-- **The taiga shore is the Baltic's: low, hard, broken.** Bedrock SLABS
+  drawn from the seed's options; nothing else in the engine names a biome.
+- **The taiga shore is a cold skerry coast's: low, hard, broken.** Bedrock SLABS
   sloping into the water (the glacier's work — smooth, low, grey), BOULDER
   fields where the moraine was dumped, SAND POCKETS in the bays between, and
   SKERRIES — the same bedrock standing just out of the water offshore, with
@@ -237,10 +240,17 @@ materials present in the biome's stated shares).
   `compile.ts` under a rule in `rules.ts`, its shape in `rocks.ts`, and its
   contact in `collision.ts` (the `collision` skill).
 - **A new biome**: a row in `engine/mapgen/biomes.ts` (the taiga's row stays
-  neutral so no taiga seed re-rolls — `mapgen-improvement`'s invariant), a
-  palette for the terrain, and eventually a flora roster and a sky look. The
-  reserved ids exist so the campaign's level ids never change when the
-  country arrives.
+  neutral so no taiga seed re-rolls — `mapgen-improvement`'s invariant), and
+  the app-side halves it cannot import: its water in `water-optics.ts`, its
+  shore in `shore-paint.ts`, its skies and seasons in `sky-looks.ts`, its
+  rows in `flora-defs.ts` and `bird-defs.ts` (each row names its coasts),
+  its animals in `defs/fauna.ts` and their paint in `pwa/src/game/fauna.ts`.
+  `tests/biome_test.ts` holds every one of those to `BIOME_IDS`, so a coast
+  missing a half fails before its first level. Sweep its seeds through
+  `make analyze BIOME=<id> COUNT=16` before believing its `shore.sand` and
+  `boulderField` — R21's quilt refuses a coast of one material — and put
+  the pass rate in the row's comment. The reserved ids exist so the
+  campaign's level ids never change when a coast arrives.
 - **A new species**: a row in `pwa/src/game/flora-defs.ts` — what it looks
   like and where it grows — and, only if no existing form carries it, a
   case in `flora-shapes.ts`. Nothing else changes: the placer reads the

@@ -23,7 +23,9 @@
 
 import * as THREE from "three";
 
-import { FLORA } from "../game/flora-defs.ts";
+import { isBiomeId } from "@engine";
+
+import { FLORA, floraOf } from "../game/flora-defs.ts";
 import { buildFlora, floraMaterial } from "../game/flora-shapes.ts";
 import { PALETTE } from "../identity.ts";
 
@@ -38,11 +40,14 @@ const HEADROOM = 0.16;
 
 /** Which of the roster this run wants, off the page's own query string. */
 function chosen(): typeof FLORA {
-  const asked = new URLSearchParams(location.search).get("rows");
-  if (!asked) return FLORA;
+  const query = new URLSearchParams(location.search);
+  const biome = query.get("biome");
+  const roster = isBiomeId(biome) ? floraOf(biome) : FLORA;
+  const asked = query.get("rows");
+  if (!asked) return roster;
   const want = new Set(asked.split(",").map((s) => s.trim().toLowerCase()));
-  const kept = FLORA.filter((s) => want.has(s.id.toLowerCase()));
-  return kept.length > 0 ? kept : FLORA;
+  const kept = roster.filter((s) => want.has(s.id.toLowerCase()));
+  return kept.length > 0 ? kept : roster;
 }
 
 /** The ground the cell stands on: a slab of the shore's own granite, big

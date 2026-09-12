@@ -34,7 +34,9 @@ import {
   WEATHER_IDS,
   createGame,
   generateLevel,
+  isBiomeId,
   step,
+  type BiomeId,
   type Season,
   type Weather,
 } from "@engine";
@@ -122,7 +124,9 @@ async function main(): Promise<void> {
   };
 
   // The coast, once. Every cell rides this same shore under a different sky.
-  const dealt = generateLevel(SEED);
+  const coast = new URLSearchParams(location.search).get("biome");
+  const biome: BiomeId = isBiomeId(coast) ? coast : "taiga";
+  const dealt = generateLevel(SEED, { biome });
 
   for (let r = 0; r < rows.length; r++) {
     const weather: Weather = rows[r];
@@ -138,7 +142,11 @@ async function main(): Promise<void> {
       }
       renderer.render(state, 1 / 60);
       sheet.drawImage(cell, c * CELL_W, r * CELL_H);
-      addLabel(`${weather.toUpperCase()}  ${season.toUpperCase()}  ${clock(hour)}`, c, r);
+      addLabel(
+        `${biome.toUpperCase()}  ${weather.toUpperCase()}  ${season.toUpperCase()}  ${clock(hour)}`,
+        c,
+        r,
+      );
     }
   }
 

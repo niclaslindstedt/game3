@@ -32,10 +32,11 @@
 //     been stepped past are dropped, because a worker that fell behind a
 //     held arrow key would otherwise repaint its way through the backlog.
 
+import type { BiomeId } from "@engine";
 import { useEffect, useRef, useState } from "preact/hooks";
 
 import { VIEW } from "./minimap-scene.ts";
-import type { PreviewReply } from "./seed-preview-worker.ts";
+import type { PreviewReply, PreviewRequest } from "./seed-preview-worker.ts";
 import { STRINGS } from "./strings.ts";
 
 /** How long the arrows have to be still before a level is built, ms. A press
@@ -53,15 +54,18 @@ const KEPT = 60;
  * press would strobe through a walk down the seeds. */
 export type SeedChart = { shown: PreviewReply | null; fresh: boolean };
 
-export function useSeedPreview(seed: number): SeedChart {
+/** One ask, as the cache keys it: a seed on a coast. */
+const keyOf = (seed: number, biome: BiomeId): string => `${biome}:${seed}`;
+
+export function useSeedPreview(seed: number, biome: BiomeId): SeedChart {
   const [shown, setShown] = useState<PreviewReply | null>(null);
-  const cache = useRef(new Map<number, PreviewReply>());
+  const cache = useRef(new Map<string, PreviewReply>());
   const worker = useRef<Worker | null>(null);
-  /** The seed the card is on RIGHT NOW, for the reply handler to check
-   * itself against — a ref, because the handler outlives the render it was
-   * created in and would otherwise be testing a stale number. */
-  const wanted = useRef(seed);
-  wanted.current = seed;
+  /** The seed and coast the card is on RIGHT NOW, for the reply handler to
+   * check itself against — a ref, because the handler outlives the render
+   * it was created in and would otherwise be testing a stale number. */
+  const wanted = useRef(keyOf(seed, biome));
+  wanted.current = keyOf(seed, biome);
 
   useEffect(() => {
     const w = new Worker(new URL("./seed-preview-worker.ts", import.meta.url), {
@@ -73,9 +77,9 @@ export function useSeedPreview(seed: number): SeedChart {
       // Oldest out first. `Map` iterates in insertion order, so the first
       // key is the least recently ASKED FOR, which for a walk down the
       // seeds is the one furthest behind the cursor.
-      if (kept.size >= KEPT) kept.delete(kept.keys().next().value as number);
-      kept.set(reply.seed, reply);
-      if (reply.seed === wanted.current) setShown(reply);
+      if (kept.size >= KEPT) kept.delete(kept.keys().next().value as string);
+      kept.set(keyOf(reply.seed, reply.biome), reply);
+      if (keyOf(reply.seed, reply.biome) === wanted.current) setShown(reply);
     };
     worker.current = w;
     return () => {
@@ -85,16 +89,20 @@ export function useSeedPreview(seed: number): SeedChart {
   }, []);
 
   useEffect(() => {
-    const kept = cache.current.get(seed);
+    const kept = cache.current.get(keyOf(seed, biome));
     if (kept) {
       setShown(kept);
       return;
     }
-    const timer = window.setTimeout(() => worker.current?.postMessage({ seed }), SETTLE_MS);
+    const ask: PreviewRequest = { seed, biome };
+    const timer = window.setTimeout(() => worker.current?.postMessage(ask), SETTLE_MS);
     return () => window.clearTimeout(timer);
-  }, [seed]);
+  }, [seed, biome]);
 
-  return { shown, fresh: shown !== null && shown.seed === seed };
+  return {
+    shown,
+    fresh: shown !== null && shown.seed === seed && shown.biome === biome,
+  };
 }
 
 export function SeedPreview({ chart }: { chart: SeedChart }) {

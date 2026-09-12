@@ -23,29 +23,31 @@
 //               twilight the KEY LIGHT hands over from the sun's afterglow
 //               to the full moon (`MOON_TAKES_OVER`), which stands opposite
 //               the sun and is what a night sea is lit by.
-//   THE SEASON  what the year does to the air (sky-looks.ts's
-//               `TAIGA_SEASONS`): a colour cast and a clarity, shown in
+//   THE SEASON  what the year does to the air on THIS coast (sky-looks.ts's
+//               `SEASON_LOOKS`): a colour cast and a clarity, shown in
 //               proportion to the sun. Where the sun IS in that season is
 //               already in the elevation.
-//   THE SKY     what the level was generated under (R19), as a LID over the
-//               top of it (`weathered`). Overcast, rain and a squall are not
-//               the same sky dimmed by different amounts — one is flat grey,
-//               one is white, one is black — and all three replace the
-//               gradient overhead with the underside of a cloud deck.
+//   THE SKY     what the level was generated under (R19), as the COAST
+//               paints that word (`SKY_LOOKS`): a haze or a high sheet over
+//               the open gradient, or a LID over the top of it (`weathered`).
+//               Overcast, rain and a squall are not the same sky dimmed by
+//               different amounts — one is flat grey, one is white, one is
+//               black — and all three replace the gradient overhead with the
+//               underside of a cloud deck.
 //
 // THREE-FREE ON PURPOSE. Colours are packed sRGB hexes and every mix goes
 // through `lib/colour.ts`, which mixes in linear light exactly the way
 // `THREE.Color.lerp` does. The renderer turns a hex into a `THREE.Color` at
 // the last moment; nothing before that needs a renderer to exist.
 
-import { skyCover, sunHourAt, type Level, type Season, type Weather } from "@engine";
+import { skyCover, sunHourAt, type BiomeId, type Level, type Season, type Weather } from "@engine";
 
 import { luminance, mixHex } from "../lib/colour.ts";
 import { daylightOf, lampsAt, moonAt, sunOver, type Daylight, type SunPlace } from "./daylight.ts";
 import { KEYS, DAY } from "./sky-rungs.ts";
 import {
-  TAIGA_LOOKS,
-  TAIGA_SEASONS,
+  looksOf,
+  seasonsOf,
   type OpenLook,
   type SeasonLook,
   type WeatherLook,
@@ -498,18 +500,20 @@ const FOG_IS_SKY = 0.78;
 const DECK_HAZE = 0.35;
 
 /** Whether a sky has a lid — the two shapes `Looks` is written in. */
-function isOpen(weather: Weather): weather is "clear" | "high" {
-  return weather === "clear" || weather === "high";
+function isOpen(weather: Weather): weather is "clear" | "haze" | "high" {
+  return weather === "clear" || weather === "haze" || weather === "high";
 }
 
 /**
  * THE WHOLE SKY at `hour` over a coast at `latitude` in `season`, under
- * `weather` at `cover` (R19's heaviness, 0..1).
+ * `weather` at `cover` (R19's heaviness, 0..1), painted the way `biome`
+ * paints that word.
  *
- * Takes the five facts rather than a `Level` so that a lab, a test or a
- * contact sheet can ask for a sky nobody generated — every hour of the day
- * and night under every sky there is, which is the only honest way to look
- * at a ladder.
+ * Takes the facts rather than a `Level` so that a lab, a test or a contact
+ * sheet can ask for a sky nobody generated — every hour of the day and
+ * night under every sky there is, which is the only honest way to look at
+ * a ladder. The latitude is passed beside the biome rather than read off
+ * it so a sheet can ask what this coast's looks do at another coast's sun.
  */
 export function skyAt(
   hour: number,
@@ -517,9 +521,10 @@ export function skyAt(
   weather: Weather,
   cover: number,
   season: Season = "summer",
+  biome: BiomeId = "taiga",
 ): Preset {
-  const p = misted(seasoned(openSky(sunOver(hour, latitude, season)), TAIGA_SEASONS[season]));
-  const looks = TAIGA_LOOKS;
+  const p = misted(seasoned(openSky(sunOver(hour, latitude, season)), seasonsOf(biome)[season]));
+  const looks = looksOf(biome);
   return isOpen(weather) ? opened(p, looks[weather], cover) : lidded(p, looks[weather], cover);
 }
 
@@ -534,6 +539,7 @@ export function skyFor(level: Level, latitude: number, t: number): Preset {
     level.weather,
     skyCover(level.wind.speed),
     level.season,
+    level.biome,
   );
 }
 

@@ -8,7 +8,7 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
-import { CLASS_BAND, SEASONS, TIMES_OF_DAY, WEATHER_IDS } from "@engine";
+import { BIOME_IDS, CLASS_BAND, SEASONS, TIMES_OF_DAY, WEATHER_IDS } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -451,6 +451,7 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       hud: { on: false },
     });
     expect(stored.ride).toEqual({
+      biome: "taiga",
       craft: "dart",
       camera: "nose",
       seed: 12,
@@ -482,6 +483,18 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       expect(mergeSettings({ ride: { season } }).ride.season).toBe(season);
     }
     expect(mergeSettings({ ride: { season: "monsoon" } }).ride.season).toBeNull();
+  });
+
+  it("keeps a coast this build has BUILT, and falls back to the first for any other", () => {
+    for (const biome of BIOME_IDS) {
+      expect(mergeSettings({ ride: { biome } }).ride.biome).toBe(biome);
+    }
+    // A reserved id with no row is a level that throws on load, so it is
+    // not a setting; nor is a word the engine has never heard.
+    expect(mergeSettings({ ride: { biome: "atoll" } }).ride.biome).toBe(BIOME_IDS[0]);
+    expect(mergeSettings({ ride: { biome: "tundra" } }).ride.biome).toBe(BIOME_IDS[0]);
+    expect(mergeSettings({ ride: { biome: 7 } }).ride.biome).toBe(BIOME_IDS[0]);
+    expect(DEFAULT_SETTINGS.ride.biome).toBe("taiga");
   });
 
   it("takes a SKY off the engine's own ladder, and only off it", () => {

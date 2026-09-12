@@ -2,11 +2,18 @@
 // THE START CARD — the first of the two questions between the front door and
 // the water: WHERE, and WHEN.
 //
-// FIVE ROWS, AND NOT ONE MORE. A card standing between a player and a game
+// SIX ROWS, AND NOT ONE MORE. A card standing between a player and a game
 // they have already said yes to earns its place only if every row on it
-// changes the ride they are about to have, so it asks the five things that
+// changes the ride they are about to have, so it asks the six things that
 // do and leaves everything else to OPTIONS:
 //
+//   COAST    which BIOME the seed is built on — the taiga's granite and
+//            pine, or the mangrove's white sand and turquoise water. Above
+//            the seed because the seed is read against it: the same number
+//            is a different shore on each coast, and the chart under both
+//            rows is cut from the level the pair actually builds. The one
+//            row with no dealt mark, because a coast is a choice a seed
+//            never makes.
 //   SHORE    which seed, with the coast it makes drawn underneath: the
 //            schematic is the row, because a number nobody can picture is
 //            not a choice.
@@ -22,7 +29,9 @@
 //            row value that is always an override and never the mark.
 //   WIND     calm, brisk or storm — the wind, and so the SEA, because the
 //            fetch law is what turns one into the other.
-//   WEATHER  the sky over it: R19's own five, off `WEATHER_IDS`.
+//   WEATHER  the sky over it: the skies THIS COAST offers (`Biome.weathers`,
+//            R19), lightest first — a warm coast has a haze on the ladder
+//            where a cold one has none.
 //
 // THE CRAFT IS THE SECOND QUESTION AND IT IS NOT ASKED HERE. A shore is a
 // seed with a chart under it and an hour is a word that means an hour; a
@@ -65,12 +74,14 @@
 // run stood up from a link are the same run read the same way.
 
 import {
+  BIOME_IDS,
   SEASONS,
   TIMES_OF_DAY,
-  WEATHER_IDS,
+  type BiomeId,
   type Season,
   type TimeOfDay,
   type Weather,
+  biomeOf,
 } from "@engine";
 import { useState } from "preact/hooks";
 
@@ -126,18 +137,23 @@ const CONDITION_STOPS: Stop<Conditions>[] = CONDITIONS.map((id) => ({
 
 const WEATHER_LABELS: Record<Weather, string> = {
   clear: STRINGS.skyClear,
+  haze: STRINGS.skyHaze,
   high: STRINGS.skyHigh,
   overcast: STRINGS.skyOvercast,
   rain: STRINGS.skyRain,
   squall: STRINGS.skySquall,
 };
 
-/** The skies in the ENGINE's order, which is lightest first — the order they
- * read as a ladder, and one this card never restates: a sky added to R19 is a
- * stop here the same day. */
-const WEATHER_STOPS: Stop<Weather>[] = WEATHER_IDS.map((id) => ({
+/** The skies a coast offers, in the ENGINE's order, which is lightest first
+ * — the order they read as a ladder, and one this card never restates: a
+ * sky added to a biome's chart is a stop here the same day. */
+const weatherStops = (biome: BiomeId): Stop<Weather>[] =>
+  biomeOf(biome).weathers.map((id) => ({ id, label: WEATHER_LABELS[id] }));
+
+/** The coasts, in the order the engine offers them. */
+const COAST_STOPS: Stop<BiomeId>[] = BIOME_IDS.map((id) => ({
   id,
-  label: WEATHER_LABELS[id],
+  label: STRINGS.coastName(id),
 }));
 
 export function StartPage({
@@ -163,11 +179,23 @@ export function StartPage({
    * {@link DEFAULT_SEED} moves — which is exactly what the row that used to
    * have a "back to the default shore" press was for. */
   const setSeed = (next: number): void => setRide({ seed: next === DEFAULT_SEED ? null : next });
+  /** A NEW COAST re-reads the sky row against its own chart: a sky the
+   * last coast offered and this one does not (a haze on the taiga) is not a
+   * stop the row can stand on, so it goes back to deferring. */
+  const setCoast = (biome: BiomeId): void =>
+    setRide({
+      biome,
+      weather:
+        ride.weather !== null && biomeOf(biome).weathers.includes(ride.weather)
+          ? ride.weather
+          : null,
+    });
 
-  // The day this seed deals, off the same reply the chart is drawn from. Null
-  // until the first one lands — a level takes hundreds of milliseconds to
-  // build — and the last one stays up, dimmed, while the next is being built.
-  const chart = useSeedPreview(seed);
+  // The day this seed deals ON THIS COAST, off the same reply the chart is
+  // drawn from. Null until the first one lands — a level takes hundreds of
+  // milliseconds to build — and the last one stays up, dimmed, while the
+  // next is being built.
+  const chart = useSeedPreview(seed, ride.biome);
   const deal = chart.shown?.ok === true ? chart.shown.deal : null;
   // WHAT THE SKY WOULD BE IF NOBODY TOUCHED IT, which is not always the sky
   // the LEVEL was dealt: a wind chosen on the row above carries its own sky
@@ -221,6 +249,14 @@ export function StartPage({
       <div class="start-cols">
         <div class="start-col">
           <div class="knob-rows">
+            <StepRow
+              label={STRINGS.startCoast}
+              hint={STRINGS.startCoastHint}
+              stops={COAST_STOPS}
+              value={ride.biome}
+              onPick={setCoast}
+              onHint={setHint}
+            />
             <NumberRow
               label={STRINGS.startShore}
               hint={STRINGS.startShoreHint}
@@ -274,7 +310,7 @@ export function StartPage({
             <StepRow
               label={STRINGS.startWeather}
               hint={STRINGS.startWeatherHint}
-              stops={WEATHER_STOPS}
+              stops={weatherStops(ride.biome)}
               value={ride.weather ?? dealtWeather}
               dealt={dealtWeather}
               // A wind CHOSEN implies its sky with no level to wait for; only a

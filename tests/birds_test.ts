@@ -14,9 +14,9 @@
 // is whether any of it LOOKS right, which is `make birds` and `make
 // screenshots SCENE=birds`.
 import { describe, expect, it } from "vitest";
-import { SOUTH, TAU, sampleField, type Level } from "@engine";
+import { BIOME_IDS, SOUTH, TAU, sampleField, type Level } from "@engine";
 
-import { BIRDS, BIRD_IDS, birdById, isBirdId } from "../pwa/src/game/bird-defs.ts";
+import { BIRDS, BIRD_IDS, birdById, birdsOf, isBirdId } from "../pwa/src/game/bird-defs.ts";
 import {
   CROSSING_LEAD,
   CROSSING_PAST,
@@ -38,7 +38,7 @@ import {
   type BirdPlan,
   type Flock,
 } from "../pwa/src/game/bird-plan.ts";
-import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
+import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
 
 /** The seeds this file flies. Fewer than the corpus, because a plan plants
  * the shore's tall trees to find the eagle a perch. */
@@ -126,10 +126,34 @@ describe("the roster", () => {
     expect(birdById("eagle").home).toBe("tree");
     expect(birdById("eagle").flock.max).toBe(1);
     expect(birdById("gull").home).toBe("skerry");
-    // The tern is the one bird that fishes from the air, and the cormorant
-    // the one that dries its wings.
-    expect(BIRDS.filter((b) => b.dive > 0).map((b) => b.id)).toEqual(["tern"]);
+    // The tern, the pelican and the osprey are the birds that fish from the
+    // air, and the cormorant the one that dries its wings.
+    expect(BIRDS.filter((b) => b.dive > 0).map((b) => b.id)).toEqual(["tern", "pelican", "osprey"]);
     expect(BIRDS.filter((b) => b.dries).map((b) => b.id)).toEqual(["cormorant"]);
+  });
+
+  it("lives on at least one built coast, and names only built coasts", () => {
+    for (const spec of BIRDS) {
+      expect(spec.biomes.length, spec.id).toBeGreaterThan(0);
+      for (const id of spec.biomes) expect(BIOME_IDS, `${spec.id} on ${id}`).toContain(id);
+    }
+    // Each coast has an everyday bird, a raptor and something that fishes
+    // from the air; the gull is everywhere.
+    for (const biome of BIOME_IDS) {
+      const rows = birdsOf(biome);
+      expect(rows.map((r) => r.id)).toContain("gull");
+      expect(
+        rows.some((r) => r.home === "tree" && r.flock.max === 1),
+        `${biome}: raptor`,
+      ).toBe(true);
+      expect(
+        rows.some((r) => r.dive > 0),
+        `${biome}: a diver`,
+      ).toBe(true);
+    }
+    // The pink one is the warm coast's alone.
+    expect(birdById("spoonbill").biomes).toEqual(["mangrove"]);
+    expect(birdById("eider").biomes).toEqual(["taiga"]);
   });
 
   it("flies the big birds slow and the small ones fast", () => {
@@ -208,6 +232,26 @@ describe("the flocks a level carries", () => {
       flocks += plan.flocks.length;
     }
     expect(flocks / SEEDS.length).toBeGreaterThan(3);
+  });
+
+  it("flies only the coast's own birds", () => {
+    for (const seed of SEEDS) {
+      for (const flock of planFor(seed).flocks) {
+        expect(birdById(flock.species).biomes, flock.species).toContain("taiga");
+      }
+    }
+    // …and the mangrove has pelicans and no eider.
+    let pelicans = 0;
+    for (const seed of MANGROVE_SEEDS) {
+      const plan = planBirds(mangroveFor(seed));
+      for (const flock of plan.flocks) {
+        expect(birdById(flock.species).biomes, flock.species).toContain("mangrove");
+        if (flock.species === "pelican") pelicans++;
+      }
+      // Nothing crosses a warm coast: it is where the skeins were going.
+      expect(plan.crossers).toHaveLength(0);
+    }
+    expect(pelicans).toBeGreaterThan(0);
   });
 
   it("plans the same birds twice for the same seed", () => {

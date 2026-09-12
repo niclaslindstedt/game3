@@ -35,9 +35,8 @@ import process from "node:process";
 import { parseArgs } from "./lib/cli.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
-const { analyzeLevel, generateLevel, engineVersion, rulesAtPace } = await import(
-  join(root, "engine/index.ts")
-);
+const { analyzeLevel, generateLevel, engineVersion, rulesAtPace, BIOME_IDS, isBiomeId } =
+  await import(join(root, "engine/index.ts"));
 
 const DEFAULT_SEEDS = [1, 7, 38, 123];
 
@@ -45,6 +44,11 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     seed: { kind: "number", help: "one seed" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast the seed is built on (taiga, mangrove)",
+    },
     seeds: { kind: "list", help: "several seeds, comma-separated" },
     count: { kind: "number", help: "seeds 1..N — the sweep" },
     findings: { kind: "number", default: 12, help: "findings to print per seed" },
@@ -65,8 +69,12 @@ const args = parseArgs(
     },
     json: { kind: "string", help: "write every analysis to this file" },
   },
-  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--track coast|circuit] [--pace k] [--ramp k] [--findings n] [--json path]",
+  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--findings n] [--json path]",
 );
+if (!isBiomeId(args.biome)) {
+  console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);
+  process.exit(2);
+}
 const seeds = args.seeds
   ? args.seeds.map(Number)
   : args.seed !== undefined
@@ -128,7 +136,12 @@ let failed = 0;
 for (const seed of seeds) {
   let level;
   try {
-    level = generateLevel(seed, { track: args.track, pace: args.pace, rampWidth: args.ramp });
+    level = generateLevel(seed, {
+      biome: args.biome,
+      track: args.track,
+      pace: args.pace,
+      rampWidth: args.ramp,
+    });
   } catch (err) {
     console.log(`${padEnd(seed, 6)}  !! the generator gave up: ${err.message}`);
     failed += 1;

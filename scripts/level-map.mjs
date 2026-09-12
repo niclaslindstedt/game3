@@ -32,6 +32,8 @@ import { renderLevelMap } from "./lib/level-draw.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const {
   generateLevel,
+  BIOME_IDS,
+  isBiomeId,
   flowAt,
   sampleField,
   cumulative,
@@ -56,6 +58,11 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     seed: { kind: "number", default: 1, help: "the level's seed" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast the seed is built on (taiga, mangrove)",
+    },
     scale: { kind: "number", default: 1, help: "pixels per metre" },
     craft: { kind: "string", default: "skiff", help: "hull the launch speeds are quoted for" },
     track: {
@@ -76,10 +83,14 @@ const args = parseArgs(
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--track coast|circuit] [--pace k] [--ramp k] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
+  process.exit(2);
+}
+if (!isBiomeId(args.biome)) {
+  console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);
   process.exit(2);
 }
 if (args.track !== "coast" && args.track !== "circuit") {
@@ -90,6 +101,7 @@ if (args.track !== "coast" && args.track !== "circuit") {
 // ── Build it ────────────────────────────────────────────────────────────
 const t0 = Date.now();
 const level = generateLevel(args.seed, {
+  biome: args.biome,
   track: args.track,
   pace: args.pace,
   rampWidth: args.ramp,
@@ -334,7 +346,7 @@ if (args.json) {
 // ── Draw it ─────────────────────────────────────────────────────────────
 const outDir = join(root, "previews");
 mkdirSync(outDir, { recursive: true });
-const name = args.out ?? `level-${args.seed}`;
+const name = args.out ?? `level-${args.biome === "taiga" ? "" : `${args.biome}-`}${args.seed}`;
 writeFileSync(join(outDir, `${name}.txt`), `${text}\n`);
 const canvas = renderLevelMap({
   level,

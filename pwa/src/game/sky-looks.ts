@@ -8,7 +8,7 @@
 // is the same one the rest of the app keeps: the engine owns the fact, the
 // renderer owns the picture.
 
-import type { Season, Weather } from "@engine";
+import type { BiomeId, Season, Weather } from "@engine";
 
 /**
  * ONE SKY, AT ITS LIGHTEST AND AT ITS HEAVIEST.
@@ -83,10 +83,12 @@ export type OpenLook = Pick<WeatherLook, "grey" | "mix" | "dim" | "hemi" | "thro
  * rather than listed, so a sky added to the engine's vocabulary is a
  * compile error here until somebody paints it. */
 export type Looks = {
-  readonly [W in Weather]: W extends "clear" | "high" ? OpenLook : WeatherLook;
+  readonly [W in Weather]: W extends "clear" | "haze" | "high" ? OpenLook : WeatherLook;
 };
 
-export const TAIGA_LOOKS: Looks = {
+/** The taiga coast's skies — the ladder every look was first authored
+ * against, on a cold northern shore. */
+const TAIGA_LOOKS: Looks = {
   // A CLEAR SKY is the ladder untouched, and it is EMPTY: not a thin ring of
   // cumulus, not one puff on the rim — bare air from one horizon to the
   // other (`dressSky` rolls it no sheets at all). R19 already has a sky for
@@ -102,6 +104,21 @@ export const TAIGA_LOOKS: Looks = {
     fogNear: [1, 1.05],
     fogFar: [1, 1.05],
     through: [1, 1],
+  },
+  // A HAZE is a warm coast's sky and a cold one never deals it, but every
+  // coast has to be able to draw every word (`Looks` is total), so the
+  // taiga's is here: the blue gone to milk, the sun a glare, the horizon
+  // lost in white a few hundred metres out. Open — no lid, and the
+  // gradient still shows through the whitening — because what a humid
+  // morning lacks is not sky but distance.
+  haze: {
+    grey: 0xf2f3f0,
+    mix: 0.4,
+    dim: [0.84, 0.66],
+    hemi: [1.1, 1.18],
+    fogNear: [0.55, 0.4],
+    fogFar: [0.6, 0.45],
+    through: [0.7, 0.45],
   },
   // HIGH CLOUD is the sky that costs a game nothing and buys it most: no
   // lid, no shorter view, just a sheet of cirrostratus the light comes
@@ -217,17 +234,16 @@ export type SeasonLook = {
   mist: number;
 };
 
-/** The seasons as the Swedish weather service dates them on this coast,
- * each one on the day `DECLINATION` puts it (`engine/lib/solar.ts`). What
- * the year does to the AIR is stated here; what it does to the sun is
- * already in the elevation. */
-export const TAIGA_SEASONS: Record<Season, SeasonLook> = {
+/** The taiga's seasons, each on the day `DECLINATION` puts it
+ * (`engine/lib/solar.ts`). What the year does to the AIR is stated here;
+ * what it does to the sun is already in the elevation. */
+const TAIGA_SEASONS: Record<Season, SeasonLook> = {
   // May: the air scrubbed clean by the winter and the light hard and pale,
   // but the sea is at four degrees under air already at ten, which is the
-  // recipe for sea fog — the Gulf of Bothnia's short spring is its foggy
-  // season, a bank of advection fog lying on the cold water most mornings.
+  // recipe for sea fog — a cold coast's short spring is its foggy season,
+  // a bank of advection fog lying on the cold water most mornings.
   spring: { horizon: [0xe4eef6, 0.18], fog: [0xd6e6f0, 0.14], reach: 1.06, sun: 1, mist: 1.35 },
-  // The ladder was authored against a Bothnian July, so this is the
+  // The ladder was authored against a northern July, so this is the
   // baseline: nothing added.
   summer: { horizon: [0xffffff, 0], fog: [0xffffff, 0], reach: 1, sun: 1, mist: 1 },
   // Early October: the birch already yellow and the aspen red, a warmer,
@@ -238,6 +254,157 @@ export const TAIGA_SEASONS: Record<Season, SeasonLook> = {
   // Mid-November, the last open water before the ice: the air cold and
   // blue and the sun weak and nine degrees up at its highest, the view
   // short, and sea smoke off the water on a still morning. Over the
-  // Bothnian shallows it is the colour of tin.
+  // shallows it is the colour of tin.
   winter: { horizon: [0xc4d0dc, 0.34], fog: [0xb8c4d0, 0.3], reach: 0.8, sun: 0.86, mist: 1.1 },
 };
+
+/** THE MANGROVE COAST'S SKIES. The same ladder under them — the rungs are
+ * keyed on the sun's elevation, and a subtropical noon simply stands on a
+ * higher one than the taiga ever reaches — so what is authored here is
+ * only what the WEATHER over a warm coast does differently: the humidity
+ * that never quite leaves the air, a winter front's lid that is paler
+ * than a northern one, and an afternoon storm that is this coast's
+ * squall. */
+const MANGROVE_LOOKS: Looks = {
+  // Bare blue over warm water is never quite bare: a little of the haze
+  // is always in it, and the view is shorter than a scrubbed northern
+  // morning's even on the clearest day of the year.
+  clear: {
+    grey: 0xe9eef1,
+    mix: 0.06,
+    dim: [1, 0.98],
+    hemi: [1.04, 1.06],
+    fogNear: [0.88, 0.8],
+    fogFar: [0.9, 0.82],
+    through: [1, 1],
+  },
+  // THE HAZE is this coast's ordinary summer sky and its signature: the
+  // air over thirty-degree water is nearly saturated by mid-morning, the
+  // blue goes to milk from the horizon up, the far shore is gone at a few
+  // hundred metres and the sun is a white glare with no edge. The light
+  // is still strong — it comes from the whole sky rather than from the
+  // disc — which is why it dims the beam more than the skylight.
+  haze: {
+    grey: 0xf4f4ef,
+    mix: 0.44,
+    dim: [0.82, 0.62],
+    hemi: [1.12, 1.2],
+    fogNear: [0.5, 0.36],
+    fogFar: [0.55, 0.4],
+    through: [0.65, 0.4],
+  },
+  // A high sheet: the cirrus off a storm two hundred miles away, or the
+  // first veil ahead of a front — the same sky as the taiga's, warmer.
+  high: {
+    grey: 0xe6e9e6,
+    mix: 0.14,
+    dim: [0.9, 0.74],
+    hemi: [1.06, 1.16],
+    fogNear: [0.85, 0.72],
+    fogFar: [0.86, 0.75],
+    through: [0.8, 0.5],
+  },
+  // A winter front's lid: paler and higher than a northern stratus, the
+  // light flat but not dim — a grey day here is still bright enough to
+  // squint at.
+  overcast: {
+    grey: 0xb4bcc4,
+    mix: 0.46,
+    dim: [0.68, 0.44],
+    hemi: [1.02, 0.9],
+    fogNear: [0.82, 0.66],
+    fogFar: [0.85, 0.7],
+    fogDeck: 0.42,
+    overhead: [0xd4dae0, 0x9aa3ad],
+    rim: 0x8b949e,
+    rimMix: 0.82,
+    base: [700, 400],
+    relief: [0.06, 0.16],
+    through: [0.28, 0.06],
+  },
+  // Rain is a white sky here as it is everywhere, and a warm one: the
+  // deck glows, the air under it is thick with water, and the far shore
+  // is gone at two hundred metres.
+  rain: {
+    grey: 0xa2aab4,
+    mix: 0.46,
+    dim: [0.8, 0.5],
+    hemi: [1, 0.78],
+    fogNear: [0.55, 0.36],
+    fogFar: [0.58, 0.38],
+    fogDeck: 0.62,
+    overhead: [0xf4f7fa, 0x9aa3ad],
+    rim: 0x8a929c,
+    rimMix: 0.86,
+    base: [420, 220],
+    relief: [0.14, 0.36],
+    through: [0.5, 0],
+  },
+  // THE AFTERNOON STORM — the thunderhead that stands up over a warm
+  // coast most summer afternoons and comes off the land in a black wall.
+  // The same shape as the taiga's line squall and blacker at the base,
+  // but its rim is brighter still: a storm here is a cell, not a front,
+  // and the sun is on the sea a few miles beyond it in every direction.
+  squall: {
+    grey: 0x505866,
+    mix: 0.66,
+    dim: [0.4, 0.16],
+    hemi: [0.82, 0.44],
+    fogNear: [0.45, 0.28],
+    fogFar: [0.5, 0.32],
+    fogDeck: 0.7,
+    overhead: [0x30363f, 0x0c0f14],
+    rim: 0xd6dbe0,
+    rimMix: 0.6,
+    base: [260, 140],
+    relief: [0.34, 0.6],
+    through: [0, 0],
+  },
+};
+
+/** The mangrove's seasons, on the same dated days: the year is warm the
+ * whole way through, so what changes is the humidity — thick in summer,
+ * gone in the dry winter — and with it how far the view runs. */
+const MANGROVE_SEASONS: Record<Season, SeasonLook> = {
+  // May: the dry season's last weeks, the air still clear and the water
+  // already warm. Little fog — a warm sea under warm air makes none.
+  spring: { horizon: [0xf4f0e4, 0.1], fog: [0xece8dc, 0.08], reach: 1.04, sun: 1.02, mist: 0.5 },
+  // Late July: the wet season, the air saturated by mid-morning, the
+  // horizon white and the view short even under a clear word. The sun
+  // is fierce and comes from everywhere.
+  summer: { horizon: [0xf6f2e8, 0.24], fog: [0xeeeae0, 0.22], reach: 0.86, sun: 1.05, mist: 0.4 },
+  // Early October: the wet season's tail, still humid, the storms still
+  // building most afternoons.
+  autumn: { horizon: [0xf2eadc, 0.14], fog: [0xe8e0cc, 0.12], reach: 0.94, sun: 1.02, mist: 0.5 },
+  // Mid-November: the dry season's first cool air off the land, the
+  // clearest light of the year, a blue horizon — and the one time this
+  // coast fogs, on a still morning when the flats are cooler than the air.
+  winter: { horizon: [0xe6edf4, 0.1], fog: [0xdfe7ef, 0.08], reach: 1.12, sun: 0.96, mist: 0.9 },
+};
+
+/** Every coast's skies and seasons, keyed the way `BIOMES` is: a coast the
+ * engine can build without a row here has no sky, and `tests/biome_test.ts`
+ * holds the two lists to each other. */
+export const SKY_LOOKS: Readonly<Partial<Record<BiomeId, Looks>>> = {
+  taiga: TAIGA_LOOKS,
+  mangrove: MANGROVE_LOOKS,
+};
+
+export const SEASON_LOOKS: Readonly<Partial<Record<BiomeId, Record<Season, SeasonLook>>>> = {
+  taiga: TAIGA_SEASONS,
+  mangrove: MANGROVE_SEASONS,
+};
+
+/** A coast's skies; throws for one nobody has painted a sky for. */
+export function looksOf(biome: BiomeId): Looks {
+  const row = SKY_LOOKS[biome];
+  if (!row) throw new Error(`no sky is painted for the "${biome}" coast yet`);
+  return row;
+}
+
+/** A coast's seasons; throws the same way. */
+export function seasonsOf(biome: BiomeId): Record<Season, SeasonLook> {
+  const row = SEASON_LOOKS[biome];
+  if (!row) throw new Error(`no seasons are painted for the "${biome}" coast yet`);
+  return row;
+}

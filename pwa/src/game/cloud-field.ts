@@ -163,6 +163,18 @@ export function dressSky(
   // A CLEAR SKY IS EMPTY SKY.
   if (weather === "clear") return { layers: [] };
 
+  // A HAZE is nearly one too. What whitens it is the air, not a sheet
+  // (`sky-looks.ts`'s look does that); what it carries is the handful of
+  // small, soft-edged fair-weather heaps that build over warm water by
+  // mid-morning — low, thin, and never enough of them to be a sky's
+  // subject. One floor, so it never reads as the high-cloud stack beside it.
+  if (weather === "haze") {
+    const heap = heaps("cumulus", between(roll, CUMULUS_BASE[0], CUMULUS_BASE[1]), 0.16, roll, 0);
+    return {
+      layers: [{ ...heap, sharpness: 0.5, thickness: 320, scale: between(roll, 450, 700) }],
+    };
+  }
+
   if (deckBase !== null) {
     // THE DECK — one sheet that covers everything. Its altitude is the
     // preset's own base, and its genus is what is falling out of it.

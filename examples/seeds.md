@@ -6,9 +6,11 @@ the generator is deterministic per seed, so these stay stable until the
 rule book (`engine/mapgen/rules.ts`) changes, at which point regenerate this
 list from a fresh `make analyze COUNT=24` sweep and a look at each plan.
 
-The vertical slice ships one biome (the taiga: low bedrock slabs, boulder
-fields, gravel pockets, skerries offshore), so every seed here is a Bothnian
-shore; the column that separates them is the wind, which is what sets the sea.
+Every seed here is ridden on the taiga coast (low bedrock slabs, boulder
+fields, gravel pockets, skerries offshore) — the mangrove coast builds a
+different shore from the same number (`--biome mangrove`), and is swept
+separately; the column that separates them is the wind, which is what sets
+the sea.
 
 | Seed | Character                                                         |
 | ---- | ----------------------------------------------------------------- |

@@ -9,6 +9,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  biomeOf,
   NEUTRAL_INPUT,
   TUNING,
   LEVEL_RULES as R,
@@ -134,12 +135,15 @@ describe("shoaling and fetch", () => {
     // through `sea.heightScale`, PLUS the groundswell the coast is dealt —
     // which the wind did not make and which is most of this number at a
     // light wind. (The fetch law alone grows 0.75 m here; the wind-sea dial
-    // takes that to 1.2, and the swell in quadrature over it is the rest.)
-    expect(far.Hs).toBeGreaterThan(1.0);
+    // takes that to 1.2, the coast's own share of it (`Biome.sea.wind`, the
+    // skerries' shelter) takes a little back, and the swell in quadrature
+    // over it is the rest.)
+    const coast = biomeOf(level.biome).sea.wind;
+    expect(far.Hs).toBeGreaterThan(1.0 * coast);
     expect(far.Hs).toBeLessThan(4);
     // ...and the WIND's own share of it is the one the fetch law sets.
-    expect(sea.hsRef).toBeGreaterThan(1.0);
-    expect(sea.hsRef).toBeLessThan(1.8);
+    expect(sea.hsRef).toBeGreaterThan(1.0 * coast);
+    expect(sea.hsRef).toBeLessThan(1.8 * coast);
     // The PEAK period out here is the swell's, not the wind sea's: the
     // swell carries more energy than a light wind's chop does, and `Tp` is
     // whichever band is carrying the water. That is the whole reason a

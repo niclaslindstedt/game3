@@ -42,9 +42,14 @@ const args = parseArgs(
     rows: {
       kind: "string",
       default: "",
-      help: "only these weathers (clear,high,overcast,rain,squall)",
+      help: "only these weathers (clear,haze,high,overcast,rain,squall)",
     },
     hours: { kind: "string", default: "", help: "only these hours (e.g. 0,12,21)" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast the seed is built on (taiga, mangrove)",
+    },
     season: {
       kind: "string",
       default: "summer",
@@ -54,7 +59,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
     out: { kind: "string", default: join(outDir, "sky.png"), help: "where the sheet is written" },
   },
-  "usage: node scripts/sky-preview.mjs [--rows=…] [--hours=…] [--season=…] [--skip-build]",
+  "usage: node scripts/sky-preview.mjs [--rows=…] [--hours=…] [--season=…] [--biome=…] [--skip-build]",
 );
 
 mkdirSync(outDir, { recursive: true });
@@ -129,11 +134,16 @@ page.on("console", (msg) => {
 });
 
 const query = new URLSearchParams(
-  Object.entries({ rows: args.rows, hours: args.hours, season: args.season }).filter(([, v]) => v),
+  Object.entries({
+    rows: args.rows,
+    hours: args.hours,
+    season: args.season,
+    biome: args.biome,
+  }).filter(([, v]) => v),
 ).toString();
 const url = `http://127.0.0.1:${port}/sky-preview.html${query ? `?${query}` : ""}`;
 console.log(
-  `sky — seed 38, ${args.season}, ${args.rows || "every weather"} × ${args.hours || "every three hours"}`,
+  `sky — seed 38 on the ${args.biome} coast, ${args.season}, ${args.rows || "every weather"} × ${args.hours || "every three hours"}`,
 );
 // The harness draws all twenty-five cells synchronously before the page's
 // load event can fire, so the NAVIGATION is as long as the sheet — the

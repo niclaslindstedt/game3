@@ -25,7 +25,14 @@ import type { Weather } from "./types.ts";
 /** Every sky there is, lightest first. The order IS the heaviness order:
  * `HEAVINESS` reads it, and so does anything that asks whether one sky is
  * worse than another. */
-export const WEATHER_IDS: readonly Weather[] = ["clear", "high", "overcast", "rain", "squall"];
+export const WEATHER_IDS: readonly Weather[] = [
+  "clear",
+  "haze",
+  "high",
+  "overcast",
+  "rain",
+  "squall",
+];
 
 /**
  * WHERE EACH SKY SITS on the 0–1 scale of how heavy the weather is — the
@@ -43,14 +50,19 @@ export const WEATHER_IDS: readonly Weather[] = ["clear", "high", "overcast", "ra
  * An evenly spread five would put a downpour over a fifth of every
  * campaign and a squall over another fifth.
  *
- * Within that, clear and high cloud sit close together because they are
- * both fair weather; the step from an overcast lid to rain is small (a
+ * Within that, clear, haze and high cloud sit close together because they
+ * are all fair weather (the haze is a warm coast's, and a coast that does
+ * not offer it draws exactly what it drew before it was on the scale); the step from an overcast lid to rain is small (a
  * rain deck IS an overcast one that has come down and started to fall) and
  * the step up to a squall is the biggest on the scale, because a squall is
  * a different kind of day rather than a wetter one.
  */
 const HEAVINESS: Record<Weather, number> = {
   clear: 0,
+  // A haze is a still, warm morning — the lightest weather there is after
+  // bare blue, and close enough to it that a coast offering both deals
+  // them about evenly over its calm seeds.
+  haze: 0.2,
   high: 0.36,
   overcast: 0.7,
   rain: 0.86,

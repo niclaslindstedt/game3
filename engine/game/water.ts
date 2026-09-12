@@ -106,6 +106,7 @@
 import { sampleField, sampleFieldGradient, type Heightfield } from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
 import { createRng } from "../lib/prng.ts";
+import { biomeOf } from "../mapgen/biomes.ts";
 import { flowAt } from "../mapgen/flow.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
@@ -275,10 +276,18 @@ export function createSea(
   const u = wind.speed;
   // Waves travel WITH the wind: `from` is where it blows from.
   const travel = wind.from + Math.PI;
+  // HOW BIG THIS COAST'S SEA IS against the rule book's: the biome's own
+  // multiples on the wind bands and on the swell (`Biome.sea`). A skerry
+  // coast is sheltered and a low open one is not, and this is the one
+  // place the difference is applied — a quoted override is the sea the
+  // run asked for and takes neither.
+  const coast = biomeOf(level.biome).sea;
 
   // ── The ocean band ────────────────────────────────────────────────────
   const fetchRef = effectiveFetch(shelter.reachRef);
-  const hsRef = override ? Math.max(0, override.hs) : fetchHeight(u, fetchRef) * S.heightScale;
+  const hsRef = override
+    ? Math.max(0, override.hs)
+    : fetchHeight(u, fetchRef) * S.heightScale * coast.wind;
   // A quoted sea takes its period from `steepness`; a wind sea takes the
   // law's and scales it. Either way this is the WAVELENGTH dial, since
   // L₀ = g·Tp²/2π.
@@ -305,7 +314,7 @@ export function createSea(
   // ── The local band ────────────────────────────────────────────────────
   // Quoted once for the level, at the MEAN wind over `localFetch` — the
   // same reference `shelter.chop` is a share of, so the two cannot drift.
-  const localHs = fetchHeight(u, S.localFetch) * S.heightScale;
+  const localHs = fetchHeight(u, S.localFetch) * S.heightScale * coast.wind;
   const localTp = fetchPeriod(u, S.localFetch) * S.periodScale;
   const local = layBand(
     rng,
@@ -344,14 +353,17 @@ export function createSea(
   // three-metre swell under a craft that is meant to be floating still is
   // not a sea — it is a broken harness. R12 never deals a wind under 6 m/s,
   // so no ridden level takes this branch.
-  const swellHs = override || u <= 0 ? 0 : W.hs * (W.vary + (1 - W.vary) * rng.next());
+  const swellDealt = override || u <= 0 ? 0 : W.hs * (W.vary + (1 - W.vary) * rng.next());
   // Its period follows from its HEIGHT and the steepness it is quoted at,
   // exactly as the storm ladder's does (`periodForHeight`) — a swell is a
   // sea quoted rather than grown, and what a rider reads off one is the
   // angle of its face. `TUNING.sea.swell.steepness` says why that angle is
-  // the arcade's and not the ocean's.
+  // the arcade's and not the ocean's. The period is quoted off the swell
+  // as DEALT, before the coast's own share of it is taken: a swell the
+  // islands have broken up arrives lower, not shorter.
   const swellSteep = W.steepness * (1 + W.steepVary * (2 * rng.next() - 1));
-  const swellTp = Math.sqrt((TAU * swellHs) / (G * swellSteep));
+  const swellTp = Math.sqrt((TAU * swellDealt) / (G * swellSteep));
+  const swellHs = swellDealt * coast.swell;
   const swellTravel = travel + W.off * (2 * rng.next() - 1);
   const swell =
     swellHs > 0

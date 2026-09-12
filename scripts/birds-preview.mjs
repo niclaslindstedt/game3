@@ -39,11 +39,12 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     rows: { kind: "string", default: "", help: "only these birds (e.g. gull,tern,eagle)" },
+    biome: { kind: "string", default: "", help: "only one coast's roster (taiga, mangrove)" },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
     out: { kind: "string", default: join(outDir, "birds.png"), help: "where the sheet is written" },
   },
-  "usage: node scripts/birds-preview.mjs [--rows=…] [--skip-build]",
+  "usage: node scripts/birds-preview.mjs [--rows=…] [--biome=…] [--skip-build]",
 );
 
 mkdirSync(outDir, { recursive: true });
@@ -116,10 +117,12 @@ page.on("console", (msg) => {
 });
 
 const query = new URLSearchParams(
-  Object.entries({ rows: args.rows }).filter(([, v]) => v),
+  Object.entries({ rows: args.rows, biome: args.biome }).filter(([, v]) => v),
 ).toString();
 const url = `http://127.0.0.1:${port}/birds-preview.html${query ? `?${query}` : ""}`;
-console.log(`birds — ${args.rows || "every bird"} on the taiga coast`);
+console.log(
+  `birds — ${args.rows || "every bird"} on ${args.biome ? `the ${args.biome}` : "both"} coast${args.biome ? "" : "s"}`,
+);
 await page.goto(url);
 
 await Promise.race([

@@ -18,9 +18,12 @@
 // falls back to the default rather than being carried.
 
 import {
+  BIOME_IDS,
+  type BiomeId,
   CLASS_BAND,
   CRAFT_IDS,
   type CraftId,
+  isBiomeId,
   SEASONS,
   type Season,
   TIMES_OF_DAY,
@@ -117,6 +120,13 @@ export function conditionsFor(windMs: number): Conditions {
 
 export type RideSettings = {
   craft: CraftId;
+  /** WHICH COAST — the biome the shore is built on (`BIOME_IDS`). Never
+   * null: unlike the hour or the sky, a coast is not something a seed
+   * DEALS — the same seed builds a taiga shore or a mangrove one depending
+   * on what it is asked for — so there is no "the shore's own" to defer to,
+   * and the row always states an answer. The first id the engine offers is
+   * the default, as the first craft in the catalog is. */
+  biome: BiomeId;
   /** THE CLASS the craft is ridden in — the sport's own ladder, and this
    * game's answer to a kart game's engine sizes. It is a multiple of the
    * catalog's own speed (`CLASS_BAND`), and it is TWO things at once: the
@@ -274,6 +284,9 @@ export const DEFAULT_SETTINGS: Settings = {
   rumble: true,
   probed: false,
   ride: {
+    // The taiga: the coast every rule was written against, and the one the
+    // game opened on.
+    biome: BIOME_IDS[0],
     // The skiff: the middle of the roster and the one a rider who has not
     // chosen should meet the water on.
     craft: "skiff",
@@ -405,6 +418,9 @@ export function mergeSettings(parsed: unknown): Settings {
   if (typeof blob.rumble === "boolean") settings.rumble = blob.rumble;
 
   const ride = blob.ride as Partial<Record<keyof RideSettings, unknown>> | undefined;
+  // Checked against the coasts this build has BUILT: a biome id the engine
+  // reserves but has no row for is a level that throws on load.
+  if (isBiomeId(ride?.biome)) settings.ride.biome = ride.biome;
   // Checked against the catalog rather than merged: a craft this build
   // dropped is a run with no hull to build.
   if (CRAFT_IDS.some((id) => id === ride?.craft)) settings.ride.craft = ride?.craft as CraftId;

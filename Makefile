@@ -79,19 +79,20 @@ native-android:
 
 # Headless balance sweep: the bot rides generated levels through the real
 # engine and prints the pace / gates / air / dives table, per seed and craft.
-# `make sim SEEDS=3,7 CRAFT=marlin`
+# `make sim SEEDS=3,7 CRAFT=marlin` · `make sim BIOME=mangrove`
 sim:
-	npm run sim -- $(if $(SEEDS),--seeds $(SEEDS),) $(if $(CRAFT),--craft $(CRAFT),) $(if $(TRACK),--track $(TRACK),) $(ARGS)
+	npm run sim -- $(if $(SEEDS),--seeds $(SEEDS),) $(if $(CRAFT),--craft $(CRAFT),) $(if $(TRACK),--track $(TRACK),) \
+		$(if $(BIOME),--biome $(BIOME),) $(ARGS)
 
 # THE LEVEL MAP: one level from above, from the engine alone — no build, no
 # browser. Depth shading, the shore, every solid, every gate numbered with
 # its ramp, and the wind arrow, drawn to previews/level-<seed>.png; beside it
 # a table of every gate with its offshore distance and the depth under it. A
 # claim about "the second air gate on seed 38" is a claim about a row here.
-# `make level SEED=38` · `make level SEED=38 ARGS=--json`
+# `make level SEED=38` · `make level SEED=38 BIOME=mangrove` · `make level SEED=38 ARGS=--json`
 level:
-	npm run level -- $(if $(SEED),--seed $(SEED),) $(if $(TRACK),--track $(TRACK),) $(if $(PACE),--pace $(PACE),) \
-		$(if $(RAMP),--ramp $(RAMP),) $(ARGS)
+	npm run level -- $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) $(if $(TRACK),--track $(TRACK),) \
+		$(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
 
 # SCORE generated levels instead of looking at them: every gate within a
 # hundred metres of shore, the depth along the path, the solids clear of it,
@@ -102,7 +103,7 @@ level:
 # `make analyze SEED=7` · `make analyze COUNT=24`
 analyze:
 	npm run analyze -- $(if $(SEED),--seed $(SEED),) $(if $(COUNT),--count $(COUNT),) $(if $(TRACK),--track $(TRACK),) \
-		$(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
+		$(if $(BIOME),--biome $(BIOME),) $(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
 
 # THE WAVES LAB — the water on its own, with nothing riding it: a transect
 # from the shore out to sea at several moments, the significant height
@@ -111,9 +112,9 @@ analyze:
 # it a table of Hs, Tp, wavelength and the depth a wave breaks at. Pure
 # Node. Required before/after any change to engine/game/water.ts — a wave
 # model is judged by the sea it makes, and a screenshot shows one wave.
-# `make waves SEED=38` · `make waves SEED=38 ARGS="--wind 12"`
+# `make waves SEED=38` · `make waves SEED=38 BIOME=mangrove` · `make waves SEED=38 ARGS="--wind 12"`
 waves:
-	npm run waves -- $(if $(SEED),--seed $(SEED),) $(ARGS)
+	npm run waves -- $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) $(ARGS)
 
 # THE RIDE LAB — the craft on the water, drawn in profile every sixth of a
 # second over the water it crossed, with the numbers that decide the next
@@ -163,7 +164,7 @@ audition:
 # `make screenshots SCENE=carve CAMERA=heli` (one rung of the camera ladder;
 # the shot is named after it, so a sweep leaves one file per camera)
 screenshots:
-	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) \
+	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) \
 		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
 		$(if $(WEATHER),--weather $(WEATHER),) $(if $(CAMERA),--camera $(CAMERA),) \
 		$(if $(TRACK),--track $(TRACK),) $(ARGS)
@@ -173,9 +174,9 @@ screenshots:
 # of the game a screenshot of a RUN cannot review, because a seed is dealt
 # ONE sky at ONE hour and the ladder is only ever judged side by side. Same
 # Chromium requirements as `screenshots`.
-# `make sky` · `make sky ARGS="--rows=squall,rain"` · `make sky ARGS=--skip-build`
+# `make sky` · `make sky BIOME=mangrove` · `make sky ARGS="--rows=squall,rain"` · `make sky ARGS=--skip-build`
 sky:
-	node scripts/sky-preview.mjs $(ARGS)
+	node scripts/sky-preview.mjs $(if $(BIOME),--biome=$(BIOME),) $(ARGS)
 
 # THE TRAIL FROM STRAIGHT ABOVE: one column a moment along a scripted run,
 # so the sheet reads left to right as the wake being LAID — the jet blasting
@@ -203,9 +204,9 @@ wake:
 # shows whichever species that stretch of coast happened to grow, against a
 # wood of everything else; the roster is a ladder and a ladder is judged
 # side by side. Same Chromium requirements as `screenshots`.
-# `make flora` · `make flora ARGS="--rows=reed,alder"` · `make flora ARGS=--skip-build`
+# `make flora` · `make flora BIOME=mangrove` · `make flora ARGS="--rows=reed,alder"` · `make flora ARGS=--skip-build`
 flora:
-	node scripts/flora-preview.mjs $(ARGS)
+	node scripts/flora-preview.mjs $(if $(BIOME),--biome=$(BIOME),) $(ARGS)
 
 # EVERY BIRD ON THE COAST SIDE BY SIDE: one contact sheet, one cell per row
 # of the bird roster, each drawn gliding, mid-beat and perched with its
@@ -213,9 +214,9 @@ flora:
 # bird in a run is a dozen pixels a hundred metres up; the roster is a
 # ladder of silhouettes and a ladder is judged side by side. Same Chromium
 # requirements as `screenshots`.
-# `make birds` · `make birds ARGS="--rows=gull,eagle"` · `make birds ARGS=--skip-build`
+# `make birds` · `make birds BIOME=mangrove` · `make birds ARGS="--rows=gull,eagle"` · `make birds ARGS=--skip-build`
 birds:
-	node scripts/birds-preview.mjs $(ARGS)
+	node scripts/birds-preview.mjs $(if $(BIOME),--biome=$(BIOME),) $(ARGS)
 
 # EVERY MARK THE MENUS DRAW, at the three sizes it is read at, over the
 # menu's own plate — `previews/glyphs.png`. A screenshot of the front door

@@ -92,17 +92,17 @@
 //   R13 THE DAY AND THE WATER. The run STARTS in daylight: the level is
 //       dealt a SEASON, and its hour is SOLAR time drawn from the window in
 //       which the sun stands at least `day.minSun` over the horizon at the
-//       coast's own latitude (`Biome.latitude`, 62°N on the taiga coast) in
-//       that season, which is what decides where the sun actually stands at
-//       it and therefore what sky the run is under. So a seed can be a
-//       sunrise on the water, a noon, or a sun going down into the sea —
-//       and the clock runs on from there at an hour a minute (`sunHourAt`),
-//       so a run begun at sunset rides into the twilight and then the
-//       night, and how dark that night gets is the season's: a taiga
-//       midsummer never gets past twilight, a September night is black
-//       under the moon. The water's temperature comes from the biome's band
-//       for the season and its density is the biome's (brackish 1005 kg/m³
-//       on the taiga coast).
+//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove)
+//       in that season, which decides where the sun stands at it and so
+//       what sky the run is under. So a seed can be a sunrise on the water,
+//       a noon, or a sun going down into the sea — and the clock runs on at
+//       an hour a minute (`sunHourAt`), so a run begun at sunset rides into
+//       the twilight and then the night, and how dark that night gets is
+//       the season's and the coast's: a taiga midsummer never gets past
+//       twilight, a September night is black under the moon, and every
+//       mangrove night is. The water's temperature comes from the biome's
+//       band for the season and its density is the biome's (brackish on the
+//       taiga coast, full salt on the mangrove).
 //   R14 THE GRID. Both heightfields sit on `grid.cell` (4 m) cells over the
 //       course's own extent padded `bounds.sea` metres on the seaward sides
 //       and `bounds.land` metres on the landward ones, and the level's
@@ -127,7 +127,8 @@
 //   R16 WHAT THE SHORE IS MADE OF, by rule and in this order: below sea
 //       level it is WATER; ground steeper than `surface.bedrockSlope` is
 //       BEDROCK; low ground at the waterline of a stretch softer than
-//       `surface.sand.rugged` (R21) is SAND — a BEACH, reaching
+//       `surface.sand.rugged` × the biome's `shore.sand` (R21) is SAND — a
+//       BEACH, reaching
 //       `surface.sand.reach` up the shore where the stretch is softest and
 //       a fraction of that where it barely qualifies; where the boulder
 //       noise runs over `surface.boulder`'s threshold it is ROCK, a boulder
@@ -165,13 +166,12 @@
 //       under `air.reach` of the SLOWEST craft's top speed, and inside the
 //       design band.
 //   R19 THE SKY OVER THE COAST. The run is ridden under one of the skies
-//       the biome offers (`Biome.weathers`) — clear, high cloud, overcast,
-//       rain or a squall — drawn per seed with the level's OWN WIND
+//       the biome offers (`Biome.weathers`) — clear, a haze, high cloud,
+//       overcast, rain or a squall — drawn per seed with the level's OWN WIND
 //       weighting the draw: each sky stands at a heaviness on the same 0–1
-//       scale R12's wind band is read on, and how far a sky may stand from
-//       the wind's place on it and still be likely is `sky.spread`. So the
-//       darkest skies stand over the biggest seas, and a calm day is a
-//       clear one.
+//       scale R12's wind band is read on, and `sky.spread` is how far a sky
+//       may stand from the wind's place on it and still be likely. So the
+//       darkest skies stand over the biggest seas, and a calm day is clear.
 //   R20 WHAT SWIMS HERE. The water carries PODS — a school of herring, a
 //       pair of porpoises, one pike lying alone — drawn from the animals
 //       the coast offers (`Biome.fauna`), each at its own `perKm` of coast,
@@ -471,7 +471,7 @@ export const LEVEL_RULES = {
      * forty, and the walk is a tenth of a millisecond. */
     tries: 16,
     /** R27 — how much water comes out of the mouth, m³/s. A real taiga
-     * coast's band: the rivers of the Gulf of Bothnia run from a hundred
+     * coast's band: the rivers of a northern coast run from a hundred
      * and something (the Öre) to six hundred (the Ume) in mean annual
      * flow. A VOLUME and not a speed, which is the whole of R27. */
     discharge: { min: 120, max: 600 },
@@ -541,7 +541,7 @@ export const LEVEL_RULES = {
   /** R2 — the land. */
   land: {
     /** Nothing on land stands higher than this, m above sea level. A rock
-     * hill on a headland at 62°N, not an alp: the High Coast's own hills
+     * hill on a headland at 62°N, not an alp: a taiga coast's own hills
      * come off the water at about this and the rider sees them the whole
      * run. */
     maxHeight: 45,

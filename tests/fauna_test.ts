@@ -20,6 +20,7 @@ import {
   type Level,
   POD_LAYER,
   type Pod,
+  BIOME_IDS,
   biomeOf,
   faunaById,
   faunaCount,
@@ -85,19 +86,23 @@ describe("the catalog", () => {
     }
   });
 
-  it("only cetaceans breathe, and the one animal that basks does not", () => {
+  it("brings every cetacean up for air, and nothing up for both reasons at once", () => {
     for (const spec of FAUNA) {
-      if (spec.kind === "cetacean") {
-        expect(spec.breath, spec.id).toBeGreaterThan(0);
-        expect(spec.bask, spec.id).toBe(0);
-      } else {
-        expect(spec.breath, spec.id).toBe(0);
-      }
+      if (spec.kind === "cetacean") expect(spec.breath, spec.id).toBeGreaterThan(0);
+      // Two reasons for the same rise, never both: the swim model treats
+      // them as one.
+      expect(spec.breath > 0 && spec.bask > 0, spec.id).toBe(false);
+    }
+    // The sharks are the whole reason `bask` exists — a fish that comes up
+    // without needing air — and the tarpon is the one fish that needs it.
+    expect(faunaById("shark").bask).toBeGreaterThan(0);
+    expect(faunaById("hammerhead").bask).toBeGreaterThan(0);
+    expect(faunaById("tarpon").breath).toBeGreaterThan(0);
+    // Every other fish stays down.
+    for (const spec of FAUNA) {
+      if (spec.kind === "fish" && spec.id !== "tarpon") expect(spec.breath, spec.id).toBe(0);
       if (spec.kind === "fish") expect(spec.bask, spec.id).toBe(0);
     }
-    // The porbeagle is the whole reason `bask` exists: a fish that comes up
-    // without needing air.
-    expect(faunaById("shark").bask).toBeGreaterThan(0);
   });
 
   it("brings the fin of anything that comes up out, and nothing more", () => {
@@ -110,10 +115,13 @@ describe("the catalog", () => {
       expect(spec.awash > 0, spec.id).toBe(comesUp);
       expect(spec.awash, spec.id).toBeLessThanOrEqual(1);
       expect(spec.breach, spec.id).toBeGreaterThanOrEqual(0);
-      if (spec.breach > 0) expect(comesUp, spec.id).toBe(true);
+      // A breach is one of the breaths — except a fish's, which leaps for
+      // no reason anybody knows and needs no breath to do it.
+      if (spec.breach > 0 && spec.kind !== "fish") expect(comesUp, spec.id).toBe(true);
     }
-    // Only the dolphin leaves the water, and only its bulls.
-    expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual(["dolphin"]);
+    // Two animals leave the water: the mullet — the one fish that jumps, and
+    // it needs no breath to do it — and the dolphin, and only its bulls.
+    expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual(["mullet", "dolphin"]);
   });
 
   it("gives a rarer animal a rarer word, in step with `perKm` and never against it", () => {
@@ -132,8 +140,17 @@ describe("the catalog", () => {
     expect(rarityOf(faunaById("minke").perKm)).toBe("legendary");
   });
 
-  it("is offered by the coast, and the coast offers nothing that is not in it", () => {
-    for (const id of biomeOf("taiga").fauna) expect(isFaunaId(id)).toBe(true);
+  it("is offered by a coast, and no coast offers anything that is not in it", () => {
+    const offered = new Set<string>();
+    for (const biome of BIOME_IDS) {
+      for (const id of biomeOf(biome).fauna) {
+        expect(isFaunaId(id)).toBe(true);
+        offered.add(id);
+      }
+    }
+    // …and every row is somebody's: a species no coast offers is a body
+    // built for nobody.
+    for (const spec of FAUNA) expect(offered.has(spec.id), spec.id).toBe(true);
   });
 });
 
@@ -230,7 +247,7 @@ describe("the rarity a level actually delivers", () => {
       ).length;
     const rate = (id: FaunaId): number => pods(id) / Math.max(1, inSeason(id));
     // The ladder itself is the catalog's, and it is monotone rung by rung.
-    const ladder: FaunaId[] = ["herring", "pike", "dolphin", "porpoise", "minke"];
+    const ladder: FaunaId[] = ["herring", "pike", "salmon", "porpoise", "minke"];
     for (let i = 1; i < ladder.length; i++) {
       expect(faunaById(ladder[i - 1]).perKm).toBeGreaterThan(faunaById(ladder[i]).perKm);
     }
@@ -241,7 +258,7 @@ describe("the rarity a level actually delivers", () => {
     expect(rate("herring")).toBeGreaterThan(1);
     expect(rate("herring")).toBeGreaterThan(rate("pike"));
     expect(rate("pike")).toBeGreaterThan(rate("minke"));
-    expect(rate("dolphin")).toBeGreaterThan(rate("minke"));
+    expect(rate("salmon")).toBeGreaterThan(rate("minke"));
     expect(rate("minke")).toBeLessThan(0.5);
   });
 });
