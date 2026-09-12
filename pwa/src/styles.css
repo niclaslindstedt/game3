@@ -1974,13 +1974,47 @@ canvas {
 }
 
 /* Beat two: the crest and the game's name, mounted the moment the game behind
-   the card is standing. */
+   the card is standing.
+
+   THE HAND-OVER IS FOUR BEATS, NOT ONE MOVE, and the delays below are what
+   keeps them apart. The block takes its place in the layout blank, so the
+   lockup above has somewhere to walk to (`.held`); it fades in once the walk
+   has landed; the crest then draws ITSELF, which is the mark's own animation
+   and must not have run behind an invisible block; and the name rises last.
+   The walk itself is the one part the stylesheet cannot own — its distance is
+   the height of this block, so `splash-screen.tsx` measures it. */
 .splash-title {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: clamp(0.4rem, 1.8vmin, 1rem);
-  animation: splash-crest 620ms ease-out both;
+  animation: splash-crest 420ms ease-out both;
+}
+
+/* The lift in progress: the space taken, nothing drawn in it. Every animation
+   inside is stopped rather than merely hidden — an animation that had run
+   behind this would arrive FINISHED, which for the crest means a mark that
+   never draws itself at all. Dropping the class starts each of them from its
+   own first frame. */
+.splash-title.held,
+.splash-title.held .splash-game,
+.splash-title.held .mark-wave-wipe,
+.splash-title.held .mark-wave-slide {
+  animation: none;
+}
+
+.splash-title.held {
+  opacity: 0;
+}
+
+/* The crest ARRIVES, and only then draws itself. The wipe waits out the
+   block's own fade so the two read as two beats rather than one muddle; it
+   holds its first frame through the wait (`both` on the animation itself),
+   so what stands there in the meantime is the faint ghost of the finished
+   shape — the mark present, and not yet made. */
+.splash-mark.mark-wave-once .mark-wave-wipe,
+.splash-mark.mark-wave-once .mark-wave-slide {
+  animation-delay: 300ms;
 }
 
 /* The crest's box. The ratio is the SVG's own viewBox, restated here so the
@@ -2002,10 +2036,10 @@ canvas {
   text-shadow: 0 3px 0 var(--hud-shadow);
 }
 
-/* The name rises into place a beat after the crest, so the two read as one
-   move rather than one appearance. */
+/* The name rises into place under the crest the wipe is still filling, so the
+   two read as one flourish rather than two appearances. */
 .splash-title .splash-game {
-  animation: splash-name 520ms 220ms ease-out both;
+  animation: splash-name 520ms 700ms ease-out both;
 }
 
 /* WHAT THE CARD WANTS — beat two only, and the one thing on screen the player
@@ -2019,7 +2053,13 @@ canvas {
   text-align: center;
   color: var(--buoy);
   text-shadow: 0 2px 0 var(--hud-shadow);
-  animation: splash-blink 1.05s linear 520ms infinite both;
+  /* It arrives LAST, after the name it sits under, and only then starts
+     asking. The blink carries no fill of its own: a backwards fill would put
+     the prompt on screen through its own delay, which is the one thing the
+     rise in front of it is there to prevent. */
+  animation:
+    splash-name 400ms 900ms ease-out both,
+    splash-blink 1.05s linear 1300ms infinite;
 }
 
 /* WHAT THE CARD IS DOING — beat one, and all it has to say is that work is
@@ -3991,12 +4031,26 @@ button.knob-read:focus-visible {
    holds still, and the prompt stops blinking but stays lit, because a prompt
    that has stopped asking is a card nobody knows how to leave. */
 @media (prefers-reduced-motion: reduce) {
-  .mark-wave-wipe,
-  .mark-wave-slide,
   .splash-card,
   .splash-title,
   .splash-title .splash-game,
   .loading-bar-fill {
+    animation: none;
+    transform: none;
+  }
+
+  /* The mark stands FINISHED rather than drawing itself on: parked, both
+     halves are at `none`, which is the window over the whole shape and the
+     shape under it — the last frame of the wipe, not the first.
+
+     It is stated at the same weight as the two lays it is overruling
+     (`.mark-wave-once .mark-wave-wipe` and the loop beside it) and after
+     them. A lighter selector loses to those on SPECIFICITY however late it
+     comes, and what that looks like is not a mark that keeps moving: it is a
+     mark parked on the wipe's FIRST frame, drawn as nothing but its own faint
+     ghost. */
+  .mark-wave .mark-wave-wipe,
+  .mark-wave .mark-wave-slide {
     animation: none;
     transform: none;
   }
