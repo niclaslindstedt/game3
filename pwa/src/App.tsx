@@ -143,7 +143,7 @@ import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
-import { createRenderer, type FrameCost } from "./game/renderer.ts";
+import type { FrameCost, GameRenderer } from "./game/renderer.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
@@ -258,7 +258,7 @@ export function App() {
     settingsFor(loadSettings(), readParams(location.search)),
   );
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
-  const rendererRef = useRef<ReturnType<typeof createRenderer> | null>(null);
+  const rendererRef = useRef<GameRenderer | null>(null);
   const [touch] = useState(hasTouch);
   /** The frame rate as the corner reads it — refreshed on the HUD's own tick,
    * not per frame, so the readout is a React render twelve times a second
@@ -343,9 +343,27 @@ export function App() {
     inputRef.current?.setKeys(settings.keys);
   }, [settings.keys]);
 
+  // THE RENDER STACK, FETCHED RATHER THAN BUNDLED. `renderer.ts` is the ONE
+  // static import in this file that reaches three.js, and three.js is 509 KB
+  // raw / 127 KB gzip — 41 % of everything the first paint used to wait for,
+  // on a critical path that had run out of room to grow. Fetched here it
+  // leaves the entry chunk entirely, alongside the splash the app already
+  // shows, so nothing a player sees arrives later: the attract card waits on
+  // `drawn`, which cannot go true before a renderer exists either way.
+  const [renderKit, setRenderKit] = useState<typeof import("./game/renderer.ts") | null>(null);
+  useEffect(() => {
+    let live = true;
+    void import("./game/renderer.ts").then((mod) => {
+      if (live) setRenderKit(mod);
+    });
+    return () => {
+      live = false;
+    };
+  }, []);
+
   useEffect(() => {
     const canvas = canvasRef.current;
-    if (!canvas) return;
+    if (!canvas || !renderKit) return;
     connectOutput();
     const input = createInputManager(
       window,
@@ -353,7 +371,7 @@ export function App() {
       settingsRef.current.keys,
     );
     inputRef.current = input;
-    const renderer = createRenderer(canvas, settingsRef.current.video);
+    const renderer = renderKit.createRenderer(canvas, settingsRef.current.video);
     rendererRef.current = renderer;
     const audio = createRunAudio();
     const clock = createRunClock(TUNING.physicsHz);
@@ -899,9 +917,10 @@ export function App() {
       input.dispose();
       renderer.dispose();
     };
-    // Boots once: the URL is read on mount and a new URL is a new page.
+    // Boots once: the URL is read on mount and a new URL is a new page, and
+    // `renderKit` is set exactly once by the loader above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+  }, [renderKit]);
 
   // The HUD stands under the pause card as well as over a run: the frozen
   // frame the player stopped to read is still the run, and its clock, its
