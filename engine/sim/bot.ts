@@ -395,6 +395,16 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
       -1,
       1,
     );
+    // ...AND NEVER A HAUL ON THE BARS. Lean back past `flight.pumpRise` in
+    // the air and the engine reads it as a stroke of the pump and throws in
+    // a flip's worth of rotation (`craft.ts`) — which is the right answer
+    // for a rider going for the trick and the wrong one for a levelling
+    // loop, whose nose-up ask is a trim. Capped rather than rewritten,
+    // because nose-DOWN is most of what this loop asks for off a ramp and
+    // none of it is a haul. Measured: uncapped it cost 3 km/h of pace and
+    // six gates over ten seeds, the bot flipping itself by accident once or
+    // twice a run.
+    lean = Math.min(lean, TUNING.flight.pumpRise);
   } else if (c.onRamp) {
     lean = 1;
   } else if (gate.kind === "air" && gate.ramp && onRampDeck(gate.ramp, c.x, c.z)) {

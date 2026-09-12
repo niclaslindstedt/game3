@@ -264,6 +264,11 @@ is made on flat water or not at all.
   quarter-period of about 0.15 s). Sizing shortcut: moving θ rad in t
   seconds needs roughly 2θ/t² of angular acceleration, which is arithmetic
   rather than a search.
+- **THE PROBE LAYOUT IS CACHED BY `spec.id`.** `hull.ts` builds a craft's
+  probes once and keys them on the id, so an in-process A/B of a
+  hull-GEOMETRY knob measures the first variant every time and comes back
+  with "no effect". Compare geometry across separate processes, or give the
+  variant its own id.
 - **EVERY FORCE HAS UNITS AND A SOURCE.** `TUNING.hull`, `.pump`,
   `.rider`, `.planing`, `.flight`, `.assist` each carry the unit and the
   model in the comment, and say whether the number is a measurement

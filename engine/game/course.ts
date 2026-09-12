@@ -226,6 +226,12 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.landing = 1e6;
   c.capsizedFor = 0;
   c.righting = 0;
+  // ...and nothing of the pump: a craft stood here has no stroke half
+  // earned on the bars and no yank still fading out from under the rider.
+  c.pumpMark = 0;
+  c.pumpRising = false;
+  c.yank = 0;
+  c.pumped = 0;
 }
 
 /** `reset`: back to the last gate. Emits the event. */
