@@ -228,25 +228,23 @@ for (const src of critical) {
 }
 assert(rawTotal > 0, "no critical-path JS referenced from index.html");
 // The ceiling, not the target: it is here to catch a chunk that has run
-// away, not to argue about a kilobyte — and at 300 it had stopped doing the
-// first and started doing the second. The entry chunk had grown to within
-// ~100 bytes of it, so the next ordinary feature failed the build whatever
-// it was: three PRs in one afternoon each landed green alone and turned the
-// check red the moment another joined them, which is a budget measuring the
-// order commits happen to merge in rather than the size of anything.
+// away, not to argue about a kilobyte. Both numbers are picked off a
+// MEASURED build with room above it, which is the only honest way to set
+// one — at 300 gzip the entry chunk had grown to within ~100 bytes of the
+// line, and a budget that tight measures the order commits merge in rather
+// than the size of anything: three PRs in one afternoon each landed green
+// alone and turned the check red the moment another joined them.
 //
-// So RAW is now the guard and GZIP rides beside it at the same number. Raw
-// is the honest one to hold the line with here: it is what the repository
-// can actually act on (a chunk that ran away shows up in it immediately),
-// and the critical path is ~963 KB of it, so there is real headroom to grow
-// into and a real wall at the end of it. The gzip figure is still computed
-// and still REPORTED on every run — it is what a player on a phone actually
-// waits for, and it is the number to watch — but it no longer fails the
-// build on its own, and with both budgets equal the raw cap is what trips
-// first. Tightening gzip again is a deliberate act: pick a number off a
-// measured build with room above it, not off whatever today's bundle is.
-const RAW_BUDGET_KB = 1000;
-const GZIP_BUDGET_KB = 1000;
+// What bought the room back was the split, not the number. `renderer.ts` is
+// the one static edge from `App.tsx` that reaches three.js, and three.js is
+// 509 KB raw / 127 KB gzip; fetching the render stack through a dynamic
+// import took the critical path from 963 KB raw / 300 KB gzip to 306 / 114.
+// These budgets sit above THAT: ~63 % of headroom on raw and ~75 % on gzip,
+// so there is somewhere to grow and still a wall at the end of it. Keep both
+// — raw is what the repository can act on the moment a chunk runs away, gzip
+// is what a player on a phone actually waits for.
+const RAW_BUDGET_KB = 500;
+const GZIP_BUDGET_KB = 200;
 assert(
   rawTotal <= RAW_BUDGET_KB * 1024,
   `critical-path JS ${(rawTotal / 1024).toFixed(0)} KB exceeds ${RAW_BUDGET_KB} KB`,
