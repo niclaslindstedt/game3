@@ -789,4 +789,140 @@ export const RUN_BANK: SoundBank = {
       },
     ],
   },
+
+  trick: {
+    description:
+      "A REVOLUTION CLOSED, and the multiplier up a rung: a latch and two " +
+      "notes rising a fourth. The latch is a short driven triangle gliding " +
+      "up \u2014 a counter rolling over, a mechanism rather than a bell \u2014 and " +
+      "the notes over it are thin sines with the shore's echo on them. It " +
+      "is heard in the AIR, where the only thing playing is the wind and an " +
+      "engine with no water under its pump, so it has the whole top of the " +
+      "mix to itself and needs none of the weight a splash needs. Short on " +
+      "purpose: a double backflip fires it twice inside a second, and two " +
+      "of these have to read as two.",
+    voices: [
+      {
+        call: "tone",
+        type: "triangle",
+        from: 520,
+        to: 780,
+        durationMs: 70,
+        volume: 0.013,
+        drive: 0.35,
+        filter: { type: "lowpass", frequency: 2600 },
+      },
+      { call: "tone", type: "sine", from: 988, durationMs: 130, volume: 0.026, echo: 0.1 },
+      {
+        call: "tone",
+        type: "sine",
+        from: 1319,
+        durationMs: 210,
+        volume: 0.028,
+        delayMs: 80,
+        holdMs: 30,
+        echo: 0.14,
+      },
+    ],
+  },
+
+  combo_bank: {
+    description:
+      "THE COMBO PAID: a major triad and its octave straight up, four quick " +
+      "sines with a shimmer of detune, under a soft driven triangle on the " +
+      "first note \u2014 the counter closing. The finish's phrase, higher and at " +
+      "half the length, because a combo banks many times in a run and the " +
+      "line is crossed once. It lands a second after the hull is down, so " +
+      "the splash is already over and only the beds are under it: thin " +
+      "notes, no body, and the route scales the whole thing by what was " +
+      "actually paid, so a hop worth forty points is a tick and a double " +
+      "backflip is the loudest news on the water.",
+    voices: [
+      {
+        call: "tone",
+        type: "triangle",
+        from: 392,
+        durationMs: 110,
+        volume: 0.011,
+        drive: 0.3,
+        filter: { type: "lowpass", frequency: 1600 },
+      },
+      { call: "tone", type: "sine", from: 784, durationMs: 140, volume: 0.024, detuneCents: 5 },
+      {
+        call: "tone",
+        type: "sine",
+        from: 988,
+        durationMs: 150,
+        volume: 0.026,
+        delayMs: 55,
+        detuneCents: 5,
+        echo: 0.12,
+      },
+      {
+        call: "tone",
+        type: "sine",
+        from: 1175,
+        durationMs: 170,
+        volume: 0.028,
+        delayMs: 110,
+        detuneCents: 5,
+        echo: 0.14,
+      },
+      {
+        call: "tone",
+        type: "sine",
+        from: 1568,
+        durationMs: 380,
+        volume: 0.03,
+        delayMs: 165,
+        holdMs: 90,
+        detuneCents: 7,
+        echo: 0.18,
+      },
+    ],
+  },
+
+  bail: {
+    description:
+      "THE COMBO ON THE FLOOR: two driven squares falling, the second lower " +
+      "and later, with a sine DRAINING a long way down under them \u2014 the " +
+      "points running out. The missed gate's inversion, and dry for the " +
+      "same reason: no echo anywhere, because bad news does not ring. It " +
+      "plays over a capsize or a bow buried, which are the heaviest water " +
+      "in the bank, so it lives entirely in the midrange those have nothing " +
+      "in.",
+    voices: [
+      {
+        call: "tone",
+        type: "square",
+        from: 440,
+        to: 349,
+        durationMs: 150,
+        volume: 0.022,
+        drive: 0.35,
+        filter: { type: "lowpass", frequency: 1400 },
+      },
+      {
+        call: "tone",
+        type: "square",
+        from: 294,
+        to: 220,
+        durationMs: 240,
+        volume: 0.024,
+        delayMs: 110,
+        drive: 0.4,
+        filter: { type: "lowpass", frequency: 1100 },
+      },
+      {
+        call: "tone",
+        type: "sine",
+        from: 660,
+        to: 175,
+        durationMs: 430,
+        volume: 0.015,
+        delayMs: 60,
+        filter: { type: "lowpass", frequency: 2200 },
+      },
+    ],
+  },
 };

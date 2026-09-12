@@ -35,6 +35,35 @@ const SLAM_PITCH = 0.25;
 /** Closing speeds that separate a nudge on a skerry from a wreck, m/s. */
 const HIT_FULL = 20;
 
+/** THE SCORE'S OWN BANDS (`engine/game/tricks.ts`, `docs/riding.md`).
+ *
+ * A combo banks at the end of every counted flight, so most of them are a
+ * one-second hop worth a few dozen points and a few are a double backflip
+ * worth thousands. One def covers both and the PLAY is what differs: the
+ * points decide how loud and how long, the MULTIPLIER decides how high.
+ * They are two different facts about the same moment — a big dumb pile of
+ * air time and a small combo taken at ×4 are not the same news — so they
+ * get two different axes rather than being summed into one.
+ *
+ * `COMBO_FULL` is the purse a bank is as big as it ever gets at, points: a
+ * four-second flight with a double backflip in it (5,876) is past it. The
+ * floor is what the trivial bank is still worth, and it is low on purpose —
+ * a tick under the engine, not a chime over it. */
+const COMBO_FULL = 4000;
+const COMBO_FLOOR = 0.25;
+
+/** ...and how far the multiplier lifts the pitch: a sixteenth per rung, so
+ * ×2 is a touch brighter and ×4 is plainly a different sound, capped so the
+ * ladder cannot run off the top of the mix on a combo nobody has flown
+ * yet. */
+const MULT_LIFT = 0.06;
+const MULT_RUNGS = 6;
+
+/** A revolution's chime climbs a minor third per turn of the same flight
+ * (`2^(1/4)`), capped: the second of a double has to be heard as the second
+ * and not as a repeat, and a fourth turn does not exist yet. */
+const SPIN_STEPS = 4;
+
 /** Take a value from `lo`..`hi` to 0..1. */
 function ramp(value: number, lo: number, hi: number): number {
   return Math.min(1, Math.max(0, (value - lo) / (hi - lo)));
@@ -92,6 +121,37 @@ export function soundForEvent(event: GameEvent): { id: string; shape?: PlayShape
     case "ground": {
       const fast = ramp(event.speed, 1, 12);
       return { id: "ground", shape: { gain: 0.6 + 0.6 * fast, stretch: 0.8 + 0.6 * fast } };
+    }
+
+    // A REVOLUTION CLOSED, in the air. The rung it bought is the pitch: one
+    // chime, climbing, rather than a def per turn.
+    case "trick": {
+      const turn = Math.min(event.spins, SPIN_STEPS) - 1;
+      return {
+        id: "trick",
+        shape: { gain: 0.85 + 0.18 * turn, pitch: Math.pow(2, turn / 4) },
+      };
+    }
+
+    // THE COMBO PAID. Loud and long by what it was worth, high by what it
+    // was multiplied at.
+    case "combo": {
+      const worth = COMBO_FLOOR + (1 - COMBO_FLOOR) * ramp(event.points, 0, COMBO_FULL);
+      return {
+        id: "combo_bank",
+        shape: {
+          gain: 0.4 + worth,
+          stretch: 0.85 + 0.3 * worth,
+          pitch: 1 + MULT_LIFT * Math.min(event.mult - 1, MULT_RUNGS),
+        },
+      };
+    }
+
+    // ...and the combo lost, sized the same way by what it would have been
+    // worth. No pitch lift: the multiplier died with it.
+    case "bail": {
+      const worth = COMBO_FLOOR + (1 - COMBO_FLOOR) * ramp(event.lost, 0, COMBO_FULL);
+      return { id: "bail", shape: { gain: 0.45 + 0.85 * worth, stretch: 0.9 + 0.25 * worth } };
     }
 
     case "capsize":
