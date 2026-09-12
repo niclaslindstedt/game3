@@ -16,12 +16,13 @@ import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import {
   BODY,
   DYNAMICS,
+  HAUL,
   REST_READ,
   STANCE,
   createRiderDynamics,
   length,
   poseRider,
-  riderVisible,
+  riderHaul,
   solveLimb,
   sub,
   type P,
@@ -284,13 +285,100 @@ describe("the body on its springs", () => {
     expect(r.pace).toBeLessThanOrEqual(1);
   });
 
-  it("is off the craft while it is capsized or being righted", () => {
+  it("comes off the machine as the hull goes over, and back on as it is righted", () => {
     const state = fresh();
-    expect(riderVisible(state)).toBe(true);
-    state.craft.righting = 0.2;
-    expect(riderVisible(state)).toBe(false);
+    expect(riderHaul(state)).toBe(0);
+    // A carve is not a capsize: the ramp starts well past any lean.
+    state.craft.roll = HAUL.fromRoll - 0.2;
+    expect(riderHaul(state)).toBe(0);
+    state.craft.roll = HAUL.toRoll + 0.5;
+    expect(riderHaul(state)).toBe(1);
+    // ...but nothing takes him off the bars in the air: an inverted hull
+    // mid-backflip still has its rider on it.
+    state.craft.airborne = true;
+    expect(riderHaul(state)).toBe(0);
+    state.craft.airborne = false;
+    // The righting hands him back, eased over its own countdown.
+    state.craft.roll = 0;
+    state.craft.righting = TUNING.capsize.righting;
+    expect(riderHaul(state)).toBe(1);
+    state.craft.righting = TUNING.capsize.righting / 2;
+    expect(riderHaul(state)).toBeCloseTo(0.5, 6);
     state.craft.righting = 0;
-    state.craft.capsizedFor = 0.5;
-    expect(riderVisible(state)).toBe(false);
+    expect(riderHaul(state)).toBe(0);
+  });
+
+  it("latches the side he went over and holds it through the haul", () => {
+    const state = fresh();
+    const dyn = createRiderDynamics();
+    state.craft.roll = -3;
+    dyn.observe(state);
+    expect(dyn.read(state).haulSide).toBe(-1);
+    // The roll runs back up through zero as the hull is hauled over; the
+    // side he is in the water on does not follow it across the hull.
+    state.craft.roll = 0.4;
+    state.craft.righting = TUNING.capsize.righting / 2;
+    dyn.observe(state);
+    expect(dyn.read(state).haulSide).toBe(-1);
+    expect(dyn.read(state).haul).toBeCloseTo(0.5, 6);
+  });
+});
+
+describe("the haul", () => {
+  const [, cockpit] = cockpits()[1];
+  const hauling = (over: Partial<RiderRead>): RiderRead =>
+    read({ haul: 1, haulSide: 1, haulPull: 0, ...over });
+
+  it("is the seated pose again the moment it is over", () => {
+    expect(poseRider(cockpit, read({ haul: 0, haulSide: -1, haulPull: 1 }))).toEqual(
+      poseRider(cockpit, REST_READ),
+    );
+  });
+
+  it("throws his weight at the side the hull has to come back toward", () => {
+    const rest = poseRider(cockpit, REST_READ);
+    const over = poseRider(cockpit, hauling({ haulSide: 1 }));
+    // The hull went over to its right, so the weight goes left: the head
+    // and the pelvis both, and a long way — this is the whole read.
+    expect(over.pelvis[0]).toBeLessThan(rest.pelvis[0] - 0.04);
+    expect(over.neck[0]).toBeLessThan(rest.neck[0] - 0.2);
+    // ...and the other way over, the other way.
+    const other = poseRider(cockpit, hauling({ haulSide: -1 }));
+    expect(other.pelvis[0]).toBeCloseTo(-over.pelvis[0], 6);
+    expect(other.neck[0]).toBeCloseTo(-over.neck[0], 6);
+  });
+
+  it("rocks at it rather than holding one angle", () => {
+    // He went over to his right, so the deeper into a heave he is, the
+    // further left his weight is.
+    const pulls = [-1, 0, 1].map((haulPull) => poseRider(cockpit, hauling({ haulPull })).neck[0]);
+    expect(pulls[1]).toBeLessThan(pulls[0]);
+    expect(pulls[2]).toBeLessThan(pulls[1]);
+    expect(pulls[0] - pulls[2]).toBeGreaterThan(0.1);
+  });
+
+  it("keeps his hands on the grips and his boots in the wells all through it", () => {
+    const rest = poseRider(cockpit, REST_READ);
+    for (const haul of [0.25, 0.5, 1]) {
+      const p = poseRider(cockpit, hauling({ haul }));
+      for (const i of [0, 1]) {
+        expect(length(sub(p.hands[i], rest.hands[i]))).toBeLessThan(1e-9);
+        expect(length(sub(p.hands[i], p.shoulders[i]))).toBeLessThan(
+          BODY.upperArm + BODY.forearm + 1e-6,
+        );
+        expect(p.floors[i]).toBe(rest.floors[i]);
+      }
+    }
+  });
+
+  it("comes back to the seated pose as the haul fades", () => {
+    let last = 1e9;
+    const rest = poseRider(cockpit, REST_READ);
+    for (const haul of [1, 0.75, 0.5, 0.25, 0.05]) {
+      const away = length(sub(poseRider(cockpit, hauling({ haul })).neck, rest.neck));
+      expect(away).toBeLessThan(last);
+      last = away;
+    }
+    expect(last).toBeLessThan(0.1);
   });
 });

@@ -33,6 +33,16 @@
 // frequency, driven by the hull's accelerations, stepped once per engine
 // step so a scene pre-rolled for a screenshot shows the same body.
 //
+// THE HAUL. A PWC does not self-right, the rider does — and he does it
+// from where he is, on the machine with his hands on the bars, by throwing
+// his weight at the side the hull has to come back toward and working at
+// it. So a hull past its beam does not take the figure away: he turns with
+// it, upside down with it, leaning the way it has to go, rocking at it
+// until it comes. That is `RiderRead.haul` — 1 while the hull is over, 0
+// once it is level, ramped in by the hull's own roll and eased back out
+// over the engine's righting countdown (`CraftState.righting`) — and
+// `haulPull`, the rhythm of the man working at it.
+//
 // SIGNS. The engine's body rates are right-handed about the craft's right
 // and forward axes, so the hull's nose-up pitch rate is −wx and its
 // right-side-down roll rate is −wz. `lean` is the torso's pitch FORWARD
@@ -210,6 +220,32 @@ export const DYNAMICS = {
   crushMax: 0.16,
 } as const;
 
+/** THE HAUL: the rider righting the hull he is sitting on, in numbers. */
+export const HAUL = {
+  /** Where the hull rolls past for him to start working at it, rad, and
+   * where he is throwing everything he has. The first is well past any
+   * carve: a hull on its ear at 69° is going over, not turning. */
+  fromRoll: 1.2,
+  toRoll: 2.1,
+  /** WHICH WAY HE THROWS HIS WEIGHT: toward the side the hull has to come
+   * back toward, which is the side away from its roll. The torso's roll
+   * into it, rad, and how far the pelvis goes with it, m — both a long way
+   * past anything the ride itself asks for, because the whole read at
+   * chase range is that he is doing something about it. */
+  lean: 0.85,
+  slide: 0.14,
+  /** THE ROCK: what share of that comes and goes with each heave, and how
+   * often he takes one, Hz. A man held at one angle for a second and a
+   * half has given up; the same man rocking at it is the reason the hull
+   * comes back over. */
+  rock: 0.4,
+  heaveHz: 0.8,
+  /** ...and the head: turned the way he is throwing himself and down at
+   * the water coming over the deck, rad. */
+  headTurn: 0.7,
+  headDown: 0.18,
+} as const;
+
 /** What the pose is built from — the engine's readings, and the springs'. */
 export type RiderRead = {
   /** `riderAft` and `riderRight`, m. */
@@ -228,6 +264,20 @@ export type RiderRead = {
    * with no seat to come off. */
   stand: number;
   airborne: boolean;
+  /** THE HAUL, 0..1 — how much of him is OFF the machine and in the water
+   * at its flank. It ramps in with the hull's own roll as it goes past its
+   * beam and eases back out over the engine's righting countdown
+   * (`CraftState.righting`), so he is in the sea for as long as the hull
+   * is and arrives back on the saddle exactly as it comes level. */
+  haul: number;
+  /** Which side of the hull he is in the water on, ±1: the way it went
+   * over, latched when he comes off so it cannot flip under him as the
+   * roll passes through a right angle. */
+  haulSide: number;
+  /** Where in a heave he is, −1..1: the rhythm of a man working at
+   * something, off the engine's own clock so a staged moment shows the
+   * same body. Only read while hauling. */
+  haulPull: number;
   /** The springs: the torso's pitch forward and roll right relative to the
    * stance, rad, and the body's compression, m. */
   bob: number;
@@ -244,6 +294,9 @@ export const REST_READ: RiderRead = {
   tuck: 0,
   stand: 0,
   airborne: false,
+  haul: 0,
+  haulSide: 1,
+  haulPull: 0,
   bob: 0,
   sway: 0,
   crush: 0,
@@ -291,6 +344,11 @@ export const cross = (a: P, b: P): P => [
   a[0] * b[1] - a[1] * b[0],
 ];
 export const length = (a: P): number => Math.hypot(a[0], a[1], a[2]);
+export const mix = (a: P, b: P, t: number): P => [
+  a[0] + (b[0] - a[0]) * t,
+  a[1] + (b[1] - a[1]) * t,
+  a[2] + (b[2] - a[2]) * t,
+];
 export function normalize(a: P): P {
   const l = length(a);
   return l > 1e-9 ? scale(a, 1 / l) : [0, 1, 0];
@@ -335,7 +393,16 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   // the tell that it is on.
   const onFeet = standUp ? 1 : clamp(read.stand, 0, 1);
   const footed = onFeet > 0.5;
-  const roll = STANCE.rollPerMetre * read.right + read.sway;
+  // THE HAUL: how much of him is in the water at the hull's flank, which
+  // side of it he is on, and the counter-roll that keeps him upright in
+  // the world while the hull turns under his hands.
+  // THE HAUL: how hard he is working at getting the hull back over, and
+  // which way that is — away from the roll it went over on, rocked at
+  // rather than held.
+  const haul = clamp(read.haul, 0, 1);
+  const haulSide = read.haulSide >= 0 ? 1 : -1;
+  const throwing = -haulSide * haul * (1 - HAUL.rock + HAUL.rock * clamp(read.haulPull, -1, 1));
+  const roll = STANCE.rollPerMetre * read.right + read.sway + HAUL.lean * throwing;
   const fold = STANCE.foldPerCrush * Math.max(0, read.crush);
   const rise = Math.max(0, -read.crush);
   // The stance he is in: sat, stood on a stand-up's pole, or STANDING THE
@@ -391,11 +458,9 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
       seat.y + BODY.pelvis + rise,
       seat.z - STANCE.slideAft * read.aft,
     ];
-    pelvis = [
-      sat[0] + (up[0] - sat[0]) * onFeet,
-      sat[1] + (up[1] - sat[1]) * onFeet,
-      sat[2] + (up[2] - sat[2]) * onFeet,
-    ];
+    pelvis = mix(sat, up, onFeet);
+    // ...and across the saddle with the weight he is throwing.
+    pelvis[0] += HAUL.slide * throwing;
     ankleZ = footZ;
   }
 
@@ -477,9 +542,11 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
 
   // THE HEAD: on the neck, pitched back up toward the horizon, turned
   // into the turn.
+  // ...and hauling, he is looking the way he is throwing himself, down at
+  // the water coming over the deck.
   const neck = add(chest, scale(torsoUp, BODY.neck));
-  const headPitch = STANCE.headFollow * lean - STANCE.headUp;
-  const yaw = STANCE.headTurnPerMetre * read.right;
+  const headPitch = STANCE.headFollow * lean - STANCE.headUp + HAUL.headDown * haul;
+  const yaw = STANCE.headTurnPerMetre * read.right + HAUL.headTurn * throwing;
   const headUp: P = [
     Math.cos(headPitch) * Math.sin(roll),
     Math.cos(headPitch) * Math.cos(roll),
@@ -512,12 +579,23 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   };
 }
 
-/** Whether the rider is on the craft at all: not while the hull lies on
- * its back or is being righted — the rider is in the water beside it,
- * and nothing draws that yet. */
-export function riderVisible(state: GameState): boolean {
+/** How much of the rider is OFF the machine, 0..1: the hull's own roll
+ * takes him off it as it goes past its beam on the water, and the engine's
+ * righting countdown (`CraftState.righting`) puts him back on — eased, so
+ * he arrives on the saddle as the hull comes level rather than snapping
+ * onto it. In the air nothing takes him off: an inverted hull mid-backflip
+ * still has its rider on the bars.
+ *
+ * There is no moment he is not DRAWN. A run that swallows its rider for
+ * three seconds and hands him back upright reads as a bug in the figure,
+ * whatever the hull is doing. */
+export function riderHaul(state: GameState): number {
   const c = state.craft;
-  return !(c.righting > 0 || c.capsizedFor > 0);
+  const over = c.airborne
+    ? 0
+    : clamp((Math.abs(c.roll) - HAUL.fromRoll) / (HAUL.toRoll - HAUL.fromRoll), 0, 1);
+  const righting = c.righting > 0 ? c.righting / TUNING.capsize.righting : 0;
+  return Math.max(over, righting);
 }
 
 export type RiderDynamics = {
@@ -544,6 +622,12 @@ export function createRiderDynamics(): RiderDynamics {
   let pWz = 0;
   let topFor: CraftSpec | null = null;
   let top = 1;
+  /** Which side he went over, latched while he is off the machine: the
+   * roll passes through a right angle and on toward ±π on its way back up,
+   * and a side read off its sign every step would flip him across the hull
+   * halfway through the haul. */
+  let haulSide = 1;
+  let hauling = false;
 
   const omega = (hz: number) => 2 * Math.PI * hz;
   /** One semi-implicit step of a damped spring: the new velocity. */
@@ -555,10 +639,15 @@ export function createRiderDynamics(): RiderDynamics {
   const reset = (): void => {
     bob = bobV = sway = swayV = crush = crushV = 0;
     primed = false;
+    hauling = false;
   };
 
   const observe = (state: GameState): void => {
     const c = state.craft;
+    if (riderHaul(state) > 0) {
+      if (!hauling) haulSide = c.roll >= 0 ? 1 : -1;
+      hauling = true;
+    } else hauling = false;
     for (const e of state.events) {
       if (e.kind === "reset") reset();
       else if (e.kind === "hit")
@@ -619,6 +708,7 @@ export function createRiderDynamics(): RiderDynamics {
       topFor = c.spec;
       top = topSpeedOf(c.spec);
     }
+    const haul = riderHaul(state);
     return {
       aft: c.riderAft,
       right: c.riderRight,
@@ -627,6 +717,9 @@ export function createRiderDynamics(): RiderDynamics {
       throttle: c.throttleEff,
       pace: clamp(c.speed / top, 0, 1),
       airborne: c.airborne,
+      haul,
+      haulSide,
+      haulPull: haul > 0 ? Math.sin(2 * Math.PI * HAUL.heaveHz * state.t) : 0,
       bob,
       sway,
       crush,

@@ -48,7 +48,6 @@ import {
   length,
   normalize,
   poseRider,
-  riderVisible,
   scale,
   sub,
   type RiderPose,
@@ -637,11 +636,7 @@ export function createRider(cockpit: Cockpit, surface?: THREE.Material): Rider {
     mesh,
     pose,
     observe: (state) => dynamics.observe(state),
-    update: (state) => {
-      const visible = riderVisible(state);
-      mesh.visible = visible;
-      if (visible) pose(poseRider(cockpit, dynamics.read(state)));
-    },
+    update: (state) => pose(poseRider(cockpit, dynamics.read(state))),
     reset: () => dynamics.reset(),
     dispose: () => {
       geometry.dispose();

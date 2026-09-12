@@ -131,6 +131,13 @@ function workFor(craft: CraftState): Work {
   return w;
 }
 
+/** The share of a capsized hull's angle still standing with `left` seconds
+ * of the righting to run: 1 at the start of the haul, 0 at the end. */
+function standing(left: number): number {
+  const u = 1 - left / T.capsize.righting;
+  return 1 - u * u * (3 - 2 * u);
+}
+
 /** One physics step of the craft. Emits into `events`. */
 export function stepCraft(state: GameState, input: CraftInput, events: GameEvent[]): void {
   const c = state.craft;
@@ -147,11 +154,24 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // rider over `capsize.righting` seconds: the orientation is turned back
   // upright along the shortest way, the way is scrubbed off, and the
   // engine idles. Nothing else acts on the hull meanwhile — the rider is
-  // standing on it.
+  // in the water at the rail with his weight on it.
+  //
+  // NOT AT A CONSTANT RATE. A hull is hauled over by a man hanging off one
+  // rail: it holds while he gets his hands on it, comes over fastest as it
+  // passes its own beam, and settles the last few degrees rather than
+  // stopping dead. `standing` is the share of the capsized angle still up
+  // at a point in the countdown — smoothstep's complement, flat at both
+  // ends — and the step takes the RATIO of it across the step, so the
+  // angles telescope to exactly zero on the last one however fast the
+  // middle went.
   if (c.righting > 0) {
     const before = c.righting;
     c.righting = Math.max(0, c.righting - dt);
-    const share = c.righting / before;
+    // The last step of the countdown can leave a float crumb of a second
+    // standing, and `standing` of a crumb rounds to zero: by then every
+    // angle is already down, so the step takes all of what is left.
+    const was = standing(before);
+    const share = was > 0 ? standing(c.righting) / was : 0;
     const e = toEuler(c.q);
     c.q = fromEuler(e.heading, e.pitch * share, e.roll * share);
     c.wx = c.wy = c.wz = 0;

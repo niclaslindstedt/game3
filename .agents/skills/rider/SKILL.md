@@ -20,7 +20,7 @@ both ends, `write-code` beside this for any code change, and
 
 | Piece | Role |
 | --- | --- |
-| `pwa/src/game/rider-pose.ts` | `RIDER_SCALE` (how big he is DRAWN), `BODY` (an anthropometric table's segments for a 1.8 m man, each carrying that scale), `STANCE` (the lean at idle, what the throttle and pace add, how far the pelvis slides and how wide the feet stand, how the head follows), `DYNAMICS` (the springs: pitch, roll, crush), `poseRider(cockpit, read)` → every joint, `createRiderDynamics()` → the springs stepped per engine step, `riderVisible` |
+| `pwa/src/game/rider-pose.ts` | `RIDER_SCALE` (how big he is DRAWN), `BODY` (an anthropometric table's segments for a 1.8 m man, each carrying that scale), `STANCE` (the lean at idle, what the throttle and pace add, how far the pelvis slides and how wide the feet stand, how the head follows), `DYNAMICS` (the springs: pitch, roll, crush), `HAUL` (righting a capsized hull from the saddle: which way he throws his weight, how hard, and the rock), `poseRider(cockpit, read)` → every joint, `createRiderDynamics()` → the springs stepped per engine step, `riderHaul` |
 | `pwa/src/game/rider.ts` | `createRider(cockpit, surface?)`: the figure — the seat and hips as one mass leaning with the torso, the vest's lighter back and two orange straps, the full-face helmet in three bands of livery under a peak, muscled arms to the grips, the two-tone thighs, the orange shin stripe, the boots — and `observe` / `update` / `pose`. `FACETS` is the roundness dial and `k()` carries `RIDER_SCALE` into every girth. `RIDER_FINISH` says what each `PAINT` is finished in (`FINISH`, craft-surface.ts): the shell and the visor flare, the wet skin and neoprene carry a sheen, the vest's nylon does not — he is drawn on the craft's own surface, so the sun and the sky land on him as they land on the hull |
 | `pwa/src/game/craft-body.ts` | `cockpitOf(spec, style)`: the saddle's bucket, the grips, the footwells, from the same `layout` the hull loft reads — the rider reaches what is drawn |
 | `pwa/src/game/renderer.ts` | Builds the rider with the craft and adds his mesh to the craft's group; `observe` steps his springs, `render` poses him |
@@ -97,11 +97,13 @@ the engine's dt, so a pre-rolled screenshot shows the same body.
 
 ## What is not here yet
 
-The rider thrown (`riderVisible` hides him while the hull is capsized or
-being righted — nothing draws him in the water; the `wipeout` subject is
-reserved), a second rider, a woman, a helmet without a peak. Bars that
-turn with the steer would move his hands with them; today the bars are
-static geometry and the hands stay on them.
+The rider THROWN — he is never off the machine (a capsize keeps him in the
+saddle, turned over with it, throwing his weight at the side the hull has
+to come back toward: `riderHaul` and `HAUL` in rider-pose.ts); nothing
+draws a man in the water, and the `wipeout` subject is reserved. Also a
+second rider, a woman, a helmet without a peak. Bars that turn with the
+steer would move his hands with them; today the bars are static geometry
+and the hands stay on them.
 
 ## Skill self-improvement
 
