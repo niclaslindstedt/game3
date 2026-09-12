@@ -151,6 +151,7 @@ const args = parseArgs(
       help: `a menu surface instead of a scene (${Object.keys(SURFACES).join(", ")}, all)`,
     },
     seed: { kind: "number", default: 38, help: "level seed" },
+    biome: { kind: "string", help: "which coast the seed is built on (taiga, mangrove)" },
     track: { kind: "string", help: "circuit — a lap out at sea (R29) instead of a coast sprint" },
     craft: { kind: "string", default: "skiff", help: "craft id" },
     t: {
@@ -198,7 +199,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
-    "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
+    "[--seed n] [--biome taiga|mangrove] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
     "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );
@@ -291,6 +292,7 @@ async function capture(name, params, viewportName, script, surface) {
 const base = { seed: String(args.seed), craft: args.craft, shot: "1" };
 if (args.update) base.update = "1";
 if (args.track !== undefined) base.track = String(args.track);
+if (args.biome !== undefined) base.biome = String(args.biome);
 if (args.camera !== undefined) base.camera = String(args.camera);
 if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
@@ -352,7 +354,8 @@ if (args.surface) {
     // never overwrites the plain shot of the same moment — the pair, or the
     // ladder, is what a review compares.
     const name =
-      `${scene}${args.track !== undefined ? `-${args.track}` : ""}` +
+      `${scene}${args.biome !== undefined ? `-${args.biome}` : ""}` +
+      `${args.track !== undefined ? `-${args.track}` : ""}` +
       `${args.camera !== undefined ? `-${args.camera}` : ""}` +
       `${args.update ? "-update" : ""}`;
     for (const v of viewports) await capture(name, params, v);

@@ -322,7 +322,7 @@ The engine says so with one event, `{ kind: "tornado", t, wind, speed }`, emitte
 
 ## The current (R27, `engine/mapgen/flow.ts`)
 
-The river is going somewhere. It carries `river.discharge` (120–600 m³/s, drawn per level — a real Gulf of Bothnia band) out of its mouth, and the SPEED is what is left when that volume has to fit through the channel:
+The river is going somewhere. It carries `river.discharge` (120–600 m³/s, drawn per level — a real northern-river band) out of its mouth, and the SPEED is what is left when that volume has to fit through the channel:
 
 ```
 A = 4/3 · w · d                              (a parabolic section, half-width w over d metres of water)
@@ -433,7 +433,7 @@ The sea is built from the level's MEAN wind (the spectrum needs a wind that has 
 | `flow.gather`                        | 0.8          | —      | how the river's discharge falls going up (R27)                    |
 | `flow.max` / `flow.plume`            | 3.5 / 90     | m/s, m | the current's ceiling, and how far its plume carries out          |
 
-The level contributes `wind.speed` (6–14 m/s, R12) and `wind.from` (always off the sea — R12, which is what puts the ocean upwind of the whole coast), its `offshore`, `ground` and `flow` fields, `river.discharge` (120–600 m³/s, R27), and `water.density` (1005 kg/m³ on the taiga coast — brackish; R13), which is the density every hydrostatic and hydrodynamic force uses.
+The level contributes `wind.speed` (6–14 m/s, R12) and `wind.from` (always off the sea — R12, which is what puts the ocean upwind of the whole coast), its `offshore`, `ground` and `flow` fields, `river.discharge` (120–600 m³/s, R27), and `water.density` (1005 kg/m³ on the taiga coast — brackish — and 1024 on the mangrove; R13), which is the density every hydrostatic and hydrodynamic force uses.
 
 ## What holds it
 

@@ -12,10 +12,14 @@
 // bank is strewn over a shore by exactly the rules a stand of birch is:
 // one placer, one density row, one pass.
 //
-// WHY THESE SPECIES. The coast is the Bothnian Sea's (`biomes.ts`), and a
-// Baltic shore is not a wall of spruce — that is the picture of the taiga
-// people carry inland. At the water it is a LADDER, and the ladder is what
-// this roster is:
+// WHY THESE SPECIES, AND WHY TWO ROSTERS. A coast is what grows on it as
+// much as what it is made of, and the two coasts this game builds grow
+// nothing in common. Each row says which coasts it belongs to (`biomes`),
+// the placer plants only the rows of the coast it is on, and the two
+// ladders are these:
+//
+// THE TAIGA COAST — a northern shore is not a wall of spruce; that is the
+// picture people carry inland. At the water it is a LADDER:
 //
 //   in the water    common reed (Phragmites australis) — the reed beds of
 //                   the sheltered coves and, above all, the river's own
@@ -35,11 +39,32 @@
 //                   water, with aspen and rowan in the gaps
 //   over the top    nothing: bare rock above `TREE_LINE`
 //
+// THE MANGROVE COAST — a low warm shore, and its ladder is shorter because
+// the land is: nothing stands twenty metres over this water.
+//
+//   in the water    red mangrove (Rhizophora mangle) on its prop roots —
+//                   the tree that stands IN the sea, and the thing that
+//                   makes a sheltered point or a river mouth read as this
+//                   coast at all
+//   the wet margin  cordgrass (Spartina) in the mud behind it
+//   the mud         black mangrove (Avicennia germinans), a shrubby dark
+//                   wall on the marl behind the red
+//   the dune        sea oats (Uniola paniculata) and sea grape (Coccoloba
+//                   uvifera) on the white sand, and the coconut palm
+//                   leaning over the beach
+//   the shore       cabbage palm (Sabal palmetto) — the fan palm that says
+//                   this coast from any distance — with saw palmetto
+//                   (Serenoa repens) thick under it
+//   behind it       slash pine (Pinus elliottii), tall and thin-crowned,
+//                   and live oak (Quercus virginiana) spreading low and
+//                   wide where the ground is a little higher
+//   underfoot       shell and coral rubble at the tideline
+//
 // Kept free of three.js so `tests/flora_test.ts` can read the whole roster
 // — the habitat bands are a claim about the coast, and a claim is worth
 // holding.
 
-import type { Surface } from "@engine";
+import type { BiomeId, Surface } from "@engine";
 
 /** The tree line, m above sea level: how high anything with a trunk gets
  * up a hill before the rock stands bare, which is what makes a rugged
@@ -51,9 +76,10 @@ export const TREE_LINE = 20;
 
 export type Band = { readonly min: number; readonly max: number };
 
-/** How a species is BUILT (`flora-shapes.ts`). Seven shapes carry thirteen
- * species: what separates a birch from a rowan is its size, its bark and
- * its green, not another builder. */
+/** How a species is BUILT (`flora-shapes.ts`). Nine shapes carry two
+ * rosters: what separates a birch from a rowan is its size, its bark and
+ * its green, not another builder — and what separates a cabbage palm from
+ * a coconut is the count and reach of its fronds. */
 export type FloraForm =
   /** A bare trunk with a broad, flat, high crown: the Scots pine. */
   | "pine"
@@ -67,7 +93,13 @@ export type FloraForm =
   | "tuft"
   /** Tall straight stems under a plume: the reed. */
   | "reed"
-  /** A cobble. */
+  /** A bare trunk under a crown of arching fronds: the palms. `stems` is
+   * the frond count and `spread` their reach. */
+  | "palm"
+  /** A dome of foliage stood up on a ring of prop roots, its feet in the
+   * water: the red mangrove. `stems` is the root count. */
+  | "mangrove"
+  /** A cobble, or a heap of shell. */
   | "stone";
 
 /** WHERE A SPECIES WILL STAND. Every band is read against the level's own
@@ -136,6 +168,10 @@ export type FloraSpec = {
   readonly id: string;
   /** What it is, for anyone reading the table rather than the shore. */
   readonly name: string;
+  /** WHICH COASTS IT GROWS ON — ids from `engine/mapgen/biomes.ts`. The
+   * placer plants only the rows of the coast it is on, so a row is a claim
+   * about a kind of shore rather than about every shore. */
+  readonly biomes: readonly BiomeId[];
   readonly look: Look;
   readonly habitat: Habitat;
 };
@@ -144,15 +180,36 @@ export type FloraSpec = {
  * fifty metres is a cove; one that does not is a bight the sea gets into. */
 export const SHELTER_RING = 45;
 
+/** The rows a bird will perch in: the tall trees of both coasts, read by
+ * `bird-plan.ts`'s `treePerches`. Here because it names rows of this table. */
+export const PERCH_TREES = [
+  "pine",
+  "spruce",
+  "birch",
+  "aspen",
+  "slashpine",
+  "sabal",
+  "coconut",
+  "liveoak",
+];
+
+/** The rows a coast plants, in roster order — what the placer, the lab and
+ * the tests walk for a level. */
+export function floraOf(biome: BiomeId): readonly FloraSpec[] {
+  return FLORA.filter((s) => s.biomes.includes(biome));
+}
+
 /**
- * The taiga coast's roster, from the water up. Only coast built, so only
- * roster: when a second biome arrives this becomes a row per coast the way
- * `biomes.ts` is engine-side, and the ids here are what its row will name.
+ * Both coasts' rosters, from the water up, the taiga's first. ONE list
+ * rather than one per coast because everything that indexes a stand — the
+ * placer's spots, the wiring's meshes, the perches the birds read — indexes
+ * this list, and a row's place in it is its identity.
  */
 export const FLORA: readonly FloraSpec[] = [
   {
     id: "reed",
     name: "Common reed (Phragmites australis)",
+    biomes: ["taiga"],
     look: {
       form: "reed",
       height: { min: 1.5, max: 2.4 },
@@ -185,6 +242,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "sedge",
     name: "Sedge and small-reed (Carex, Calamagrostis)",
+    biomes: ["taiga"],
     look: {
       form: "tuft",
       height: { min: 0.4, max: 0.95 },
@@ -209,6 +267,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "lyme",
     name: "Lyme grass (Leymus arenarius)",
+    biomes: ["taiga"],
     look: {
       form: "tuft",
       height: { min: 0.5, max: 1.05 },
@@ -233,6 +292,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "heather",
     name: "Ling (Calluna vulgaris)",
+    biomes: ["taiga"],
     look: {
       form: "bush",
       height: { min: 0.18, max: 0.4 },
@@ -256,6 +316,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "juniper",
     name: "Common juniper (Juniperus communis)",
+    biomes: ["taiga"],
     look: {
       form: "bush",
       height: { min: 0.9, max: 3.2 },
@@ -280,6 +341,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "willow",
     name: "Goat willow and sallow (Salix)",
+    biomes: ["taiga"],
     look: {
       form: "bush",
       height: { min: 2.2, max: 5.5 },
@@ -303,6 +365,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "alder",
     name: "Grey alder (Alnus incana)",
+    biomes: ["taiga"],
     look: {
       form: "broadleaf",
       height: { min: 5, max: 10.5 },
@@ -326,6 +389,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "birch",
     name: "Downy birch (Betula pubescens)",
+    biomes: ["taiga"],
     look: {
       form: "broadleaf",
       height: { min: 6, max: 13.5 },
@@ -350,6 +414,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "aspen",
     name: "European aspen (Populus tremula)",
+    biomes: ["taiga"],
     look: {
       form: "broadleaf",
       height: { min: 8, max: 15 },
@@ -372,6 +437,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "rowan",
     name: "Rowan (Sorbus aucuparia)",
+    biomes: ["taiga"],
     look: {
       form: "broadleaf",
       height: { min: 3.5, max: 7 },
@@ -393,6 +459,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "pine",
     name: "Scots pine (Pinus sylvestris)",
+    biomes: ["taiga"],
     look: {
       form: "pine",
       height: { min: 9, max: 18 },
@@ -418,6 +485,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "spruce",
     name: "Norway spruce (Picea abies)",
+    biomes: ["taiga"],
     look: {
       form: "spire",
       height: { min: 8, max: 19 },
@@ -444,6 +512,7 @@ export const FLORA: readonly FloraSpec[] = [
   {
     id: "stone",
     name: "Shingle and loose stone",
+    biomes: ["taiga"],
     look: {
       form: "stone",
       height: { min: 0.18, max: 0.85 },
@@ -463,6 +532,280 @@ export const FLORA: readonly FloraSpec[] = [
       slope: 0.8,
       share: 3,
       patch: { scale: 34, over: 0.34 },
+    },
+  },
+  // ── The mangrove coast ────────────────────────────────────────────────
+  {
+    id: "redmangrove",
+    name: "Red mangrove (Rhizophora mangle)",
+    biomes: ["mangrove"],
+    look: {
+      form: "mangrove",
+      height: { min: 3, max: 7 },
+      spread: 1.1,
+      // The prop roots: the arch of them is the whole silhouette at the
+      // waterline, and eight is a thicket rather than a tree on stilts.
+      stems: 8,
+      bare: 0.3,
+      stem: 0x6a5648,
+      leafLit: 0x4f8a3f,
+      leafDark: 0x24502a,
+    },
+    habitat: {
+      // Its feet in the sea: the one tree in either roster that stands in
+      // water, and it stands nowhere else.
+      ground: { min: -0.7, max: 0.8 },
+      inland: { min: -7, max: 14 },
+      surfaces: [],
+      slope: 0.4,
+      // Rare on the open beach, and the bank of the river and the lee of a
+      // point are a WALL of it: the reed's share, for the reed's reason.
+      share: 0.4,
+      riverside: { within: 110, share: 14 },
+      shelter: 0.22,
+      patch: { scale: 80, over: 0.28 },
+    },
+  },
+  {
+    id: "cordgrass",
+    name: "Cordgrass (Spartina)",
+    biomes: ["mangrove"],
+    look: {
+      form: "tuft",
+      height: { min: 0.5, max: 1.3 },
+      spread: 1.0,
+      stems: 16,
+      bare: 0,
+      stem: 0x8a9a5a,
+      leafLit: 0xa3b36a,
+      leafDark: 0x66743e,
+    },
+    habitat: {
+      ground: { min: -0.3, max: 1.2 },
+      inland: { min: -3, max: 20 },
+      surfaces: [],
+      slope: 0.4,
+      share: 1.4,
+      riverside: { within: 100, share: 4 },
+      shelter: 0.14,
+      patch: { scale: 55, over: 0.36 },
+    },
+  },
+  {
+    id: "blackmangrove",
+    name: "Black mangrove (Avicennia germinans)",
+    biomes: ["mangrove"],
+    look: {
+      form: "broadleaf",
+      height: { min: 4, max: 9 },
+      spread: 0.9,
+      stems: 2,
+      bare: 0.2,
+      stem: 0x4a4038,
+      // Darker and greyer than the red in front of it.
+      leafLit: 0x5e8f4c,
+      leafDark: 0x2f5232,
+    },
+    habitat: {
+      // On the marl behind the red mangrove, never on the open beach.
+      ground: { min: 0.1, max: 2.5 },
+      inland: { min: 2, max: 40 },
+      surfaces: ["bedrock"],
+      slope: 0.45,
+      share: 1.2,
+      riverside: { within: 110, share: 3 },
+      shelter: 0.15,
+    },
+  },
+  {
+    id: "seaoats",
+    name: "Sea oats (Uniola paniculata)",
+    biomes: ["mangrove"],
+    look: {
+      form: "tuft",
+      height: { min: 0.8, max: 1.6 },
+      spread: 0.8,
+      stems: 14,
+      bare: 0,
+      stem: 0xb8a86c,
+      // Straw-gold in the seed heads: the dune's own colour against white
+      // sand, and the mangrove coast's lyme grass.
+      leafLit: 0xc9b97a,
+      leafDark: 0x8a8452,
+    },
+    habitat: {
+      ground: { min: 0.3, max: 5 },
+      inland: { min: 1, max: 45 },
+      surfaces: ["sand"],
+      slope: 0.5,
+      share: 5,
+      patch: { scale: 40, over: 0.3 },
+    },
+  },
+  {
+    id: "seagrape",
+    name: "Sea grape (Coccoloba uvifera)",
+    biomes: ["mangrove"],
+    look: {
+      form: "bush",
+      height: { min: 1.5, max: 4 },
+      spread: 1.3,
+      stems: 1,
+      bare: 0.06,
+      stem: 0x6a5a4a,
+      leafLit: 0x7fa354,
+      leafDark: 0x3e6634,
+    },
+    habitat: {
+      ground: { min: 0.4, max: 6 },
+      inland: { min: 2, max: 60 },
+      surfaces: ["sand"],
+      slope: 0.5,
+      share: 2.2,
+      patch: { scale: 50, over: 0.32 },
+    },
+  },
+  {
+    id: "palmetto",
+    name: "Saw palmetto (Serenoa repens)",
+    biomes: ["mangrove"],
+    look: {
+      form: "bush",
+      height: { min: 1, max: 2.5 },
+      spread: 1.6,
+      stems: 1,
+      bare: 0,
+      stem: 0x5a5040,
+      leafLit: 0x5f8f4a,
+      leafDark: 0x2f5230,
+    },
+    habitat: {
+      ground: { min: 0.8, max: TREE_LINE },
+      inland: { min: 8, max: 260 },
+      surfaces: ["bedrock", "sand"],
+      slope: 0.6,
+      share: 4,
+      patch: { scale: 45, over: 0.34 },
+    },
+  },
+  {
+    id: "coconut",
+    name: "Coconut palm (Cocos nucifera)",
+    biomes: ["mangrove"],
+    look: {
+      form: "palm",
+      height: { min: 10, max: 20 },
+      // Long feather fronds reaching well out from a leaning trunk.
+      spread: 0.55,
+      stems: 9,
+      bare: 0.8,
+      stem: 0x9a8a72,
+      leafLit: 0x7fa64a,
+      leafDark: 0x3f6a30,
+    },
+    habitat: {
+      // The beach itself: a coconut grows where it washed up.
+      ground: { min: 0.5, max: 6 },
+      inland: { min: 3, max: 70 },
+      surfaces: ["sand"],
+      slope: 0.5,
+      share: 1.6,
+    },
+  },
+  {
+    id: "sabal",
+    name: "Cabbage palm (Sabal palmetto)",
+    biomes: ["mangrove"],
+    look: {
+      form: "palm",
+      height: { min: 8, max: 15 },
+      // A fan palm: more fronds, shorter, in a rounder head.
+      spread: 0.42,
+      stems: 11,
+      bare: 0.72,
+      stem: 0x8a7c66,
+      leafLit: 0x6f9a47,
+      leafDark: 0x3a5f2e,
+    },
+    habitat: {
+      ground: { min: 0.8, max: TREE_LINE },
+      inland: { min: 6, max: 260 },
+      surfaces: ["sand", "bedrock"],
+      slope: 0.6,
+      share: 2.4,
+    },
+  },
+  {
+    id: "liveoak",
+    name: "Live oak (Quercus virginiana)",
+    biomes: ["mangrove"],
+    look: {
+      form: "broadleaf",
+      height: { min: 6, max: 14 },
+      // Wider than it is tall: the spreading low crown is the tree.
+      spread: 1.1,
+      stems: 1,
+      bare: 0.28,
+      stem: 0x5a5048,
+      leafLit: 0x5a8a45,
+      leafDark: 0x2a4d2c,
+    },
+    habitat: {
+      ground: { min: 1.2, max: TREE_LINE },
+      inland: { min: 12, max: 260 },
+      surfaces: ["bedrock"],
+      slope: 0.55,
+      share: 1.4,
+      patch: { scale: 90, over: 0.32 },
+    },
+  },
+  {
+    id: "slashpine",
+    name: "Slash pine (Pinus elliottii)",
+    biomes: ["mangrove"],
+    look: {
+      form: "pine",
+      height: { min: 12, max: 24 },
+      // Tall and thin: a flatwoods pine carries a small crown on a long
+      // trunk, and reads as a mast beside the palms.
+      spread: 0.36,
+      stems: 1,
+      bare: 0.66,
+      stem: 0x5a4535,
+      stemHigh: 0x8a6a4a,
+      leafLit: 0x4a7a44,
+      leafDark: 0x27482c,
+    },
+    habitat: {
+      ground: { min: 1.5, max: TREE_LINE },
+      inland: { min: 20, max: 260 },
+      surfaces: ["bedrock"],
+      slope: 0.6,
+      share: 1.8,
+    },
+  },
+  {
+    id: "shell",
+    name: "Shell and coral rubble",
+    biomes: ["mangrove"],
+    look: {
+      form: "stone",
+      height: { min: 0.12, max: 0.5 },
+      spread: 1.6,
+      stems: 1,
+      bare: 0,
+      stem: 0xd8d0bc,
+      // Bleached: the one thing on the tideline paler than the sand.
+      leafLit: 0xe8e0cc,
+      leafDark: 0xb8b09c,
+    },
+    habitat: {
+      ground: { min: -0.6, max: 2.5 },
+      inland: { min: -6, max: 25 },
+      surfaces: [],
+      slope: 0.8,
+      share: 1.6,
+      patch: { scale: 34, over: 0.4 },
     },
   },
 ];

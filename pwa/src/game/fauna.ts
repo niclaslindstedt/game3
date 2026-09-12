@@ -115,7 +115,7 @@ type FaunaStyle = {
 };
 
 const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
-  // The Baltic fish: silver, olive and green, all of them deeper than wide.
+  // The cold-water fish: silver, olive and green, all of them deeper than wide.
   herring: {
     back: 0x2f4a55,
     belly: 0xd9e0e4,
@@ -184,29 +184,6 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.07,
     waves: 2.4,
   },
-  dolphin: {
-    back: 0x2a3038,
-    belly: 0xe7e9eb,
-    height: 0.2,
-    dorsal: 0.13,
-    pectoral: 0.14,
-    tail: 0.26,
-    saddle: true,
-    bend: 0.08,
-    waves: 2.6,
-  },
-  shark: {
-    back: 0x3b4652,
-    belly: 0xe0e2e0,
-    height: 0.22,
-    dorsal: 0.15,
-    pectoral: 0.19,
-    // A shark's tail is the one in the catalog that is taller than the
-    // animal is wide, and it is what makes the shape read as a shark.
-    tail: 0.3,
-    bend: 0.07,
-    waves: 2.4,
-  },
   orca: {
     back: 0x0f1319,
     belly: 0xf3f5f3,
@@ -232,6 +209,128 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     flipperBand: true,
     bend: 0.05,
     waves: 1.8,
+  },
+  // ── The mangrove coast ────────────────────────────────────────────────
+  // Warm-water fish: silver over olive, and the ray a flat grey disc.
+  mullet: {
+    back: 0x4a5a58,
+    belly: 0xd8dcd6,
+    height: 0.24,
+    dorsal: 0.07,
+    pectoral: 0.08,
+    tail: 0.24,
+    bend: 0.1,
+    waves: 3.2,
+  },
+  snook: {
+    back: 0x5c6650,
+    belly: 0xd9d6c4,
+    fin: 0x7a7a5a,
+    height: 0.26,
+    dorsal: 0.1,
+    pectoral: 0.09,
+    tail: 0.26,
+    bend: 0.09,
+    waves: 3,
+  },
+  redfish: {
+    // Copper: the one fish in the catalog that is not silver or green.
+    back: 0x8a5a3a,
+    belly: 0xe0d2bc,
+    fin: 0x9a6a48,
+    height: 0.3,
+    dorsal: 0.09,
+    pectoral: 0.09,
+    tail: 0.26,
+    bend: 0.08,
+    waves: 3,
+  },
+  tarpon: {
+    // The silver king: the brightest flank in the catalog, and a tall
+    // dorsal that shows on the roll.
+    back: 0x3e4a58,
+    belly: 0xe8ecef,
+    height: 0.28,
+    dorsal: 0.09,
+    pectoral: 0.1,
+    tail: 0.3,
+    bend: 0.08,
+    waves: 2.8,
+  },
+  stingray: {
+    // A disc lying on the sand: nearly flat, no fin to speak of, a whip of
+    // a tail. Its whole shape is the beam the catalog gives it.
+    back: 0x5a5548,
+    belly: 0xe4e0d0,
+    height: 0.07,
+    dorsal: 0,
+    pectoral: 0.02,
+    tail: 0.04,
+    bend: 0.06,
+    waves: 2,
+  },
+  // The two air-breathers that are not whales.
+  turtle: {
+    // A domed reddish-brown shell over a pale plastron, the front flippers
+    // long enough to read as an animal's, and no tail beat at all: a turtle
+    // rows, and a rigid body reads truer than a wagging one.
+    back: 0x6a5a3a,
+    belly: 0xd8cc9a,
+    fin: 0x5a4a30,
+    height: 0.38,
+    dorsal: 0,
+    pectoral: 0.5,
+    tail: 0.05,
+    bend: 0,
+    waves: 0,
+  },
+  manatee: {
+    // Grey all over, round as a log, no fin, and the paddle of a tail.
+    back: 0x6a6a64,
+    belly: 0x8a8a82,
+    height: 0.36,
+    dorsal: 0,
+    pectoral: 0.14,
+    tail: 0.28,
+    bend: 0.04,
+    waves: 1.6,
+  },
+  dolphin: {
+    // Plain grey, darker above — a bottlenose has no saddle to show.
+    back: 0x5a6470,
+    belly: 0xd8dde0,
+    height: 0.2,
+    dorsal: 0.14,
+    pectoral: 0.14,
+    tail: 0.26,
+    bend: 0.08,
+    waves: 2.6,
+  },
+  shark: {
+    // Stout and pale: a bull shark is grey-brown and thicker through the
+    // shoulder than any other shark its length.
+    back: 0x6a7078,
+    belly: 0xe0e2e0,
+    height: 0.24,
+    dorsal: 0.13,
+    pectoral: 0.18,
+    // A shark's tail is the one in the catalog that is taller than the
+    // animal is wide, and it is what makes the shape read as a shark.
+    tail: 0.28,
+    bend: 0.07,
+    waves: 2.4,
+  },
+  hammerhead: {
+    // The head is in profile and this game has no profile; what it has is
+    // the FIN, and a great hammerhead's is the tallest sickle in the sea.
+    back: 0x5a6470,
+    belly: 0xe4e6e2,
+    height: 0.18,
+    dorsal: 0.2,
+    pectoral: 0.16,
+    tail: 0.3,
+    bend: 0.07,
+    waves: 2.4,
   },
 };
 

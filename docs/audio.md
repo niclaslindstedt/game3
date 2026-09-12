@@ -256,7 +256,7 @@ The sky is heard between things, never over them. The birds the renderer
 draws (`bird-plan.ts` — the flocks, their roosts, their loops, the skeins
 crossing on passage) cry through `bird-bed.ts`, which asks for the SAME plan
 (`birdPlanFor`, kept against the level), so the ear and the eye agree without
-either being told about the other. Six of the eight speak (`bird-voice.ts`, `BIRD_CALLS`): the gull's
+either being told about the other. Both coasts' rosters are in one table (`bird-voice.ts`, `BIRD_CALLS`), and the cries themselves in `bird-bank.ts`, spread into the bank. Six of the taiga's eight speak: the gull's
 'kyow' — a driven sawtooth gliding down through a nasal band with the throat's
 wobble on it, the everyday racket off the skerries; the tern's 'kee-arr', the
 harshest and smallest; the drake eider's soft 'ah-ooo' off a raft, the quietest
@@ -264,7 +264,7 @@ on purpose; the goose's nasal double honk, the whooper's rising bugle and the
 crane's rattling trumpet, which are what a skein going over sounds like from
 a hundred metres down. The cormorant and the eagle keep quiet: the eagle's
 thin yelp is a thing a coast hears a few times a year, and its silence over
-the water is the character. Every cry is a small driven oscillator with its
+the water is the character. Of the mangrove's, three: the osprey's clear descending whistle from a height, the egret's one harsh croak as the craft puts it up off the mud, and the ibis's soft nasal grunt along its line; the pelican, the spoonbill and the frigatebird are silent, and their quiet over the flats is that coast's character. Every cry is a small driven oscillator with its
 own FORMANT (a bandpass sat where the syrinx resonates) and a glide, because
 every call a bird makes is a glide; the long ones sit on the echo bus so they
 come off the shore. All of them are authored under the water's smallest

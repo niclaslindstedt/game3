@@ -38,6 +38,8 @@ import { createDrawing } from "./lib/draw.mjs";
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const {
   generateLevel,
+  BIOME_IDS,
+  isBiomeId,
   createSea,
   createWind,
   seaBandShares,
@@ -61,6 +63,11 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     seed: { kind: "number", default: 1, help: "the level's seed" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast the seed is built on (taiga, mangrove)",
+    },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     from: { kind: "number", help: "override the wind's from-direction, degrees" },
     hs: {
@@ -72,11 +79,15 @@ const args = parseArgs(
     times: { kind: "number", default: 5, help: "moments drawn on the transect, a second apart" },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
   },
-  "usage: npm run waves -- --seed n [--wind m/s] [--from deg] [--hs m [--tp s]] [--reach m] [--times n] [--out name]",
+  "usage: npm run waves -- --seed n [--biome taiga|mangrove] [--wind m/s] [--from deg] [--hs m [--tp s]] [--reach m] [--times n] [--out name]",
 );
 
 // ── The sea ─────────────────────────────────────────────────────────────
-const level = generateLevel(args.seed);
+if (!isBiomeId(args.biome)) {
+  console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);
+  process.exit(2);
+}
+const level = generateLevel(args.seed, { biome: args.biome });
 const wind = {
   from: args.from !== undefined ? (args.from * Math.PI) / 180 : level.wind.from,
   speed: args.wind ?? level.wind.speed,
@@ -559,7 +570,9 @@ canvas.text("M", C.x + C.w - 8, C.y + C.h + 3, INK.dim, 1);
 
 const outDir = join(root, "previews");
 mkdirSync(outDir, { recursive: true });
-const name = args.out ?? `waves-${args.seed}${args.wind !== undefined ? `-w${args.wind}` : ""}`;
+const name =
+  args.out ??
+  `waves-${args.biome === "taiga" ? "" : `${args.biome}-`}${args.seed}${args.wind !== undefined ? `-w${args.wind}` : ""}`;
 const file = join(outDir, `${name}.png`);
 writeFileSync(file, canvas.toPng());
 console.log(`\nwrote ${file}`);

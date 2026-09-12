@@ -14,12 +14,13 @@
 // cannot judge is whether any of it LOOKS right; that is `make flora` and
 // `make screenshots`.
 import { describe, expect, it } from "vitest";
+import { BIOME_IDS } from "@engine";
 
 import { FLORA_TILE, floraTile, tileSpots } from "../pwa/src/game/flora.ts";
-import { FLORA, TREE_LINE } from "../pwa/src/game/flora-defs.ts";
+import { FLORA, TREE_LINE, floraOf } from "../pwa/src/game/flora-defs.ts";
 import { planFlora } from "../pwa/src/game/flora-plan.ts";
 import { FLORA_SCALE, coverReach } from "../pwa/src/game/settings-video.ts";
-import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
+import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
 
 /** The seeds this file plants. Fewer than the corpus, because planting a
  * shore is tens of thousands of field samples and the rules here are about
@@ -45,6 +46,17 @@ function plantFor(seed: number): ReturnType<typeof planFlora> {
   return hit;
 }
 
+/** The mangrove coast planted, one level per seed of its own corpus. */
+const mangrovePlanted = new Map<number, ReturnType<typeof planFlora>>();
+function mangrovePlantFor(seed: number): ReturnType<typeof planFlora> {
+  let hit = mangrovePlanted.get(seed);
+  if (hit === undefined) {
+    hit = planFlora(mangroveFor(seed), FLORA_SCALE.lush);
+    mangrovePlanted.set(seed, hit);
+  }
+  return hit;
+}
+
 describe("the flora roster", () => {
   it("has a unique id and an ordered height band for every row", () => {
     const ids = new Set<string>();
@@ -62,7 +74,42 @@ describe("the flora roster", () => {
     }
   });
 
-  it("carries the leaf trees a Baltic shore is actually made of", () => {
+  it("grows every row on at least one built coast, and names only built coasts", () => {
+    for (const spec of FLORA) {
+      expect(spec.biomes.length, spec.id).toBeGreaterThan(0);
+      for (const id of spec.biomes) expect(BIOME_IDS, `${spec.id} on ${id}`).toContain(id);
+    }
+    // …and each coast has a ladder of its own: something in the water,
+    // something on the sand, something with a trunk.
+    for (const biome of BIOME_IDS) {
+      const rows = floraOf(biome);
+      expect(
+        rows.some((r) => r.habitat.ground.min < 0),
+        `${biome}: in the water`,
+      ).toBe(true);
+      expect(
+        rows.some((r) => r.habitat.surfaces.includes("sand")),
+        `${biome}: sand`,
+      ).toBe(true);
+      expect(
+        rows.some((r) => r.look.height.max >= 8),
+        `${biome}: a tree`,
+      ).toBe(true);
+    }
+  });
+
+  it("carries the mangrove and the palms a warm shore is actually made of", () => {
+    // The mangrove coast's own loud things: the tree that stands in the
+    // sea, and the fan palm that says the coast from any distance.
+    for (const id of ["redmangrove", "sabal", "coconut", "seaoats", "seagrape"]) {
+      expect(byId(id).biomes).toEqual(["mangrove"]);
+    }
+    expect(byId("redmangrove").habitat.ground.min).toBeLessThan(0);
+    expect(byId("redmangrove").look.form).toBe("mangrove");
+    expect(byId("sabal").look.form).toBe("palm");
+  });
+
+  it("carries the leaf trees a northern shore is actually made of", () => {
     // The point of the roster: a taiga COAST is not a wall of conifer, and
     // a row quietly dropped from it takes a whole band of the shore with
     // it. Named rather than counted, because "at least six species" would
@@ -110,9 +157,25 @@ describe("planting a shore", () => {
     for (const seed of SEEDS) {
       plantFor(seed).forEach((list, s) => (total[s] += list.length));
     }
+    for (const seed of MANGROVE_SEEDS) {
+      mangrovePlantFor(seed).forEach((list, s) => (total[s] += list.length));
+    }
     FLORA.forEach((spec, s) => {
       expect(total[s], `nothing planted anywhere for ${spec.id}`).toBeGreaterThan(0);
     });
+  });
+
+  it("plants only the coast's own rows", () => {
+    for (const seed of SEEDS) {
+      plantFor(seed).forEach((list, s) => {
+        if (!FLORA[s].biomes.includes("taiga")) expect(list, FLORA[s].id).toHaveLength(0);
+      });
+    }
+    for (const seed of MANGROVE_SEEDS) {
+      mangrovePlantFor(seed).forEach((list, s) => {
+        if (!FLORA[s].biomes.includes("mangrove")) expect(list, FLORA[s].id).toHaveLength(0);
+      });
+    }
   });
 
   it("plants nothing outside its own habitat's ground band", () => {

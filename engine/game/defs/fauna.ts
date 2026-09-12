@@ -23,15 +23,21 @@
 // pair of porpoises, one pike lying alone. `perKm` counts PODS, not animals,
 // and `school` says how many are in one.
 //
-// WHY THESE TEN on a Baltic taiga coast. The five fish and the harbour
-// porpoise are the Bothnian Sea's own — the porpoise is a genuinely
-// endangered animal there, and its rarity in the table is not a game
-// balance decision. The white-beaked dolphin, the porbeagle, the killer
-// whale and the minke are North Sea and Atlantic animals that stray into
-// the Baltic a handful of times a century; they are in the catalog because
-// the game wants them, and they are as rare as the catalog can make them
-// while still being reachable. That is the honest reading of "the rarity
-// they deserve".
+// WHY THESE EIGHTEEN, over two coasts. The taiga's are a cold brackish
+// sea's own — five fish and the small harbour porpoise, which is a
+// genuinely endangered animal on such a coast, so its rarity in the table
+// is not a game balance decision — and the two big northern strays, the
+// killer whale and the minke, that wander in a handful of times a century;
+// they are in the catalog because the game wants them, and they are as
+// rare as the catalog can make them while still being reachable. The
+// mangrove's are a warm coast's: the inshore fish along the mangrove edge
+// and over the flats, the ray on the sand, the two air-breathers that are
+// not whales at all — the turtle and the manatee — the dolphins that work
+// the channels, the bull shark in the murk of the passes, and the great
+// hammerhead that is that coast's once-in-fifty-seeds. Which coast offers
+// which is `engine/mapgen/biomes.ts`'s `fauna`; the catalog only says
+// what each animal is. That is the honest reading of "the rarity they
+// deserve".
 
 import type { Band } from "../../mapgen/rules.ts";
 
@@ -44,14 +50,25 @@ export type FaunaId =
   | "pike"
   | "salmon"
   | "porpoise"
+  | "orca"
+  | "minke"
+  | "mullet"
+  | "snook"
+  | "redfish"
+  | "tarpon"
+  | "stingray"
+  | "turtle"
+  | "manatee"
   | "dolphin"
   | "shark"
-  | "orca"
-  | "minke";
+  | "hammerhead";
 
 /** What SHAPE an animal is, which is the only thing the physics of its
  * swimming needs to know: a fish and a shark beat their tails SIDEWAYS, a
- * cetacean beats its flukes UP AND DOWN, and a cetacean has to breathe. */
+ * cetacean beats its flukes UP AND DOWN, and a cetacean has to breathe.
+ * The turtle and the manatee are filed as cetaceans for exactly that pair
+ * of reasons — a flat tail (or none) and a breath — and the tarpon is a
+ * fish that breathes anyway, which `breath` says and the kind does not. */
 export type FaunaKind = "fish" | "shark" | "cetacean";
 
 /** How often an animal is met, as a word. Derived from `perKm` by
@@ -154,7 +171,7 @@ export function rarityOf(perKm: number): Rarity {
 export const FAUNA: readonly FaunaSpec[] = [
   {
     id: "herring",
-    name: "Baltic herring",
+    name: "Herring",
     kind: "fish",
     length: 0.22,
     beam: 0.16,
@@ -261,8 +278,8 @@ export const FAUNA: readonly FaunaSpec[] = [
     depth: { min: 1.2, max: 3.5 },
     water: 4.5,
     offshore: { min: 25, max: 220 },
-    // The Baltic's own cetacean, and down to a few hundred animals in the
-    // whole sea. One in three or four rides is already generous to it.
+    // The cold sea's own cetacean, and down to a few hundred animals in
+    // the whole of it. One in three or four rides is already generous.
     perKm: 0.16,
     breath: 12,
     bask: 0,
@@ -270,54 +287,6 @@ export const FAUNA: readonly FaunaSpec[] = [
     awash: 0.9,
     breach: 0,
     temperature: { min: 4, max: 18 },
-  },
-  {
-    id: "dolphin",
-    name: "White-beaked dolphin",
-    kind: "cetacean",
-    length: 2.7,
-    beam: 0.22,
-    school: { min: 3, max: 8 },
-    spread: 2.0,
-    speed: 3.4,
-    depth: { min: 1.5, max: 4.5 },
-    water: 6,
-    offshore: { min: 30, max: 240 },
-    // The one animal in the catalog whose rarity is set by what it DOES
-    // rather than by how often it strays into the Baltic: the bull's
-    // breach is the coast's signature moment, and a moment a rider meets
-    // on one seed in fourteen is a moment nobody has seen. Uncommon —
-    // better than half the coasts carry a pod, and it is still the rarest
-    // thing a rider can count on.
-    perKm: 0.4,
-    breath: 16,
-    bask: 0,
-    // The fin on a rise; the whole animal only on the bull's breach.
-    awash: 0.85,
-    breach: 55,
-    temperature: { min: 4, max: 16 },
-  },
-  {
-    id: "shark",
-    name: "Porbeagle",
-    kind: "shark",
-    length: 2.3,
-    beam: 0.2,
-    school: { min: 1, max: 2 },
-    spread: 1.5,
-    speed: 1.9,
-    depth: { min: 2, max: 5.5 },
-    water: 7,
-    offshore: { min: 40, max: 250 },
-    perKm: 0.04,
-    breath: 0,
-    // A porbeagle breathes water, but it hunts and lies at the surface,
-    // and the fin cutting along it is the entire sighting.
-    bask: 34,
-    // Back awash, fin and the tip of the tail out — the whole sighting.
-    awash: 0.95,
-    breach: 0,
-    temperature: { min: 4, max: 17 },
   },
   {
     id: "orca",
@@ -361,6 +330,226 @@ export const FAUNA: readonly FaunaSpec[] = [
     awash: 0.85,
     breach: 0,
     temperature: { min: 4, max: 15 },
+  },
+  // ── The mangrove coast ────────────────────────────────────────────────
+  {
+    id: "mullet",
+    name: "Striped mullet",
+    kind: "fish",
+    length: 0.4,
+    beam: 0.18,
+    school: { min: 12, max: 30 },
+    spread: 1.2,
+    speed: 0.7,
+    depth: { min: 0.5, max: 2 },
+    water: 1.5,
+    offshore: { min: 6, max: 120 },
+    perKm: 3.2,
+    breath: 0,
+    bask: 0,
+    awash: 0,
+    // THE MULLET JUMPS. Nobody knows why, and every warm coast is full of
+    // them doing it: a silver fish clearing the water and landing flat on
+    // its side. The one fish in the catalog that leaves the water at all,
+    // and with a school of twenty the surface off a beach is never still.
+    breach: 28,
+    temperature: { min: 15, max: 33 },
+  },
+  {
+    id: "snook",
+    name: "Snook",
+    kind: "fish",
+    length: 0.75,
+    beam: 0.18,
+    school: { min: 2, max: 5 },
+    spread: 1.8,
+    speed: 0.9,
+    depth: { min: 0.6, max: 2 },
+    water: 1.6,
+    // The mangrove edge itself: a snook lies in the shade of the roots.
+    offshore: { min: 5, max: 70 },
+    perKm: 1.8,
+    breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
+    temperature: { min: 18, max: 33 },
+  },
+  {
+    id: "redfish",
+    name: "Red drum",
+    kind: "fish",
+    length: 0.8,
+    beam: 0.22,
+    school: { min: 3, max: 8 },
+    spread: 1.6,
+    speed: 0.8,
+    depth: { min: 0.5, max: 1.8 },
+    water: 1.4,
+    offshore: { min: 5, max: 90 },
+    perKm: 1.6,
+    breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
+    temperature: { min: 16, max: 32 },
+  },
+  {
+    id: "tarpon",
+    name: "Tarpon",
+    kind: "fish",
+    length: 1.8,
+    beam: 0.16,
+    school: { min: 2, max: 6 },
+    spread: 2.2,
+    speed: 1.4,
+    depth: { min: 1, max: 3.5 },
+    water: 3.5,
+    offshore: { min: 20, max: 200 },
+    perKm: 0.5,
+    // A FISH THAT BREATHES AIR — a tarpon gulps it, and the roll it makes
+    // doing so, the silver back and the tall dorsal turning over at the
+    // surface, is how a rider ever sees a fish two metres long.
+    breath: 30,
+    bask: 0,
+    awash: 0.9,
+    breach: 0,
+    temperature: { min: 22, max: 32 },
+  },
+  {
+    id: "stingray",
+    name: "Southern stingray",
+    kind: "fish",
+    // A disc: the beam is most of the length, which is what the body
+    // builder needs to make a ray out of the same loft as a fish.
+    length: 1.1,
+    beam: 0.85,
+    school: { min: 1, max: 3 },
+    spread: 1.5,
+    speed: 0.4,
+    depth: { min: 0.4, max: 1.5 },
+    water: 1.2,
+    offshore: { min: 4, max: 60 },
+    perKm: 0.9,
+    breath: 0,
+    bask: 0,
+    awash: 0,
+    breach: 0,
+    temperature: { min: 18, max: 33 },
+  },
+  {
+    id: "turtle",
+    name: "Loggerhead turtle",
+    // Filed with the cetaceans: it breathes, and it has no tail to beat.
+    kind: "cetacean",
+    length: 1.0,
+    beam: 0.75,
+    school: { min: 1, max: 1 },
+    spread: 0,
+    speed: 0.5,
+    depth: { min: 0.8, max: 2.5 },
+    water: 2.5,
+    offshore: { min: 20, max: 200 },
+    perKm: 0.13,
+    // Up every few minutes when it is on the move; the short end of that.
+    breath: 45,
+    bask: 0,
+    // The head and the top of the shell out — the whole sighting.
+    awash: 1,
+    breach: 0,
+    temperature: { min: 20, max: 32 },
+  },
+  {
+    id: "manatee",
+    name: "Manatee",
+    kind: "cetacean",
+    length: 3.0,
+    beam: 0.33,
+    school: { min: 1, max: 3 },
+    spread: 1.6,
+    speed: 0.9,
+    depth: { min: 0.8, max: 2.2 },
+    water: 3,
+    // Inshore, over the seagrass: the one big animal that is met in the
+    // shallows rather than out past them, which is exactly why the boats
+    // on its coast have a speed limit.
+    offshore: { min: 8, max: 90 },
+    perKm: 0.3,
+    breath: 40,
+    bask: 0,
+    // A broad grey back breaking the surface, and the nostrils; no fin.
+    awash: 1,
+    breach: 0,
+    temperature: { min: 20, max: 32 },
+  },
+  {
+    id: "dolphin",
+    name: "Bottlenose dolphin",
+    kind: "cetacean",
+    length: 2.8,
+    beam: 0.22,
+    school: { min: 3, max: 8 },
+    spread: 2.0,
+    speed: 3.2,
+    depth: { min: 1.5, max: 4.5 },
+    water: 6,
+    offshore: { min: 30, max: 240 },
+    // The one animal in the catalog whose rarity is set by what it DOES
+    // rather than by how often it is there: the bull's breach is the
+    // coast's signature moment, and a moment a rider meets on one seed in
+    // fourteen is a moment nobody has seen. Uncommon — better than half
+    // the coasts carry a pod, and it is still the rarest thing a rider can
+    // count on.
+    perKm: 0.45,
+    breath: 16,
+    bask: 0,
+    // The fin on a rise; the whole animal only on the bull's breach.
+    awash: 0.85,
+    breach: 55,
+    temperature: { min: 15, max: 32 },
+  },
+  {
+    id: "shark",
+    name: "Bull shark",
+    kind: "shark",
+    length: 2.5,
+    beam: 0.24,
+    school: { min: 1, max: 2 },
+    spread: 1.5,
+    speed: 1.6,
+    depth: { min: 1.5, max: 4 },
+    water: 5,
+    offshore: { min: 30, max: 220 },
+    perKm: 0.06,
+    breath: 0,
+    // A shark breathes water, but it cruises the passes with its fin out,
+    // and the fin cutting along the surface is the entire sighting.
+    bask: 40,
+    // Back awash, fin and the tip of the tail out — the whole sighting.
+    awash: 0.95,
+    breach: 0,
+    temperature: { min: 18, max: 32 },
+  },
+  {
+    id: "hammerhead",
+    name: "Great hammerhead",
+    kind: "shark",
+    length: 4.2,
+    beam: 0.17,
+    school: { min: 1, max: 1 },
+    spread: 0,
+    speed: 1.8,
+    depth: { min: 2.5, max: 6 },
+    water: 9,
+    offshore: { min: 60, max: 250 },
+    // The rarest thing on the warm coast: one seed in fifty, and the tall
+    // sickle of a fin that is the sighting the whole roster exists for.
+    perKm: 0.02,
+    breath: 0,
+    bask: 45,
+    awash: 0.95,
+    breach: 0,
+    temperature: { min: 20, max: 32 },
   },
 ];
 

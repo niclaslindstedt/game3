@@ -3,21 +3,35 @@
 //
 // A biome is everything about a shore that is not the course: what the
 // land is made of and how it stands, what the water is (brackish or salt,
-// warm or cold), how thickly the rocks stand offshore, what the sky over it
-// can be (R19), and what swims in its water (R20). The difference between
-// the coasts is stated here, once, as rows the rest of the generator reads
-// through `biomeOf`. Nothing else in `mapgen/` names a country: the
-// geology asks the row how high the land stands and how much of a bay is
-// sand, the placer asks it how many rocks a kilometre carries, the compiler
-// asks it what the water is.
+// warm or cold), how thickly the rocks stand offshore, how much of the
+// waterline is beach, how big a sea its wind grows and how much ocean swell
+// reaches it, what the sky over it can be (R19), and what swims in its
+// water (R20). The difference between the coasts is stated here, once, as
+// rows the rest of the generator reads through `biomeOf`. Nothing else in
+// `mapgen/` names a biome: the geology asks the row how high the land
+// stands and how much of a bay is sand, the placer asks it how many rocks
+// a kilometre carries, the compiler asks it what the water is, the sea asks
+// it how big to grow.
 //
-// Six ids are reserved in `types.ts` so a campaign location never changes
-// its name; ONE row is built. The taiga's is the coast every rule in
-// `rules.ts` was written against — the Baltic's northern shore: low,
+// A BIOME IS A KIND OF COAST AND NEVER A PLACE. The rows are written from
+// real coasts — the numbers are measured ones, and the comments say what
+// each is a fact about — but nothing here, or anywhere the rows are read,
+// names a country, a sea or a shore that exists. The campaign, when it
+// comes, will put the rider on the TAIGA COAST and the MANGROVE COAST, not
+// on a map.
+//
+// Seven ids are reserved in `types.ts` so a campaign location never changes
+// its name; TWO rows are built. The taiga's is the coast every rule in
+// `rules.ts` was written against — a cold northern skerry coast: low,
 // glacially planed bedrock slabs sliding into brackish water, boulder
 // fields the ice left behind, gravel and sand collecting in the bays,
-// skerries and reefs a stone's throw out. Asking for an unbuilt biome
-// throws, by design: a level on a coast nobody has drawn is not a level.
+// skerries and reefs a stone's throw out, and the open sea broken up by
+// the islands before it ever reaches the shore. The mangrove's is its
+// opposite in nearly every row: a flat, warm, salt coast of white sand and
+// mangrove, nothing standing higher than a dune, no rock to speak of, and
+// a clear turquoise sea with a long lazy groundswell in it. Asking for an
+// unbuilt biome throws, by design: a level on a coast nobody has drawn is
+// not a level.
 
 import type { FaunaId } from "../game/defs/fauna.ts";
 import type { Season } from "../lib/solar.ts";
@@ -49,16 +63,36 @@ export type Biome = {
     readonly stack: number;
   };
   /** Multiplier on `LEVEL_RULES.surface.boulder.threshold`'s complement:
-   * above 1 the boulder fields are wider, below 1 sparser. */
+   * above 1 the boulder fields are wider, below 1 sparser, at 0 there are
+   * none. */
   readonly boulderField: number;
   /** Whether this coast's soft stretches carry a sand beach at all
    * (R16) — a coast of bare rock says no and every waterline on it is
    * stone. */
   readonly beaches: boolean;
+  /** THE SHORE'S QUILT (R16, R21): how much of the waterline is beach.
+   * `sand` is a multiple of `LEVEL_RULES.surface.sand.rugged`, the
+   * ruggedness at or under which a stretch carries sand — 1 is the taiga's
+   * rock coast with beaches in it, and a coast of beaches with rock in it
+   * is above it. Never so high that one material takes the whole coast:
+   * R21's run limit is the same on every biome, and a coast that fails it
+   * is a coast the search rerolls until the generator gives up. */
+  readonly shore: { readonly sand: number };
+  /** HOW BIG THIS COAST'S SEA IS, as multiples of what the rule book's wind
+   * grows (`TUNING.sea.heightScale` is the arcade dial under both). `wind`
+   * scales the two wind bands — the sea this coast's own wind builds and
+   * the chop on water that sea cannot reach — and `swell` scales the
+   * groundswell dealt from past the horizon (`TUNING.sea.swell.hs`). A
+   * skerry coast has the islands between it and the ocean, so its swell is
+   * mostly gone by the time it arrives and its wind sea is broken up; a
+   * low open coast with a warm shallow shelf gets the whole swell, long
+   * and lazy, and a wind sea that never stands very high over it. Read by
+   * `createSea` and nothing else. */
+  readonly sea: { readonly wind: number; readonly swell: number };
   /** The skies this coast can be under (R19), lightest first. A coast is
-   * partly its weather — a Baltic shore gets the whole range and an atoll
-   * will not get a Baltic squall — so the chart is the biome's rather than
-   * the rule book's. */
+   * partly its weather — a northern shore gets the line squall and never
+   * the summer haze, a warm shore the other way about — so the chart is
+   * the biome's rather than the rule book's. */
   readonly weathers: readonly Weather[];
   /** What SWIMS on this coast (R20) — ids from `engine/game/defs/fauna.ts`.
    * How often each is met is the catalog's `perKm`, not the biome's: a
@@ -68,14 +102,14 @@ export type Biome = {
 };
 
 /** Every biome that is BUILT, in the order they are offered. */
-export const BIOME_IDS: readonly BiomeId[] = ["taiga"];
+export const BIOME_IDS: readonly BiomeId[] = ["taiga", "mangrove"];
 
 export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
   taiga: {
     id: "taiga",
     name: "Taiga coast",
-    // The Bothnian Sea is nearly fresh — 1005 kg/m³ — and cold: the
-    // monthly means of the sea off this coast run from 0.4 °C in February
+    // A brackish northern sea — 1005 kg/m³ — and cold: the monthly means
+    // of the sea off a coast like this run from under a degree in February
     // and March, through 5 °C in May and 11 °C in June, to 16 °C in July
     // and August, back to 13 °C in September, 9 °C in October and 5 °C in
     // November, and the shallow bays run a few degrees either side of the
@@ -91,36 +125,113 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
         winter: { min: 2, max: 6 },
       },
     },
-    // The High Coast, at the top of the Bothnian Sea. Far enough north that
-    // the midsummer sun only just sets, which is the whole character of the
-    // summer light here: long low evenings, a twilight that never finishes,
-    // and a sunrise three hours after midnight — and far enough north that
-    // the December sun barely clears the water at noon.
+    // Far enough north that the midsummer sun only just sets, which is the
+    // whole character of the summer light here: long low evenings, a
+    // twilight that never finishes, and a sunrise three hours after
+    // midnight — and far enough north that the December sun barely clears
+    // the water at noon.
     latitude: 62,
     relief: 1,
     rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },
     boulderField: 1,
     beaches: true,
-    // R19 — the Bothnian summer, which is every sky there is. A northern
+    shore: { sand: 1 },
+    // A SKERRY COAST IS A SHELTERED ONE. The islands stand between the
+    // shore and the open sea, so the ocean's swell arrives broken and
+    // small and the wind sea inside them never builds to what the same
+    // wind grows over open water. Somewhat under the rule book's — the
+    // waves are still the game — and the mangrove coast's row is where the
+    // whole swell comes ashore.
+    sea: { wind: 0.85, swell: 0.7 },
+    // R19 — a northern summer, which is every sky there is here. A cold
     // coast in July runs from a windless blue morning to a line squall
     // coming in off the open sea in an afternoon, and the whole point of
-    // hanging the draw on the wind is that both are on the same chart.
+    // hanging the draw on the wind is that both are on the same chart. No
+    // haze: that is warm water's sky.
     weathers: ["clear", "high", "overcast", "rain", "squall"],
-    // R20 — the Bothnian Sea's own fish and its one cetacean, and the four
-    // Atlantic strays a northern shore sees once in a generation. Listing
-    // the strays is what makes them possible at all; the catalog's `perKm`
-    // is what keeps them worth seeing.
+    // R20 — a cold brackish sea's own fish and its one small cetacean, and
+    // the two big northern strays a coast like this sees once in a
+    // generation. Listing the strays is what makes them possible at all;
+    // the catalog's `perKm` is what keeps them worth seeing.
+    fauna: ["herring", "roach", "perch", "pike", "salmon", "porpoise", "orca", "minke"],
+  },
+  mangrove: {
+    id: "mangrove",
+    name: "Mangrove coast",
+    // Full salt — 1024 kg/m³ — and warm the whole year: the sea off a low
+    // subtropical coast runs from about 18 °C in the coolest month to 30 °C
+    // and over in late summer, and the shallow flats behind the sandbars
+    // cook a few degrees warmer still. The bands are the same dated months
+    // the taiga's are (`DECLINATION`): May already warm, late July at its
+    // hottest, early October barely off it, mid-November the first cool
+    // water of the year.
+    water: {
+      density: 1024,
+      temperature: {
+        spring: { min: 24, max: 28 },
+        summer: { min: 29, max: 32 },
+        autumn: { min: 26, max: 29 },
+        winter: { min: 19, max: 24 },
+      },
+    },
+    // Subtropical: the sun stands eighty degrees up at a midsummer noon and
+    // forty at a midwinter one, the days run eleven to fourteen hours the
+    // year round, and every night is black — a dusk of twenty minutes and
+    // then the stars. The opposite of the taiga's light in every rung.
+    latitude: 27,
+    // Nothing stands higher than a dune. A third of the taiga's plateau
+    // puts the tallest ground on the coast a few metres over the water.
+    relief: 0.3,
+    // No standing rock to speak of: the odd low limestone islet where the
+    // taiga has a skerry, sandbars and coral heads awash where it has
+    // reefs, and none of the ice's leavings at all — no boulders, no
+    // erratics, no sea stack. The ocean leg's MARK (R25) is placed by the
+    // line and still stands; it is the one rock a mangrove seed is sure of.
+    rocks: { skerry: 0.08, boulder: 0, reef: 0.5, erratic: 0, stack: 0 },
+    // …but the classifier's "rock" SURFACE is kept, at four fifths of the
+    // taiga's spread: on this coast it is the oyster bars and the coral
+    // rubble that break up a stretch of marl, and without it a sheltered
+    // channel is one material from end to end and R21 refuses the level.
+    // MEASURED over sixteen seeds: no field at all builds nine of them, this
+    // builds all sixteen, as the taiga does.
+    boulderField: 0.8,
+    beaches: true,
+    // More beach than the taiga, and mangrove where the beach is not — the
+    // sheltered stretches keep the rule book's own "bedrock", which on this
+    // coast is a low shelf of marl and shell the mangroves stand on rather
+    // than a slab of granite. Held well short of the whole waterline so
+    // R21's quilt survives: a bay of sand, then a mangrove point, then sand
+    // again. MEASURED with the field above: 1.2 builds sixteen seeds of
+    // sixteen, 1.35 fifteen, 1.75 four.
+    shore: { sand: 1.2 },
+    // A LOW OPEN COAST ON A WARM SHALLOW SHELF. The wind sea over it is
+    // small — a sea breeze over a shelf a few metres deep never stands
+    // up — and the groundswell is the whole ocean's, long, lazy and
+    // unbroken by anything on the way in: the sets that come in over the
+    // sandbars are what this coast's waves are.
+    sea: { wind: 0.75, swell: 0.95 },
+    // R19 — a subtropical year on one chart: bare blue and the milky haze
+    // of a humid morning at the calm end, a high sheet and the winter
+    // front's overcast in the middle, and at the top the rain and the
+    // black afternoon storm that is this coast's own squall.
+    weathers: ["clear", "haze", "high", "overcast", "rain", "squall"],
+    // R20 — a warm coast's fish and the animals that come in over the
+    // flats: the mullet that leap, the snook and the redfish along the
+    // mangrove edge, the tarpon rolling, the ray on the sand, the turtle
+    // and the manatee coming up to breathe, the dolphins working the
+    // channels, the bull shark in the murk of the passes, and the great
+    // hammerhead that a seed in fifty carries.
     fauna: [
-      "herring",
-      "roach",
-      "perch",
-      "pike",
-      "salmon",
-      "porpoise",
+      "mullet",
+      "snook",
+      "redfish",
+      "tarpon",
+      "stingray",
+      "turtle",
+      "manatee",
       "dolphin",
       "shark",
-      "orca",
-      "minke",
+      "hammerhead",
     ],
   },
 };
@@ -130,4 +241,10 @@ export function biomeOf(id: BiomeId): Biome {
   const row = BIOMES[id];
   if (!row) throw new Error(`biome "${id}" is not built yet (built: ${BIOME_IDS.join(", ")})`);
   return row;
+}
+
+/** Whether a string names a coast that is BUILT — what a URL, a stored
+ * setting or a lab's flag is checked against before it is trusted. */
+export function isBiomeId(id: unknown): id is BiomeId {
+  return typeof id === "string" && BIOMES[id as BiomeId] !== undefined;
 }

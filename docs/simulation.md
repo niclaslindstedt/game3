@@ -46,6 +46,7 @@ The profile is data (`BotProfile`); `RIDER_BOT` is the default and the profile e
 ```sh
 make sim                                  # seeds 1, 7, 38, 123 × every craft
 make sim SEEDS=38,39 CRAFT=marlin          # specific seeds, one craft
+make sim BIOME=mangrove SEEDS=3,7,8,10    # the warm coast (its seeds build a different shore)
 npm run sim -- --craft skiff,dart         # a comma list
 npm run sim -- --max 500                  # give a run longer than 360 s to finish
 npm run sim -- --json examples/sim-report.json   # the rows, events dropped

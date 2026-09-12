@@ -32,19 +32,8 @@ import * as THREE from "three";
 import { TAU, hash2, sampleField, type Level, type Solid } from "@engine";
 
 import { Builder } from "../lib/lowpoly.ts";
-import { PALETTE } from "../identity.ts";
 import { ROCK_FORMS, carveRock, rockFoot } from "./rock-shapes.ts";
-
-const BOULDER = new THREE.Color(PALETTE.graniteDark);
-/** A reef is a dark shape UNDER the water, and it has to stay a shape: the
- * tone here is the sea bed's own olive taken a step down rather than the
- * near-black it reads as on paper, because three converts a hex swatch to
- * linear and the darkest thing on the shore has nowhere left to fall. */
-const REEF = new THREE.Color(0x475840);
-/** The erratics: warmer than the slab they sit on, because they came from
- * somewhere else — which is the whole point of an erratic, and what makes
- * one read as an object on the shore rather than as part of it. */
-const ERRATIC = new THREE.Color(0x9a8b78);
+import { shorePaintOf } from "./shore-paint.ts";
 
 const m = new THREE.Matrix4();
 const pos = new THREE.Vector3();
@@ -110,10 +99,14 @@ function sculpted(level: Level, kind: keyof typeof ROCK_FORMS): THREE.Mesh | nul
   const solids = level.solids.filter((s) => s.kind === kind);
   if (solids.length === 0) return null;
   const b = new Builder();
+  // The form's own granite, or the coast's stone laid over it: a skerry on
+  // the mangrove coast is limestone, and the same carving in another tone.
+  const stone = shorePaintOf(level.biome).stone;
+  const form = stone ? { ...ROCK_FORMS[kind], ...stone } : ROCK_FORMS[kind];
   for (const s of solids) {
     carveRock(
       b,
-      ROCK_FORMS[kind],
+      form,
       s.x,
       s.z,
       s.r,
@@ -133,6 +126,10 @@ function sculpted(level: Level, kind: keyof typeof ROCK_FORMS): THREE.Mesh | nul
 
 export function createRocks(level: Level): THREE.Group {
   const group = new THREE.Group();
+  const paint = shorePaintOf(level.biome);
+  const BOULDER = new THREE.Color(paint.boulder);
+  const REEF = new THREE.Color(paint.reef);
+  const ERRATIC = new THREE.Color(paint.erratic);
   const by = (kind: Solid["kind"]) => level.solids.filter((s) => s.kind === kind);
   // The things that stand out of the water, each one its own rock.
   for (const kind of ["stack", "mark", "skerry"] as const) {

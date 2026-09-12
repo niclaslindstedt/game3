@@ -15,13 +15,23 @@
 // here unchanged; `minimap-scene.ts` is DOM-free for the same reason the
 // payload modules are, and cuts the schematic without a document.
 
-import { dealtTimeOfDay, generateLevel, type Season, type TimeOfDay, type Weather } from "@engine";
+import {
+  dealtTimeOfDay,
+  generateLevel,
+  type BiomeId,
+  type Season,
+  type TimeOfDay,
+  type Weather,
+} from "@engine";
 
 import { levelSchematic } from "./minimap-scene.ts";
 import type { LevelSchematic } from "./minimap-scene.ts";
 
-/** What the card asks for: one seed. */
-export type PreviewRequest = { seed: number };
+/** What the card asks for: one seed, on one coast. The coast is in the
+ * REQUEST rather than in the deal below, because it is the one thing on
+ * the card the seed does not decide — the same number builds a different
+ * shore on each biome. */
+export type PreviewRequest = { seed: number; biome: BiomeId };
 
 /** THE DAY THIS SEED DEALS — the three answers the start card's own rows
  * would otherwise have to offer a fourth chip for.
@@ -49,6 +59,7 @@ export type SeedDeal = {
 export type PreviewReply =
   | {
       seed: number;
+      biome: BiomeId;
       ok: true;
       schematic: LevelSchematic;
       deal: SeedDeal;
@@ -56,17 +67,18 @@ export type PreviewReply =
       /** The course, m. */
       length: number;
     }
-  | { seed: number; ok: false; error: string };
+  | { seed: number; biome: BiomeId; ok: false; error: string };
 
 self.onmessage = (e: MessageEvent<PreviewRequest>) => {
-  const { seed } = e.data;
+  const { seed, biome } = e.data;
   const reply = (r: PreviewReply): void => {
     (self as unknown as Worker).postMessage(r);
   };
   try {
-    const level = generateLevel(seed);
+    const level = generateLevel(seed, { biome });
     reply({
       seed,
+      biome,
       ok: true,
       schematic: levelSchematic(level),
       deal: {
@@ -79,6 +91,6 @@ self.onmessage = (e: MessageEvent<PreviewRequest>) => {
       length: level.course.length,
     });
   } catch (err) {
-    reply({ seed, ok: false, error: err instanceof Error ? err.message : String(err) });
+    reply({ seed, biome, ok: false, error: err instanceof Error ? err.message : String(err) });
   }
 };

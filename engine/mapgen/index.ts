@@ -13,7 +13,7 @@ export {
   type SolidRule,
 } from "./rules.ts";
 export { clampDial, RAMP_DIAL, rulesAtPace, type PacedRules } from "./pace.ts";
-export { BIOMES, BIOME_IDS, biomeOf, type Biome } from "./biomes.ts";
+export { BIOMES, BIOME_IDS, biomeOf, isBiomeId, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
 export { TIMES_OF_DAY, dealtTimeOfDay, hourOfDay, type TimeOfDay } from "./daytime.ts";

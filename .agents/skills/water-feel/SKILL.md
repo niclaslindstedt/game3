@@ -62,7 +62,7 @@ breaking ratio (0.78), and the gust's time constant and amplitude. Every one
 carries a unit and says whether it is a MEASUREMENT (γ, 0.78, the fetch law's
 constant — change one and you are claiming the ocean is wrong) or an ARCADE
 DIAL (the steepness cap, the fully developed cap — the two places the sea is
-allowed to be more or less than the Baltic would give a 2–12 m/s wind).
+allowed to be more or less than a northern sea would give a 2–12 m/s wind).
 
 ## The instrument: `make waves`
 

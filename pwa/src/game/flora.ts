@@ -185,6 +185,8 @@ export function createFlora(level: Level): Flora {
   let dirty = true;
 
   FLORA.forEach((spec, s) => {
+    // A row the coast does not grow gets no mesh at all, not an empty one.
+    if (!spec.biomes.includes(level.biome)) return;
     // Seeded off the species' PLACE in the roster, so a row's shape does
     // not change because another row was added above it.
     const geometry = buildFlora(spec.look, s * 7919 + 13);

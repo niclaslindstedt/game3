@@ -8,7 +8,7 @@
 import { clamp } from "../lib/math.ts";
 import { createRng } from "../lib/prng.ts";
 import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
-import type { Level, TrackKind, Weather, Wind } from "../mapgen/types.ts";
+import type { BiomeId, Level, TrackKind, Weather, Wind } from "../mapgen/types.ts";
 import type { Season } from "../lib/solar.ts";
 import { status } from "../output.ts";
 import { stepCraft } from "./craft.ts";
@@ -44,6 +44,10 @@ export type CreateGameOptions = {
    * sprint (the default) or an ocean circuit ridden in laps. Ignored when
    * `level` is given, which already is one or the other. */
   track?: TrackKind;
+  /** WHICH COAST the seed is built on — a built biome (`BIOME_IDS`); the
+   * taiga when nothing is asked. Ignored when `level` is given, which
+   * already stands on one. */
+  biome?: BiomeId;
   /** A level to ride instead of the one the seed generates (tests, labs). */
   level?: Level;
   /** A wind to ride in instead of the level's own. The sea is built from
@@ -153,7 +157,8 @@ export function createGame(options: CreateGameOptions): GameState {
   // ...and the course is PACED for it: gates are laid in metres, so the
   // class is part of what the level is (`mapgen/rules.ts`'s `rulesAtPace`).
   const dealt =
-    options.level ?? generateLevel(options.seed, { track: options.track, pace: speedClass });
+    options.level ??
+    generateLevel(options.seed, { biome: options.biome, track: options.track, pace: speedClass });
   // A named time of day is resolved against the coast that was actually
   // dealt, which is why it is read here rather than by the caller: only the
   // level knows the latitude its daylight window is cut from (R13).

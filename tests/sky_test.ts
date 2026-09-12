@@ -146,7 +146,7 @@ describe("the sun over this coast", () => {
     }
   });
 
-  it("gives each season the day the Bothnian coast actually has", () => {
+  it("gives each season the day the taiga coast actually has", () => {
     // The facts the table was written against (engine/lib/solar.ts): an
     // eighteen-hour day in high summer and a six-and-a-half-hour one in
     // mid-November; sunrise before five in July and after eight in
@@ -336,7 +336,7 @@ describe("the ladder", () => {
     expect(dawn.mist).toBeGreaterThan(morning.mist);
     expect(dawn.mist).toBeGreaterThan(dusk.mist);
     expect(dawn.fogFar).toBeLessThan(dusk.fogFar);
-    // …and the Gulf of Bothnia's spring is its foggiest season.
+    // …and a cold coast's spring is its foggiest season.
     expect(clearAt(window("spring").min - 0.6, "spring").mist).toBeGreaterThan(dawn.mist);
   });
 

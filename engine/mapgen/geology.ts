@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // R2, R3, R17, R21 — THE GROUND, and the rocks standing on it.
 //
-// A Baltic taiga coast is one rock, planed by the ice: the ground is a
+// A taiga coast is one rock, planed by the ice: the ground is a
 // single smooth function of HOW FAR FROM THE WATER'S EDGE a point is — the
 // basin's own signed field (R15) — and of WHAT KIND OF COAST it is (R21's
 // ruggedness), with the grain of the country laid on top.

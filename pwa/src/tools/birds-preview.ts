@@ -21,7 +21,9 @@
 
 import * as THREE from "three";
 
-import { BIRDS, type BirdSpec } from "../game/bird-defs.ts";
+import { isBiomeId } from "@engine";
+
+import { BIRDS, birdsOf, type BirdSpec } from "../game/bird-defs.ts";
 import { BIRD_STYLES, birdMaterial, buildBird } from "../game/bird-shapes.ts";
 import { PALETTE } from "../identity.ts";
 
@@ -40,11 +42,14 @@ const POSES: readonly { label: string; flap: (spec: BirdSpec) => number; fold: n
 
 /** Which of the roster this run wants, off the page's own query string. */
 function chosen(): typeof BIRDS {
-  const asked = new URLSearchParams(location.search).get("rows");
-  if (!asked) return BIRDS;
+  const query = new URLSearchParams(location.search);
+  const biome = query.get("biome");
+  const roster = isBiomeId(biome) ? birdsOf(biome) : BIRDS;
+  const asked = query.get("rows");
+  if (!asked) return roster;
   const want = new Set(asked.split(",").map((s) => s.trim().toLowerCase()));
-  const kept = BIRDS.filter((s) => want.has(s.id.toLowerCase()));
-  return kept.length > 0 ? kept : BIRDS;
+  const kept = roster.filter((s) => want.has(s.id.toLowerCase()));
+  return kept.length > 0 ? kept : roster;
 }
 
 /** The metre rule: alternating bands a metre long lying along the cell,

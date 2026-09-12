@@ -100,8 +100,12 @@ export function compileLevel(plan: LevelPlan): Level {
     // speckle it is a beach nobody would walk on. It reaches furthest up
     // the softest stretches and narrows away rather than ending at a line,
     // so a coast does not step from sand to slab in one cell.
-    if (biome.beaches && rugged <= sand.rugged && slope < sand.slope) {
-      const soft = 1 - rugged / sand.rugged;
+    // …and how rugged a stretch may be and still carry one is the COAST's
+    // (`Biome.shore.sand`, a multiple of the rule's threshold): a warm low
+    // coast is beach nearly everywhere the sea reaches it.
+    const sandRugged = sand.rugged * biome.shore.sand;
+    if (biome.beaches && rugged <= sandRugged && slope < sand.slope) {
+      const soft = 1 - rugged / sandRugged;
       const inland = -sampleField(offshore, x, z);
       if (inland <= sand.reach * (sand.floor + (1 - sand.floor) * soft)) return "sand";
     }

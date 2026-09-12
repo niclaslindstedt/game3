@@ -42,6 +42,7 @@ export type BirdCall = {
 /** The roster's voices, or null for a bird that keeps quiet: the cormorant
  * grunts only at its nest, and the eagle's thin yelp is a thing a coast
  * hears a few times a year — its silence over the water is the character.
+ * Both coasts' birds are in one table, because a bank id is a bank id.
  * The rates are a colony's, not a textbook's: the gull is the everyday
  * racket, the tern the shrillest, the raft a murmur, and the skeins call
  * to hold their line. */
@@ -61,6 +62,16 @@ export const BIRD_CALLS: Readonly<Record<BirdId, BirdCall | null>> = {
   goose: { sound: "goose_honk", airborne: 8, perched: 1, ref: 60, reach: 520 },
   swan: { sound: "swan_whoop", airborne: 4, perched: 1, ref: 70, reach: 600 },
   crane: { sound: "crane_bugle", airborne: 3, perched: 0.5, ref: 80, reach: 700 },
+  // The mangrove coast: the pelican is silent as an adult, the spoonbill
+  // and the frigatebird all but — their quiet over the flats is that
+  // coast's character as the eagle's is the taiga's. The osprey whistles,
+  // the egret croaks as it gets up, the ibis grunts along its line.
+  pelican: null,
+  osprey: { sound: "osprey_whistle", airborne: 3, perched: 1, ref: 40, reach: 320 },
+  egret: { sound: "egret_croak", airborne: 2, perched: 0.4, ref: 30, reach: 220 },
+  ibis: { sound: "ibis_grunt", airborne: 2, perched: 1, ref: 25, reach: 160 },
+  spoonbill: null,
+  frigatebird: null,
 };
 
 /** The slot the draw is made per, s. A flock cries at most once a slot,

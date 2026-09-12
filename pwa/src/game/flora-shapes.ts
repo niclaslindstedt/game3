@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE PLANTS, BUILT. One parametric low-poly builder a form, seven of them
-// between the thirteen rows of `flora-defs.ts`, each emitting ONE
+// THE PLANTS, BUILT. One parametric low-poly builder a form, nine of them
+// across the two rosters of `flora-defs.ts`, each emitting ONE
 // flat-shaded vertex-coloured geometry through the shared `lowpoly`
 // Builder — so a species is one instanced draw call, trunk and canopy and
 // all, and gets the per-facet brightness jitter that keeps a big flat green
@@ -209,6 +209,48 @@ function blade(
   }
 }
 
+/** A FROND: a palm's leaf, going OUT from the crown and arching DOWN under
+ * its own weight — the one curve `blade` cannot make, since a blade rises.
+ * Four panels along it, widest a third of the way out and closing to a
+ * tip; painted dark at the stalk and lit toward the end, where the sun is. */
+function frond(
+  b: Builder,
+  x0: number,
+  y0: number,
+  z0: number,
+  yaw: number,
+  reach: number,
+  droop: number,
+  half: number,
+  lower: number,
+  upper: number,
+): void {
+  const dx = Math.sin(yaw);
+  const dz = Math.cos(yaw);
+  const ax = Math.cos(yaw);
+  const az = -Math.sin(yaw);
+  const knot = (t: number): { l: P; r: P } => {
+    const out = reach * t;
+    // Up a little off the crown, then down as the square of the reach.
+    const y = y0 + reach * 0.3 * t * (1 - t) * 2 - droop * t * t;
+    const w = half * (0.25 + 0.75 * Math.sin(Math.PI * Math.min(1, t * 1.15)));
+    const cx = x0 + dx * out;
+    const cz = z0 + dz * out;
+    return {
+      l: [cx - ax * w, y, cz - az * w],
+      r: [cx + ax * w, y, cz + az * w],
+    };
+  };
+  const ts = [0, 0.3, 0.6, 0.85, 1];
+  for (let i = 0; i + 1 < ts.length; i++) {
+    const a = knot(ts[i]);
+    const c = knot(ts[i + 1]);
+    const paint = mix(lower, upper, ts[i + 1]);
+    if (i + 2 === ts.length) b.tri(a.l, a.r, c.l, paint);
+    else b.quad(a.l, a.r, c.r, c.l, paint);
+  }
+}
+
 /** A clump of blades on a small disc — one instance of grass, sedge or
  * reed is a TUFT rather than a stem, which is what lets a few thousand
  * instances read as a meadow. */
@@ -389,6 +431,104 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
           seed + i * 29,
           sides,
           stacks,
+        );
+      }
+      break;
+    }
+    case "palm": {
+      // THE TRUNK leans a little off plumb — every palm on a beach does —
+      // and thins toward the crown; two stems so the lean is a curve.
+      const leanX = (wob(seed, 1) - 0.5) * s * 0.4;
+      const leanZ = (wob(seed, 2) - 0.5) * s * 0.4;
+      const knee = look.bare * 0.55;
+      stem(b, 0, 0, 0, leanX * 0.45, leanZ * 0.45, knee, 0.026, 0.02, look.stem, look.stem);
+      stem(
+        b,
+        leanX * 0.45,
+        leanZ * 0.45,
+        knee,
+        leanX,
+        leanZ,
+        look.bare,
+        0.02,
+        0.016,
+        look.stem,
+        look.stemHigh ?? look.stem,
+      );
+      // The bud the fronds come out of.
+      blob(
+        b,
+        leanX,
+        look.bare + 0.03,
+        leanZ,
+        0.05,
+        0.05,
+        0.05,
+        look.leafDark,
+        look.leafDark,
+        seed,
+        5,
+        2,
+      );
+      // THE CROWN: `stems` fronds radiating from the bud, each reaching
+      // `spread` out and drooping under its own weight — more of them and
+      // shorter is a fan palm's round head, fewer and longer a coconut's.
+      for (let i = 0; i < look.stems; i++) {
+        const a = (i / look.stems) * Math.PI * 2 + (wob(seed + 3, i) - 0.5) * 0.5;
+        const reach = s * 0.55 * (0.8 + wob(seed + 5, i) * 0.4);
+        const droop = reach * (0.35 + wob(seed + 4, i) * 0.45);
+        frond(
+          b,
+          leanX,
+          look.bare + 0.02,
+          leanZ,
+          a,
+          reach,
+          droop,
+          s * 0.06,
+          look.leafDark,
+          look.leafLit,
+        );
+      }
+      break;
+    }
+    case "mangrove": {
+      // THE PROP ROOTS: `stems` arches from a ring on the ground, up and in
+      // to the trunk's foot at `bare`, each in two straight legs so the arch
+      // reads. The tangle of them is the whole waterline silhouette.
+      const ring = s * 0.45;
+      for (let i = 0; i < look.stems; i++) {
+        const a = (i / look.stems) * Math.PI * 2 + (wob(seed, i) - 0.5) * 0.5;
+        const d = ring * (0.7 + wob(seed + 1, i) * 0.5);
+        const x0 = Math.sin(a) * d;
+        const z0 = Math.cos(a) * d;
+        const mx = x0 * 0.6;
+        const mz = z0 * 0.6;
+        const my = look.bare * (0.45 + wob(seed + 2, i) * 0.2);
+        stem(b, x0, z0, 0, mx, mz, my, 0.011, 0.01, look.stem, look.stem, 4);
+        stem(b, mx, mz, my, x0 * 0.15, z0 * 0.15, look.bare, 0.01, 0.012, look.stem, look.stem, 4);
+      }
+      // A short trunk into the canopy's underside.
+      stem(b, 0, 0, look.bare * 0.85, 0, 0, look.bare + 0.18, 0.03, 0.02, look.stem, look.stem);
+      // THE DOME, spanning everything above `bare`: one mass and two
+      // shoulders, so a stand of them reads as a hedge with a lumpy top.
+      const mid = (look.bare + 1) / 2;
+      const rise = (1 - look.bare) / 2;
+      blob(b, 0, mid, 0, s * 0.48, rise, s * 0.48, look.leafLit, look.leafDark, seed);
+      for (let i = 0; i < 2; i++) {
+        const a = wob(seed + 13, i) * Math.PI * 2;
+        const d = s * 0.22;
+        blob(
+          b,
+          Math.sin(a) * d,
+          mid - rise * 0.15,
+          Math.cos(a) * d,
+          s * 0.32,
+          rise * 0.68,
+          s * 0.32,
+          look.leafLit,
+          look.leafDark,
+          seed + 17 + i * 5,
         );
       }
       break;

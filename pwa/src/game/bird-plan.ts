@@ -90,7 +90,7 @@ import {
   type Home,
 } from "./bird-defs.ts";
 import { NIGHT_BELOW } from "./daylight.ts";
-import { FLORA } from "./flora-defs.ts";
+import { FLORA, PERCH_TREES } from "./flora-defs.ts";
 import { planFlora } from "./flora-plan.ts";
 import { FLORA_SCALE } from "./settings-video.ts";
 
@@ -399,7 +399,7 @@ export function treePerches(level: Level): Roost[] {
   const spots = planFlora(level, FLORA_SCALE.sparse);
   const perches: Roost[] = [];
   FLORA.forEach((spec, s) => {
-    if (!["pine", "spruce", "birch", "aspen"].includes(spec.id)) return;
+    if (!PERCH_TREES.includes(spec.id)) return;
     for (const p of spots[s]) {
       if (p.h < PERCH_TREE) continue;
       perches.push({ kind: "tree", x: p.x, z: p.z, y: p.y + p.h * PERCH_CROWN });
@@ -482,6 +482,7 @@ export function planBirds(level: Level, perches: readonly Roost[] = treePerches(
   };
 
   for (const spec of BIRDS) {
+    if (!spec.biomes.includes(level.biome)) continue;
     if (spec.home === undefined || spec.perKm <= 0) continue;
     if (!spec.seasons.includes(level.season)) continue;
     const want = flockCount(rng, spec.perKm, km);
@@ -538,6 +539,7 @@ export function planBirds(level: Level, perches: readonly Roost[] = treePerches(
   // What CROSSES this season, each bird repeated by its share.
   const crossers: BirdId[] = [];
   for (const spec of BIRDS) {
+    if (!spec.biomes.includes(level.biome)) continue;
     if (!spec.passage || !spec.passes.includes(level.season)) continue;
     for (let i = 0; i < spec.passage.share; i++) crossers.push(spec.id);
   }

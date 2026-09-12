@@ -109,7 +109,7 @@ So, for any ask:
    which is the entire point of having built it first.
 
 A property that genuinely cannot be measured — "does this shore look like the
-Bothnian coast" — is what `make level` and the screenshots are for. Say so out
+taiga coast" — is what `make level` and the screenshots are for. Say so out
 loud when that is the answer, rather than inventing a number that stands in
 for it badly; a check measuring a proxy nobody believes is worse than no
 check, because it will be optimised against.
@@ -122,7 +122,7 @@ check, because it will be optimised against.
 | --- | --- |
 | `types.ts` | **The level as everyone else sees it.** `Level`, `Gate`, `Ramp`, `Solid`, `Course`, `Wind`, `WaterBody`. Shared with the craft, the collision engine, the renderer and the labs — an exported shape here is changed with the orchestrator told first. |
 | `rules.ts` | **The rule book.** Every constraint and vocabulary number as DATA, each an R-rule stated once and mirrored verbatim in `docs/level-generator.md`. Tuning the generator means editing this file. |
-| `biomes.ts` | **The countries.** One row per `BiomeId`: what the shore is made of, the relief, the water's density and temperature band, the wind band. Only `taiga` is built; the other ids are reserved so a seed never re-rolls when a country is added. Nothing else in `mapgen/` names a country. |
+| `biomes.ts` | **The coasts.** One row per `BiomeId`: what the shore is made of, the relief, how much of the waterline is beach, the water's density and temperature band, how big a sea its wind grows and how much swell reaches it, its skies, its sea life. `taiga` and `mangrove` are built; the other ids are reserved so a seed never re-rolls when a coast is added. Nothing else in `mapgen/` names a biome, and nothing anywhere names a place. |
 | `route.ts` | **THE RACING LINE, drawn first (R24), and the OCEAN LEG in it (R25).** A free walk in the plane with bounded curvature that turns, doubles back and steers away from itself. Everything else in a level is built around it. |
 | `river.ts` | **The water that runs on past the race (R26).** A meandering walk inland from the most inland station of the route, thinning from the corridor's own half-width to a creek nothing can ride. Stamped into the same field as the route, so nothing downstream knows it is not the route. |
 | `basin.ts` | **The water carved round it (R15)** — the corridor, the open sea, the islands cut out of both — baked into ONE signed `offshore` field, plus `traceCoast`, which is where `Level.shore`'s coastlines come from. |
@@ -161,13 +161,13 @@ cheaper.
 ## The rules of the shore
 
 The generator's job is not just legality, it is PLAUSIBILITY — a level has to
-read as a stretch of Bothnian coast somebody laid a course along. Each of
+read as a stretch of skerry coast somebody laid a course along. Each of
 these is also a CHECK, which is the point: a rule that is only prose gets
 undone by the next tuning pass without anybody noticing.
 
 - **The shore is the level; the land is a backdrop.** Land is only meaningful
   within ~100 m of the shore, is clamped low (≤ ~25 m) and fades to a plateau
-  beyond — no towering cliffs; this is the Baltic, not a fjord (that is a
+  beyond — no towering cliffs; this is a low skerry coast, not a fjord (that is a
   reserved biome). → the land-extent check
 - **The course follows the shore, within reach of it.** Every gate within 100
   m of the shoreline (`offshore ≤ 100`), the path staying 15–100 m out, so
@@ -193,9 +193,9 @@ before reaching for a number.
 
 ## The knobs
 
-A COUNTRY first (`biome`, only `taiga` today), then what a seed draws for
+A COAST first (`biome`: `taiga` or `mangrove`), then what a seed draws for
 itself: the wind (2–12 m/s, seaward-biased), the hour, the water's
-temperature (8–18 °C for the taiga) and density (1005 — brackish). None of
+temperature (the biome's band for the season) and density (the biome's). None of
 these is a slider anybody was asked about; they say which DAY on which COAST a
 seed is, and `generateLevel(seed, opts?)` carries them on the `Level`.
 
@@ -287,8 +287,8 @@ undoes it without knowing it was ever a rule.
   sea — grows with it. That is what the sim sweep is for.
 - **Levels must stay finishable by all four craft.** `tests/simulation_test.ts`
   is the contract.
-- **A COUNTRY change is gated by its biome row.** Everything a new or changed
-  country asks of the generator is a field on its `biomes.ts` row that the
+- **A COAST change is gated by its biome row.** Everything a new or changed
+  coast asks of the generator is a field on its `biomes.ts` row that the
   taiga's row holds at its neutral value, so no taiga seed re-rolls. Prove it
   rather than trust it: digest the corpus's seeds on `origin/main` and on the
   branch (a worktree with `node_modules` symlinked), and diff.

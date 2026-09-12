@@ -13,6 +13,13 @@ import { formatScore, formatTime } from "../lib/util.ts";
 /** The class ladder's words, by the multiple each rung is. Novice is the
  * detuned ski a rider is handed first; stock is the roster as the catalog
  * tunes it; limited and open are the paddock's own two steps above it. */
+/** The coasts' words on the card, by biome id. The engine's row carries a
+ * longer name ("Taiga coast"); the card wants the one word that names it. */
+const COAST_NAMES: Record<string, string> = {
+  taiga: "TAIGA",
+  mangrove: "MANGROVE",
+};
+
 const CLASS_NAMES: Record<string, string> = {
   "0.75": "NOVICE",
   "1": "STOCK",
@@ -237,6 +244,12 @@ export const STRINGS = {
    * the craft card asks what rides it. */
   startTitle: "THE RUN",
   startSub: "Your shore, and the day you want it in",
+  /** Which coast the shore is built on — the biome. One word a rung, off
+   * the engine's own id, because the row is a ladder like the others. */
+  startCoast: "COAST",
+  startCoastHint:
+    "The kind of coast the seed builds — a cold skerry shore of granite and pine, or a warm flat one of white sand and mangrove",
+  coastName: (id: string): string => COAST_NAMES[id] ?? id.toUpperCase(),
   startShore: "SHORE",
   startShoreHint: "The seed the whole coast is built from — type one in to ride somebody else's",
   startTime: "TIME",
@@ -304,10 +317,12 @@ export const STRINGS = {
   windCalm: "CALM",
   windBrisk: "BRISK",
   windStorm: "STORM",
-  /** The skies, lightest first — R19's own five, in the engine's order.
-   * Plain-weather words for ids that are art direction's: `high` is a thin
-   * sheet up there, `overcast` is the dry lid, `rain` is that lid falling. */
+  /** The skies, lightest first — R19's own six, in the engine's order.
+   * Plain-weather words for ids that are art direction's: `haze` is a warm
+   * coast's white morning, `high` is a thin sheet up there, `overcast` is
+   * the dry lid, `rain` is that lid falling. */
   skyClear: "CLEAR",
+  skyHaze: "HAZE",
   skyHigh: "HIGH CLOUD",
   skyOvercast: "CLOUDY",
   skyRain: "RAINY",

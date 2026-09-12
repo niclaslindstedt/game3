@@ -17,9 +17,12 @@ import type { FaunaId } from "../game/defs/fauna.ts";
 import type { Heightfield } from "../lib/heightfield.ts";
 import type { Season } from "../lib/solar.ts";
 
-/** The countries the shore can belong to. Only `taiga` is built; the rest are
- * the names the campaign will need, reserved so an id never changes. */
-export type BiomeId = "taiga" | "archipelago" | "fjord" | "atoll" | "delta" | "arctic";
+/** The BIOMES a shore can belong to. Two are built — the taiga, the coast
+ * every rule was written against, and the mangrove, the warm one — and the
+ * rest are the names the campaign will need, reserved so an id never
+ * changes. A biome is a kind of coast, never a place: nothing in this tree
+ * names a country, a sea or a shore that exists. */
+export type BiomeId = "taiga" | "mangrove" | "archipelago" | "fjord" | "atoll" | "delta" | "arctic";
 
 /** What the ground is made of where a point of shore stands. */
 export type Surface = "bedrock" | "rock" | "sand" | "water";
@@ -35,7 +38,7 @@ export type TrackKind = "coast" | "circuit";
 
 /** What to build and how hard to try. */
 export type GenerateOptions = {
-  /** Defaults to the taiga, the one country built. */
+  /** Defaults to the taiga, the coast every rule was written against. */
   biome?: BiomeId;
   /** R29 — which chapter of the rule book to build to; defaults to
    * `coast`. */
@@ -56,12 +59,16 @@ export type GenerateOptions = {
   attempts?: number;
 };
 
-/** THE SKY a level is ridden under (R19). Five, and they are five different
- * skies rather than one sky at five densities: the first two are OPEN — a
+/** THE SKY a level is ridden under (R19). Six, and they are six different
+ * skies rather than one sky at six densities: the first three are OPEN — a
  * gradient with cloud floating in it — and the last three have a LID, a
  * ceiling whose underside is most of what the rider can see overhead.
  *
  *   clear     open blue, a handful of fair-weather cumulus.
+ *   haze      open, and WHITE with it: a humid morning over warm water, the
+ *             blue washed out to milk, the horizon gone soft, the sun a
+ *             glare rather than a disc — the sky a warm coast is under
+ *             most summer days, and one a cold coast never offers.
  *   high      open, with a high sheet across it: the light softened, the
  *             blue paler, the sun still a disc.
  *   overcast  a dry stratus lid, flat and high, the light shadowless.
@@ -73,7 +80,7 @@ export type GenerateOptions = {
  *
  * The word is drawn per seed from the biome's own chart; how HEAVY that sky
  * is comes from the level's wind (`weather.ts`). */
-export type Weather = "clear" | "high" | "overcast" | "rain" | "squall";
+export type Weather = "clear" | "haze" | "high" | "overcast" | "rain" | "squall";
 
 /** R31 — THE LIGHT ON A BUOY, as a chart quotes one: `flashes` of them in
  * a group, one group every `period` seconds, and a `phase` of its own so
@@ -209,7 +216,7 @@ export type Wind = {
 };
 
 /** The water itself. Density is kg/m³ (fresh 1000, brackish ~1005, sea
- * ~1025 — the Baltic taiga coast is brackish); temperature °C is what the
+ * ~1025 — the taiga coast is brackish, the mangrove salt); temperature °C is what the
  * fauna is drawn against (R20) — a species is met only in water inside its
  * own band — and what the spray will read later. */
 export type WaterBody = {

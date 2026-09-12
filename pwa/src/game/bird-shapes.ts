@@ -81,6 +81,46 @@ export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
     bill: 0x9c9a8a,
     legs: 0x2a2d30,
   },
+  // ── The mangrove coast ────────────────────────────────────────────────
+  // Grey-brown all over and dark beneath, with the pale head and the long
+  // horn-coloured bill: the one big bird here that is not white.
+  pelican: { back: 0x6a6259, belly: 0x58514a, tip: 0x2a2723, head: 0xe8e0c8, bill: 0x8a7a5a },
+  // Dark above and WHITE below, which from the water is the whole bird —
+  // a white M with dark wrists.
+  osprey: { back: 0x4a3f36, belly: 0xf0f0ea, tip: 0x2a2420, head: 0xf0f0ea, bill: 0x2a2420 },
+  // White to the tips, a yellow bill, black legs trailing.
+  egret: {
+    back: 0xf6f6f2,
+    belly: 0xf6f6f2,
+    tip: 0xefefe8,
+    head: 0xf6f6f2,
+    bill: 0xe0b23a,
+    legs: 0x1f1f1f,
+  },
+  // White with BLACK WINGTIPS — the one mark that tells an ibis from an
+  // egret at range — and the red curved bill and legs.
+  ibis: {
+    back: 0xf4f4f0,
+    belly: 0xf4f4f0,
+    tip: 0x1a1a1a,
+    head: 0xf4f4f0,
+    bill: 0xe07a5a,
+    legs: 0xe07a5a,
+  },
+  // PINK. The only bird in the game that is, carmine at the shoulder and
+  // paler beneath, with the bare greenish head and the grey spoon.
+  spoonbill: {
+    back: 0xf2a0b0,
+    belly: 0xf6c0c8,
+    tip: 0xc84f66,
+    head: 0xd8d0b8,
+    bill: 0x8a8878,
+    legs: 0xc85a6a,
+  },
+  // Black, with the white breast the females and the young carry — which
+  // is what shows from below, and what keeps it from being a silhouette
+  // with nothing to read.
+  frigatebird: { back: 0x141416, belly: 0xe0e0dc, tip: 0x101012, head: 0x141416, bill: 0x8a8a84 },
 };
 
 /** How far back the ARM sweeps at the shoulder and the HAND at the wrist

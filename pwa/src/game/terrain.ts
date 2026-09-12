@@ -1,9 +1,11 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE SHORE, DRAWN. One mesh per chunk off `level.ground` — the engine's
 // own heightfield, so the beach the hull grounds on is the beach that is
-// drawn — coloured per vertex by `level.materialAt`: granite grey bedrock,
-// the darker boulder fields, ochre sand on the beaches, and the sea bed a
-// dark olive that the water tints where it shows through the shallows.
+// drawn — coloured per vertex by `level.materialAt` in the COAST's own
+// paint (`shore-paint.ts`): on the taiga granite grey bedrock, the darker
+// boulder fields, ochre sand on the beaches, and the sea bed a dark olive
+// that the water tints where it shows through the shallows; on the
+// mangrove a pale marl shelf, white sand and a bottom of sand and seagrass.
 // Flat-shaded, so the low-poly facets read as slabs of rock rather than as
 // a smooth blanket.
 //
@@ -36,9 +38,9 @@
 import * as THREE from "three";
 import { fieldGradient, hash2, sampleField, type Level, type Surface } from "@engine";
 
-import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import { TREE_LINE } from "./flora-defs.ts";
+import { shorePaintOf, type ShorePaint } from "./shore-paint.ts";
 import { seaHaze, seaTones, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 
 /** Chunk edge, m — big enough that a frame holds a handful, small enough
@@ -49,32 +51,41 @@ const CHUNK = 256;
 const SKIRT = 640;
 const SKIRT_CELL = 32;
 
-const c = (hex: string): THREE.Color => new THREE.Color(hex);
-const GRANITE = c(PALETTE.granite);
-const BOULDER = c(PALETTE.graniteDark);
-const SAND = c(PALETTE.sand);
-/** Wet sand — the strip the water is still working. Sand goes DARKER and
- * browner wet, where rock goes grey, and painting both with one wet band
- * is what makes a beach look like a stone slab with sand printed on it. */
-const SAND_WET = new THREE.Color(0x8f7345);
-/** The bottom in front of a beach: pale, which is what the shallows over it
- * take their colour from. */
-const SAND_BED = new THREE.Color(0xbda878);
-/** The sea bed where the eye still reaches it: dark olive. What it goes to
- * with depth is the COAST's (`WaterOptics.bed`), and the haze below is the
- * one place the bottom darkens — there is no second ramp. */
-const BED = new THREE.Color(0x3a4a34);
-/** The wet band at the waterline, where the rock is darker. */
-const WET = new THREE.Color(0x646a70);
-/** The forest floor under the wood. Held to the same line the trees
- * themselves stop at (`flora-defs.ts`), because a shore whose paint and
- * whose trees disagree about where the wood ends is a shore with a green
- * band of nothing above its treetops. */
-const FLOOR = c(PALETTE.pineDark);
-/** How far out from the shore the bed still remembers what the beach in
- * front of it is made of, m. Past this the water is deep enough that its
- * own colour-by-depth is all anybody sees. */
-const BED_REACH = 45;
+/** A coast's shore paint as colours, made once per coast: the hexes are
+ * `shore-paint.ts`'s, and this is the one place they become `THREE.Color`. */
+type Paint = {
+  bedrock: THREE.Color;
+  boulder: THREE.Color;
+  sand: THREE.Color;
+  sandWet: THREE.Color;
+  sandBed: THREE.Color;
+  bed: THREE.Color;
+  wet: THREE.Color;
+  floor: THREE.Color;
+  row: ShorePaint;
+};
+
+const paints = new WeakMap<ShorePaint, Paint>();
+
+function paintOf(row: ShorePaint): Paint {
+  let p = paints.get(row);
+  if (!p) {
+    const c = (hex: string): THREE.Color => new THREE.Color(hex);
+    p = {
+      bedrock: c(row.bedrock),
+      boulder: c(row.boulder),
+      sand: c(row.sand),
+      sandWet: c(row.sandWet),
+      sandBed: c(row.sandBed),
+      bed: c(row.bed),
+      wet: c(row.wet),
+      floor: c(row.floor),
+      row,
+    };
+    paints.set(row, p);
+  }
+  return p;
+}
 
 /** What the shore a SUBMERGED point sits off is made of: one step landward
  * along the offshore field's own gradient — which points out to sea — lands
@@ -95,6 +106,7 @@ const scratch = new THREE.Color();
 function paint(
   level: Level,
   optics: WaterOptics,
+  p: Paint,
   x: number,
   z: number,
   h: number,
@@ -102,28 +114,32 @@ function paint(
   out: THREE.Color,
 ): void {
   const offshore = sampleField(level.offshore, x, z);
+  const reach = p.row.bedReach;
   if (h < 0) {
-    out.copy(BED);
-    if (offshore < BED_REACH && shoreKindOff(level, x, z, offshore) === "sand") {
+    out.copy(p.bed);
+    if (offshore < reach && shoreKindOff(level, x, z, offshore) === "sand") {
       // Strongest right off the beach and gone by the time the bottom is
       // out of sight, both across the shallows and down them.
-      out.lerp(SAND_BED, clamp(1 + h / 3.5, 0, 1) * clamp(1 - offshore / BED_REACH, 0, 1) * 0.9);
+      out.lerp(p.sandBed, clamp(1 + h / 3.5, 0, 1) * clamp(1 - offshore / reach, 0, 1) * 0.9);
     }
   } else if (kind === "sand") {
-    out.copy(SAND).lerp(SAND_WET, clamp(1 - h / 0.7, 0, 0.85));
+    out.copy(p.sand).lerp(p.sandWet, clamp(1 - h / 0.7, 0, 0.85));
   } else {
-    out.copy(kind === "rock" ? BOULDER : GRANITE);
+    out.copy(kind === "rock" ? p.boulder : p.bedrock);
     // Bedrock lightens as it climbs, boulders sit darker in the cracks.
     out.lerp(scratch.set(0xffffff), clamp(h / 40, 0, 0.18));
     // The waterline's wet band.
-    out.lerp(WET, clamp(1 - h / 0.9, 0, 0.8));
+    out.lerp(p.wet, clamp(1 - h / 0.9, 0, 0.8));
     // The forest floor once the shore is behind, and only up to the tree
     // line: a boulder field stays what it is, and a hill stands bare over
-    // the wood.
+    // the wood. Where the wood starts is the coast's own (`floorFrom`,
+    // `floorAbove`): a mangrove stands at the waterline.
     if (kind === "bedrock") {
       const inland = -offshore;
-      const wooded = clamp((inland - 22) / 40, 0, 0.75) * clamp((h - 1.2) / 3, 0, 1);
-      out.lerp(FLOOR, wooded * clamp(1 - (h - TREE_LINE) / 8, 0, 1));
+      const [above, over] = p.row.floorAbove;
+      const wooded =
+        clamp((inland - p.row.floorFrom) / 40, 0, 0.75) * clamp((h - above) / over, 0, 1);
+      out.lerp(p.floor, wooded * clamp(1 - (h - TREE_LINE) / 8, 0, 1));
     }
   }
   // A little speckle so a flat slab is not one flat colour, and the
@@ -144,6 +160,7 @@ function paint(
 function buildChunk(
   level: Level,
   optics: WaterOptics,
+  p: Paint,
   x0: number,
   z0: number,
   x1: number,
@@ -164,7 +181,7 @@ function buildChunk(
       positions[k] = x;
       positions[k + 1] = h;
       positions[k + 2] = z;
-      paint(level, optics, x, z, h, h < 0 ? "water" : level.materialAt(x, z), color);
+      paint(level, optics, p, x, z, h, h < 0 ? "water" : level.materialAt(x, z), color);
       colors[k] = color.r;
       colors[k + 1] = color.g;
       colors[k + 2] = color.b;
@@ -194,6 +211,7 @@ export function createTerrain(level: Level): THREE.Group {
   const b = level.bounds;
   const cell = level.ground.cell;
   const optics = waterOpticsOf(level.biome);
+  const p = paintOf(shorePaintOf(level.biome));
   // Inside the bounds, at the level's own cell.
   for (let z = b.minZ; z < b.maxZ; z += CHUNK) {
     for (let x = b.minX; x < b.maxX; x += CHUNK) {
@@ -201,6 +219,7 @@ export function createTerrain(level: Level): THREE.Group {
         buildChunk(
           level,
           optics,
+          p,
           x,
           z,
           Math.min(x + CHUNK, b.maxX),
@@ -215,10 +234,10 @@ export function createTerrain(level: Level): THREE.Group {
   const X1 = b.maxX + SKIRT;
   const Z0 = b.minZ - SKIRT;
   const Z1 = b.maxZ + SKIRT;
-  group.add(buildChunk(level, optics, X0, Z0, X1, b.minZ, SKIRT_CELL));
-  group.add(buildChunk(level, optics, X0, b.maxZ, X1, Z1, SKIRT_CELL));
-  group.add(buildChunk(level, optics, X0, b.minZ, b.minX, b.maxZ, SKIRT_CELL));
-  group.add(buildChunk(level, optics, b.maxX, b.minZ, X1, b.maxZ, SKIRT_CELL));
+  group.add(buildChunk(level, optics, p, X0, Z0, X1, b.minZ, SKIRT_CELL));
+  group.add(buildChunk(level, optics, p, X0, b.maxZ, X1, Z1, SKIRT_CELL));
+  group.add(buildChunk(level, optics, p, X0, b.minZ, b.minX, b.maxZ, SKIRT_CELL));
+  group.add(buildChunk(level, optics, p, b.maxX, b.minZ, X1, b.maxZ, SKIRT_CELL));
   return group;
 }
 

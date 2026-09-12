@@ -73,3 +73,23 @@ export function circuitAnalysisFor(seed: number): LevelAnalysis {
   }
   return hit;
 }
+
+/** THE MANGROVE CORPUS: the second coast, kept apart from the taiga's the
+ * way the circuit's is, because every roster — the water's, the shore's,
+ * the cover's, the birds', the sea life's — is a claim about ONE coast and a
+ * suite asserting the taiga's palms is asserting nothing. Fewer seeds than
+ * the taiga's: the rules are the same rule book and the taiga corpus is
+ * where they are held; what this corpus holds is the coast's own rows. */
+export const MANGROVE_SEEDS: readonly number[] = Array.from({ length: 4 }, (_, i) => i * 41 + 5);
+
+const mangroves = new Map<number, Level>();
+
+/** The mangrove level for a seed, built once. Read-only, as `levelFor`'s is. */
+export function mangroveFor(seed: number): Level {
+  let hit = mangroves.get(seed);
+  if (hit === undefined) {
+    hit = generateLevel(seed, { biome: "mangrove" });
+    mangroves.set(seed, hit);
+  }
+  return hit;
+}
