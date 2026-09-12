@@ -32,6 +32,8 @@ export {
   type GamePhase,
   type GameState,
   type Progress,
+  type TrickKind,
+  type TrickState,
 } from "./game/state.ts";
 export {
   CRAFT,
@@ -73,7 +75,7 @@ export {
   type FaunaPose,
 } from "./game/fauna.ts";
 export { freshDamage, type CraftDamage } from "./game/damage.ts";
-export { NO_TRICKS, type TrickScore } from "./game/tricks.ts";
+export { airPointsPerSecond, freshTricks, stepTricks } from "./game/tricks.ts";
 
 // THE SEA (water.ts): the field, the surface at a point, and the numbers
 // that describe it.

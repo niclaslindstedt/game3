@@ -1,15 +1,23 @@
 ---
-title: Every corner of this HUD is spoken for — a new READOUT joins the top-right cluster, a new PRESS has to buy its corner, and the build corner is never the spare one
+title: Every corner of this HUD is spoken for — a new READOUT joins the column its SUBJECT already lives in, a new PRESS has to buy its corner, and the build corner is never the spare one
 date: 2026-09-09
 scope: pwa/src/game/hud.tsx, pwa/src/styles.css
 concepts: [layout, portrait, placement, overlays]
 ---
 
-The census: the clock and the gate count top-left, the wind vane and the
-minimap top-right, the rev bar, the speed and the build stamp bottom-left,
-the news column bottom-right — and on a phone the lower three fifths is the
-two thumb zones. A new READOUT therefore joins `.hud-topright`, the one
-cluster with slack above both zones.
+The census: the clock, the gate count, the WIND VANE and the SUN'S CLOCK in
+the top-left column (`.hud-top` — the run's facts, stacked); the minimap,
+the three presses and the diagnostics top-right (`.hud-topright`); the air
+clock top-CENTRE (`.hud-air`, which appears only in flight); the rev bar,
+the speed and the build stamp bottom-left; the news column bottom-right —
+and on a phone the lower three fifths is the two thumb zones.
+
+A new READOUT joins the column whose SUBJECT it shares, and for a fact about
+the RUN that is `.hud-top`: it stacks downward with slack to spare at 390 px
+portrait, where `.hud-topright` is the crowded one. The trick score's total
+went there, under the sun clock, and the combo it comes from went into
+`.hud-air` beside the seconds that earned it. Shoot both viewports before
+believing any of this — the census moves.
 
 A new PRESS is the harder call, and the bottom-right corner is available to
 one if it is worth the glass: the new-build mark lives there at the foot of

@@ -205,6 +205,17 @@ function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null
       return { text: STRINGS.hit, tone: "bad" };
     case "ground":
       return { text: STRINGS.grounded, tone: "bad" };
+    // A TRICK, named as it completes. The combo tile over the nose already
+    // says what the run is worth and what it is being multiplied by; what
+    // it cannot say is WHICH trick bought the rung, and the name is half of
+    // what a rider is chasing.
+    case "trick":
+      return { text: STRINGS.trick(e.spins, e.trick === "backflip", e.mult), tone: "good" };
+    // ...and the combo thrown away. The BANKED half gets no line: the tile
+    // holds the figure for a moment and the score chip takes it. A bail is
+    // the one end the rider misses, because by then he is upside down.
+    case "bail":
+      return { text: STRINGS.bailed(e.lost), tone: "bad" };
     case "land":
       // THE RECORD IS THE BETTER NEWS. A landing that took the run's
       // longest flight is called out as one; every other flight that

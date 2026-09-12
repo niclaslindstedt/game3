@@ -253,6 +253,36 @@ Three terms, and the design is in what is NOT among them:
 
 The ladder flattens between 0.5 and 0.75 and then opens again: at 1 the hand is firm enough to hold a hull that climbed on properly sideways, which is a save a rider has not earned. The shipped default is **0.6** — past the knee, well short of that, and higher than the air's 0.5 because the two hands are not spending the same thing: the air's rotates a hull the rider can see it rotate, while this one takes a slide out of half a second on a deck and is invisible when it is not needed. Like the air's it is read and never written during a run and draws no randomness, so a run replays identically at any setting.
 
+## The score (`tricks.ts`)
+
+The clock is the race. The SCORE is the other game on the same water, and it pays for the parts of a run the clock has no opinion about: the time the hull spends off the water, and the revolutions it turns nose-over-tail while it is up there. Every number is `TUNING.tricks`, and every one of them is an arcade dial — none is measured against anything, and what they are chosen against is the LADDER they make between one flight and the next.
+
+**Air time pays by the second, at a rate that rises with the flight.** `airPointsPerSecond(t) = airRate · log2(1 + t / airKnee)` — 100 points a second one knee (1 s) into a flight, half again that at three seconds, about four and a half times it at twenty. A flight's whole purse is that rate integrated over it, which grows rather faster than the flight does:
+
+| Flight | Rate at the end | Purse                                             |
+| ------ | --------------- | ------------------------------------------------- |
+| 0.5 s  | 58 pts/s        | 0 — under `flight.airCounts`, not air time at all |
+| 1 s    | 100 pts/s       | 40                                                |
+| 2 s    | 158 pts/s       | 172                                               |
+| 5 s    | 258 pts/s       | 815                                               |
+| 20 s   | 439 pts/s       | 6 324                                             |
+
+(The purse is the rate integrated from the counting line, which is where the ticking starts — so the first half-second of every flight is free.) Twenty times the flight is a hundred and fifty-seven times the money, and the rate itself never runs away. That is the shape the whole thing is for: a rider clearing a two-metre chop is not doing what a rider going over the top of a storm sea is doing, and a score that paid them alike per second would say he was. Nothing ticks below `flight.airCounts` (0.5 s) — a hull skipping off a crest did not go anywhere, and in a head sea it does that a fifth of the steps.
+
+**A revolution raises the multiplier, and the next one raises it more.** The rotation is the body pitch rate summed while aloft (`−wx · dt`, the same reading `flight_test` measures a backflip with) — the flip axis whatever attitude the hull is in, and a sum that comes to nothing in chop, so a hull being thrown about cannot accumulate a flip. Each whole turn is scored the instant it closes, in the air: the Nth revolution of a flight is worth `N · flipPoints` of base and `N` steps of multiplier, the multiplier starting at 1.
+
+| Flight            | Base            | Multiplier | Combo |
+| ----------------- | --------------- | ---------- | ----- |
+| 2 s, flat         | 172             | ×1         | 172   |
+| 2 s + backflip    | 172 + 300       | ×2         | 944   |
+| 4 s + double flip | 569 + 300 + 600 | ×4         | 5 876 |
+
+A double is ×4 rather than ×3 on purpose: it is not two backflips, it is one much harder trick that happens to be measured in revolutions, and the ladder has to say so or nobody goes for the second one.
+
+**Nothing is banked until the combo closes.** The base and the multiplier ride together while the hull is up and for `linkWindow` (1 s) after it comes down, so a landing straight into the next launch is ONE combo at one multiplier rather than two small ones. The window running out with the rider still on the craft banks `base × mult` into `tricks.score` and emits `combo`. Going over the bars does not: a `capsize`, a `dive` (the bow buried on the landing — the same mistake at the other end of the flight) or the rider putting himself back at a gate emits `bail` and the combo is gone. A `hit` is not a bail — a hull glancing off a skerry is still under its rider.
+
+The engine only says what happened. `trick`, `combo` and `bail` are the events, `GameState.tricks` is the state a readout reads, and nothing here draws or draws randomness — a run replays to the same score.
+
 ## Contacts (`collision.ts`)
 
 - **Ground and ramps** are penalty contacts on the probes: a probe under the surface is pushed back along the surface's normal by a spring `contact.stiffness` = 90 000 N/m and a damper `damping` = 3200 N·s/m per probe (stiff enough that a hull riding a ramp sinks millimetres, damped near critical — and the reason the engine runs at 120 Hz: 60 cannot follow that spring), with Coulomb friction against the tangential slide, `groundFriction` = 0.45 on rock and sand, `rampFriction` = 0.08 on a wet deck. The ground's normal is the heightfield's gradient. A ramp is a plane hinged at the water at its rear edge (`(x, z)` is the HINGE — the one statement of the anchor is `rampSurface` in `mapgen/course.ts`; `rampDeckY` here is the same line), rising `angle` toward its front, with a submerged approach lip half its length behind the hinge so a hull slides onto it rather than hitting a step. A ramp is therefore a WEDGE rather than a plane: under the deck stand three walls — the two flanks, and the end wall under the lip — and the hinge end, where the deck meets the water, is the one side a hull may ride on from. A probe more than `rampWallBelow` = 0.3 m under the deck (measured normal to it) did not sink through the deck; it came in through whichever wall is the SHALLOWEST way back out of the wedge, and is pushed out through that one, horizontally, by its overlap, with the ground's friction and no cap (a wall has to stop a hull). Under that depth the probe is riding the deck, which is what lets a hull grazing the ramp near its hinge — where the deck stands centimetres up — climb aboard rather than be deflected. A deep probe far from every wall is a hull slammed onto the MIDDLE of the deck, and the deck pushes back, capped at `rampDeckCap` = 20 000 N a probe. Only a deck contact sets `onRamp`; a wall push does not. The end wall is what makes riding at a ramp from downrange a crash instead of a launch: the deck's normal points UP, so a hull meeting a deck two metres over its head through the lip's end face was thrown the height of the lip's penetration — tens of metres, tumbling.
@@ -326,6 +356,9 @@ Each is read off the step, never declared, and each carries `t`; `docs/architect
 | `ground`  | A ground contact closing at over 0.4 m/s, at most every `contact.groundCooldown` = 0.5 s.                                                                                                                                | `craft.ts` off `contactForces`    |
 | `hit`     | A solid met with the closing speed or the craft's speed ≥ `contact.hitSpeed` = 1 m/s, at most every `contact.hitCooldown` = 0.35 s.                                                                                      | `collision.ts` (`clipSolids`)     |
 | `reset`   | The reset input was taken while running; the craft is stood by `standCraft`.                                                                                                                                             | `course.ts` (`resetCraft`)        |
+| `trick`   | A whole revolution closed in the air — the Nth of this flight. Carries `trick`, `spins`, the `points` it added and the `mult` the combo now stands at.                                                                   | `tricks.ts`                       |
+| `combo`   | The link window (`tricks.linkWindow` = 1 s) ran out with the rider still on the craft; `points` = `base × mult` went into `tricks.score`.                                                                                | `tricks.ts`                       |
+| `bail`    | The combo was thrown away by a `capsize`, a `dive` or a reset; `lost` is what it would have been worth.                                                                                                                  | `tricks.ts`, `step.ts` on a reset |
 
 `gate`, `airGate`, `missedGate` and `finish` are the course's (`stepCourse`), on the move the step made.
 
@@ -347,7 +380,7 @@ No handbrake and no gears, and the one brake is the BUCKET rather than a pedal: 
 
 ## What holds it
 
-`tests/buoyancy_test.ts` (Archimedes, the draft, righting), `tests/craft_test.ts` (the sheet, the pump, the steering), `tests/flight_test.ts` (the arc, the landing, the dive's cost, the backflip, the quaternion algebra), `tests/tuck_test.ts` (what the tuck buys and what it costs), `tests/collision_test.ts`, `tests/course_test.ts`, `tests/place_test.ts`, `tests/simulation_test.ts` (nothing explodes; the bot finishes), `tests/determinism_test.ts`. **`make ride SCENARIO=`** (`scripts/ride-lab.mjs`) is the lab: the craft in profile every sixth of a second over the water it crossed, with speed, pitch, wetted share, rpm and air time beside each cell — required before and after any change to the hull, the planing lift, the slamming or the flight.
+`tests/buoyancy_test.ts` (Archimedes, the draft, righting), `tests/craft_test.ts` (the sheet, the pump, the steering), `tests/flight_test.ts` (the arc, the landing, the dive's cost, the backflip, the quaternion algebra), `tests/tricks_test.ts` (the score: the air's rate, a flight's purse, the revolution ladder, the combo banked and bailed), `tests/tuck_test.ts` (what the tuck buys and what it costs), `tests/collision_test.ts`, `tests/course_test.ts`, `tests/place_test.ts`, `tests/simulation_test.ts` (nothing explodes; the bot finishes), `tests/determinism_test.ts`. **`make ride SCENARIO=`** (`scripts/ride-lab.mjs`) is the lab: the craft in profile every sixth of a second over the water it crossed, with speed, pitch, wetted share, rpm and air time beside each cell — required before and after any change to the hull, the planing lift, the slamming or the flight.
 
 ## What is NOT modelled
 
@@ -361,7 +394,7 @@ No handbrake and no gears, and the one brake is the BUCKET rather than a pedal: 
 - **Porpoising** — clamped away by `clMax` rather than reproduced.
 - **The duct's own losses** — the intake's RAM DRAG is modelled (`intakeDrag`, above), but as the momentum term alone: the duct's friction and bend losses, and the lip separation of an intake being fed faster than the pump is swallowing, are not. Going ASTERN the hull is not a hull but a flat transom, and that much IS modelled: `hull.asternCd` = 1.1 against the fine end's 0.14, with no planing fade over it, which is why a craft backs up at walking pace however hard the bucket pushes.
 - **Fuel and its mass**, water in the hull, temperature effects on the water or the engine.
-- **Trick scoring** — `engine/game/tricks.ts` is a placeholder; the orientation history is already there to read.
+- **Every trick but the two that are reachable** — the score (above) pays for air time and for revolutions turned nose-over-tail, because a hull that can be thrown into a backflip is what the physics offers. A barrel roll, a hull held on its tail, a trick taken off a buoy and a landing scored for how it was taken are all the same machinery with another term in it, and none of them is written.
 
 ## Sources
 

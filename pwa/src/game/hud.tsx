@@ -17,7 +17,9 @@
 //   bottom left   the rev bar and the speed
 //   top centre    the AIR CLOCK, while the hull is off the water — the one
 //                 number a rider is trying to make go up, so it sits where
-//                 he is already looking to aim the landing
+//                 he is already looking to aim the landing — with the COMBO
+//                 under it: what the flight and the flips over it are worth
+//                 so far, and the multiplier they will be paid at
 //   bottom right  the news column — a split, a missed gate, a dive
 //
 // …and under the minimap, when they have been asked for, the DIAGNOSTICS:
@@ -152,6 +154,20 @@ export function Hud({
           <span>{hourLabel(snap.hour)}</span>
           <span class="hud-chip-sub">{STRINGS.sunClockLabel(snap.daylight)}</span>
         </div>
+        {/* THE SCORE, at the foot of the column the run's other facts live
+            in. It is a TOTAL — banked, settled, nothing riding on it — and a
+            total is read between moments, which is what this corner is for.
+            The moment itself is the combo tile over the nose.
+
+            It is keyed on the figure, so the chip is a new element every
+            time a combo banks and the beat in styles.css plays again. That
+            is the whole animation: the score does not tick up to its new
+            value, it ARRIVES at it with a thump, the way a mechanical
+            scoreboard does. */}
+        <div class="hud-chip hud-score" key={snap.score}>
+          <span>{STRINGS.score(snap.score)}</span>
+          <span class="hud-chip-sub">{STRINGS.scoreLabel}</span>
+        </div>
       </div>
 
       <div class="hud-topright">
@@ -217,19 +233,51 @@ export function Hud({
           the run's best and the moment after the landing that took it — and
           the word goes beside the clock rather than under it, so the number
           never moves off the centreline to make room for news. */}
-      {snap.airTime > 0 && (
+      {(snap.airTime > 0 || snap.combo > 0) && (
         <div
           class={`hud-air ${snap.airRecord ? "hud-air-record" : ""}`}
           style={{ "--air-grow": String(snap.airGrow) }}
         >
-          <div class="hud-air-tile">
-            <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
-            <span class="hud-chip-sub">{STRINGS.airLabel}</span>
-            {/* UNDER the unit label, at the foot of the same column: the
-                clock keeps the centreline whether the word is there or not,
-                and the tile grows DOWNWARD to make room for it. */}
-            {snap.airRecord && <span class="hud-air-best">{STRINGS.airRecordLabel}</span>}
-          </div>
+          {snap.airTime > 0 && (
+            <div class="hud-air-tile">
+              <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
+              <span class="hud-chip-sub">{STRINGS.airLabel}</span>
+              {/* UNDER the unit label, at the foot of the same column: the
+                  clock keeps the centreline whether the word is there or
+                  not, and the tile grows DOWNWARD to make room for it. */}
+              {snap.airRecord && <span class="hud-air-best">{STRINGS.airRecordLabel}</span>}
+            </div>
+          )}
+          {/* THE COMBO, under the clock and in the same column, because they
+              are one reading of one moment: the seconds the hull has been up
+              and what those seconds plus whatever it turned are worth. It
+              OUTLIVES the clock by the length of the link window — the hull
+              is back on the water and the combo is still riding on the rider
+              staying on it — which is when this line stands alone at the
+              centre and is the only thing left to read.
+
+              The MULTIPLIER is keyed on its own value, so every rung won
+              mounts a fresh element and the beat plays again. A rider who is
+              looking at the water rather than at the number still catches
+              the thump out of the corner of his eye, which is the whole job:
+              he has to know the flip counted before he has to land it. */}
+          {snap.combo > 0 && (
+            <div class={`hud-combo hud-combo-${snap.comboPhase}`}>
+              <span class="hud-combo-num">{STRINGS.comboPoints(snap.combo)}</span>
+              {snap.mult > 1 && (
+                <span class="hud-combo-mult" key={snap.mult}>
+                  {STRINGS.comboMult(snap.mult)}
+                </span>
+              )}
+              <span class="hud-chip-sub hud-combo-label">
+                {snap.comboPhase === "banked"
+                  ? STRINGS.comboBanked
+                  : snap.comboPhase === "bailed"
+                    ? STRINGS.comboBailed
+                    : STRINGS.comboLabel}
+              </span>
+            </div>
+          )}
         </div>
       )}
 

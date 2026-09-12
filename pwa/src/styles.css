@@ -1138,8 +1138,14 @@ canvas {
   position: absolute;
   top: max(0.6rem, env(safe-area-inset-top));
   left: 50%;
+  /* A COLUMN, because the combo rides under the clock rather than beside
+     it: the seconds and what they are worth are one reading taken down the
+     centreline, and a combo laid out alongside would push the clock off it.
+     Centred, so the clock keeps the centreline when the combo is not
+     there and when the combo outlives it. */
   display: flex;
-  align-items: flex-start;
+  flex-direction: column;
+  align-items: center;
   line-height: 1;
   text-align: center;
   white-space: nowrap;
@@ -1220,6 +1226,104 @@ canvas {
       0 1px 0 var(--hud-shadow),
       0 0 0.45em var(--hud-good);
   }
+}
+
+/* ── THE SCORE ─────────────────────────────────────────────────────────────
+   Two readouts of one thing, and the split is what a rider does with each.
+
+   `.hud-score` is the TOTAL, a chip at the foot of the top-left column with
+   the run's other settled facts. It is not animated except at the moment it
+   changes: hud.tsx keys the chip on the figure, so a banked combo mounts a
+   new element and this plays once. A number that crept up to its new value
+   would be read as a number still moving; one that arrives with a thump is
+   read as one that has landed.
+
+   `.hud-combo` is the MOMENT, under the air clock in the centre column,
+   riding inside `.hud-air` so it grows with the flight and shares the
+   centreline. It is the loud one because it is the one that can still be
+   taken away. */
+.hud-score {
+  animation: hud-score-bank 340ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+@keyframes hud-score-bank {
+  0% {
+    transform: scale(1);
+  }
+  35% {
+    transform: scale(1.22);
+    color: var(--hud-good);
+  }
+  100% {
+    transform: scale(1);
+  }
+}
+
+.hud-combo {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.3em;
+  margin-top: 0.3em;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--hud-good);
+  animation: hud-air-in 220ms ease-out;
+}
+
+.hud-combo-num {
+  font-size: clamp(1.25rem, 4.2vmin, 2rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+/* THE MULTIPLIER, and the BEAT. Every rung won mounts a fresh element
+   (hud.tsx keys it on the value), so this plays exactly once per rung —
+   which is the "another multiplier" the beat is for. It overshoots and
+   settles rather than pulsing forever: a rung is an event, not a state, and
+   something that kept beating would be indistinguishable from the record
+   clock breathing a line above it. */
+.hud-combo-mult {
+  font-size: clamp(1.5rem, 5vmin, 2.5rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  animation: hud-combo-beat 420ms cubic-bezier(0.16, 1.5, 0.36, 1);
+}
+
+@keyframes hud-combo-beat {
+  0% {
+    transform: scale(2.1);
+    opacity: 0.25;
+  }
+  55% {
+    transform: scale(1.12);
+    opacity: 1;
+    text-shadow:
+      0 1px 0 var(--hud-shadow),
+      0 0 0.5em var(--hud-good);
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+.hud-combo-label {
+  width: 100%;
+  text-align: center;
+}
+
+/* The two ways a combo ends. BANKED goes with the score chip's colour — it
+   is the same points, now in the corner — and BAILED turns the whole tile
+   over to the bad colour and strikes the figure through, because the number
+   still standing there is what the rider no longer has. */
+.hud-combo-bailed {
+  color: var(--hud-bad);
+}
+
+.hud-combo-bailed .hud-combo-num {
+  text-decoration: line-through;
 }
 
 /* The bottom-right corner: the news column, with the new-build mark pinned

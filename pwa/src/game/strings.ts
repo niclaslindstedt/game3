@@ -6,7 +6,7 @@
 // templates — functions of their parameters — never concatenations at the
 // call site (§39.2). Developer diagnostics are deliberately not here.
 
-import { formatTime } from "../lib/util.ts";
+import { formatScore, formatTime } from "../lib/util.ts";
 
 /** The class ladder's words, by the multiple each rung is. Novice is the
  * detuned ski a rider is handed first; stock is the roster as the catalog
@@ -17,6 +17,11 @@ const CLASS_NAMES: Record<string, string> = {
   "1.25": "LIMITED",
   "1.5": "OPEN",
 };
+
+/** What a flight's Nth revolution is called. Past a triple the count is
+ * spelled with a figure — nobody has a word for a fifth one, and a rider who
+ * gets there has earned a number rather than an adjective. */
+const SPINS: Record<number, string> = { 1: "", 2: "DOUBLE ", 3: "TRIPLE " };
 
 export const STRINGS = {
   /** The speedometer's unit. */
@@ -45,6 +50,30 @@ export const STRINGS = {
    * longest. Under rather than beside: the clock keeps the centreline and
    * the news is read as a second line of the same readout. */
   airRecordLabel: "RECORD",
+  /** THE SCORE (`engine/game/tricks.ts`): what the rider has banked this
+   * run, and the combo he is still riding on. The combo carries its
+   * MULTIPLIER as a separate word, because the two are read differently —
+   * the points are a number that climbs and the multiplier is a rung he
+   * either has or has not reached. */
+  score: (points: number): string => formatScore(points),
+  scoreLabel: "SCORE",
+  comboPoints: (points: number): string => `+${formatScore(points)}`,
+  comboMult: (mult: number): string => `\u00d7${mult}`,
+  comboLabel: "COMBO",
+  /** ...and the two words the combo's last moment ends on: paid, because
+   * the rider was still on the craft when the window ran out, or lost
+   * because he was not. */
+  comboBanked: "BANKED",
+  comboBailed: "BAILED",
+  /** A trick as it completes, for the news column: the revolution's own
+   * name and the multiplier it just bought. A double is named as a double
+   * rather than reported twice — it is one harder trick, which is exactly
+   * what the multiplier says. */
+  trick: (spins: number, backwards: boolean, mult: number): string =>
+    `${SPINS[spins] ?? `${spins}\u00d7 `}${backwards ? "BACKFLIP" : "FRONTFLIP"}  \u00d7${mult}`,
+  /** ...and the combo lost, which is the one half of the score the picture
+   * does not already say: the tile is gone by the time the rider looks. */
+  bailed: (points: number): string => `BAILED  \u2212${formatScore(points)}`,
   /** The minimap's readout: how far the next gate is, whole metres — and
    * what stands there once the last one is behind the craft. */
   mapToNext: (metres: number): string => `${Math.round(metres)} M`,

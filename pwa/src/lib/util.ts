@@ -43,3 +43,18 @@ export function ordinal(place: number): string {
   if (teens >= 11 && teens <= 13) return `${place}TH`;
   return `${place}${["TH", "ST", "ND", "RD"][place % 10] ?? "TH"}`;
 }
+
+/** A score with its thousands grouped, the way a scoreboard writes one:
+ * `5,936`. Grouped by hand and always with a comma, for the reason the
+ * months above are spelled out — `toLocaleString` hands back whatever the
+ * browser's locale punctuates with, and a number that is read at a glance
+ * over a wave has to look the same every time it is read. */
+export function formatScore(points: number): string {
+  const whole = String(Math.max(0, Math.round(points)));
+  let out = "";
+  for (let i = 0; i < whole.length; i++) {
+    if (i > 0 && (whole.length - i) % 3 === 0) out += ",";
+    out += whole[i];
+  }
+  return out;
+}
