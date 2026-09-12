@@ -28,6 +28,7 @@ import { clamp } from "../lib/math.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { planingLift, wettedLength } from "./hydro.ts";
+import { floodedDeck, submergedShare } from "./submerged.ts";
 import type { SurfaceSample } from "./water.ts";
 
 const H = TUNING.hull;
@@ -219,6 +220,14 @@ export type HullResult = {
   tz: number;
   /** Area-weighted share of the bottom probes under the surface, 0..1. */
   wetted: number;
+  /** THE LEAST-immersed bottom probe's fill, 0..1 — 1 only when the WHOLE
+   * bottom is under, which is what separates a hull that has gone under
+   * from one with its bow in and its transom dry, and from one floating
+   * inverted (whose bottom is in the air). */
+  bottomUnder: number;
+  /** ...and the mean fill of the four DECK probes, 0..1: how much water is
+   * over the deck. */
+  deckFill: number;
   /** Deepest probe below the surface, m (0 when dry). */
   submerged: number;
   /** Keel depth at the transom and the bow stations, m below the surface
@@ -369,6 +378,8 @@ export function hullForces(
 ): void {
   out.fx = out.fy = out.fz = out.tx = out.ty = out.tz = 0;
   out.wetted = 0;
+  out.bottomUnder = 1;
+  out.deckFill = 0;
   out.submerged = 0;
   out.transomDepth = -1;
   out.bowDepth = -1;
@@ -436,9 +447,15 @@ export function hullForces(
       }
     }
     if (s.depth > out.submerged) out.submerged = s.depth;
+    if (p.kind === "deck") out.deckFill += s.fill / 4;
+    else if (s.fill < out.bottomUnder) out.bottomUnder = s.fill;
   }
   out.wetted = bottomArea > 0 ? wetArea / bottomArea : 0;
   out.liftX = liftWet > 0 ? liftX / liftWet : 0;
+  // How much of the deck's float has flooded, from how far under the hull
+  // is — one number for the whole hull, read after the first pass has
+  // measured both halves of it (`submerged.ts`).
+  const deckFloat = floodedDeck(submergedShare(out.bottomUnder, out.deckFill));
   const wetLen = wettedLength(spec, out.transomDepth, out.bowDepth);
   out.wettedLength = wetLen;
   // An inverted hull's bottom is in the air: no planing lift.
@@ -491,8 +508,12 @@ export function hullForces(
     }
     if (s.fill <= 0) continue;
 
-    // Archimedes: F = ρ·g·V_submerged, straight up.
-    const buoy = density * G * p.volume * s.fill;
+    // Archimedes: F = ρ·g·V_submerged, straight up — less whatever of a
+    // DECK probe's volume has flooded by now (`floodedDeck`, which owns
+    // the reasoning). A hull heeled or inverted at the surface keeps all
+    // of it; one driven under keeps only what is really sealed.
+    const flood = p.kind === "deck" ? deckFloat : 1;
+    const buoy = density * G * p.volume * s.fill * flood;
     out.buoyancy += buoy;
     apply(out, rx, ry, rz, 0, buoy, 0);
 

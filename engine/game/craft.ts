@@ -27,6 +27,7 @@ import { landingAssist, rampAssist } from "./assist.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { aeroForces, type AeroResult } from "./flight.ts";
+import { submergedControl, submergedShare } from "./submerged.ts";
 import {
   hullForces,
   hullProbes,
@@ -86,6 +87,8 @@ function workFor(craft: CraftState): Work {
         ty: 0,
         tz: 0,
         wetted: 0,
+        bottomUnder: 1,
+        deckFill: 0,
         submerged: 0,
         transomDepth: 0,
         bowDepth: 0,
@@ -308,14 +311,31 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // is the craft's own (`sponsonBite`).
   tbz -= hull.lateral * T.hull.sponsonLever * spec.cog.y * spec.sponsonBite;
 
+  // HOW FAR UNDER THE HULL IS (`submerged.ts`), read once here because
+  // three things below branch on it: the engine, the rider's own hands,
+  // and whether being upside down means anything at all.
+  const under = submergedShare(hull.bottomUnder, hull.deckFill);
+
   // THE PUMP: the intake is fed while the transom station is wet, and the
-  // engine has a tilt cut-off — a capsized craft's throttle is closed.
+  // engine is cut when the craft is CAPSIZED — which stands in for the
+  // rider having come off it and taken the lanyard with him, since that is
+  // what actually stops a watercraft's engine.
+  //
+  // A HULL UNDER THE WATER IS NOT CAPSIZED. It is a rider mid-manoeuvre
+  // with his intake fed better than it has ever been, and reading `up.y`
+  // alone could not tell the two apart: a bow driven in takes the hull
+  // past vertical in a fifth of a second, and past vertical the engine
+  // used to go out — so the one input that could have flown him back out
+  // was cut at precisely the moment he needed it. Inverted ON THE SURFACE
+  // is still over, and still costs the run.
+  //
   // The BRAKE LEVER asks for its own throttle: the bucket can only turn
   // flow the pump is already making.
-  const wet = hull.intakeWet && up.y > 0;
+  const onFeet = up.y > 0 || under > 0;
+  const wet = hull.intakeWet && onFeet;
   const brake = spec.bucket.reverse > 0 ? clamp(input.reverse, 0, 1) : 0;
   const asked = Math.max(clamp(input.throttle, 0, 1), brake * T.pump.bucketThrottle);
-  const throttle = up.y > 0 ? asked : 0;
+  const throttle = onFeet ? asked : 0;
   const engine = stepEngine(spec, density, c.rpm, c.throttleEff, throttle, wet, dt);
   c.rpm = engine.rpm;
   c.throttleEff = engine.throttleEff;
@@ -327,7 +347,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   const lock = 1 - (1 - T.tuck.lockLeft) * c.crouch;
   c.nozzle = stepNozzle(spec, c.nozzle, input.steer * lock, dt);
   c.trim = stepTrim(spec, c.trim, input.lean, dt);
-  c.bucket = stepBucket(spec, c.bucket, up.y > 0 ? brake : 0, dt);
+  c.bucket = stepBucket(spec, c.bucket, onFeet ? brake : 0, dt);
   const throughWater =
     hull.flowFwd > 0 ? hull.flowFwd : Math.max(0, unrotate(c.q, { x: c.vx, y: c.vy, z: c.vz }).z);
   const push = thrust(spec, density, c.rpm, throughWater, wet);
@@ -507,6 +527,18 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     fx += aero.fx;
     fy += aero.fy;
     fz += aero.fz;
+    tbx += aero.tx;
+    tby += aero.ty;
+    tbz += aero.tz;
+  }
+
+  // ...AND THE OTHER END OF THE SAME CROSSING (`submerged.ts`). The air
+  // hands the rider's bars back as the hull wets; the water takes them on
+  // as it goes under, so there is no attitude in which he has been handed
+  // nothing. It is the whole of what stops a buried bow from becoming a
+  // capsize, and the whole of what lets one be ridden back out.
+  if (under > 0) {
+    submergedControl(spec, under, input.steer, input.lean, c.crouch, I, aero);
     tbx += aero.tx;
     tby += aero.ty;
     tbz += aero.tz;
@@ -700,6 +732,15 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // CAPSIZE: a hull on its back (its up pointing down) with the water
   // under it for `capsize.after` seconds is over for good — a PWC does
   // not self-right — and the rider climbs back on and rights it.
+  //
+  // It needs no exemption for a hull that has gone UNDER: a bow driven in
+  // at pace keeps its deck up (`up.y` stays above 0.9 through the whole
+  // bury, measured over the roster on the air gate's own dive), so a dive
+  // never started this clock in the first place. What reaches `up.y < 0`
+  // is a hull that has been rolled, and that is over however deep it is —
+  // exempting it was measured to make a craft tossed onto its back
+  // un-capsizable as long as it sank far enough, which is not the same
+  // question at all.
   if (up.y < 0 && !airborne) {
     c.capsizedFor += dt;
     if (c.capsizedFor >= T.capsize.after) {
