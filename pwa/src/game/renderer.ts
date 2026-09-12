@@ -51,6 +51,7 @@ import { dayLight } from "./sky.ts";
 import { createSpray } from "./spray.ts";
 import { createWake } from "./wake.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
+import { waterRings } from "./water-grid.ts";
 import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
 
 /** Nothing lit, for a level with no marks of one kind on it — a coast
@@ -149,7 +150,16 @@ export function createRenderer(
   // landing's foam into the same map.
   const wake = createWake();
   const spray = createSpray(wake.stamp);
-  let water: WaterMesh = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
+  /** The rings the two rows have agreed on — the WATER row's shape plus what
+   * the DISTANCE row buys (`waterRings`), which is where the drawn sea ends. */
+  const gridRings = (): number =>
+    waterRings(WATER_LOOK[video.water], DISTANCE_LOOK[video.distance]);
+  let water: WaterMesh = createWaterMesh(
+    sky.uniforms,
+    WATER_LOOK[video.water],
+    gridRings(),
+    mirror,
+  );
   water.setWake(wake.map);
   scene.add(water.mesh, water.far, spray.group);
 
@@ -291,13 +301,14 @@ export function createRenderer(
     renderer.getDrawingBufferSize(bufferSize);
   };
 
-  /** Stand the two water grids up for the WATER row as it stands. The sky the
-   * old ones were lit for is re-applied on the way out, so a rebuild mid-run
-   * never flashes a noon sea under a squall. */
+  /** Stand the two water grids up for the WATER and DISTANCE rows as they
+   * stand — the first says how fine the sea is, the second how far out it is
+   * drawn. The sky the old ones were lit for is re-applied on the way out, so
+   * a rebuild mid-run never flashes a noon sea under a squall. */
   const buildWater = (): void => {
     scene.remove(water.mesh, water.far);
     water.dispose();
-    water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], mirror);
+    water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], gridRings(), mirror);
     water.setWake(wake.map);
     water.setWakeLook(WAKE_LOOK[video.wake]);
     water.setMirrorLook(REFLECTION_LOOK[video.reflections]);
@@ -309,8 +320,10 @@ export function createRenderer(
   const setVideo = (next: VideoSettings): void => {
     const was = video;
     video = next;
-    // The grids are geometry and the only row that has to rebuild anything.
-    if (next.water !== was.water) buildWater();
+    // The grids are geometry, and the two rows that shape them are the only
+    // ones that have to rebuild anything: WATER lays the cells, DISTANCE says
+    // how many rings of them stand round the rider.
+    if (next.water !== was.water || next.distance !== was.distance) buildWater();
     setTextureAnisotropy(WATER_LOOK[next.water].anisotropy);
     water.setWindow(next.seeThrough);
     // `viewport` is cleared rather than compared: `resize` short-circuits on a
