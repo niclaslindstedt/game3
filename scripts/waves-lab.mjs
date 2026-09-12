@@ -220,7 +220,8 @@ console.log(
 console.log(
   `dials — height ×${TUNING.sea.heightScale} · period ×${TUNING.sea.periodScale} · γ ${TUNING.sea.peakEnhancement}` +
     ` · quoted steepness ${TUNING.sea.steepness} · crest ×${TUNING.sea.crestSharpness}` +
-    ` · breaking Hs/d ${TUNING.sea.breakingHs} · spread ±${deg(TUNING.sea.spread).toFixed(0)}°`,
+    ` · breaking Hs/d ${TUNING.sea.breakingHs}` +
+    ` · spread ±${deg(TUNING.sea.spread).toFixed(0)}° at the peak, to ±${deg(TUNING.sea.spreadMax).toFixed(0)}° away from it`,
 );
 console.log(
   `transect from (${sx.toFixed(0)}, ${sz.toFixed(0)}) on the shore, heading ${deg(Math.atan2(dx, dz)).toFixed(0)}°, ${args.reach} m out` +

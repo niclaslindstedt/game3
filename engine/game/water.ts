@@ -258,11 +258,71 @@ function jonswap(w: number, wp: number): number {
   return Math.pow(w, -5) * Math.exp(-1.25 * Math.pow(wp / w, 4)) * Math.pow(S.peakEnhancement, r);
 }
 
+/** The directional half-width at `omega`, radians: `TUNING.sea.spread` at
+ * the peak, widening away from it by the two exponents beside it
+ * (Mitsuyasu et al. 1975; Hasselmann et al. 1980 — the spreading parameter
+ * peaks at f_p, so the FAN is narrowest there), and held under
+ * `spreadMax`, past which a component is no longer part of this wind's
+ * sea and the eikonal has only one rim to sweep it from. */
+function spreadAt(omega: number, wp: number): number {
+  const r = Math.max(1e-6, omega / wp);
+  const tilt = r >= 1 ? S.spreadAbovePeak : S.spreadBelowPeak;
+  return Math.min(S.spread * Math.pow(r, tilt), S.spreadMax);
+}
+
+/** The cos² spread's own quantile: the offset, as a FRACTION of the
+ * half-width, below which `u` of the band's energy lies. The density is
+ * cos²(π·v/2) over v ∈ [−1, 1] (Longuet-Higgins et al. 1963, truncated),
+ * so its integral is (v + sin(π·v)/π + 1)/2 — monotone, with no closed
+ * inverse, and bisected here because this runs once per component at build
+ * time and never again.
+ *
+ * Drawing the heading THROUGH this, rather than uniformly with the cos² as
+ * a weight on the component's energy, is what keeps a band from lumping:
+ * weighted, a component that lands at the edge of the fan is handed nearly
+ * no energy and the ones near the middle take the whole sea, which is a
+ * corduroy of two or three waves however many were laid. */
+function spreadQuantile(u: number): number {
+  const target = 2 * clamp(u, 0, 1) - 1;
+  let lo = -1;
+  let hi = 1;
+  for (let i = 0; i < 40; i++) {
+    const mid = (lo + hi) / 2;
+    if (mid + Math.sin(Math.PI * mid) / Math.PI < target) lo = mid;
+    else hi = mid;
+  }
+  return (lo + hi) / 2;
+}
+
+/** The integers 0..n−1 in a seeded order (Fisher–Yates). The headings are
+ * drawn one per equal-energy STRATUM of the spread, and this is which
+ * component gets which: without it the band's longest wave would sit at one
+ * edge of the fan on every level and the shortest at the other, a rake
+ * across the sea rather than a sea. */
+function strata(rng: Rng, n: number): Int32Array {
+  const order = new Int32Array(n);
+  for (let i = 0; i < n; i++) order[i] = i;
+  for (let i = n - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    const swap = order[i];
+    order[i] = order[j];
+    order[j] = swap;
+  }
+  return order;
+}
+
 /** Lay one band of components over a JONSWAP spectrum: `n` of them,
  * log-spaced over `[low, high]` multiples of the peak, travelling `travel`
- * with a cos² directional spread about it (Longuet-Higgins et al. 1963,
- * drawn by inverse transform so they lean toward the wind), and scaled so
- * that 4·√m0 = `hs`.
+ * with a cos² directional spread about it (Longuet-Higgins et al. 1963),
+ * and scaled so that 4·√m0 = `hs`.
+ *
+ * Both draws are STRATIFIED — a frequency inside its own slice of the band
+ * rather than at the slice's midpoint, a heading inside its own slice of
+ * the spread rather than anywhere in the fan. A sum of a handful of sines
+ * is only as unrepetitive as its components are unalike, and a fixed
+ * geometric ladder of frequencies all running one way beats against itself
+ * into a pattern that repeats down the wind — which is what a rider sees
+ * on calm water, where the swell is all there is.
  *
  * `ground` is the bed the phase field is integrated over, or null for a
  * band short enough to be a plane wave everywhere a hull can float.
@@ -282,17 +342,22 @@ function layBand(
   const wp = TAU / tp;
   const raw: { omega: number; dir: number; weight: number }[] = [];
   let energy = 0;
+  const lane = strata(rng, n);
   for (let i = 0; i < n; i++) {
     // Log-spaced over the band, each component owning the band between the
-    // midpoints to its neighbours.
+    // midpoints to its neighbours — and standing anywhere inside its own
+    // slice, not at the middle of it.
     const lo = low * Math.pow(high / low, i / n);
     const hi = low * Math.pow(high / low, (i + 1) / n);
-    const omega = wp * Math.sqrt(lo * hi);
+    const omega = wp * lo * Math.pow(hi / lo, rng.next());
     const dOmega = wp * (hi - lo);
-    const spread = S.spread * (2 * rng.next() - 1);
-    const weight = jonswap(omega, wp) * dOmega * Math.cos((spread / S.spread) * (Math.PI / 2)) ** 2;
+    // ...and pointing somewhere inside its own slice of the SPREAD, which
+    // is the whole energy of that slice: the fan is even, every component
+    // carries a real share, and the shorter ones fan wider than the peak.
+    const offset = spreadAt(omega, wp) * spreadQuantile((lane[i] + rng.next()) / n);
+    const weight = jonswap(omega, wp) * dOmega;
     energy += weight;
-    raw.push({ omega, dir: travel + spread, weight });
+    raw.push({ omega, dir: travel + offset, weight });
   }
   // m0 = Σ a²/2 = (Hs/4)².
   const m0 = (hs / 4) ** 2;

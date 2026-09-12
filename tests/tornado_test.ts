@@ -303,27 +303,49 @@ describe("what the tornado does to a rider", () => {
     }
   });
 
-  it("holds an ocean throw 5 to 15 seconds, and a coastal one 3 to 10", () => {
-    // THE BANDS `TUNING.wind.tornado.column` IS SET BY. Read at the tenth
-    // and ninetieth percentiles over the whole roster rather than at the
-    // extremes: a hull in a storm under a tornado is a chaotic thing and its
-    // longest single flight is not a design target.
+  it("throws him to a bounded height, and holds him up for seconds and not a minute", () => {
+    // WHAT `TUNING.wind.tornado.column` IS SET BY, and the distinction the
+    // column's own comment turns on: it is a HEIGHT, so the height is where
+    // this is tight and the time is a consequence of it. Read at the
+    // percentiles over the whole roster rather than at the extremes — a hull
+    // in a storm under a tornado is a chaotic thing and its longest single
+    // flight is not a design target.
     const ocean: number[] = [];
     const shore: number[] = [];
+    const oceanApex: number[] = [];
+    const shoreApex: number[] = [];
     for (const craft of CRAFT) {
-      ocean.push(...throws(level, craft.id, 400, b.maxZ + far).air);
-      shore.push(...throws(level, craft.id, b.maxX + far, 60).air);
+      const out = throws(level, craft.id, 400, b.maxZ + far);
+      const along = throws(level, craft.id, b.maxX + far, 60);
+      ocean.push(...out.air);
+      oceanApex.push(...out.apex);
+      shore.push(...along.air);
+      shoreApex.push(...along.apex);
     }
     expect(ocean.length).toBeGreaterThan(20);
     expect(shore.length).toBeGreaterThan(20);
-    // A throw is worth a few seconds and never a minute — the column has a
-    // top, and a hull that reached a hover in it would show up here as a
-    // p90 in the twenties.
+    // THE HEIGHT IS THE BOUND, and it is the one that does not move when the
+    // sea does: twenty-odd metres at the ninetieth percentile and thirty at
+    // the worst, on both columns, whatever the storm under them is shaped
+    // like. A hull that reached a hover in the column would show up HERE,
+    // as an apex in the hundreds.
+    for (const band of [oceanApex, shoreApex]) {
+      expect(quantile(band, 0.5)).toBeGreaterThan(8);
+      expect(quantile(band, 0.9)).toBeLessThan(30);
+      expect(Math.max(...band)).toBeLessThan(45);
+    }
+    // ...and the TIME follows from it, loosely, because how long a throw
+    // lasts is also how long the water under it takes to come back up. Over
+    // a nine-second, hundred-and-thirty-metre storm swell that is most of a
+    // wave period of grace, so the same apex is worth about twice the
+    // hang it was worth over a sea carried by one breaking-steep component
+    // (which the open band was until its energy was spread properly: rms
+    // face 100 % → 33 %, median throw 5 s → 9 s, apex unmoved).
     for (const band of [ocean, shore]) {
       expect(quantile(band, 0.5)).toBeGreaterThan(3);
-      expect(quantile(band, 0.5)).toBeLessThan(10);
-      expect(quantile(band, 0.9)).toBeLessThan(16);
-      expect(Math.max(...band)).toBeLessThan(30);
+      expect(quantile(band, 0.5)).toBeLessThan(15);
+      expect(quantile(band, 0.9)).toBeLessThan(25);
+      expect(Math.max(...band)).toBeLessThan(45);
     }
     // ...and the ocean's are the bigger ones, which is the whole point of
     // the column having two heights.
