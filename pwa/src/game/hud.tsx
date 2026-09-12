@@ -229,9 +229,9 @@ export function Hud({
           <div class="hud-air-tile">
             <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
             <span class="hud-chip-sub">{STRINGS.airLabel}</span>
-            {/* INSIDE the tile, hung off its right edge: out of the flow, so
-                the clock keeps the centreline, and carried by the tile's own
-                pulse, so the gap between the two never closes. */}
+            {/* UNDER the unit label, at the foot of the same column: the
+                clock keeps the centreline whether the word is there or not,
+                and the tile grows DOWNWARD to make room for it. */}
             {snap.airRecord && <span class="hud-air-best">{STRINGS.airRecordLabel}</span>}
           </div>
         </div>
