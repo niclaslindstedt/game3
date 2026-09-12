@@ -298,13 +298,14 @@ export const STRINGS = {
   optKeysCount: (n: number): string => `${n} KEYS`,
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order — the handlebars backwards.
-   * Each is one word: the row is six chips wide and read at a glance. */
+   * Each is one word: the row is seven chips wide and read at a glance. */
   cameraBow: "BOW",
   cameraNose: "NOSE",
   cameraClose: "CLOSE",
   cameraChase: "CHASE",
   cameraFar: "FAR",
   cameraHeli: "HELI",
+  cameraDrone: "DRONE",
 
   /* ── THE KEYBOARD PAGE (menu-keys.tsx, settings-input.ts) ──────────── */
   /** One word per action, and every one of them says what the CRAFT does
@@ -399,8 +400,13 @@ export const STRINGS = {
   shotLabel: (seed: number, craft: string): string => `SEED ${seed} · ${craft.toUpperCase()}`,
   /** The receipt, in the news column. A picture is filed frames after the
    * press that asked for it, so the press gets an answer either way — the
-   * one thing worse than a failed capture is a shutter that says nothing. */
+   * one thing worse than a failed capture is a shutter that says nothing.
+   * The second line is the same picture with a copy of it on the CLIPBOARD,
+   * which is what most presses get: it is said only once the write has come
+   * back, because a browser may hold the permission back and a receipt that
+   * promised a paste that is not there is worse than no receipt at all. */
   shotKept: "PICTURE SAVED",
+  shotCopied: "PICTURE SAVED · COPIED",
   shotFailed: "PICTURE FAILED",
   /** The gallery. The subtitle counts the roll against its cap, because the
    * oldest picture falling off is the one thing about this page a player

@@ -31,11 +31,15 @@
 // re-encodes or fetches: a caller hands over a Blob it already holds.
 //
 // Which the gallery can always manage: it presses with the PNG already on
-// the roll. The SHUTTER cannot — its picture does not exist yet at the
-// moment of the press, because the drawing buffer can only be read inside
-// the animation callback that filled it, frames away (game/screenshots.ts)
-// — so the shutter files the picture and says so, and sending it on is one
-// row of the front door away.
+// the roll. THE SHUTTER'S PICTURE DOES NOT EXIST YET at the moment of the
+// press — the drawing buffer can only be read inside the animation callback
+// that filled it, frames away (game/screenshots.ts) — and awaiting it would
+// spend the activation before the write. `copyWhenReady` is the way through
+// that the clipboard spec itself provides: a `ClipboardItem` takes a PROMISE
+// of a blob, so the write is started from the press with the picture still
+// unwritten and the frame loop settles it a few frames later. Nothing else
+// here may await before it calls: `share` has no such door and the shutter
+// does not offer it.
 
 /** The one MIME type everything here moves. */
 export const MIME_PNG = "image/png";
@@ -107,6 +111,37 @@ export async function copyImage(blob: Blob): Promise<boolean> {
   } catch {
     return false;
   }
+}
+
+/** What a copy started before its picture existed hands back: `done` says
+ * whether the PNG reached the clipboard, and the caller settles the write by
+ * calling `ready` with the blob — or with null when there was no picture to
+ * copy, which fails the write rather than leaving it open for ever. */
+export type PendingCopy = { done: Promise<boolean>; ready: (blob: Blob | null) => void };
+
+/**
+ * Start a clipboard write for a picture that has not been drawn yet. MUST be
+ * called synchronously from the press: the transient user activation both
+ * Chromium and WebKit want is spent by the first `await`, and a write started
+ * afterwards is refused as a document without user activation.
+ *
+ * Returns null where this browser has no PNG writer, so a caller can say what
+ * it actually did rather than promising a copy that never happened.
+ */
+export function copyWhenReady(): PendingCopy | null {
+  if (!canCopyImage()) return null;
+  let ready: (blob: Blob | null) => void = () => {};
+  const picture = new Promise<Blob>((resolve, reject) => {
+    ready = (blob) => (blob ? resolve(blob) : reject(new Error("no picture")));
+  });
+  // The rejection is answered by the `write` below and by nothing else; this
+  // keeps a picture that never arrived from surfacing as an unhandled one.
+  picture.catch(() => {});
+  const done = navigator.clipboard
+    .write([new ClipboardItem({ [MIME_PNG]: picture })])
+    .then(() => true)
+    .catch(() => false);
+  return { done, ready };
 }
 
 /** Save the PNG to the player's downloads. The path that always works.

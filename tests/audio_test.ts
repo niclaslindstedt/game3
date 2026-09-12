@@ -662,7 +662,15 @@ describe("the water bed (audio/water-voice.ts)", () => {
 
 describe("the listener (audio/listener.ts)", () => {
   it("has a row per rung of the ladder, every column a sane multiplier", () => {
-    expect(Object.keys(LISTENERS).sort()).toEqual(["bow", "chase", "close", "far", "heli", "nose"]);
+    expect(Object.keys(LISTENERS).sort()).toEqual([
+      "bow",
+      "chase",
+      "close",
+      "drone",
+      "far",
+      "heli",
+      "nose",
+    ]);
     for (const [view, ear] of Object.entries(LISTENERS)) {
       for (const [k, v] of Object.entries(ear)) {
         expect(v, `${view}.${k}`).toBeGreaterThan(0);
@@ -677,6 +685,12 @@ describe("the listener (audio/listener.ts)", () => {
     expect(LISTENERS.bow.hull).toBeGreaterThan(LISTENERS.heli.hull);
     expect(LISTENERS.bow.wind).toBeGreaterThan(LISTENERS.heli.wind);
     expect(LISTENERS.heli.sea).toBeGreaterThan(LISTENERS.nose.sea);
+    // …and the seat straight overhead is the helicopter's twice as far off:
+    // the craft thinner in every band, and the sea — the one thing that is
+    // not coming from the craft — the widest it ever is.
+    expect(LISTENERS.drone.engine).toBeLessThan(LISTENERS.heli.engine);
+    expect(LISTENERS.drone.wind).toBeLessThan(LISTENERS.heli.wind);
+    expect(LISTENERS.drone.sea).toBeGreaterThan(LISTENERS.heli.sea);
     expect(LISTENERS.close.pump).toBeGreaterThan(LISTENERS.bow.pump);
     expect(LISTENERS.nose.engine).toBeGreaterThan(LISTENERS.far.engine);
     expect(listenerFor("anything else")).toBe(LISTENERS.chase);

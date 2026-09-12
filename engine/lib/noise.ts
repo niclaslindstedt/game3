@@ -31,3 +31,37 @@ export function valueNoise(x: number, z: number, scale: number, seed: number): n
   const d = hash2(ix + 1, iz + 1, seed);
   return (a + (b - a) * fx) * (1 - fz) + (c + (d - c) * fx) * fz;
 }
+
+/** Value noise on a TORUS: the lattice wraps after `cellsX` × `cellsZ` cells,
+ * so the field repeats EXACTLY over that many cells in each axis and a tile
+ * drawn from it meets itself at its own edges.
+ *
+ * Coordinates are in CELLS rather than metres — the caller scales, which is
+ * what lets one tile carry a different period along each axis (foam streaks
+ * are long downwind and short across it, so the tile they are drawn on is
+ * not square). A lattice read with `valueNoise` and merely SAMPLED over a
+ * whole number of periods does not tile: the hash at cell `cellsX` is not
+ * the hash at cell 0, so the wrap lands on a discontinuity and every repeat
+ * shows as a hard line. That is the fault this exists to close.
+ */
+export function tiledValueNoise(
+  gx: number,
+  gz: number,
+  cellsX: number,
+  cellsZ: number,
+  seed: number,
+): number {
+  const ix = Math.floor(gx);
+  const iz = Math.floor(gz);
+  const fx = smooth(gx - ix);
+  const fz = smooth(gz - iz);
+  const wx0 = ((ix % cellsX) + cellsX) % cellsX;
+  const wz0 = ((iz % cellsZ) + cellsZ) % cellsZ;
+  const wx1 = (wx0 + 1) % cellsX;
+  const wz1 = (wz0 + 1) % cellsZ;
+  const a = hash2(wx0, wz0, seed);
+  const b = hash2(wx1, wz0, seed);
+  const c = hash2(wx0, wz1, seed);
+  const d = hash2(wx1, wz1, seed);
+  return (a + (b - a) * fx) * (1 - fz) + (c + (d - c) * fx) * fz;
+}

@@ -35,7 +35,10 @@ pinSpeedClass(1);
 
 /** The reference rig every framing rule below is stated against. */
 const CHASE = CHASE_RIGS.chase;
-/** The ladder's outside rungs, nearest the craft first. */
+/** The ladder's outside rungs that are BOOMS, nearest the craft first. The
+ * drone is left out on purpose: it is the same rig with its standoff taken
+ * away, so every rule stated about a boom's length, its swing and its rod is
+ * a rule it does not have. It has a describe of its own below. */
 const OUTSIDE: readonly ChaseCamera[] = ["close", "chase", "far", "heli"];
 
 const LEVEL = syntheticLevel({ windSpeed: 0, noSolids: true });
@@ -484,6 +487,72 @@ describe("the ladder", () => {
     expect(near).toBeLessThan(0);
     expect(flown).toBeLessThan(near - 1);
     expect(Math.abs(flown)).toBeLessThanOrEqual(CHASE_RIGS.heli.swingMax + 1e-6);
+  });
+});
+
+describe("the drone rig", () => {
+  it("stands straight over the craft at twice the helicopter's height", () => {
+    const state = fresh();
+    placeRun(state, { x: 60, z: -40, heading: -1.1 });
+    const { pose } = settle(state, 240, "drone");
+    const r = relative(pose, state);
+    expect(r.above).toBeCloseTo(CHASE_RIGS.drone.height, 1);
+    expect(r.above).toBeCloseTo(2 * CHASE_RIGS.heli.height, 1);
+    // Directly over it: no standoff at rest, and nothing to either side —
+    // a lens that drifts off the plumb line turns the picture instead of
+    // moving it, because the frame is built out of the little horizontal
+    // run left between the lens and its aim.
+    expect(Math.abs(r.behind)).toBeLessThan(0.01);
+    expect(Math.abs(r.aside)).toBeLessThan(1e-6);
+  });
+
+  it("looks very nearly straight down, and leads the aim so the picture has an up", () => {
+    const state = fresh();
+    placeRun(state, { x: 10, z: 25, heading: 0.4 });
+    const { pose } = settle(state, 240, "drone");
+    const dx = pose.aimX - pose.x;
+    const dy = pose.aimY - pose.y;
+    const dz = pose.aimZ - pose.z;
+    const offVertical = Math.atan2(Math.hypot(dx, dz), -dy);
+    expect(offVertical).toBeGreaterThan(2 * DEG);
+    expect(offVertical).toBeLessThan(12 * DEG);
+    // …and the lead is the craft's own heading, which is what puts its nose
+    // up the frame: with no swing and no look-through, the only horizontal
+    // run in the shot is the aim's, so the frame's up is the nose's.
+    const c = state.craft;
+    expect(Math.atan2(dx, dz)).toBeCloseTo(c.heading, 2);
+  });
+
+  it("holds the plumb line through a turn, where the flown rigs swing wide", () => {
+    const state = fresh();
+    placeRun(state, { x: 0, z: 0, heading: 0, speed: 20 });
+    const rig = createCameraRig("drone");
+    let pose = rig.update(state, DT, FLAT);
+    for (let f = 0; f < 180; f++) {
+      for (let i = 0; i < 2; i++)
+        step(state, { steer: 1, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
+      pose = rig.update(state, 2 * TUNING.dt, FLAT);
+    }
+    const r = relative(pose, state);
+    // Nothing swings this rig out: what is left to one side is only the
+    // little standoff pace has bought, sitting behind the LENS's eased yaw
+    // rather than the craft's — under a metre where a flown boom is metres
+    // wide of the turn, which is the difference between a picture that
+    // rotates and one that spins.
+    const standoff = CHASE_RIGS.drone.distPerSpeed * state.craft.speed;
+    expect(Math.abs(r.aside)).toBeLessThanOrEqual(standoff);
+    expect(Math.abs(r.aside)).toBeLessThan(CHASE_RIGS.heli.swingMax / 4);
+    expect(r.above).toBeGreaterThan(CHASE_RIGS.heli.height);
+  });
+
+  it("rides a launch up with the craft rather than letting it climb into the lens", () => {
+    const state = fresh();
+    placeRun(state, { x: 0, z: 0, heading: 0, speed: 22, height: 7, vy: 9 });
+    const { pose } = settle(state, 60, "drone");
+    // The lens lifts with a craft in the air, so the gap never closes to
+    // nothing — from up here a hull arriving at the lens is the one way
+    // this shot can be lost.
+    expect(pose.y - state.craft.y).toBeGreaterThan(CHASE_RIGS.heli.height);
   });
 });
 

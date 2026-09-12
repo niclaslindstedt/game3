@@ -85,6 +85,7 @@ const CAMERA_LABELS: Record<CameraMode, string> = {
   chase: STRINGS.cameraChase,
   far: STRINGS.cameraFar,
   heli: STRINGS.cameraHeli,
+  drone: STRINGS.cameraDrone,
 };
 
 /** Exported because the PAUSE CARD's strip carries the same row: a camera
