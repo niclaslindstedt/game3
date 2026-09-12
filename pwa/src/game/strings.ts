@@ -500,6 +500,14 @@ export const STRINGS = {
   /** The phase and where it sits in the plan — a count of PHASES, never of
    * seconds (see `run-loader.ts`). */
   loadStep: (label: string, at: number, of: number): string => `${label}… (${at}/${of})`,
+  /** THE LOAD THAT DID NOT FINISH. The generator refuses a seed it cannot
+   * build a clean coast on — that is the search working, not a crash — and
+   * the card it refuses under is the one place the player is looking. Worded
+   * as a fact about the shore rather than as an error, because that is what
+   * it is: this number is not a coast, and the next one along will be. */
+  loadFailed: "NO COAST AT THIS SEED",
+  loadFailedHint: "Try another shore",
+  loadFailedBack: "BACK",
 
   /* ── THE PAUSE CARD (menu-pause.tsx) ───────────────────────────────── */
   /** The card a run is held under, and what it bills the held run as — the

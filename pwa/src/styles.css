@@ -3965,6 +3965,13 @@ button.knob-read:focus-visible {
   color: var(--hud-info);
 }
 
+/* A LOAD THAT WILL NOT FINISH keeps the card and loses the bar: there is no
+   phase left to fill one, and a bar sitting under a refusal would read as
+   work still going on. The way out takes its place. */
+.loading-back {
+  margin-top: 0.5rem;
+}
+
 .loading-bar {
   width: 100%;
   height: 0.5rem;

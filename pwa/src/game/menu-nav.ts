@@ -149,6 +149,69 @@ export function holdNav(on: boolean): void {
   handed = on;
 }
 
+/** A card being walked on the keys, as the frame loop sees it. */
+export type CardWalk = {
+  /** True once a card has actually been walked with the keys — what
+   * `sync()` waits for, because a focus ring that appeared under the mouse
+   * would be a second cursor moving on its own. */
+  walked: () => boolean;
+  /** Take the listener off again. */
+  stop: () => void;
+};
+
+/**
+ * WALKING A CARD ON THE KEYS — the DIRECTIONS only, and BACK.
+ *
+ * CONFIRM is deliberately absent: every control on every card is a real
+ * `<button>`, so Enter and Space on a focused one already activate it — and
+ * a `confirm` here would press it a second time, which on START is a run
+ * started over the top of the developer menu the hold just opened.
+ *
+ * On `window` in the CAPTURE phase, upstream of the input manager, so a key
+ * walking a menu never also rides the craft behind it. That is also why it
+ * is registered once for the life of the loop rather than by whichever card
+ * is up: a listener a card added later could not get in front of this one.
+ *
+ * `overACard` is the caller's, because only it knows which surface is up.
+ */
+export function walkCardsOnKeys(nav: MenuNav, overACard: () => boolean): CardWalk {
+  const KEYS: Record<string, NavDir> = {
+    ArrowUp: "up",
+    ArrowDown: "down",
+    ArrowLeft: "left",
+    ArrowRight: "right",
+    KeyW: "up",
+    KeyS: "down",
+    KeyA: "left",
+    KeyD: "right",
+  };
+  let walked = false;
+  const onKey = (e: KeyboardEvent): void => {
+    if (!overACard() || !nav.active()) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) return;
+    const dir = KEYS[e.code];
+    if (dir) {
+      e.preventDefault();
+      e.stopPropagation();
+      walked = true;
+      nav.move(dir);
+      return;
+    }
+    // The way out of a page, which is the same key that leaves a run — so
+    // one press means "back" wherever the player happens to be.
+    if (e.code === "Escape" || e.code === "Backspace") {
+      e.preventDefault();
+      e.stopPropagation();
+      nav.back();
+    }
+  };
+  window.addEventListener("keydown", onKey, true);
+  return {
+    walked: () => walked,
+    stop: () => window.removeEventListener("keydown", onKey, true),
+  };
+}
+
 export function createMenuNav(): MenuNav {
   /** The surface the cursor was last put into, so `sync` can tell a new card
    * from the same card re-rendering. */

@@ -128,7 +128,7 @@ import {
   TUNING,
   botInput,
   craftById,
-  createGame,
+  error,
   step,
 } from "@engine";
 
@@ -142,9 +142,10 @@ import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager, type InputAction } from "./game/input.ts";
 import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
-import { createMenuNav } from "./game/menu-nav.ts";
+import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
 import type { FrameCost, GameRenderer } from "./game/renderer.ts";
+import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
@@ -152,13 +153,7 @@ import { stageScenario, type Scenario, type ScenarioName } from "./game/scenario
 import { captureFrame } from "./game/screenshots.ts";
 import { copyWhenReady, type PendingCopy } from "./lib/share-image.ts";
 import { readHudLayer, type HudLayer } from "./game/shot-hud.ts";
-import {
-  CONDITION_DAY,
-  DEFAULT_SEED,
-  loadSettings,
-  saveSettings,
-  type Settings,
-} from "./game/settings.ts";
+import { loadSettings, saveSettings, type Settings } from "./game/settings.ts";
 import { FRAME_RATE_CAP } from "./game/settings-video.ts";
 import { canPause, hudOver, playerRides, simulates, type Shell } from "./game/shell.ts";
 import { readParams, settingsFor } from "./game/url-params.ts";
@@ -255,6 +250,9 @@ export function App() {
   );
   const [loadingPhase, setLoadingPhase] = useState<LoadPhase | null>(null);
   const [loadLeaving, setLoadLeaving] = useState(false);
+  /** Why the run being stood up will not be — a seed the generator refuses,
+   * almost always. Holds the loading card up until the player presses out. */
+  const [loadFailed, setLoadFailed] = useState<string | null>(null);
   /** True once the renderer has drawn a frame — what the attract card waits
    * on before it will take a press (`splash.ts`). */
   const [warm, setWarm] = useState(false);
@@ -298,10 +296,16 @@ export function App() {
    * minimap and Escape put the pause card up, and the card takes it down
    * again — back to the water, or out to the front door. The loop owns the
    * run, so it owns these. */
-  const runRef = useRef<{ pause: () => void; resume: () => void; toMenu: () => void }>({
+  const runRef = useRef<{
+    pause: () => void;
+    resume: () => void;
+    toMenu: () => void;
+    abandonLoad: () => void;
+  }>({
     pause: () => {},
     resume: () => {},
     toMenu: () => {},
+    abandonLoad: () => {},
   });
   // Every change is written through, so a visit's choices survive the tab
   // being closed. Cheap: a settings change is a press, not a frame.
@@ -382,42 +386,19 @@ export function App() {
     const clock = createRunClock(TUNING.physicsHz);
     const nav = createMenuNav();
 
-    /** Which seed and which sea the settings currently ask for. Read at the
-     * moment a run is stood up rather than captured, so a seed changed on
-     * the developer page is the seed START rides.
-     *
-     * The HOUR comes off the URL instead, because it is not a setting: an
-     * exact figure says what the LEVEL is, the way the seed does, and
-     * nothing on a menu writes one. */
-    const newGame = (): GameState => {
-      const s = settingsRef.current;
-      // The start card's WIND row is two of these at once: the wind that
-      // builds the sea, and the sky that belongs over that wind (R19 keeps
-      // the pair honest, and `CONDITION_DAY` is where the rung becomes both).
-      const day = s.ride.conditions === null ? null : CONDITION_DAY[s.ride.conditions];
-      return createGame({
-        seed: s.ride.seed ?? DEFAULT_SEED,
-        biome: s.ride.biome,
-        craft: s.ride.craft,
-        // R32 — the CLASS: the hull is derived at it and the COURSE is paced
-        // for it, so the same seed in two classes is two different races.
-        speedClass: s.ride.speedClass,
-        track: params.track,
-        // The developer's own rows win where they are set: they are the
-        // exact figure, and the card's is a word standing for one.
-        windSpeed: s.dev.wind ?? day?.wind,
-        sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
-        hour: params.hour,
-        timeOfDay: s.ride.time ?? undefined,
-        season: s.ride.season ?? undefined,
-        // The WEATHER row wins over the sky its wind implies — that is the
-        // whole of what it is for. Left alone (null) it defers, and the pair
-        // stays the one R19 would have dealt.
-        weather: s.ride.weather ?? day?.weather,
-      });
-    };
+    /** The level the settings ask for, and the refusal made an answer —
+     * both in `new-game.ts`, closed over this loop's own refs so the seed a
+     * run is stood up on is the one the settings hold at that moment. */
+    const tryNewGame = (): GameState | null => tryGame(settingsRef.current, params);
 
-    let state: GameState = newGame();
+    // THE PAGE HAS TO MOUNT. This is the sea every card stands over, and a
+    // seed the generator refuses would take the whole app down with it
+    // before a frame is drawn — and the seed is stored, so the next visit
+    // would die the same way with no menu to change it from. Falling back to
+    // the shore the game ships with costs nothing honest: nobody chose this
+    // water as a race, and the moment the player asks to RIDE that seed the
+    // loading card reports the refusal to their face.
+    let state: GameState = tryNewGame() ?? fallbackGame(settingsRef.current);
     let scenario: Scenario | null = null;
     /** The run clock the scenario's script started at, s. */
     let scriptFrom = 0;
@@ -501,7 +482,10 @@ export function App() {
      * settings ask for a scene — the craft placed in it and `ahead` seconds
      * of its script already ridden. */
     const stand = (scene: ScenarioName | null, ahead: number): void => {
-      state = newGame();
+      // A refused seed leaves the sea that is already standing where it is,
+      // and the rest of this still runs: the renderer has to be handed a
+      // world whatever happened, or the page behind the card is empty.
+      state = tryNewGame() ?? state;
       scenario = null;
       live.length = 0;
       audio.reset();
@@ -558,7 +542,10 @@ export function App() {
           id: "level",
           label: STRINGS.loadLevel,
           run: () => {
-            built = newGame();
+            // THE THROWING build on purpose: a run the player asked for must
+            // never quietly fall back to another shore, so a refused seed ends
+            // the load (`advanceLoad`) and the card says so.
+            built = gameFor(settingsRef.current, params);
             if (s.dev.scene) {
               scenario = stageScenario(built, s.dev.scene);
               scriptFrom = built.t;
@@ -604,47 +591,9 @@ export function App() {
       setShellNow("loading");
     };
 
-    /* ── WALKING A CARD ON THE KEYS ──────────────────────────────────────
-       The DIRECTIONS only, and BACK. CONFIRM is deliberately absent: every
-       control on every card is a real `<button>`, so Enter and Space on a
-       focused one already activate it — and a `confirm` here would press it
-       a second time, which on START is a run started over the top of the
-       developer menu the hold just opened.
-
-       On `window` in the capture phase, upstream of the input manager, so a
-       key walking a menu never also rides the craft behind it. */
-    const NAV_KEYS: Record<string, "up" | "down" | "left" | "right"> = {
-      ArrowUp: "up",
-      ArrowDown: "down",
-      ArrowLeft: "left",
-      ArrowRight: "right",
-      KeyW: "up",
-      KeyS: "down",
-      KeyA: "left",
-      KeyD: "right",
-    };
-    /** True once a card has been walked with the keys — see `nav.sync()`. */
-    let walking = false;
-    const onMenuKey = (e: KeyboardEvent): void => {
-      if (shellRef.current === "run" || !nav.active()) return;
-      if (e.ctrlKey || e.metaKey || e.altKey) return;
-      const dir = NAV_KEYS[e.code];
-      if (dir) {
-        e.preventDefault();
-        e.stopPropagation();
-        walking = true;
-        nav.move(dir);
-        return;
-      }
-      // The way out of a page, which is the same key that leaves a run — so
-      // one press means "back" wherever the player happens to be.
-      if (e.code === "Escape" || e.code === "Backspace") {
-        e.preventDefault();
-        e.stopPropagation();
-        nav.back();
-      }
-    };
-    window.addEventListener("keydown", onMenuKey, true);
+    // Walking a card on the keys is `menu-nav.ts`'s — it owns the cursor,
+    // and the keyboard is one of the two things that moves it.
+    const walk = walkCardsOnKeys(nav, () => shellRef.current !== "run");
 
     /* ── THE PAUSE CARD, AND THE WAY OUT OF A RUN ────────────────────────
        The card is a SURFACE, so putting it up is a shell change and nothing
@@ -671,12 +620,22 @@ export function App() {
         setMenuPage({ page: "root" });
         setShellNow("menu");
       },
+      // The way off a load that will not finish. Back to the START card
+      // rather than the front door, because the row that chose the shore
+      // the generator refused is on it — the player is one press from the
+      // next seed along rather than three.
+      abandonLoad: () => {
+        job = null;
+        setLoadFailed(null);
+        setMenuPage({ page: "start" });
+        setShellNow("menu");
+      },
     };
 
     /** One of the game's own buttons, wherever the press came from. */
     const act = (action: InputAction): void => {
       // Escape over a run. Over the CARD it never reaches here at all:
-      // `onMenuKey` above takes it in the capture phase and presses the
+      // `walkCardsOnKeys` takes it in the capture phase and presses the
       // surface's own way back — RESUME on the card, and the head's way out
       // on the options page under it.
       if (action === "pause") {
@@ -772,7 +731,15 @@ export function App() {
           () => performance.now(),
         );
         setLoadingPhase(loadPhase(job));
-        if (!more) {
+        if (job.failed !== null) {
+          // The card stays up and says so; the shell does not move until the
+          // player presses out of it (`abandonLoad`). `state` is untouched —
+          // the sea the menu was over is still standing and still being
+          // ridden by the bot, so there is a game to go back to.
+          error(`the run could not be stood up: ${job.failed}`);
+          setLoadFailed(job.failed);
+          job = null;
+        } else if (!more) {
           expected = { ...expected, ...loadTimes(job) };
           job = null;
           setLoadLeaving(true);
@@ -864,7 +831,7 @@ export function App() {
       // nothing at all until somebody has actually walked a card with the
       // keys: a ring that appeared under a mouse would be a second cursor
       // moving on its own.
-      if (walking) nav.sync();
+      if (walk.walked()) nav.sync();
       hudClock += dtFrame;
       if (hudClock >= HUD_TICK) {
         hudClock = 0;
@@ -918,7 +885,7 @@ export function App() {
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("pointerdown", unlockAudio, unlockOpts);
       document.removeEventListener("keydown", unlockAudio, unlockOpts);
-      window.removeEventListener("keydown", onMenuKey, true);
+      walk.stop();
       stopShellCommands();
       input.dispose();
       renderer.dispose();
@@ -992,7 +959,12 @@ export function App() {
         />
       )}
       {(shell === "loading" || loadLeaving) && (
-        <LoadingScreen leaving={loadLeaving} phase={loadingPhase} />
+        <LoadingScreen
+          leaving={loadLeaving}
+          phase={loadingPhase}
+          failed={loadFailed}
+          onBack={() => runRef.current.abandonLoad()}
+        />
       )}
       {shell === "splash" && <SplashScreen warm={warm} onDone={() => setShell("menu")} />}
     </>
