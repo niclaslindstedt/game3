@@ -334,7 +334,8 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   const error = angleDiff(c.heading, bearing);
   // In the air the bars roll the hull, not the course: hold it level for
   // the landing. Right side down is positive roll and positive steer
-  // rolls right, so the correction is the roll's opposite.
+  // rolls right, so the correction is the roll's opposite — held under the
+  // line a throw is read at, for the reason stated on the branch itself.
   // Afloat, the bearing error is read against the yaw rate the hull
   // already has, over the time it has left to run: a hull coming round at
   // speed is steered less, not more, or it weaves down the straight the
@@ -347,11 +348,41 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   // In the air the same bars hold the nose too: a yaw rate carried off
   // the lip would otherwise turn the whole flight.
   const eta = Math.hypot(ax - c.x, az - c.z) / Math.max(c.speed, 4);
+  // ...AND NEVER A THROW OF THE BARS, which is the levelling loop's own
+  // version of the cap on its lean below. Past `flight.whipRise` the engine
+  // reads the bars as a stroke of THE WHIP and throws in a side spin's
+  // worth of roll (`strokes.ts`) — the right answer for a rider going for
+  // the trick and the wrong one for a loop whose whole job is to put the
+  // hull back the right way up.
+  //
+  // ONLY ON A REAL FLIGHT, which is the difference between this cap and the
+  // lean's: a stroke is only ever spent on a hull that LEFT THE WATER GOING
+  // UP (`flight.launchVy` — `strokes.ts` owns the gate), and a hull
+  // dropping off a crest is not that. In a head sea the crests are most of
+  // the time the bot spends off the water, and capping through them took
+  // the bars off the levelling loop for the whole of the chop: the stand-up
+  // — whose rider commands half again what the others' do, and which
+  // therefore has the most to lose — missed two gates of six on the
+  // synthetic shore where it had missed none.
+  //
+  // READ OFF THE LAUNCH AND NOT OFF `airTime`, though the engine's own gate
+  // has `flight.minAir` in it too, because the bot decides on the state as
+  // it stands BEFORE the step and the engine reads that gate AFTER: quoting
+  // the same clause here leaves exactly one step on which the bot has not
+  // capped yet and the engine already counts the hull as flying. One step
+  // is enough — the stroke's mark starts every flight at zero, so a single
+  // frame of full bars is a full throw — and it cost seven accidental
+  // barrel rolls over sixteen runs of `make sim`, which read as a bot
+  // rolling itself over for no reason. Off the launch instead, the cap is
+  // on from the first airborne step of anything that could be thrown, and
+  // the same sixteen runs turn ZERO rolls and zero flips by accident.
+  const thrown = c.airborne && c.launchVy >= TUNING.flight.launchVy;
+  const bars = thrown ? TUNING.flight.whipRise : 1;
   let steer = c.airborne
     ? clamp(
         -c.roll * profile.airRollGain + c.wz * profile.airRollDamp - c.wy * profile.airYawDamp,
-        -1,
-        1,
+        -bars,
+        bars,
       )
     : c.onRamp
       ? 0
@@ -397,7 +428,7 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
     );
     // ...AND NEVER A HAUL ON THE BARS. Lean back past `flight.pumpRise` in
     // the air and the engine reads it as a stroke of the pump and throws in
-    // a flip's worth of rotation (`craft.ts`) — which is the right answer
+    // a flip's worth of rotation (`strokes.ts`) — which is the right answer
     // for a rider going for the trick and the wrong one for a levelling
     // loop, whose nose-up ask is a trim. Capped rather than rewritten,
     // because nose-DOWN is most of what this loop asks for off a ramp and

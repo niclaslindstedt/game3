@@ -119,6 +119,12 @@ export function Hud({
   // Nothing in this file branches on it: every colour the dip moves is a
   // custom property declared once on `.hud` in styles.css, and this is the
   // dial all of them turn on.
+  //
+  // ...and THE COMBO'S LINE, composed once here rather than at the two
+  // places below that want it: the element list is the engine's and the
+  // words are the strings table's (§39.1, §39.2), and this is only where
+  // the two are put together.
+  const comboLine = STRINGS.comboLine(snap.comboParts);
   return (
     <div
       class="hud"
@@ -261,6 +267,21 @@ export function Hud({
               looking at the water rather than at the number still catches
               the thump out of the corner of his eye, which is the whole job:
               he has to know the flip counted before he has to land it. */}
+          {/* THE TRICK LINE, over the figure it is worth — the arcade
+              skating game's own reading, and the half of it a rider is
+              actually chasing. It names every element he has strung
+              together, in the order he won them, and it is KEYED on the
+              whole line: every element added mounts a fresh element and
+              punches, so the line grows with a beat rather than silently
+              gaining a word. It sits ABOVE the number because that is the
+              order the eye takes them in — what he did, then what it was
+              worth — and it survives the landing with the figure, which is
+              when the receipt has to say what it is a receipt for. */}
+          {snap.combo > 0 && comboLine !== "" && (
+            <div class={`hud-trick hud-trick-${snap.comboPhase}`} key={comboLine}>
+              {comboLine}
+            </div>
+          )}
           {snap.combo > 0 && (
             <div class={`hud-combo hud-combo-${snap.comboPhase}`}>
               <span class="hud-combo-num">{STRINGS.comboPoints(snap.combo)}</span>

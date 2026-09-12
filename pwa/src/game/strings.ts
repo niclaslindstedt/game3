@@ -6,6 +6,8 @@
 // templates — functions of their parameters — never concatenations at the
 // call site (§39.2). Developer diagnostics are deliberately not here.
 
+import type { TrickKind, TrickPart } from "@engine";
+
 import { formatScore, formatTime } from "../lib/util.ts";
 
 /** The class ladder's words, by the multiple each rung is. Novice is the
@@ -21,7 +23,80 @@ const CLASS_NAMES: Record<string, string> = {
 /** What a flight's Nth revolution is called. Past a triple the count is
  * spelled with a figure — nobody has a word for a fifth one, and a rider who
  * gets there has earned a number rather than an adjective. */
-const SPINS: Record<number, string> = { 1: "", 2: "DOUBLE ", 3: "TRIPLE " };
+const SPINS: Record<number, string> = { 1: "", 2: "DOUBLE ", 3: "TRIPLE ", 4: "QUAD " };
+
+/** THE TRICK VOCABULARY — the word for each thing the engine can say the
+ * rider did (`TrickKind`). The engine names the THING and counts the
+ * revolutions; this is the only place any of them is a word.
+ *
+ * They are the water's own words rather than the skate park's, because that
+ * is what the rider is on: a hull going over nose-over-tail is a FLIP, a
+ * hull turning about its own length is a BARREL ROLL, and the flight they
+ * were turned in is AIR. The side a roll went is deliberately not in the
+ * name — a rider rolling left and one rolling right have done the same
+ * trick — where the direction of a flip is the whole difference between the
+ * one he asked for and the one the lip gave him. */
+const TRICK_WORDS: Record<TrickKind, string> = {
+  backflip: "BACKFLIP",
+  frontflip: "FRONTFLIP",
+  roll: "BARREL ROLL",
+  air: "AIR",
+};
+
+/** ...and the one name that is not a name for a single element: a flight
+ * with a revolution on BOTH axes in it. A flip with a roll through it is a
+ * CORKSCREW, and calling it that is worth more than calling it two things —
+ * it is the trick a rider goes looking for once he has both of the others,
+ * and a combo line that said "BACKFLIP + BARREL ROLL" would never tell him
+ * he had found it. The points and the multiplier are unchanged: the engine
+ * scored two first revolutions (`tricks.ts`) and this only reads them. */
+const CORKSCREW = "CORKSCREW";
+
+/** How many revolutions of it, spelled: nothing for a single, the word for
+ * a double or a triple, a figure past that. */
+function turns(spins: number): string {
+  return SPINS[spins] ?? `${spins}\u00d7 `;
+}
+
+/** THE COMBO AS WORDS — one name per element, in the order they were won,
+ * and the one place the vocabulary is applied rather than merely listed.
+ *
+ * The only compound is the CORKSCREW: a flight that turned exactly one flip
+ * and exactly one roll is named once, in place of both. Narrow on purpose —
+ * a flight with a double in it is two harder things and reads better as
+ * two, and a flip off one wave with a roll off the next is not a corkscrew
+ * at all, which is what `TrickPart.flight` is carried for. Everything else
+ * falls through to its own word. */
+function namesOf(parts: readonly TrickPart[]): string[] {
+  const corked = new Set<number>();
+  for (const p of parts) {
+    if (p.kind !== "roll" || p.spins !== 1) continue;
+    let flips = 0;
+    let rolls = 0;
+    let singles = 0;
+    for (const q of parts) {
+      if (q.flight !== p.flight) continue;
+      if (q.kind === "roll") rolls += 1;
+      else if (q.kind === "backflip" || q.kind === "frontflip") {
+        flips += 1;
+        if (q.spins === 1) singles += 1;
+      }
+    }
+    if (rolls === 1 && flips === 1 && singles === 1) corked.add(p.flight);
+  }
+  const out: string[] = [];
+  const named = new Set<number>();
+  for (const p of parts) {
+    if (p.kind !== "air" && corked.has(p.flight)) {
+      if (named.has(p.flight)) continue;
+      named.add(p.flight);
+      out.push(CORKSCREW);
+      continue;
+    }
+    out.push(`${turns(p.spins)}${TRICK_WORDS[p.kind]}`);
+  }
+  return out;
+}
 
 export const STRINGS = {
   /** The speedometer's unit. */
@@ -65,12 +140,18 @@ export const STRINGS = {
    * because he was not. */
   comboBanked: "BANKED",
   comboBailed: "BAILED",
-  /** A trick as it completes, for the news column: the revolution's own
-   * name and the multiplier it just bought. A double is named as a double
-   * rather than reported twice — it is one harder trick, which is exactly
-   * what the multiplier says. */
-  trick: (spins: number, backwards: boolean, mult: number): string =>
-    `${SPINS[spins] ?? `${spins}\u00d7 `}${backwards ? "BACKFLIP" : "FRONTFLIP"}  \u00d7${mult}`,
+  /** An element as it completes, for the news column: its own name and the
+   * multiplier it just bought. A double is named as a double rather than
+   * reported twice — it is one harder trick, which is exactly what the
+   * multiplier says. */
+  trick: (kind: TrickKind, spins: number, mult: number): string =>
+    `${turns(spins)}${TRICK_WORDS[kind]}  \u00d7${mult}`,
+  /** THE COMBO'S LINE, flashed over the nose as it is built: every element
+   * the rider has strung together, in the order he won them, joined the way
+   * an arcade skating game joins them. The multiplier is NOT in it — it is
+   * its own word beside the points, a rung rather than part of the name,
+   * and a line that carried it would be read as one of the tricks. */
+  comboLine: (parts: readonly TrickPart[]): string => namesOf(parts).join(" + "),
   /** ...and the combo lost, which is the one half of the score the picture
    * does not already say: the tile is gone by the time the rider looks. */
   bailed: (points: number): string => `BAILED  \u2212${formatScore(points)}`,

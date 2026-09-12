@@ -2,18 +2,19 @@
 // THE SCORE — what a rider is paid for the parts of a run the clock does
 // not measure. Time is the race; this is the other game on the same water,
 // and it is the arcade skating one: points TICK while a trick is being
-// held, every trick won raises a MULTIPLIER over the whole run of them, and
-// nothing is yours until you are back on the water with the craft under
+// held, every element won raises a MULTIPLIER over the whole run of them,
+// and nothing is yours until you are back on the water with the craft under
 // you. Fall off it and the lot goes.
 //
-// Two things are scored so far, because two things are reachable: the time
-// the hull spends off the water, and the revolutions it turns nose-over-tail
-// while it is up there (THE PUMP throws one: `TUNING.flight.pump`). A hull on
-// its tail, a barrel roll and a trick taken off a buoy are the same
-// machinery with another term in it — `TrickState` is shaped for them and
-// this module is where they land.
+// FOUR THINGS ARE SCORED, because four are reachable: the time the hull
+// spends off the water, the revolutions it turns nose-over-tail while it is
+// up there (THE PUMP throws one: `TUNING.flight.pump`), the revolutions it
+// turns about its own length (THE WHIP: `TUNING.flight.whip`), and the
+// flight itself as an element beside any of them. A hull on its tail and a
+// trick taken off a buoy are the same machinery with another term in it —
+// `TrickState` is shaped for them and this module is where they land.
 //
-// THE THREE RULES, and the reason each is the shape it is:
+// THE FOUR RULES, and the reason each is the shape it is:
 //
 // 1. AIR TIME PAYS BY THE SECOND, AT A RATE THAT RISES WITH THE FLIGHT.
 //    The rate is logarithmic in how long the hull has been up
@@ -33,9 +34,25 @@
 //    base; the third, three and three times. So a single is ×2 and a double
 //    is ×4 rather than ×3 — a double backflip is not two backflips, it is a
 //    much harder trick that happens to be measured in revolutions, and the
-//    ladder has to say so or nobody will ever go for the second one.
+//    ladder has to say so or nobody will ever go for the second one. A
+//    revolution about the hull's LENGTH — the side spin — climbs the same
+//    ladder off `rollPoints`, and climbs it separately: the two axes are
+//    counted apart, so a flip with a roll in it is two first revolutions
+//    (×3) and not one second one.
 //
-// 3. NOTHING IS BANKED UNTIL THE COMBO CLOSES. The base and the multiplier
+// 3. ...AND SO DOES THE AIR THEY WERE TURNED IN, ONCE SOMETHING WAS TURNED
+//    IN IT. A flight past `airElement` is an element of the combo like any
+//    other and worth one step — but it is only ever CREDITED beside a
+//    trick, and only once per combo. Both halves of that are load-bearing.
+//    Credit it on its own and every jump on the course reads ×2, which is a
+//    multiplier that has stopped saying anything; credit it per flight and a
+//    rider could climb the ladder by hopping off crests. Paid this way it
+//    says the thing worth saying: a trick turned in real air is worth more
+//    than the same trick scraped off a wave. It adds NO base — the air is
+//    already paid by the second, and paying it twice would be the same
+//    seconds bought at two prices.
+//
+// 4. NOTHING IS BANKED UNTIL THE COMBO CLOSES. The base and the multiplier
 //    ride together for as long as the rider keeps the run alive: while the
 //    hull is up, and for `linkWindow` seconds after it comes down, so one
 //    landing straight into the next launch is ONE combo at one multiplier
@@ -46,11 +63,13 @@
 //
 // The engine only ever says what happened: `trick`, `combo` and `bail`
 // events carry the beat a presentation pulses on, and `TrickState` carries
-// the numbers it reads. Nothing here draws, and nothing here is random — a
-// run replays to the same score.
+// the numbers and the ELEMENT LIST it reads. No word for any of it is here
+// — the names live in the one table every line the player reads comes from
+// (`pwa/src/game/strings.ts`). Nothing here draws, and nothing here is
+// random: a run replays to the same score.
 
 import { TUNING } from "./defs/tuning.ts";
-import type { GameEvent, GameState, TrickState } from "./state.ts";
+import type { GameEvent, GameState, TrickKind, TrickState } from "./state.ts";
 
 const T = TUNING.tricks;
 const TAU = Math.PI * 2;
@@ -78,10 +97,45 @@ export function freshTricks(): TrickState {
     link: 0,
     rotation: 0,
     spins: 0,
+    roll: 0,
+    rolls: 0,
+    aired: false,
+    airPaid: false,
+    parts: [],
+    flight: 0,
     last: 0,
     lastAt: 0,
     lastBailed: false,
+    lastParts: [],
   };
+}
+
+/** AN ELEMENT WON. Everything a trick does to the combo is here, so the two
+ * axes and the air cannot drift apart: the air's own rung is taken first
+ * (rule 3, and taking it first is what makes the flashed line read in the
+ * order the rider earned it), then the element's base and its step, then
+ * the beat.
+ *
+ * `spins` is which revolution of this flight it was, and it is the whole of
+ * the ladder: N times the base and N steps of multiplier. */
+function win(
+  state: GameState,
+  events: GameEvent[],
+  kind: TrickKind,
+  spins: number,
+  points: number,
+): void {
+  const k = state.tricks;
+  if (k.aired && !k.airPaid) {
+    k.airPaid = true;
+    k.mult += 1;
+    k.parts.push({ kind: "air", spins: 1, flight: k.flight });
+    events.push({ kind: "trick", t: state.t, trick: "air", spins: 1, points: 0, mult: k.mult });
+  }
+  k.base += points;
+  k.mult += spins;
+  k.parts.push({ kind, spins, flight: k.flight });
+  events.push({ kind: "trick", t: state.t, trick: kind, spins, points, mult: k.mult });
 }
 
 /** Close the combo and pay it into the run's score. */
@@ -93,9 +147,13 @@ function bank(state: GameState, events: GameEvent[]): void {
   k.last = points;
   k.lastAt = state.t;
   k.lastBailed = false;
+  k.lastParts = k.parts;
+  k.parts = [];
+  k.flight = 0;
   k.base = 0;
   k.mult = 1;
   k.link = 0;
+  k.airPaid = false;
 }
 
 /** Drop the combo on the floor: the rider went over the bars, or put
@@ -109,12 +167,19 @@ function bail(state: GameState, events: GameEvent[]): void {
     k.last = lost;
     k.lastAt = state.t;
     k.lastBailed = true;
+    k.lastParts = k.parts;
   }
+  k.parts = [];
+  k.flight = 0;
   k.base = 0;
   k.mult = 1;
   k.link = 0;
   k.rotation = 0;
   k.spins = 0;
+  k.roll = 0;
+  k.rolls = 0;
+  k.aired = false;
+  k.airPaid = false;
 }
 
 /** THE RIDER PUT BACK AT A GATE — everything riding on the combo goes with
@@ -133,33 +198,44 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
   const c = state.craft;
   const dt = TUNING.dt;
 
+  // WHICH FLIGHT OF THE COMBO THIS IS, off the hull's own launch rather
+  // than a state edge of this module's: a rider who takes a flip off one
+  // wave and a roll off the next has not done what a rider who turns both
+  // in one flight has, and the elements carry which it was so a readout can
+  // name them apart (`TrickPart.flight`).
+  for (let i = 0; i < events.length; i++) {
+    if (events[i].kind === "launch") k.flight += 1;
+  }
+
   if (c.airborne) {
-    // HOW FAR THE HULL HAS GONE OVER, rad, nose-up positive. The body-frame
-    // pitch rate is the flip axis whatever attitude the craft is in
-    // (nose-up is −wx), so summing it while aloft is the rotation itself
-    // rather than a reading off the Euler angles, which wrap and which a
-    // roll would confuse. It sums to about nothing in chop, so a hull being
-    // thrown about cannot accumulate a backflip.
+    // HOW FAR THE HULL HAS GONE OVER, rad, on each of the two axes a rider
+    // can turn it about — nose-up positive for the flip (−wx), right side
+    // down positive for the roll (−wz). The BODY-FRAME rates are the two
+    // axes whatever attitude the craft is in (the hull's own beam and its
+    // own length), so summing them while aloft is the rotation itself
+    // rather than a reading off the Euler angles, which wrap and which
+    // would confuse one axis for the other. Both sum to about nothing in
+    // chop, so a hull being thrown about cannot accumulate a trick.
     k.rotation -= c.wx * dt;
-    const turned = Math.abs(k.rotation);
-    while (turned >= (k.spins + 1) * TAU) {
+    k.roll -= c.wz * dt;
+    while (Math.abs(k.rotation) >= (k.spins + 1) * TAU) {
       k.spins += 1;
-      // The Nth revolution of a flight: N steps of multiplier and N times
-      // the base, so the ladder climbs with the difficulty rather than with
-      // the count (the header's rule 2).
-      const spins = k.spins;
-      const points = T.flipPoints * spins;
-      k.base += points;
-      k.mult += spins;
-      events.push({
-        kind: "trick",
-        t: state.t,
-        trick: k.rotation > 0 ? "backflip" : "frontflip",
-        spins,
-        points,
-        mult: k.mult,
-      });
+      win(
+        state,
+        events,
+        k.rotation > 0 ? "backflip" : "frontflip",
+        k.spins,
+        T.flipPoints * k.spins,
+      );
     }
+    while (Math.abs(k.roll) >= (k.rolls + 1) * TAU) {
+      k.rolls += 1;
+      win(state, events, "roll", k.rolls, T.rollPoints * k.rolls);
+    }
+    // THE AIR AS AN ELEMENT (rule 3) — in hand from here, and sold only by
+    // the next trick to land. A flight is either long enough or it is not,
+    // so this is set and never unset until the water takes it.
+    if (c.airTime > T.airElement) k.aired = true;
     if (c.airTime > TUNING.flight.airCounts) {
       k.base += airPointsPerSecond(c.airTime) * dt;
       // The flight itself holds the combo open; the window is what the
@@ -170,6 +246,9 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
   } else {
     k.rotation = 0;
     k.spins = 0;
+    k.roll = 0;
+    k.rolls = 0;
+    k.aired = false;
     if (k.base > 0) {
       k.link -= dt;
       if (k.link <= 0) bank(state, events);

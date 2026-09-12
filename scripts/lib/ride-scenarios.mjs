@@ -67,15 +67,22 @@ function levelInAir(c, target = 0.08) {
 }
 
 /** A ramp run: flat out to the hinge, lean back on the deck, level in the
- * air (or hold the lean, for a flip), then ride on. */
-function rampRun(gate, spec, { holdLean = false, lead = 45 }) {
+ * air (or hold the lean for a flip, or throw the bars over for a roll),
+ * then ride on. */
+function rampRun(gate, spec, { holdLean = false, throwBars = 0, lead = 45 }) {
   const speed = launchSpeedFor(gate, spec.cog.y, topSpeedOf(spec));
   return {
     moment: { ...rampApproach(gate, lead), speed, nextGate: gate.index },
     input: (t, state) => {
       const c = state.craft;
       if (c.airborne)
-        return { ...NEUTRAL, throttle: 1, reverse: 0, lean: holdLean ? 1 : levelInAir(c) };
+        return {
+          ...NEUTRAL,
+          throttle: 1,
+          reverse: 0,
+          steer: throwBars,
+          lean: holdLean ? 1 : levelInAir(c),
+        };
       if (c.onRamp || onRampDeck(gate.ramp, c.x, c.z))
         return { ...NEUTRAL, throttle: 1, reverse: 0, lean: 1 };
       return { ...NEUTRAL, throttle: 1 };
@@ -327,6 +334,11 @@ export const SCENARIOS = {
     blurb: "the first ramp with the rider held back through the whole flight",
     seconds: 7,
     stage: (level, spec) => rampRun(firstAirGate(level), spec, { holdLean: true }),
+  },
+  sidespin: {
+    blurb: "the first ramp with the bars thrown over and held there — the roll",
+    seconds: 7,
+    stage: (level, spec) => rampRun(firstAirGate(level), spec, { throwBars: 1 }),
   },
 };
 

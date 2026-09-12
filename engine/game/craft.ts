@@ -52,6 +52,7 @@ import {
   thrust,
 } from "./propulsion.ts";
 import type { CraftInput, CraftState, GameEvent, GameState } from "./state.ts";
+import { stepStrokes } from "./strokes.ts";
 import { tornadoAt, tornadoBlow, tornadoColumn, tornadoLift } from "./tornado.ts";
 import { surfaceAt } from "./water.ts";
 import { windAt } from "./wind.ts";
@@ -137,36 +138,6 @@ function workFor(craft: CraftState): Work {
 function standing(left: number): number {
   const u = 1 - left / T.capsize.righting;
   return 1 - u * u * (3 - 2 * u);
-}
-
-/** HOW DEEP A HAUL IS, 0..1, for a stroke whose peak is `back` — what it is
- * worth against the whole of `flight.pump`.
- *
- * A DEAD BAND AND A CEILING, and both earn their keep. A stroke that only
- * just clears `pumpRise` is a FLICK, and a rider flicking the bars to trim
- * his nose must not be handed a flip's worth of rotation: the bot's own
- * levelling loop asks for 0.22 of lean two or three times a run, and paying
- * those in full cost `make sim` 4–7 km/h of pace and a fifth of its gates.
- * Twice the threshold is a haul, and past that a harder pull is not a bigger
- * one — which is what keeps a key held down (1) worth exactly the committed
- * pull this has always been, while a key worked at 2–8 Hz peaks at 0.51–0.75
- * on the app's own lean ramp and so counts as a whole haul too. */
-function depth(back: number): number {
-  return clamp((back - TUNING.flight.pumpRise) / TUNING.flight.pumpRise, 0, 1);
-}
-
-/** Spend `share` of a yank on the pitch rate, nose-up (−wx), out of what is
- * left of this flight's budget. `authority` is the craft's own
- * `riderAuthority` and `ix` its pitch inertia — the two numbers that make
- * the same haul worth five times as much on a stand-up as on a tourer. */
-function haul(c: CraftState, authority: number, ix: number, share: number): void {
-  if (share <= 0) return;
-  const room = Math.max(TUNING.flight.pumpCeiling * authority - c.pumped, 0);
-  const rate = Math.min((TUNING.flight.pump * authority * share) / ix, room);
-  if (rate <= 0) return;
-  c.wx -= rate;
-  c.pumped += rate;
-  c.yank = 1;
 }
 
 /** One physics step of the craft. Emits into `events`. */
@@ -316,6 +287,17 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     // the water, neither can be asked for without throttle or air, and what
     // puts a craft on its tail is never a craft going backwards.
     c.yank = input.lean < 0 ? 0 : Math.max(0, c.yank - dt / T.flight.yankFade);
+    // ...and THE THROW, the same reading on the lateral axis: the last
+    // stroke of the whip hung him out over that side and it is coming back
+    // under him as it fades. Crossing the bars takes it at once and for the
+    // same reason the yank goes on a shove forward — a rider who has thrown
+    // his weight the other way has not still got it out on the old side.
+    const held = clamp(input.steer, -1, 1);
+    if (held * c.whip < 0) c.whip = 0;
+    else if (c.whip !== 0) {
+      const left = Math.max(0, Math.abs(c.whip) - dt / T.flight.yankFade);
+      c.whip = c.whip > 0 ? left : -left;
+    }
     const reach = 1 - T.tuck.leanCut * c.crouch;
     const k = 1 - Math.exp(-dt / T.rider.leanLag);
     const aft =
@@ -323,7 +305,8 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       c.stand * T.stand.reach +
       c.yank * T.flight.yankReach;
     c.riderAft += (aft - c.riderAft) * k;
-    c.riderRight += (clamp(input.steer, -1, 1) * T.rider.leanIn * reach * ahead - c.riderRight) * k;
+    const out = held * T.rider.leanIn * reach * ahead + c.whip * T.flight.whipReach;
+    c.riderRight += (out - c.riderRight) * k;
   }
 
   // THE WATER under every probe.
@@ -583,6 +566,13 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // moment he asks for the nose down, so there is never one to read there.
   const lean = clamp(input.lean, -1, 1);
   const airLean = lean < 0 ? lean : Math.max(lean, c.yank);
+  // ...AND THE SAME FOR THE BARS, which is what makes a tapped roll a roll
+  // rather than a flicker: the hand is off the key half the time, and the
+  // air reads whichever of what he is asking for now and what his last
+  // throw left is the bigger commitment. A throw the OTHER way is his own
+  // and passes through — by then the fade has already been taken.
+  const steer = clamp(input.steer, -1, 1);
+  const airSteer = steer * c.whip < 0 || Math.abs(steer) >= Math.abs(c.whip) ? steer : c.whip;
 
   // THE AIR: drag always; the plate, the rider's authority and the air's
   // damping in proportion to how much of the hull is out of the water.
@@ -620,7 +610,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       c.wx,
       c.wy,
       c.wz,
-      input.steer,
+      airSteer,
       airLean,
       airShare,
       c.crouch,
@@ -814,84 +804,23 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.airTime = 0;
   }
 
-  // THE PUMP — the rider yanking the bars up, and the one control in the
-  // game that answers to being TAPPED. It is bookkeeping on an input rather
-  // than a force, which is why it is read here and not in `flight.ts`:
-  // every rise of the lean-back input `flight.pumpRise` above its own
-  // low-water mark EARNS a yank, and a yank is SPENT as an angular impulse
-  // (nose-up is −wx) once the hull is flying, with the lean still back.
-  //
-  // One input, both of the things a rider does with it. Hold the lean back
-  // up the face or up a deck and the hull takes one yank as it comes off —
-  // the mark only ever falls, so a hold cannot clear the rise twice, and
-  // that is exactly the pull this has always been. Then TAP it, and it
-  // takes one a tap, which is how a flip comes round off a ramp no craft
-  // could carry one off in a single pull. Let go before the hull is flying
-  // and the yank goes with it: a touch of lean off the lip is not a flip.
-  //
-  // FLYING IS A JUMP, and every clause of it was measured rather than
-  // assumed. It is a hull that LEFT the water going up (`flight.launchVy`,
-  // the line the launch event is read against) with THE DECK BEHIND IT and
-  // `flight.minAir` past that:
-  //
-  // - Not merely "out of the water". A hull leaving a lip lifts a probe
-  //   clear while the deck still has it, and spending a yank on that step
-  //   cost the big ramp's backflip a third of its rotation.
-  // - Not merely airborne over a ramp. A hull CROSSING a deck hops off it
-  //   and back, which the flight bookkeeping reports as a launch and a
-  //   landing of its own; a yank there pitched the hull up before it
-  //   reached the lip it was aimed at, and cost `make ride`'s backflip
-  //   0.4 s of hang.
-  // - And not a hull DROPPING off a crest, which is the `launchVy` clause
-  //   and the one that matters most: a rider leaning back through a head
-  //   sea is levelling, not pumping, and the bot's own levelling PD asks
-  //   for exactly that. Without it the bot was handed 2.8–5.5 rad/s of
-  //   nose-up it never asked for, two or three times a run, and `make sim`
-  //   lost 4–7 km/h of pace and a fifth of its gates across the roster.
-  //
-  // Let the lean go before the line and the haul goes with it: a touch of
-  // lean off a lip is not a flip.
-  {
-    const back = Math.max(lean, 0);
-    const flying =
-      airborne &&
+  // THE TWO STROKES — the pump on the bars hauled back and the whip on the
+  // bars thrown over, both read off the SHAPE of their input rather than
+  // its value (`strokes.ts`, which owns every rule and the measurements
+  // behind them). They are read here, after the flight bookkeeping above
+  // has this step's answer, because what they need is whether the hull is
+  // FLYING: off the water going up, with the deck behind it, and
+  // `flight.minAir` past that.
+  stepStrokes(
+    c,
+    spec,
+    I,
+    input,
+    airborne &&
       !contact.overRamp &&
       c.airTime >= T.flight.minAir &&
-      c.launchVy >= T.flight.launchVy;
-    if (!flying) {
-      // Nothing is hauled against the water or a deck, and every flight
-      // starts the stroke and the budget fresh — which is also what makes a
-      // lean held back through the lip worth a yank AT the lip: the first
-      // flying step reads the whole of it as one rise.
-      c.pumpMark = 0;
-      c.pumpRising = false;
-      c.pumped = 0;
-    } else if (c.pumpRising) {
-      // Up the stroke: a peak that has grown is a haul that is still being
-      // pulled, and it is paid for as it grows. The first sign of the bars
-      // coming back turns the stroke over. A mark that only ever rose is
-      // why a key HELD down is one haul however long it is held.
-      if (back > c.pumpMark) {
-        haul(c, spec.riderAuthority, I.x, depth(back) - depth(c.pumpMark));
-        c.pumpMark = back;
-      } else if (back < c.pumpMark) {
-        c.pumpRising = false;
-        c.pumpMark = back;
-      }
-    } else if (back >= c.pumpMark + T.flight.pumpRise && c.yank <= T.flight.pumpReady) {
-      // A FRESH HAUL, worth what it is DEEP — see `depth`. Every one is
-      // paid out of the flight's budget, so the rate steps up a tap at a
-      // time until the rider has spent what one flight's worth of him is
-      // and the last tap is worth whatever was left. That is the version a
-      // player can read off the hull — tap, it turns faster; tap, it turns
-      // faster again; tap, and nothing more happens.
-      haul(c, spec.riderAuthority, I.x, depth(back));
-      c.pumpRising = true;
-      c.pumpMark = back;
-    } else if (back < c.pumpMark) {
-      c.pumpMark = back;
-    }
-  }
+      c.launchVy >= T.flight.launchVy,
+  );
 
   // A DIVE develops over the steps after a landing: the bow keeps going
   // in. Reported once per landing.

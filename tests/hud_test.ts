@@ -27,10 +27,12 @@ import {
   type CraftInput,
   type GameState,
   type Level,
+  type TrickPart,
 } from "@engine";
 
 import { skyAt } from "../pwa/src/game/sky.ts";
 import { takeSnapshot } from "../pwa/src/game/snapshot.ts";
+import { STRINGS } from "../pwa/src/game/strings.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 const FLAT = syntheticLevel({ windSpeed: 0, noSolids: true });
@@ -243,5 +245,78 @@ describe("how far the chrome is dipped", () => {
     const snap = takeSnapshot(atHour(12, "winter"));
     expect(snap.daylight).toBe("dusk");
     expect(snap.dark).toBe(0);
+  });
+});
+
+/** THE TRICK VOCABULARY — the words the combo line is built from, and the
+ * one place in the app where the engine's elements become English
+ * (`pwa/src/game/strings.ts`, §39.1). Read here rather than in
+ * `tricks_test.ts` because none of it is the engine's: the engine names the
+ * THING and counts the revolutions, and every judgement about what to call
+ * the result is made in the table. */
+describe("the combo's line", () => {
+  const part = (kind: TrickPart["kind"], spins = 1, flight = 0): TrickPart => ({
+    kind,
+    spins,
+    flight,
+  });
+
+  it("names each element and joins them in the order they were won", () => {
+    expect(STRINGS.comboLine([part("air"), part("backflip")])).toBe("AIR + BACKFLIP");
+    expect(STRINGS.comboLine([part("air"), part("roll")])).toBe("AIR + BARREL ROLL");
+    expect(STRINGS.comboLine([])).toBe("");
+  });
+
+  it("spells the revolution count, and falls back to a figure past a quad", () => {
+    expect(STRINGS.comboLine([part("backflip", 2)])).toBe("DOUBLE BACKFLIP");
+    expect(STRINGS.comboLine([part("roll", 3)])).toBe("TRIPLE BARREL ROLL");
+    expect(STRINGS.comboLine([part("frontflip", 5)])).toBe("5× FRONTFLIP");
+  });
+
+  it("calls a flip and a roll turned in ONE flight a corkscrew, once", () => {
+    const line = STRINGS.comboLine([part("air"), part("backflip"), part("roll")]);
+    expect(line).toBe("AIR + CORKSCREW");
+  });
+
+  it("...and does not, when they were taken off two waves in a row", () => {
+    // The same two elements in the same combo, one flight apart. It is a
+    // link, not a corkscrew, and the line has to say so — which is the
+    // whole reason an element carries which flight it was won in.
+    const line = STRINGS.comboLine([part("air"), part("backflip", 1, 0), part("roll", 1, 1)]);
+    expect(line).toBe("AIR + BACKFLIP + BARREL ROLL");
+  });
+
+  it("...and does not collapse a flight with a DOUBLE in it", () => {
+    // Two harder things read better as two: the compound is for the one
+    // trick that earns a name of its own, not for anything with a roll in
+    // it.
+    const line = STRINGS.comboLine([part("backflip", 1), part("backflip", 2), part("roll", 1)]);
+    expect(line).toBe("BACKFLIP + DOUBLE BACKFLIP + BARREL ROLL");
+  });
+
+  it("is what a run actually produces: a rolled jump reads back off the snapshot", () => {
+    // End to end, off the engine rather than off a hand-built list — the
+    // claim is that what the HUD draws is what the rider just did: he threw
+    // the bars over in a jump, so the line opens with the air he did it in
+    // and names the roll.
+    //
+    // Asserted on the OPENING of the line and not the whole of it. How many
+    // revolutions a held throw is worth is `TUNING.flight.whip`'s to say
+    // and it is tuned against `make ride` (a stand-up on a nine-metre-a-
+    // second launch turns one and a half); pinning the count here would
+    // make this case fail every time that dial legitimately moves, and the
+    // count is not what it is about.
+    const state = createGame({ seed: 1, craft: "dart", level: FLAT, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
+    let parts: readonly TrickPart[] = [];
+    for (let i = 0; i < 3 * TUNING.physicsHz; i++) {
+      step(state, { steer: 1, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false });
+      const snap = takeSnapshot(state);
+      if (snap.comboParts.length > 0) parts = snap.comboParts;
+    }
+    expect(parts.map((p) => p.kind).slice(0, 2)).toEqual(["air", "roll"]);
+    expect(STRINGS.comboLine(parts).startsWith("AIR + BARREL ROLL")).toBe(true);
+    // ...and nothing he did not do: the bars were never hauled back.
+    expect(parts.some((p) => p.kind === "backflip" || p.kind === "frontflip")).toBe(false);
   });
 });

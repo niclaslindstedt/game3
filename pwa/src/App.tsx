@@ -205,12 +205,16 @@ function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null
       return { text: STRINGS.hit, tone: "bad" };
     case "ground":
       return { text: STRINGS.grounded, tone: "bad" };
-    // A TRICK, named as it completes. The combo tile over the nose already
-    // says what the run is worth and what it is being multiplied by; what
-    // it cannot say is WHICH trick bought the rung, and the name is half of
-    // what a rider is chasing.
+    // AN ELEMENT, named as it completes. The tile over the nose is already
+    // building the whole combo's line; this is the column's own record of
+    // each one as it landed, which is what a rider reads BACK after a run
+    // rather than during it. The air's own rung is not one of them: it buys
+    // no points and it is already the first word on the tile, and a news
+    // line saying AIR under every flip would push the flips off the column.
     case "trick":
-      return { text: STRINGS.trick(e.spins, e.trick === "backflip", e.mult), tone: "good" };
+      return e.trick === "air"
+        ? null
+        : { text: STRINGS.trick(e.trick, e.spins, e.mult), tone: "good" };
     // ...and the combo thrown away. The BANKED half gets no line: the tile
     // holds the figure for a moment and the score chip takes it. A bail is
     // the one end the rider misses, because by then he is upside down.

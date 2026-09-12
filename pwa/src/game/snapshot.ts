@@ -19,6 +19,7 @@ import {
   windAt,
   type CraftId,
   type GameState,
+  type TrickPart,
 } from "@engine";
 
 import { daylightOf, lampsAt, sunOver, type Daylight } from "./daylight.ts";
@@ -147,10 +148,17 @@ export type HudSnapshot = {
   /** THE COMBO: what is riding on the rider staying on the craft, and the
    * multiplier it will be paid at. `combo` is 0 with nothing in hand.
    * `comboPhase` is what the tile is showing — a combo still building, or
-   * the figure the last one resolved at, held for `COMBO_HOLD`. */
+   * the figure the last one resolved at, held for `COMBO_HOLD`.
+   *
+   * `comboParts` is what it is MADE of, and it is handed over as the
+   * engine's own elements rather than as a line of text: the words are the
+   * strings table's (§39.1) and the HUD asks it for them. Empty with
+   * nothing in hand, and it follows the figure through the hold — the
+   * receipt says what was banked AND what for. */
   combo: number;
   mult: number;
   comboPhase: "live" | "banked" | "bailed";
+  comboParts: readonly TrickPart[];
   seed: number;
   craft: CraftId;
   /** The minimap for this frame — the coast around the craft, the gates on
@@ -211,15 +219,27 @@ function airClock(state: GameState): { time: number; grow: number; record: boole
  * The multiplier is dropped in the held state on purpose. `points` is
  * already `base × mult` and the combo is over; a ×4 still standing beside a
  * figure nothing is multiplying any more reads as a combo still running. */
-function comboTile(state: GameState): Pick<HudSnapshot, "combo" | "mult" | "comboPhase"> {
+function comboTile(
+  state: GameState,
+): Pick<HudSnapshot, "combo" | "mult" | "comboPhase" | "comboParts"> {
   const k = state.tricks;
   if (k.base > 0) {
-    return { combo: Math.round(k.base * k.mult), mult: k.mult, comboPhase: "live" };
+    return {
+      combo: Math.round(k.base * k.mult),
+      mult: k.mult,
+      comboPhase: "live",
+      comboParts: k.parts,
+    };
   }
   if (k.last > 0 && state.t - k.lastAt < COMBO_HOLD) {
-    return { combo: k.last, mult: 1, comboPhase: k.lastBailed ? "bailed" : "banked" };
+    return {
+      combo: k.last,
+      mult: 1,
+      comboPhase: k.lastBailed ? "bailed" : "banked",
+      comboParts: k.lastParts,
+    };
   }
-  return { combo: 0, mult: 1, comboPhase: "live" };
+  return { combo: 0, mult: 1, comboPhase: "live", comboParts: [] };
 }
 
 export function takeSnapshot(state: GameState): HudSnapshot {
