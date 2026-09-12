@@ -79,8 +79,18 @@ export function planingLift(
   // ...and so is the wetted length below the λ floor: a bottom with a
   // hand's breadth of keel in the water is not carrying the lift of one
   // with a beam's worth, whatever the clamp on λ says.
+  // ...and ABOVE the band the same way, from `fadeFrom` to `fadeGone`: the
+  // clamp alone would evaluate a hull reared onto its tail at τ = `trimMax`
+  // and have a bottom pointing at the sky carrying its full planing weight.
+  // Past those angles the flow separates off the chine and there is no
+  // planing surface left to earn lift — the stern's buoyancy takes the
+  // craft instead, which is what riding on the tail IS. The fade starts
+  // well above `trimMax` on purpose: a ramp and a landing run past
+  // Savitsky's data and do still plane (see the tuning).
   const under =
-    (trimDeg < P.trimMin ? trimDeg / P.trimMin : 1) * clamp(wetted / (P.lambdaMin * beam), 0, 1);
+    (trimDeg < P.trimMin ? trimDeg / P.trimMin : 1) *
+    clamp((P.fadeGone - trimDeg) / (P.fadeGone - P.fadeFrom), 0, 1) *
+    clamp(wetted / (P.lambdaMin * beam), 0, 1);
   const tau = clamp(trimDeg, P.trimMin, P.trimMax);
   const lambda = clamp(wetted / beam, P.lambdaMin, P.lambdaMax);
   const cv2 = Math.max(cv * cv, 0.25);

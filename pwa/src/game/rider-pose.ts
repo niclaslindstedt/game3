@@ -134,6 +134,22 @@ export const STANCE = {
    * how the machine is ridden: knees well bent, hips back over the tray,
    * the legs taking every wave. */
   standAt: 0.46,
+  /** ...and where they go when he is standing the craft UP on its tail
+   * (`CraftState.stand`): right at the BACK of the tray, a share of its
+   * length off the transom end. That is where the trick is actually done —
+   * a rider stands the hull up by getting his feet as far aft as the
+   * footwell lets him and his weight over the transom, and the pose is
+   * most of what the trick LOOKS like from behind. The feet walk back
+   * from `standAt` to here in proportion to the stand. */
+  standRearAt: 0.2,
+  /** ...and how much of `standBack` is left when he is (0..1). Standing the
+   * craft up, the rider is OVER his feet rather than hanging behind them:
+   * the bars are a long way forward from the back of the tray, and a
+   * pelvis still set `standBack` aft of the ankles makes him reach for
+   * them, which the torso solver pays for by leaning him flat along the
+   * deck. Upright over the feet with the arms extended is both what the
+   * trick looks like and what holds the weight where it belongs. */
+  standRearBack: 0.25,
   standFeetHalf: 0.16,
   standBack: 0.2,
   crouch: 0.76,
@@ -201,6 +217,13 @@ export type RiderRead = {
   pace: number;
   /** `CraftState.crouch`, 0..1 — how far into the tuck the rider is. */
   tuck: number;
+  /** `CraftState.stand`, 0..1 — how far the rider is UP OFF THE SEAT and
+   * back over the transom, standing the craft on its tail. It is the tuck's
+   * mirror and it reads as one: a seated rider on his feet is drawn in the
+   * stance a stand-up craft is ridden in all the time, which is why the
+   * two share it rather than each having their own. Always 1 on a craft
+   * with no seat to come off. */
+  stand: number;
   airborne: boolean;
   /** The springs: the torso's pitch forward and roll right relative to the
    * stance, rad, and the body's compression, m. */
@@ -216,6 +239,7 @@ export const REST_READ: RiderRead = {
   throttle: 0,
   pace: 0,
   tuck: 0,
+  stand: 0,
   airborne: false,
   bob: 0,
   sway: 0,
@@ -300,11 +324,19 @@ const SIDES: readonly (-1 | 1)[] = [-1, 1];
 /** The pose, from the deck and the readings. */
 export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   const { seat, grip, wells, standUp } = cockpit;
+  // ON HIS FEET happens two ways and they are the same stance: a stand-up
+  // has no seat and is ridden standing always, and a seated rider STANDS
+  // THE CRAFT UP on its tail (`CraftState.stand`) by coming off the saddle
+  // and back over the transom. Crossing between the two is what makes the
+  // trick read from the chase camera — the figure rising off the seat IS
+  // the tell that it is on.
+  const onFeet = standUp ? 1 : clamp(read.stand, 0, 1);
+  const footed = onFeet > 0.5;
   const roll = STANCE.rollPerMetre * read.right + read.sway;
   const fold = STANCE.foldPerCrush * Math.max(0, read.crush);
   const rise = Math.max(0, -read.crush);
   let lean =
-    (standUp ? STANCE.standingLean : STANCE.seatedLean) +
+    (footed ? STANCE.standingLean : STANCE.seatedLean) +
     STANCE.throttleLean * read.throttle +
     STANCE.paceLean * read.pace +
     STANCE.tuckLean * read.tuck -
@@ -313,29 +345,41 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     fold;
   lean = clamp(lean, STANCE.leanMin, STANCE.leanMax);
 
-  // THE PELVIS: on the seat, or over the tray at a crouch.
+  // THE PELVIS: on the seat, or over the tray on his feet — the two
+  // stances computed together and crossed between by `onFeet`.
   let pelvis: P;
   let ankleZ: number;
-  if (standUp) {
-    ankleZ = wells.z0 + STANCE.standAt * (wells.z1 - wells.z0);
+  {
+    // The feet walk AFT along the tray as he stands it up: `standAt` is
+    // where a stand-up is ridden, `standRearAt` is the back of the pad
+    // where the trick is done.
+    const along = STANCE.standAt + (STANCE.standRearAt - STANCE.standAt) * clamp(read.stand, 0, 1);
+    const footZ = wells.z0 + along * (wells.z1 - wells.z0);
     const legs = BODY.thigh + BODY.shin;
-    const stand = clamp(
+    const height = clamp(
       legs * (STANCE.crouch - STANCE.crouchThrottle * read.throttle - STANCE.tuckDrop * read.tuck) -
         read.crush,
       legs * 0.5,
       legs * 0.97,
     );
-    pelvis = [
+    const up: P = [
       STANCE.slideRight * read.right,
-      wells.floorAt(ankleZ) + stand,
-      ankleZ - STANCE.standBack - STANCE.slideAft * read.aft,
+      wells.floorAt(footZ) + height,
+      footZ -
+        STANCE.standBack * (1 - (1 - STANCE.standRearBack) * clamp(read.stand, 0, 1)) -
+        STANCE.slideAft * read.aft,
     ];
-  } else {
-    pelvis = [
+    const sat: P = [
       STANCE.slideRight * read.right,
       seat.y + BODY.pelvis + rise,
       seat.z - STANCE.slideAft * read.aft,
     ];
+    pelvis = [
+      sat[0] + (up[0] - sat[0]) * onFeet,
+      sat[1] + (up[1] - sat[1]) * onFeet,
+      sat[2] + (up[2] - sat[2]) * onFeet,
+    ];
+    ankleZ = footZ;
   }
 
   // THE TORSO'S FRAME, and the reach: lean further until both shoulders
@@ -366,12 +410,12 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
       length(sub(hands[0], shoulders[0])) > reach || length(sub(hands[1], shoulders[1])) > reach;
     if (!short) break;
     if (lean < STANCE.leanMax) lean = Math.min(STANCE.leanMax, lean + 0.03);
-    else if (!standUp && pelvis[2] < seat.zMax) pelvis[2] = Math.min(seat.zMax, pelvis[2] + 0.02);
+    else if (!footed && pelvis[2] < seat.zMax) pelvis[2] = Math.min(seat.zMax, pelvis[2] + 0.02);
     else break;
   }
   const torsoFwd = cross(torsoRight, torsoUp);
   const pelvisUp: P = [Math.sin(roll), Math.cos(roll), 0];
-  if (!standUp) ankleZ = clamp(pelvis[2] + STANCE.feetAhead, wells.z0 + 0.15, wells.z1 - 0.25);
+  if (!footed) ankleZ = clamp(pelvis[2] + STANCE.feetAhead, wells.z0 + 0.15, wells.z1 - 0.25);
 
   // THE ARMS, solved back from the grips: the elbows out and down.
   const elbows: [P, P] = [pelvis, pelvis];
@@ -400,7 +444,7 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   const floors: [number, number] = [0, 0];
   // Stood, the feet come together on the tray; sat, they stand beside the
   // pedestal's flank. Either way they clear the flank that is drawn.
-  const feetHalf = standUp
+  const feetHalf = footed
     ? Math.max(STANCE.standFeetHalf, wells.inner + 0.03)
     : wells.inner + STANCE.feetOut;
   SIDES.forEach((side, i) => {
@@ -410,7 +454,7 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     // Sat, the knees come forward and up beside the saddle's hump and
     // grip it, tracking the boots rather than splaying off them; stood,
     // they break forward over the toes.
-    const pole: P = standUp ? [side * 0.05, 0.1, 1] : [side * 0.03, 0.8, 0.5];
+    const pole: P = footed ? [side * 0.05, 0.1, 1] : [side * 0.03, 0.8, 0.5];
     knees[i] = solveLimb(hips[i], ankles[i], BODY.thigh, BODY.shin, pole).mid;
   });
 
@@ -562,6 +606,7 @@ export function createRiderDynamics(): RiderDynamics {
       aft: c.riderAft,
       right: c.riderRight,
       tuck: c.crouch,
+      stand: c.stand,
       throttle: c.throttleEff,
       pace: clamp(c.speed / top, 0, 1),
       airborne: c.airborne,

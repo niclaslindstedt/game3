@@ -46,6 +46,14 @@ export type RunMoment = {
   /** Attitude, rad: nose up positive, right side down positive. */
   pitch?: number;
   roll?: number;
+  /** How far the rider is STOOD UP, 0..1 (`CraftState.stand`). A moment
+   * staged with the hull already reared onto its tail is a moment the
+   * rider reached by standing up, and standing takes him `stand.dwell`
+   * to commit to — so a pose that leaves this at 0 photographs a craft
+   * on its tail with a man still sat on the seat. Staged, the dwell is
+   * counted as already served, so the next step neither drops him back
+   * down nor makes him climb up again. */
+  stand?: number;
   /** Pitch rate to put it down with, rad/s, nose-up positive — a flip
    * already begun — and a roll rate, rad/s, right side down positive — a
    * hull already going over. */
@@ -85,6 +93,9 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   // (`quat.ts` owns the flip).
   c.wx = -(moment.pitchRate ?? 0);
   c.wz = -(moment.rollRate ?? 0);
+  c.stand = clamp(moment.stand ?? 0, 0, 1);
+  c.standHold = c.stand > 0 ? TUNING.stand.dwell : 0;
+  c.riderAft += c.stand * TUNING.stand.reach;
   const height = moment.height ?? 0;
   if (height > 0) {
     c.y = heightAt(state.sea, state.level, moment.x, moment.z, state.t) + height;

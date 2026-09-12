@@ -97,6 +97,21 @@ export type CraftState = {
    * can still swing (`craft.ts`), and the figure the app draws
    * (`pwa/src/game/rider-pose.ts`). */
   crouch: number;
+  /** HOW FAR THE RIDER IS STOOD UP, 0..1 — off the seat and back over the
+   * transom, the tuck's exact mirror and on its own lag
+   * (`TUNING.stand.lag`). It is what stands the craft on its tail: a body
+   * that far aft and that high is a nose-up moment the seated lean cannot
+   * reach, and a centre of gravity too high to be steady there, which is
+   * why holding it is a balance rather than a position. Asked for by
+   * holding the lean back with the throttle open (`craft.ts`); read by the
+   * figure the app draws (`pwa/src/game/rider-pose.ts`). */
+  stand: number;
+  /** How long the stand has been ASKED for, s — the lean and the throttle
+   * both held with the hull carrying him. It has to reach
+   * `TUNING.stand.dwell` before `stand` itself starts to rise, which is
+   * what tells a deliberate stand-up from the burst of lean-back the ride
+   * uses on every ramp. Reset the moment the ask drops. */
+  standHold: number;
   /** Share of the bottom probes under the surface, 0..1, area-weighted. */
   wetted: number;
   /** True while nothing on the hull is touching water, ground or ramp;

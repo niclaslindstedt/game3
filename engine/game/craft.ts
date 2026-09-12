@@ -184,11 +184,52 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // folded up has less reach to slide back down the seat with and less of
   // themselves to hang off the side with, so BOTH weight shifts shrink
   // with it. The hole it makes in the air is `flight.ts`'s.
+  //
+  // THE STAND-UP is the same body the other way: up off the seat and back
+  // over the transom, which is what puts a craft on its tail. A rider
+  // asks for it by holding the lean back with the throttle open — both,
+  // because the stand is balanced against the jet's push and there is
+  // nothing to stand against without it. The thresholds are what keep it
+  // deliberate: every lean-back the ride already uses sits under them.
+  // A rider cannot be folded down and stood up at once, so the tuck wins.
   {
     c.crouch += (clamp(input.crouch, 0, 1) - c.crouch) * (1 - Math.exp(-dt / T.tuck.lag));
+    // ...and the hull has to be UNDER him. A rider cannot stand up on a
+    // craft that is not carrying him — off a crest, mid-flight, or with
+    // the bottom unloaded there is nothing to push against — so the stand
+    // only builds while the hull is afloat and wet, and folds back down
+    // the moment it is not. That is also what keeps the trick out of
+    // ordinary riding: a lean held back through a head sea is a hull
+    // being thrown about, and the stand never commits to one.
+    // GETTING UP and STAYING UP are different asks, and every bar below is
+    // lower for the second. Balancing on the tail is throttle work, so one
+    // bar for both meant every correction the rider made dropped him back
+    // onto the seat; and the hull has to be under him to stand up FROM,
+    // but a hull he has already stood up is a hull with its bottom out of
+    // the water by definition — the wetted share collapsing is the trick
+    // working, not the rider losing it, and requiring it throughout put him
+    // back on the seat at 27° of the 77° he was on his way to.
+    const up = c.stand > 0.05;
+    const bar = up ? T.stand.keep : 1;
+    const carrying = !c.airborne && (up || c.wetted >= T.stand.wetted);
+    const asking =
+      carrying &&
+      clamp(input.lean, -1, 1) >= T.stand.lean * bar &&
+      clamp(input.throttle, 0, 1) >= T.stand.throttle * bar;
+    // ...and he has to MEAN it. Leaning back is ordinary technique and
+    // comes in bursts; standing up is a hold, so the ask has to survive
+    // `dwell` before any of it reaches the body. It drains at the same
+    // rate it fills rather than resetting, so a blip costs a blip.
+    c.standHold = clamp(c.standHold + (asking ? dt : -dt), 0, T.stand.dwell);
+    const wants = asking && c.standHold >= T.stand.dwell ? 1 - c.crouch : 0;
+    // Getting up takes the rider's own moment; being dropped by the hull
+    // does not, so the way DOWN is the faster of the two.
+    const lag = wants > c.stand ? T.stand.lag : T.stand.fall;
+    c.stand += (wants - c.stand) * (1 - Math.exp(-dt / lag));
     const reach = 1 - T.tuck.leanCut * c.crouch;
     const k = 1 - Math.exp(-dt / T.rider.leanLag);
-    c.riderAft += (clamp(input.lean, -1, 1) * T.rider.leanReach * reach - c.riderAft) * k;
+    const aft = clamp(input.lean, -1, 1) * T.rider.leanReach * reach + c.stand * T.stand.reach;
+    c.riderAft += (aft - c.riderAft) * k;
     c.riderRight += (clamp(input.steer, -1, 1) * T.rider.leanIn * reach - c.riderRight) * k;
   }
 
@@ -229,7 +270,10 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // GRAVITY on the two masses, so the rider's shift is a moment and the
   // rest of the weight cancels it at neutral.
   {
-    const riderY = spec.riderHeight;
+    // A STOOD RIDER IS A HIGHER MASS, and that is the whole cost of the
+    // trick: the righting arm shrinks as the hull rears while the jet's
+    // nose-up couple under it does not, so the balance has a far side.
+    const riderY = spec.riderHeight + c.stand * T.stand.rise;
     const hullY = -(spec.riderMass * riderY) / spec.mass;
     const rr = rotate(c.q, { x: c.riderRight, y: riderY, z: -c.riderAft });
     const rh = rotate(c.q, { x: 0, y: hullY, z: 0 });
@@ -239,6 +283,22 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     // r × (0, f, 0) = (−r.z·f, 0, r.x·f).
     twx += -rr.z * fr - rh.z * fh;
     twz += rr.x * fr + rh.x * fh;
+  }
+
+  // THE RIDER STANDING IT UP: his legs and his back against the bars, with
+  // his feet planted. Afloat this is the only thing he has that his weight
+  // alone is not, and without it the planing lift holds the bow at 15° and
+  // the trick is unreachable at any speed the hull actually rides at.
+  //
+  // It fades out as the hull comes upright — `cos(pitch)`, the same loss
+  // the weight shift takes, because a man on a hull standing on its tail
+  // is pushing along it rather than up it — so the rider can carry the
+  // craft to the balance and no further. What takes it past the top is the
+  // jet's own couple, which does NOT shrink, and that is exactly why too
+  // much throttle puts him over the back.
+  if (c.stand > 0 && !c.airborne) {
+    const upright = Math.max(0, Math.cos(c.pitch));
+    tbx -= c.stand * T.stand.hoist * I.x * upright;
   }
 
   // THE SPONSONS: the outside one planes on the water the hull is being

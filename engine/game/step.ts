@@ -109,6 +109,8 @@ export function freshCraft(spec: CraftSpec): CraftState {
     riderAft: 0,
     riderRight: 0,
     crouch: 0,
+    stand: 0,
+    standHold: 0,
     wetted: 0,
     airborne: false,
     airTime: 0,

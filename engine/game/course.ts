@@ -207,6 +207,8 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.riderAft = 0;
   c.riderRight = 0;
   c.crouch = 0;
+  c.stand = 0;
+  c.standHold = 0;
   c.airborne = false;
   c.airTime = 0;
   c.planing = 0;
