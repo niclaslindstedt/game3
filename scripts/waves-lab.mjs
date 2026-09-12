@@ -215,6 +215,7 @@ console.log(
     `${override ? ` · sea quoted at Hs ${override.hs} m` : ""}` +
     ` · ocean band ${bandCount("ocean")} components · Hs ${sea.hsRef.toFixed(2)} m at the reference fetch ${(sea.fetchRef / 1000).toFixed(1)} km · Tp ${sea.tp.toFixed(2)} s` +
     ` · local band ${bandCount("local")} · Hs ${sea.localHs.toFixed(2)} m · Tp ${sea.localTp.toFixed(2)} s` +
+    ` · swell ${bandCount("swell")} · Hs ${sea.swellHs.toFixed(2)} m · Tp ${sea.swellTp.toFixed(2)} s` +
     ` · open band ${bandCount("open")} · Hs ${sea.openHs.toFixed(2)} m · Tp ${sea.openTp.toFixed(2)} s`,
 );
 console.log(

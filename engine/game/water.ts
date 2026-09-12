@@ -105,22 +105,29 @@
 
 import { sampleField, sampleFieldGradient, type Heightfield } from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
-import { createRng, type Rng } from "../lib/prng.ts";
+import { createRng } from "../lib/prng.ts";
 import { flowAt } from "../mapgen/flow.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, effectiveFetch, fetchHeight, fetchPeriod, type Shelter } from "./fetch.ts";
 import { oceanDepth, oceanOffset, oceanOut, STORM_CEILING, stormRamp } from "./ocean.ts";
-import { buildPhaseField, buildTable, tableAt } from "./wave-bed.ts";
+import { layBand } from "./wave-band.ts";
+import { tableAt } from "./wave-bed.ts";
 
 const S = TUNING.sea;
 const O = TUNING.sea.open;
+const W = TUNING.sea.swell;
+/** The first STORM RUNG's place in `SeaState.bands`: the coast's own three
+ * bands (the wind sea, its chop, the groundswell) come first and the ladder
+ * follows them, so this is where `fillShares` starts looking for a rung. */
+const OPEN0 = 3;
 const G = TUNING.g;
 
 /** WHICH SEA a component belongs to, and so which share it stands at —
- * the three in the header: the coast's own ocean swell, the chop on water
- * that swell cannot reach, and the storm past the edge of the level. */
-export type WaveBand = "ocean" | "local" | "open";
+ * the four in the header: the sea this coast's own wind grew, the chop on
+ * water that sea cannot reach, the GROUNDSWELL that came from somebody
+ * else's weather, and the storm past the edge of the level. */
+export type WaveBand = "ocean" | "local" | "swell" | "open";
 
 export type WaveComponent = {
   /** Which of the three seas it is part of. */
@@ -185,6 +192,11 @@ export type SeaState = {
    * mean wind. `chop` is a share of `localHs`. */
   readonly localHs: number;
   readonly localTp: number;
+  /** ...and the GROUNDSWELL this coast was dealt, m and s: quoted rather
+   * than grown, so neither moves with the wind (`TUNING.sea.swell`). 0 on a
+   * run handed a sea outright, which asked for that sea and not a coast. */
+  readonly swellHs: number;
+  readonly swellTp: number;
   /** ...and the TOP of the storm ladder past the level's rim (`ocean.ts`):
    * the height the biggest open band is quoted at, m, and the period that
    * height earns. 0 on a calm level, which has no storm out at sea. */
@@ -245,229 +257,6 @@ export type SurfaceSample = {
  * see the dial. What a `SeaOverride` without a period is given. */
 export function periodForHeight(hs: number): number {
   return Math.max(0.6, Math.sqrt((TAU * Math.max(hs, 0)) / (G * S.steepness)));
-}
-
-/** JONSWAP spectral density S(ω), unnormalised (α dropped: the amplitudes
- * are scaled to Hs afterwards), for peak frequency `wp`. Hasselmann et
- * al. 1973: ω⁻⁵·exp(−1.25·(ω_p/ω)⁴)·γ^r, σ = 0.07 below the peak and 0.09
- * above it. γ is `TUNING.sea.peakEnhancement` — at 1 this is
- * Pierson–Moskowitz, the broad fully developed sea. */
-function jonswap(w: number, wp: number): number {
-  const sigma = w <= wp ? 0.07 : 0.09;
-  const r = Math.exp(-((w - wp) * (w - wp)) / (2 * sigma * sigma * wp * wp));
-  return Math.pow(w, -5) * Math.exp(-1.25 * Math.pow(wp / w, 4)) * Math.pow(S.peakEnhancement, r);
-}
-
-/** The directional half-width at `omega`, radians: `TUNING.sea.spread` at
- * and below the peak, opening above it by `spreadTilt` (Mitsuyasu et al.
- * 1975; Hasselmann et al. 1980 — the spreading parameter peaks at f_p, so
- * the FAN is narrowest there), and held under `spreadMax`, past which a
- * component is no longer part of this wind's sea and the eikonal has only
- * one rim to sweep it from.
- *
- * Flat below the peak on purpose: the measurements have the fan opening
- * that way too, but this band's floor is 0.7 f_p and fanning the longest,
- * most energetic components is what stops a wave FRONT forming — which is
- * the whole of what a rider reads as a wave. The dial says why. */
-function spreadAt(omega: number, wp: number): number {
-  const r = Math.max(1e-6, omega / wp);
-  return r <= 1 ? S.spread : Math.min(S.spread * Math.pow(r, S.spreadTilt), S.spreadMax);
-}
-
-/** The cos² spread's own quantile: the offset, as a FRACTION of the
- * half-width, below which `u` of the band's energy lies. The density is
- * cos²(π·v/2) over v ∈ [−1, 1] (Longuet-Higgins et al. 1963, truncated),
- * so its integral is (v + sin(π·v)/π + 1)/2 — monotone, with no closed
- * inverse, and bisected here because this runs once per component at build
- * time and never again.
- *
- * Drawing the heading THROUGH this, rather than uniformly with the cos² as
- * a weight on the component's energy, is what keeps a band from lumping:
- * weighted, a component that lands at the edge of the fan is handed nearly
- * no energy and the ones near the middle take the whole sea, which is a
- * corduroy of two or three waves however many were laid. */
-function spreadQuantile(u: number): number {
-  const target = 2 * clamp(u, 0, 1) - 1;
-  let lo = -1;
-  let hi = 1;
-  for (let i = 0; i < 40; i++) {
-    const mid = (lo + hi) / 2;
-    if (mid + Math.sin(Math.PI * mid) / Math.PI < target) lo = mid;
-    else hi = mid;
-  }
-  return (lo + hi) / 2;
-}
-
-/** The integers 0..n−1 in a seeded order (Fisher–Yates). The headings are
- * drawn one per equal-energy STRATUM of the spread, and this is which
- * component gets which: without it the band's longest wave would sit at one
- * edge of the fan on every level and the shortest at the other, a rake
- * across the sea rather than a sea. */
-function strata(rng: Rng, n: number): Int32Array {
-  const order = new Int32Array(n);
-  for (let i = 0; i < n; i++) order[i] = i;
-  for (let i = n - 1; i > 0; i--) {
-    const j = rng.int(0, i);
-    const swap = order[i];
-    order[i] = order[j];
-    order[j] = swap;
-  }
-  return order;
-}
-
-/** Where to cut a band into `n` slices of EQUAL ENERGY, and where each
- * slice's weight sits inside it: the spectrum's own cumulative curve over
- * `[low, high]` multiples of the peak, inverted at every i/n, with each
- * slice's energy centroid beside it.
- *
- * This is the whole reason a sea of eight components does not repeat. Cut
- * into equal slices of FREQUENCY instead and the peak — where a JONSWAP
- * sea keeps most of its energy — is carried by one component, which is one
- * sine: the wave a rider reads is then a single wavelength, and the nearest
- * frequency to beat against it is a whole slice away, so the pattern comes
- * round inside the water he can see. Cut by energy and the slices crowd in
- * on the peak, three or four of them within a tenth of it: they carry ONE
- * wave train between them, and the beat of frequencies that close is
- * hundreds of metres long. The tail gets the two or three wide slices it
- * deserves, which is the texture riding on top.
- *
- * The centroid rather than the slice's middle because a wide tail slice
- * holds its energy at the LOW end: a component standing at the middle of
- * it would carry a whole slice's amplitude at a wavenumber the slice does
- * not really have, which is how a tail component ends up steeper than any
- * wave stands. Returns `n + 1` edges followed by `n` centroids, all as
- * multiples of the peak frequency. */
-function energySlices(n: number, low: number, high: number, mix: number): Float64Array {
-  // The density on a fine log grid, once — 256 steps over a band under two
-  // octaves wide is a thousandth of the total in the worst cell. Two
-  // running sums: the true ENERGY (which places the centroids and scales
-  // the amplitudes) and the energy raised to `sliceMix` (which places the
-  // EDGES). The exponent is the whole dial between the two ways of cutting
-  // a band, and both ends of it are a real thing: at 0 the cut is even in
-  // log frequency, which is a plain octave ladder; at 1 it is even in
-  // energy. Slicing by energy is what crowds the slices onto the peak, and
-  // it must be short of 1 because a slice is finally represented by ONE
-  // sine — so the WIDEST slice, out in the tail where an octave of band
-  // holds its eighth of the sea, would stand that eighth up as a single
-  // wave at a wavenumber the slice as a whole does not have. That is the
-  // only way this cut can hand out a component steeper than a wave stands
-  // (`tests/waves_test.ts` sweeps every band for it).
-  const STEPS = 256;
-  const cum = new Float64Array(STEPS + 1);
-  const raw = new Float64Array(STEPS + 1);
-  const mom = new Float64Array(STEPS + 1);
-  const step = Math.pow(high / low, 1 / STEPS);
-  for (let i = 0; i < STEPS; i++) {
-    const a = low * Math.pow(step, i);
-    const b = a * step;
-    const mid = Math.sqrt(a * b);
-    const e = jonswap(mid, 1) * (b - a);
-    cum[i + 1] = cum[i] + Math.pow(e, mix);
-    raw[i + 1] = raw[i] + e;
-    mom[i + 1] = mom[i] + e * mid;
-  }
-  const total = cum[STEPS];
-  const out = new Float64Array(2 * n + 1);
-  out[0] = low;
-  out[n] = high;
-  // The edges: where the cumulative curve crosses each i/n, read between
-  // the two cells it falls in.
-  let at = 0;
-  for (let i = 1; i < n; i++) {
-    const target = (total * i) / n;
-    while (at < STEPS && cum[at + 1] < target) at++;
-    const span = cum[at + 1] - cum[at];
-    const f = span > 0 ? (target - cum[at]) / span : 0;
-    out[i] = low * Math.pow(step, at + f);
-  }
-  // ...and each slice's energy centroid, off the true-energy sums.
-  const readAt = (w: number): { c: number; m: number } => {
-    const x = Math.log(w / low) / Math.log(step);
-    const i = Math.min(STEPS - 1, Math.max(0, Math.floor(x)));
-    const f = Math.min(1, Math.max(0, x - i));
-    return { c: raw[i] + f * (raw[i + 1] - raw[i]), m: mom[i] + f * (mom[i + 1] - mom[i]) };
-  };
-  for (let i = 0; i < n; i++) {
-    const a = readAt(out[i]);
-    const b = readAt(out[i + 1]);
-    const e = b.c - a.c;
-    out[n + 1 + i] = e > 0 ? (b.m - a.m) / e : Math.sqrt(out[i] * out[i + 1]);
-  }
-  return out;
-}
-
-/** Lay one band of components over a JONSWAP spectrum: `n` of them, one per
- * slice of equal ENERGY over `[low, high]` multiples of the peak
- * (`energySlices`), travelling `travel` with a cos² directional spread
- * about it (Longuet-Higgins et al. 1963), and scaled so that 4·√m0 = `hs`.
- *
- * Both draws are STRATIFIED — a frequency about its own slice's centroid, a
- * heading inside its own slice of the spread rather than anywhere in the
- * fan. A sum of a handful of sines is only as unrepetitive as its
- * components are unalike, and a fixed ladder of frequencies all running one
- * way beats against itself into a pattern that repeats down the wind —
- * which is what a rider sees on calm water, where the swell is all there is.
- *
- * `ground` is the bed the phase field is integrated over, or null for a
- * band short enough to be a plane wave everywhere a hull can float.
- */
-function layBand(
-  rng: Rng,
-  band: WaveBand,
-  bandIndex: number,
-  hs: number,
-  tp: number,
-  n: number,
-  low: number,
-  high: number,
-  travel: number,
-  ground: Heightfield | null,
-  mix: number = S.sliceMix,
-): WaveComponent[] {
-  const wp = TAU / tp;
-  const raw: { omega: number; dir: number; weight: number }[] = [];
-  let energy = 0;
-  const lane = strata(rng, n);
-  const slice = energySlices(n, low, high, mix);
-  for (let i = 0; i < n; i++) {
-    // One slice of equal energy each, the component standing at that
-    // slice's own centroid — jittered a quarter of the way toward either
-    // edge, so two levels' seas are not the same set of frequencies.
-    const lo = slice[i];
-    const hi = slice[i + 1];
-    const mid = slice[n + 1 + i];
-    const sway = (2 * rng.next() - 1) * 0.25;
-    const omega = wp * (sway >= 0 ? mid + sway * (hi - mid) : mid + sway * (mid - lo));
-    const dOmega = wp * (hi - lo);
-    // ...and pointing somewhere inside its own slice of the SPREAD, which
-    // is the whole energy of that slice: the fan is even, every component
-    // carries a real share, and the shorter ones fan wider than the peak.
-    const offset = spreadAt(omega, wp) * spreadQuantile((lane[i] + rng.next()) / n);
-    const weight = jonswap(omega, wp) * dOmega;
-    energy += weight;
-    raw.push({ omega, dir: travel + offset, weight });
-  }
-  // m0 = Σ a²/2 = (Hs/4)².
-  const m0 = (hs / 4) ** 2;
-  return raw.map((c) => {
-    const amp = hs > 0 && energy > 0 ? Math.sqrt((2 * m0 * c.weight) / energy) : 0;
-    const k0 = (c.omega * c.omega) / G;
-    const dirX = Math.sin(c.dir);
-    const dirZ = Math.cos(c.dir);
-    const table = buildTable(c.omega);
-    return {
-      band,
-      bandIndex,
-      omega: c.omega,
-      k0,
-      dirX,
-      dirZ,
-      amp,
-      phase0: rng.next() * TAU,
-      phaseField: ground ? buildPhaseField(ground, table, k0, dirX, dirZ) : null,
-      table,
-    };
-  });
 }
 
 /** Build the field for a level's wind (or another one) and seed, or for a
@@ -531,6 +320,61 @@ export function createSea(
     null,
   );
 
+  // ── The swell ─────────────────────────────────────────────────────────
+  // The groundswell this coast is dealt: QUOTED, not grown, because the
+  // weather that made it is a thousand kilometres away and there is no
+  // fetch here to grow it over (`TUNING.sea.swell` says the whole of why).
+  // Long, narrow-banded and nearly unidirectional, so it arrives in SETS
+  // and its crests are long enough to read as waves; it shoals into the
+  // shallows like anything that feels the bottom, which is where a coast's
+  // big water outside the surf line comes from.
+  //
+  // Drawn BEFORE the storm ladder and after the two wind bands, so every
+  // component of those two is the draw it always was.
+  //
+  // A quoted OVERRIDE is the sea the run asked for and nothing else: a
+  // `?hs=20` storm is not a coast with a swell on top of it.
+  //
+  // NO WIND IS NO WEATHER, and so no swell — the same gate the storm ladder
+  // below stands behind, and for the same reason. It is not a physical
+  // claim: a groundswell does not care what this coast's wind is doing, and
+  // that is the whole point of it. It is that `wind.speed === 0` in this
+  // engine means a FLAT CALM, the state every physics test stages its hull
+  // at rest on and every turntable and rest scene is drawn over, and a
+  // three-metre swell under a craft that is meant to be floating still is
+  // not a sea — it is a broken harness. R12 never deals a wind under 6 m/s,
+  // so no ridden level takes this branch.
+  const swellHs = override || u <= 0 ? 0 : W.hs * (W.vary + (1 - W.vary) * rng.next());
+  // Its period follows from its HEIGHT and the steepness it is quoted at,
+  // exactly as the storm ladder's does (`periodForHeight`) — a swell is a
+  // sea quoted rather than grown, and what a rider reads off one is the
+  // angle of its face. `TUNING.sea.swell.steepness` says why that angle is
+  // the arcade's and not the ocean's.
+  const swellSteep = W.steepness * (1 + W.steepVary * (2 * rng.next() - 1));
+  const swellTp = Math.sqrt((TAU * swellHs) / (G * swellSteep));
+  const swellTravel = travel + W.off * (2 * rng.next() - 1);
+  const swell =
+    swellHs > 0
+      ? layBand(
+          rng,
+          "swell",
+          2,
+          swellHs,
+          swellTp,
+          W.components,
+          W.bandLow,
+          W.bandHigh,
+          swellTravel,
+          level.ground,
+          // Cut evenly across so narrow a band: a tenth of an octave holds
+          // no peak worth crowding onto, and the even cut is what keeps
+          // three components at three distinct frequencies, which is what
+          // makes the groups.
+          0,
+          W.spread,
+        )
+      : [];
+
   // ── The open bands: the STORM LADDER ──────────────────────────────────
   // The storm past the edge of the level (`ocean.ts`), one band per rung of
   // `TUNING.sea.open.ladder`. Quoted by their HEIGHT and not grown, because
@@ -569,7 +413,7 @@ export function createSea(
         comps: layBand(
           rng,
           "open",
-          2 + rungs.length,
+          OPEN0 + rungs.length,
           hs,
           rungTp,
           S.components,
@@ -599,7 +443,7 @@ export function createSea(
   // every open band's share is 0 and the whole ladder is skipped, so the
   // sum a coast's water returns is term for term the one it returned before
   // there was an ocean beyond the rim.
-  const components = [...ocean, ...local, ...rungs.flatMap((r) => r.comps)].sort(
+  const components = [...ocean, ...local, ...swell, ...rungs.flatMap((r) => r.comps)].sort(
     (a, b) => a.k0 - b.k0,
   );
   const bandOf = (index: number, kind: WaveBand, hs: number, bandTp: number): SeaBand => {
@@ -620,12 +464,15 @@ export function createSea(
     tp,
     localHs,
     localTp,
+    swellHs,
+    swellTp,
     openHs: top ? top.hs : 0,
     openTp: top ? top.tp : periodForHeight(0),
     bands: [
       bandOf(0, "ocean", hsRef, tp),
       bandOf(1, "local", localHs, localTp),
-      ...rungs.map((r, i) => bandOf(2 + i, "open", r.hs, r.tp)),
+      bandOf(2, "swell", swellHs, swellTp),
+      ...rungs.map((r, i) => bandOf(OPEN0 + i, "open", r.hs, r.tp)),
     ],
     components,
   };
@@ -646,16 +493,17 @@ export function seaShares(
   x: number,
   z: number,
   out: number = oceanOut(sea.bounds, x, z),
-): { ocean: number; local: number; open: number } {
+): { ocean: number; local: number; swell: number; open: number } {
   fillShares(sea, x, z, out, shares);
   let openHs = 0;
-  for (let b = 2; b < sea.bands.length; b++) {
+  for (let b = OPEN0; b < sea.bands.length; b++) {
     const hs = shares[b] * sea.bands[b].hs;
     openHs += hs * hs;
   }
   return {
     ocean: shares[0],
     local: shares[1],
+    swell: shares[2],
     open: sea.openHs > 0 ? Math.sqrt(openHs) / sea.openHs : 0,
   };
 }
@@ -730,8 +578,14 @@ function fillShares(sea: SeaState, x: number, z: number, past: number, out: Floa
   out.fill(0, 0, bands.length);
   const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
   out[1] = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
-  if (past <= 0 || bands.length <= 2 || sea.openHs <= 0) {
+  // THE SWELL STANDS WHERE THE OPEN SEA CAN REACH, exactly as the wind sea
+  // does: it came in off that sea, so the same land that cuts the fetch cuts
+  // it, and a river a hundred metres up has no groundswell in it at all.
+  // What it does NOT do is fade with the local wind — a calm coast still has
+  // surf, which is the whole point of carrying it.
+  if (past <= 0 || bands.length <= OPEN0 || sea.openHs <= 0) {
     out[0] = exposure;
+    out[2] = exposure;
     return;
   }
   // ONE ramp: the coast's own sea fades out on it as the coast goes astern
@@ -739,9 +593,13 @@ function fillShares(sea: SeaState, x: number, z: number, past: number, out: Floa
   // grows STRAIGHT from the one to the other with no dip where the two
   // spectra cross.
   const storm = stormRamp(past);
-  const coast = sea.hsRef * exposure;
+  // The coast's own sea is the wind sea AND the swell, added in energy the
+  // way two spectra standing in the same water are — so the handover to the
+  // storm starts from the height a rider actually has under him.
+  const coast = Math.hypot(sea.hsRef, sea.swellHs) * exposure;
   const carried = coast * (1 - storm);
   out[0] = exposure * (1 - storm);
+  out[2] = exposure * (1 - storm);
   // Hs² = carried² + need², and the sea here is what is left of the coast's
   // plus the storm over it — so at the full reach, where the coast is gone,
   // the sea is exactly the storm this level was dealt.
@@ -751,14 +609,14 @@ function fillShares(sea: SeaState, x: number, z: number, past: number, out: Floa
   // WHICH rungs carry it. A rung's own place on the ramp is its height over
   // the storm's, so the height standing here sits between two of them — and
   // those two share it.
-  let r = 2;
+  let r = OPEN0;
   let below = 0;
   while (r < bands.length - 1 && storm > bands[r].hs / sea.openHs) {
     below = bands[r].hs / sea.openHs;
     r++;
   }
   const here = bands[r].hs / sea.openHs;
-  const f = r === 2 ? 1 : clamp((storm - below) / (here - below), 0, 1);
+  const f = r === OPEN0 ? 1 : clamp((storm - below) / (here - below), 0, 1);
   // Energy, not height: two rungs at f and 1 − f of it carry exactly `need`
   // between them, whatever their own quoted heights are.
   out[r] = (need * Math.sqrt(f)) / bands[r].hs;
@@ -797,14 +655,16 @@ const phaseAt = new Float64Array(3);
  * actually stands at here, and coth(k·d) — kept between the two passes
  * below so the depth table is read once per component rather than twice.
  *
- * Sized for the whole field: the ocean band, the local band, and one open
- * band per rung of the storm (`open.rungs`). A typed array silently DROPS a write
- * past its end and reads `undefined` back, so a band added without this
- * growing with it is not an error but a surface full of NaN — and a
- * `surfaceAt` ten times slower for the deopt. */
-const held = new Float64Array(3 * (S.components * (1 + O.rungs.length) + S.localComponents));
+ * Sized for the whole field: the wind sea's band, the local chop's, the
+ * groundswell's, and one open band per rung of the storm (`open.rungs`). A
+ * typed array silently DROPS a write past its end and reads `undefined`
+ * back, so a band added without this growing with it is not an error but a
+ * surface full of NaN — and a `surfaceAt` ten times slower for the deopt. */
+const held = new Float64Array(
+  3 * (S.components * (1 + O.rungs.length) + S.localComponents + W.components),
+);
 /** Every band's share at the sample, by band index (`fillShares`). */
-const shares = new Float64Array(2 + O.rungs.length);
+const shares = new Float64Array(OPEN0 + O.rungs.length);
 const drift = { x: 0, z: 0 };
 /** How far out of the level's bounds the sample lies, per axis (`ocean.ts`). */
 const beyond = new Float64Array(2);
