@@ -16,6 +16,8 @@ wrong tree, and `git stash list` was the only way to notice.
 If a before/after needs both trees, either run it strictly in the FOREGROUND
 with nothing else in flight (flip the one constant with `sed`, build, shoot,
 flip it back — and verify the value on disk afterwards), or give the baseline
-its own `git worktree` so the working tree never moves. When a job must be
+its own `git worktree` so the working tree never moves — `git worktree add
+<dir> HEAD` plus a symlink of the repo's `node_modules` into it is enough for
+`make sim` and the rest of the pure-Node labs, and takes under a minute. When a job must be
 backgrounded, have it leave the value it finished on in its own output and
 check that before trusting any artifact from that window.

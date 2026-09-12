@@ -492,8 +492,7 @@ export const TUNING = {
 
   /** THE STAND-UP (`CraftState.stand`): the rider off the seat and back
    * over the transom, standing the craft on its tail — the tuck's mirror,
-   * and the other half of the body `docs/riding.md` used to list as not
-   * modelled at all.
+   * and the other half of what the body can be asked to do.
    *
    * It is asked for the way a rider asks for it: the lean held back with
    * the throttle open, both at once. Nothing here is a new force — the
@@ -777,8 +776,17 @@ export const TUNING = {
      * climbed back on and rights it. */
     after: 1.5,
     /** How long the righting takes, s, turning the hull back upright the
-     * shortest way with the engine idling. */
-    righting: 0.5,
+     * shortest way with the engine idling.
+     *
+     * It is long enough to be an ACT rather than a flick, because the app
+     * draws it as one: the rider is in the water at the rail with his
+     * hands on it, and he hauls the hull over and climbs back on while the
+     * water sheets off both of them. Half a second of that is three frames
+     * on a phone and reads as the hull snapping upright by itself, which
+     * is the one thing a craft that does not self-right must never look
+     * like. The countdown is not a constant rate — `craft.ts` eases it, so
+     * the hull hangs, comes over as it passes its own beam, and settles. */
+    righting: 1,
     /** Time constant, s, the way is scrubbed off with meanwhile. */
     slow: 0.15,
   },

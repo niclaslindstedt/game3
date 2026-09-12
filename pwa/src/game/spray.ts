@@ -29,11 +29,20 @@
 // DIVE is the bow driving under — a wall of water up over the deck and back
 // over the rider as the hull is stopped, and the deepest crater a hull
 // makes; going OVER is the whole length coming down on one side — a sheet
-// off that side alone, a crater the length of the hull — and the righting,
-// half a second later, is the same again the other way as the hull comes
-// back onto its bottom. Every stamp carries a depth, and the wake's map
-// turns that into the crater and the ring wave the water shader moves the
-// surface by, which is how the sea takes the blow rather than wears it.
+// off that side alone, a crater the length of the hull. Every stamp carries
+// a depth, and the wake's map turns that into the crater and the ring wave
+// the water shader moves the surface by, which is how the sea takes the
+// blow rather than wears it.
+//
+// THE HAUL is the one that is not a blow but a SECOND of them. The rider
+// rights the hull he is sat on (`TUNING.capsize.righting`), and over that
+// countdown the sea comes off everything it is bringing up: a sheet off the
+// flank being carried over the top, the water running off the man as the
+// hull turns him back out of the sea, the burst where he comes through it,
+// and the slap of that flank coming down flat as the hull finally levels.
+// Sides matter here and they are not a choice: a hull rolled right-side-down
+// pivots on its right chine, so everything that drains, slaps or surfaces is
+// placed off `overSide`, the way it went over, latched the step it does.
 //
 // Renderer-side and stateless toward the engine: nothing here mutates the
 // `GameState`, and the randomness is a local generator reseeded on reset
@@ -178,8 +187,44 @@ const OVER_SHEET = 480;
 const OVER_FULL_SPEED = 12;
 const OVER_CRATER = 0.35;
 const OVER_SIDE = 0.5;
-const RIGHT_SHEET = 260;
+/** THE SLAP, as the hull comes level: the side that was UP comes down onto
+ * the water flat, so the sheet and the crater are that side's alone — the
+ * far one from the rider, who is holding the side he pulled it over by.
+ * The droplets it throws, the roll it is level enough to slap at, rad, and
+ * how deep it knocks the water, m. */
+const RIGHT_SHEET = 340;
+const RIGHT_LEVEL = 0.25;
 const RIGHT_CRATER = 0.18;
+/** ...and THE RIDER COMING THROUGH, on his own side: the water he brings
+ * up with him as the hull turns him back out of the sea. Its droplets, and
+ * the ring of foam he leaves where he surfaces, m. */
+const RISE_BURST = 320;
+const RISE_PATCH = 0.7;
+/** THE HAUL'S SHED: the water that comes off a hull being pulled back
+ * upright, and off the man pulling it.
+ *
+ * A hull that has been lying on its back carries the sea on every surface
+ * it is bringing up, and it comes off over the second the haul takes
+ * rather than at the end of it — so this is a RATE over the countdown and
+ * not another burst. The curve is a hump: the flank and the deck break the
+ * surface around the middle of the haul, which is when the water on them
+ * has somewhere to fall. The rider is the second stream and the smaller
+ * one, born at his body rather than on the hull — he comes up out of the
+ * water with it running off him, and losing that is losing the half of the
+ * moment that says a person did this.
+ *
+ * Droplets a second at the peak for each; how hard they are thrown out and
+ * up, m/s; and where the hull's sheet leaves the flank, as a share of the
+ * hull's depth above the keel. */
+const SHED_HULL_RATE = 2000;
+const SHED_RIDER_RATE = 700;
+const SHED_OUT = 2.6;
+const SHED_UP = 2.4;
+const SHED_RIDER_UP = 3.4;
+const SHED_FLANK = 0.85;
+/** ...and how tall the man the second stream comes off is, m — the span
+ * above the saddle it is born along. */
+const SHED_RIDER_TALL = 1;
 /** How a cloud of droplets takes the two lights: the share of the sky
  * hemisphere it sees against the ground's, and how much of the key it
  * catches — a sheet in the air is lit from every side at once, so it takes
@@ -368,7 +413,15 @@ export function createSpray(stamp: FoamStamp): Spray {
   let prevVy = 0;
   let prevSub = 0;
   let prevOver = false;
-  let prevRighting = 0;
+  /** Which side the hull went over, latched the step it does: the roll
+   * runs back through a right angle while it is being hauled up, and a
+   * side read off its sign each step would swap the sheet across the hull
+   * halfway through. */
+  let overSide = 1;
+  let slapped = false;
+  let rose = false;
+  let shedAcc = 0;
+  let shedRiderAcc = 0;
   let sheetAcc = 0;
   let tailAcc = 0;
   let breakAcc = 0;
@@ -605,29 +658,135 @@ export function createSpray(stamp: FoamStamp): Spray {
     // `roll` past a right angle keeps the sign of the way it went.
     const over = c.capsizedFor > 0;
     if (afloat && over && !prevOver) {
-      const side = c.roll > 0 ? 1 : -1;
+      overSide = c.roll > 0 ? 1 : -1;
+      slapped = rose = false;
       const strength = clamp(0.5 + c.speed / OVER_FULL_SPEED, 0.5, 1);
-      burst(c, budget * splashThrow * OVER_SHEET, strength, -0.45, 0.45, side);
+      burst(c, budget * splashThrow * OVER_SHEET, strength, -0.45, 0.45, overSide);
       patch(
-        c.x + rightX * side * spec.beam * OVER_SIDE,
-        c.z + rightZ * side * spec.beam * OVER_SIDE,
+        c.x + rightX * overSide * spec.beam * OVER_SIDE,
+        c.z + rightZ * overSide * spec.beam * OVER_SIDE,
         state.t,
         L * 0.55,
         strength,
         OVER_CRATER * strength,
       );
     }
-    // THE RIGHTING: the hull coming back down onto its bottom on the last
-    // step of the rider's haul — both chines at once, a shallower crater.
-    if (afloat && prevRighting > 0 && c.righting === 0) {
-      burst(c, budget * splashThrow * RIGHT_SHEET, 0.7, -0.45, 0.45, 0);
-      patch(c.x, c.z, state.t, L * 0.5, 0.8, RIGHT_CRATER);
+    // THE HAUL: the water running off the hull's flank as the rider brings
+    // it over, and off the rider as he comes up out of the sea with it.
+    // Both streams follow the same hump over the countdown, and both die
+    // with it: by the last step the hull is level and he is on the saddle.
+    if (c.righting > 0 && !c.airborne) {
+      const u = 1 - c.righting / TUNING.capsize.righting;
+      const shed = Math.sin(Math.PI * u);
+      const sea = heightAt(state.sea, state.level, c.x, c.z, state.t);
+      shedAcc += budget * splashThrow * SHED_HULL_RATE * shed * dt;
+      while (shedAcc >= 1) {
+        shedAcc -= 1;
+        // Born on the flank the haul is LIFTING, which is the far one from
+        // the side it went over on: a hull rolled right-side-down pivots on
+        // its right chine — that one is under the water the whole way round
+        // — while the left is carried up over the top, drains as it comes,
+        // and is the one that comes down flat at the end (the slap below).
+        // `at` puts the point wherever the hull's own attitude has carried
+        // it this step, so the sheet follows the flank round.
+        const p = at(
+          c,
+          -overSide * spec.beam * 0.5,
+          keelY + spec.height * SHED_FLANK * rng(),
+          L * (rng() - 0.5) * 0.9 - spec.cog.z,
+        );
+        const out = SHED_OUT * shed * (0.3 + 0.7 * rng());
+        spawn(
+          c.x + p.x,
+          c.y + p.y,
+          c.z + p.z,
+          -rightX * overSide * out,
+          SHED_UP * shed * rng(),
+          -rightZ * overSide * out,
+          0.5 + 0.55 * rng(),
+          0.12,
+          0.26 + 0.18 * rng(),
+          0.8,
+        );
+      }
+      // HIM COMING THROUGH. Where he is is where the hull has carried him
+      // — the saddle, turned by the hull's own attitude — so both of his
+      // streams are born off that one point rather than off a side: while
+      // the hull is on its back he is under it and under the water, and
+      // nothing is thrown until he is out of it.
+      const seat = at(c, 0, keelY + spec.height, -spec.cog.z);
+      const seatY = c.y + seat.y;
+      const away = Math.hypot(seat.x, seat.z);
+      const awayX = away > 1e-3 ? seat.x / away : rightX * overSide;
+      const awayZ = away > 1e-3 ? seat.z / away : rightZ * overSide;
+      if (!rose && seatY > sea) {
+        // The burst as his chest breaks the surface, thrown out all round
+        // him, and the ring of foam it leaves on the water.
+        rose = true;
+        const rx = c.x + seat.x;
+        const rz = c.z + seat.z;
+        for (let k = 0; k < Math.round(budget * splashThrow * RISE_BURST); k++) {
+          const a = rng() * Math.PI * 2;
+          const out = 1.4 + 1.6 * rng();
+          spawn(
+            rx + Math.cos(a) * 0.2,
+            sea + 0.05,
+            rz + Math.sin(a) * 0.2,
+            Math.cos(a) * out,
+            2 + 2.6 * rng(),
+            Math.sin(a) * out,
+            0.45 + 0.5 * rng(),
+            0.12,
+            0.28 + 0.18 * rng(),
+            0.8,
+          );
+        }
+        patch(rx, rz, state.t, RISE_PATCH, 0.7, 0);
+      }
+      shedRiderAcc += budget * splashThrow * SHED_RIDER_RATE * shed * dt;
+      while (shedRiderAcc >= 1) {
+        shedRiderAcc -= 1;
+        if (seatY < sea) continue;
+        // ...and the water running off him for as long as the haul lasts,
+        // thrown out away from the hull he is sat on.
+        const out = SHED_OUT * 0.5 * rng();
+        spawn(
+          c.x + seat.x + (rng() - 0.5) * 0.4,
+          seatY + SHED_RIDER_TALL * rng(),
+          c.z + seat.z + (rng() - 0.5) * 0.4,
+          awayX * out,
+          SHED_RIDER_UP * shed * (0.3 + 0.7 * rng()),
+          awayZ * out,
+          0.45 + 0.45 * rng(),
+          0.1,
+          0.22 + 0.16 * rng(),
+          0.78,
+        );
+      }
+    } else {
+      shedAcc = shedRiderAcc = 0;
+    }
+    // THE SLAP: the hull comes level before the countdown does, and the
+    // side that was up comes down flat onto the water — a sheet off THAT
+    // chine and the crater under it, on the far side from the man holding
+    // the other one.
+    if (c.righting > 0 && !slapped && Math.abs(c.roll) < RIGHT_LEVEL) {
+      slapped = true;
+      const slapSide = -overSide;
+      burst(c, budget * splashThrow * RIGHT_SHEET, 0.7, -0.45, 0.45, slapSide);
+      patch(
+        c.x + rightX * slapSide * spec.beam * OVER_SIDE,
+        c.z + rightZ * slapSide * spec.beam * OVER_SIDE,
+        state.t,
+        L * 0.5,
+        0.8,
+        RIGHT_CRATER,
+      );
     }
     prevAirborne = c.airborne;
     prevVy = c.vy;
     prevSub = c.submergedDepth;
     prevOver = over;
-    prevRighting = c.righting;
 
     // MOVE every droplet: ballistic, dragged by the air, gone when it is
     // back in the water or spent.
@@ -771,7 +930,9 @@ export function createSpray(stamp: FoamStamp): Spray {
       breakAcc = 0;
       prevSub = 0;
       prevOver = false;
-      prevRighting = 0;
+      overSide = 1;
+      slapped = rose = false;
+      shedAcc = shedRiderAcc = 0;
       sheetAcc = tailAcc = boilAcc = 0;
     },
     dispose: () => {
