@@ -135,6 +135,17 @@ export const SCENARIOS = {
       input: () => ({ ...NEUTRAL, throttle: 1, crouch: 1 }),
     }),
   },
+  stand: {
+    blurb: "the lean held back on the throttle from rest: up on the tail, then over the back",
+    seconds: 10,
+    stage: (level) => ({
+      moment: { x: level.start.x, z: level.start.z, heading: level.start.heading },
+      // Everything held and nothing eased — the OVERDONE case, so the strip
+      // shows both halves: the hull rearing onto its tail, and the rider
+      // going over the back once the jet's couple outlasts his weight.
+      input: () => ({ ...NEUTRAL, throttle: 1, lean: 1 }),
+    }),
+  },
   carve: {
     blurb: "full lock to the right at speed, after a second straight",
     seconds: 6,

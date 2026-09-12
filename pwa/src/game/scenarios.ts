@@ -44,6 +44,7 @@ export type ScenarioName =
   | "rest"
   | "cruise"
   | "tuck"
+  | "stand"
   | "carve"
   | "brake"
   | "chop"
@@ -68,6 +69,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "rest",
   "cruise",
   "tuck",
+  "stand",
   "carve",
   "brake",
   "chop",
@@ -438,6 +440,26 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.8 },
         script: () => ({ ...input(0, 1, 0), crouch: 1 }),
         seconds: 4,
+      };
+    case "stand":
+      // THE STAND-UP: the rider off the seat and back over the transom,
+      // with the craft up on its tail. Staged from a standstill, because
+      // that is where it is reachable — on the plane the lift pins the bow
+      // — and with everything held, which is the OVERDONE case: the jet's
+      // couple does not shrink as the hull comes upright and the rider's
+      // weight does, so the last of these seconds is him going over the
+      // back. Long enough to clear `stand.dwell` and rear.
+      return {
+        moment: {
+          x: start.x,
+          z: start.z,
+          heading: start.heading,
+          speed: top * 0.35,
+          pitch: 0.72,
+          stand: 1,
+        },
+        script: () => ({ ...input(0, 1, 0), lean: 1 }),
+        seconds: 6,
       };
     case "carve": {
       // Wound on hard on the pump: the hull banks in and the stern comes

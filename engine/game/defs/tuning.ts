@@ -208,6 +208,26 @@ export const TUNING = {
      * zero so a level hull still lifts a little. */
     trimMin: 1.5,
     trimMax: 14,
+    /** Where the planing surface starts to GO, and where it is gone,
+     * degrees of the probe's own flow angle.
+     *
+     * The band above was clamped at both ends but scaled at only one, so a
+     * hull reared to 80° was still evaluated at τ = `trimMax` and carried
+     * its full planing weight — a bottom pointing at the sky holding the
+     * hull down, and the reason a craft could not be stood on its tail at
+     * all. Past some trim the flow separates off the chine and there is no
+     * planing surface left to earn lift.
+     *
+     * Where that is is the tuning. It is NOT `trimMax`: Savitsky's data
+     * ending at 15° means the polynomial is unvouched for above it, not
+     * that the lift stops — a hull climbing a ramp or taking a landing
+     * runs well past 15° and does still plane, and fading from there cost
+     * the marlin a third of its launches. So the lift is held to the
+     * clamp's value up to `fadeFrom` — which is above every trim the ride
+     * itself uses — and scaled out to nothing by `fadeGone`, which is an
+     * attitude only the stand-up reaches. */
+    fadeFrom: 30,
+    fadeGone: 55,
     /** Wetted length-to-beam ratio band λ. */
     lambdaMin: 0.4,
     lambdaMax: 4,
@@ -417,6 +437,96 @@ export const TUNING = {
     leanIn: 0.28,
     /** Rider mass shift lag, s: a body moves slower than a thumb. */
     leanLag: 0.18,
+  },
+
+  /** THE STAND-UP (`CraftState.stand`): the rider off the seat and back
+   * over the transom, standing the craft on its tail — the tuck's mirror,
+   * and the other half of the body `docs/riding.md` used to list as not
+   * modelled at all.
+   *
+   * It is asked for the way a rider asks for it: the lean held back with
+   * the throttle open, both at once. Nothing here is a new force — the
+   * rider is the same point mass `rider.leanReach` already moves, moved
+   * further and higher — and nothing here holds the craft up. What the
+   * height buys is INSTABILITY: a centre of gravity that far up has less
+   * righting left the further the hull rears, while the jet's nose-up
+   * couple below it does not shrink at all, so past the balance the craft
+   * goes over backwards on its own. That is the trick and its price, and
+   * both fall out of the forces already here. */
+  stand: {
+    /** How long the rider takes to get up and back down, s. Slower than the
+     * tuck (`tuck.lag`): standing up on a moving hull is a commitment, and
+     * the lag is what stops a flick of the lean from reaching it. */
+    lag: 0.34,
+    /** How much lean back the rider must be holding before they commit to
+     * standing at all, 0..1 — under it the stand never starts, so every
+     * lean-back the ride already uses (a ramp, a landing, a head sea) is
+     * untouched. */
+    lean: 0.72,
+    /** ...and how much throttle, 0..1. Standing it up without the jet
+     * pushing is how a rider ends up in the water: the stand needs the
+     * thrust it is balancing against. */
+    throttle: 0.55,
+    /** How far aft of the seated lean the rider's mass goes at a full
+     * stand, m — ON TOP of `rider.leanReach`, so a stood rider is about
+     * `leanReach + reach` behind neutral: off the seat, feet in the rear
+     * footwells, weight over the transom. */
+    reach: 0.68,
+    /** ...and how far UP, m, on top of `spec.riderHeight` — a man on his
+     * feet against a man sat down. This is the number that makes the
+     * attitude tippy rather than the one that makes it reachable. */
+    rise: 0.42,
+    /** How much of the bottom must be in the water before the rider has
+     * anything to stand up FROM, 0..1 of `CraftState.wetted`. A hull
+     * skipping off a crest is not carrying him, and neither is one in the
+     * air. It gates the START only: a hull he has already stood up has its
+     * bottom out of the water by definition, so holding him to it
+     * throughout put him back on the seat partway up. */
+    wetted: 0.18,
+    /** How fast the stand COLLAPSES once the hull stops carrying him, s —
+     * quicker than `lag`, because being dropped is not a decision. */
+    fall: 0.12,
+    /** How long the lean and the throttle must BOTH be held before the
+     * rider commits to standing at all, s.
+     *
+     * This is what separates the trick from the ride. Leaning back is
+     * ordinary technique — up a ramp, through a head sea, off a crest —
+     * and every one of those is a BURST: the lean goes back for a moment
+     * and comes off again. Standing up is a HOLD. Without the dwell the
+     * two are the same input and the trick fires by accident: the bot's
+     * ramp lean-backs alone put the marlin on the beach nine times over
+     * four seeds (`make sim`), which is a rider being stood up by a
+     * control they were using for something else. */
+    dwell: 0.9,
+    /** ...and the share of `lean` and `throttle` that is enough to STAY up
+     * once he is, 0..1 of each.
+     *
+     * Getting up and staying up are not the same ask. Balancing a craft on
+     * its tail IS throttle work — the jet's couple is what holds the
+     * attitude, so a rider holds it by easing on and off — and with one
+     * bar for both, every correction he made dropped him back onto the
+     * seat and the dwell started again from nothing: the trick could be
+     * entered and never held. So the bar to stay is lower than the bar to
+     * commit, and a blip through it costs nothing. */
+    keep: 0.55,
+    /** THE RIDER'S OWN PITCH AUTHORITY while stood up, rad/s² of nose-up at
+     * a full stand — his legs and his back against the bars, with his feet
+     * planted in the rear footwells.
+     *
+     * Stated as an ACCELERATION rather than a torque because the roster's
+     * pitch inertia runs 165 to 490 kg·m² (`inertia`): one dial, the same
+     * correction on every hull, and a number that reads as what the rider
+     * can do rather than as what one hull needs. It is the arcade twin of
+     * `flight.leanTorque`, and it exists because the pair was the wrong way
+     * round — a rider could haul the nose up with 450 N·m in mid-air and
+     * had nothing but his weight on the water, where he actually has
+     * something to push against. Sized on the bench: the hull has to get
+     * through the planing lift holding the bow at 15° to reach the trim
+     * where the bottom stops planing at all (`planing.fadeFrom`), and past
+     * there the stern carries it. Fades out with the same `cos` the weight
+     * shift loses, so it cannot push the craft over the top on its own —
+     * what does that is the jet, which is the point. */
+    hoist: 4.6,
   },
 
   /** THE TUCK (`CraftInput.crouch`): the rider down behind the bars.

@@ -167,12 +167,21 @@ is made on flat water or not at all.
   is a hull that chatters at the waterline at 120 Hz. And a buoyant body
   with no heave damping bobs forever: the vertical drag is what settles it,
   and `rest` must reach stillness within a couple of seconds.
-- **PLANING LIFT HAS A CEILING AND A VALID RANGE.** Savitsky's C_L is fit
-  for trim τ of 2–15°, mean wetted length/beam λ up to ~4, and speed
-  coefficient Cv of about 0.6–13; outside those the polynomial runs away.
-  Clamp the inputs, cap the lift at what would lift the hull's weight
-  plus a margin, and never let it fire with the probes dry. Lift with no
-  cap is a craft that leaves flat water on its own.
+- **PLANING LIFT HAS A CEILING AND A VALID RANGE — AND A CLAMP IS NOT A
+  FADE.** Savitsky's C_L is fit for trim τ of 2–15°, mean wetted length/beam
+  λ up to ~4, and speed coefficient Cv of about 0.6–13; outside those the
+  polynomial runs away. Clamp the inputs, cap the lift at what would lift
+  the hull's weight plus a margin, and never let it fire with the probes
+  dry. Lift with no cap is a craft that leaves flat water on its own. But
+  the clamp bounds the INPUT, not the REGIME: a coefficient clamped to its
+  band goes on firing at the band's edge value forever, which is the model
+  quietly asserting that the last valid data point holds at any attitude.
+  Every fitted band needs a fade OUT of it as well as into it — `trimGone`
+  / `fadeFrom` in `TUNING.planing` is that fade for the trim, and without
+  it a hull reared onto its tail carried its full planing weight on a
+  bottom pointing at the sky. Where the fade starts is its own tuning and
+  is NOT the band's edge: a ramp and a landing run past Savitsky's 15° and
+  do still plane.
 - **SLAMMING READS THE PROBE'S OWN CLOSING SPEED.** v_z is the probe's
   vertical velocity relative to the surface (the surface moves too), not
   the CoG's. Charging the CoG's descent slams a flat landing at every

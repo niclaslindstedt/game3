@@ -73,6 +73,7 @@ const SCENES = [
   "storm",
   "ocean",
   "backflip",
+  "stand",
   "wildlife",
   "breach",
   "birds",
