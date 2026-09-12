@@ -1,6 +1,6 @@
 ---
 title: A water grid whose cells stretch with distance SWIMS with the craft however it snaps — only nested power-of-two rings snapped to the coarsest cell keep every sample on the same point of the sea
-date: 2026-09-10
+date: 2026-09-12
 scope: pwa/src/game/water-grid.ts, pwa/src/game/water-mesh.ts
 concepts: [renderer, water-mesh, grid, clipmap, sampling]
 ---
@@ -24,3 +24,15 @@ where the eye reads a wave (3 m cells at 30–60 m instead of blobs of 2–3
 samples per 10 m wind wave — the "chaotic" look was undersampling as much
 as shading), and the core has to be sized so the craft, up to half a coarse
 cell off centre, still sits on fine water (`video_test` holds it).
+
+THE COROLLARY, found two months later: the snap pins the SAMPLES, and
+anything measured from the snapped origin instead steps WITH it. The band
+where the near water fades into the far swell was a per-vertex share of the
+offset from the origin (`grid.edge`), so the whole ring of it jumped a coarse
+cell — 12 m at the design point, about twice a second at 80 km/h — and from a
+camera standing off and looking down it read as the water being redrawn under
+the rider. Measure that kind of band from the CRAFT (ending at
+`reach − snap/2`, the nearest the rim can ever stand to him, so it is still
+complete on every side) and it glides while the samples stay pinned. Ask of
+any new per-vertex ramp: is this pinned to the sea, or to the grid? The grid
+is not a place.

@@ -368,10 +368,18 @@ export type WaterLook = {
    * a multiple of four. Each ring outside it doubles the cell and the reach,
    * so the core is also the size of every ring in its own cells. */
   core: number;
-  /** How many rings stand round the core. The reach either side of the
-   * craft is `core / 2 · cell · 2^rings` (`waterReach`) and the vertex count
-   * — the `surfaceAt` calls a frame with nothing culled — is `waterSamples`;
-   * both are stated once, in `water-grid.ts`. */
+  /** How many rings stand round the core BEFORE the DISTANCE row has its
+   * say. The reach either side of the craft is `core / 2 · cell · 2^rings`
+   * (`waterReach`) and the vertex count — the `surfaceAt` calls a frame with
+   * nothing culled — is `waterSamples`; both are stated once, in
+   * `water-grid.ts`, and the ring count the grid is actually laid at is
+   * `waterRings(WATER_LOOK[water], DISTANCE_LOOK[distance])`.
+   *
+   * HOW FAR the sea reaches is the DISTANCE row's question, not this one's:
+   * this row says how FINE the water is at the rider and that one says how
+   * much world there is. What stays here is the shape — a finer cell wants
+   * a ring more to carry the same span of sea, which is why the top stop
+   * has one. */
   rings: number;
   /** Where the shader's ripples begin to fade and where they are gone, m from
    * the lens. Past that the broad glint lobe carries the roughness on its own,
@@ -491,6 +499,23 @@ export type DistanceLook = {
    * they did about it — every one of them — was to put weather in front of
    * the edge. A short view here reads as that era rather than as a budget. */
   haze: number;
+  /** HOW MUCH FURTHER THE DRAWN SEA GOES — rings added to the WATER row's own
+   * (`waterRings`), each doubling the near water's reach.
+   *
+   * The shore and the cover END at their radii and the haze hides that they
+   * do. The sea cannot end: past the near grid there is still water, drawn on
+   * the far grid out of the long swell alone. So what a short reach costs is
+   * not an edge but a CHANGE — the sea's own chop stopping in open view,
+   * inside the clear air, with flat water beyond it, and the whole ring of it
+   * stepping outward every time the grid snaps to its coarsest cell. From a
+   * camera that stands off and looks down, which is most of the ladder's top
+   * half, that ring is the first thing the eye finds.
+   *
+   * A ring is what makes pushing that change out to where the haze has closed
+   * over it affordable at all: it is a fixed annulus of vertices however far it
+   * carries the reach, because its cells double with it. Every stop up here
+   * DOUBLES the drawn sea for the same annulus the stop below paid for. */
+  waterRings: number;
 };
 
 /** THE DISTANCE LADDER — how much coast there IS.
@@ -518,9 +543,9 @@ export type DistanceLook = {
  * `tests/video_test.ts` holds the table to both sides of that: never inside
  * the fog, never far outside it. */
 export const DISTANCE_LOOK: Record<DistanceLevel, DistanceLook> = {
-  low: { shore: 350, cover: 340, haze: 0.55 },
-  medium: { shore: 640, cover: 620, haze: 1 },
-  high: { shore: 740, cover: 710, haze: 1.15 },
+  low: { shore: 350, cover: 340, haze: 0.55, waterRings: 0 },
+  medium: { shore: 640, cover: 620, haze: 1, waterRings: 1 },
+  high: { shore: 740, cover: 710, haze: 1.15, waterRings: 2 },
 };
 
 /** THE PIXEL LINE — how tall a plant has to stand in the frame before it is

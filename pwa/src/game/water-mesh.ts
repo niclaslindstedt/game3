@@ -10,19 +10,21 @@
 // only thing in the frame that calls it thousands of times. So:
 //
 // - The grid is NESTED RINGS rather than uniform (`water-grid.ts`): a core
-//   of `look.cell` metre cells round the craft and `look.rings` square rings
-//   round it, each with cells twice the size of the ring inside. Detail is
-//   spent where the camera is; the outer cells carry the long swell, which
-//   is all that survives the distance anyway. Those numbers are the
-//   RIDER's — the WATER row of OPTIONS ▸ VIDEO (`settings-video.ts`),
-//   because how far out the sea is still a sea is the biggest CPU bill in
-//   the frame and the one nothing about the GPU makes cheaper. A change of
-//   row rebuilds the mesh.
+//   of `look.cell` metre cells round the craft and square rings round it,
+//   each with cells twice the size of the ring inside. Detail is spent where
+//   the camera is; the outer cells carry the long swell, which is all that
+//   survives the distance anyway. Those numbers are the RIDER's, off TWO rows
+//   of OPTIONS ▸ VIDEO (`settings-video.ts`) — WATER says how FINE the sea is
+//   at the rider (the cell, the core) and DISTANCE how many rings of it stand
+//   round him, which is how far out there is still a sea to draw
+//   (`waterRings`). Both because this is the biggest CPU bill in the frame and
+//   the one nothing about the GPU makes cheaper. A change of either rebuilds
+//   the mesh.
 // - The grid SNAPS to the COARSEST cell as it follows the craft, which keeps
 //   every ring on its own lattice: a vertex samples the same world point
 //   frame after frame, and the sea does not swim along with the rider.
 // - THE FAR WATER is a second, coarse grid (`FAR_GRID` a side over
-//   `FAR_HALF` metres, cells of tens of metres) displaced by the SAME
+//   `farHalf` metres, cells of tens of metres) displaced by the SAME
 //   function, summing only the components long enough for its cells to
 //   carry (`surfaceAt`'s `count` — the field is laid longest first): the
 //   swell a storm sends in stands out to the fog, the chop that would
@@ -31,7 +33,11 @@
 //   the far grid sums nothing and costs nothing.
 // - Over its outer fifth the near grid's height and normal fade to the FAR
 //   grid's, not to flat — so the two meet without a lip whether the swell
-//   under the seam is a hand's breadth or a house. The far grid has a HOLE
+//   under the seam is a hand's breadth or a house. That band is measured from
+//   the CRAFT and not from the grid's snapped origin: pinned to the grid it
+//   stepped a whole coarse cell at a time, twice a second at riding speed, and
+//   from a camera standing off and looking down the ring where the sea's chop
+//   gave way to the far swell could be watched jumping outward. The far grid has a HOLE
 //   under the near grid's interior and is SUNK a little under it
 //   everywhere — by more the bigger the chop it leaves out — so its coarse
 //   facets never poke up through the near water and hide the hull.
@@ -99,7 +105,7 @@ import {
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { applyWell } from "./water-cut.ts";
-import { layWaterGrid, snapOrigin } from "./water-grid.ts";
+import { layWaterGrid, snapOrigin, waterReach } from "./water-grid.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 import {
   applyClock,
@@ -125,16 +131,37 @@ import {
 export const DESIGN_WATER: WaterLook = WATER_LOOK.medium;
 
 /** Where the fade to the far grid begins, as a share of the near grid's own
- * reach. */
+ * reach.
+ *
+ * MEASURED FROM THE CRAFT, not from the grid's snapped origin. The grid steps
+ * a whole coarse cell at a time as it follows the rider (`snapOrigin`), and a
+ * fade band pinned to the grid steps with it: the whole ring where the sea's
+ * chop gives way to the far swell jumps outward twelve metres at once, twice a
+ * second at riding speed, which from a camera that stands off and looks down
+ * reads as the water being redrawn under the rider. The band is a function of
+ * the distance to the CRAFT instead, so it glides while the samples under it
+ * stay pinned — which was the whole point of the snap. */
 const FADE_FROM = 0.78;
 
-/** The far grid: vertices a side and its reach either side of the craft,
- * m — past the fog's end, so nothing of it pops. Its cell is `2·FAR_HALF /
- * (FAR_GRID − 1)`, and a component is drawn on it only when its deep
- * wavelength is `FAR_CELL_WAVES` cells or more. */
+/** The far grid: vertices a side, and the least it reaches either side of the
+ * craft, m — past the fog's end, so nothing of it pops. Its cell is
+ * `2·farHalf / (FAR_GRID − 1)`.
+ *
+ * THE LEAST, because the far water has to OUTREACH the near water whatever the
+ * DISTANCE row has done to it. The near grid's rim fades into the far grid's
+ * own surface; a far grid the near one had grown past would leave that rim
+ * fading into nothing, with the flat horizon disc a metre under it — a lip
+ * round the whole sea at the exact radius the row had just bought. So the far
+ * grid stands off the near grid's reach by `FAR_STANDOFF` when that is the
+ * bigger of the two, its cells growing with it. */
 const FAR_GRID = 40;
-const FAR_HALF = 640;
-const FAR_CELL_WAVES = 3;
+const FAR_MIN_HALF = 640;
+const FAR_STANDOFF = 1.6;
+
+/** How many of its cells a wave must span to be drawn on a grid at all: under
+ * three samples a wavelength a crest is a triangle, and what comes back is not
+ * a small wave but a lattice at the grid's own spacing. */
+const CELL_WAVES = 3;
 /** The far grid's hole: cells whose centres lie within this share of the near
  * grid's reach of its own centre are not drawn (the near grid is over them) —
  * inside the near grid by more than the two grids' snapping can differ.
@@ -332,9 +359,10 @@ export type WaterMesh = {
 export function createWaterMesh(
   sky: SkyUniforms,
   look: WaterLook = DESIGN_WATER,
+  rings: number = look.rings,
   mirror?: MirrorSeat,
 ): WaterMesh {
-  const grid = layWaterGrid(look);
+  const grid = layWaterGrid(look, rings);
   const HALF = grid.reach;
   const count = grid.ox.length;
   const positions = new Float32Array(count * 3);
@@ -378,7 +406,8 @@ export function createWaterMesh(
   // no foam — at that grazing angle the shader gives nearly all of it to
   // the sky, which is what the near grid's own edge arrives at, so the
   // hand-over is a change of detail, not of colour.
-  const farCell = (2 * FAR_HALF) / (FAR_GRID - 1);
+  const farHalf = Math.max(FAR_MIN_HALF, FAR_STANDOFF * grid.reach);
+  const farCell = (2 * farHalf) / (FAR_GRID - 1);
   const farCount = FAR_GRID * FAR_GRID;
   const farPositions = new Float32Array(farCount * 3);
   const farNormals = new Float32Array(farCount * 3);
@@ -388,16 +417,16 @@ export function createWaterMesh(
   for (let j = 0; j < FAR_GRID; j++) {
     for (let i = 0; i < FAR_GRID; i++) {
       const k = (j * FAR_GRID + i) * 3;
-      farPositions[k] = -FAR_HALF + i * farCell;
-      farPositions[k + 2] = -FAR_HALF + j * farCell;
+      farPositions[k] = -farHalf + i * farCell;
+      farPositions[k + 2] = -farHalf + j * farCell;
       farNormals[k + 1] = 1;
     }
   }
   const farIndex: number[] = [];
   for (let j = 0; j + 1 < FAR_GRID; j++) {
     for (let i = 0; i + 1 < FAR_GRID; i++) {
-      const midX = -FAR_HALF + (i + 0.5) * farCell;
-      const midZ = -FAR_HALF + (j + 0.5) * farCell;
+      const midX = -farHalf + (i + 0.5) * farCell;
+      const midZ = -farHalf + (j + 0.5) * farCell;
       if (Math.abs(midX) < HALF * FAR_HOLE && Math.abs(midZ) < HALF * FAR_HOLE) continue;
       const p = j * FAR_GRID + i;
       farIndex.push(p, p + FAR_GRID, p + 1, p + 1, p + FAR_GRID, p + FAR_GRID + 1);
@@ -412,12 +441,22 @@ export function createWaterMesh(
   farGeometry.setAttribute("color", farColAttr);
   farGeometry.setAttribute("aWindow", new THREE.BufferAttribute(farWindows, 1));
   farGeometry.setIndex(farIndex);
-  farGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), FAR_HALF * Math.SQRT2 + 50);
+  farGeometry.boundingSphere = new THREE.Sphere(new THREE.Vector3(), farHalf * Math.SQRT2 + 50);
   const farMesh = new THREE.Mesh(farGeometry, material);
   farMesh.frustumCulled = false;
   // The horizon disc under both, unlit, in the colour the far water
   // reaches at the fog: mostly sky.
   const reach = HALF * FAR_HOLE;
+  /** HOW FAR THE RIDER CAN SEE INTO THE WATER, m — the transparent near grid's
+   * own hole radius, but at the reach the WATER row alone asks for.
+   *
+   * The DISTANCE row buys more SEA, not a longer look down through it: at a
+   * few hundred metres the surface is grazing, the Fresnel has given nearly
+   * the whole of it to the sky, and there is nothing of the bed or the sea life
+   * to be seen however far the grid goes on. Reading the live reach here would
+   * have handed the fauna sixteen times the water to populate for a picture
+   * nobody can tell apart. */
+  const seeReach = Math.min(reach, waterReach(look, look.rings) * FAR_HOLE);
   const horizon = new THREE.Mesh(
     new THREE.RingGeometry(reach, FAR_RADIUS, 48, 1),
     new THREE.MeshBasicMaterial(),
@@ -426,8 +465,12 @@ export function createWaterMesh(
   horizon.position.y = -FAR_SINK;
   const far = new THREE.Group();
   far.add(farMesh, horizon);
-  /** How many of the sea's components the far grid carries: the longest
-   * ones, whose deep wavelength spans `FAR_CELL_WAVES` of its cells. */
+  /** How many of the sea's components the far grid carries: the longest ones,
+   * whose deep wavelength spans `CELL_WAVES` of its cells — or of the near
+   * grid's rim cells, whichever are coarser. A near grid run far enough out by
+   * the DISTANCE row has rim cells wider than the far grid's, and a far grid
+   * carrying chop the near water beside it has already dropped would put the
+   * noise back at exactly the seam the two meet on. */
   let farComponents = 0;
   let farSink = FAR_SINK;
   let farSea: GameState["sea"] | null = null;
@@ -450,8 +493,8 @@ export function createWaterMesh(
    * sunk as it stands — what the near grid's edge fades to. Bilinear over
    * the far cells. */
   const farHeightAt = (wx: number, wz: number): number => {
-    const fx = clamp((wx - farMesh.position.x + FAR_HALF) / farCell, 0, FAR_GRID - 1.001);
-    const fz = clamp((wz - farMesh.position.z + FAR_HALF) / farCell, 0, FAR_GRID - 1.001);
+    const fx = clamp((wx - farMesh.position.x + farHalf) / farCell, 0, FAR_GRID - 1.001);
+    const fz = clamp((wz - farMesh.position.z + farHalf) / farCell, 0, FAR_GRID - 1.001);
     const i0 = Math.floor(fx);
     const j0 = Math.floor(fz);
     const tx = fx - i0;
@@ -504,6 +547,13 @@ export function createWaterMesh(
 
   /** The widest cell of the near grid, at its rim. */
   const maxCell = grid.snap;
+  /** WHAT THE FADE BAND IS MEASURED AGAINST, m: the nearest the grid's rim can
+   * ever stand to the craft. The craft sits up to half a coarse cell off the
+   * snapped origin, so measuring the band from the rider rather than from the
+   * origin has to end it here — any further out and the rim on the craft's own
+   * side of the grid would still be carrying near water when it runs out, and
+   * the sea would end in a lip rather than in the far swell. */
+  const fadeReach = grid.reach - grid.snap / 2;
 
   /** THE BANDS THIS SEA BREAKS AT, worked out once a frame and read by every
    * vertex: the two tilt bands (the breaking one and the whitecaps'), and
@@ -610,11 +660,14 @@ export function createWaterMesh(
     const tones = seaTones(optics);
     if (sea !== farSea) {
       farSea = sea;
+      // The far grid takes the longest ones its own cells — or the near grid's
+      // rim cells, whichever are coarser — can carry, and SINKS by the chop it
+      // has left off, so its facets never stand up through the near water.
+      const coarsest = Math.max(farCell, grid.snap);
       farComponents = 0;
       let short = 0;
       sea.components.forEach((c, i) => {
-        if (i === farComponents && (2 * Math.PI) / c.k0 >= FAR_CELL_WAVES * farCell)
-          farComponents++;
+        if (i === farComponents && (2 * Math.PI) / c.k0 >= CELL_WAVES * coarsest) farComponents++;
         else short += c.amp;
       });
       farSink = FAR_SINK + SHORT_SINK * short;
@@ -640,9 +693,9 @@ export function createWaterMesh(
     const nearMargin = maxCell + crest;
     if (farComponents > 0) {
       for (let j = 0; j < FAR_GRID; j++) {
-        const wz = fsz - FAR_HALF + j * farCell;
+        const wz = fsz - farHalf + j * farCell;
         for (let i = 0; i < FAR_GRID; i++) {
-          const wx = fsx - FAR_HALF + i * farCell;
+          const wx = fsx - farHalf + i * farCell;
           const k = (j * FAR_GRID + i) * 3;
           if (frustum && !seen(frustum, wx, wz, farMargin)) continue;
           surfaceAt(sea, level, wx, wz, t, sample, farComponents);
@@ -686,13 +739,21 @@ export function createWaterMesh(
       primeFoam(state, cx, cz, sx, sz);
     } else foamField.advance(cx, cz, foamDt);
     foamT = t;
+    // Where the craft stands on the grid, so the fade band below can be
+    // measured from the RIDER rather than from the origin the grid snapped to.
+    const offX = sx - cx;
+    const offZ = sz - cz;
     for (let v = 0; v < count; v++) {
-      const wx = sx + grid.ox[v];
-      const wz = sz + grid.oz[v];
+      const ox = grid.ox[v];
+      const oz = grid.oz[v];
+      const wx = sx + ox;
+      const wz = sz + oz;
       const k = v * 3;
       if (frustum && !seen(frustum, wx, wz, nearMargin)) continue;
       surfaceAt(sea, level, wx, wz, t, sample);
-      const fade = 1 - smoothstep(FADE_FROM, 1, grid.edge[v]);
+      const fade =
+        1 -
+        smoothstep(FADE_FROM, 1, Math.max(Math.abs(ox + offX), Math.abs(oz + offZ)) / fadeReach);
       let ny = sample.ny;
       let nx = sample.nx;
       let nz = sample.nz;
@@ -793,7 +854,7 @@ export function createWaterMesh(
     setWake: (map) => applyWake(material, map),
     setWakeLook: (look) => applyWakeLook(material, look),
     setCoast,
-    seeThrough: () => (windowOpen ? reach : 0),
+    seeThrough: () => (windowOpen ? seeReach : 0),
     update,
     dispose: () => {
       geometry.dispose();
