@@ -25,9 +25,16 @@
 // own one-off bundle rather than reading `pwa/dist`, because the harness
 // page is not part of the app's build and is never deployed.
 //
+// `--profile` adds the two rows a plan view cannot carry: the water surface
+// in SECTION, along the craft's axis astern and across the trail at four
+// distances back, probed through the water shader's own relief functions.
+// It is the only view in the repo that says whether the sea actually BENDS
+// for the craft, as against merely whitening.
+//
 //   node scripts/wake-preview.mjs
 //   node scripts/wake-preview.mjs --drive=carve        # the turn's shoulder
 //   node scripts/wake-preview.mjs --channels           # foam/churn/crest/hollow
+//   node scripts/wake-preview.mjs --profile            # the surface, in section
 //   node scripts/wake-preview.mjs --times=0.1,0.3,0.6  # the first moments
 //   node scripts/wake-preview.mjs --skip-build         # reuse the last bundle
 
@@ -56,6 +63,10 @@ const args = parseArgs(
     },
     times: { kind: "string", default: "", help: "seconds into the run to draw (e.g. 0.2,1,4)" },
     channels: { kind: "flag", help: "a row per channel under the composite" },
+    profile: {
+      kind: "flag",
+      help: "two section rows under the maps: the surface along the axis and across it",
+    },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
     out: { kind: "string", default: join(outDir, "wake.png"), help: "where the sheet is written" },
@@ -147,13 +158,14 @@ const query = new URLSearchParams(
     drive: args.drive,
     times: args.times,
     channels: args.channels ? "1" : "",
+    profile: args.profile ? "1" : "",
   }).filter(([, v]) => v),
 ).toString();
 const url = `http://127.0.0.1:${port}/wake-preview.html${query ? `?${query}` : ""}`;
 console.log(
   `wake — seed ${args.seed}, ${args.craft}, ${args.drive}, ${args.times || "the default moments"}${
     args.channels ? ", every channel" : ""
-  }`,
+  }${args.profile ? ", in section" : ""}`,
 );
 // The harness runs the whole scripted ride synchronously before the page's
 // load event can fire — it generates a level and then steps the engine at

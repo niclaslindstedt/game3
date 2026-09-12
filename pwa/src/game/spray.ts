@@ -554,7 +554,17 @@ export function createSpray(stamp: FoamStamp): Spray {
 
     // THE LANDING PLUME: the hull coming back down, the whole wet perimeter
     // thrown out at once, sized by how fast it arrived.
-    if (prevAirborne && !c.airborne) {
+    //
+    // TOUCHED WATER, not AFLOAT. A flight ends when the hull meets water OR
+    // a ramp OR the ground, so a craft that hops a bump on the beach comes
+    // down "landing" like any other and, ungated, throws a plume and stamps
+    // a crater and a ring wave into the water's map from wherever it is
+    // standing — eight metres up a hillside, on seed 38's `start` drive.
+    // But `afloat` is the wrong gate for this one moment: on the step the
+    // flight ends the hull has only just touched, and `wetted` has not
+    // built up yet. Eleven of twelve real landings in a bot-ridden run sit
+    // under that threshold; every one of them has a probe under the surface.
+    if (c.submergedDepth > 0 && prevAirborne && !c.airborne) {
       const strength = clamp((-prevVy - 1) / (PLUME_VY - 1), 0, 1);
       burst(c, budget * (40 + PLUME_BURST * strength), strength, -0.45, 0.45, 0);
       patch(
@@ -594,7 +604,7 @@ export function createSpray(stamp: FoamStamp): Spray {
     // side came down — the sheet off that side, and the crater under it.
     // `roll` past a right angle keeps the sign of the way it went.
     const over = c.capsizedFor > 0;
-    if (over && !prevOver) {
+    if (afloat && over && !prevOver) {
       const side = c.roll > 0 ? 1 : -1;
       const strength = clamp(0.5 + c.speed / OVER_FULL_SPEED, 0.5, 1);
       burst(c, budget * splashThrow * OVER_SHEET, strength, -0.45, 0.45, side);
@@ -609,7 +619,7 @@ export function createSpray(stamp: FoamStamp): Spray {
     }
     // THE RIGHTING: the hull coming back down onto its bottom on the last
     // step of the rider's haul — both chines at once, a shallower crater.
-    if (prevRighting > 0 && c.righting === 0) {
+    if (afloat && prevRighting > 0 && c.righting === 0) {
       burst(c, budget * splashThrow * RIGHT_SHEET, 0.7, -0.45, 0.45, 0);
       patch(c.x, c.z, state.t, L * 0.5, 0.8, RIGHT_CRATER);
     }

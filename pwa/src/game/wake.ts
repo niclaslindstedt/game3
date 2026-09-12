@@ -78,6 +78,8 @@ import {
   roadStrength,
   splashAt,
   splashStations,
+  sternAt,
+  sternHalf,
   trailAction,
   turnBias,
   wakeSection,
@@ -97,9 +99,12 @@ const STERN = 0.45;
 /** Below this along-track speed, m/s, the hull is not laying a trail. */
 const SPEED_LIVE = 1;
 /** Vertices across each ribbon. The fan's are placed so one stands on its
- * crest (`RIDGE` in the profile) rather than spread evenly. */
+ * crest (`RIDGE` in the profile) rather than spread evenly; the stern
+ * wave's are bunched on the axis, where its mound is a ridge under half a
+ * beam wide and the shoulders either side of it are the hollow. */
 const ROAD_ACROSS = 4;
 const FAN_S = [-1, -0.88, -0.72, -0.5, -0.25, 0.25, 0.5, 0.72, 0.88, 1];
+const STERN_S = [-1, -0.8, -0.6, -0.42, -0.24, -0.1, 0, 0.1, 0.24, 0.42, 0.6, 0.8, 1];
 /** Vertices across the jet's tongue: a core and two feathered edges. */
 const JET_ACROSS = 5;
 /** The splash stamps: how many ride the water at once, and the segments
@@ -259,6 +264,12 @@ export function createWake(): Wake {
   const material = markMaterial(box);
   const road = ribbon(ROWS, ROAD_ACROSS, material);
   const fan = ribbon(ROWS, FAN_S.length, material);
+  // THE STERN WAVE: the hull's own relief — the hollow behind a cleared
+  // transom and the mound where the fan's rails come back together on the
+  // axis. A ribbon of its own because its FOOTPRINT is its whole point: it
+  // is twice the road's width, which is what it takes for the grid to stand
+  // on a trough the map holds.
+  const stern = ribbon(ROWS, STERN_S.length, material);
   // THE JET: a short ribbon astern of the nozzle, laid off the craft's state
   // every frame rather than sampled into the trail — it is attached to the
   // pump, not to the water, and it is the FIRST thing on the sea when the
@@ -337,7 +348,7 @@ export function createWake(): Wake {
   // The map's own scene and lens. The lens is never read — the material
   // places every vertex off the box — but three wants one to draw with.
   const marks = new THREE.Scene();
-  marks.add(road.mesh, fan.mesh, jet.mesh, stamps, boil);
+  marks.add(road.mesh, stern.mesh, fan.mesh, jet.mesh, stamps, boil);
   const lens = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clearColor = new THREE.Color();
   const section = wakeSection();
@@ -382,7 +393,15 @@ export function createWake(): Wake {
   /** The transom as it stands: where, how fast the craft is going the way
    * it is POINTING, how white the pump churns, how wide a road it cuts, and
    * whether a trail is being laid at all. Reused, never allocated. */
-  const transom = { x: 0, z: 0, along: 0, strength: 0, beam: 0, live: false };
+  const transom = {
+    x: 0,
+    z: 0,
+    along: 0,
+    strength: 0,
+    beam: 0,
+    live: false,
+    afloat: false,
+  };
   const readTransom = (state: GameState): typeof transom => {
     const c = state.craft;
     const back = c.spec.length * STERN;
@@ -394,7 +413,11 @@ export function createWake(): Wake {
     // Reading the sign here rather than off `speed` is the whole point —
     // `speed` is |v| and cannot tell the two apart.
     transom.along = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
-    transom.live = !c.airborne && c.wetted > 0.05 && transom.along > SPEED_LIVE;
+    // AFLOAT is the hull being in the water at all, which is what the marks
+    // laid off the craft's STATE need; LIVE adds the pace that says a trail
+    // is being laid, which is what the marks laid off the TRAIL need.
+    transom.afloat = !c.airborne && c.wetted > 0.05;
+    transom.live = transom.afloat && transom.along > SPEED_LIVE;
     // How white: pace, and the pump working — a hull coasting leaves a paler
     // road than one on full throttle. The bucket does not stop the pump
     // churning, it turns the churn forward and under the hull, so the road a
@@ -464,9 +487,10 @@ export function createWake(): Wake {
     colors[v * 4 + 3] = (s.down / WAKE_HEIGHT) * s.cover;
   };
 
-  /** One row of both ribbons: the road's section and the fan's across a
-   * sample at `(x, z)` with `heading`, laid `age` seconds ago at `speed`
-   * with `strength` of white. A dead row has no width and no cover. */
+  /** One row of every trail ribbon — the road's section, the stern wave's
+   * and the fan's — across a sample at `(x, z)` with `heading`, laid `age`
+   * seconds ago at `speed` with `strength` of white, `astern` m behind the
+   * transom as it stands now. A dead row has no width and no cover. */
   const row = (
     n: number,
     x: number,
@@ -479,17 +503,30 @@ export function createWake(): Wake {
     dead: boolean,
     along: number,
     turn: number,
+    astern: number,
   ): void => {
     const rv = n * ROAD_ACROSS;
     const fv = n * FAN_S.length;
     const rx = Math.cos(heading);
     const rz = -Math.sin(heading);
-    const rHalf = dead || age >= ROAD_LIFE ? 0 : roadHalf(beam, speed, age);
+    const rHalf = dead || age >= ROAD_LIFE ? 0 : roadHalf(beam, speed, age, astern);
     for (let a = 0; a < ROAD_ACROSS; a++) {
       const s = (a / (ROAD_ACROSS - 1)) * 2 - 1;
-      if (rHalf > 0) roadAt(s, age, speed, strength, section);
+      if (rHalf > 0) roadAt(s, age, speed, strength, section, astern);
       else section.cover = 0;
       write(road.positions, road.colors, rv + a, x + rx * rHalf * s, z + rz * rHalf * s, section);
+    }
+    // The stern wave: the hollow and the mound, on a footprint of its own
+    // — anchored to how far ASTERN OF THE TRANSOM this sample is rather
+    // than to its age, because the pattern stands still in the craft's
+    // frame and is dragged behind it.
+    const wv = n * STERN_S.length;
+    const sHalf = dead ? 0 : sternHalf(beam, astern);
+    for (let a = 0; a < STERN_S.length; a++) {
+      const s = STERN_S[a];
+      if (sHalf > 0) sternAt(s, astern, age, speed, strength, beam, section);
+      else section.cover = 0;
+      write(stern.positions, stern.colors, wv + a, x + rx * sHalf * s, z + rz * sHalf * s, section);
     }
     // The fan: Kelvin's V at the speed this sample was laid at, scalloped
     // by where it sits along the trail and thrown wide to the OUTSIDE of a
@@ -508,7 +545,16 @@ export function createWake(): Wake {
 
   const lay = (state: GameState): void => {
     const t = state.t;
-    // Lay both ribbons oldest to newest. The buffer is a ring: once full,
+    const now = readTransom(state);
+    const c = state.craft;
+    const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
+    // The head row's own run and carve: the last sample's, carried the few
+    // metres to the transom, so the cusps line up across the join and the
+    // shoulder does not snap on at the newest sample. It is also the datum
+    // the stern wave is measured from — a sample's distance ASTERN OF THE
+    // TRANSOM is this less its own run along the trail.
+    const headRun = last >= 0 ? sr[last] + Math.hypot(now.x - sx[last], now.z - sz[last]) : 0;
+    // Lay every ribbon oldest to newest. The buffer is a ring: once full,
     // `head` is the oldest sample, and before that the first
     // `SAMPLES - filled` slots are simply unused and folded to nothing.
     for (let n = 0; n < SAMPLES; n++) {
@@ -526,19 +572,13 @@ export function createWake(): Wake {
         !has || gap[i] === 1,
         sr[i],
         sy[i],
+        Math.max(0, headRun - sr[i]),
       );
     }
     // …and the head row at the transom as it stands this frame, age nought,
     // so the road begins at the hull. Dead when nothing is being laid, which
     // closes the trail at the last real sample.
-    const now = readTransom(state);
-    const c = state.craft;
-    const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
     const open = now.live && last >= 0 && gap[last] === 0;
-    // The head row's own run and carve: the last sample's, carried the few
-    // metres to the transom, so the cusps line up across the join and the
-    // shoulder does not snap on at the newest sample.
-    const headRun = last >= 0 ? sr[last] + Math.hypot(now.x - sx[last], now.z - sz[last]) : 0;
     row(
       SAMPLES,
       now.x,
@@ -551,16 +591,19 @@ export function createWake(): Wake {
       !open,
       headRun,
       last >= 0 ? sy[last] : 0,
+      0,
     );
     road.posAttr.needsUpdate = true;
     road.colAttr.needsUpdate = true;
+    stern.posAttr.needsUpdate = true;
+    stern.colAttr.needsUpdate = true;
     fan.posAttr.needsUpdate = true;
     fan.colAttr.needsUpdate = true;
 
     // THE JET, astern of the nozzle: a tongue along the heading, widening
     // from the transom to its reach. Folded to nothing when the throttle is
     // shut or the hull is up to pace, at which point the road has it.
-    jetBlast(Math.max(0, c.throttleEff), now.along, c.spec.length, c.spec.beam, blast);
+    jetBlast(Math.max(0, c.throttleEff), now.along, now.afloat, c.spec.length, c.spec.beam, blast);
     const jx = Math.sin(c.heading);
     const jz = Math.cos(c.heading);
     const jrx = Math.cos(c.heading);
@@ -624,14 +667,24 @@ export function createWake(): Wake {
     // ahead of it at pace. A capsized craft's gate is stowed and a braking
     // one is upright, so the two never compete; the stronger is laid.
     // Folded to nothing on a hull the right way up with its gate stowed.
-    const over = !splash.boil ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
+    // Both of these are laid off the craft's STATE like the jet, so both
+    // need the same gate: a hull aground or in the air stirs no water.
+    const over =
+      !splash.boil || !now.afloat ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
     capsize.stir = over;
     capsize.foam = BOIL_FOAM * over;
     capsize.ahead = 0;
     capsize.along = (c.spec.length / 2 + c.spec.beam * BOIL_PAST_BEAM) * over;
     capsize.across = c.spec.beam * (0.5 + BOIL_PAST_BEAM) * over;
     capsize.core = BOIL_CORE;
-    brakeMark(c.bucket, c.throttleEff, now.along, c.spec.length, c.spec.beam, brake);
+    brakeMark(
+      now.afloat ? c.bucket : 0,
+      c.throttleEff,
+      now.along,
+      c.spec.length,
+      c.spec.beam,
+      brake,
+    );
     const opening = BRAKE_REACH_FLOOR + (1 - BRAKE_REACH_FLOOR) * brake.stir;
     brake.along *= opening;
     brake.across *= opening;
@@ -708,6 +761,7 @@ export function createWake(): Wake {
     },
     dispose: () => {
       road.geometry.dispose();
+      stern.geometry.dispose();
       fan.geometry.dispose();
       jet.geometry.dispose();
       stampGeometry.dispose();

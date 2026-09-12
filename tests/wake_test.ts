@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  BOIL_LIFE,
+  BOIL_RUN,
   BRAKE_PACE_FULL,
   BRAKE_ROAD_WIDEN,
   CRATER_LIFE,
@@ -24,6 +24,7 @@ import {
   SPEED_MIN,
   SPLASH_LIFE,
   SPLASH_STATIONS,
+  TRANSOM_CLEAR,
   TURN_FULL,
   WAKE_HEIGHT,
   WAKE_MAP_BACK,
@@ -32,8 +33,10 @@ import {
   fanAt,
   fanCusp,
   fanHalf,
+  armAt,
   hullMark,
   jetAt,
+  moundAt,
   jetBlast,
   jetMark,
   roadAt,
@@ -42,6 +45,8 @@ import {
   splashAt,
   splashReach,
   splashStations,
+  sternAt,
+  sternHalf,
   trailAction,
   turnBias,
   wakeSection,
@@ -50,6 +55,13 @@ import {
 
 const BEAM = 1.2;
 const LENGTH = 2.7;
+/** What the fan carries at the same place, to hold the road against: far
+ * astern the road may not out-white the wedge it is supposed to melt into. */
+const FAN_FOAM_AT_PACE = (() => {
+  const s = wakeSection();
+  fanAt(0.8, 2, 15, 1, s);
+  return s.foam;
+})();
 
 describe("the road", () => {
   it("is white only once the pump is churning at pace, and whiter on the throttle", () => {
@@ -59,65 +71,192 @@ describe("the road", () => {
     expect(roadStrength(20, 1)).toBeLessThanOrEqual(1);
   });
 
-  it("is widest at the transom — the boil — and necks in behind it", () => {
+  it("is widest at the transom — the boil — and necks in a bulb's length behind it", () => {
     // The narrowest the road ever is comes AFTER the transom, not at it:
-    // the boil's bulb collapses in under a second, the road necks in behind
-    // it, and only then does it start creeping wider again.
-    const transom = roadHalf(BEAM, 15, 0);
+    // the bulb collapses within a couple of metres, the road necks in
+    // behind it, and only then does it start creeping wider again.
+    //
+    // MEASURED DOWN THE TRAIL, NOT DOWN THE CLOCK. The bulb stands at a
+    // fixed place in the craft's frame, so aged instead of placed it
+    // stretched with the speed: at pace it was two thirds present ten
+    // metres back, and the road was one flat band a beam and a half wide
+    // for the whole near field.
+    const speed = 25;
+    const transom = roadHalf(BEAM, speed, 0, 0);
     let neck = Infinity;
-    let neckAge = 0;
-    for (let age = 0; age < ROAD_LIFE; age += 0.05) {
-      const half = roadHalf(BEAM, 15, age);
-      if (half < neck) [neck, neckAge] = [half, age];
+    let neckAt = 0;
+    for (let astern = 0; astern < 40; astern += 0.25) {
+      const half = roadHalf(BEAM, speed, astern / speed, astern);
+      if (half < neck) [neck, neckAt] = [half, astern];
     }
-    expect(neckAge).toBeGreaterThan(BOIL_LIFE);
+    expect(neckAt).toBeGreaterThan(BOIL_RUN);
+    expect(neckAt).toBeLessThan(BOIL_RUN * 6);
     expect(transom).toBeGreaterThan(neck * 1.3);
+    // …and the bulb is a BULB: gone within a few metres whatever the pace,
+    // where aged it was still most of the way there.
+    const far = roadHalf(BEAM, speed, 10 / speed, 10);
+    expect(far).toBeLessThan(transom * 0.75);
     // …then spreads, slowly, with age — the road is the THIN bright line
     // down the middle of the photograph; what opens is the fan round it.
-    expect(roadHalf(BEAM, 15, ROAD_LIFE)).toBeGreaterThan(neck);
+    expect(roadHalf(BEAM, speed, ROAD_LIFE, 40)).toBeGreaterThan(neck);
   });
 
-  it("outlives its boil and fades into nothing, never negative", () => {
+  it("outlives its boil, settles into the wedge behind it, never negative", () => {
     const s = wakeSection();
-    roadAt(0, 0.3, 15, 1, s);
+    roadAt(0, 0.3, 15, 1, s, 4);
     const fresh = { ...s };
-    roadAt(0, 2 * BOIL_LIFE, 15, 1, s);
+    roadAt(0, 2, 15, 1, s, 30);
     const settled = { ...s };
-    expect(settled.foam).toBeGreaterThan(0.3);
+    expect(fresh.foam).toBeGreaterThan(0.6);
     expect(settled.churn).toBeLessThan(fresh.churn);
-    expect(settled.down).toBeLessThan(fresh.down);
-    roadAt(0, ROAD_LIFE + 0.01, 15, 1, s);
+    // Far back the road must be well under the fan's own white, and not
+    // merely below it: the marks are rasterised ADDITIVELY, so a road
+    // still carrying half its share lands on top of the fan already there
+    // and draws a bright line down the middle of the whole wedge.
+    expect(settled.foam).toBeLessThan(FAN_FOAM_AT_PACE * 0.4);
+    expect(settled.foam).toBeGreaterThan(0);
+    roadAt(0, ROAD_LIFE + 0.01, 15, 1, s, 60);
     expect(s.cover).toBe(0);
     for (const age of [0, 1, 3, 5.9]) {
-      roadAt(0, age, 15, 1, s);
+      roadAt(0, age, 15, 1, s, age * 15);
       expect(s.foam).toBeGreaterThanOrEqual(0);
       expect(s.foam).toBeLessThanOrEqual(1);
     }
   });
 
-  it("feathers to nothing at its edge and hollows the water at its middle", () => {
+  it("feathers to nothing at its edge, and carries no relief of its own", () => {
     const s = wakeSection();
     roadAt(1, 0.2, 15, 1, s);
     expect(s.cover).toBe(0);
     roadAt(0, 0.2, 15, 1, s);
     expect(s.cover).toBe(1);
-    expect(s.down).toBeGreaterThan(0);
-    expect(s.down).toBeLessThan(WAKE_HEIGHT);
-    expect(s.up).toBe(0);
+    // The road is a beam wide and the water reads its relief blurred to
+    // about two metres, so a hollow laid here was a third of its depth by
+    // the time a vertex stood on it. The shape belongs to the stern wave,
+    // which is laid wide enough for the grid to see.
+    for (const age of [0, 0.05, 0.3, 2]) {
+      roadAt(0, age, 15, 1, s);
+      expect(s.up).toBe(0);
+      expect(s.down).toBe(0);
+    }
+  });
+});
+
+describe("the stern wave", () => {
+  it("is wider than the relief blur, which is why it exists", () => {
+    // Two metres is what `WAKE_RELIEF_LOD` blurs the relief to, and the
+    // near grid's cell is a metre and a half: a mark narrower than that is
+    // held by the map and never seen by the water.
+    expect(sternHalf(BEAM, 0) * 2).toBeGreaterThan(4);
+    expect(sternHalf(BEAM, 20)).toBeGreaterThan(sternHalf(BEAM, 0));
   });
 
-  it("forms its hollow over a moment rather than at a step", () => {
-    // The relief the surface is moved by rises in: nothing at the instant
-    // the transom passes, most of the way in a quarter second, so no vertex
-    // drops its whole depth between one frame and the next.
+  it("lays nothing until the transom has cleared", () => {
+    // Past a Froude number of about two on the transom's own immersion the
+    // flow stops closing behind the corner and the hollow appears. Below
+    // it there is no hollow to have.
     const s = wakeSection();
-    roadAt(0, 0, 15, 1, s);
+    expect(TRANSOM_CLEAR).toBeGreaterThan(2);
+    expect(TRANSOM_CLEAR).toBeLessThan(4);
+    sternAt(0, 1, 2, TRANSOM_CLEAR * 0.9, 1, BEAM, s);
     expect(s.down).toBe(0);
-    roadAt(0, 0.05, 15, 1, s);
+    expect(s.up).toBe(0);
+    sternAt(0, 1, 2, TRANSOM_CLEAR * 3, 1, BEAM, s);
+    expect(s.down).toBeGreaterThan(0);
+  });
+
+  it("bends the water DOWN at the transom and UP again at the crossing", () => {
+    // The claim the whole mark is for, and the one a plan view cannot
+    // make: along the axis the surface drops behind the transom, comes
+    // back through the still line and stands PROUD of it where the fan's
+    // two rails meet.
+    const s = wakeSection();
+    const mound = moundAt(BEAM, 1);
+    sternAt(0, 0.2, 2, 20, 1, BEAM, s);
+    const behind = { ...s };
+    sternAt(0, mound, 2, 20, 1, BEAM, s);
+    const crest = { ...s };
+    expect(behind.down).toBeGreaterThan(0.05);
+    expect(behind.up).toBeLessThan(behind.down);
+    expect(crest.up).toBeGreaterThan(crest.down);
+    expect(crest.up).toBeGreaterThan(behind.down);
+    expect(crest.up).toBeLessThan(WAKE_HEIGHT);
+  });
+
+  it("puts the crossing where the fan's rails meet, and a pump throws it further back", () => {
+    // Not a free number: half a beam over the tangent of Kelvin's angle,
+    // stretched by the one factor the grid forces.
+    const bare = moundAt(BEAM, 0);
+    expect(bare).toBeGreaterThan(BEAM / (2 * KELVIN_TAN));
+    expect(moundAt(BEAM, 1)).toBeGreaterThan(bare);
+    expect(moundAt(2 * BEAM, 0)).toBeCloseTo(2 * bare, 5);
+  });
+
+  it("reads as a TRIANGLE: the crest stands further off the axis the further astern", () => {
+    // The shape the whole mark is for. The arms leave the transom's
+    // corners and ride outward at Kelvin's angle for as long as the trail
+    // lasts, so what a rider looks back at is a V that never stops
+    // opening — never a stripe, and never a lozenge on the axis.
+    const s = wakeSection();
+    const crestOff = (run: number) => {
+      let best = -1;
+      let at = 0;
+      for (let a = 0; a <= 1; a += 0.005) {
+        sternAt(a, run, 4, 20, 1, BEAM, s);
+        if (s.up > best) [best, at] = [s.up, a * sternHalf(BEAM, run)];
+      }
+      return { up: best, off: at };
+    };
+    const near = crestOff(8);
+    const mid = crestOff(20);
+    const far = crestOff(40);
+    expect(mid.off).toBeGreaterThan(near.off + 3);
+    expect(far.off).toBeGreaterThan(mid.off + 3);
+    // …at Kelvin's angle, which is the rate and not a fudge.
+    expect((far.off - mid.off) / 20).toBeCloseTo(KELVIN_TAN, 1);
+    expect(armAt(BEAM, 0)).toBeCloseTo(BEAM / 2, 5);
+  });
+
+  it("fades into the water at the back INCREMENTALLY, not at a cliff", () => {
+    // It must still be there at the far edge of the map — the V is what a
+    // rider sees the whole time they are looking behind them — and it must
+    // go down by steps rather than stopping.
+    const s = wakeSection();
+    const crest = (run: number) => {
+      let best = 0;
+      for (let a = 0; a <= 1; a += 0.01) {
+        sternAt(a, run, 4, 20, 1, BEAM, s);
+        if (s.up > best) best = s.up;
+      }
+      return best;
+    };
+    // Measured past the apex, which is the tallest part of the mark and
+    // hands its water to the arms over the first few metres — that drop is
+    // the hand-over, not the fade.
+    const steps = [16, 24, 32, 40, 48, 56].map(crest);
+    expect(crest(moundAt(BEAM, 1))).toBeGreaterThan(steps[0]);
+    for (let i = 1; i < steps.length; i++) {
+      expect(steps[i]).toBeLessThan(steps[i - 1]);
+      // No step takes more than a quarter of what is left: that is what
+      // makes the fade read as distance rather than as an edge.
+      expect(steps[i]).toBeGreaterThan(steps[i - 1] * 0.75);
+    }
+    expect(steps[steps.length - 1]).toBeGreaterThan(0.02);
+  });
+
+  it("forms over a moment rather than at a step, and carries no white", () => {
+    const s = wakeSection();
+    sternAt(0, 1, 0, 20, 1, BEAM, s);
+    expect(s.down).toBe(0);
+    sternAt(0, 1, 0.03, 20, 1, BEAM, s);
     const early = s.down;
-    roadAt(0, 0.3, 15, 1, s);
+    sternAt(0, 1, 0.4, 20, 1, BEAM, s);
     expect(early).toBeGreaterThan(0);
-    expect(s.down).toBeGreaterThan(early * 3);
+    expect(s.down).toBeGreaterThan(early * 2);
+    // The road and the fan own the white; a third contributor to that
+    // channel over the same water only drives the lace past saturation.
+    expect(s.foam).toBe(0);
+    expect(s.churn).toBe(0);
   });
 });
 
@@ -139,19 +278,26 @@ describe("the fan", () => {
   it("opens over the near water, holds its width, and is still white where it ends", () => {
     // Two claims that pull against each other. The V must still be OPENING
     // over the water a rider is actually looking at — a wake that reached
-    // its width in the first metre is a stripe — and it must STOP, because
-    // Kelvin's angle never does and a trail let run at pace is thirty
-    // metres across before it has left the map, every metre of it white
-    // once the wedge has filled in. What carries the trail's LENGTH is the
-    // life: it leaves the frame white rather than fading out inside it.
+    // its width in the first metre is a stripe, and the white has to keep
+    // up with the stern wave's arms, which ride Kelvin's angle the whole
+    // length of the trail — and it must STOP somewhere, because Kelvin's
+    // angle never does and an uncapped V is a field of foam with a craft
+    // somewhere in it. What carries the trail's LENGTH is the life: it
+    // leaves the frame white rather than fading out inside it.
     const speed = 20;
     const reach = (WAKE_MAP_BACK + WAKE_REACH) / speed;
     expect(reach).toBeLessThan(FAN_LIFE);
-    // Still opening a second back, held by the time the trail is halfway
-    // down the map.
+    // Still opening a second back, still opening halfway down the map, and
+    // held only out at its far edge.
     expect(fanHalf(BEAM, speed, 1)).toBeGreaterThan(fanHalf(BEAM, speed, 0.5) * 1.6);
-    expect(fanHalf(BEAM, speed, reach)).toBe(fanHalf(BEAM, speed, reach / 2));
+    expect(fanHalf(BEAM, speed, reach / 2)).toBeGreaterThan(fanHalf(BEAM, speed, reach / 4) * 1.5);
+    // Held at the cap out there, give or take the cusps riding on it.
+    expect(fanHalf(BEAM, speed, reach)).toBeGreaterThan(FAN_HALF_MAX * 0.9);
     expect(fanHalf(BEAM, speed, reach)).toBeLessThan(FAN_HALF_MAX * 1.1);
+    // …and it opens far enough to stay with the relief it belongs to: the
+    // arms are the same wave, and white that stopped short of them left
+    // the water bending outside the foam.
+    expect(FAN_HALF_MAX).toBeGreaterThan(armAt(BEAM, (reach * speed) / 2) * 0.9);
     const s = wakeSection();
     fanAt(0.8, reach, speed, 1, s);
     expect(s.foam).toBeGreaterThan(0.2);
@@ -199,26 +345,13 @@ describe("the fan", () => {
     expect(s.churn).toBeLessThan(rail.churn * 0.5);
   });
 
-  it("has a bow wave along its edge, with flat water toward the road", () => {
+  it("carries no relief: the shape of the wedge is the stern wave's", () => {
     const s = wakeSection();
-    fanAt(0.8, 0.5, 15, 1, s);
-    const edge = { ...s };
-    fanAt(0.5, 0.5, 15, 1, s);
-    const behind = { ...s };
-    fanAt(0.1, 0.5, 15, 1, s);
-    const inside = { ...s };
-    // The crest on the edge, the trough drawn in just inside it, flat water
-    // toward the road: a wave, which is what the surface is pushed by.
-    expect(edge.up).toBeGreaterThan(inside.up);
-    expect(edge.down).toBe(0);
-    expect(behind.down).toBeGreaterThan(0);
-    expect(behind.up).toBe(0);
-    expect(inside.down).toBe(0);
-    expect(edge.foam).toBeGreaterThan(inside.foam);
-    fanAt(1, 0.5, 15, 1, s);
-    expect(s.cover).toBe(0);
-    fanAt(0, FAN_LIFE + 0.01, 15, 1, s);
-    expect(s.cover).toBe(0);
+    for (const at of [0.1, 0.5, 0.8, 1]) {
+      fanAt(at, 0.5, 15, 1, s);
+      expect(s.up).toBe(0);
+      expect(s.down).toBe(0);
+    }
   });
 
   it("breaks its edge into crescents anchored to the water, not to the craft", () => {
@@ -273,15 +406,18 @@ describe("the fan", () => {
     fanAt(0.8, 0.3, crawl, roadStrength(crawl, 1), s);
     expect(s.foam).toBe(0);
     expect(s.churn).toBeGreaterThan(0);
-    expect(s.up).toBeGreaterThan(0);
-    // …and a craft on the plane stirs it harder and throws a far taller
-    // bow wave — the wave grows with the square of the wash.
+    // …and a craft on the plane stirs it harder, and whitens it at all.
     const stirred = s.churn;
-    const lifted = s.up;
     fanAt(0.8, 0.3, 15, roadStrength(15, 1), s);
     expect(s.churn).toBeGreaterThan(stirred);
-    expect(s.up).toBeGreaterThan(lifted * 4);
     expect(s.foam).toBeGreaterThan(0);
+    // The SHAPE that pace throws is the stern wave's, and it is not there
+    // at a crawl at all: below the transom's clearing speed nothing has
+    // ventilated and there is no hollow to overshoot out of.
+    sternAt(0.6, 6, 2, crawl, roadStrength(crawl, 1), BEAM, s);
+    expect(s.up).toBe(0);
+    sternAt(0.6, 6, 2, 15, roadStrength(15, 1), BEAM, s);
+    expect(s.up).toBeGreaterThan(0);
   });
 });
 
@@ -454,7 +590,7 @@ describe("the jet", () => {
     // moving the whole sea was blank. A waterjet at rest is not doing
     // nothing.
     const j = jetMark();
-    jetBlast(1, 0, LENGTH, BEAM, j);
+    jetBlast(1, 0, true, LENGTH, BEAM, j);
     expect(j.blast).toBeCloseTo(1, 5);
     expect(j.reach).toBeGreaterThan(LENGTH * 2);
     // …and the road at that moment is laying nothing at all, which is what
@@ -462,26 +598,55 @@ describe("the jet", () => {
     expect(roadStrength(0, 1)).toBe(0);
   });
 
-  it("hands over to the road exactly as the road goes white", () => {
+  it("hands its PILE-UP over to the road, and keeps the stream itself", () => {
     // One hand-over, not two numbers: a jet that let go first leaves a
     // stretch of open throttle with nothing on the water.
     expect(JET_STALL).toBe(SPEED_FULL);
     const j = jetMark();
-    jetBlast(1, SPEED_FULL, LENGTH, BEAM, j);
-    expect(j.blast).toBe(0);
-    expect(roadStrength(SPEED_FULL, 1)).toBeCloseTo(1, 5);
-    // Halfway through, both are carrying about half of it.
-    jetBlast(1, SPEED_FULL / 2, LENGTH, BEAM, j);
-    expect(j.blast).toBeGreaterThan(0.3);
+    jetBlast(1, SPEED_FULL / 2, true, LENGTH, BEAM, j);
+    const half = j.blast;
+    expect(half).toBeGreaterThan(0.3);
     expect(roadStrength(SPEED_FULL / 2, 1)).toBeGreaterThan(0.3);
+    // …but the pump does not stop firing because the hull is moving. What
+    // the hand-over settles is where the churned water ends up — piled in
+    // one place standing still, strung into the road at pace — and the
+    // stream out of the nozzle is still there at the far end of it, which
+    // is when an aerial photograph shows it most clearly of all.
+    jetBlast(1, SPEED_FULL, true, LENGTH, BEAM, j);
+    const paced = { ...j };
+    jetBlast(1, SPEED_FULL * 3, true, LENGTH, BEAM, j);
+    expect(paced.blast).toBeGreaterThan(0.3);
+    expect(paced.blast).toBeLessThan(half);
+    expect(j.blast).toBeCloseTo(paced.blast, 5);
+    expect(roadStrength(SPEED_FULL, 1)).toBeCloseTo(1, 5);
+    // …and it stays JUST BEHIND THE CRAFT however fast it is going: a
+    // couple of hull lengths at pace, never drawn out down the trail. The
+    // long bright line down the middle of the wedge is the ROAD's, and a
+    // stream stretched to match it stops reading as a stream at all.
+    expect(j.reach).toBeCloseTo(paced.reach, 5);
+    expect(paced.reach).toBeGreaterThan(LENGTH);
+    expect(paced.reach).toBeLessThan(LENGTH * 3);
+  });
+
+  it("is nothing at all when the hull is not in the water", () => {
+    // The jet is laid off the craft's STATE, not off the trail, so nothing
+    // stopped it when the hull left the water: a rider who drives up the
+    // beach with the throttle open parks above the sea still churning
+    // white into the map and lifting a surface that is not under them.
+    const j = jetMark();
+    jetBlast(1, 0, false, LENGTH, BEAM, j);
+    expect(j.blast).toBe(0);
+    expect(j.reach).toBe(0);
+    jetBlast(1, 0, true, LENGTH, BEAM, j);
+    expect(j.blast).toBeGreaterThan(0);
   });
 
   it("is the pump's, not the hull's: nothing on a shut throttle", () => {
     const j = jetMark();
-    jetBlast(0, 0, LENGTH, BEAM, j);
+    jetBlast(0, 0, true, LENGTH, BEAM, j);
     expect(j.blast).toBe(0);
     expect(j.reach).toBe(0);
-    jetBlast(0.5, 0, LENGTH, BEAM, j);
+    jetBlast(0.5, 0, true, LENGTH, BEAM, j);
     expect(j.blast).toBeCloseTo(0.5, 5);
   });
 
@@ -497,7 +662,15 @@ describe("the jet", () => {
     // nozzle is a trench — and by the far end it is foam lying on water.
     expect(nozzle.down).toBeGreaterThan(0);
     expect(end.down).toBe(0);
-    expect(nozzle.up).toBe(0);
+    // …and it piles what it scoured out into a mound further along, which
+    // is the water sprouting up behind a craft that has not moved yet —
+    // the stern wave's own mound before there is a stern wave.
+    expect(nozzle.up).toBeLessThan(0.01);
+    jetAt(0.42, 0, 1, s);
+    expect(s.up).toBeGreaterThan(0.05);
+    expect(s.up).toBeLessThan(WAKE_HEIGHT);
+    jetAt(1, 0, 1, s);
+    expect(s.up).toBeLessThan(0.01);
     // Across: a flat core with an edge, not a cone of speckles.
     jetAt(0, 0.4, 1, s);
     expect(s.foam).toBeCloseTo(nozzle.foam, 5);

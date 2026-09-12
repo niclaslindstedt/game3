@@ -74,15 +74,41 @@ const ROAD_SPREAD = 0.12;
 /** Where the road's flat top ends, as a share of its half-width; outside it
  * the section feathers to nothing. */
 const ROAD_CORE = 0.55;
-/** How long the boil lives, s, and how much wider than the road it is at
- * the transom, as a share of the beam. */
-export const BOIL_LIFE = 0.9;
+/** HOW FAR ASTERN THE ROAD IS BRIGHTER THAN THE WEDGE ROUND IT, m, and what
+ * share of its white it keeps past that. The road is narrow and the fan is
+ * broad, so a road held at full white for its whole LIFE draws a hard bright
+ * line straight down the middle of the wake for as far as the trail runs —
+ * which no aerial photograph has in it. What they have is a dense bright
+ * core for the first few lengths, going over into one broad field of broken
+ * white where the core is no longer picked out at all. So the road's own
+ * brightness is a near-field thing, and the far wedge reads as the fan's
+ * with the line gone into it. Its LIFE still decides how far back there is
+ * any white at all.
+ *
+ * The far share goes NEARLY to nothing, not merely under the fan's: the
+ * marks are rasterised ADDITIVELY, so a road still carrying half its white
+ * lands on top of the fan already there and the centre is brighter than
+ * its surroundings whatever the two numbers say. What is left is the
+ * slight thickening down the middle that a photograph does have — not a
+ * line drawn on the sea. */
+const ROAD_BRIGHT_RUN = 10;
+const ROAD_FAR = 0.15;
+/** HOW FAR ASTERN THE BOIL'S BULB REACHES, m, and how much wider than the
+ * road it is at the transom, as a share of the beam. Anchored to DISTANCE
+ * and not to age, for the reason the stern wave is: the bulb is the water
+ * collapsing into the hole the transom left, which stands at a fixed place
+ * in the CRAFT's frame. Aged instead, it stretched with the speed — at
+ * pace it was still two thirds present ten metres back and two fifths at
+ * twenty, so the road was one flat saturated band a beam and a half wide
+ * for the whole near field, and the thin bright stream out of the nozzle
+ * that every aerial photograph of a runabout at speed has in it had
+ * nothing to be thin against. */
+export const BOIL_RUN = 2.2;
 const BOIL_HALF_BEAM = 0.6;
-/** How long the churn behind the transom lives, s, and how deep the
- * transom's hollow is at full wash, m, with its own life. */
+/** How long the churn behind the transom lives, s. The road carries no
+ * relief of its own: the hollow behind the transom is the STERN WAVE's,
+ * laid on a footprint wide enough for the grid to stand on. */
 const CHURN_LIFE = 1.6;
-const HOLLOW = 0.22;
-const HOLLOW_LIFE = 1.4;
 /** HOW LONG THE RELIEF TAKES TO FORM, s — the hollow collapsing into the
  * hole the jet leaves, the bow wave rolling out from the chine. The water
  * shader moves the surface by this relief, and a trough that stood at full
@@ -102,17 +128,19 @@ function relief(age: number, life: number): number {
  * one, so the wedge holds its white while it opens and then breaks into
  * patches, rather than dissolving as fast as it spreads. Its half-width at
  * the transom as a share of the beam, and the most it may ever spread to,
- * m. The cap is what stops the V reading as a field of foam rather than as
- * a wake: Kelvin's angle never stops opening, so a trail let run at pace
- * is thirty metres across before it has left the map, and once the wedge
- * FILLS IN with age that whole span is white. It holds instead a couple of
- * seconds back, which is the near half of what a rider can see — the trail
- * opens the length of the water they are looking at and then runs on at
- * that width. What makes it read LONG is the life, not the spread. */
+ * m. The WHITE FOLLOWS THE RELIEF OUT: the stern wave's arms ride Kelvin's
+ * angle for the whole length of the trail, and a wedge of foam that stopped
+ * opening halfway along left the water bending past the edge of the white
+ * that was supposed to be the same wave. So the cap sits far enough back to
+ * be most of the map rather than the near half of it — it is still a cap,
+ * because Kelvin's angle never stops and an uncapped V is a field of foam
+ * with a craft somewhere in it, but the V a rider looks back at is opening
+ * the whole way. What makes it read LONG is still the life, not the
+ * spread. */
 export const FAN_LIFE = 6;
 const FAN_FADE_POWER = 0.75;
 const FAN_HALF_BEAM = 0.6;
-export const FAN_HALF_MAX = 16;
+export const FAN_HALF_MAX = 26;
 /** The fan's foam at full pace — the loudest white in the picture, which is
  * what the aerial photographs say and the first pass did not: a fan at 0.4
  * sat under the lace's threshold and read as a grey smear beside the road.
@@ -170,24 +198,13 @@ export function turnBias(s: number, turn: number): number {
   if (s === 0 || turn === 0) return 0;
   return clamp((-Math.sign(s) * turn) / TURN_FULL, -1, 1);
 }
-/** THE BOW WAVE: the water the hull shoved aside, travelling outward along
- * the fan's edge as a crest with a trough drawn in behind it — how high the
- * crest stands and how deep the trough runs at full wash, m, and how long
- * the wave lives, s. It is a WAVE the water shader displaces the surface
- * by, up at the crest, down in the trough and sideways along the slope
- * between them, which is what moves the water to the side. It grows with
- * the SQUARE of the wash, the way a hull's wave-making does: a crawl barely
- * lifts it, a craft on the plane throws it. */
-const CREST = 0.18;
-const TROUGH = 0.09;
-const CREST_LIFE = 2.5;
-/** Where across the fan the crest stands, as a share of its half-width, and
- * where it rises from; the trough sits just inside it. The crest rides the
- * rails, so these sit on the same stations. */
-const RIDGE = 0.8;
-const RIDGE_FROM = 0.62;
-const TROUGH_AT = 0.5;
-const TROUGH_FROM = 0.25;
+/** THE FAN CARRIES NO RELIEF. The diverging crest it draws in white is a
+ * real wave and the surface does bend for it — but that bend is the STERN
+ * WAVE's arms, laid on a section cut to follow them and fading over tens of
+ * metres, where the fan's own foam is capped, aged and gone in six seconds.
+ * Stated in two places the two disagreed: the crest died while the white it
+ * belonged to was still there, and the wedge read as paint on flat water.
+ * One owner for the shape, one for the colour. */
 
 /** One cross-section's worth of a channel each: reused, never allocated. */
 export type WakeSection = {
@@ -217,12 +234,12 @@ export function washOf(speed: number): number {
 
 /** The road's half-width at an age, m: the boil's bulb at the transom
  * decaying into the road proper, which spreads slowly. */
-export function roadHalf(beam: number, speed: number, age: number): number {
+export function roadHalf(beam: number, speed: number, age: number, astern = 0): number {
   return (
     beam * ROAD_HALF_BEAM +
     speed * ROAD_HALF_PER_SPEED +
     ROAD_SPREAD * age +
-    beam * BOIL_HALF_BEAM * Math.exp(-age / BOIL_LIFE)
+    beam * BOIL_HALF_BEAM * Math.exp(-astern / BOIL_RUN)
   );
 }
 
@@ -250,17 +267,26 @@ function smoothstep(a: number, b: number, x: number): number {
 }
 
 /** THE ROAD'S SECTION at `s` across it (−1..1 of `roadHalf`), for a sample
- * laid at `speed` with `strength` of white, `age` seconds ago. */
-export function roadAt(s: number, age: number, speed: number, strength: number, out: WakeSection) {
+ * laid at `speed` with `strength` of white, `age` seconds ago and `astern`
+ * m behind the transom as it stands now. */
+export function roadAt(
+  s: number,
+  age: number,
+  speed: number,
+  strength: number,
+  out: WakeSection,
+  astern = 0,
+) {
   const a = Math.abs(s);
   const edge = 1 - smoothstep(ROAD_CORE, 1, a);
   const wash = washOf(speed);
   const fade = Math.pow(Math.max(0, 1 - age / ROAD_LIFE), ROAD_FADE_POWER);
-  const boil = Math.exp(-age / BOIL_LIFE);
-  out.foam = strength * Math.min(1, fade + boil * 0.5);
+  const boil = Math.exp(-astern / BOIL_RUN);
+  const near = ROAD_FAR + (1 - ROAD_FAR) * Math.exp(-astern / ROAD_BRIGHT_RUN);
+  out.foam = strength * Math.min(1, fade + boil * 0.5) * near;
   out.churn = wash * (0.5 + 0.5 * boil) * Math.exp(-age / CHURN_LIFE);
   out.up = 0;
-  out.down = HOLLOW * wash * relief(age, HOLLOW_LIFE) * (1 - a * a);
+  out.down = 0;
   out.cover = age < ROAD_LIFE ? edge * edge : 0;
 }
 
@@ -285,17 +311,210 @@ export function fanAt(
   const rail = smoothstep(RAIL_FROM, RAIL_IN, a) * (1 - smoothstep(RAIL_OUT, 1, a));
   const fill = FAN_FILL * smoothstep(0, FAN_FILL_AGE, age) * (1 - smoothstep(RAIL_OUT, 1, a));
   const profile = Math.max(rail * (1 + CUSP_FOAM * fanCusp(run)), fill) * (1 + TURN_FOAM * bias);
-  // The bow wave rides the rails: the crest at the fan's edge, the trough
-  // drawn in behind it.
-  const ridge = smoothstep(RIDGE_FROM, RIDGE, a) * (1 - smoothstep(RIDGE, 1, a));
-  const trough = smoothstep(TROUGH_FROM, TROUGH_AT, a) * (1 - smoothstep(TROUGH_AT, RIDGE_FROM, a));
-  const wave = wash * wash * relief(age, CREST_LIFE);
   const rise = smoothstep(0, FAN_RISE, age);
   out.foam = Math.max(0, FAN_FOAM * strength * life * rise * profile);
   out.churn = FAN_CHURN * wash * Math.exp(-age / FAN_CHURN_LIFE) * Math.max(0, profile);
-  out.up = CREST * wave * ridge;
-  out.down = TROUGH * wave * trough;
+  out.up = 0;
+  out.down = 0;
   out.cover = age < FAN_LIFE ? 1 - smoothstep(0.9, 1, a) : 0;
+}
+
+// ── THE STERN WAVE ────────────────────────────────────────────────────
+// WHAT THE HULL'S PASSAGE DOES TO THE HEIGHT OF THE WATER — as against what
+// the pump does to its colour. The road and the fan are about WHITE; this
+// is the mark that is about SHAPE, and it is the one the eye reads as the
+// sea bending for the craft rather than merely going pale behind it.
+//
+// Every photograph of a runabout's stern has the same two things in it, and
+// the measurements agree on both:
+//
+//   THE HOLLOW  right behind the transom the water stands BELOW the still
+//               line. Past a Froude number on the transom's own immersion
+//               of about two the flow no longer closes round the corner —
+//               the transom runs DRY, fully ventilated — and what is left
+//               astern is a glassy depression whose floor is the transom's
+//               immersion, not some share of the beam. For a craft of this
+//               class that threshold is about three metres a second, which
+//               is why the hollow is gated on a speed of its own rather
+//               than on the wash every other mark here uses.
+//   THE MOUND   the water thrown out to either side comes back together on
+//               the centreline, and where it meets it SPROUTS: a narrow
+//               ridge standing proud of the still line, right where the
+//               hollow was deepest. Its place is not a free number — it is
+//               where the fan's own rails first cross the axis, half a beam
+//               over the tangent of Kelvin's angle — and a waterjet throws
+//               it higher and further back than a propeller would, because
+//               the nozzle is a horizontal plunging jet firing into the
+//               hollow rather than a disc turning under it.
+//
+// Both are anchored to DISTANCE ASTERN rather than to age, because that is
+// how they read: the pattern stands still in the CRAFT's frame and is
+// dragged along behind it, so the mound sits the same distance back whether
+// the rider is doing 30 or 90. A sample's distance astern only ever grows,
+// so the pattern still sweeps over a patch of water and leaves it behind.
+// The one thing taken on the water's own clock is the RISE, so a vertex the
+// transom has just crossed is not dropped its whole depth in a frame.
+//
+// The transverse train — the following waves at 2πV²/g — is deliberately
+// ABSENT. At these speeds its first crest is sixty to four hundred metres
+// astern, tens of times past the far edge of the map: the near wake of a
+// craft this size is the hollow, the mound and the diverging fan, and
+// nothing else.
+//
+// It carries no foam and no churn. The road and the fan own the white, and
+// a third contributor to that channel over the same water only drives the
+// lace past saturation, which is a flat blanket rather than a brighter wake.
+
+/** THE TRANSOM'S IMMERSION, m — the depth scale of the whole mark, and the
+ * length in the Froude number that decides when it exists at all. A runabout
+ * of this class floats its transom 0.15–0.25 m under. */
+const TRANSOM_DRAFT = 0.2;
+/** The Froude number on that draft at which the transom clears — measured
+ * between 1.9 and 2.1 on a towed hull and up to 2.5 on a long slender one —
+ * and how far past it the hollow is fully formed, as a multiple. Below the
+ * first the flow still closes behind the transom and there is no hollow at
+ * all; the road's own white starts at very nearly the same speed, which is
+ * not a coincidence. */
+const TRANSOM_CLEAR_FR = 2;
+const CLEAR_FULL = 2.2;
+export const TRANSOM_CLEAR = TRANSOM_CLEAR_FR * Math.sqrt(TUNING.g * TRANSOM_DRAFT);
+
+/** The stern wave's half-width: the arms' own stand-off (below) with room
+ * outside them, on a FLOOR of this many beams. The floor is what the near
+ * water needs — the water shader reads the relief blurred to about two
+ * metres (`WAKE_RELIEF_LOD`), so anything narrower is held by the map and
+ * never seen by the grid, which is exactly what the road's own hollow was
+ * and why the relief left the road entirely. */
+const STERN_HALF_BEAM = 2.2;
+const ARM_OUTSIDE = 1.3;
+/** How long the relief takes to form on the water's own clock, s. */
+const STERN_RISE = 0.12;
+/** HOW FAR ASTERN THE MARK IS GONE, m, and the power its fade runs on —
+ * under one, so it holds most of its height over the near water and then
+ * goes SLOWLY, rather than dissolving as fast as it opens. The V is what a
+ * rider sees the whole time they are looking behind them; it must still be
+ * there at the far edge of the map. */
+const STERN_FADE = 52;
+const STERN_FADE_POWER = 0.8;
+
+/** How deep the hollow runs at full — the transom's immersion — and how far
+ * astern it has filled back in, m: a length of its own plus a share of
+ * V²/g, which is how the measured hollow grows with speed. The share is
+ * small deliberately; taken whole, a trail at pace is one long ditch. */
+const HOLLOW = TRANSOM_DRAFT;
+const HOLLOW_RUN = 1.8;
+const HOLLOW_RUN_SPEED = 0.04;
+
+/** THE MOUND at the apex: how high it stands at full, m, what a working
+ * pump adds as a share of that, and how much further astern a working pump
+ * throws it, in beams. It stands TALLER than the hollow is deep — a free
+ * surface recovering from a depression overshoots it — which is what makes
+ * this read as water being thrown up rather than as a dent. */
+const MOUND = 0.26;
+const MOUND_PUMP = 0.4;
+const MOUND_PUMP_BACK = 0.55;
+/** …and the multiple THE WHOLE PATTERN IS STRETCHED BY so that the grid can
+ * carry it. On a craft of this beam the sides close 1.7 m astern, and the
+ * water reads its relief blurred to about two metres: laid at the true
+ * distance the hollow and the mound sit inside ONE blur kernel and average
+ * each other away — the map holds both and the sea shows neither, which is
+ * what the first pass did. Stretched, each is a feature a vertex can stand
+ * on, and the pattern still reads as the one thing it is. This is the
+ * renderer's grid showing through the physics, and it is the only number
+ * here that is not measured. */
+const MOUND_STRETCH = 2.7;
+/** How far ahead of the apex it can be felt, m — the sides have not met
+ * yet, so this is a lead-in and not a shape — its half-width there as a
+ * share of the section, and how far astern of the apex it has handed over
+ * to the arms entirely, m. It HANDS OVER rather than simply dying: the
+ * water that piled up on the axis is the water that goes out to the sides,
+ * and the eye follows it from the one into the other. */
+const MOUND_RUN = 1.1;
+const MOUND_HALF = 0.42;
+const MOUND_HANDS_OVER = 7;
+/** …and how much of the hollow the mound has CLOSED where it stands. */
+const MOUND_CLOSES = 0.6;
+
+/** THE ARMS — the diverging crests, and the whole reason the wake reads as
+ * a TRIANGLE rather than as a stripe. They leave the transom's corners and
+ * ride outward at Kelvin's angle forever, so the raised water is further
+ * off the axis the further astern it is read, and the shape a rider looks
+ * back at is a V that never stops opening. How high a crest stands at full
+ * wash, m, how far astern its height has halved by spreading along an
+ * ever-longer crest, m, and its width as a share of the section. */
+const ARM = 0.2;
+const ARM_SPREAD = 14;
+const ARM_WIDE = 0.3;
+/** …and the water INSIDE the V, which is drawn down: the arms took it. It
+ * is shallow and wide where the crests are sharp and narrow, which is what
+ * makes the triangle read as relief rather than as two unexplained lines. */
+const INSIDE = 0.07;
+
+/** How far off the axis the diverging crest stands at `run` m astern, m:
+ * the transom's corner, plus Kelvin's angle every metre after it. */
+export function armAt(beam: number, run: number): number {
+  return beam / 2 + KELVIN_TAN * run;
+}
+
+/** How far astern the apex mound stands, m: where the two sides close —
+ * half a beam over the tangent of Kelvin's angle — thrown further back by
+ * a working pump, and stretched to what the grid can carry. */
+export function moundAt(beam: number, strength: number): number {
+  return beam * (MOUND_STRETCH / (2 * KELVIN_TAN) + MOUND_PUMP_BACK * clamp(strength, 0, 1));
+}
+
+/** Whether the transom has cleared, 0..1 — the gate the whole mark stands
+ * behind. */
+export function transomClear(speed: number): number {
+  return smoothstep(TRANSOM_CLEAR, TRANSOM_CLEAR * CLEAR_FULL, speed);
+}
+
+/** The stern wave's half-width at `run` m astern, m — outside the arms, and
+ * never narrower than the blur can see. */
+export function sternHalf(beam: number, run: number): number {
+  return Math.max(beam * STERN_HALF_BEAM, armAt(beam, run) * ARM_OUTSIDE);
+}
+
+/** THE STERN WAVE'S SECTION at `s` across it (−1..1 of `sternHalf`), `run` m
+ * astern of the transom, on water the hull passed `age` seconds ago at
+ * `speed` m/s with the pump churning `strength`. Relief only. */
+export function sternAt(
+  s: number,
+  run: number,
+  age: number,
+  speed: number,
+  strength: number,
+  beam: number,
+  out: WakeSection,
+): void {
+  const a = Math.abs(s);
+  const half = sternHalf(beam, run);
+  const wash = washOf(speed);
+  const live =
+    transomClear(speed) *
+    (1 - Math.exp(-age / STERN_RISE)) *
+    Math.exp(-Math.pow(run / STERN_FADE, STERN_FADE_POWER));
+  // THE ARMS: a crest either side, standing where the diverging train has
+  // got to by here and thinning as that crest lengthens. In SHARES of the
+  // section, because the section is cut to follow them.
+  const arm = armAt(beam, run) / half;
+  const ridge = Math.exp(-Math.pow((a - arm) / ARM_WIDE, 2)) / Math.sqrt(1 + run / ARM_SPREAD);
+  // THE APEX MOUND: on the axis where the sides close, handing its water
+  // over to the arms as they draw apart.
+  const past = run - moundAt(beam, strength);
+  const lead = past < 0 ? Math.exp(-Math.pow(past / MOUND_RUN, 2)) : 1;
+  const handover = Math.max(0, 1 - Math.max(0, past) / MOUND_HANDS_OVER);
+  const mound = lead * handover * (1 - smoothstep(0, MOUND_HALF, a));
+  // THE HOLLOW behind the transom, and the shallower drawdown inside the V
+  // that outlives it — already closed where the apex mound stands out of
+  // it, since the mound IS that hollow filling in and overshooting.
+  const fill = Math.exp(-run / (HOLLOW_RUN + (HOLLOW_RUN_SPEED * speed * speed) / TUNING.g));
+  const dip = (1 - smoothstep(arm * 0.7, arm, a)) * (1 - MOUND_CLOSES * mound);
+  out.foam = 0;
+  out.churn = 0;
+  out.up = (ARM * ridge + MOUND * (1 + MOUND_PUMP * clamp(strength, 0, 1)) * mound) * wash * live;
+  out.down = (HOLLOW * fill * (1 - a * a) + INSIDE * dip) * wash * live;
+  out.cover = 1 - smoothstep(0.88, 1, a);
 }
 
 // ── THE SPLASH ────────────────────────────────────────────────────────
@@ -584,6 +803,16 @@ const JET_HALF_REACH = 1.6;
  * road arrived would leave a stretch of open throttle with nothing on the
  * water at all — which is the fault this whole mark exists to fix. */
 export const JET_STALL = SPEED_FULL;
+/** …but it does NOT hand over all of it. The pump does not stop firing
+ * because the hull is moving: what the hand-over settles is where the
+ * churned water ENDS UP — piled in one place at a standstill, strung out
+ * into the road at pace. The stream itself is still there, and at pace it
+ * is the most distinctive thing in an aerial photograph of a runabout:
+ * a thin bright tongue straight out of the nozzle, narrow where it leaves
+ * and opening astern, running down the middle of the broken water either
+ * side of it. This is the share that survives. */
+const JET_PACE_FLOOR = 0.5;
+
 /** The white the jet churns at full throttle, and its churn — the highest
  * in the file, because the water directly behind a nozzle is the most
  * broken water anywhere near the craft. */
@@ -593,13 +822,23 @@ const JET_CHURN = 1;
  * driving down and back, and the surface it leaves is a trench rather than
  * a bulge. */
 const JET_HOLLOW = 0.12;
+/** …AND WHERE IT COMES BACK UP, which is the other half of the same event
+ * and the one that reads: a horizontal plunging jet fired into the water
+ * scours a trench where it enters and piles what it displaced into a mound
+ * further along. How high that mound stands at full, m, where along the
+ * reach it stands, and its half-length there — the stern wave's mound
+ * before the craft is moving fast enough to have one, and it hands over to
+ * that the same way the jet's white hands over to the road's. */
+const JET_MOUND = 0.13;
+const JET_MOUND_AT = 0.42;
+const JET_MOUND_RUN = 0.22;
 /** The stations the jet is laid across, nozzle to reach. */
 export const JET_ROWS = 7;
 
 /** What the jet is doing, for a pump at `throttle` on a hull making `speed`
  * m/s the way it points. `reach` and the half-widths are m; `blast` is 0..1
- * — nothing at all at 0, which is what a shut throttle or a craft at pace
- * both come to. */
+ * — nothing at all at 0, which is a shut throttle, a craft at pace, or a
+ * hull that is not in the water. */
 export type JetMark = {
   blast: number;
   reach: number;
@@ -614,14 +853,26 @@ export function jetMark(): JetMark {
 export function jetBlast(
   throttle: number,
   speed: number,
+  afloat: boolean,
   length: number,
   beam: number,
   out: JetMark,
 ): void {
+  // AFLOAT IS NOT OPTIONAL. Every other mark on the trail is gated on the
+  // hull being in the water because it is laid off the TRAIL, which stops
+  // when the hull leaves; the jet is laid off the craft's STATE, so nothing
+  // stopped it. A rider who drives up the beach with the throttle open ends
+  // up parked eight metres above the sea still churning white water into
+  // the map, and now lifting a surface that is not under them.
   // Linear in the hand-over, not squared: squared, the jet was already half
   // gone by walking pace and the road had not started, which is a hole.
   const stall = 1 - clamp(speed / JET_STALL, 0, 1);
-  out.blast = clamp(throttle, 0, 1) * stall;
+  const pump = afloat ? clamp(throttle, 0, 1) : 0;
+  out.blast = pump * (JET_PACE_FLOOR + (1 - JET_PACE_FLOOR) * stall);
+  // JUST BEHIND THE CRAFT. The stream is a near-field mark — two or three
+  // hull lengths at pace — and nothing here may draw it out with speed: the
+  // long bright line down the middle of the whole wedge is the ROAD's, and
+  // a jet stretched to match it stops reading as a jet at all.
   out.reach = length * JET_REACH * out.blast;
   out.halfNozzle = beam * JET_HALF_NOZZLE;
   out.halfReach = beam * JET_HALF_REACH;
@@ -649,7 +900,14 @@ export function jetAt(u: number, s: number, blast: number, out: WakeSection): vo
   const share = blast * along * across;
   out.foam = JET_FOAM * share;
   out.churn = JET_CHURN * share;
-  out.up = 0;
+  // The mound the stream piles up where it has spent itself — narrower
+  // across than the tongue's white, because what is thrown up gathers on
+  // the axis while the foam spreads.
+  const land = (u - JET_MOUND_AT) / JET_MOUND_RUN;
+  // Broad across, not a point: the tongue is barely wider than the relief
+  // blur to begin with, so a mound feathered over its inner third is one
+  // the map holds and the grid never stands on.
+  out.up = JET_MOUND * blast * Math.exp(-land * land) * (1 - smoothstep(0.45, 1, a));
   // The trench, at the nozzle and nowhere else: by the far end the stream is
   // spread foam lying on the water rather than a jet driving into it.
   out.down = JET_HOLLOW * share * (1 - smoothstep(0, 0.5, u));
