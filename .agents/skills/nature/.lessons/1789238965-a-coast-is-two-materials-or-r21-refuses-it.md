@@ -2,7 +2,7 @@
 title: A second biome's shore row is tuned against R21's quilt, not against the picture — sweep sixteen seeds before believing a sand threshold, and never zero the boulder field
 date: 2026-09-12
 scope: engine/mapgen/biomes.ts, engine/mapgen/compile.ts, engine/analysis/index.ts
-concepts: [biome, shore, R21, sand, boulder-field, generator]
+concepts: [biome, shore, r21, sand, boulder-field, generator]
 ---
 
 The mangrove row was first written the way the coast LOOKS — beach nearly

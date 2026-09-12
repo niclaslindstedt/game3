@@ -160,7 +160,7 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=cruise   # the ru
 npx vitest run tests/menu_system_test.ts
 ```
 
-`--surface splash,menu,start,craft,options,developer,pause` photographs the cards at both
+`--surface splash,menu,start,craft,gallery,options,keys,developer,pause` photographs the cards at both
 reference viewports; it waits on the card being in the DOM rather than on
 `window.__SH_READY__`, which is a RUN's flag. Then LOOK, and run `ui-review`'s
 audit at 1280×720 and 390×844.
