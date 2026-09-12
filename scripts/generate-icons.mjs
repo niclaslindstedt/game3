@@ -1,195 +1,70 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Generates the PWA install icons, the favicon, and the social-preview
-// image from the same geometry as pwa/public/icons/icon.svg — a hull meeting
-// a wave: a crest that rises from the left, tips over and curls, drawn as
-// the foam along its lip and the darker face under it, with a small orange
-// hull held nose-up beside it, on deep teal water. Pure Node (the shared
-// lib/png.mjs encoder), so the pipeline needs no native image dependencies.
-// Rerun with `npm run icons` / `make icons` after changing the mark, and keep
-// icon.svg and pwa/src/game/app-mark.ts in lockstep.
+// THE INSTALL ICONS AND THE FAVICON: the app mark — a wave standing up
+// against a low sun, with the sun burning through the hollow of the barrel —
+// composited over the sea's own gradient at every size a browser or a store
+// asks for. Pure Node (`lib/mark-raster.mjs` inks the mark, `lib/png.mjs`
+// encodes it), so the pipeline needs no native image dependency and runs
+// anywhere the tests do.
+//
+// IT RESTATES NO GEOMETRY: `pwa/src/game/app-mark.ts` states the curves once
+// and the rasterizer reads them, so the tile, the loading card's crest and
+// the icon SVG cannot drift into three different waves. What it does restate
+// is the PALETTE — six hexes out of `pwa/src/identity.ts`, which a
+// plain-Node script has no bundler to resolve; `tests/identity_test.ts`
+// holds them.
+//
+// THE SHARE CARD IS NOT HERE. og.png is a photograph of the game rather than
+// a drawing of it — `npm run hero -- --og` writes it from a real frame.
+//
+//   npm run icons              # every icon, the favicon
+//   npm run icons -- --sheet   # ...and a contact strip of all of them at
+//                              # 1:1 in previews/, which is the only way to
+//                              # LOOK at a 32-pixel favicon
+//
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
+import { parseArgs } from "./lib/cli.mjs";
+import { renderTile } from "./lib/mark-raster.mjs";
 import { encodePng } from "./lib/png.mjs";
+
+const args = parseArgs(
+  process.argv.slice(2),
+  { sheet: { kind: "flag", help: "also write previews/icon-sheet.png — every tile at 1:1" } },
+  "generate-icons — the install icons and the favicon, drawn from the app mark",
+);
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const iconsDir = join(root, "pwa", "public", "icons");
 mkdirSync(iconsDir, { recursive: true });
 
 // Palette — mirrors PALETTE in pwa/src/identity.ts and the SVG's stops.
-const SEA_TOP = [11, 61, 79]; // #0b3d4f seaDeep
-const SEA_BOT = [27, 111, 138]; // #1b6f8a sea
-const FOAM = [242, 247, 248]; // #f2f7f8 foam
+const SEA_TOP = [27, 111, 138]; // #1b6f8a sea
+const SEA_BOT = [11, 61, 79]; // #0b3d4f seaDeep
 const FACE = [63, 167, 184]; // #3fa7b8 seaShallow
-const BUOY = [242, 140, 40]; // #f28c28 buoy
-const INK = [8, 42, 56]; // #082a38 hudShadow
-const HULL_EDGE = 8; // how wide the hull's ink outline draws
+const FOAM = [242, 247, 248]; // #f2f7f8 foam
+const BODY = [8, 42, 56]; // #082a38 hudShadow
+const SUN = [242, 140, 40]; // #f28c28 buoy
 
-// --- geometry in the SVG's 512-unit space -----------------------------------
-// The wave is two circular arcs joined tangentially at the lip (341, 182.78):
-// the swell rises from the left and the curl tips over and under. The curl's
-// centre sits on the swell's radial through the lip, at R1 - R2 from the
-// swell's centre (internally tangent), so a line at a fixed radial offset
-// from the spine keeps that offset through the inflection with no step.
-const TRACK_W = 13; // half width of one line
-const ARCS = [
-  { cx: 256, cy: 330, r: 170, from: 180, to: 300 },
-  { cx: 306, cy: 243.4, r: 70, from: 300, to: 420 },
-];
-// The two lines: the foam along the lip on the spine, the face 36 in from it.
-const LINES = [
-  { offset: 0, color: FOAM },
-  { offset: -36, color: FACE },
-];
-// Round caps at each line's two ends, so a stroke does not end on a chisel.
-const CAPS = [
-  { arc: 0, deg: 180 },
-  { arc: 1, deg: 420 },
-];
+/** One RGB triple per MARK_PARTS entry, in its order. */
+const COLORS = [FACE, FOAM, BODY, SUN];
 
-// The hull, as rounded boxes in its own frame (+x is the nose, +y is down
-// the picture), held nose-up beside the wave.
-const HULL = { cx: 390, cy: 400, angle: (-14 * Math.PI) / 180 };
-const BODY = { x: 0, y: 0, hw: 80, hh: 22, r: 14 };
-const SEAT = { x: -14, y: -24, hw: 36, hh: 12, r: 8 };
-const BAR = { x: 44, y: -30, hw: 5, hh: 14, r: 3 };
-
-function seaAt(v) {
-  const t = Math.max(0, Math.min(1, v));
-  return [
-    SEA_TOP[0] + (SEA_BOT[0] - SEA_TOP[0]) * t,
-    SEA_TOP[1] + (SEA_BOT[1] - SEA_TOP[1]) * t,
-    SEA_TOP[2] + (SEA_BOT[2] - SEA_TOP[2]) * t,
-  ];
-}
-
-/** Signed distance from hull-frame point (lx, ly) to one rounded box part. */
-function boxSdf(part, lx, ly) {
-  const px = Math.abs(lx - part.x) - (part.hw - part.r);
-  const py = Math.abs(ly - part.y) - (part.hh - part.r);
-  return Math.hypot(Math.max(px, 0), Math.max(py, 0)) + Math.min(Math.max(px, py), 0) - part.r;
-}
-
-/** Is 512-space point (x, y) on one of the wave's lines? Returns its colour. */
-function waveAt(x, y) {
-  for (const arc of ARCS) {
-    const r = Math.hypot(x - arc.cx, y - arc.cy);
-    let deg = (Math.atan2(y - arc.cy, x - arc.cx) * 180) / Math.PI;
-    if (deg < 0) deg += 360;
-    // The curl's sweep runs past 360; read the angle on the same turn.
-    if (deg < arc.from) deg += 360;
-    if (deg < arc.from || deg > arc.to) continue;
-    for (const line of LINES) {
-      if (Math.abs(r - (arc.r + line.offset)) <= TRACK_W) return line.color;
-    }
-  }
-  for (const cap of CAPS) {
-    const arc = ARCS[cap.arc];
-    const a = (cap.deg * Math.PI) / 180;
-    for (const line of LINES) {
-      const cx = arc.cx + (arc.r + line.offset) * Math.cos(a);
-      const cy = arc.cy + (arc.r + line.offset) * Math.sin(a);
-      if (Math.hypot(x - cx, y - cy) <= TRACK_W) return line.color;
-    }
-  }
-  return null;
-}
-
-/** Color of the mark at 512-space point (x, y), or null for background. */
-function markAt(x, y) {
-  // The hull first: it sits on top of the water.
-  const dx = x - HULL.cx;
-  const dy = y - HULL.cy;
-  const cos = Math.cos(-HULL.angle);
-  const sin = Math.sin(-HULL.angle);
-  const lx = dx * cos - dy * sin;
-  const ly = dx * sin + dy * cos;
-  const body = boxSdf(BODY, lx, ly);
-  if (body <= 0) return body > -HULL_EDGE ? INK : BUOY;
-  if (boxSdf(SEAT, lx, ly) <= 0 || boxSdf(BAR, lx, ly) <= 0) return INK;
-  return waveAt(x, y);
-}
-
-/** Where inside a pixel the renderers sample — a 2x2 supersample, for edges
- * that are soft rather than staircased. */
-const SAMPLES = [
-  [0.25, 0.25],
-  [0.75, 0.25],
-  [0.25, 0.75],
-  [0.75, 0.75],
-];
-
-/** Render the mark at `size`, with the geometry scaled by `inset` toward the
- * center (maskable icons keep the mark inside the safe zone). */
+/**
+ * One tile: the mark inked at `size` and laid over the sea's gradient.
+ * `inset` shrinks the MARK toward the centre without touching the water
+ * behind it — a maskable icon crops the tile, not the sea.
+ */
 function renderIcon(size, inset = 1) {
+  const tile = renderTile(size, { colors: COLORS, sea: [SEA_TOP, SEA_BOT], inset });
   const rgb = Buffer.alloc(size * size * 3);
-  for (let y = 0; y < size; y++) {
-    for (let x = 0; x < size; x++) {
-      let r = 0;
-      let g = 0;
-      let b = 0;
-      for (const [ox, oy] of SAMPLES) {
-        const u = ((x + ox) / size - 0.5) / inset + 0.5;
-        const v = ((y + oy) / size - 0.5) / inset + 0.5;
-        const px = u * 512;
-        const py = v * 512;
-        const mark = px >= 0 && px < 512 && py >= 0 && py < 512 ? markAt(px, py) : null;
-        const c = mark ?? seaAt(v);
-        r += c[0];
-        g += c[1];
-        b += c[2];
-      }
-      const o = (y * size + x) * 3;
-      rgb[o] = r / 4;
-      rgb[o + 1] = g / 4;
-      rgb[o + 2] = b / 4;
-    }
+  for (let i = 0; i < size * size; i++) {
+    rgb[i * 3] = tile[i * 4];
+    rgb[i * 3 + 1] = tile[i * 4 + 1];
+    rgb[i * 3 + 2] = tile[i * 4 + 2];
   }
-  return encodePng(size, size, rgb);
-}
-
-/** The OG image: the mark on the right, swell lines running in from the
- * left — three long low waves in foam, fading up out of the water toward
- * the mark so they read as a sea rather than as a ruled page. */
-function renderOg(width, height) {
-  const rgb = Buffer.alloc(width * height * 3);
-  const markSize = height;
-  const markX = width - markSize;
-  const swells = [
-    { y: 0.3, amp: 14, len: 260, phase: 0.4 },
-    { y: 0.52, amp: 18, len: 320, phase: 2.1 },
-    { y: 0.74, amp: 12, len: 210, phase: 4.6 },
-  ];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const v = y / height;
-      let c = seaAt(v);
-      if (x < markX) {
-        for (const s of swells) {
-          const cy = s.y * height + s.amp * Math.sin((x / s.len) * Math.PI * 2 + s.phase);
-          if (Math.abs(y - cy) <= 3) {
-            // Fade in over the first stretch, out again as the mark nears.
-            const t = Math.min(1, x / 140, (markX - x) / 140);
-            c = [
-              c[0] + (FOAM[0] - c[0]) * t,
-              c[1] + (FOAM[1] - c[1]) * t,
-              c[2] + (FOAM[2] - c[2]) * t,
-            ];
-          }
-        }
-      } else {
-        const mark = markAt(((x - markX) / markSize) * 512, (y / markSize) * 512);
-        if (mark) c = mark;
-      }
-      const o = (y * width + x) * 3;
-      rgb[o] = c[0];
-      rgb[o + 1] = c[1];
-      rgb[o + 2] = c[2];
-    }
-  }
-  return encodePng(width, height, rgb);
+  return { size, rgb, png: encodePng(size, size, rgb) };
 }
 
 /** Wrap one PNG in an ICO container (valid since Vista). */
@@ -208,19 +83,70 @@ function pngToIco(png, size) {
 }
 
 // THE MASTER RASTER — the mark at the largest size any store asks for, and
-// the one file the SHELLS will derive their own icon sets from when they
-// arrive (a shell imports the core, never another shell, so the
-// full-resolution mark lives here, in the website's own icon directory,
-// where both of them will look). Not in the manifest: nothing serves it to a
-// browser, and an install icon above 512 buys nothing.
-writeFileSync(join(iconsDir, "icon-1024.png"), renderIcon(1024));
-writeFileSync(join(iconsDir, "pwa-192.png"), renderIcon(192));
-writeFileSync(join(iconsDir, "pwa-512.png"), renderIcon(512));
-writeFileSync(join(iconsDir, "pwa-512-maskable.png"), renderIcon(512, 0.78));
-writeFileSync(join(iconsDir, "apple-touch-icon-180.png"), renderIcon(180));
-writeFileSync(join(root, "pwa", "public", "favicon.ico"), pngToIco(renderIcon(32), 32));
-writeFileSync(join(root, "pwa", "public", "og.png"), renderOg(1200, 630));
+// the one file the SHELLS derive their own icon sets from (a shell imports
+// the core, never another shell, so the full-resolution mark lives here, in
+// the website's own icon directory, where both of them look). Not in the
+// manifest: nothing serves it to a browser, and an install icon above 512
+// buys nothing.
+const tiles = {
+  "icons/icon-1024.png": renderIcon(1024),
+  "icons/pwa-192.png": renderIcon(192),
+  "icons/pwa-512.png": renderIcon(512),
+  "icons/pwa-512-maskable.png": renderIcon(512, 0.78),
+  "icons/apple-touch-icon-180.png": renderIcon(180),
+};
+for (const [rel, tile] of Object.entries(tiles)) {
+  writeFileSync(join(root, "pwa", "public", rel), tile.png);
+}
 
-console.log(
-  "icons: icon-1024, pwa-192, pwa-512, pwa-512-maskable, apple-touch-180, favicon.ico, og.png",
-);
+const favicon = renderIcon(32);
+writeFileSync(join(root, "pwa", "public", "favicon.ico"), pngToIco(favicon.png, 32));
+
+console.log(`icons: ${Object.keys(tiles).join(", ")}, favicon.ico`);
+
+/**
+ * THE CONTACT STRIP — every tile at 1:1, laid out left to right on the sea's
+ * own colour, so a session can look at the 32-pixel favicon beside the
+ * 512-pixel tile and see which details survive the shrink. A mark judged
+ * only at 512 is a mark that becomes a grey smudge in a browser tab.
+ */
+function writeSheet() {
+  const strip = [
+    favicon,
+    renderIcon(64),
+    renderIcon(128),
+    tiles["icons/pwa-192.png"],
+    renderIcon(256),
+    tiles["icons/pwa-512.png"],
+    tiles["icons/pwa-512-maskable.png"],
+  ];
+  const pad = 16;
+  const width = strip.reduce((w, t) => w + t.size + pad, pad);
+  const height = 512 + pad * 2;
+  const rgb = Buffer.alloc(width * height * 3);
+  for (let i = 0; i < width * height; i++) {
+    rgb[i * 3] = 24;
+    rgb[i * 3 + 1] = 28;
+    rgb[i * 3 + 2] = 32;
+  }
+  let x0 = pad;
+  for (const tile of strip) {
+    const y0 = pad + (512 - tile.size);
+    for (let y = 0; y < tile.size; y++) {
+      for (let x = 0; x < tile.size; x++) {
+        const from = (y * tile.size + x) * 3;
+        const to = ((y0 + y) * width + x0 + x) * 3;
+        rgb[to] = tile.rgb[from];
+        rgb[to + 1] = tile.rgb[from + 1];
+        rgb[to + 2] = tile.rgb[from + 2];
+      }
+    }
+    x0 += tile.size + pad;
+  }
+  const out = join(root, "previews", "icon-sheet.png");
+  mkdirSync(dirname(out), { recursive: true });
+  writeFileSync(out, encodePng(width, height, rgb));
+  console.log(`sheet: ${out}`);
+}
+
+if (args.sheet) writeSheet();

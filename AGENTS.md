@@ -17,7 +17,8 @@ make test         # vitest over the engine (SHARD=i/N slices it; CI runs four)
 make lint         # eslint + typecheck, zero warnings
 make fmt          # prettier in place; fmt-check is what CI runs
 make hooks        # install pre-commit + commit-msg hooks
-make icons        # regenerate icons/favicon/og.png from the app mark
+make icons        # regenerate the icons + favicon from the app mark
+make hero         # the poster shots: the game staged to be LOOKED at
 make check-seo    # build + structural SEO/PWA/bundle-budget assertions
 make tauri-test   # the desktop shell's decision layer (Rust; needs no GUI libraries)
 make native-typecheck  # the store shell's own tsc (its tree is installed on its own)
@@ -55,10 +56,12 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The desktop app, the store app, the seam with the page  | `tauri-test`, `native-typecheck`, the three seam tests | `platform-shells`      |
 | A lab, a preview, a script under `scripts/`             | the tool's own `--help`, then the lab it registers | `lab-tooling`              |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
+| The app MARK — the icon, the favicon, the loading card's crest | `icons ARGS=--sheet`, `screenshots ARGS="--surface splash"` | `menu-system`, `ui-review` |
+| Is there a frame in here worth putting on a store page  | `hero`                         | `playtest`, `ui-review`                        |
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `crafts`, `level`, `analyze` and `audition` are pure Node — no build, no browser, seconds (the audition's `--meter` is the one browser-driven half: it drives the page it wrote in Chromium and prints every level). `screenshots`, `profile`, `sky`, `flora` and `birds` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky`, `flora`, `birds` and `wake` build their own one-off bundle from a harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level`, `analyze` and `audition` are pure Node — no build, no browser, seconds (the audition's `--meter` is the one browser-driven half: it drives the page it wrote in Chromium and prints every level). `screenshots`, `hero`, `profile`, `sky`, `flora` and `birds` are browser-driven. The first three drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky`, `flora`, `birds` and `wake` build their own one-off bundle from a harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
 Five of these are worth knowing about even when they are not your subject:
 
@@ -67,6 +70,7 @@ Five of these are worth knowing about even when they are not your subject:
 - **`make sim`** is CI's `simulate` job and exits non-zero when a craft finishes NO seed. Its digests are where a determinism regression shows first; `docs/simulation.md` says what every column means.
 - **`make flora`** is every species on the shore side by side, each drawn at both ends of its own height band over a metre rule. Same reason as the sky's sheet: a screenshot of a RUN shows whichever species that stretch of coast happened to grow, at whatever range the craft happened to be, against a wood of everything else — so a reed that is too pale comes back looking like a shore that is fine.
 - **`make wake`** is the trail from STRAIGHT ABOVE, one column a moment along a scripted run, so the sheet reads left to right as the wake being laid. It exists because every camera in the game is a chase camera: the trail is only ever seen end-on, down its own length, foreshortened to a stripe — while every reference photograph of a wake is from overhead. A V that stops opening too early, a road twice the width it should be and a mark that is missing from the map rather than merely invisible in it all look the same from behind, and each of them shipped that way.
+- **`make hero`** is the one lab that is not a measurement: a curated table of POSTER shots, HUD off, each row a dozen settings agreeing at once, with a line saying what the frame is for. It exists because a beauty shot is a combination nobody rediscovers by accident — a session reaching for "show me the game looking good" with flags lands on grey chop out at the storm band and concludes the game is not photogenic, when the answer was `offshore` at eight degrees of sun. Its rows name where the sun stands as an ANGLE and resolve it against the level's own coast and season, so a shot keeps its meaning in every season.
 - **`make sky`** is every weather against every three hours of the clock, day and night, on ONE coast in ONE season (`ARGS="--season=autumn"` for the black nights), as a single labelled sheet. It exists because a seed is dealt one sky (R19) in one season at one hour (R13), so a screenshot of a RUN can only ever say whether that one sky is wrong — and the sky here is a LADDER, which is judged side by side or not at all.
 
 ## How work is done here
@@ -114,7 +118,8 @@ What IS generated is generated, and **a generated artifact is never hand-edited*
 | Artifact                                                 | Regenerated by                | Guard                                           |
 | -------------------------------------------------------- | ----------------------------- | ----------------------------------------------- |
 | `pwa/dist/` (the site, the service worker, its manifest) | `make build`                  | `make check-seo` (`seo.yml`)                    |
-| Icons, favicon, `og.png`                                 | `make icons`                  | `tests/app_mark_test.ts` holds the SVG to `app-mark.ts`; `tests/identity_test.ts` the palette |
+| Icons, favicon                                           | `make icons`                  | `tests/app_mark_test.ts` holds the SVG to `app-mark.ts`; `tests/identity_test.ts` the palette |
+| `pwa/public/og.png` — the share card, a REAL FRAME       | `make hero ARGS="--og <shot>"` | `make check-seo` (it must ship, and at 1200×630) |
 | Every lab picture under `previews/`                      | its lab target (labs table)   | gitignored                                      |
 | `CHANGELOG.md`                                           | the release workflow          | `tests/changeset_test.ts`, the pre-commit hook  |
 | `engine/version.ts` + the `package.json` versions        | `scripts/update-versions.sh`  | the release workflow                            |
@@ -225,7 +230,7 @@ And the pieces that belong to no skill in particular:
 | A generic grid, a quaternion, noise, the PRNG      | `engine/lib/` — the generic pool, nothing of THIS game in it (§23.7 rule 5)                                |
 | The app's frame loop (the §37 accumulator)         | `pwa/src/game/run-loop.ts` — the clamp is one constant beside the step rate, stated nowhere else            |
 | Anything drawn, with no better home                | `pwa/src/game/renderer.ts`                                                                                 |
-| The app mark, wherever the app draws one           | `pwa/src/game/app-mark.ts` (the wave's two paths as data)                                                  |
+| The app mark, wherever the app draws one           | `pwa/src/game/app-mark.ts` — the crest, the water under it and the sun through the barrel, as path data; `scripts/lib/mark-raster.mjs` inks it outside a browser |
 | App identity (name, palette, URLs)                 | `pwa/src/identity.ts` — the single source; `tests/identity_test.ts` holds every restatement to it          |
 | A Node script needing an app module                | `aliasEngine` in `scripts/lib/engine-alias.mjs` before the `import()` — never a Vite build to read a table |
 | New CLI tooling                                    | `scripts/*.mjs` (Node, `--experimental-strip-types`, flags through `scripts/lib/cli.mjs`) — the `lab-tooling` skill owns the shelf and the registration |
@@ -302,13 +307,15 @@ Each of these is the one place an answer is written down. Anything that needs it
 | A sound, a bed, a column in the listener     | `docs/audio.md`, then `make audition` (and its `--meter` table in the PR)                              |
 | The sky, the clouds, the night, the weather  | the sky bullet in `docs/architecture.md`, then `make sky` (both sheets in the PR)                      |
 | A shell's tree, a bridge, a build knob       | `docs/platforms.md`, `tauri/README.md` or `native/README.md`, `docs/configuration.md`'s environment rows |
+| The app mark — the icon, the favicon, the loading card's crest | `pwa/public/icons/icon.svg` (the `d` strings verbatim), then `make icons ARGS=--sheet` and LOOK at the strip |
+| A URL parameter, or a lab that writes one    | `docs/configuration.md`, `App.tsx`'s header, `pwa/src/game/url-params.ts` — all three, in the same change |
 | A skill added, renamed or retired            | this file's Skills section, `.agents/skills/README.md`, the `maintenance` registry for an `update-*` — `tests/skills_test.ts` holds all three |
 
 ## Parity and cross-cutting rules
 
 Places where one idea is deliberately written in two files that cannot import each other. Each is a live trap: change one, change both.
 
-- `pwa/src/identity.ts` is the identity source of truth; `pwa/public/icons/icon.svg`, `scripts/generate-icons.mjs` and `pwa/src/game/app-mark.ts` encode the same mark geometry (the wave's two arcs) and the same palette hexes. None can import either of the others, so change one and change all three, then `make icons`. `tests/identity_test.ts` holds the generator's palette to `PALETTE`, and `tests/app_mark_test.ts` holds the SVG's two paths and stroke width to `app-mark.ts`.
+- `pwa/src/identity.ts` is the identity source of truth. **THE MARK'S GEOMETRY IS STATED TWICE, NOT THREE TIMES**: `pwa/src/game/app-mark.ts` owns the curves (the crest, the water under it, the sun through the barrel) and builds the `d` strings from them, and `pwa/public/icons/icon.svg` restates that data because a static SVG cannot import a module. `scripts/generate-icons.mjs` restates NONE of it — it imports the module through `scripts/lib/mark-raster.mjs` and rasterizes it. What the two drawings DO both restate is the palette, which a plain-Node script has no bundler to resolve. So: reshape the mark in `app-mark.ts`, paste the new `d` strings into the SVG, then `make icons`. `tests/app_mark_test.ts` holds every path, both stroke widths and the sun to the module; `tests/identity_test.ts` holds the generator's palette to `PALETTE`.
 - `pwa/index.html` restates the name, the URLs, the description and `PALETTE.sea` (a static head cannot import); `pwa/public/{CNAME,robots.txt,sitemap.xml,llms.txt}` restate the domain. `tests/identity_test.ts` holds every one of them.
 - The service worker contract (the cache id, the emitted files) is shared between `pwa/pwa-plugin.ts` and `pwa/src/app-pwa.ts` (`cacheIdForBase`) — keep them agreeing.
 - **The rule book has a mirror, and THREE CHAPTERS.** `engine/mapgen/rules.ts` (R1–R28, a coast sprint), `engine/mapgen/rules-circuit.ts` (R29–R31, the ocean circuit that replaces R1, R10, R25 and R26 on a level drawn as one) and `engine/mapgen/pace.ts` (R32, what any of them becomes at a speed class) each state their rules once in the file header; `docs/level-generator.md` carries the same prose VERBATIM for all three. `tests/docs_rules_test.ts` reads the ids off all three files, so a new rule fails the test until its mirror lands. The split is the §20.5 cap, not two rule books: `LEVEL_RULES.circuit` is the second chapter's table and everything reads the numbers through the one `LEVEL_RULES`.

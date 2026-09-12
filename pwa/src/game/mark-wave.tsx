@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE APP MARK'S WAVE, BUILDING.
 //
-// The crest off the icon (`app-mark.ts`) — without the hull, which belongs to
-// the icon: there the hull is the subject and the wave is what it is riding,
-// but on its own the crest IS the mark, and a hull parked on it reads as a
-// hull that has stopped. It fills from the tail on the left, up the face and
+// The crest off the icon (`app-mark.ts`) — without the water under it and
+// without the sun behind it, both of which belong to the icon: a tile has
+// room for the sea the wave stands in and a loading card does not. On its own
+// the crest IS the mark. It fills from the tail on the left, up the face and
 // into the curl, which is the direction a wave actually builds.
 //
 // Two ways of filling it:
@@ -35,8 +35,8 @@
 // rather than in the order the water travels. At the size this is ever drawn
 // that reads as the curl arriving whole, which is what it should look like.
 //
-// It also has to be drawn in a box that CONTAINS the curl, which the icon's
-// own framing does not — see CURL_OVERHANG.
+// It also has to be drawn in a box that CONTAINS the curl — see
+// MARK_WAVE_BOX.
 //
 // The double translate is how a wipe is done with transforms alone. The
 // clipping box slides right over the drawing while the drawing slides left by
@@ -46,31 +46,22 @@
 
 import { MARK_WAVE, MARK_WAVE_VIEWBOX, MARK_WIDTH } from "./app-mark.ts";
 
-/**
- * How far the CURL runs past the right edge of the shared framing, in the
- * mark's own units.
- *
- * `MARK_WAVE_VIEWBOX` is the ICON's framing, and the icon lets the wave
- * overflow it — the hull sits in that corner and the curl breaking past the
- * edge is the drawing. Here it cannot: the wipe is a box with `overflow:
- * hidden`, so ink outside it is ink the fill can never uncover, and what
- * that looks like is a pale rectangle standing beside a finished mark.
- *
- * The curl's outer arc turns on a radius of 70 about a chord 121 long, which
- * puts its far side 35 units past the lip at x = 341, and the stroke adds
- * half its own width again. Thirty-two units clears both with a little air.
- */
-const CURL_OVERHANG = 32;
-
-const [BOX_X, BOX_Y, BOX_W, BOX_H] = MARK_WAVE_VIEWBOX.split(" ").map(Number);
-
-/** The shared framing, widened to CONTAIN the curl. Derived rather than
- * written out, so a change to the icon's framing brings this with it. */
-export const MARK_WAVE_BOX = `${BOX_X} ${BOX_Y} ${BOX_W + CURL_OVERHANG} ${BOX_H}`;
+/** The crest's own framing — the box the curves actually ink, derived in
+ * `app-mark.ts` from the curves themselves. It used to be the ICON's
+ * framing plus a hand-measured overhang for the curl, because the icon lets
+ * the wave run off its edges and a wipe cannot: the fill is a box with
+ * `overflow: hidden`, so ink outside it is ink the fill can never uncover,
+ * and what that looks like is a pale rectangle standing beside a finished
+ * mark. A measured overhang is a number that is wrong the next time the lip
+ * is reshaped, so the box is computed instead. */
+export const MARK_WAVE_BOX = MARK_WAVE_VIEWBOX;
 
 /** The box's ratio, which `.mark-wave` restates in styles.css because a
  * stylesheet cannot import a TypeScript module. Change one, change both. */
-export const MARK_WAVE_RATIO = [BOX_W + CURL_OVERHANG, BOX_H] as const;
+export const MARK_WAVE_RATIO = (() => {
+  const [, , w, h] = MARK_WAVE_BOX.split(" ").map(Number);
+  return [w, h] as const;
+})();
 
 /** How the crest is filled: once and left, or over and over. */
 export type MarkLay = "once" | "loop";

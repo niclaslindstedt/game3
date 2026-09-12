@@ -1619,9 +1619,9 @@ canvas {
   display: block;
   /* The drawing's own ratio — MARK_WAVE_RATIO in mark-wave.tsx, restated
      here because a stylesheet cannot import a TypeScript module. It is the
-     ICON's framing widened to contain the curl (CURL_OVERHANG), so a mark
-     mounted anywhere needs only a width. Change one, change both. */
-  aspect-ratio: 322 / 205;
+     box the crest's curves actually ink, so a mark mounted anywhere needs
+     only a width. Change one, change both. */
+  aspect-ratio: 583 / 308;
 }
 
 .mark-wave svg {

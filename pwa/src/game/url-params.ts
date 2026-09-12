@@ -76,6 +76,12 @@ export type Params = {
   distance: DistanceLevel | undefined;
   seeThrough: boolean | undefined;
   frameRate: FrameRateLevel | undefined;
+  /** Whether the HUD is drawn over the run. A setting like the picture rows
+   * — OPTIONS ▸ HUD turns the same switch — so it is laid over the stored
+   * one rather than read into the run. `hud=0` is what a POSTER wants: a
+   * beauty shot of the water with a speedo over it is a screenshot of the
+   * instruments (`scripts/hero-shots.mjs`). */
+  hud: boolean | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
   rides: boolean;
@@ -147,6 +153,7 @@ export function readParams(search: string): Params {
     distance: stop(DISTANCE_LEVELS, "distance"),
     seeThrough: see === null ? undefined : see === "1",
     frameRate: stop(FRAME_RATE_LEVELS, "fps"),
+    hud: p.get("hud") === null ? undefined : p.get("hud") === "1",
     rides: shot || named !== null || paused || p.get("start") === "1",
     paused,
     menu:
@@ -185,6 +192,7 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.distance !== undefined) settings.video.distance = params.distance;
   if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
   if (params.frameRate !== undefined) settings.video.frameRate = params.frameRate;
+  if (params.hud !== undefined) settings.hud = { ...settings.hud, on: params.hud };
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;
   if (params.time !== undefined) settings.ride.time = params.time;

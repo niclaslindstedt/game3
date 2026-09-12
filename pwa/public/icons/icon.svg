@@ -1,27 +1,54 @@
 <!-- SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0 -->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
-  <!-- The app mark: a hull meeting a wave. A crest rises from the left, tips
-       over and curls — two parallel lines, the foam along the lip and the
-       darker face under it, each two tangent arcs — with a small hull held
-       nose-up beside it, on deep teal water. The raster icons (pwa-*.png,
-       apple-touch, favicon, og.png) are generated from this same geometry by
-       scripts/generate-icons.mjs, and pwa/src/game/app-mark.ts carries the
-       two wave paths as data — keep all three in lockstep. -->
+  <!-- THE APP MARK: a wave standing up against a low sun. A long swell runs
+       in from the left, steepens, and throws its lip over into a barrel with
+       the sun burning through the hollow of it — the foam along the lip in
+       white, the water's own edge lit under it, the mass below in deep
+       teal.
+
+       THE GEOMETRY IS STATED TWICE, here and in pwa/src/game/app-mark.ts,
+       because a static SVG cannot import a module. Keep them in lockstep:
+       tests/app_mark_test.ts reads this file and holds every path, the
+       stroke widths and the sun to that module, and the raster icons and the
+       favicon are generated FROM the module by scripts/generate-icons.mjs —
+       so this file is the only copy anybody has to remember. -->
   <defs>
-    <linearGradient id="sea" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#0b3d4f"/>
-      <stop offset="1" stop-color="#1b6f8a"/>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#1b6f8a"/>
+      <stop offset="1" stop-color="#0b3d4f"/>
     </linearGradient>
+    <!-- The sun: its disc out to MARK_SUN.r, then its haze falling away to
+         MARK_SUN.glow. The stops walk a squared falloff, which is what the
+         rasterizer computes. -->
+    <radialGradient id="sun" cx="415" cy="200" r="134" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#f28c28" stop-opacity="1"/>
+      <stop offset="0.5224" stop-color="#f28c28" stop-opacity="1"/>
+      <stop offset="0.6418" stop-color="#f28c28" stop-opacity="0.5625"/>
+      <stop offset="0.7612" stop-color="#f28c28" stop-opacity="0.25"/>
+      <stop offset="0.8806" stop-color="#f28c28" stop-opacity="0.0625"/>
+      <stop offset="1" stop-color="#f28c28" stop-opacity="0"/>
+    </radialGradient>
+    <!-- The tile, for the wave to run off the edges of. -->
+    <clipPath id="tile">
+      <rect width="512" height="512" rx="96"/>
+    </clipPath>
+    <!-- The water's own outline, so the lit band can be a stroke laid along
+         it and kept to the inside: a stroke 2 × MARK_RIM wide reaches
+         MARK_RIM in and MARK_RIM out, and the clip drops the half that is
+         out. That is the same band the rasterizer measures — "inside the
+         body and within MARK_RIM of its edge" — rather than a second
+         outline hand-fitted to look parallel. -->
+    <clipPath id="water">
+      <path d="M -96 394 C -86 391 -74 385 -64 373 C 60 373 154 354 215 279 C 255 230 267 122 343 95 C 358 104 348 250 371 328 C 427 377 510 384 600 377 L 600 780 L -96 780 Z"/>
+    </clipPath>
   </defs>
-  <rect width="512" height="512" rx="96" fill="url(#sea)"/>
-  <g fill="none" stroke-width="26" stroke-linecap="round">
-    <path stroke="#f2f7f8" d="M 86 330 A 170 170 0 0 1 341 182.78 A 70 70 0 0 1 341 304.02"/>
-    <path stroke="#3fa7b8" d="M 122 330 A 134 134 0 0 1 323 213.95 A 34 34 0 0 1 323 272.84"/>
-  </g>
-  <g transform="translate(390,400) rotate(-14)">
-    <rect x="-80" y="-22" width="160" height="44" rx="14" fill="#082a38"/>
-    <rect x="-72" y="-14" width="144" height="28" rx="8" fill="#f28c28"/>
-    <rect x="-50" y="-36" width="72" height="24" rx="8" fill="#082a38"/>
-    <rect x="39" y="-44" width="10" height="28" rx="3" fill="#082a38"/>
+  <g clip-path="url(#tile)">
+    <rect width="512" height="512" fill="url(#sky)"/>
+    <circle cx="415" cy="200" r="134" fill="url(#sun)"/>
+    <g clip-path="url(#water)">
+      <path fill="#082a38" d="M -96 394 C -86 391 -74 385 -64 373 C 60 373 154 354 215 279 C 255 230 267 122 343 95 C 358 104 348 250 371 328 C 427 377 510 384 600 377 L 600 780 L -96 780 Z"/>
+      <path fill="none" stroke="#3fa7b8" stroke-width="60" d="M -96 394 C -86 391 -74 385 -64 373 C 60 373 154 354 215 279 C 255 230 267 122 343 95 C 358 104 348 250 371 328 C 427 377 510 384 600 377 L 600 780 L -96 780 Z"/>
+    </g>
+    <path fill="none" stroke="#f2f7f8" stroke-width="24" stroke-linecap="round" d="M -64 353 C 60 353 154 334 215 259 C 255 210 267 102 343 75 C 428 47 503 116 494 198 C 486 273 428 313 371 299"/>
   </g>
 </svg>

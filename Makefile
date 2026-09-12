@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds wake profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots hero sky flora birds wake profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -167,6 +167,18 @@ screenshots:
 		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
 		$(if $(WEATHER),--weather $(WEATHER),) $(if $(CAMERA),--camera $(CAMERA),) \
 		$(if $(TRACK),--track $(TRACK),) $(ARGS)
+
+# THE POSTER SHOTS: the game staged to be LOOKED at rather than measured —
+# a swell in the open against a low sun, the same water under the stars, a
+# hull off the top of a crest — into previews/hero/. Every row of the table
+# in the script says what it is for, and the HUD is off: a poster of the sea
+# with a speedo over it is a photograph of the instruments. Same build and
+# Chromium requirements as `screenshots`.
+# `make hero ARGS=--list` (the table) · `make hero SHOT=sundown` ·
+# `make hero SHOT=stars ARGS="--viewport card"` ·
+# `make hero ARGS="--og sundown"` (write the site's share card from that shot)
+hero:
+	npm run hero -- $(if $(SHOT),--shot $(SHOT),) $(ARGS)
 
 # EVERY SKY SIDE BY SIDE: one contact sheet, one weather per row, one hour
 # per column, all on one coast — `previews/sky.png`. The sky is the one part

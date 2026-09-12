@@ -73,6 +73,8 @@
 //   ?update=1      show the new-build button as if a build were waiting, so
 //                  the surface can be photographed (read where it is drawn,
 //                  in game/update-button.tsx — it is not part of a repro)
+//   ?hud=0         draw no HUD over the run — a setting like the rows above,
+//                  and what a poster shot of the water asks for
 //   ?probe=0       do not measure the machine on this visit: the first-visit
 //                  probe (game/video-probe.ts) is what may promote an
 //                  untouched picture to HIGH, and a lab photographing a

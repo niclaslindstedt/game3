@@ -27,6 +27,8 @@
 //   node scripts/screenshot.mjs --scene launch             # one scene
 //   node scripts/screenshot.mjs --all                      # every scene
 //   node scripts/screenshot.mjs --scene dive --seed 7 --craft otter
+//   node scripts/screenshot.mjs --scene swell --hud 0 --hour 19.4   # the
+//        water with nothing over it — `hero-shots.mjs` is the curated set
 //   node scripts/screenshot.mjs --scene rest --update            # the
 //        new-build button, which has no other way to be looked at
 //   node scripts/screenshot.mjs --surface menu --update          # the same
@@ -191,12 +193,16 @@ const args = parseArgs(
     distance: { kind: "string", help: "the DISTANCE row: low, medium, high" },
     see: { kind: "string", help: "see into the water: 1 or 0" },
     fps: { kind: "string", help: "the FRAME RATE row: 30, 60, max" },
+    // The HUD, off: what a picture of the WATER asks for. The instruments
+    // are the subject of half these shots and the thing in the way of the
+    // other half, and there was no way to take the second kind at all.
+    hud: { kind: "string", help: "draw the HUD over the run: 1 or 0" },
     viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
     "[--seed n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
-    "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
+    "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] [--hud 0|1] " +
     "[--viewport v] [--timeout s]",
 );
 const viewports =
@@ -300,6 +306,7 @@ if (args.detail !== undefined) base.detail = String(args.detail);
 if (args.distance !== undefined) base.distance = String(args.distance);
 if (args.see !== undefined) base.see = String(args.see);
 if (args.fps !== undefined) base.fps = String(args.fps);
+if (args.hud !== undefined) base.hud = String(args.hud);
 if (args.surface) {
   const names = args.surface === "all" ? Object.keys(SURFACES) : String(args.surface).split(",");
   for (const name of names) {
