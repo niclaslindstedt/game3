@@ -8,7 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  BOIL_LIFE,
+  BOIL_RUN,
   BRAKE_PACE_FULL,
   BRAKE_ROAD_WIDEN,
   CRATER_LIFE,
@@ -55,6 +55,13 @@ import {
 
 const BEAM = 1.2;
 const LENGTH = 2.7;
+/** What the fan carries at the same place, to hold the road against: far
+ * astern the road may not out-white the wedge it is supposed to melt into. */
+const FAN_FOAM_AT_PACE = (() => {
+  const s = wakeSection();
+  fanAt(0.8, 2, 15, 1, s);
+  return s.foam;
+})();
 
 describe("the road", () => {
   it("is white only once the pump is churning at pace, and whiter on the throttle", () => {
@@ -64,36 +71,54 @@ describe("the road", () => {
     expect(roadStrength(20, 1)).toBeLessThanOrEqual(1);
   });
 
-  it("is widest at the transom — the boil — and necks in behind it", () => {
+  it("is widest at the transom — the boil — and necks in a bulb's length behind it", () => {
     // The narrowest the road ever is comes AFTER the transom, not at it:
-    // the boil's bulb collapses in under a second, the road necks in behind
-    // it, and only then does it start creeping wider again.
-    const transom = roadHalf(BEAM, 15, 0);
+    // the bulb collapses within a couple of metres, the road necks in
+    // behind it, and only then does it start creeping wider again.
+    //
+    // MEASURED DOWN THE TRAIL, NOT DOWN THE CLOCK. The bulb stands at a
+    // fixed place in the craft's frame, so aged instead of placed it
+    // stretched with the speed: at pace it was two thirds present ten
+    // metres back, and the road was one flat band a beam and a half wide
+    // for the whole near field.
+    const speed = 25;
+    const transom = roadHalf(BEAM, speed, 0, 0);
     let neck = Infinity;
-    let neckAge = 0;
-    for (let age = 0; age < ROAD_LIFE; age += 0.05) {
-      const half = roadHalf(BEAM, 15, age);
-      if (half < neck) [neck, neckAge] = [half, age];
+    let neckAt = 0;
+    for (let astern = 0; astern < 40; astern += 0.25) {
+      const half = roadHalf(BEAM, speed, astern / speed, astern);
+      if (half < neck) [neck, neckAt] = [half, astern];
     }
-    expect(neckAge).toBeGreaterThan(BOIL_LIFE);
+    expect(neckAt).toBeGreaterThan(BOIL_RUN);
+    expect(neckAt).toBeLessThan(BOIL_RUN * 6);
     expect(transom).toBeGreaterThan(neck * 1.3);
+    // …and the bulb is a BULB: gone within a few metres whatever the pace,
+    // where aged it was still most of the way there.
+    const far = roadHalf(BEAM, speed, 10 / speed, 10);
+    expect(far).toBeLessThan(transom * 0.75);
     // …then spreads, slowly, with age — the road is the THIN bright line
     // down the middle of the photograph; what opens is the fan round it.
-    expect(roadHalf(BEAM, 15, ROAD_LIFE)).toBeGreaterThan(neck);
+    expect(roadHalf(BEAM, speed, ROAD_LIFE, 40)).toBeGreaterThan(neck);
   });
 
-  it("outlives its boil and fades into nothing, never negative", () => {
+  it("outlives its boil, settles into the wedge behind it, never negative", () => {
     const s = wakeSection();
-    roadAt(0, 0.3, 15, 1, s);
+    roadAt(0, 0.3, 15, 1, s, 4);
     const fresh = { ...s };
-    roadAt(0, 2 * BOIL_LIFE, 15, 1, s);
+    roadAt(0, 2, 15, 1, s, 30);
     const settled = { ...s };
-    expect(settled.foam).toBeGreaterThan(0.3);
+    expect(fresh.foam).toBeGreaterThan(0.6);
     expect(settled.churn).toBeLessThan(fresh.churn);
-    roadAt(0, ROAD_LIFE + 0.01, 15, 1, s);
+    // Far back the road must be well under the fan's own white, and not
+    // merely below it: the marks are rasterised ADDITIVELY, so a road
+    // still carrying half its share lands on top of the fan already there
+    // and draws a bright line down the middle of the whole wedge.
+    expect(settled.foam).toBeLessThan(FAN_FOAM_AT_PACE * 0.4);
+    expect(settled.foam).toBeGreaterThan(0);
+    roadAt(0, ROAD_LIFE + 0.01, 15, 1, s, 60);
     expect(s.cover).toBe(0);
     for (const age of [0, 1, 3, 5.9]) {
-      roadAt(0, age, 15, 1, s);
+      roadAt(0, age, 15, 1, s, age * 15);
       expect(s.foam).toBeGreaterThanOrEqual(0);
       expect(s.foam).toBeLessThanOrEqual(1);
     }
@@ -565,7 +590,7 @@ describe("the jet", () => {
     // moving the whole sea was blank. A waterjet at rest is not doing
     // nothing.
     const j = jetMark();
-    jetBlast(1, 0, LENGTH, BEAM, j);
+    jetBlast(1, 0, true, LENGTH, BEAM, j);
     expect(j.blast).toBeCloseTo(1, 5);
     expect(j.reach).toBeGreaterThan(LENGTH * 2);
     // …and the road at that moment is laying nothing at all, which is what
@@ -573,26 +598,55 @@ describe("the jet", () => {
     expect(roadStrength(0, 1)).toBe(0);
   });
 
-  it("hands over to the road exactly as the road goes white", () => {
+  it("hands its PILE-UP over to the road, and keeps the stream itself", () => {
     // One hand-over, not two numbers: a jet that let go first leaves a
     // stretch of open throttle with nothing on the water.
     expect(JET_STALL).toBe(SPEED_FULL);
     const j = jetMark();
-    jetBlast(1, SPEED_FULL, LENGTH, BEAM, j);
-    expect(j.blast).toBe(0);
-    expect(roadStrength(SPEED_FULL, 1)).toBeCloseTo(1, 5);
-    // Halfway through, both are carrying about half of it.
-    jetBlast(1, SPEED_FULL / 2, LENGTH, BEAM, j);
-    expect(j.blast).toBeGreaterThan(0.3);
+    jetBlast(1, SPEED_FULL / 2, true, LENGTH, BEAM, j);
+    const half = j.blast;
+    expect(half).toBeGreaterThan(0.3);
     expect(roadStrength(SPEED_FULL / 2, 1)).toBeGreaterThan(0.3);
+    // …but the pump does not stop firing because the hull is moving. What
+    // the hand-over settles is where the churned water ends up — piled in
+    // one place standing still, strung into the road at pace — and the
+    // stream out of the nozzle is still there at the far end of it, which
+    // is when an aerial photograph shows it most clearly of all.
+    jetBlast(1, SPEED_FULL, true, LENGTH, BEAM, j);
+    const paced = { ...j };
+    jetBlast(1, SPEED_FULL * 3, true, LENGTH, BEAM, j);
+    expect(paced.blast).toBeGreaterThan(0.3);
+    expect(paced.blast).toBeLessThan(half);
+    expect(j.blast).toBeCloseTo(paced.blast, 5);
+    expect(roadStrength(SPEED_FULL, 1)).toBeCloseTo(1, 5);
+    // …and it stays JUST BEHIND THE CRAFT however fast it is going: a
+    // couple of hull lengths at pace, never drawn out down the trail. The
+    // long bright line down the middle of the wedge is the ROAD's, and a
+    // stream stretched to match it stops reading as a stream at all.
+    expect(j.reach).toBeCloseTo(paced.reach, 5);
+    expect(paced.reach).toBeGreaterThan(LENGTH);
+    expect(paced.reach).toBeLessThan(LENGTH * 3);
+  });
+
+  it("is nothing at all when the hull is not in the water", () => {
+    // The jet is laid off the craft's STATE, not off the trail, so nothing
+    // stopped it when the hull left the water: a rider who drives up the
+    // beach with the throttle open parks above the sea still churning
+    // white into the map and lifting a surface that is not under them.
+    const j = jetMark();
+    jetBlast(1, 0, false, LENGTH, BEAM, j);
+    expect(j.blast).toBe(0);
+    expect(j.reach).toBe(0);
+    jetBlast(1, 0, true, LENGTH, BEAM, j);
+    expect(j.blast).toBeGreaterThan(0);
   });
 
   it("is the pump's, not the hull's: nothing on a shut throttle", () => {
     const j = jetMark();
-    jetBlast(0, 0, LENGTH, BEAM, j);
+    jetBlast(0, 0, true, LENGTH, BEAM, j);
     expect(j.blast).toBe(0);
     expect(j.reach).toBe(0);
-    jetBlast(0.5, 0, LENGTH, BEAM, j);
+    jetBlast(0.5, 0, true, LENGTH, BEAM, j);
     expect(j.blast).toBeCloseTo(0.5, 5);
   });
 

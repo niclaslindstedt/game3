@@ -393,7 +393,15 @@ export function createWake(): Wake {
   /** The transom as it stands: where, how fast the craft is going the way
    * it is POINTING, how white the pump churns, how wide a road it cuts, and
    * whether a trail is being laid at all. Reused, never allocated. */
-  const transom = { x: 0, z: 0, along: 0, strength: 0, beam: 0, live: false };
+  const transom = {
+    x: 0,
+    z: 0,
+    along: 0,
+    strength: 0,
+    beam: 0,
+    live: false,
+    afloat: false,
+  };
   const readTransom = (state: GameState): typeof transom => {
     const c = state.craft;
     const back = c.spec.length * STERN;
@@ -405,7 +413,11 @@ export function createWake(): Wake {
     // Reading the sign here rather than off `speed` is the whole point —
     // `speed` is |v| and cannot tell the two apart.
     transom.along = c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading);
-    transom.live = !c.airborne && c.wetted > 0.05 && transom.along > SPEED_LIVE;
+    // AFLOAT is the hull being in the water at all, which is what the marks
+    // laid off the craft's STATE need; LIVE adds the pace that says a trail
+    // is being laid, which is what the marks laid off the TRAIL need.
+    transom.afloat = !c.airborne && c.wetted > 0.05;
+    transom.live = transom.afloat && transom.along > SPEED_LIVE;
     // How white: pace, and the pump working — a hull coasting leaves a paler
     // road than one on full throttle. The bucket does not stop the pump
     // churning, it turns the churn forward and under the hull, so the road a
@@ -497,10 +509,10 @@ export function createWake(): Wake {
     const fv = n * FAN_S.length;
     const rx = Math.cos(heading);
     const rz = -Math.sin(heading);
-    const rHalf = dead || age >= ROAD_LIFE ? 0 : roadHalf(beam, speed, age);
+    const rHalf = dead || age >= ROAD_LIFE ? 0 : roadHalf(beam, speed, age, astern);
     for (let a = 0; a < ROAD_ACROSS; a++) {
       const s = (a / (ROAD_ACROSS - 1)) * 2 - 1;
-      if (rHalf > 0) roadAt(s, age, speed, strength, section);
+      if (rHalf > 0) roadAt(s, age, speed, strength, section, astern);
       else section.cover = 0;
       write(road.positions, road.colors, rv + a, x + rx * rHalf * s, z + rz * rHalf * s, section);
     }
@@ -591,7 +603,7 @@ export function createWake(): Wake {
     // THE JET, astern of the nozzle: a tongue along the heading, widening
     // from the transom to its reach. Folded to nothing when the throttle is
     // shut or the hull is up to pace, at which point the road has it.
-    jetBlast(Math.max(0, c.throttleEff), now.along, c.spec.length, c.spec.beam, blast);
+    jetBlast(Math.max(0, c.throttleEff), now.along, now.afloat, c.spec.length, c.spec.beam, blast);
     const jx = Math.sin(c.heading);
     const jz = Math.cos(c.heading);
     const jrx = Math.cos(c.heading);
@@ -655,14 +667,24 @@ export function createWake(): Wake {
     // ahead of it at pace. A capsized craft's gate is stowed and a braking
     // one is upright, so the two never compete; the stronger is laid.
     // Folded to nothing on a hull the right way up with its gate stowed.
-    const over = !splash.boil ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
+    // Both of these are laid off the craft's STATE like the jet, so both
+    // need the same gate: a hull aground or in the air stirs no water.
+    const over =
+      !splash.boil || !now.afloat ? 0 : c.righting > 0 ? 1 : Math.min(1, c.capsizedFor / BOIL_RISE);
     capsize.stir = over;
     capsize.foam = BOIL_FOAM * over;
     capsize.ahead = 0;
     capsize.along = (c.spec.length / 2 + c.spec.beam * BOIL_PAST_BEAM) * over;
     capsize.across = c.spec.beam * (0.5 + BOIL_PAST_BEAM) * over;
     capsize.core = BOIL_CORE;
-    brakeMark(c.bucket, c.throttleEff, now.along, c.spec.length, c.spec.beam, brake);
+    brakeMark(
+      now.afloat ? c.bucket : 0,
+      c.throttleEff,
+      now.along,
+      c.spec.length,
+      c.spec.beam,
+      brake,
+    );
     const opening = BRAKE_REACH_FLOOR + (1 - BRAKE_REACH_FLOOR) * brake.stir;
     brake.along *= opening;
     brake.across *= opening;

@@ -74,9 +74,36 @@ const ROAD_SPREAD = 0.12;
 /** Where the road's flat top ends, as a share of its half-width; outside it
  * the section feathers to nothing. */
 const ROAD_CORE = 0.55;
-/** How long the boil lives, s, and how much wider than the road it is at
- * the transom, as a share of the beam. */
-export const BOIL_LIFE = 0.9;
+/** HOW FAR ASTERN THE ROAD IS BRIGHTER THAN THE WEDGE ROUND IT, m, and what
+ * share of its white it keeps past that. The road is narrow and the fan is
+ * broad, so a road held at full white for its whole LIFE draws a hard bright
+ * line straight down the middle of the wake for as far as the trail runs —
+ * which no aerial photograph has in it. What they have is a dense bright
+ * core for the first few lengths, going over into one broad field of broken
+ * white where the core is no longer picked out at all. So the road's own
+ * brightness is a near-field thing, and the far wedge reads as the fan's
+ * with the line gone into it. Its LIFE still decides how far back there is
+ * any white at all.
+ *
+ * The far share goes NEARLY to nothing, not merely under the fan's: the
+ * marks are rasterised ADDITIVELY, so a road still carrying half its white
+ * lands on top of the fan already there and the centre is brighter than
+ * its surroundings whatever the two numbers say. What is left is the
+ * slight thickening down the middle that a photograph does have — not a
+ * line drawn on the sea. */
+const ROAD_BRIGHT_RUN = 10;
+const ROAD_FAR = 0.15;
+/** HOW FAR ASTERN THE BOIL'S BULB REACHES, m, and how much wider than the
+ * road it is at the transom, as a share of the beam. Anchored to DISTANCE
+ * and not to age, for the reason the stern wave is: the bulb is the water
+ * collapsing into the hole the transom left, which stands at a fixed place
+ * in the CRAFT's frame. Aged instead, it stretched with the speed — at
+ * pace it was still two thirds present ten metres back and two fifths at
+ * twenty, so the road was one flat saturated band a beam and a half wide
+ * for the whole near field, and the thin bright stream out of the nozzle
+ * that every aerial photograph of a runabout at speed has in it had
+ * nothing to be thin against. */
+export const BOIL_RUN = 2.2;
 const BOIL_HALF_BEAM = 0.6;
 /** How long the churn behind the transom lives, s. The road carries no
  * relief of its own: the hollow behind the transom is the STERN WAVE's,
@@ -207,12 +234,12 @@ export function washOf(speed: number): number {
 
 /** The road's half-width at an age, m: the boil's bulb at the transom
  * decaying into the road proper, which spreads slowly. */
-export function roadHalf(beam: number, speed: number, age: number): number {
+export function roadHalf(beam: number, speed: number, age: number, astern = 0): number {
   return (
     beam * ROAD_HALF_BEAM +
     speed * ROAD_HALF_PER_SPEED +
     ROAD_SPREAD * age +
-    beam * BOIL_HALF_BEAM * Math.exp(-age / BOIL_LIFE)
+    beam * BOIL_HALF_BEAM * Math.exp(-astern / BOIL_RUN)
   );
 }
 
@@ -240,14 +267,23 @@ function smoothstep(a: number, b: number, x: number): number {
 }
 
 /** THE ROAD'S SECTION at `s` across it (−1..1 of `roadHalf`), for a sample
- * laid at `speed` with `strength` of white, `age` seconds ago. */
-export function roadAt(s: number, age: number, speed: number, strength: number, out: WakeSection) {
+ * laid at `speed` with `strength` of white, `age` seconds ago and `astern`
+ * m behind the transom as it stands now. */
+export function roadAt(
+  s: number,
+  age: number,
+  speed: number,
+  strength: number,
+  out: WakeSection,
+  astern = 0,
+) {
   const a = Math.abs(s);
   const edge = 1 - smoothstep(ROAD_CORE, 1, a);
   const wash = washOf(speed);
   const fade = Math.pow(Math.max(0, 1 - age / ROAD_LIFE), ROAD_FADE_POWER);
-  const boil = Math.exp(-age / BOIL_LIFE);
-  out.foam = strength * Math.min(1, fade + boil * 0.5);
+  const boil = Math.exp(-astern / BOIL_RUN);
+  const near = ROAD_FAR + (1 - ROAD_FAR) * Math.exp(-astern / ROAD_BRIGHT_RUN);
+  out.foam = strength * Math.min(1, fade + boil * 0.5) * near;
   out.churn = wash * (0.5 + 0.5 * boil) * Math.exp(-age / CHURN_LIFE);
   out.up = 0;
   out.down = 0;
@@ -767,6 +803,16 @@ const JET_HALF_REACH = 1.6;
  * road arrived would leave a stretch of open throttle with nothing on the
  * water at all — which is the fault this whole mark exists to fix. */
 export const JET_STALL = SPEED_FULL;
+/** …but it does NOT hand over all of it. The pump does not stop firing
+ * because the hull is moving: what the hand-over settles is where the
+ * churned water ENDS UP — piled in one place at a standstill, strung out
+ * into the road at pace. The stream itself is still there, and at pace it
+ * is the most distinctive thing in an aerial photograph of a runabout:
+ * a thin bright tongue straight out of the nozzle, narrow where it leaves
+ * and opening astern, running down the middle of the broken water either
+ * side of it. This is the share that survives. */
+const JET_PACE_FLOOR = 0.5;
+
 /** The white the jet churns at full throttle, and its churn — the highest
  * in the file, because the water directly behind a nozzle is the most
  * broken water anywhere near the craft. */
@@ -791,8 +837,8 @@ export const JET_ROWS = 7;
 
 /** What the jet is doing, for a pump at `throttle` on a hull making `speed`
  * m/s the way it points. `reach` and the half-widths are m; `blast` is 0..1
- * — nothing at all at 0, which is what a shut throttle or a craft at pace
- * both come to. */
+ * — nothing at all at 0, which is a shut throttle, a craft at pace, or a
+ * hull that is not in the water. */
 export type JetMark = {
   blast: number;
   reach: number;
@@ -807,14 +853,26 @@ export function jetMark(): JetMark {
 export function jetBlast(
   throttle: number,
   speed: number,
+  afloat: boolean,
   length: number,
   beam: number,
   out: JetMark,
 ): void {
+  // AFLOAT IS NOT OPTIONAL. Every other mark on the trail is gated on the
+  // hull being in the water because it is laid off the TRAIL, which stops
+  // when the hull leaves; the jet is laid off the craft's STATE, so nothing
+  // stopped it. A rider who drives up the beach with the throttle open ends
+  // up parked eight metres above the sea still churning white water into
+  // the map, and now lifting a surface that is not under them.
   // Linear in the hand-over, not squared: squared, the jet was already half
   // gone by walking pace and the road had not started, which is a hole.
   const stall = 1 - clamp(speed / JET_STALL, 0, 1);
-  out.blast = clamp(throttle, 0, 1) * stall;
+  const pump = afloat ? clamp(throttle, 0, 1) : 0;
+  out.blast = pump * (JET_PACE_FLOOR + (1 - JET_PACE_FLOOR) * stall);
+  // JUST BEHIND THE CRAFT. The stream is a near-field mark — two or three
+  // hull lengths at pace — and nothing here may draw it out with speed: the
+  // long bright line down the middle of the whole wedge is the ROAD's, and
+  // a jet stretched to match it stops reading as a jet at all.
   out.reach = length * JET_REACH * out.blast;
   out.halfNozzle = beam * JET_HALF_NOZZLE;
   out.halfReach = beam * JET_HALF_REACH;
