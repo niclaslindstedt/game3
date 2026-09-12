@@ -134,22 +134,25 @@ export const STANCE = {
    * how the machine is ridden: knees well bent, hips back over the tray,
    * the legs taking every wave. */
   standAt: 0.46,
-  /** ...and where they go when he is standing the craft UP on its tail
-   * (`CraftState.stand`): right at the BACK of the tray, a share of its
-   * length off the transom end. That is where the trick is actually done —
-   * a rider stands the hull up by getting his feet as far aft as the
-   * footwell lets him and his weight over the transom, and the pose is
-   * most of what the trick LOOKS like from behind. The feet walk back
-   * from `standAt` to here in proportion to the stand. */
-  standRearAt: 0.2,
-  /** ...and how much of `standBack` is left when he is (0..1). Standing the
-   * craft up, the rider is OVER his feet rather than hanging behind them:
-   * the bars are a long way forward from the back of the tray, and a
-   * pelvis still set `standBack` aft of the ankles makes him reach for
-   * them, which the torso solver pays for by leaning him flat along the
-   * deck. Upright over the feet with the arms extended is both what the
-   * trick looks like and what holds the weight where it belongs. */
-  standRearBack: 0.25,
+  /** THE TRICK'S POSTURE (`CraftState.stand`): the torso's lean when he is
+   * standing the craft up on its tail, rad, replacing `standingLean`.
+   *
+   * He is STANDING — upright on his feet with the arms extended to the
+   * bars — and that is a different body from either of the other two.
+   * `seatedLean` is a man sat down; `standingLean` is a stand-up ridden
+   * bent well over its pole, which is a racing crouch and reads as a man
+   * lying along the deck the moment it is borrowed for this. Neither is
+   * the trick, so the trick states its own. */
+  standTrickLean: 0.12,
+  /** ...and how much of `standBack` — the hips hung behind the ankles —
+   * is left when he is standing the craft up (0..1). */
+  standTrickBack: 0.2,
+  /** ...and where along the tray his feet go, as a share of it, replacing
+   * `standAt`. Forward of where a stand-up is ridden, because the bars of
+   * a SEATED craft sit low and well forward: from any further back a man
+   * cannot reach them without folding down onto the deck, which is the one
+   * thing this pose must not look like. */
+  standTrickAt: 0.78,
   standFeetHalf: 0.16,
   standBack: 0.2,
   crouch: 0.76,
@@ -335,8 +338,15 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   const roll = STANCE.rollPerMetre * read.right + read.sway;
   const fold = STANCE.foldPerCrush * Math.max(0, read.crush);
   const rise = Math.max(0, -read.crush);
+  // The stance he is in: sat, stood on a stand-up's pole, or STANDING THE
+  // CRAFT UP — three different bodies, and the trick is not either of the
+  // others (see `standTrickLean`).
+  const trick = clamp(read.stand, 0, 1);
+  const stance =
+    (footed ? STANCE.standingLean : STANCE.seatedLean) * (1 - trick) +
+    STANCE.standTrickLean * trick;
   let lean =
-    (footed ? STANCE.standingLean : STANCE.seatedLean) +
+    stance +
     STANCE.throttleLean * read.throttle +
     STANCE.paceLean * read.pace +
     STANCE.tuckLean * read.tuck -
@@ -350,10 +360,7 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   let pelvis: P;
   let ankleZ: number;
   {
-    // The feet walk AFT along the tray as he stands it up: `standAt` is
-    // where a stand-up is ridden, `standRearAt` is the back of the pad
-    // where the trick is done.
-    const along = STANCE.standAt + (STANCE.standRearAt - STANCE.standAt) * clamp(read.stand, 0, 1);
+    const along = STANCE.standAt + (STANCE.standTrickAt - STANCE.standAt) * trick;
     const footZ = wells.z0 + along * (wells.z1 - wells.z0);
     const legs = BODY.thigh + BODY.shin;
     const height = clamp(
@@ -365,9 +372,19 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     const up: P = [
       STANCE.slideRight * read.right,
       wells.floorAt(footZ) + height,
+      // TWO THINGS ARE ALREADY THE STAND, and adding them again is what
+      // stretched him flat along the deck reaching for bars he could no
+      // longer get to upright:
+      //
+      // `read.aft` carries `TUNING.stand.reach` — the engine's account of
+      // where his MASS went when he stood up — and him being on his feet
+      // on the tray IS that shift, so only the LEAN part of it slides the
+      // pelvis. And `standBack`, which hangs the hips behind the ankles,
+      // is the stand-up's racing posture rather than a man standing:
+      // standing the craft up he is OVER his feet with the arms extended.
       footZ -
-        STANCE.standBack * (1 - (1 - STANCE.standRearBack) * clamp(read.stand, 0, 1)) -
-        STANCE.slideAft * read.aft,
+        STANCE.standBack * (1 - (1 - STANCE.standTrickBack) * trick) -
+        STANCE.slideAft * (read.aft - trick * TUNING.stand.reach),
     ];
     const sat: P = [
       STANCE.slideRight * read.right,
