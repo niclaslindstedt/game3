@@ -296,8 +296,19 @@ describe("what the tornado does to a rider", () => {
   const far = TORNADO_EDGE + BAND + 1_200;
 
   it("throws him twenty metres and more, off every craft in the roster", () => {
+    // WHY THE RIDE IS LONGER HERE THAN ANYWHERE ELSE IN THE FILE. This is the
+    // one claim in the file read off the TOP of the sample rather than its
+    // middle, and a maximum converges far more slowly than a median does: how
+    // high the biggest throw of a ride was is a question about the luckiest
+    // wave the column caught the hull on, so a short ride answers it with
+    // whatever the sea happened to deal. Two minutes lands a hull about ten
+    // flights, and ten flights put the roster's weakest within a metre or two
+    // of the bar in either direction — which makes the assertion a coin toss
+    // that any change to the sea re-flips. Six minutes is where the estimate
+    // stops moving (the weakest hull's best throw climbs to the mid-twenties
+    // and stays), so the margin below is the tornado's and not the sample's.
     for (const craft of CRAFT) {
-      const { apex } = throws(level, craft.id, 400, b.maxZ + far);
+      const { apex } = throws(level, craft.id, 400, b.maxZ + far, 360);
       expect(apex.length).toBeGreaterThan(0);
       expect(Math.max(...apex)).toBeGreaterThan(20);
     }
