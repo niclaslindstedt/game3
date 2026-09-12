@@ -43,7 +43,7 @@ It is outside the npm workspace with a dependency tree of its own, so it install
 
 Cloud builds go through [EAS](https://expo.dev/eas) (`native/eas.json`), driven by `.github/workflows/native.yml` — **workflow-dispatch only**, because a build spends paid minutes and store credentials.
 
-The shell is four things a browser tab cannot give a phone, and nothing else: the game served on-device, an audio session that survives the ringer switch, the phone's haptics under the game's own vibration table, and off-site links handed to the system browser.
+The shell is five things a browser tab cannot give a phone, and nothing else: the game served on-device, an audio session that survives the ringer switch, the phone's haptics under the game's own vibration table, off-site links handed to the system browser, and the phone's OWN shutter heard — a screenshot taken with the hardware buttons is invisible to a web page, so the shell presses the game's shutter for it and the picture is filed in the gallery as well as in the phone's camera roll (`native/src/screen-capture.ts`; iOS everywhere, Android 14 and up on the install-time `DETECT_SCREEN_CAPTURE` permission).
 
 ## What the page knows about a shell
 
@@ -64,6 +64,8 @@ engine event / CraftState.slam
 ```
 
 The website still owns the feature: every pulse is authored, decided and switched off in `pwa/`, and the shell only plays what it is handed. A browser with a motor answers the same table through the Vibration API; a browser without one feels nothing, which is what having no motor should be. The event's name and the message's shape are stated in three files that cannot import each other, so `tests/rumble_test.ts` and `tests/shell_test.ts` hold them together — `native/src/rumble.ts`, `navigation.ts` and `injected.ts` import nothing at all, which is what lets the root suite read them without installing that tree (`tests/imports_test.ts`'s `SHELL_SEAM`).
+
+The screenshot bridge runs the OTHER way — shell to page — and so uses the door the macOS menu bar already uses rather than a channel of its own: `native/src/injected.ts`'s `SHOT_COMMAND` dispatches `sh-shell-command` with the word `shot`, which is a button the website already has (ENTER), and the page answers it exactly as it answers the key. **A shell may add a second way to reach a button; never a second button.** `tests/shell_test.ts` runs that script against a stub `window` and feeds what it dispatches to `onShellCommand`, because a misspelled event is a script that runs clean and does nothing.
 
 ## Deliberate differences from the sibling repo
 

@@ -18,7 +18,7 @@ See [`docs/platforms.md`](../docs/platforms.md) for where this sits.
 
 ## What the shell actually does
 
-Everything else is the website. The shell is four things a browser tab cannot
+Everything else is the website. The shell is five things a browser tab cannot
 give a phone:
 
 | The thing                | Where it lives                                         | Why the website cannot do it                                                                                                                               |
@@ -27,6 +27,7 @@ give a phone:
 | Sound through the ringer | `App.tsx` (`setAudioModeAsync`)                        | iOS silences a WebView's WebAudio on the ringer switch; a game should sound like a game                                                                    |
 | The sea in the hands     | `src/injected.ts` → `src/rumble.ts` → `src/haptics.ts` | a WKWebView has no Vibration API at all, and the phone under it has the best haptics the game will ever run on                                             |
 | Off-site links           | `src/navigation.ts`                                    | there is no address bar and no back button, so a link out would replace the game with a page the rider cannot leave                                        |
+| The phone's own shutter  | `src/screen-capture.ts` → `src/injected.ts`            | a screenshot taken with the hardware buttons is invisible to the page, so only the shell can press the game's shutter and file the picture in the gallery  |
 
 ### The haptics bridge, end to end
 
@@ -47,21 +48,50 @@ message's shape are stated in three places and held together by
 `tests/rumble_test.ts` and `tests/shell_test.ts`. **A rename in one of them is
 a phone that silently stops buzzing** — change one, change all three.
 
+### The screenshot bridge, the other way round
+
+The haptics bridge runs page → shell. This one runs **shell → page**, through
+the same door the desktop app's menu bar uses: a command word on
+`sh-shell-command`, and every word is a button the website already has.
+
+```
+the rider presses the side buttons
+  → iOS / Android tells the app         (expo-screen-capture)
+  → src/screen-capture.ts               the listener, and the only file that touches it
+  → src/injected.ts (SHOT_COMMAND)      dispatches `sh-shell-command` { command: "shot" }
+  → pwa/src/shell-host.ts               the same event the macOS menu bar presses
+  → pwa/src/game/screenshots.ts         ENTER's own path: the HUD composited in, filed, copied
+```
+
+So the rider ends up with two pictures of one moment, and neither is a copy of
+the other: the phone's raw frame in its own photo gallery, and the game's own —
+signed, with the clock and the gate count as they stood — behind **GALLERY** on
+the front door. **iOS everywhere; Android 14 and up**, on the install-time
+`DETECT_SCREEN_CAPTURE` permission. Below Android 14 it does nothing on
+purpose: the older API watches the media store and so wants the rider's whole
+photo library, which `app.config.js` blocks for the same reason it blocks the
+microphone.
+
+`tests/shell_test.ts` runs the injected script against a stub `window` and
+feeds what it dispatches to the page's own listener — asserting on the source
+would pass on a script that dispatches nothing.
+
 ## The tree
 
-| File                          | What it is                                                                   |
-| ----------------------------- | ---------------------------------------------------------------------------- |
-| `App.tsx`                     | the whole shell: one WebView, the audio session, the message channel         |
-| `app.config.js`               | the Expo config, with name and colours READ off `pwa/src/identity.ts`        |
-| `src/config.ts`               | where the WebView points — the bundle, or `EXPO_PUBLIC_GAME_URL`             |
-| `src/local-server.ts`         | unzip the packed site once per bundle, serve it on a fixed port              |
-| `src/injected.ts`             | the three injected scripts: the shell flag, the rumble bridge, the hardening |
-| `src/navigation.ts`           | is this URL leaving the site — pure, so the root suite holds it              |
-| `src/rumble.ts`               | a pulse parsed and sized into taps — pure, for the same reason               |
-| `src/haptics.ts`              | the only file that touches `expo-haptics`                                    |
-| `scripts/bundle-web.mjs`      | `vite build` + a deterministic zip into `assets/webroot.zip`                 |
-| `scripts/ios-device.mjs`      | bundle → prebuild → sign → install → launch on a real iPhone over USB        |
-| `plugins/with-ios-signing.js` | pins `DEVELOPMENT_TEAM` so a prebuild does not discard it                    |
+| File                          | What it is                                                                               |
+| ----------------------------- | ---------------------------------------------------------------------------------------- |
+| `App.tsx`                     | the whole shell: one WebView, the audio session, the message channel                     |
+| `app.config.js`               | the Expo config, with name and colours READ off `pwa/src/identity.ts`                    |
+| `src/config.ts`               | where the WebView points — the bundle, or `EXPO_PUBLIC_GAME_URL`                         |
+| `src/local-server.ts`         | unzip the packed site once per bundle, serve it on a fixed port                          |
+| `src/injected.ts`             | the four injected scripts: the shell flag, the rumble bridge, the hardening, the shutter |
+| `src/navigation.ts`           | is this URL leaving the site — pure, so the root suite holds it                          |
+| `src/rumble.ts`               | a pulse parsed and sized into taps — pure, for the same reason                           |
+| `src/haptics.ts`              | the only file that touches `expo-haptics`                                                |
+| `src/screen-capture.ts`       | the only file that touches `expo-screen-capture`                                         |
+| `scripts/bundle-web.mjs`      | `vite build` + a deterministic zip into `assets/webroot.zip`                             |
+| `scripts/ios-device.mjs`      | bundle → prebuild → sign → install → launch on a real iPhone over USB                    |
+| `plugins/with-ios-signing.js` | pins `DEVELOPMENT_TEAM` so a prebuild does not discard it                                |
 
 `src/rumble.ts` and `src/navigation.ts` import **nothing at all**, which is
 what lets the root vitest suite hold the seam without installing this tree;

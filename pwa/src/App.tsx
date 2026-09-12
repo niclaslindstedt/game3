@@ -287,11 +287,6 @@ export function App() {
     resume: () => {},
     toMenu: () => {},
   });
-  /** ...and the SHUTTER, which the HUD's own action row presses — the whole
-   * feature on a screen with no ENTER key to press. Boxed for the same
-   * reason: the picture is served by the loop, so the loop owns the ask. */
-  const shotRef = useRef<() => void>(() => {});
-
   // Every change is written through, so a visit's choices survive the tab
   // being closed. Cheap: a settings change is a press, not a frame.
   useEffect(() => saveSettings(settings), [settings]);
@@ -450,8 +445,6 @@ export function App() {
       // the receipt then says only that the picture was filed.
       wantedShot = { label: shotLabel(state), hud: readHudLayer(), copy: copyWhenReady() };
     };
-    shotRef.current = takeShot;
-
     const stepOnce = (): void => {
       step(state, inputFor());
       renderer.observe(state);
@@ -906,7 +899,6 @@ export function App() {
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
           onCamera={() => rendererRef.current?.camera.cycle()}
-          onShot={() => shotRef.current()}
           onPause={() => runRef.current.pause()}
         />
       )}
