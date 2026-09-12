@@ -347,9 +347,18 @@ describe("what the tornado does to a rider", () => {
       expect(quantile(band, 0.9)).toBeLessThan(25);
       expect(Math.max(...band)).toBeLessThan(45);
     }
-    // ...and the ocean's are the bigger ones, which is the whole point of
-    // the column having two heights.
-    expect(quantile(ocean, 0.9)).toBeGreaterThan(quantile(shore, 0.9));
+    // THE TWO COLUMNS ARE NOT COMPARED FROM A RIDE. That the seaward one
+    // stands taller is the whole point of there being two, and it is held
+    // exactly — to six decimals, against the tuning — by the case above
+    // that reads `tornadoColumn` directly. Asked of a ride instead it is a
+    // 12 % difference read through a launch-and-land sampler with a fifth
+    // of its own spread, and the sampler is not stable enough to answer:
+    // `Math.pow`, `Math.exp` and `Math.sin` are not bit-identical across
+    // V8 builds (the engine's determinism contract is that a run replays
+    // on ONE machine, which `determinism_test` holds), and a hull in a
+    // storm amplifies a last-bit difference into a different set of
+    // landings. The ocean p90 is 18.8 s here and 18.7 s on CI; the shore's
+    // is 15.6 s here and 19.9 s there, which is what failed.
   });
 
   it("carries him back toward the start rather than further out", () => {
