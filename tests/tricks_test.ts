@@ -263,15 +263,27 @@ describe("the combo", () => {
     ride(state, 6);
     const banked = state.tricks.score;
     expect(banked).toBeGreaterThan(0);
-    // A second flight, thrown away by rolling the hull onto its back and
-    // holding it there — a capsize is a bail.
-    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 8 });
+    // A second flight, thrown away by going over the bars at the end of it:
+    // launched with the nose already dropping, it comes down bow-first and
+    // buries it, which is a `dive` and so a bail.
+    //
+    // A DIVE rather than a capsize, and it has to be: `capsize.after` = 1.5 s
+    // is longer than the `tricks.linkWindow` = 1 s a combo stays open for
+    // once the hull is down, so a hull rolled onto its back always banks
+    // before it is declared over. The dive is the half of "over the bars"
+    // that can actually reach an open combo.
+    placeRun(state, {
+      x: 100,
+      z: 200,
+      heading: Math.PI / 2,
+      speed: 20,
+      height: 1.5,
+      vy: 10,
+      pitchRate: -1.2,
+    });
     ride(state, 1.4);
     expect(state.tricks.base).toBeGreaterThan(0);
-    const events = ride(state, 12, (s) => {
-      if (!s.craft.airborne) s.craft.wz = 6;
-      return COAST;
-    });
+    const events = ride(state, 12);
     const bailed = events.find((e) => e.kind === "bail");
     expect(bailed).toBeDefined();
     if (bailed?.kind === "bail") expect(bailed.lost).toBeGreaterThan(0);

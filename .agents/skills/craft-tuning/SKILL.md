@@ -58,7 +58,7 @@ on the row that the model reads, never an `if (spec.id === …)`.
 | `displacement` (m³) | The hull's volume → density = mass/volume decides how it sits; more volume is more reserve buoyancy and a softer ride, at the cost of a bigger wetted area |
 | `length`, `beam` | The probe footprint: length is pitch stability (long = calm in chop), beam is roll stability AND planing lift (Savitsky's B²) |
 | `deadrise` (deg, 16–24) | Soft vs fast: a deep V slices chop and dives less, a flat bottom planes earlier and slams harder |
-| `cog` offsets | Where the weight sits: aft is a nose-up trim and a quicker plane, forward is a bow that buries |
+| `cog` offsets | Where the weight sits: aft is a nose-up trim and a quicker plane, forward is a bow that buries. Every row carries `z` at the same FRACTION of its own length (12%), because that is what the trim answers to. It is also the roster's steering lever — the nozzle is fixed at the transom, so mass moved aft is arm taken off the bucket, and the marlin's braked corner is the first thing to fail |
 | `powerKw`, `maxRpm`, `idleRpm`, `torque` curve | The engine: how much, how high it revs, where the shove lives |
 | `nozzleDiameter`, `impellerPitch` | The jet: pitch sets V_j per rpm (top speed), diameter sets the flow (thrust at low speed — the hole shot) |
 | `nozzleAngle` (rad) | How hard it turns — the whole of the steering authority under power |

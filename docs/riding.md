@@ -342,7 +342,7 @@ None of them is real: the numbers sit inside the published range for personal wa
 | Dry mass / with rider (kg)                             | 245 / 325          | 360 / 442          | 420 / 505          | 150 / 228          |
 | Length × beam × depth (m)                              | 3.10 × 1.18 × 0.62 | 3.45 × 1.26 × 0.68 | 3.55 × 1.32 × 0.72 | 2.70 × 0.90 × 0.50 |
 | Deadrise (°) / displacement (m³)                       | 18 / 0.66          | 22 / 0.92          | 20 / 1.05          | 16 / 0.34          |
-| CoG above keel / ahead of mid (m)                      | 0.42 / −0.31       | 0.45 / −0.35       | 0.46 / −0.36       | 0.30 / −0.27       |
+| CoG above keel / ahead of mid (m)                      | 0.42 / −0.372      | 0.45 / −0.414      | 0.46 / −0.426      | 0.30 / −0.324      |
 | Power (kW) / redline / idle (rpm)                      | 125 / 7600 / 1500  | 175 / 8000 / 1600  | 150 / 7300 / 1500  | 76 / 7000 / 1400   |
 | Blower: peak / onset (share of the rev range)          | —                  | 0.45 / 0.55        | —                  | —                  |
 | Nozzle Ø (m) / deflection (°) / impeller pitch (m/rev) | 0.074 / 24 / 0.283 | 0.072 / 21 / 0.305 | 0.092 / 25 / 0.275 | 0.077 / 20 / 0.26  |
@@ -352,10 +352,10 @@ None of them is real: the numbers sit inside the published range for personal wa
 | Sponson bite / ride plate                              | 1.06 / 1.00        | 1.14 / 1.10        | 1.16 / 1.08        | 0.98 / 0.78        |
 | Bow rocker / rider authority                           | 1.00 / 1.00        | 0.90 / 0.85        | 0.80 / 0.90        | 1.30 / 1.50        |
 | Rider (kg) / height (m)                                | 80 / 0.55          | 82 / 0.58          | 85 / 0.60          | 78 / 0.95          |
-| **Top speed, sheet / measured (km/h)**                 | 95 / 95.1          | 108 / 108.0        | 91 / 91.2          | 78 / 78.5          |
-| **0–50 km/h, sheet / measured (s)**                    | 2.0 / 2.04         | 2.2 / 2.23         | 2.4 / 2.37         | 2.25 / 2.24        |
+| **Top speed, sheet / measured (km/h)**                 | 95 / 96.6          | 108 / 109.6        | 91 / 92.0          | 78 / 80.0          |
+| **0–50 km/h, sheet / measured (s)**                    | 2.0 / 2.06         | 2.2 / 2.25         | 2.4 / 2.38         | 2.25 / 2.24        |
 | Rpm at top speed                                       | 7429               | 7961               | 7038               | 6667               |
-| `planing` at top speed                                 | 0.64               | 0.52               | 0.64               | 0.58               |
+| `planing` at top speed                                 | 0.62               | 0.50               | 0.63               | 0.58               |
 | Rest draft, keel below still water (m)                 | 0.34               | 0.38               | 0.39               | 0.34               |
 | Static thrust / weight                                 | 1.15               | 1.03               | 1.00               | 1.27               |
 | Jet ceiling (km/h)                                     | 129                | 146                | 120                | 109                |
