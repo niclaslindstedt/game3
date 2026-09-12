@@ -117,18 +117,33 @@ describe("the air clock", () => {
 describe("how big the air clock is drawn", () => {
   it("starts at nothing and grows with the flight, never past the whole size", () => {
     const read = airThroughFlight(30, 10, 0).filter((r) => r.clock > 0);
-    // The first step past the line is one step's worth of growth, not a jump.
+    // The first step past the line is one step's worth of growth, not a jump:
+    // half a second in the air is not news.
     expect(read[0].grow).toBeLessThan(0.01);
     for (let i = 1; i < read.length; i++) {
-      expect(read[i].grow).toBeGreaterThanOrEqual(read[i - 1].grow);
+      expect(read[i].grow).toBeGreaterThan(read[i - 1].grow);
       expect(read[i].grow).toBeLessThanOrEqual(1);
     }
-    // A flight of nearly four seconds is worth the whole size.
-    expect(read[read.length - 1].grow).toBe(1);
-    // ...and a short one is nowhere near it, so the size is still saying
-    // something across the flights a rider actually flies.
-    const hop = airThroughFlight(1.5, 6, 0).filter((r) => r.clock > 0);
-    expect(hop[hop.length - 1].grow).toBeLessThan(0.5);
+  });
+
+  it("spends most of its size on the flights a rider actually flies", () => {
+    // Two staged flights, one about a second and a half and one about four,
+    // against the same line. The size has to separate them plainly — a ramp
+    // that saved its growth for the seconds only the ocean deals would leave
+    // both of them looking the same.
+    const hop = airThroughFlight(1.5, 6, 0)
+      .filter((r) => r.clock > 0)
+      .pop()!;
+    const jump = airThroughFlight(30, 10, 0)
+      .filter((r) => r.clock > 0)
+      .pop()!;
+    expect(hop.clock).toBeLessThan(1.5);
+    expect(jump.clock).toBeGreaterThan(3.5);
+    expect(hop.grow).toBeLessThan(0.2);
+    expect(jump.grow).toBeGreaterThan(0.4);
+    // ...and neither is finished: the whole size belongs to a flight no ramp
+    // on the course can throw, so there is somewhere left to go.
+    expect(jump.grow).toBeLessThan(0.8);
   });
 });
 

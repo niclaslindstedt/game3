@@ -31,19 +31,29 @@ import { buildMinimap, type HudMinimap } from "./minimap-view.ts";
 const BRAKE_SHOWN = 0.05;
 const ASTERN_FROM = 0.3;
 
-/** THE AIR CLOCK'S OWN THREE NUMBERS.
+/** THE AIR CLOCK'S OWN NUMBERS.
  *
- * `AIR_BIG` is the flight, s, the readout has finished growing at — past a
- * ramp's whole arc, so the size is still saying something over the flights
- * a rider actually flies rather than sitting pinned at the top of its range
- * all run. `AIR_HOLD` is how long the record stays on screen after the
- * landing that set it: long enough to read the number and see the word, not
- * long enough to still be there at the next buoy. Both are read against the
- * engine's own clock (`progress.bestAirAt`), so nothing here keeps time.
+ * The readout grows over TWO ranges with a knee between them, because the
+ * flights it has to cover span two orders. `AIR_KNEE` is the flight, s, a
+ * rider reads as a big one — five seconds, well past any ramp on the course
+ * — and the tile spends `KNEE_SHARE` of its whole growth getting there, so
+ * every second of an ordinary jump is worth something on screen. Past it the
+ * range runs on to `AIR_BIG`, twenty seconds, which is not a jump at all but
+ * a rider thrown by the open ocean or taken by the tornado: the last of the
+ * size is spread thin over it, so the top stays reachable and almost never
+ * reached. At the line a flight starts counting at (`flight.airCounts`) the
+ * tile is at its floor — half a second in the air is not news.
  *
- * How much bigger the tile is DRAWN at the top of that range is the
- * styling's to say (`.hud-air` in `styles.css`); this hands it the share. */
-const AIR_BIG = 3;
+ * `AIR_HOLD` is how long the record stays on screen after the landing that
+ * set it — long enough to read the number and see the word, not long enough
+ * to still be there at the next buoy. It is read against the engine's own
+ * clock (`progress.bestAirAt`), so nothing here keeps time.
+ *
+ * How much bigger the tile is DRAWN at the top of the range is the styling's
+ * to say (`.hud-air` in `styles.css`); this hands it the share. */
+const AIR_KNEE = 5;
+const AIR_BIG = 20;
+const KNEE_SHARE = 0.7;
 const AIR_HOLD = 2.4;
 
 export type HudSnapshot = {
@@ -146,6 +156,20 @@ export type HudSnapshot = {
  * engine's own time rather than starting a timer of its own — and a hold
  * interrupted by the next flight simply loses to it, because a live clock is
  * always the better news. */
+/** How far the air clock has grown, 0..1, for a flight of `time` seconds
+ * counted from `line`. Two straight runs with a knee at `AIR_KNEE`: steep
+ * to there so an ordinary jump grows visibly second by second, shallow past
+ * it so the seconds only the open ocean deals still have somewhere to go.
+ * A single straight line across the whole range would spend nearly all of
+ * its size on flights nobody flies; a single curve would have no flight a
+ * rider could point at as the moment it stops climbing. */
+function airGrow(time: number, line: number): number {
+  if (time <= line) return 0;
+  if (time <= AIR_KNEE) return (KNEE_SHARE * (time - line)) / (AIR_KNEE - line);
+  const past = Math.min(1, (time - AIR_KNEE) / (AIR_BIG - AIR_KNEE));
+  return KNEE_SHARE + (1 - KNEE_SHARE) * past;
+}
+
 function airClock(state: GameState): { time: number; grow: number; record: boolean } {
   const c = state.craft;
   const p = state.progress;
@@ -155,7 +179,7 @@ function airClock(state: GameState): { time: number; grow: number; record: boole
   const time = live > 0 ? live : held ? p.bestAir : 0;
   return {
     time,
-    grow: Math.min(1, Math.max(0, (time - line) / (AIR_BIG - line))),
+    grow: airGrow(time, line),
     record: live > 0 ? p.bestAir > 0 && live > p.bestAir : held,
   };
 }
