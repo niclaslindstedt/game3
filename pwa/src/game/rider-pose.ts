@@ -251,7 +251,10 @@ export type RiderRead = {
   /** `riderAft` and `riderRight`, m. */
   aft: number;
   right: number;
-  /** `throttleEff`, 0..1, and the speed as a share of the top speed. */
+  /** What the pump is DRIVING him with, 0..1 (`throttleEff` less the share
+   * the reverse bucket has turned around), and the way made good as a
+   * share of the top speed. Both are what buys the crouch, so both are
+   * nothing on a craft going backwards under the gate. */
   throttle: number;
   pace: number;
   /** `CraftState.crouch`, 0..1 — how far into the tuck the rider is. */
@@ -617,7 +620,7 @@ export function createRiderDynamics(): RiderDynamics {
   let crushV = 0;
   let primed = false;
   let pVy = 0;
-  let pSpeed = 0;
+  let pWay = 0;
   let pWx = 0;
   let pWz = 0;
   let topFor: CraftSpec | null = null;
@@ -655,20 +658,40 @@ export function createRiderDynamics(): RiderDynamics {
       else if (e.kind === "ground")
         bobV += Math.min(DYNAMICS.groundLurchMax, DYNAMICS.groundLurch * e.speed);
     }
+    // THE SURGE IS SIGNED, and it is the way made good rather than |v|. A
+    // speed MAGNITUDE has no reverse in it: a craft gathering way astern is
+    // a craft whose |v| is growing, so differencing it threw the rider BACK
+    // against a jet that was pushing him forward, and every brake held past
+    // the stop flipped the torso through the vertical at the instant the
+    // hull changed ends — which is most of what reads as the rider lurching
+    // about while backing off a mark. The way passes through zero without a
+    // sign change, and accelerating astern throws the body at the bars,
+    // which is where it actually goes.
+    //
+    // `CraftState.way` is the engine's own reading and the only one — signed,
+    // off the nose rather than off `c.heading`, which swings 180° as the pitch
+    // folds at ±90° and would hand the body one enormous step of surge half
+    // way round a flip. `state.ts` says the rest.
+    const way = c.way;
     if (!primed) {
       pVy = c.vy;
-      pSpeed = c.speed;
+      pWay = way;
       pWx = c.wx;
       pWz = c.wz;
       primed = true;
       return;
     }
     const ay = (c.vy - pVy) / dt;
-    const surge = (c.speed - pSpeed) / dt;
+    // ...and AFLOAT ONLY. Nothing pushes a rider along a hull in the air —
+    // gravity takes him and the machine equally — so the surge is the
+    // water's or it is nothing. Left running, a flip's own rotation swung
+    // the nose out from under the velocity and drove the torso to its stop
+    // and back on every one.
+    const surge = c.airborne ? 0 : (way - pWay) / dt;
     const pitchAcc = (c.wx - pWx) / dt;
     const rollAcc = (c.wz - pWz) / dt;
     pVy = c.vy;
-    pSpeed = c.speed;
+    pWay = way;
     pWx = c.wx;
     pWz = c.wz;
 
@@ -714,8 +737,22 @@ export function createRiderDynamics(): RiderDynamics {
       right: c.riderRight,
       tuck: c.crouch,
       stand: c.stand,
-      throttle: c.throttleEff,
-      pace: clamp(c.speed / top, 0, 1),
+      // THE CROUCH IS BOUGHT BY DRIVE, NOT BY REVOLUTIONS. The brake lever
+      // opens the throttle itself — the bucket can only turn flow the pump
+      // is already making (`TUNING.pump.bucketThrottle`, 0.65) — so a rider
+      // hard on the brake reads as a rider hard on the gas, and sat there
+      // in a racing tuck at walking pace with the gate down. What the gate
+      // has turned around is not driving him into the wind, so it buys no
+      // crouch: the throttle is discounted by how far the bucket has swung.
+      // The forward lean under braking is not lost with it — that one is
+      // the DECELERATION, and it arrives through `bob`, where it belongs.
+      throttle: c.throttleEff * (1 - c.bucket),
+      // ...and the pace is the WAY MADE GOOD, so a hull going backwards
+      // buys none of the lean into the wind either: there is no wind on a
+      // man crawling astern at walking pace. In the AIR it stays `c.speed`,
+      // untouched — a hull flying backwards is still flying through air at
+      // all of it, and the nose is no guide to the wind up there.
+      pace: clamp((c.airborne ? c.speed : c.way) / top, 0, 1),
       airborne: c.airborne,
       haul,
       haulSide,

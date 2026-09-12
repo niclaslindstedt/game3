@@ -488,6 +488,23 @@ export const TUNING = {
     leanIn: 0.28,
     /** Rider mass shift lag, s: a body moves slower than a thumb. */
     leanLag: 0.18,
+    /** THE WAY ASTERN, m/s, at which both shifts are fully stood down —
+     * the speed BACKWARDS that has the rider sat up and sat square.
+     *
+     * Neither shift survives the hull changing ends. Leaning back is how a
+     * rider unsticks a bow he is driving under; hanging off is how he
+     * holds a carve — and a craft crawling backwards off a mark at walking
+     * pace is doing neither. Reverse on a real machine is a few throttle
+     * bursts with the rider upright and looking where he is going, and a
+     * man hung off the side of one is a man about to swim. Left in, the
+     * hang alone was worth 53\u00b0 of steady heel on a hull doing 12 km/h
+     * astern, which is a machine lying on its ear.
+     *
+     * A metre a second because that is the whole of walking pace: the
+     * shifts are gone by the time the hull is genuinely making way
+     * backwards, and a transom that dips below zero for one wave under the
+     * brake does not twitch the body. */
+    asternFade: 1,
   },
 
   /** THE STAND-UP (`CraftState.stand`): the rider off the seat and back

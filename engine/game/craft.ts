@@ -224,11 +224,30 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.pitch = r.pitch;
     c.roll = r.roll;
     c.speed = Math.hypot(c.vx, c.vy, c.vz);
+    c.way = 0;
     c.airborne = false;
     c.airTime = 0;
     c.capsizedFor = 0;
     return;
   }
+  // HOW MUCH OF THE HULL'S WAY IS STILL FORWARDS, 1 down to 0 — what the
+  // rider's two weight shifts are scaled by below, because both of them are
+  // forward technique and neither has any business surviving the craft
+  // changing ends.
+  //
+  // Two things keep it honest, and a backflip is what tests both. It is read
+  // off the NOSE taken out of `c.q` and flattened, never off `c.heading`:
+  // heading is derived through `toEuler`, which folds pitch back at ±90° and
+  // swings the heading a clean 180° to compensate, so a hull half way round a
+  // flip reads as one going backwards. And it only applies AFLOAT — a hull
+  // inverted at the top of a flip genuinely is travelling backwards along its
+  // own nose, and there is no water under it to go astern through. Either one
+  // missing strips the rider of his pitch authority at the one moment he
+  // needs all of it (`tests/craft_test.ts`'s speed-class flight case).
+  const nose = rotate(c.q, { x: 0, y: 0, z: 1 });
+  c.way = c.vx * nose.x + c.vz * nose.z;
+  const ahead = c.airborne ? 1 : 1 - clamp(-c.way / T.rider.asternFade, 0, 1);
+
   // THE RIDER moves first: a body on a seat, slower than a thumb. Back is
   // aft; a turn is leaned INTO.
   //
@@ -286,15 +305,25 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     // the step. Shoving the bars the other way takes it at once, because a
     // rider pushing the nose down is not a rider whose weight is still
     // over the transom.
+    //
+    // ...and THE TWO SHIFTS HE ASKS FOR ARE FORWARD TECHNIQUE, so both stand
+    // down as the hull's own way turns astern (`rider.asternFade`). Sliding
+    // back down the seat unsticks a bow being driven under and hanging off
+    // holds a carve; a craft backing off a mark at walking pace has neither
+    // to do, and a rider who kept hanging off through it heeled the hull
+    // onto its ear and stayed there. The STAND and the YANK are not faded
+    // with them: both are the trick's own posture rather than technique for
+    // the water, neither can be asked for without throttle or air, and what
+    // puts a craft on its tail is never a craft going backwards.
     c.yank = input.lean < 0 ? 0 : Math.max(0, c.yank - dt / T.flight.yankFade);
     const reach = 1 - T.tuck.leanCut * c.crouch;
     const k = 1 - Math.exp(-dt / T.rider.leanLag);
     const aft =
-      clamp(input.lean, -1, 1) * T.rider.leanReach * reach +
+      clamp(input.lean, -1, 1) * T.rider.leanReach * reach * ahead +
       c.stand * T.stand.reach +
       c.yank * T.flight.yankReach;
     c.riderAft += (aft - c.riderAft) * k;
-    c.riderRight += (clamp(input.steer, -1, 1) * T.rider.leanIn * reach - c.riderRight) * k;
+    c.riderRight += (clamp(input.steer, -1, 1) * T.rider.leanIn * reach * ahead - c.riderRight) * k;
   }
 
   // THE WATER under every probe.

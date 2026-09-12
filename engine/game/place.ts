@@ -117,6 +117,12 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   c.throttleEff = speed > 1 ? 1 : 0;
   c.planing = speed > 8 ? 1 : 0;
   c.speed = Math.hypot(c.vx, c.vy, c.vz);
+  // ...and the WAY beside it: a placed craft is pointed where it is going, so
+  // the way made good is the whole of that speed. It is written here because
+  // it is a readout like `speed`, and anything derived that a placement leaves
+  // stale is a step the first frame has to take — the rider's own pose read
+  // one and jumped 5° on the first step of every staged run.
+  c.way = speed;
   if (moment.time !== undefined) state.progress.time = moment.time;
   if (moment.nextGate !== undefined) {
     state.progress.nextGate = clamp(moment.nextGate, 0, state.level.course.gates.length);
