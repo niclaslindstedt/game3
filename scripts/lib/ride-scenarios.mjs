@@ -119,6 +119,14 @@ export const SCENARIOS = {
       input: () => NEUTRAL,
     }),
   },
+  jet: {
+    blurb: "the throttle opened from a dead stop: the jet before the trail",
+    seconds: 4,
+    stage: (level) => ({
+      moment: { x: level.start.x, z: level.start.z, heading: level.start.heading },
+      input: () => ({ ...NEUTRAL, throttle: 1 }),
+    }),
+  },
   cruise: {
     blurb: "flat out down the straight from the start",
     seconds: 8,

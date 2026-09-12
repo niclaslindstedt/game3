@@ -44,7 +44,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
 | The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife`, `SCENE=breach` | `nature`, `water-look`  |
 | The water as DRAWN: the grid, the shader, the mirror, a coast's optics | `screenshots` (two skies, zoomed), `profile` | `water-look`     |
-| The spray, the wake, the footprints, a pulse in the hands | `screenshots`, `profile`     | `visual-effects`                               |
+| The spray, the wake, the footprints, a pulse in the hands | `wake`, `screenshots`, `profile` | `visual-effects`                           |
 | What grows on the shore: the trees, the scrub, the reed | `flora`, `screenshots SCENE=river`, `profile` | `nature`                    |
 | The birds: the roster, where a flock lives, how it flies, what crosses | `birds`, `screenshots SCENE=birds`, `profile` | `nature`, `atmosphere` |
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
@@ -58,7 +58,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `crafts`, `level`, `analyze` and `audition` are pure Node — no build, no browser, seconds (the audition's `--meter` is the one browser-driven half: it drives the page it wrote in Chromium and prints every level). `screenshots`, `profile`, `sky`, `flora` and `birds` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky`, `flora` and `birds` build their own one-off bundle from a harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level`, `analyze` and `audition` are pure Node — no build, no browser, seconds (the audition's `--meter` is the one browser-driven half: it drives the page it wrote in Chromium and prints every level). `screenshots`, `profile`, `sky`, `flora` and `birds` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky`, `flora`, `birds` and `wake` build their own one-off bundle from a harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
 Five of these are worth knowing about even when they are not your subject:
 
@@ -66,6 +66,7 @@ Five of these are worth knowing about even when they are not your subject:
 - **`make waves SEED=38`** is the sea with nothing riding it: a transect from the shore out, Hs against offshore distance, the spectrum. A wave-model change is judged by the sea it makes, and a screenshot shows one wave.
 - **`make sim`** is CI's `simulate` job and exits non-zero when a craft finishes NO seed. Its digests are where a determinism regression shows first; `docs/simulation.md` says what every column means.
 - **`make flora`** is every species on the shore side by side, each drawn at both ends of its own height band over a metre rule. Same reason as the sky's sheet: a screenshot of a RUN shows whichever species that stretch of coast happened to grow, at whatever range the craft happened to be, against a wood of everything else — so a reed that is too pale comes back looking like a shore that is fine.
+- **`make wake`** is the trail from STRAIGHT ABOVE, one column a moment along a scripted run, so the sheet reads left to right as the wake being laid. It exists because every camera in the game is a chase camera: the trail is only ever seen end-on, down its own length, foreshortened to a stripe — while every reference photograph of a wake is from overhead. A V that stops opening too early, a road twice the width it should be and a mark that is missing from the map rather than merely invisible in it all look the same from behind, and each of them shipped that way.
 - **`make sky`** is every weather against every three hours of the clock, day and night, on ONE coast in ONE season (`ARGS="--season=autumn"` for the black nights), as a single labelled sheet. It exists because a seed is dealt one sky (R19) in one season at one hour (R13), so a screenshot of a RUN can only ever say whether that one sky is wrong — and the sky here is a LADDER, which is judged side by side or not at all.
 
 ## How work is done here

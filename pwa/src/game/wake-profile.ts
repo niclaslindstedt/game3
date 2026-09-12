@@ -547,6 +547,115 @@ export function trailAction(live: boolean, end: TrailEnd, moved: boolean): Trail
   return moved ? "lay" : "none";
 }
 
+// ── THE JET ───────────────────────────────────────────────────────────
+// WHAT THE PUMP DOES TO THE WATER BEFORE THE HULL HAS MOVED. Every other
+// mark here is something the hull's PASSAGE left: the road is water it went
+// over, the fan is water it shoved aside, and every one of them is gated on
+// pace, because at a standstill a hull has passed over nothing. But a
+// waterjet at a standstill is not doing nothing — it is firing its whole
+// mass flow astern, and the water behind the transom erupts. On the clock
+// that is what comes FIRST: the throttle opens, the jet blasts, and only
+// then does the craft begin to move and start laying a trail.
+//
+// So the jet is a mark laid off the craft's STATE — like the brake's pool
+// and the capsized hull's boil, and unlike the trail — because it is
+// attached to the nozzle rather than to the water. A narrow tongue astern
+// of the transom, spreading and dying over its reach, driven by the pump
+// and not by the speed.
+//
+// It FADES OUT as the craft picks up pace, and that is the physics rather
+// than a fudge: a transom standing still blasts the same patch of water for
+// as long as the throttle is open, so the white piles up in one place; a
+// transom at speed has left that water behind before it has finished
+// breaking, and what the jet churns becomes the ROAD instead. By the time
+// the road is white (`SPEED_FULL`) the jet has handed over entirely, and
+// the two cross without either of them popping.
+
+/** How far astern the jet reaches at a standstill, as a multiple of the
+ * hull's length, and its half-width at the nozzle and at that reach, as
+ * shares of the beam: a tongue, narrow where it leaves and spread where it
+ * has broken up. */
+const JET_REACH = 4.5;
+const JET_HALF_NOZZLE = 0.35;
+const JET_HALF_REACH = 1.6;
+/** The pace by which the jet has handed the water over to the road. It IS
+ * the pace at which the road is fully white, read off it rather than quoted
+ * beside it: the two are one hand-over, and a jet that let go before the
+ * road arrived would leave a stretch of open throttle with nothing on the
+ * water at all — which is the fault this whole mark exists to fix. */
+export const JET_STALL = SPEED_FULL;
+/** The white the jet churns at full throttle, and its churn — the highest
+ * in the file, because the water directly behind a nozzle is the most
+ * broken water anywhere near the craft. */
+const JET_FOAM = 0.95;
+const JET_CHURN = 1;
+/** How deep the jet digs the water at the nozzle at full, m: the stream is
+ * driving down and back, and the surface it leaves is a trench rather than
+ * a bulge. */
+const JET_HOLLOW = 0.12;
+/** The stations the jet is laid across, nozzle to reach. */
+export const JET_ROWS = 7;
+
+/** What the jet is doing, for a pump at `throttle` on a hull making `speed`
+ * m/s the way it points. `reach` and the half-widths are m; `blast` is 0..1
+ * — nothing at all at 0, which is what a shut throttle or a craft at pace
+ * both come to. */
+export type JetMark = {
+  blast: number;
+  reach: number;
+  halfNozzle: number;
+  halfReach: number;
+};
+
+export function jetMark(): JetMark {
+  return { blast: 0, reach: 0, halfNozzle: 0, halfReach: 0 };
+}
+
+export function jetBlast(
+  throttle: number,
+  speed: number,
+  length: number,
+  beam: number,
+  out: JetMark,
+): void {
+  // Linear in the hand-over, not squared: squared, the jet was already half
+  // gone by walking pace and the road had not started, which is a hole.
+  const stall = 1 - clamp(speed / JET_STALL, 0, 1);
+  out.blast = clamp(throttle, 0, 1) * stall;
+  out.reach = length * JET_REACH * out.blast;
+  out.halfNozzle = beam * JET_HALF_NOZZLE;
+  out.halfReach = beam * JET_HALF_REACH;
+}
+
+/** THE JET'S SECTION at `u` along it (0 at the nozzle, 1 at the reach) and
+ * `s` across it (−1..1 of the half-width there). */
+/** The jet's half-width at `u` along it, as a share of the beam. It opens
+ * FAST out of the nozzle and then holds, rather than widening evenly over
+ * the whole reach: a tongue that is still a hull's beam wide two metres
+ * astern is a tongue the hull itself hides from every camera in the game,
+ * which is where the first pass put it. */
+export function jetHalf(u: number, beam: number): number {
+  return beam * (JET_HALF_NOZZLE + (JET_HALF_REACH - JET_HALF_NOZZLE) * Math.sqrt(clamp(u, 0, 1)));
+}
+
+export function jetAt(u: number, s: number, blast: number, out: WakeSection): void {
+  const a = Math.abs(s);
+  // Along: full out of the nozzle, then broken up and gone. Across: a flat
+  // core feathering to nothing, so the tongue has an edge rather than being
+  // a cone of speckles — the same shape the brake's pool wants, and for the
+  // same reason.
+  const along = (1 - smoothstep(0.35, 1, u)) * (0.55 + 0.45 * (1 - u));
+  const across = 1 - smoothstep(0.45, 1, a);
+  const share = blast * along * across;
+  out.foam = JET_FOAM * share;
+  out.churn = JET_CHURN * share;
+  out.up = 0;
+  // The trench, at the nozzle and nowhere else: by the far end the stream is
+  // spread foam lying on the water rather than a jet driving into it.
+  out.down = JET_HOLLOW * share * (1 - smoothstep(0, 0.5, u));
+  out.cover = blast > 0 ? 1 : 0;
+}
+
 /** THE MAP the water shader reads the wake off: texels a side, and how far
  * it reaches either side of its centre, m. The centre stands
  * `WAKE_MAP_BACK` m behind the craft, because the wake is. */

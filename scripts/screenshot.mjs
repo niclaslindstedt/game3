@@ -59,6 +59,7 @@ const outDir = join(root, "previews");
  * own error in the console lines below the capture. */
 const SCENES = [
   "rest",
+  "jet",
   "cruise",
   "carve",
   "brake",

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds wake profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -176,6 +176,19 @@ screenshots:
 # `make sky` · `make sky ARGS="--rows=squall,rain"` · `make sky ARGS=--skip-build`
 sky:
 	node scripts/sky-preview.mjs $(ARGS)
+
+# THE TRAIL FROM STRAIGHT ABOVE: one column a moment along a scripted run,
+# so the sheet reads left to right as the wake being LAID — the jet blasting
+# astern off a standing start, the road catching up as the hull begins to
+# move, the fan opening behind it — `previews/wake.png`. The game has no view
+# of its own trail: every camera on the ladder is a chase camera, so the wake
+# is only ever seen end-on and foreshortened, while every reference
+# photograph of one is from overhead. Same Chromium requirements as
+# `screenshots`.
+# `make wake` · `make wake ARGS=--drive=carve` · `make wake ARGS=--channels`
+# `make wake ARGS="--times=0.1,0.3,0.6"` · `make wake ARGS=--skip-build`
+wake:
+	node scripts/wake-preview.mjs $(ARGS)
 
 # EVERY SPECIES ON THE SHORE SIDE BY SIDE: one contact sheet, one cell per
 # row of the flora roster, each drawn at both ends of its own height band

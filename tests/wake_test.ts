@@ -15,10 +15,12 @@ import {
   CUSP_WAVE,
   FAN_HALF_MAX,
   FAN_LIFE,
+  JET_STALL,
   KELVIN_TAN,
   RING_LIFE,
   RING_SPEED,
   ROAD_LIFE,
+  SPEED_FULL,
   SPEED_MIN,
   SPLASH_LIFE,
   SPLASH_STATIONS,
@@ -31,6 +33,9 @@ import {
   fanCusp,
   fanHalf,
   hullMark,
+  jetAt,
+  jetBlast,
+  jetMark,
   roadAt,
   roadHalf,
   roadStrength,
@@ -44,6 +49,7 @@ import {
 } from "../pwa/src/game/wake-profile.ts";
 
 const BEAM = 1.2;
+const LENGTH = 2.7;
 
 describe("the road", () => {
   it("is white only once the pump is churning at pace, and whiter on the throttle", () => {
@@ -438,5 +444,64 @@ describe("the trail's breaks", () => {
     // flight — one dead row, not one a step.
     expect(trailAction(false, "gap", false)).toBe("none");
     expect(trailAction(false, "none", true)).toBe("none");
+  });
+});
+
+describe("the jet", () => {
+  it("blasts astern from a standstill, before the hull has laid anything", () => {
+    // The thing the trail was missing: every other mark is something the
+    // hull's PASSAGE left, so with the throttle open and the craft not yet
+    // moving the whole sea was blank. A waterjet at rest is not doing
+    // nothing.
+    const j = jetMark();
+    jetBlast(1, 0, LENGTH, BEAM, j);
+    expect(j.blast).toBeCloseTo(1, 5);
+    expect(j.reach).toBeGreaterThan(LENGTH * 2);
+    // …and the road at that moment is laying nothing at all, which is what
+    // makes the jet the only thing on the water.
+    expect(roadStrength(0, 1)).toBe(0);
+  });
+
+  it("hands over to the road exactly as the road goes white", () => {
+    // One hand-over, not two numbers: a jet that let go first leaves a
+    // stretch of open throttle with nothing on the water.
+    expect(JET_STALL).toBe(SPEED_FULL);
+    const j = jetMark();
+    jetBlast(1, SPEED_FULL, LENGTH, BEAM, j);
+    expect(j.blast).toBe(0);
+    expect(roadStrength(SPEED_FULL, 1)).toBeCloseTo(1, 5);
+    // Halfway through, both are carrying about half of it.
+    jetBlast(1, SPEED_FULL / 2, LENGTH, BEAM, j);
+    expect(j.blast).toBeGreaterThan(0.3);
+    expect(roadStrength(SPEED_FULL / 2, 1)).toBeGreaterThan(0.3);
+  });
+
+  it("is the pump's, not the hull's: nothing on a shut throttle", () => {
+    const j = jetMark();
+    jetBlast(0, 0, LENGTH, BEAM, j);
+    expect(j.blast).toBe(0);
+    expect(j.reach).toBe(0);
+    jetBlast(0.5, 0, LENGTH, BEAM, j);
+    expect(j.blast).toBeCloseTo(0.5, 5);
+  });
+
+  it("is a tongue: whitest at the nozzle, gone by its reach, and digging only where it leaves", () => {
+    const s = wakeSection();
+    jetAt(0, 0, 1, s);
+    const nozzle = { ...s };
+    jetAt(1, 0, 1, s);
+    const end = { ...s };
+    expect(nozzle.foam).toBeGreaterThan(0.6);
+    expect(end.foam).toBeLessThan(nozzle.foam * 0.1);
+    // The stream drives down and back, so the surface it leaves at the
+    // nozzle is a trench — and by the far end it is foam lying on water.
+    expect(nozzle.down).toBeGreaterThan(0);
+    expect(end.down).toBe(0);
+    expect(nozzle.up).toBe(0);
+    // Across: a flat core with an edge, not a cone of speckles.
+    jetAt(0, 0.4, 1, s);
+    expect(s.foam).toBeCloseTo(nozzle.foam, 5);
+    jetAt(0, 1, 1, s);
+    expect(s.foam).toBe(0);
   });
 });
