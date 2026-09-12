@@ -51,7 +51,12 @@ import {
 import { LISTENERS, listenerFor } from "../pwa/src/game/audio/listener.ts";
 import { DEFAULT_VOLUME, playDef } from "../pwa/src/game/audio/play.ts";
 import { createRideBed } from "../pwa/src/game/audio/ride-bed.ts";
-import { bubblesForEvent, heardFrom, soundForEvent } from "../pwa/src/game/audio/route.ts";
+import {
+  bubblesForEvent,
+  heardFrom,
+  recordForEvent,
+  soundForEvent,
+} from "../pwa/src/game/audio/route.ts";
 import type { SoundBank } from "../pwa/src/game/audio/types.ts";
 import {
   SURF_REACH,
@@ -216,7 +221,7 @@ describe("the bank (audio/bank.ts)", () => {
     expect(peakOf(RUN_BANK)).toBeLessThanOrEqual(0.1);
     // The chimes are quieter than the water: the course is heard OVER a
     // run, never instead of one.
-    for (const id of ["gate", "air_gate", "missed", "finish"]) {
+    for (const id of ["gate", "air_gate", "missed", "finish", "air_record"]) {
       for (const voice of RUN_BANK[id].voices)
         expect(voice.volume ?? 1, id).toBeLessThanOrEqual(0.04);
     }
@@ -317,6 +322,28 @@ describe("the route (audio/route.ts)", () => {
     expect(over.count).toBeGreaterThan(dive.count);
     expect(bubblesForEvent({ kind: "gate", t: 0, gate: 0, split: 1 })).toBeNull();
     expect(bubblesForEvent({ kind: "hit", t: 0, solid: "skerry", speed: 9 })).toBeNull();
+  });
+
+  it("lays the record's own chime over the landing that took it, and nothing else", () => {
+    const landing = {
+      kind: "land",
+      t: 1,
+      vy: -4,
+      airTime: 2.4,
+      pitch: 0.1,
+      speed: 18,
+    } as const;
+    const best = recordForEvent({ ...landing, record: true })!;
+    expect(best.id).toBe("air_record");
+    expect(RUN_BANK[best.id]).toBeDefined();
+    // The landing is still a landing: the news is a SECOND voice over it,
+    // not a different splash.
+    expect(soundForEvent({ ...landing, record: true })!.id).toBe(
+      soundForEvent({ ...landing, record: false })!.id,
+    );
+    expect(recordForEvent({ ...landing, record: false })).toBeNull();
+    for (const event of EVERY_EVENT)
+      if (event.kind !== "land") expect(recordForEvent(event)).toBeNull();
   });
 
   it("hears a play from the seat: the listener's gain and its muffle", () => {

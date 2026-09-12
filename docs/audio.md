@@ -92,6 +92,16 @@ chirping upward as it rises. `bubbles.ts` plays each as one sine with its
 handful of small quick ones after a landing, the air out of a hull after a
 dive or a capsize.
 
+And a landing that took the run's LONGEST FLIGHT gets a second voice over the
+top of the splash: `recordForEvent` is a separate decision about the same
+event, the way `bubblesForEvent` is, so the landing still sounds like the
+landing it was — sized by how hard the hull arrived — and the news is laid
+over it rather than folded into it. The chime is pitched where the water is
+not: four thin sines climbing a major triad, no body at all, against a splash
+that is all body and no top. Whether it is a record at all is the ENGINE's
+word (`progress.bestAir`, decided in `step.ts`), so nothing in the audio
+compares one flight against another.
+
 ## How a bed is made
 
 The engine, the pump, the spray, the wind and the sea are not one-shots and

@@ -170,6 +170,12 @@ export type Progress = {
    * number is here to read back after. It stands across a reset: the rider
    * flew it, and being put back at a gate does not un-fly it. */
   bestAir: number;
+  /** The run clock that record was set at, s — 0 while `bestAir` is. A
+   * presentation that holds the record on screen for a moment after the
+   * landing measures the hold from here rather than running a clock of its
+   * own, which is what keeps the HUD a reader of the state
+   * (`pwa/src/game/snapshot.ts`). */
+  bestAirAt: number;
 };
 
 export type GameEvent =

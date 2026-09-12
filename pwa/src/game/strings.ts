@@ -41,6 +41,10 @@ export const STRINGS = {
   /** The air-time readout, tenths. */
   air: (seconds: number): string => `${seconds.toFixed(1)}s`,
   airLabel: "AIR",
+  /** The word under the air clock while the flight on it is the run's
+   * longest. Under rather than beside: the clock keeps the centreline and
+   * the news is read as a second line of the same readout. */
+  airRecordLabel: "RECORD",
   /** The minimap's readout: how far the next gate is, whole metres — and
    * what stands there once the last one is behind the craft. */
   mapToNext: (metres: number): string => `${Math.round(metres)} M`,

@@ -1138,22 +1138,88 @@ canvas {
   position: absolute;
   top: max(0.6rem, env(safe-area-inset-top));
   left: 50%;
-  transform: translateX(-50%);
   display: flex;
-  flex-direction: column;
-  align-items: center;
+  align-items: flex-start;
   line-height: 1;
   text-align: center;
   white-space: nowrap;
   color: var(--hud-good);
-  animation: hud-flash-pop 180ms ease-out;
+
+  /* THE SIZE IS PART OF THE READING. `--air-grow` is the snapshot's 0..1
+     from the line a flight starts counting at to one worth the whole size
+     (`snapshot.ts`), and the tile is drawn half again as big at the top of
+     it — so a rider reading nothing but the shape of the thing over his nose
+     still knows whether this one is big. The transition smooths the
+     snapshot's own twelve ticks a second into a growth rather than a
+     staircase, and the origin is the TOP edge so the tile grows DOWN into
+     the frame instead of up under the notch.
+
+     It arrives by FADING: this is the one readout that appears mid-run, and
+     a number that pops into the middle of the frame at the moment the hull
+     leaves the water is a flinch where the rider wanted a reading. */
+  --air-grow: 0;
+  --air-size: clamp(2.5rem, 9vmin, 4.4rem);
+  transform: translateX(-50%) scale(calc(1 + 0.5 * var(--air-grow)));
+  transform-origin: top center;
+  transition: transform 140ms linear;
+  animation: hud-air-in 420ms ease-out;
+}
+
+@keyframes hud-air-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+.hud-air-tile {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .hud-air-num {
-  font-size: clamp(2rem, 7vmin, 3.4rem);
+  font-size: var(--air-size);
   font-weight: 700;
   line-height: 1;
   font-variant-numeric: tabular-nums;
+}
+
+/* THE RUN'S BEST, BEING FLOWN OR JUST FLOWN. The clock holds the winning
+   number for a couple of seconds after the landing (`snapshot.ts` measures
+   the hold off the engine's `progress.bestAirAt`), and while it does the
+   tile BREATHES — the one thing on this screen that moves under its own
+   steam, which is what separates "still up there" from "that was the one".
+
+   The word is the column's third line, under the unit label: the clock is
+   centred on the frame and stays there whether the news is up or not, and
+   the tile — anchored by its top edge — grows DOWNWARD to make room. A word
+   laid out beside the number would push the number off the centreline. */
+.hud-air-record .hud-air-tile {
+  animation: hud-air-pulse 640ms ease-in-out infinite;
+}
+
+.hud-air-best {
+  margin-top: 0.35em;
+  font-size: clamp(0.72rem, 2.3vmin, 1.05rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  animation: hud-air-in 260ms ease-out;
+}
+
+@keyframes hud-air-pulse {
+  0%,
+  100% {
+    transform: scale(1);
+  }
+  50% {
+    transform: scale(1.07);
+    text-shadow:
+      0 1px 0 var(--hud-shadow),
+      0 0 0.45em var(--hud-good);
+  }
 }
 
 /* The bottom-right corner: the news column, with the new-build mark pinned
@@ -3619,5 +3685,21 @@ button.knob-read:focus-visible {
 
   .loading-bar-sweeping .loading-bar-fill {
     transform: scaleX(0.35);
+  }
+
+  /* The air clock's record still STICKS and still lights up; what stops is
+     the breathing. A readout pulsing on forever over the middle of the frame
+     is exactly the motion this setting is asking about, and the glow and the
+     word beside it say the same thing standing still. The clock's own growth
+     is not motion for motion's sake — the size IS the reading — so it stays,
+     and so does the fade, which is opacity and travels nowhere. */
+  .hud-air-record .hud-air-tile {
+    animation: none;
+  }
+
+  .hud-air-record .hud-air-tile {
+    text-shadow:
+      0 1px 0 var(--hud-shadow),
+      0 0 0.45em var(--hud-good);
   }
 }

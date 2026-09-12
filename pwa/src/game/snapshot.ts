@@ -31,6 +31,31 @@ import { buildMinimap, type HudMinimap } from "./minimap-view.ts";
 const BRAKE_SHOWN = 0.05;
 const ASTERN_FROM = 0.3;
 
+/** THE AIR CLOCK'S OWN NUMBERS.
+ *
+ * The readout grows over TWO ranges with a knee between them, because the
+ * flights it has to cover span two orders. `AIR_KNEE` is the flight, s, a
+ * rider reads as a big one — five seconds, well past any ramp on the course
+ * — and the tile spends `KNEE_SHARE` of its whole growth getting there, so
+ * every second of an ordinary jump is worth something on screen. Past it the
+ * range runs on to `AIR_BIG`, twenty seconds, which is not a jump at all but
+ * a rider thrown by the open ocean or taken by the tornado: the last of the
+ * size is spread thin over it, so the top stays reachable and almost never
+ * reached. At the line a flight starts counting at (`flight.airCounts`) the
+ * tile is at its floor — half a second in the air is not news.
+ *
+ * `AIR_HOLD` is how long the record stays on screen after the landing that
+ * set it — long enough to read the number and see the word, not long enough
+ * to still be there at the next buoy. It is read against the engine's own
+ * clock (`progress.bestAirAt`), so nothing here keeps time.
+ *
+ * How much bigger the tile is DRAWN at the top of the range is the styling's
+ * to say (`.hud-air` in `styles.css`); this hands it the share. */
+const AIR_KNEE = 5;
+const AIR_BIG = 20;
+const KNEE_SHARE = 0.7;
+const AIR_HOLD = 2.4;
+
 export type HudSnapshot = {
   speedKmh: number;
   /** Revs as a share of the redline, 0..1, and where idle sits on the
@@ -98,6 +123,16 @@ export type HudSnapshot = {
    * the hull's own truth and stays honest: the spray and the sound read
    * the state, this is what is READ OUT. */
   airTime: number;
+  /** How far the clock has grown, 0..1 from the line (`flight.airCounts`) to
+   * a flight worth the whole size — the one readout that says how big the
+   * moment is by how big it IS. */
+  airGrow: number;
+  /** THE RUN'S BEST, being flown or just flown: true while the clock above
+   * is on course to beat `progress.bestAir`, and for a moment after the
+   * landing that took it, which is the moment the clock is HOLDING rather
+   * than running. What makes the readout stick and pulse, and what puts the
+   * word beside it. */
+  airRecord: boolean;
   seed: number;
   craft: CraftId;
   /** The minimap for this frame — the coast around the craft, the gates on
@@ -107,6 +142,48 @@ export type HudSnapshot = {
   minimap: HudMinimap;
 };
 
+/** THE AIR CLOCK: what it reads, how big it is drawn, and whether it is
+ * showing a record.
+ *
+ * A flight under `flight.airCounts` is a hop off a crest and not air time at
+ * all, so the clock is 0 through it. Past the line it reads the flight, and
+ * once the flight has beaten the run's best it says so WHILE IT IS STILL IN
+ * THE AIR — the rider knows he is on one before he has landed it, which is
+ * the whole point of putting the number over the nose.
+ *
+ * Then it STICKS. `progress.bestAirAt` is the run clock the record landed
+ * at, so the readout holds the winning number for `AIR_HOLD` seconds off the
+ * engine's own time rather than starting a timer of its own — and a hold
+ * interrupted by the next flight simply loses to it, because a live clock is
+ * always the better news. */
+/** How far the air clock has grown, 0..1, for a flight of `time` seconds
+ * counted from `line`. Two straight runs with a knee at `AIR_KNEE`: steep
+ * to there so an ordinary jump grows visibly second by second, shallow past
+ * it so the seconds only the open ocean deals still have somewhere to go.
+ * A single straight line across the whole range would spend nearly all of
+ * its size on flights nobody flies; a single curve would have no flight a
+ * rider could point at as the moment it stops climbing. */
+function airGrow(time: number, line: number): number {
+  if (time <= line) return 0;
+  if (time <= AIR_KNEE) return (KNEE_SHARE * (time - line)) / (AIR_KNEE - line);
+  const past = Math.min(1, (time - AIR_KNEE) / (AIR_BIG - AIR_KNEE));
+  return KNEE_SHARE + (1 - KNEE_SHARE) * past;
+}
+
+function airClock(state: GameState): { time: number; grow: number; record: boolean } {
+  const c = state.craft;
+  const p = state.progress;
+  const line = TUNING.flight.airCounts;
+  const live = c.airTime > line ? c.airTime : 0;
+  const held = p.bestAir > 0 && state.t - p.bestAirAt < AIR_HOLD;
+  const time = live > 0 ? live : held ? p.bestAir : 0;
+  return {
+    time,
+    grow: airGrow(time, line),
+    record: live > 0 ? p.bestAir > 0 && live > p.bestAir : held,
+  };
+}
+
 export function takeSnapshot(state: GameState): HudSnapshot {
   const c = state.craft;
   const p = state.progress;
@@ -114,6 +191,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
   const blowsTo = Math.atan2(wind.vx, wind.vz);
   const hour = sunHourAt(state.level, state.t);
   const sun = sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season);
+  const air = airClock(state);
   return {
     hour,
     daylight: daylightOf(sun),
@@ -147,7 +225,9 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     windAngle: (blowsTo - c.heading) * SCREEN_TO_ENGINE,
     windMs: Math.hypot(wind.vx, wind.vz),
     airborne: c.airborne,
-    airTime: c.airTime > TUNING.flight.airCounts ? c.airTime : 0,
+    airTime: air.time,
+    airGrow: air.grow,
+    airRecord: air.record,
     seed: state.seed,
     craft: c.spec.id,
     minimap: buildMinimap(state),

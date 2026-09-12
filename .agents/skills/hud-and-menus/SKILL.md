@@ -71,7 +71,13 @@ here, the keys that walk a card are there.
 - **The HUD reads `GameState` and writes nothing.** No HUD-side timer, no
   HUD-side split arithmetic, no HUD-side "airborne" guess from `y`. If a
   readout needs a number the engine does not expose, the engine grows a
-  field (the `engine-system` skill) — never the HUD a formula.
+  field (the `engine-system` skill) — never the HUD a formula. **A readout
+  that has to OUTLIVE the moment that raised it** — a record held on screen
+  after the landing, a warning that lingers — is the same rule wearing a
+  clock: the engine publishes WHEN it happened (`progress.bestAirAt` beside
+  `bestAir`) and the snapshot compares it against `state.t`. A `useEffect`
+  with a `setTimeout` in it is the wrong answer twice over — it does not
+  pause with the run and it does not rewind with a reset.
 - **The minimap draws in SCREEN space, and that is downstream of ONE flip.**
   `input-model.ts`'s `SCREEN_TO_ENGINE` is the sign boundary; the map's
   projection (`mx = -x`, `my = -z`) and the icon's negated heading are the
