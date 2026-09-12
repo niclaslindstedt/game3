@@ -102,6 +102,34 @@ that is all body and no top. Whether it is a record at all is the ENGINE's
 word (`progress.bestAir`, decided in `step.ts`), so nothing in the audio
 compares one flight against another.
 
+### The score's three sounds
+
+The trick score (`engine/game/tricks.ts`, `docs/riding.md`) emits three events,
+and each is an event sound like any other — a rung in `route.ts` and a def in
+the bank. What is worth saying about them is the SCALING, because all three
+cover a range two orders wide.
+
+- **`trick`** — a revolution closed in the air, and the multiplier up a rung.
+  A latch and two notes rising a fourth, and the rung is the PITCH: a minor
+  third per turn of the same flight, capped at four turns. One chime climbing,
+  never a def per turn. It is heard where the water is not — off the lip the
+  pump unloads and the bed thins to the wind and a free-revving engine — so
+  it needs none of the weight a splash needs and sits at the top of the mix
+  on its own. It is short because a double backflip fires it twice inside a
+  second and two of those have to read as two.
+- **`combo_bank`** — the combo paid, a second after the hull is back on the
+  water. A major triad and its octave straight up, the finish's phrase at half
+  the length. TWO axes, because the event carries two different facts: the
+  PURSE decides how loud and how long, the MULTIPLIER decides how high. A
+  four-second flight with a double backflip in it is past `COMBO_FULL` and as
+  big as this ever gets; a one-second hop banks every few seconds all run and
+  is held at the floor, a tick under the beds rather than a chime over them.
+- **`bail`** — the combo on the floor. The missed gate's inversion: two driven
+  squares falling with a sine draining under them, dry, no echo anywhere.
+  Sized by what was lost and never pitched up — the multiplier died with it.
+  It plays over a capsize or a bow buried, the heaviest water in the bank, so
+  it lives entirely in the midrange those two have nothing in.
+
 ## How a bed is made
 
 The engine, the pump, the spray, the wind and the sea are not one-shots and

@@ -162,19 +162,40 @@ function peakOf(bank: SoundBank): number {
 }
 
 /** One event of every kind the engine can emit, at a middling size. */
-const EVERY_EVENT: GameEvent[] = [
-  { kind: "gate", t: 1, gate: 0, split: 12 },
-  { kind: "airGate", t: 1, gate: 1, split: 20, height: 3 },
-  { kind: "missedGate", t: 1, gate: 2, penalty: 5 },
-  { kind: "launch", t: 1, vy: 4, speed: 20 },
-  { kind: "land", t: 1, vy: -4, airTime: 0.8, pitch: 0.1, speed: 18, record: false },
-  { kind: "dive", t: 1, depth: 0.8, speed: 15 },
-  { kind: "hit", t: 1, solid: "skerry", speed: 9 },
-  { kind: "ground", t: 1, speed: 4 },
-  { kind: "capsize", t: 1, speed: 2 },
-  { kind: "reset", t: 1, gate: 3 },
-  { kind: "finish", t: 1, time: 88 },
-];
+/** ONE SAMPLE OF EVERY EVENT THE ENGINE CAN EMIT, keyed by kind so the
+ * TYPE is what keeps the list complete: a new `GameEvent` variant does not
+ * compile until a sample for it is written here, which is the only way this
+ * file's first guard — an event nothing answers — can actually hold. A
+ * hand-written array cannot do that job: it goes quietly out of date the
+ * day a variant is added, and the test still passes.
+ *
+ * `tornado` is the one kind with no rung: it is a wind, and what is heard
+ * is the sea it throws the hull out of. The coverage check below names it
+ * as the exception rather than looping over a list that leaves it out. */
+const EVERY_EVENT_BY_KIND: { [K in GameEvent["kind"]]: Extract<GameEvent, { kind: K }> } = {
+  gate: { kind: "gate", t: 1, gate: 0, split: 12 },
+  airGate: { kind: "airGate", t: 1, gate: 1, split: 20, height: 3 },
+  missedGate: { kind: "missedGate", t: 1, gate: 2, penalty: 5 },
+  launch: { kind: "launch", t: 1, vy: 4, speed: 20 },
+  land: { kind: "land", t: 1, vy: -4, airTime: 0.8, pitch: 0.1, speed: 18, record: false },
+  dive: { kind: "dive", t: 1, depth: 0.8, speed: 15 },
+  hit: { kind: "hit", t: 1, solid: "skerry", speed: 9 },
+  ground: { kind: "ground", t: 1, speed: 4 },
+  capsize: { kind: "capsize", t: 1, speed: 2 },
+  tornado: { kind: "tornado", t: 1, grip: 0.8, wind: 40, speed: 22 },
+  trick: { kind: "trick", t: 1, trick: "backflip", spins: 1, points: 300, mult: 2 },
+  combo: { kind: "combo", t: 1, points: 944, base: 472, mult: 2 },
+  bail: { kind: "bail", t: 1, lost: 944 },
+  reset: { kind: "reset", t: 1, gate: 3 },
+  finish: { kind: "finish", t: 1, time: 88 },
+};
+
+/** The kinds the bank deliberately says nothing about, with the reason. */
+const SILENT_KINDS: GameEvent["kind"][] = ["tornado"];
+
+const EVERY_EVENT: GameEvent[] = Object.values(EVERY_EVENT_BY_KIND).filter(
+  (e) => !SILENT_KINDS.includes(e.kind),
+);
 
 const STRIP = syntheticLevel({ windSpeed: 8, noSolids: true, seaward: 1200 });
 
@@ -295,6 +316,79 @@ describe("the route (audio/route.ts)", () => {
     expect(hard.shape!.stretch!).toBeGreaterThan(soft.shape!.stretch!);
     // A floor under the gentlest landing: a hull is heavy.
     expect(soft.shape!.gain!).toBeGreaterThan(0.6);
+  });
+
+  it("climbs a revolution's chime with the turn, and stops climbing at the cap", () => {
+    const single = soundForEvent({
+      kind: "trick",
+      t: 0,
+      trick: "backflip",
+      spins: 1,
+      points: 300,
+      mult: 2,
+    })!;
+    const double = soundForEvent({
+      kind: "trick",
+      t: 0,
+      trick: "backflip",
+      spins: 2,
+      points: 600,
+      mult: 4,
+    })!;
+    const absurd = soundForEvent({
+      kind: "trick",
+      t: 0,
+      trick: "backflip",
+      spins: 9,
+      points: 2700,
+      mult: 46,
+    })!;
+    expect(single.id).toBe("trick");
+    expect(double.id).toBe("trick");
+    // The second turn of a flight has to be heard as the second, not as a
+    // repeat: a minor third up and a touch louder.
+    expect(double.shape!.pitch!).toBeGreaterThan(single.shape!.pitch!);
+    expect(double.shape!.gain!).toBeGreaterThan(single.shape!.gain!);
+    // ...and the ladder is bounded, so a combo nobody has flown cannot run
+    // off the top of the mix.
+    expect(absurd.shape!.pitch!).toBeLessThanOrEqual(2);
+    expect(absurd.shape!.gain!).toBeLessThan(1.6);
+    // A frontflip is the same trick the other way round — the same sound.
+    const front = soundForEvent({
+      kind: "trick",
+      t: 0,
+      trick: "frontflip",
+      spins: 1,
+      points: 300,
+      mult: 2,
+    })!;
+    expect(front).toEqual(single);
+  });
+
+  it("sizes a banked combo by its purse and pitches it by its multiplier", () => {
+    const hop = soundForEvent({ kind: "combo", t: 0, points: 40, base: 40, mult: 1 })!;
+    const flipped = soundForEvent({ kind: "combo", t: 0, points: 5876, base: 1469, mult: 4 })!;
+    expect(hop.id).toBe("combo_bank");
+    expect(flipped.id).toBe("combo_bank");
+    expect(flipped.shape!.gain!).toBeGreaterThan(2 * hop.shape!.gain!);
+    expect(flipped.shape!.stretch!).toBeGreaterThan(hop.shape!.stretch!);
+    // The multiplier is the OTHER axis: a combo taken at a rung is brighter
+    // than a pile of air time worth the same.
+    expect(flipped.shape!.pitch!).toBeGreaterThan(hop.shape!.pitch!);
+    expect(hop.shape!.pitch!).toBe(1);
+    // A one-second hop banks every few seconds all run: it has to be a tick
+    // under the beds, not a chime over them.
+    expect(hop.shape!.gain!).toBeLessThan(0.7);
+  });
+
+  it("sizes a bail by what it lost, and never lifts its pitch", () => {
+    const small = soundForEvent({ kind: "bail", t: 0, lost: 60 })!;
+    const big = soundForEvent({ kind: "bail", t: 0, lost: 5876 })!;
+    expect(small.id).toBe("bail");
+    expect(big.shape!.gain!).toBeGreaterThan(small.shape!.gain!);
+    // The multiplier died with the combo, so nothing about this rises.
+    expect(small.shape!.pitch).toBeUndefined();
+    expect(big.shape!.pitch).toBeUndefined();
   });
 
   it("makes a harder hit louder, lower and longer — one sound, scaled", () => {
