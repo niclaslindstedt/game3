@@ -665,6 +665,17 @@ export function App() {
         takeShot();
         return;
       }
+      // THE READOUTS OFF THE WATER, and the key writes the same switch
+      // OPTIONS ▸ HUD and the pause card's own row write — one answer, so a
+      // screen cleared for a wave is still clear next run. Wherever the HUD
+      // is UP rather than only over a moving run: it stands under the pause
+      // card too, and a held frame is exactly where a rider wants the water
+      // uncovered.
+      if (action === "hud") {
+        if (!hudOver(shellRef.current)) return;
+        setSettings((s) => ({ ...s, hud: { ...s.hud, on: !s.hud.on } }));
+        return;
+      }
       if (shellRef.current !== "run") return;
       if (action === "restart") {
         frozen = false;

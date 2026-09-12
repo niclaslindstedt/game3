@@ -1,9 +1,16 @@
 ---
-title: Two key codes that produce a byte-identical screenshot on one seed ARE the same binding — the cheapest proof a rebinding landed
+title: Prove a binding landed by what it CHANGES — the DOM when the press is rendered, an identical frame hash on one seed when it is not
 date: 2026-09-10
 scope: pwa/src/game/input.ts
 concepts: [input, keys, screenshots, verification, determinism]
 ---
+
+**First ask whether the DOM reports the press at all.** A key that changes
+what is RENDERED — the HUD's own switch, a card coming up — is settled by a
+scratch probe in `previews/` reading `document.querySelector(".hud-speed")`
+after `page.keyboard.press("KeyH")`, with a reload afterwards to prove the
+answer was STORED rather than held in a frame's state. The hash below is for
+the presses the DOM does not report.
 
 A run is deterministic per seed, so a scripted input sequence photographed at
 the same moment gives the same PNG bytes every time. That turns the engine's

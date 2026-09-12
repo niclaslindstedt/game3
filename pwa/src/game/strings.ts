@@ -348,6 +348,7 @@ export const STRINGS = {
   keyReset: "BACK TO THE GATE",
   keyRestart: "RESTART THE RUN",
   keyCamera: "CAMERA",
+  keyHud: "HUD ON / OFF",
   keyShot: "SCREENSHOT",
   keyPause: "PAUSE",
   /** What a row says while it waits for the key, what an action with no key
