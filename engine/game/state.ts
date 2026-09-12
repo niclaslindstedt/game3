@@ -193,6 +193,44 @@ export type Progress = {
   bestAirAt: number;
 };
 
+/** What the hull did in the air to earn a multiplier. Both directions are
+ * counted because both are rotations about the same axis; only the backflip
+ * is reachable with the pull the rider has (`TUNING.flight.pull` is nose-up
+ * only), so a frontflip is what an unlucky launch off a steep face buys. */
+export type TrickKind = "backflip" | "frontflip";
+
+/** THE SCORE'S STATE — the run's banked points and the combo still riding
+ * on the rider being on the water at the end of it (`tricks.ts` owns every
+ * rule; nothing else writes this). */
+export type TrickState = {
+  /** Points BANKED this run: combos that closed with the rider still on
+   * the craft. A bail cannot touch it and a reset cannot touch it — it was
+   * already paid. */
+  score: number;
+  /** THE COMBO IN PROGRESS: the base points ticked into it so far and the
+   * multiplier those will be paid at. `mult` is 1 with no trick in it, and
+   * a step per revolution turned (rising with the revolution's index — a
+   * double backflip is ×4, not ×3). Both are 0 and 1 between combos. */
+  base: number;
+  mult: number;
+  /** Seconds of the link window left, 0 when no combo is open — how long
+   * the rider has on the water to start the next trick before the combo
+   * closes and banks (`TUNING.tricks.linkWindow`). */
+  link: number;
+  /** THIS FLIGHT's rotation nose-over-tail, rad, nose-up positive, and how
+   * many whole revolutions of it have already been paid for. Both are 0
+   * whenever the hull is on the water. */
+  rotation: number;
+  spins: number;
+  /** THE COMBO JUST RESOLVED and the run clock it resolved at, s — the
+   * figure banked, or the figure lost when `lastBailed`. A readout holds
+   * it on screen for a moment off `lastAt` rather than running a clock of
+   * its own, the way the air record is held (`progress.bestAirAt`). */
+  last: number;
+  lastAt: number;
+  lastBailed: boolean;
+};
+
 export type GameEvent =
   | { kind: "gate"; t: number; gate: number; split: number }
   | { kind: "airGate"; t: number; gate: number; split: number; height: number }
@@ -233,6 +271,24 @@ export type GameEvent =
    * way back toward the start; nothing in the run is reset, and he is free
    * to ride straight back out and be thrown again. */
   | { kind: "tornado"; t: number; grip: number; wind: number; speed: number }
+  /** A TRICK WON, the moment it completes — the beat a presentation pulses
+   * on. `spins` is which revolution of THIS flight it was (1 for the first,
+   * 2 for the second of a double), `points` what it added to the combo's
+   * base and `mult` the multiplier the combo now stands at. */
+  | {
+      kind: "trick";
+      t: number;
+      trick: TrickKind;
+      spins: number;
+      points: number;
+      mult: number;
+    }
+  /** A COMBO BANKED: the link window ran out with the rider still on the
+   * craft, and `points` (= `base × mult`) went into `tricks.score`. */
+  | { kind: "combo"; t: number; points: number; base: number; mult: number }
+  /** ...and a COMBO LOST: he went over the bars, or put himself back at a
+   * gate. `lost` is what it would have been worth. */
+  | { kind: "bail"; t: number; lost: number }
   | { kind: "reset"; t: number; gate: number }
   | { kind: "finish"; t: number; time: number };
 
@@ -252,6 +308,11 @@ export type GameState = {
    * back. */
   input: CraftInput;
   progress: Progress;
+  /** THE OTHER GAME ON THE SAME WATER: what the rider has been paid for
+   * the air and the flips, and the combo still riding on him staying on
+   * the craft (`tricks.ts`). The clock is the race and this is not — a run
+   * has both and neither decides the other. */
+  tricks: TrickState;
   /** THE ARCADE DIALS, 0..1 each — how much of `assist.ts`'s two hands
    * this run is ridden with (`TUNING.assist`).
    *

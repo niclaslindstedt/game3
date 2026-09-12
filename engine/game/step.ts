@@ -24,6 +24,7 @@ import {
   type GameState,
 } from "./state.ts";
 import { createShelter } from "./fetch.ts";
+import { freshTricks, resetTricks, stepTricks } from "./tricks.ts";
 import { createSea, seaSummary, type SeaOverride } from "./water.ts";
 import { createWind, stepWind } from "./wind.ts";
 
@@ -183,6 +184,7 @@ export function createGame(options: CreateGameOptions): GameState {
     craft: freshCraft(spec),
     input: { ...NEUTRAL_INPUT },
     progress: freshProgress(level),
+    tricks: freshTricks(),
     assist: clamp(options.assist ?? TUNING.assist.air.strength, 0, 1),
     rampAssist: clamp(options.rampAssist ?? options.assist ?? TUNING.assist.ramp.strength, 0, 1),
     assistWindow: Math.max(0, options.assistWindow ?? TUNING.assist.air.window),
@@ -236,6 +238,9 @@ export function step(state: GameState, input: CraftInput): GameState {
 
   if (input.reset && state.phase === "running") {
     resetCraft(state, events);
+    // Being put back at a gate is the rider stepping off: whatever the
+    // combo had riding on it goes with him (`tricks.ts`).
+    resetTricks(state, events);
     return state;
   }
 
@@ -245,6 +250,11 @@ export function step(state: GameState, input: CraftInput): GameState {
   const z0 = c.z;
   stepCraft(state, state.phase === "running" ? input : NEUTRAL_INPUT, events);
   noteAirRecord(state, events);
+  // After the craft and before the course: the score reads what the hull
+  // just did (it is airborne or it is not, and this step's `land`, `dive`
+  // and `capsize` are already on the list), and the course has no opinion
+  // about it either way.
+  stepTricks(state, events);
   stepCourse(state, x0, y0, z0, events);
   return state;
 }

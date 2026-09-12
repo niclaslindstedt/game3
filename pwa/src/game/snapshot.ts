@@ -56,6 +56,14 @@ const AIR_BIG = 20;
 const KNEE_SHARE = 0.7;
 const AIR_HOLD = 2.4;
 
+/** THE COMBO'S HOLD, s — how long the figure a combo resolved at stays on
+ * screen after it banked or was thrown away. Shorter than the air record's:
+ * that one is a run-long best worth reading twice, this is the receipt for
+ * the moment just gone, and the next flight is usually seconds away. Read
+ * against `tricks.lastAt`, the engine's own clock, so nothing here keeps
+ * time. */
+const COMBO_HOLD = 1.6;
+
 export type HudSnapshot = {
   speedKmh: number;
   /** Revs as a share of the redline, 0..1, and where idle sits on the
@@ -133,6 +141,16 @@ export type HudSnapshot = {
    * than running. What makes the readout stick and pulse, and what puts the
    * word beside it. */
   airRecord: boolean;
+  /** THE SCORE, banked (`tricks.score`) — the run's other total, and the
+   * only number on this screen the clock has no opinion about. */
+  score: number;
+  /** THE COMBO: what is riding on the rider staying on the craft, and the
+   * multiplier it will be paid at. `combo` is 0 with nothing in hand.
+   * `comboPhase` is what the tile is showing — a combo still building, or
+   * the figure the last one resolved at, held for `COMBO_HOLD`. */
+  combo: number;
+  mult: number;
+  comboPhase: "live" | "banked" | "bailed";
   seed: number;
   craft: CraftId;
   /** The minimap for this frame — the coast around the craft, the gates on
@@ -184,6 +202,26 @@ function airClock(state: GameState): { time: number; grow: number; record: boole
   };
 }
 
+/** WHAT THE COMBO TILE READS. While one is building it is the live figure
+ * and its multiplier — `base × mult`, the number the rider is watching
+ * climb. When the combo closes there is nothing live to show and the tile
+ * holds what it resolved at for a moment, which is the one reading a rider
+ * cannot take himself: he is looking at the water by then.
+ *
+ * The multiplier is dropped in the held state on purpose. `points` is
+ * already `base × mult` and the combo is over; a ×4 still standing beside a
+ * figure nothing is multiplying any more reads as a combo still running. */
+function comboTile(state: GameState): Pick<HudSnapshot, "combo" | "mult" | "comboPhase"> {
+  const k = state.tricks;
+  if (k.base > 0) {
+    return { combo: Math.round(k.base * k.mult), mult: k.mult, comboPhase: "live" };
+  }
+  if (k.last > 0 && state.t - k.lastAt < COMBO_HOLD) {
+    return { combo: k.last, mult: 1, comboPhase: k.lastBailed ? "bailed" : "banked" };
+  }
+  return { combo: 0, mult: 1, comboPhase: "live" };
+}
+
 export function takeSnapshot(state: GameState): HudSnapshot {
   const c = state.craft;
   const p = state.progress;
@@ -193,6 +231,8 @@ export function takeSnapshot(state: GameState): HudSnapshot {
   const sun = sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season);
   const air = airClock(state);
   return {
+    ...comboTile(state),
+    score: state.tricks.score,
     hour,
     daylight: daylightOf(sun),
     // Quantised to a hundredth: the sun moves an hour a minute, so the dip

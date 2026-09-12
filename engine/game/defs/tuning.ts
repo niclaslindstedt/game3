@@ -671,6 +671,46 @@ export const TUNING = {
     divePitch: -0.12,
   },
 
+  /** THE SCORE (`tricks.ts`) — the arcade dials behind the other game on
+   * the same water. Arcade numbers to a man: none of them is measured
+   * against anything, and what they are chosen against is the LADDER they
+   * make between one flight and the next. Read them together with the
+   * runs they buy —
+   *
+   *   a 1 s jump                    40 × 1  =      40
+   *   a 2 s jump                   172 × 1  =     172
+   *   a 2 s jump with a backflip   472 × 2  =     944
+   *   a 4 s double backflip      1 469 × 4  =   5 876
+   *   20 s taken by the tornado  6 324 × 1  =   6 324
+   *
+   * — which is the shape the whole thing is for: a rider who goes for the
+   * hard one off the same wave is paid several times over, and the sea's
+   * own biggest moment still stands with the tricks rather than over
+   * them. */
+  tricks: {
+    /** What a second of air is worth one `airKnee` into a flight, points/s.
+     * The rate rises as `log2(1 + t/airKnee)` from there, so the purse over
+     * a whole flight grows rather faster than the flight does
+     * (`airPointsPerSecond`). */
+    airRate: 100,
+    /** The flight, s, the rate is quoted at — and the unit the curve above
+     * it is drawn in. One second: the shortest jump a rider reads as a
+     * jump rather than as a wave, which is where an ordinary ramp puts
+     * him and where the ladder ought to start meaning something. */
+    airKnee: 1,
+    /** What the FIRST revolution of a flight adds to the combo's base,
+     * points; the Nth adds N times it, alongside N steps of multiplier.
+     * Three hundred is about five seconds of ordinary air, which is what a
+     * flip should be worth against the flight that carried it: more than
+     * the air, and not so much more that the air stops counting. */
+    flipPoints: 300,
+    /** How long the rider has on the water, s, to start the next trick
+     * before the combo closes and banks. A second: long enough to come off
+     * one wave and up the next, short enough that a combo cannot be held
+     * open by riding along. */
+    linkWindow: 1,
+  },
+
   /** THE ARCADE ASSIST — the help the rider is given, stated in
    * `defs/assist.ts` beside this file rather than in it. Two hands on
    * two dials (`assist.ts`, `GameState.assist` / `.rampAssist`) and the

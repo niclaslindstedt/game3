@@ -53,6 +53,14 @@ export type RunReport = {
   airTime: number;
   /** ...and the longest single flight of the run, s, on the same line. */
   bestAir: number;
+  /** THE TRICK SCORE the bot banked (`game/tricks.ts`) — air time and the
+   * flips over it, at whatever multipliers it strung together. The bot
+   * rides for the clock and never goes for a flip, so this is very nearly
+   * the air time priced: what it is watched for is a craft or a generator
+   * change that quietly stops putting the roster in the air. */
+  score: number;
+  /** ...and the biggest single combo of it, points. */
+  bestCombo: number;
   launches: number;
   dives: number;
   hits: number;
@@ -111,6 +119,7 @@ export function simulateStage(options: SimOptions): RunReport {
   let groundings = 0;
   let resets = 0;
   let capsizes = 0;
+  let bestCombo = 0;
   let maxHs = 0;
   const maxSteps = Math.ceil(maxSeconds / TUNING.dt);
   let steps = 0;
@@ -128,6 +137,7 @@ export function simulateStage(options: SimOptions): RunReport {
       else if (e.kind === "reset") resets += 1;
       else if (e.kind === "land" && e.airTime > TUNING.flight.airCounts) airTime += e.airTime;
       else if (e.kind === "capsize") capsizes += 1;
+      else if (e.kind === "combo" && e.points > bestCombo) bestCombo = e.points;
     }
     const c = state.craft;
     if (c.speed > topSpeed) topSpeed = c.speed;
@@ -157,6 +167,8 @@ export function simulateStage(options: SimOptions): RunReport {
     topSpeed,
     airTime,
     bestAir: p.bestAir,
+    score: state.tricks.score,
+    bestCombo,
     launches,
     dives,
     hits,
