@@ -185,8 +185,15 @@ sky:
 # is only ever seen end-on and foreshortened, while every reference
 # photograph of one is from overhead. Same Chromium requirements as
 # `screenshots`.
+#
+# `ARGS=--profile` adds the rows a plan view cannot carry: the SURFACE in
+# section, along the axis astern and across the trail at four distances
+# back, probed through the water shader's own relief functions. It is the
+# only view in the repo that says whether the sea BENDS for the craft as
+# against merely whitening behind it.
 # `make wake` · `make wake ARGS=--drive=carve` · `make wake ARGS=--channels`
-# `make wake ARGS="--times=0.1,0.3,0.6"` · `make wake ARGS=--skip-build`
+# `make wake ARGS=--profile` · `make wake ARGS="--times=0.1,0.3,0.6"`
+# `make wake ARGS=--skip-build`
 wake:
 	node scripts/wake-preview.mjs $(ARGS)
 

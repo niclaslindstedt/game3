@@ -245,25 +245,25 @@ const WAKE_FADE = 0.08;
 const WAKE_FOAM_GAIN = 1.0;
 /** THE RELIEF IS READ BLURRED — this many mip levels down the map, so the
  * crest, the hollow and the slope the surface is pushed along are as smooth
- * at the grid's scale as a wave is. The map's texel is a quarter metre and
- * the near grid's cell is a metre and a half: read sharp, a hollow two
- * metres wide is caught by one vertex at a time, and each vertex jumps as
- * the trail sweeps over it — a twitch the sea's own waves, several cells
- * long, never show. Three levels is a two-metre blur. The foam and the
- * churn keep the sharp map: they are per pixel and want the edge. */
+ * at the grid's scale as a wave is. Read sharp, a hollow two metres wide is
+ * caught by one vertex at a time and each jumps as the trail sweeps over it
+ * — a twitch the sea's own waves never show. Three levels is a two-metre
+ * blur, which is also the narrowest a mark may be laid and still be SEEN. */
 const WAKE_RELIEF_LOD = 3;
 /** How far a vertex is pushed SIDEWAYS along the wake's slope, m per unit
  * of slope — Gerstner's horizontal term, in which the water piles toward a
  * crest and drains away from a trough, so the transom's hollow shoves the
- * surface outward and the bow wave bunches at the fan's edge. The whole
- * sea pattern bends round the trail with it, which is what the eye reads
- * as water moved aside. */
-const WAKE_PUSH = 1.5;
+ * surface outward and the stern wave's mound bunches it. The whole sea
+ * pattern bends round the trail with it, which is what the eye reads as
+ * water moved aside. */
+export const WAKE_PUSH = 1.5;
 
 /** Where a plan point falls on the wake's map, and how far inside its edge
  * it is — shared by both shaders, so a vertex is lifted exactly where the
- * pixel over it is lit. */
-const WAKE_GLSL = `
+ * pixel over it is lit — and so is the wake lab's section probe, which
+ * compiles these very functions rather than a copy that could answer for a
+ * surface the water never gets. */
+export const WAKE_GLSL = `
   uniform sampler2D uWake;
   uniform vec3 uWakeBox;
   // What the WAKE lever reads off the map: 0 nothing, 1 the foam and the
