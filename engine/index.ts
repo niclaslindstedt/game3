@@ -52,6 +52,9 @@ export { TUNING } from "./game/defs/tuning.ts";
 // rather than only the rides it changes.
 export { landingAssist, rampAssist, timeToWater } from "./game/assist.ts";
 export { aeroForces, type AeroResult } from "./game/flight.ts";
+// THE HULL UNDER THE WATER (game/submerged.ts): the regime, what the rider
+// still commands in it, and what the deck's float does once it is under.
+export { floodedDeck, submergedControl, submergedShare } from "./game/submerged.ts";
 export {
   FAUNA,
   FAUNA_IDS,

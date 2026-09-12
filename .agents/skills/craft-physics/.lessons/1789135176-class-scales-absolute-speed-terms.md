@@ -19,9 +19,6 @@ with a v² in them and ask which of them the knob was meant to reach.
 
 Two measurement traps met on the way:
 
-- **`pitch` is an Euler reading and wraps at the vertical.** A flight's
-  rotation differenced off `c.pitch` saturates at ~90° and every variant
-  reads the same. Integrate the body rate (`-c.wx`) instead.
 - **The steady state and the transient answer differently.** The held yaw
   rate barely moved across the band (27 → 32 °/s) while the peak went 4×.
   Tuning against the steady figure would have found nothing wrong; what a

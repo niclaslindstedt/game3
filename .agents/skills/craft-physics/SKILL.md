@@ -113,16 +113,31 @@ is made on flat water or not at all.
 
 - **Inside the runner**, that is `syntheticLevel({ windSpeed: 0.01 })` with
   `sea: { hs: 0.01 }` — the drag strip `tests/craft_test.ts` already uses.
-- **In a plain-Node bench** it cannot be: `tests/support/synthetic.ts`
-  imports `vitest` and resolves `@engine`, so a scratch script has to ride a
-  GENERATED level with `createGame({ level, windSpeed: 0.01, sea: { hs: 0.01 }, assist: 0 })`.
-  Stage it at the course path's point of greatest `sampleField(level.offshore, …)`
-  and head ALONG the offshore contour (the gradient there by central
-  difference, `Math.atan2(gz, -gx)`). Staging at `level.start` on
-  `level.start.heading` instead runs the hull ashore inside ten seconds, and
-  what comes back is a craft grounding at 25 km/h reported as a
-  deceleration — with every hand measuring the same, because beaching is
-  what stopped all of them.
+- **A plain-Node bench CAN use the synthetic level.** `tests/support/synthetic.ts`
+  imports `vitest` and spells the engine `@engine`, but both resolve in a
+  scratch script: `aliasEngine('<repo root>')` from
+  `scripts/lib/engine-alias.mjs` before the dynamic `import()` handles the
+  alias, and vitest is a devDependency so its `beforeAll`/`afterAll` import
+  resolves like any other. So import `syntheticLevel` directly and get a flat
+  bed, a straight shore and a ramp — do not build a generated-level staging
+  path you do not need.
+- **On a GENERATED level**, stage at the course path's point of greatest
+  `sampleField(level.offshore, …)` and head ALONG the offshore contour (the
+  gradient there by central difference, `Math.atan2(gz, -gx)`). Staging at
+  `level.start` on `level.start.heading` instead runs the hull ashore inside
+  ten seconds, and what comes back is a craft grounding at 25 km/h reported
+  as a deceleration — with every hand measuring the same, because beaching
+  is what stopped all of them.
+- **NEVER MEASURE AN ATTITUDE OFF `c.pitch`.** It is an Euler reading and
+  `toEuler` folds it back at ±90° (the roll flipping 180° to compensate), so
+  a hull rotating steadily nose-down through vertical reads 31° → 87° → −87°
+  → 60°: every variant of a sweep comes back pinned near ∓90° and reads as
+  "the knob does nothing", and a rotation differenced off it reports a
+  completed flip with the WRONG SIGN. This trap has been met twice. Use
+  `∫ −wx dt` over the airborne or submerged stretch for how far it rotated
+  (body-frame, does not wrap), and `rotate(q, {x:0,y:1,z:0}).y` — the hull's
+  own up in world — for whether it is still the right way up. Count per
+  stretch and report the largest; a run-long total cancels itself.
 - **Spin up before measuring.** `placeRun`'s `speed` is a placement, not a
   trimmed-out hull; give it ~14 s at full throttle first or the figure is a
   craft still accelerating.

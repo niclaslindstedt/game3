@@ -711,6 +711,43 @@ export const TUNING = {
     linkWindow: 1,
   },
 
+  /** THE HULL UNDER THE WATER (`submerged.ts`) — what the rider still
+   * commands once it has gone under. Every dial is an angular
+   * ACCELERATION, rad/s², at a full input and a full share, the way
+   * `stand.hoist` is and for the same reason: the roster's inertia spans
+   * three times over, and what this describes is the rider rather than any
+   * one hull. Scaled by the craft's own `riderAuthority` on top. */
+  submerged: {
+    /** The regime itself has no threshold to set: it is the product of the
+     * hull's own two readings (`submergedShare` — the whole bottom under,
+     * times the water over the deck), which is 0 at rest on every craft
+     * and 1 only when the hull has left the surface. What is dialled here
+     * is what the rider does with it.
+     *
+     * His pitch: the bars hauled back, with the whole hull as the lever
+     * and the water to push it against. Bigger than the air's
+     * (`flight.leanTorque` is about 1.7 rad/s2 on the skiff) and smaller
+     * than a full stand's (`stand.hoist`, 4.6) - he is holding on rather
+     * than standing on it, but he is holding on to something solid. This
+     * is the dial the trick is made of: nose-down and under, lean back and
+     * the jet that was driving him deeper is driving him out. */
+    lean: 3.8,
+    /** His roll - enough to bring a hull that went in on one chine back
+     * level before the surface decides it capsized - and his yaw, which is
+     * modest because the nozzle is still working down there and owns most
+     * of it. */
+    roll: 2.4,
+    yaw: 0.6,
+    /** How much of the DECK's sealed volume (`hull.deckShare`) is still
+     * float once the hull is fully under, 0..1 (`floodedDeck`). The rest
+     * of it is the footwells, the seat and the engine bay's hatch, all of
+     * which have water over them rather than air under them the moment the
+     * deck is a metre down. At 1 the hull is thrown back out by about three
+     * times its own weight and a bury lasts three tenths of a second,
+     * which is not a dive. */
+    deckSealed: 0.3,
+  },
+
   /** THE ARCADE ASSIST — the help the rider is given, stated in
    * `defs/assist.ts` beside this file rather than in it. Two hands on
    * two dials (`assist.ts`, `GameState.assist` / `.rampAssist`) and the
