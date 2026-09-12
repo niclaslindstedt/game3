@@ -48,7 +48,7 @@
 //   ?day=storm     ...and its WEATHER row: fine | windy | storm, which is a
 //                  sky AND the wind that builds the sea under it
 //   ?camera=heli   which rung of the camera ladder the run opens on (bow |
-//                  nose | close | chase | far | heli) — a setting like the
+//                  nose | close | chase | far | heli | drone) — a setting like the
 //                  rows below, so a link lays it over the stored one; the
 //                  camera key still walks the whole ladder from there
 //   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
@@ -106,6 +106,14 @@
 // Everything after the grab waits: the stamp, the encode and the write into
 // the roll the GALLERY reads (`game/menu-gallery.tsx`).
 //
+// ONE THING CANNOT WAIT: the CLIPBOARD. A picture is worth most in the
+// window somebody is still talking in, so every shutter press also puts the
+// PNG on the clipboard — and a clipboard write has to be started from the
+// press itself, while the browser still counts the gesture as live. So the
+// press claims the write with the picture still undrawn and the frame loop
+// settles it (`lib/share-image.ts`), which is why the receipt says COPIED
+// rather than SAVED only once the write has actually come back.
+//
 // AND THE MOTOR FOLLOWS THE HANDS. The rumble (`game/haptics.ts`) is fed
 // the same events and the same frames the sound is, minus the bot's: a
 // phone buzzing in a pocket while the attract card rides a sea nobody is
@@ -141,6 +149,7 @@ import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./g
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
 import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
 import { captureFrame } from "./game/screenshots.ts";
+import { copyWhenReady, type PendingCopy } from "./lib/share-image.ts";
 import { readHudLayer, type HudLayer } from "./game/shot-hud.ts";
 import {
   CONDITION_DAY,
@@ -418,10 +427,11 @@ export function App() {
       live.push({ id: flashId++, text, tone, until: wall + FLASH_LIFE });
     };
 
-    /** The picture asked for and not yet served: the label it will carry and
-     * the HUD as it stood at the press. Served by the frame loop, in the
-     * same task as the render that filled the buffer. */
-    let wantedShot: { label: string; hud: HudLayer | null } | null = null;
+    /** The picture asked for and not yet served: the label it will carry, the
+     * HUD as it stood at the press, and the clipboard write already started
+     * for it. Served by the frame loop, in the same task as the render that
+     * filled the buffer. */
+    let wantedShot: { label: string; hud: HudLayer | null; copy: PendingCopy | null } | null = null;
 
     /** THE SHUTTER. Only where there is a run to photograph and a HUD to
      * answer on — under the front door the frame is the bot's demo behind a
@@ -433,7 +443,12 @@ export function App() {
       // One at a time. A held key repeats, and a second request landing on
       // the same frame would replace the first one's label with its own.
       if (wantedShot) return;
-      wantedShot = { label: shotLabel(state), hud: readHudLayer() };
+      // THE CLIPBOARD IS CLAIMED HERE, AT THE PRESS, and settled frames later
+      // when the picture exists: the write wants the press's own user
+      // activation and there is none left by the time the buffer can be read
+      // (`lib/share-image.ts`). Null where the browser has no PNG writer, and
+      // the receipt then says only that the picture was filed.
+      wantedShot = { label: shotLabel(state), hud: readHudLayer(), copy: copyWhenReady() };
     };
     shotRef.current = takeShot;
 
@@ -752,11 +767,19 @@ export function App() {
         const wanted = wantedShot;
         wantedShot = null;
         const canvasNow = canvasRef.current;
-        if (!canvasNow) say(STRINGS.shotFailed, "bad");
-        else {
-          void captureFrame(canvasNow, wanted.label, wanted.hud).then((capture) =>
-            say(capture ? STRINGS.shotKept : STRINGS.shotFailed, capture ? "good" : "bad"),
-          );
+        if (!canvasNow) {
+          wanted.copy?.ready(null);
+          say(STRINGS.shotFailed, "bad");
+        } else {
+          void captureFrame(canvasNow, wanted.label, wanted.hud).then(async (capture) => {
+            wanted.copy?.ready(capture?.blob ?? null);
+            if (!capture) return say(STRINGS.shotFailed, "bad");
+            // The copy is waited on rather than assumed: a browser can hold
+            // the permission back, and one receipt that tells the truth is
+            // worth more than an instant one that does not.
+            const copied = (await wanted.copy?.done) ?? false;
+            say(copied ? STRINGS.shotCopied : STRINGS.shotKept, "good");
+          });
         }
       }
       // The beds follow the same frames the engine took: fed whenever the

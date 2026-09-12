@@ -5,13 +5,22 @@
 // difference between them IS the row. `camera.ts` drives them; the
 // `game-feel` skill owns what each number does to the sensation.
 //
-// The four outside cameras are ONE rig at four sizes, and what separates
+// The five outside cameras are ONE rig at five sizes, and what separates
 // them is not only where they stand but how HEAVY they are. `close` and
 // `chase` are the two the game is ridden from: a boom is answered briskly
 // and settles without overshooting, at either length. From `far` outwards
 // the lens answers slowly and its lateral swing is a sprung mass that
 // overshoots a turn and settles back into it, which is what reads as
 // something being FLOWN rather than something bolted on.
+//
+// `drone` is the one row that is not a boom at all — it is the same rig with
+// its standoff taken away, which stands the lens straight over the craft and
+// points it down. Everything that would tip that shot sideways is zeroed
+// rather than merely made small: a lens looking almost straight down builds
+// its frame out of the little horizontal run left between it and its aim
+// point, so a lateral swing or a look-through slide of a couple of metres
+// does not nudge the framing, it SPINS the picture. What is left leading the
+// aim is `aimAhead` alone, which is what puts the craft's nose up the frame.
 //
 // The heights are a jet ski's, not a car's: the hull is a metre tall and it
 // is ridden on water that is itself moving, so a lens two metres over it is
@@ -165,9 +174,9 @@ export const FLIGHT_ROD = {
   snap: 100,
 };
 
-/** Which of the ladder's rungs are stood BEHIND the craft — every camera but
- * the one sat on it. */
-export type ChaseCamera = "close" | "chase" | "far" | "heli";
+/** Which of the ladder's rungs stand OFF the craft rather than on it —
+ * every camera but the two bolted to the hull. */
+export type ChaseCamera = "close" | "chase" | "far" | "heli" | "drone";
 
 export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
   // The same shot as `chase` pulled in over the transom: the wake is the
@@ -292,6 +301,50 @@ export const CHASE_RIGS: Record<ChaseCamera, ChaseRig> = {
     airLift: 0.2,
     flight: 0.6,
     clearance: 1.5,
+  },
+  // STRAIGHT DOWN from twice the helicopter's height: the plan view, and the
+  // one shot in the game that is about the WATER rather than about the
+  // horizon. A swell has no silhouette from up here — the crest against the
+  // sky that makes a sea read as a sea is simply not in the frame — so what
+  // this rung is worth is everything that is only legible from above and
+  // foreshortened to a stripe from anywhere else: the wake's V opening
+  // behind the transom, the line the rider is taking between two buoys, the
+  // streaks the wind has combed across the surface.
+  //
+  // The lens is stood directly over the craft (no standoff at all) and the
+  // aim is led 2.5 m ahead of it, which at 18 m up is 8° off the vertical —
+  // enough that the frame has a direction to be built from, little enough
+  // that nothing but the water is in it. That lead is the ONLY horizontal
+  // run between the lens and its aim, which is what makes the craft's nose
+  // point reliably up the frame; `swing` and `lookThrough` are zero for the
+  // same reason, and the rod takes no share of the flight, because a boom of
+  // no length swung onto a flight path only moves the lens sideways.
+  drone: {
+    dist: 0,
+    distPerSpeed: 0.03,
+    height: 18,
+    heightPerSpeed: 0.06,
+    aimAhead: 2.5,
+    aimHeight: 0,
+    fov: 55,
+    fovPerSpeed: 0.25,
+    fovMax: 66,
+    followRate: 2,
+    followAir: 1.6,
+    slipWeight: 0.6,
+    slipMax: 0.5,
+    lookThrough: 0,
+    lookThroughMax: 0,
+    swing: 0,
+    swingMax: 0,
+    swingFreq: 1.5,
+    swingDamp: 0.7,
+    heightFollow: 1,
+    heightFollowAir: 4,
+    airAim: 1,
+    airLift: 0.85,
+    flight: 0,
+    clearance: 2,
   },
 };
 

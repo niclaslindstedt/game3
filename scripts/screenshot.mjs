@@ -183,7 +183,7 @@ const args = parseArgs(
     // named after it, so a sweep leaves one file per rung.
     camera: {
       kind: "string",
-      help: "which camera: bow, nose, close, chase, far, heli",
+      help: "which camera: bow, nose, close, chase, far, heli, drone",
     },
     water: { kind: "string", help: "the WATER row: low, medium, high" },
     res: { kind: "string", help: "the RESOLUTION row: low, medium, high" },

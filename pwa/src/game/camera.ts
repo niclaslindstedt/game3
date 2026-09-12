@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE CAMERA, as maths. Six rigs, walked with the camera key as ONE LADDER
+// THE CAMERA, as maths. Seven rigs, walked with the camera key as ONE LADDER
 // from the handlebars backwards (the ids and the order are `CAMERA_MODES`):
 //
 //   bow   — out on the foredeck with the sea a metre under the lens and the
@@ -21,12 +21,15 @@
 //           moved from.
 //   far   — stood back and a little higher: less drama, more warning.
 //   heli  — the shot a chase helicopter would fly, and the furthest back the
-//           ladder goes. There is no view from over the deck: straight down
-//           on a sea is a MAP, and a map of water shows no waves at all —
-//           the swell only reads as a swell from a lens that is looking
-//           across it.
+//           ladder goes while still looking ACROSS the sea.
+//   drone — straight down from twice the helicopter's height. A swell has
+//           no silhouette from up here — a crest only reads as a crest
+//           against the sky — so this rung buys none of what the other six
+//           are framed for, and is the only one that shows what is
+//           foreshortened to a stripe from behind: the wake's V, the line
+//           between two buoys, the wind's streaks across the surface.
 //
-// The four outside rigs are ONE rig with different proportions — one table
+// The five outside rigs are ONE rig with different proportions — one table
 // of numbers (`camera-rigs.ts`), one update function — so an angle is a row
 // rather than another camera to maintain. They ease with speed, look THROUGH
 // a turn toward where the nose is going, swing to the outside of a carve,
@@ -72,7 +75,15 @@ export type CameraMode = EyeCamera | ChaseCamera;
 /** The modes the camera key walks, in the order it walks them — the same
  * handlebars-backwards ladder the options card lists, so the key and the
  * setting never disagree about what "the next camera" means. */
-export const CAMERA_MODES: readonly CameraMode[] = ["bow", "nose", "close", "chase", "far", "heli"];
+export const CAMERA_MODES: readonly CameraMode[] = [
+  "bow",
+  "nose",
+  "close",
+  "chase",
+  "far",
+  "heli",
+  "drone",
+];
 
 /** Where the lens stands, what it looks at, and how wide it is. `fov` is
  * the DESIGN (landscape) vertical field, deg — the renderer widens it for a

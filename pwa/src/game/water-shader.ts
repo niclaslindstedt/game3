@@ -74,7 +74,9 @@
 //                and costs the shader a few multiplies.
 //   THE FOAM     the vertex's foam SHARE (the colour attribute's alpha),
 //                broken up by the foam tile, so a whitecap is streaks and
-//                holes rather than a white vertex.
+//                holes rather than a white vertex. How the tile is read —
+//                and the three things that keep it from reading AS a tile —
+//                is `water-foam.ts`.
 //   THE WAKE     what the craft did to this water, read off the map
 //                `wake.ts` rasterises round it each frame: a foam share of
 //                its own (the road, drawn by the SAME foam term as a
@@ -122,6 +124,7 @@ import * as THREE from "three";
 
 import { PALETTE } from "../identity.ts";
 import { anisotropic, foamTexture } from "./fx-textures.ts";
+import { WAKE_FOAM_GAIN, foamGlsl } from "./water-foam.ts";
 import {
   RIPPLE_COARSE,
   RIPPLE_METRES,
@@ -198,12 +201,6 @@ const BUOY_POOL = 120;
  * the tile is a texture and a texture at full pace strobes. */
 const RIPPLE_PACE = 0.25;
 const RIPPLE_PACE_PER_WIND = 0.018;
-/** The foam tile's edge across the wind, m, and how many times longer it
- * is read DOWNWIND: foam on a sea is streaks the wind lays along its own
- * direction — the spume lines of a fresh breeze, the drawn-out tails a
- * broken crest leaves — and a tile read square is a scatter of blobs. */
-const FOAM_METRES = 3.5;
-const FOAM_STREAK = 2.6;
 /** How far the coarse ripple layer is turned off the wind, rad: the two
  * layers share one tile, and laid the same way they tile together into
  * corduroy. */
@@ -219,30 +216,23 @@ const COARSE_TURN = 0.7;
  * on its head, so even the top stop reads it down the chain. */
 const MIRROR_WOBBLE_ACROSS = 0.12;
 const MIRROR_WOBBLE_ALONG = 0.32;
-/** THE WAKE, as read. The foam tile's edge, m, for the road's own mottling
- * — finer than the sea's and read square, in world space, so the foam
- * stands where the water put it as the craft leaves it behind. The churn's
- * slope at full churn (a boil is broken water, steeper than any wind
- * ripple), the edge the ripple tile is read at for it, m, and how fast the
- * boil rolls, tile lengths a second. How far the churn lightens the body
- * toward foam — aerated water — and how far it closes the window: both a
- * LIGHT touch, because most of the near sea's tone is the dark bed showing
- * through it, and a fan that closes the window comes back as a milky white
- * cone rather than as stirred water. And how
- * far in from the map's edge the whole of it fades, as a share of the map,
- * so the map's edge is never a line on the sea. `WAKE_FOAM_GAIN` is what a
- * full share of the map's foam is worth to the lace — set so a fresh road
- * is white with the tile's darkest holes still cut into it (past 1.35 the
- * lace saturates into a flat white blanket, and under about 0.7 the road
- * is a chain of speckles), breaking into patches as it fades. */
-const WAKE_FOAM_METRES = 1.6;
+/** THE CHURN, as read: its slope at full churn (a boil is broken water,
+ * steeper than any wind ripple), the edge the ripple tile is read at for it,
+ * m, and how fast the boil rolls, tile lengths a second. How far the churn
+ * lightens the body toward foam — aerated water — and how far it closes the
+ * window: both a LIGHT touch, because most of the near sea's tone is the
+ * dark bed showing through it, and a fan that closes the window comes back
+ * as a milky white cone rather than as stirred water. And how far in from
+ * the map's edge the whole of it fades, as a share of the map, so the map's
+ * edge is never a line on the sea. The road's own foam — the tile it is
+ * read off and what a full share of the map is worth to it — is stated with
+ * the sea's, in `water-foam.ts`. */
 const CHURN_SLOPE = 0.35;
 const CHURN_METRES = 0.8;
 const CHURN_PACE = 0.25;
 const CHURN_LIGHTEN = 0.2;
 const CHURN_ALPHA = 0.12;
 const WAKE_FADE = 0.08;
-const WAKE_FOAM_GAIN = 1.0;
 /** THE RELIEF IS READ BLURRED — this many mip levels down the map, so the
  * crest, the hollow and the slope the surface is pushed along are as smooth
  * at the grid's scale as a wave is. Read sharp, a hollow two metres wide is
@@ -476,6 +466,8 @@ ${skyGlsl(mirrorBuild(layers))}
     return slope * ${(RAIN_SLOPE / RING_PEAK).toFixed(5)};
   }
 
+  ${foamGlsl()}
+
   void main() {
     vec3 toEye = cameraPosition - vWorld;
     float away = length(toEye);
@@ -690,25 +682,13 @@ ${skyGlsl(mirrorBuild(layers))}
     // white; a full share is white with the tile's darkest holes still
     // open on the water under it. A sheet with no holes is a snowfield.
     float share = vColor.a;
-    vec2 foamUv = wind * vWorld.xz;
-    float pattern = texture2D(uFoam, vec2(foamUv.y / ${(FOAM_METRES * FOAM_STREAK).toFixed(2)}, foamUv.x / ${FOAM_METRES.toFixed(1)})).a;
-    float lace = smoothstep(1.0 - share, 1.35 - share, pattern);
-    float foam = lace * (0.45 + 0.55 * share);
-    // …and the WAKE's, off the map, through the same lace: the tile read
-    // square and fine in world space, so the road's patches stand where the
-    // water put them and the craft leaves them behind. STILL in the world —
-    // a pattern that jogs with the clock reads as jitter, not as a boil;
-    // the boil is the churn's normal. The louder of the two foams wins;
-    // they never sum. Two octaves: the tile, and the tile again a third the
-    // size, because the road is the nearest foam in the frame and at one
-    // octave a fresh road is a flat white blanket rather than broken water.
+    float foam = seaLace(uFoam, wind * vWorld.xz, share) * (0.45 + 0.55 * share);
+    // …and the WAKE's, off the map, through a lace of its own. STILL in the
+    // world — a pattern that jogs with the clock reads as jitter, not as a
+    // boil; the boil is the churn's normal. The louder of the two foams
+    // wins; they never sum.
     if (wakeFoam > 0.001) {
-      float wakePattern = mix(
-        texture2D(uFoam, vWorld.xz / ${WAKE_FOAM_METRES.toFixed(2)}).a,
-        texture2D(uFoam, vWorld.xz / ${(WAKE_FOAM_METRES / 3).toFixed(2)}).a,
-        0.35);
-      float wakeLace = smoothstep(1.0 - wakeFoam, 1.35 - wakeFoam, wakePattern);
-      foam = max(foam, wakeLace * min(1.0, 0.45 + 0.55 * wakeFoam));
+      foam = max(foam, wakeLace(uFoam, vWorld.xz, wakeFoam) * min(1.0, 0.45 + 0.55 * wakeFoam));
     }
     // …and the white a raindrop's own impact throws up. A fraction of the
     // wake's: a drop is a pinprick of air in the water, not a crest going

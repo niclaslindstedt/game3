@@ -7,7 +7,7 @@
 // them — one texture serves every effect that wants foam.
 
 import * as THREE from "three";
-import { valueNoise } from "@engine";
+import { tiledValueNoise, valueNoise } from "@engine";
 
 /** Anisotropic samples for a tile seen ALONG the water — the foam under the
  * wake, the water's ripples. Isotropic mip selection at a grazing angle
@@ -48,40 +48,96 @@ export function setTextureAnisotropy(samples: number): void {
   }
 }
 
-const FOAM_SIZE = 128;
+/** THE FOAM TILE IS NOT SQUARE. Foam on a sea is what the wind combs out of
+ * a broken crest — spume lines that run a long way downwind and end abruptly
+ * across it — so the tile is four times longer ALONG the wind than across
+ * it, and the shader gives it a world footprint stretched to match
+ * (`FOAM_STREAK`, water-foam.ts) so a texel is square on the water. The
+ * lattice under it is read at its own cell count per axis rather than at one
+ * square scale with the result squashed, which is what lets the streaks be
+ * long without the grain inside them being smeared. */
+const FOAM_ALONG = 512;
+const FOAM_ACROSS = 128;
 const SPRITE_SIZE = 64;
+
+/** The octaves the streaks are summed from — cells ALONG × cells ACROSS the
+ * whole tile, and the share of the sum each carries. Four of them, each half
+ * the last: the coarsest says where a band of foam is at all, the finest is
+ * the grain inside it, and having both is what stops a lace from reading as
+ * one stamp repeated. Every count divides its axis into whole texels, and the
+ * along counts are half the across ones at every octave, so a feature comes
+ * out eight times longer downwind than it is wide. */
+const FOAM_OCTAVES: readonly { along: number; across: number; weight: number }[] = [
+  { along: 2, across: 4, weight: 0.4 },
+  { along: 4, across: 8, weight: 0.28 },
+  { along: 8, across: 16, weight: 0.2 },
+  { along: 16, across: 32, weight: 0.12 },
+];
+
+/** How far the streaks WANDER across the wind, as a share of the tile's
+ * width. Spume is laid by a wind that is itself turning, so the lines
+ * meander; drawn dead straight the tile is a comb, and a comb is the one
+ * thing the eye picks out as a repeat however big the tile is. The warp is
+ * read off the same torus as the field and applied to every octave alike, so
+ * it neither reopens the seam nor slides the grain off its own streak. */
+const FOAM_WANDER = 0.18;
+
+/** The PATCHINESS baked into the tile: a low-frequency mask that thins the
+ * foam over part of it and thickens it over the rest, and the floor it never
+ * thins past. This is the tile's own variety; the shader lays a second,
+ * coarser and INCOMMENSURATE reading of the same tile over the top
+ * (`water-foam.ts`), so what repeats at the tile's own period is only ever
+ * the grain. */
+const FOAM_PATCH_FLOOR = 0.4;
+
+/** Where the threshold field is centred and how wide its spread is. The
+ * shader reads this tile's alpha against a sliding window
+ * (`smoothstep(1 - share, …)`), so what matters about the distribution is
+ * not its mean brightness but how much of it sits inside that window: too
+ * narrow and a whitecap is all-or-nothing, too wide and a full share never
+ * closes into white. */
+const FOAM_MID = 0.34;
+const FOAM_SPREAD = 0.36;
 
 let foam: THREE.DataTexture | null = null;
 let sprite: THREE.DataTexture | null = null;
 
-/** Three octaves of value noise over a repeating tile, 0..1 — enough that
- * no lattice shows through as a grid of cells. */
-function mottle(x: number, y: number, size: number, seed: number): number {
-  // Sampled on a torus so the tile repeats without a seam: every lattice
-  // period divides the size.
-  const a = valueNoise(x, y, size / 8, seed);
-  const b = valueNoise(x, y, size / 16, seed + 7);
-  const c = valueNoise(x, y, size / 32, seed + 19);
-  return 0.5 * a + 0.32 * b + 0.18 * c;
+/** The streak field at a point of the tile, 0..1 — the octave sum, wandered
+ * across the wind and thinned by the patch mask. Both coordinates are a
+ * SHARE of the tile, so each octave is asked for its own cell count and
+ * every one of them wraps at the tile's edge. */
+function streak(u: number, v: number): number {
+  const wander = (tiledValueNoise(u * 3, v * 2, 3, 2, 41) - 0.5) * FOAM_WANDER;
+  const warped = v + wander;
+  let sum = 0;
+  for (const o of FOAM_OCTAVES) {
+    sum +=
+      o.weight * tiledValueNoise(u * o.along, warped * o.across, o.along, o.across, 3 + o.across);
+  }
+  const patch = tiledValueNoise(u * 2, warped * 3, 2, 3, 17);
+  return sum * (FOAM_PATCH_FLOOR + (1 - FOAM_PATCH_FLOOR) * 2 * patch);
 }
 
-/** The foam: a repeating tile of streaks and holes, alpha 0.18..1. */
+/** The foam: a repeating tile of streaks and holes, alpha 0.18..1 — and it
+ * genuinely repeats. The lattice wraps, so the tile meets itself at its own
+ * edges; a field merely SAMPLED over a whole number of periods butts against
+ * an unrelated one at every join, and those joins are a hard line every few
+ * metres of sea, which is the loudest half of what reads as a pattern. */
 export function foamTexture(): THREE.DataTexture {
   if (foam) return foam;
-  const n = FOAM_SIZE;
-  const data = new Uint8Array(n * n * 4);
-  for (let y = 0; y < n; y++) {
-    for (let x = 0; x < n; x++) {
-      // Streaked ALONG u (the wake's length): the noise is read twice as
-      // fine across as along.
-      const v = mottle(x * 0.5, y, n, 3);
-      const a = 0.18 + 0.82 * Math.min(1, Math.max(0, (v - 0.36) / 0.3));
-      const k = (y * n + x) * 4;
+  const w = FOAM_ALONG;
+  const h = FOAM_ACROSS;
+  const data = new Uint8Array(w * h * 4);
+  for (let y = 0; y < h; y++) {
+    for (let x = 0; x < w; x++) {
+      const v = streak((x + 0.5) / w, (y + 0.5) / h);
+      const a = 0.18 + 0.82 * Math.min(1, Math.max(0, (v - FOAM_MID) / FOAM_SPREAD));
+      const k = (y * w + x) * 4;
       data[k] = data[k + 1] = data[k + 2] = 255;
       data[k + 3] = Math.round(a * 255);
     }
   }
-  foam = new THREE.DataTexture(data, n, n, THREE.RGBAFormat);
+  foam = new THREE.DataTexture(data, w, h, THREE.RGBAFormat);
   foam.wrapS = foam.wrapT = THREE.RepeatWrapping;
   foam.minFilter = THREE.LinearMipmapLinearFilter;
   foam.magFilter = THREE.LinearFilter;

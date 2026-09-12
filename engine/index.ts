@@ -206,7 +206,7 @@ export { type RunTape, type TapeSample } from "./sim/tape.ts";
 
 // Deterministic utilities shared with tooling.
 export { createRng, type Rng } from "./lib/prng.ts";
-export { hash2, smooth, valueNoise } from "./lib/noise.ts";
+export { hash2, smooth, tiledValueNoise, valueNoise } from "./lib/noise.ts";
 export {
   DECLINATION,
   SEASONS,

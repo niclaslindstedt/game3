@@ -19,7 +19,9 @@ import { cockpitOf, wellCutOf } from "../pwa/src/game/craft-body.ts";
 import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import { createSkyUniforms, writeSky } from "../pwa/src/game/sky-glsl.ts";
 import { skyAt } from "../pwa/src/game/sky.ts";
+import { foamTexture } from "../pwa/src/game/fx-textures.ts";
 import { applyWell } from "../pwa/src/game/water-cut.ts";
+import { foamGlsl } from "../pwa/src/game/water-foam.ts";
 import {
   applyClock,
   applyMirror,
@@ -354,5 +356,113 @@ describe("the cockpit the sea is cut out of", () => {
     applyWell(material, null);
     expect(u.uWellReach.value).toBe(0);
     expect(spec.id).toBe("skiff");
+  });
+});
+
+/** The words GLSL ES keeps for itself — the reserved half, which a compiler
+ * refuses as an identifier even though nothing in the language uses them.
+ * Not the keywords already in use here (`in`, `out`, `mat2`…): those fail
+ * loudly the moment they are typed, where a reserved one reads as an
+ * ordinary name and fails only in the driver.
+ * (GLSL ES 1.00 §3.7 and the GLSL ES 3.00 list, less what 1.00 reserves and
+ * 3.00 spends — a shader here must compile as either.) */
+const RESERVED = `
+asm class union enum typedef template this packed goto switch default inline
+noinline volatile public static extern external interface long short double
+half fixed unsigned superp input output hvec2 hvec3 hvec4 dvec2 dvec3 dvec4
+fvec2 fvec3 fvec4 sampler1D sampler3D sampler1DShadow sampler2DRectShadow
+sizeof cast namespace using common partition active filter image1D image2D
+image3D imageCube iimage1D iimage2D iimage3D iimageCube uimage1D uimage2D
+uimage3D uimageCube atomic_uint patch sample subroutine row_major
+`
+  .trim()
+  .split(/\s+/);
+
+describe("the foam", () => {
+  const material = createWaterMaterial(createSkyUniforms());
+
+  it("reads the tile through the foam module, twice, and the wake through its own lace", () => {
+    const glsl = foamGlsl();
+    // The module declares them…
+    for (const fn of ["vec2 foamUv(", "float seaLace(", "float wakeLace("]) {
+      expect(glsl).toContain(fn);
+    }
+    // …and main only ever hands the tile to them. A `texture2D(uFoam, …)`
+    // written inline would be a foam scale stated somewhere other than
+    // water-foam.ts, which is how the sea's foam and the road's drift apart.
+    const body = material.fragmentShader.slice(material.fragmentShader.indexOf("void main"));
+    expect(body).not.toContain("texture2D(uFoam");
+    expect(body).toContain("seaLace(uFoam");
+    expect(body).toContain("wakeLace(uFoam");
+    // THE PATCH IS THE SECOND READING, and the whole point of it: the sea's
+    // lace samples the tile twice, at scales that do not share a period.
+    expect(glsl.match(/texture2D\(tile, foamUv\(/g)?.length).toBe(2);
+  });
+
+  it("uses no word GLSL ES has reserved", () => {
+    // A reserved word compiles nowhere and reads as a perfectly ordinary
+    // name in TypeScript, so the failure is not a red test — it is the SEA
+    // MISSING from every frame, because a fragment shader that will not
+    // compile takes its whole mesh with it.
+    // Comments and preprocessor lines are stripped first: prose is where a
+    // reserved word is allowed to appear, and `#include <common>` is three's
+    // own chunk rather than an identifier.
+    const src = `${material.vertexShader}\n${material.fragmentShader}`
+      .replace(/\/\*[\s\S]*?\*\//g, " ")
+      .replace(/\/\/[^\n]*/g, " ")
+      .replace(/^\s*#[^\n]*/gm, " ");
+    const used = new Set(src.match(/[A-Za-z_][A-Za-z0-9_]*/g) ?? []);
+    expect(RESERVED.filter((word) => used.has(word))).toEqual([]);
+  });
+
+  it("draws a tile with no seam in it", () => {
+    const tile = foamTexture();
+    const { width, height, data } = tile.image as {
+      width: number;
+      height: number;
+      data: Uint8Array;
+    };
+    const alpha = (x: number, y: number): number => data[(y * width + x) * 4 + 3];
+    // The step over the wrap, against the biggest step anywhere inside the
+    // tile, on both axes. A tile that does not wrap butts two unrelated
+    // fields together and the join is a step nothing inside it comes near.
+    let inside = 0;
+    for (let y = 0; y < height; y++) {
+      for (let x = 1; x < width; x++)
+        inside = Math.max(inside, Math.abs(alpha(x, y) - alpha(x - 1, y)));
+    }
+    for (let x = 0; x < width; x++) {
+      for (let y = 1; y < height; y++)
+        inside = Math.max(inside, Math.abs(alpha(x, y) - alpha(x, y - 1)));
+    }
+    let seam = 0;
+    for (let y = 0; y < height; y++)
+      seam = Math.max(seam, Math.abs(alpha(0, y) - alpha(width - 1, y)));
+    for (let x = 0; x < width; x++)
+      seam = Math.max(seam, Math.abs(alpha(x, 0) - alpha(x, height - 1)));
+    expect(seam).toBeLessThanOrEqual(inside);
+  });
+
+  it("spreads its alpha across the window the share slides over it", () => {
+    const { data } = foamTexture().image as { data: Uint8Array };
+    let sum = 0;
+    let n = 0;
+    let dark = 0;
+    let white = 0;
+    for (let i = 3; i < data.length; i += 4) {
+      const a = data[i] / 255;
+      sum += a;
+      n += 1;
+      if (a < 0.25) dark += 1;
+      if (a > 0.99) white += 1;
+    }
+    // Mid-grey on average, with real holes and real white in it: a tile
+    // that saturates at either end stops being a threshold field and
+    // becomes a stencil, and a whitecap goes from nothing to a sheet.
+    expect(sum / n).toBeGreaterThan(0.45);
+    expect(sum / n).toBeLessThan(0.7);
+    expect(dark / n).toBeGreaterThan(0.05);
+    expect(white / n).toBeGreaterThan(0.05);
+    expect(white / n).toBeLessThan(0.35);
   });
 });

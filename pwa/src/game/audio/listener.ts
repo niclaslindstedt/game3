@@ -19,6 +19,10 @@
 //   * STOOD BACK (`far`) and FLOWN HIGH (`heli`) the craft is a small thing
 //     on a big sea: the engine thin, the wind gone, the surf and the swell
 //     most of what there is.
+//   * STRAIGHT OVERHEAD (`drone`) it is the same seat twice as far off, and
+//     the one thing that does NOT thin with the distance is the sea: from up
+//     there the swell and the surf are the whole width of what can be heard,
+//     and the craft is a thread of engine under them.
 //
 // DOM-free, three-free, so the tests can read it and the audition page can
 // switch seats without a renderer.
@@ -114,6 +118,17 @@ export const LISTENERS: Record<CameraMode, Listener> = {
     sea: 1.3,
     events: 0.8,
     muffle: 0.9,
+  },
+  drone: {
+    engine: 0.4,
+    exhaust: 0.65,
+    pump: 0.55,
+    tone: 0.7,
+    hull: 0.55,
+    wind: 0.2,
+    sea: 1.4,
+    events: 0.7,
+    muffle: 0.85,
   },
 };
 
