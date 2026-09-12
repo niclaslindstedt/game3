@@ -180,6 +180,24 @@ export const SCENARIOS = {
         t < 0.6 ? { ...NEUTRAL, throttle: 1 } : { ...NEUTRAL, throttle: 0, reverse: 1 },
     }),
   },
+  "brake-turn": {
+    blurb: "the same corner as carve, taken on the gate instead of the pump",
+    seconds: 5,
+    plan: true,
+    stage: (level, spec) => ({
+      moment: {
+        x: level.start.x,
+        z: level.start.z,
+        heading: level.start.heading,
+        speed: topSpeedOf(spec) * 0.7,
+      },
+      // A second flat out, then full lock AND the brake lever together —
+      // read against `carve`, which is the same corner on the throttle. The
+      // plan is the point: the braked arc should close inside the carved one.
+      input: (t) =>
+        t < 0.6 ? { ...NEUTRAL, throttle: 1 } : { ...NEUTRAL, throttle: 0, reverse: 1, steer: 1 },
+    }),
+  },
   chop: {
     blurb: "head-on into the wind's chop at the course's outermost point",
     seconds: 8,
