@@ -162,7 +162,7 @@ export type CraftState = {
    * once the rider is climbing back on (0 when not). */
   capsizedFor: number;
   righting: number;
-  /** THE PUMP's stroke detector (`TUNING.flight`, `craft.ts`). `pumpMark`
+  /** THE PUMP's stroke detector (`TUNING.flight`, `strokes.ts`). `pumpMark`
    * is where the lean-back input has got to on this stroke, 0..1: its PEAK
    * while `pumpRising` (so a key held down cannot haul twice), and its
    * trough once the bars have started back (so the next rise of
@@ -178,6 +178,23 @@ export type CraftState = {
    * what `flight.pumpCeiling` bounds, and zeroed the moment the water or
    * a deck has the hull again. */
   pumped: number;
+  /** THE WHIP's stroke detector — the same three readings on the steer
+   * axis, and a fourth the pump has no need of. `whipMark` is how far OVER
+   * the bars have got on this stroke (0..1, unsigned) and `whipSide` which
+   * way (+1 right, −1 left, 0 with no stroke running): the bars crossing
+   * the centre ends the throw that was running rather than deepening it. */
+  whipMark: number;
+  whipRising: boolean;
+  whipSide: number;
+  /** Which way the last throw went and how much of it is left, −1..1,
+   * decaying over `flight.yankFade`: the reach it hangs the rider out to
+   * that side (`riderRight`, `flight.whipReach`) and the HOLD the air reads
+   * between the taps, so a worked control is not a punished one. */
+  whip: number;
+  /** Roll rate the whip has put into this spell of flight, rad/s — what
+   * `flight.whipCeiling` bounds, unsigned like `pumped`, so a rider who
+   * throws one way and then the other spends one budget and not two. */
+  whipped: number;
 };
 
 export type Progress = {
@@ -214,11 +231,39 @@ export type Progress = {
   bestAirAt: number;
 };
 
-/** What the hull did in the air to earn a multiplier. Both directions are
- * counted because both are rotations about the same axis; only the backflip
- * is one the rider can ASK for (THE PUMP is nose-up only), so a frontflip is
- * what an unlucky launch off a steep face buys. */
-export type TrickKind = "backflip" | "frontflip";
+/** WHAT A COMBO IS MADE OF — one element of it, as the engine names it.
+ * The WORDS are the presentation's (`pwa/src/game/strings.ts` is the one
+ * table every line the player reads comes from); these are the things.
+ *
+ * Three rotations and one that is not a rotation at all:
+ *
+ * - `backflip` / `frontflip` — a revolution nose-over-tail. Both directions
+ *   are counted because both are turns about the same axis; only the
+ *   backflip is one the rider can ASK for (THE PUMP is nose-up only), so a
+ *   frontflip is what an unlucky launch off a steep face buys.
+ * - `roll` — a revolution about the hull's own length, either way, which is
+ *   THE WHIP's (`strokes.ts`). The side it went is not part of the name: a
+ *   rider rolling left and a rider rolling right have done the same trick,
+ *   where a rider going over forwards and one going over backwards have
+ *   not.
+ * - `air` — the flight the others were turned in, once it has lasted
+ *   `tricks.airElement`. It is already PAID by the second, so what it adds
+ *   as an element is the rung and nothing else, and it only ever counts
+ *   beside a trick (`tricks.ts` states the rule). */
+export type TrickKind = "backflip" | "frontflip" | "roll" | "air";
+
+/** One element of a combo as it stands in the state: what it was, how many
+ * revolutions of it (1 for the air, and for the first turn of a flight; 2
+ * for the second turn of a double, which is ONE element worth twice as much
+ * rather than two elements), and WHICH FLIGHT of the combo it was won in,
+ * counted from 0.
+ *
+ * The flight index is there for the naming and nothing else: a combo can
+ * run across several launches (`tricks.linkWindow`), and a rider who turns
+ * a flip and a roll in ONE of them has done a different, harder thing than
+ * one who takes them off two waves in a row. Nothing here is a word — a
+ * readout reads the list and names it (`STRINGS.comboLine`). */
+export type TrickPart = { kind: TrickKind; spins: number; flight: number };
 
 /** THE SCORE'S STATE — the run's banked points and the combo still riding
  * on the rider being on the water at the end of it (`tricks.ts` owns every
@@ -243,13 +288,35 @@ export type TrickState = {
    * whenever the hull is on the water. */
   rotation: number;
   spins: number;
+  /** ...and THIS FLIGHT's rotation about the hull's own length, rad, right
+   * side down positive, with the whole revolutions of it already paid. The
+   * pitch pair's twin, reset by the water for the same reason: a double is
+   * two turns in ONE flight, and two singles either side of a landing are
+   * two singles. */
+  roll: number;
+  rolls: number;
+  /** Whether this flight has lasted `tricks.airElement` — the air is in
+   * hand as an element — and whether it has yet been PAID its rung, which
+   * happens only when a trick lands beside it. `aired` is the flight's and
+   * clears with the water; `airPaid` is the COMBO's and clears with it, so
+   * a second linked flight cannot sell the same rung twice. */
+  aired: boolean;
+  airPaid: boolean;
+  /** THE ELEMENTS of the combo in progress, in the order they were won —
+   * what a readout names and joins (`STRINGS.comboLine`). Emptied with the
+   * combo, as is `flight`, which counts the launches this combo has run
+   * across so the naming can tell one flight's work from the next's. */
+  parts: TrickPart[];
+  flight: number;
   /** THE COMBO JUST RESOLVED and the run clock it resolved at, s — the
-   * figure banked, or the figure lost when `lastBailed`. A readout holds
-   * it on screen for a moment off `lastAt` rather than running a clock of
-   * its own, the way the air record is held (`progress.bestAirAt`). */
+   * figure banked, or the figure lost when `lastBailed`, and the elements
+   * it was made of. A readout holds all three on screen for a moment off
+   * `lastAt` rather than running a clock of its own, the way the air record
+   * is held (`progress.bestAirAt`). */
   last: number;
   lastAt: number;
   lastBailed: boolean;
+  lastParts: TrickPart[];
 };
 
 export type GameEvent =
@@ -292,10 +359,12 @@ export type GameEvent =
    * way back toward the start; nothing in the run is reset, and he is free
    * to ride straight back out and be thrown again. */
   | { kind: "tornado"; t: number; grip: number; wind: number; speed: number }
-  /** A TRICK WON, the moment it completes — the beat a presentation pulses
-   * on. `spins` is which revolution of THIS flight it was (1 for the first,
-   * 2 for the second of a double), `points` what it added to the combo's
-   * base and `mult` the multiplier the combo now stands at. */
+  /** AN ELEMENT WON, the moment it completes — the beat a presentation
+   * pulses on and the name it flashes. `spins` is which revolution of THIS
+   * flight it was (1 for the first, 2 for the second of a double; always 1
+   * for the air), `points` what it added to the combo's base (0 for the
+   * air, which was already paid by the second) and `mult` the multiplier
+   * the combo now stands at. */
   | {
       kind: "trick";
       t: number;

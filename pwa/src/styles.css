@@ -1259,6 +1259,67 @@ canvas {
   }
 }
 
+/* THE TRICK LINE — the names, over the figure. The arcade skating games
+   this scoring is borrowed from put it exactly here, and the reasons hold
+   on water: a rider mid-flight is looking at the horizon over his nose, the
+   line has to be legible in the corner of an eye that is busy, and it has
+   to read over ANY background, because what is behind it is whatever the
+   sea happens to be doing.
+
+   So it is the loudest type on this screen — all caps, tracked wide,
+   heavy — and it carries a real OUTLINE rather than the drop shadow the
+   rest of the HUD gets: four hard offsets plus the drop, which is the
+   cheapest way to a hard rim on every side without a paint-order trick, and
+   the one thing that keeps white type readable over a white crest.
+
+   It is sized off the same `--air-size` as the clock above it and comes out
+   a little under half of it: big enough to be the second thing read, small
+   enough that a five-element line at 390 px still fits between the two top
+   corners (`white-space: nowrap` on `.hud-air` would otherwise push it
+   under the map). */
+.hud-trick {
+  margin-top: 0.45em;
+  /* Wide enough to hold a long line and no wider — and divided by the
+     growth the COLUMN is being scaled by (`--air-grow` on `.hud-air`), so
+     the limit is the same share of the screen whether the tile is at its
+     floor or half again as big for a flight the tornado dealt. Without the
+     divisor a long line over a big flight is laid out to 92vw and then
+     scaled past the edge of the glass. */
+  max-width: calc(92vw / (1 + 0.5 * var(--air-grow)));
+  font-size: calc(var(--air-size) * 0.42);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: 0.08em;
+  color: var(--hud-ink);
+  white-space: normal;
+  text-shadow:
+    1px 0 0 var(--hud-shadow),
+    -1px 0 0 var(--hud-shadow),
+    0 1px 0 var(--hud-shadow),
+    0 -1px 0 var(--hud-shadow),
+    0 3px 0 var(--hud-shadow);
+  animation: hud-trick-in 320ms cubic-bezier(0.16, 1.5, 0.36, 1);
+}
+
+/* Each new element mounts a fresh line (hud.tsx keys it on the text), so
+   this plays once per element won — the same beat the multiplier takes,
+   from the other direction: the name arrives squashed and springs out to
+   its width, where the rung drops onto its number from above. */
+@keyframes hud-trick-in {
+  0% {
+    transform: scale(0.7);
+    opacity: 0.3;
+  }
+  60% {
+    transform: scale(1.06);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
 .hud-combo {
   display: flex;
   align-items: baseline;
@@ -1288,6 +1349,13 @@ canvas {
   font-size: clamp(1.5rem, 5vmin, 2.5rem);
   font-weight: 700;
   font-variant-numeric: tabular-nums;
+  /* NOT the points' colour. They sit on one line with a space between them
+     and they are two different readings — what the combo is worth, and the
+     rung it is being paid at — so a rider glancing at them has to be able
+     to tell which figure is which without reading either. Taking the ink
+     while the points keep the good colour is what separates them, and it is
+     the split the arcade games this is borrowed from use. */
+  color: var(--hud-ink);
   animation: hud-combo-beat 420ms cubic-bezier(0.16, 1.5, 0.36, 1);
 }
 
@@ -1323,6 +1391,18 @@ canvas {
 }
 
 .hud-combo-bailed .hud-combo-num {
+  text-decoration: line-through;
+}
+
+/* A combo thrown away takes its NAMES with it: the line is still there for
+   the moment the tile is held, struck through beside the figure, because
+   what the rider lost is the whole string and not just the number. The
+   phase comes down from hud.tsx as a class of its own rather than being
+   read off the tile below with `:has()` — the line is drawn ABOVE the tile,
+   so a sibling selector would have to look forwards, and the rasterizer
+   that bakes this HUD into a screenshot should not have to. */
+.hud-trick-bailed {
+  color: var(--hud-bad);
   text-decoration: line-through;
 }
 

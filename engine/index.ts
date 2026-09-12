@@ -33,6 +33,7 @@ export {
   type GameState,
   type Progress,
   type TrickKind,
+  type TrickPart,
   type TrickState,
 } from "./game/state.ts";
 export {

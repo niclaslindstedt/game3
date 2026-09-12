@@ -151,15 +151,24 @@ describe("a revolution", () => {
         reset: false,
       };
     });
-    const trick = events.find((e) => e.kind === "trick");
+    // THE AIR COMES FIRST. The flight is past `airElement` long before the
+    // revolution closes, and the rung it is owed is credited by the trick
+    // that sells it (rule 3) — so the first two elements of any flipped
+    // combo are the air and then the flip, in that order, which is the
+    // order the line reads in.
+    const won = events.filter((e) => e.kind === "trick");
+    expect(won[0]?.kind === "trick" && won[0].trick).toBe("air");
+    expect(won[0]?.kind === "trick" && won[0].points).toBe(0);
+    const trick = won[1];
     expect(trick).toBeDefined();
     if (trick?.kind !== "trick") return;
     expect(trick.trick).toBe("backflip");
     expect(trick.spins).toBe(1);
     expect(trick.points).toBe(TUNING.tricks.flipPoints);
-    // A single is ×2: the multiplier starts at 1 and the first revolution
-    // is worth one step of it.
-    expect(trick.mult).toBe(2);
+    // A single flip flown in real air is ×3: the multiplier starts at 1,
+    // the air it was turned in is worth one step and the revolution
+    // another.
+    expect(trick.mult).toBe(3);
     expect(aloft).toBe(true);
   });
 
@@ -191,20 +200,28 @@ describe("a revolution", () => {
     const state = game();
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
     // Spin the hull by hand at a rate that turns two full revolutions
-    // inside the flight: nose-up is a negative body x rate.
+    // inside the flight: nose-up is a negative body x rate. Ten and not
+    // more, so the first of them closes PAST `airElement` — a revolution
+    // turned inside the first half-second is scored before the air it is
+    // in has become an element, and this case is about the flips.
     const events = ride(state, 2.2, (s) => {
-      if (s.craft.airborne) s.craft.wx = -14;
+      if (s.craft.airborne) s.craft.wx = -10;
       return COAST;
     });
-    const tricks = events.filter((e) => e.kind === "trick");
+    // The air's own rung is in front of them (rule 3), so the two
+    // revolutions are the second and third elements.
+    const tricks = events.filter((e) => e.kind === "trick").slice(1);
     expect(tricks.length).toBeGreaterThanOrEqual(2);
     if (tricks[0]?.kind !== "trick" || tricks[1]?.kind !== "trick") return;
     expect(tricks[0].spins).toBe(1);
     expect(tricks[0].points).toBe(T.flipPoints);
-    expect(tricks[0].mult).toBe(2);
+    expect(tricks[0].mult).toBe(3);
     expect(tricks[1].spins).toBe(2);
     expect(tricks[1].points).toBe(2 * T.flipPoints);
-    expect(tricks[1].mult).toBe(4);
+    // ...and the ladder is unchanged underneath it: the second revolution
+    // is worth two steps where the first was worth one, so the flips alone
+    // are ×4 and the air rides on top.
+    expect(tricks[1].mult).toBe(5);
   });
 
   it("does not accumulate out of chop: a hull pitching about turns nothing", () => {
@@ -220,6 +237,159 @@ describe("a revolution", () => {
       reset: false,
     }));
     expect(events.filter((e) => e.kind === "trick")).toHaveLength(0);
+  });
+});
+
+describe("the side spin", () => {
+  /** One jump off calm water with the bars thrown over and held there —
+   * the whole of THE WHIP (`strokes.ts`) as a rider on a touchscreen
+   * delivers it, and what it pays. */
+  function rolled(craft: "skiff" | "dart", side: number, seconds = 3.5) {
+    const state = createGame({ seed: 1, craft, level: FLAT, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
+    let turned = 0;
+    const events = ride(state, seconds, (s) => {
+      turned = Math.max(turned, Math.abs(s.tricks.roll));
+      return { ...COAST, steer: side };
+    });
+    return { events, turned, state };
+  }
+
+  it("comes round on the bars alone, and is named a roll whichever way it went", () => {
+    for (const side of [1, -1]) {
+      const { events, turned } = rolled("dart", side);
+      expect(turned).toBeGreaterThan(2 * Math.PI);
+      const roll = events.find((e) => e.kind === "trick" && e.trick === "roll");
+      expect(roll).toBeDefined();
+      if (roll?.kind !== "trick") return;
+      expect(roll.spins).toBe(1);
+      expect(roll.points).toBe(TUNING.tricks.rollPoints);
+    }
+  });
+
+  it("goes the way the bars went: right is right side down", () => {
+    // `flight.ts`'s convention, read off the state rather than the event —
+    // the name does not carry the side, so this is the only place it can
+    // be checked. Positive steer is the bars over to the right and a
+    // right-side-down roll is the positive sense of `tricks.roll`.
+    expect(rolled("dart", 1, 1.2).state.tricks.roll).toBeGreaterThan(0);
+    expect(rolled("dart", -1, 1.2).state.tricks.roll).toBeLessThan(0);
+  });
+
+  it("is not turned by a hull steering through a jump under the line", () => {
+    // The dead band, which is what keeps the levelling loop out of the
+    // trick — and what `sim/bot.ts` caps itself at. A whole flight spent
+    // holding just under the threshold buys no throw at all.
+    const state = createGame({ seed: 1, craft: "dart", level: FLAT, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
+    const events = ride(state, 3.5, () => ({
+      ...COAST,
+      steer: TUNING.flight.whipRise * 0.99,
+    }));
+    expect(events.filter((e) => e.kind === "trick" && e.trick === "roll")).toHaveLength(0);
+  });
+
+  it("climbs its own ladder: a double roll is ×4 of the rolls, not ×3", () => {
+    const T = TUNING.tricks;
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
+    // Rolled by hand at a rate that turns two inside the flight, the way
+    // the flip's own ladder case is: right side down is a negative body z
+    // rate.
+    const events = ride(state, 2.2, (s) => {
+      if (s.craft.airborne) s.craft.wz = -10;
+      return COAST;
+    });
+    const rolls = events.filter((e) => e.kind === "trick" && e.trick === "roll");
+    expect(rolls.length).toBeGreaterThanOrEqual(2);
+    if (rolls[0]?.kind !== "trick" || rolls[1]?.kind !== "trick") return;
+    expect(rolls[0].points).toBe(T.rollPoints);
+    expect(rolls[1].spins).toBe(2);
+    expect(rolls[1].points).toBe(2 * T.rollPoints);
+    expect(rolls[1].mult - rolls[0].mult).toBe(2);
+  });
+
+  it("is counted apart from the flip: one of each is two first revolutions", () => {
+    // The two axes keep their own indices, so a flip with a roll in it is
+    // ×3 of the tricks (1 + 1) and not ×2 of one doubled — which is what
+    // stops a corkscrew being priced as a double of either.
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 10 });
+    const events = ride(state, 2.6, (s) => {
+      if (s.craft.airborne) {
+        s.craft.wx = -4;
+        s.craft.wz = -4;
+      }
+      return COAST;
+    });
+    const won = events.filter((e) => e.kind === "trick");
+    const kinds = won.map((e) => (e.kind === "trick" ? e.trick : ""));
+    expect(kinds).toContain("backflip");
+    expect(kinds).toContain("roll");
+    for (const e of won) {
+      if (e.kind === "trick" && e.trick !== "air") expect(e.spins).toBe(1);
+    }
+  });
+});
+
+describe("the air as an element", () => {
+  it("buys a rung of its own the moment a trick lands beside it", () => {
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
+    const events = ride(state, 2.4, (s) => {
+      if (s.craft.airborne) s.craft.wx = -4;
+      return COAST;
+    });
+    const won = events.filter((e) => e.kind === "trick");
+    expect(won[0]?.kind === "trick" && won[0].trick).toBe("air");
+    // One step, and no base: the seconds were already paid for by the
+    // second and are not sold twice.
+    expect(won[0]?.kind === "trick" && won[0].points).toBe(0);
+    expect(won[0]?.kind === "trick" && won[0].mult).toBe(2);
+  });
+
+  it("is worth nothing on its own: a plain jump banks at ×1", () => {
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
+    const events = ride(state, 5);
+    expect(events.filter((e) => e.kind === "trick")).toHaveLength(0);
+    const combo = events.find((e) => e.kind === "combo");
+    expect(combo?.kind === "combo" && combo.mult).toBe(1);
+  });
+
+  it("is sold once per combo, not once per flight", () => {
+    // Two linked flights with a revolution in each. The second flight is
+    // air past the line as well, and it must not buy a second rung — a
+    // rider who could would climb the ladder by hopping.
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
+    const events: GameEvent[] = [];
+    events.push(
+      ...ride(state, 2.4, (s) => {
+        if (s.craft.airborne) s.craft.wx = -4;
+        return COAST;
+      }),
+    );
+    // Straight back up inside the link window, and round again.
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
+    events.push(
+      ...ride(state, 2.4, (s) => {
+        if (s.craft.airborne) s.craft.wx = -4;
+        return COAST;
+      }),
+    );
+    const airs = events.filter((e) => e.kind === "trick" && e.trick === "air");
+    expect(airs).toHaveLength(1);
+  });
+
+  it("is in the combo's element list, in front of the trick that sold it", () => {
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 9 });
+    ride(state, 2.4, (s) => {
+      if (s.craft.airborne) s.craft.wx = -4;
+      return COAST;
+    });
+    expect(state.tricks.parts.map((p) => p.kind)).toEqual(["air", "backflip"]);
   });
 });
 

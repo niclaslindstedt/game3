@@ -154,6 +154,27 @@ Afloat, the air is drag: `½·ρ_air·C_dA·|v_rel|·v_rel` against the WIND-rel
 
 How many taps a flip costs is the craft's own and no knob of its own: `pump · riderAuthority / I_x` runs 1.1 rad/s on the tourer to 5.7 on the stand-up. Measured on an 18° ramp — the middle of the band R8 builds — with the lean held back up the deck and then worked at five taps a second: the stand-up comes round 2.0 turns on the hold alone and 2.5 on the taps, the runabout 1.0 and 1.6, the musclecraft 0.6 and 1.3, and the tourer 0.5 and 1.0 — which is the trick going from out of reach on two of the four hulls to within reach on all of them. `airPitchTorque(spec)` in `limits.ts` is the hold's number for the bot, this craft's rider included; the pump is scaled by the same number, and **the bot never hauls** (`sim/bot.ts` caps its nose-up air lean at `pumpRise`: a levelling loop that hauled would be a bot flipping by accident).
 
+### The two strokes (`strokes.ts`)
+
+**THE WHIP is the pump on the other axis**, and the two are one mechanism read twice — which is why they live together in `engine/game/strokes.ts` rather than in the craft's step. Where the pump is the bars hauled BACK and buys rotation nose-over-tail, the whip is the bars thrown OVER and buys rotation about the hull's own length: the SIDE SPIN, which is the one trick a rider can ask for with the hand he is already steering with. Every clause above holds on it unchanged — a rise of `flight.whipRise` = 0.3 above the stroke's own low-water mark earns a throw, a held key earns exactly one and a worked key earns one a tap, `strokeDepth` prices it, nothing is spent until the hull is FLYING, and `flight.whipCeiling` = 12 rad/s times `riderAuthority` is the budget one rider has to give one flight.
+
+Three things are the whip's alone:
+
+- **It has a SIDE.** The bars crossing the centre end the throw that was running and start a fresh one on the new side, because a rider who has thrown his weight the other way is not a rider whose weight is still out there. The budget (`CraftState.whipped`) is unsigned, so throwing one way and then the other spends one budget and not two — a rider can stop a roll he has started, out of what is left.
+- **Its threshold is larger than the pump's** (0.3 against 0.22). The bars are in the rider's hands the whole way down every straight and through every gate, so a sideways throw has to be unmistakably a throw and not the lock he was already carrying.
+- **Its impulse is the same number as the pump's** (`flight.whip` = 620 N·m·s), which looks like laziness and is a measurement. A hull's roll inertia is about a quarter of its pitch inertia, so the same impulse thrown sideways starts four times the rate — but `rotDamp` is one coefficient over all three axes, and over a quarter of the inertia it bleeds a roll away about four times as fast (0.53/s against pitch's 0.14/s on the skiff at 18 m/s). What is easy to start is hard to keep, and the two cancel.
+
+So it is set by the ladder it makes, measured with `make ride SCENARIO=sidespin` on the first ramp of seed 38 — the real article at 15–22° and 1.4–1.7 s of air — in revolutions turned, bars held over against worked at four a second, with the flip off the same ramp beside it for scale:
+
+| Craft  | Roll, held | Roll, worked | Flip, held |
+| ------ | ---------- | ------------ | ---------- |
+| skiff  | 1.76       | 1.77         | 0.89       |
+| marlin | 1.04       | 1.71         | 0.43       |
+| otter  | 0.91       | 1.79         | 0.40       |
+| dart   | 1.61       | 1.66         | 1.78       |
+
+Hold the bars over and it comes round on three of the four; work them and it comes round on all four; the tourer is the one that has to be worked. **The bot never throws either** — `sim/bot.ts` caps its air steer at `whipRise` the way it caps its nose-up lean at `pumpRise` — but only on a REAL launch, read off `CraftState.launchVy`. Two things were measured into that. Capping through the chop as well took the bars off its levelling loop for every crest it skips off, and the stand-up lost two gates of six on the synthetic shore. And quoting the engine's own `minAir` clause in the bot leaves one step on which the bot has not capped and the engine already counts the hull as flying — one step is a whole throw, because the stroke's mark starts every flight at zero, and it cost seven accidental barrel rolls over sixteen runs. Off the launch instead, those same sixteen runs turn zero rolls and zero flips by accident.
+
 - **Rotational damping** `rotDamp` = 35 N·m·s at `rotDampSpeed` = 20 m/s, scaling with airspeed (floored at 5 m/s), so a flight nobody is steering does not tumble.
 
 ## The water over the deck (`submerged.ts`)
@@ -278,7 +299,7 @@ The ladder flattens between 0.5 and 0.75 and then opens again: at 1 the hand is 
 
 ## The score (`tricks.ts`)
 
-The clock is the race. The SCORE is the other game on the same water, and it pays for the parts of a run the clock has no opinion about: the time the hull spends off the water, and the revolutions it turns nose-over-tail while it is up there. Every number is `TUNING.tricks`, and every one of them is an arcade dial — none is measured against anything, and what they are chosen against is the LADDER they make between one flight and the next.
+The clock is the race. The SCORE is the other game on the same water, and it pays for the parts of a run the clock has no opinion about: the time the hull spends off the water, the revolutions it turns nose-over-tail while it is up there (THE PUMP), the revolutions it turns about its own length (THE WHIP), and the flight itself as an element beside any of them. Every number is `TUNING.tricks`, and every one of them is an arcade dial — none is measured against anything, and what they are chosen against is the LADDER they make between one flight and the next.
 
 **Air time pays by the second, at a rate that rises with the flight.** `airPointsPerSecond(t) = airRate · log2(1 + t / airKnee)` — 100 points a second one knee (1 s) into a flight, half again that at three seconds, about four and a half times it at twenty. A flight's whole purse is that rate integrated over it, which grows rather faster than the flight does:
 
@@ -294,17 +315,26 @@ The clock is the race. The SCORE is the other game on the same water, and it pay
 
 **A revolution raises the multiplier, and the next one raises it more.** The rotation is the body pitch rate summed while aloft (`−wx · dt`, the same reading `flight_test` measures a backflip with) — the flip axis whatever attitude the hull is in, and a sum that comes to nothing in chop, so a hull being thrown about cannot accumulate a flip. Each whole turn is scored the instant it closes, in the air: the Nth revolution of a flight is worth `N · flipPoints` of base and `N` steps of multiplier, the multiplier starting at 1.
 
-| Flight            | Base            | Multiplier | Combo |
-| ----------------- | --------------- | ---------- | ----- |
-| 2 s, flat         | 172             | ×1         | 172   |
-| 2 s + backflip    | 172 + 300       | ×2         | 944   |
-| 4 s + double flip | 569 + 300 + 600 | ×4         | 5 876 |
+**A side spin climbs the same ladder, and climbs it separately.** The roll is the body ROLL rate summed while aloft (`−wz · dt`), the hull's own length as the axis, and each whole turn is worth `N · rollPoints` of base and `N` steps of multiplier exactly as a flip is. `rollPoints` is the same 300 as `flipPoints`, because the two are the same commitment asked of the same rider on two axes — the roll is the easier one to start and the harder one to hold together, since the hull has to come back the right way up for a landing the flip would have levelled it for. Naming them equal is also what makes them worth CHAINING: a rider who could earn more by flipping twice would never roll. The two counts are kept APART, so a flip with a roll in it is two FIRST revolutions and not one second one — which is what stops a corkscrew being priced as a double of either.
 
-A double is ×4 rather than ×3 on purpose: it is not two backflips, it is one much harder trick that happens to be measured in revolutions, and the ladder has to say so or nobody goes for the second one.
+**And so does the air they were turned in, once something was turned in it.** A flight past `tricks.airElement` (0.5 s) is an element of the combo like any other and worth one step of multiplier — but it is only ever credited beside a trick, and only once per combo. Both halves are load-bearing. Credit it on its own and every jump on the course reads ×2, which is a multiplier that has stopped saying anything; credit it per flight and a rider climbs the ladder by hopping off crests. It adds NO base: the air is already paid by the second, and paying it twice would be the same seconds sold at two prices.
+
+| Flight               | Base                  | Multiplier | Combo  |
+| -------------------- | --------------------- | ---------- | ------ |
+| 2 s, flat            | 172                   | ×1         | 172    |
+| 2 s + backflip       | 172 + 300             | ×3         | 1 417  |
+| 2 s + barrel roll    | 172 + 300             | ×3         | 1 417  |
+| 2 s + both           | 172 + 300 + 300       | ×4         | 3 089  |
+| 4 s + double flip    | 569 + 300 + 600       | ×5         | 7 347  |
+| 4 s + flip + 2× roll | 569 + 300 + 300 + 600 | ×6         | 10 617 |
+
+A double is ×4 of its own revolutions rather than ×3 on purpose: it is not two backflips, it is one much harder trick that happens to be measured in revolutions, and the ladder has to say so or nobody goes for the second one.
 
 **Nothing is banked until the combo closes.** The base and the multiplier ride together while the hull is up and for `linkWindow` (1 s) after it comes down, so a landing straight into the next launch is ONE combo at one multiplier rather than two small ones. The window running out with the rider still on the craft banks `base × mult` into `tricks.score` and emits `combo`. Going over the bars does not: a `capsize`, a `dive` (the bow buried on the landing — the same mistake at the other end of the flight) or the rider putting himself back at a gate emits `bail` and the combo is gone. A `hit` is not a bail — a hull glancing off a skerry is still under its rider.
 
 The engine only says what happened. `trick`, `combo` and `bail` are the events, `GameState.tricks` is the state a readout reads, and nothing here draws or draws randomness — a run replays to the same score.
+
+**No word for any of it is in the engine.** `TrickKind` names the THING (`backflip`, `frontflip`, `roll`, `air`) and `TrickPart` carries how many revolutions of it and which flight of the combo it was won in; the WORDS are the app's, in the one table every line the player reads comes from (`pwa/src/game/strings.ts`, §39.1). That table is also where the vocabulary's one compound lives: a flight that turned exactly one flip and exactly one roll is a CORKSCREW, named once in place of both — which is what the flight index is carried for, since the same two elements taken off two waves in a row are a link and not a corkscrew. `STRINGS.comboLine` joins the elements the way an arcade skating game joins them, and the HUD flashes that line over the nose above the figure and the multiplier.
 
 ## Contacts (`collision.ts`)
 
@@ -370,18 +400,18 @@ The measured rows are a snapshot at the current numbers, taken the way `craft_te
 
 Each is read off the step, never declared, and each carries `t`; `docs/architecture.md` lists the payloads.
 
-| Event     | Fires when                                                                                                                                                                                                               | Where                             |
-| --------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | --------------------------------- |
-| `launch`  | The hull has been clear of water, ground and ramp for `flight.minAir` = 0.2 s, having left with ≥ `flight.launchVy` = 1.2 m/s of climb.                                                                                  | `craft.ts`                        |
-| `land`    | The hull touches again after a flight at least `minAir` long; `vy` is the steeper of the body's descent and the fastest probe's closing. `record` says the flight was the run's longest past `flight.airCounts` = 0.5 s. | `craft.ts`, `record` in `step.ts` |
-| `dive`    | Within 1 s of a landing the bow-station keel is `flight.diveDepth` = 0.55 m under with the pitch below `flight.divePitch` = −0.12 rad. Once per landing.                                                                 | `craft.ts`                        |
-| `capsize` | The hull's up has pointed down, not airborne, for `capsize.after` = 1.5 s; the righting begins.                                                                                                                          | `craft.ts`                        |
-| `ground`  | A ground contact closing at over 0.4 m/s, at most every `contact.groundCooldown` = 0.5 s.                                                                                                                                | `craft.ts` off `contactForces`    |
-| `hit`     | A solid met with the closing speed or the craft's speed ≥ `contact.hitSpeed` = 1 m/s, at most every `contact.hitCooldown` = 0.35 s.                                                                                      | `collision.ts` (`clipSolids`)     |
-| `reset`   | The reset input was taken while running; the craft is stood by `standCraft`.                                                                                                                                             | `course.ts` (`resetCraft`)        |
-| `trick`   | A whole revolution closed in the air — the Nth of this flight. Carries `trick`, `spins`, the `points` it added and the `mult` the combo now stands at.                                                                   | `tricks.ts`                       |
-| `combo`   | The link window (`tricks.linkWindow` = 1 s) ran out with the rider still on the craft; `points` = `base × mult` went into `tricks.score`.                                                                                | `tricks.ts`                       |
-| `bail`    | The combo was thrown away by a `capsize`, a `dive` or a reset; `lost` is what it would have been worth.                                                                                                                  | `tricks.ts`, `step.ts` on a reset |
+| Event     | Fires when                                                                                                                                                                                                                                                                              | Where                             |
+| --------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------- |
+| `launch`  | The hull has been clear of water, ground and ramp for `flight.minAir` = 0.2 s, having left with ≥ `flight.launchVy` = 1.2 m/s of climb.                                                                                                                                                 | `craft.ts`                        |
+| `land`    | The hull touches again after a flight at least `minAir` long; `vy` is the steeper of the body's descent and the fastest probe's closing. `record` says the flight was the run's longest past `flight.airCounts` = 0.5 s.                                                                | `craft.ts`, `record` in `step.ts` |
+| `dive`    | Within 1 s of a landing the bow-station keel is `flight.diveDepth` = 0.55 m under with the pitch below `flight.divePitch` = −0.12 rad. Once per landing.                                                                                                                                | `craft.ts`                        |
+| `capsize` | The hull's up has pointed down, not airborne, for `capsize.after` = 1.5 s; the righting begins.                                                                                                                                                                                         | `craft.ts`                        |
+| `ground`  | A ground contact closing at over 0.4 m/s, at most every `contact.groundCooldown` = 0.5 s.                                                                                                                                                                                               | `craft.ts` off `contactForces`    |
+| `hit`     | A solid met with the closing speed or the craft's speed ≥ `contact.hitSpeed` = 1 m/s, at most every `contact.hitCooldown` = 0.35 s.                                                                                                                                                     | `collision.ts` (`clipSolids`)     |
+| `reset`   | The reset input was taken while running; the craft is stood by `standCraft`.                                                                                                                                                                                                            | `course.ts` (`resetCraft`)        |
+| `trick`   | An element won — a whole revolution closed in the air (the Nth of this flight, nose-over-tail or about the hull's length), or the AIR itself once a trick has landed beside it. Carries `trick`, `spins`, the `points` it added (0 for the air) and the `mult` the combo now stands at. | `tricks.ts`                       |
+| `combo`   | The link window (`tricks.linkWindow` = 1 s) ran out with the rider still on the craft; `points` = `base × mult` went into `tricks.score`.                                                                                                                                               | `tricks.ts`                       |
+| `bail`    | The combo was thrown away by a `capsize`, a `dive` or a reset; `lost` is what it would have been worth.                                                                                                                                                                                 | `tricks.ts`, `step.ts` on a reset |
 
 `gate`, `airGate`, `missedGate` and `finish` are the course's (`stepCourse`), on the move the step made.
 
@@ -403,7 +433,7 @@ No handbrake and no gears, and the one brake is the BUCKET rather than a pedal: 
 
 ## What holds it
 
-`tests/buoyancy_test.ts` (Archimedes, the draft, righting), `tests/craft_test.ts` (the sheet, the pump, the steering), `tests/flight_test.ts` (the arc, the landing, the dive's cost, the backflip, the quaternion algebra), `tests/tricks_test.ts` (the score: the air's rate, a flight's purse, the revolution ladder, the combo banked and bailed), `tests/tuck_test.ts` (what the tuck buys and what it costs), `tests/collision_test.ts`, `tests/course_test.ts`, `tests/place_test.ts`, `tests/simulation_test.ts` (nothing explodes; the bot finishes), `tests/determinism_test.ts`. **`make ride SCENARIO=`** (`scripts/ride-lab.mjs`) is the lab: the craft in profile every sixth of a second over the water it crossed, with speed, pitch, wetted share, rpm and air time beside each cell — required before and after any change to the hull, the planing lift, the slamming or the flight.
+`tests/buoyancy_test.ts` (Archimedes, the draft, righting), `tests/craft_test.ts` (the sheet, the pump, the steering), `tests/flight_test.ts` (the arc, the landing, the dive's cost, the backflip, the quaternion algebra), `tests/tricks_test.ts` (the score: the air's rate, a flight's purse, the revolution ladder on both axes, the air as an element, the combo banked and bailed), `tests/tuck_test.ts` (what the tuck buys and what it costs), `tests/collision_test.ts`, `tests/course_test.ts`, `tests/place_test.ts`, `tests/simulation_test.ts` (nothing explodes; the bot finishes), `tests/determinism_test.ts`. **`make ride SCENARIO=`** (`scripts/ride-lab.mjs`) is the lab: the craft in profile every sixth of a second over the water it crossed, with speed, pitch, wetted share, rpm and air time beside each cell — required before and after any change to the hull, the planing lift, the slamming or the flight.
 
 ## What is NOT modelled
 

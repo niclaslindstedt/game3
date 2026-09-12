@@ -60,6 +60,7 @@ export type ScenarioName =
   | "storm"
   | "ocean"
   | "backflip"
+  | "sidespin"
   | "wildlife"
   | "breach"
   | "birds"
@@ -87,6 +88,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "storm",
   "ocean",
   "backflip",
+  "sidespin",
   "wildlife",
   "breach",
   "birds",
@@ -937,6 +939,29 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
           pitchRate: 3,
         }),
         script: () => input(0, 1, 1),
+        seconds: 3,
+      };
+    }
+    case "sidespin": {
+      // THE OTHER AXIS, off the same lip: the bars thrown over and held
+      // there, the hull round on its own length. What the shot is for is
+      // the two things a flipped one cannot show — the hull seen from
+      // behind at an angle no other moment puts it at, and THE COMBO'S
+      // LINE over the nose with a name on it (`STRINGS.comboLine`), which
+      // is the readout this whole scoring is read through.
+      if (!air) return scenarioFor(state, "cruise");
+      const lip = air.ramp ? air.ramp.length * Math.tan(air.ramp.angle) : 2;
+      return {
+        moment: beforeRamp(air, -(air.ramp?.length ?? 8), {
+          speed: launchSpeedFor(air, spec.cog.y, top),
+          height: lip + spec.cog.y + 0.5,
+          vy: 5.5,
+          // Already going over, as the backflip's moment already is: the
+          // photograph wanted is the trick mid-turn, and a hull stood at
+          // the lip with the bars only just thrown is a hull still level.
+          rollRate: 3,
+        }),
+        script: () => input(1, 1, 0),
         seconds: 3,
       };
     }

@@ -123,9 +123,19 @@ export function soundForEvent(event: GameEvent): { id: string; shape?: PlayShape
       return { id: "ground", shape: { gain: 0.6 + 0.6 * fast, stretch: 0.8 + 0.6 * fast } };
     }
 
-    // A REVOLUTION CLOSED, in the air. The rung it bought is the pitch: one
-    // chime, climbing, rather than a def per turn.
+    // A REVOLUTION CLOSED, in the air — nose-over-tail or about the hull's
+    // own length, one chime for both. The rung it bought is the pitch: one
+    // chime, climbing, rather than a def per turn or a def per axis. The
+    // two axes SOUND the same on purpose: they are worth the same
+    // (`TUNING.tricks`), and a rider who hears the ladder climb is hearing
+    // the thing that is actually happening to his multiplier.
+    //
+    // The AIR's own rung is silent. It is credited on the very step the
+    // trick that sold it lands (`tricks.ts` rule 3), so a chime of its own
+    // would be two one-shots inside one step reading as one doubled, louder
+    // chime — the beat the rider is listening for, smeared.
     case "trick": {
+      if (event.trick === "air") return null;
       const turn = Math.min(event.spins, SPIN_STEPS) - 1;
       return {
         id: "trick",
