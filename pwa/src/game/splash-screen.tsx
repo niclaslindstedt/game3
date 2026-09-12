@@ -35,8 +35,9 @@ const FADE_MS = 340;
 /** Keys that are not "a key" to a player holding one down to reach another. */
 const MODIFIER_KEYS = new Set(["Shift", "Control", "Alt", "Meta", "OS"]);
 
-/** Where the card is in its life: `loading` is beat one, `ready` is beat two
- * with the title up and the prompt blinking, `done` is it leaving. */
+/** Where the card is in its life: `loading` is beat one, with nothing on the
+ * screen but the house's name and the ring turning in the corner; `ready` is
+ * beat two with the title up and the prompt blinking; `done` is it leaving. */
 type CardPhase = "loading" | "ready" | "done";
 
 /** What the card asks for, in the words of the device it is being read on. A
@@ -143,19 +144,27 @@ export function SplashScreen({ warm, onDone }: { warm: boolean; onDone: () => vo
       </div>
       {/* Beat two, mounted when it arrives rather than held invisible above
           the fold. Reserving its space would keep the house's name still, and
-          buy that with a hole in the middle of beat one — where the whole
-          screen is the house's name and the word LOADING adrift at the bottom
-          of it. The card lifting the publisher to make room for its own title
-          is what an attract screen does. */}
+          buy that with a hole in the middle of beat one. The card lifting the
+          publisher to make room for its own title is what an attract screen
+          does. */}
       {revealed && (
         <div class="splash-title">
           <MarkWave lay="once" className="splash-mark" />
           <span class="splash-game">{APP_NAME.toUpperCase()}</span>
         </div>
       )}
-      <span class={`splash-prompt${revealed ? " ready" : ""}`}>
-        {revealed ? prompt : STRINGS.loading}
-      </span>
+      {/* THE TWO BEATS SAY DIFFERENT KINDS OF THING, so they are not one slot.
+          Beat two's invitation is the only thing on the card the player has to
+          act on, and it belongs under the title where they were already
+          looking. Beat one has nothing to report but that work is happening —
+          a fact worth a corner, not a headline — so it is said the way a
+          console says it: a small ring turning in the bottom right, out of the
+          lockup's way, claiming no fraction and asking for nothing. */}
+      {revealed ? (
+        <span class="splash-prompt">{prompt}</span>
+      ) : (
+        <span class="splash-spinner" role="img" aria-label={STRINGS.loading} />
+      )}
     </div>
   );
 }

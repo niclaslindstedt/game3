@@ -2008,22 +2008,51 @@ canvas {
   animation: splash-name 520ms 220ms ease-out both;
 }
 
-/* What the card is doing, and then what it wants. One slot, so the invitation
-   lands exactly where the player was already looking. */
+/* WHAT THE CARD WANTS — beat two only, and the one thing on screen the player
+   has to act on, so it sits under the title where they were already looking.
+
+   The arcade blink: a hard on/off. A fade would read as a notification. */
 .splash-prompt {
   font-size: clamp(0.68rem, 2.5vmin, 1rem);
   letter-spacing: 0.32em;
   text-indent: 0.32em;
   text-align: center;
-  color: var(--hud-ink);
+  color: var(--buoy);
   text-shadow: 0 2px 0 var(--hud-shadow);
-  animation: splash-loading 1.5s ease-in-out infinite;
+  animation: splash-blink 1.05s linear 520ms infinite both;
 }
 
-/* The arcade blink: a hard on/off. A fade would read as a notification. */
-.splash-prompt.ready {
-  color: var(--buoy);
-  animation: splash-blink 1.05s linear 520ms infinite both;
+/* WHAT THE CARD IS DOING — beat one, and all it has to say is that work is
+   happening. That is worth a corner, not a headline: a small ring turning in
+   the bottom right, clear of the lockup, claiming no fraction and asking for
+   nothing.
+
+   Drawn in the card's own ink, which is what every other mark on it is drawn
+   in — the gradient ends on `--sea-shallow`, a mid teal, so white carries
+   further down here than the shadow's navy does.
+
+   It turns on a TRANSFORM and nothing else. Beat one is precisely when the
+   main thread is building a shore, and anything animated off the compositor
+   stops dead for exactly as long as the player most needs to see something
+   moving — the same reason every fill on the loading card is a transform. */
+.splash-spinner {
+  position: absolute;
+  right: max(1.1rem, env(safe-area-inset-right));
+  bottom: max(1.1rem, env(safe-area-inset-bottom));
+  width: clamp(1.05rem, 3.2vmin, 1.5rem);
+  aspect-ratio: 1;
+  border: 0.14rem solid color-mix(in srgb, var(--hud-ink), transparent 76%);
+  /* One quarter lit, with the square ends the rest of the game's drawing
+     wears. A tapered arc would be the one soft edge on the screen. */
+  border-top-color: color-mix(in srgb, var(--hud-ink), transparent 22%);
+  border-radius: 50%;
+  animation: splash-spin 760ms linear infinite;
+}
+
+@keyframes splash-spin {
+  to {
+    transform: rotate(1turn);
+  }
 }
 
 @keyframes splash-in {
@@ -2056,16 +2085,6 @@ canvas {
   to {
     opacity: 1;
     transform: none;
-  }
-}
-
-@keyframes splash-loading {
-  0%,
-  100% {
-    opacity: 0.3;
-  }
-  50% {
-    opacity: 0.75;
   }
 }
 
@@ -3982,10 +4001,16 @@ button.knob-read:focus-visible {
     transform: none;
   }
 
-  .splash-prompt,
-  .splash-prompt.ready {
+  .splash-prompt {
     animation: none;
     opacity: 1;
+  }
+
+  /* The ring stops turning and stands as it is drawn. A parked spinner is
+     still the glyph everybody reads as "working", where fading it out would
+     leave beat one with nothing on screen but the house's name. */
+  .splash-spinner {
+    animation: none;
   }
 
   .loading-bar-sweeping .loading-bar-fill {

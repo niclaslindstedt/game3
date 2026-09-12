@@ -211,8 +211,8 @@ export const STRINGS = {
    * menu, which is next door in menu-pause.tsx and shares only the word. */
   paused: "PAUSED",
   pausedNote: "The run waits until you come back",
-  /** The boot card, and the word the attract card and the loading card both
-   * wear while they are waiting on something. */
+  /** The boot card and the loading card's own word, and what the attract
+   * card's turning ring is announced as to a reader that cannot see it. */
   loading: "loading",
 
   /* ── THE ATTRACT CARD (splash-screen.tsx) ──────────────────────────── */
