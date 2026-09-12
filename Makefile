@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds wake profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -216,6 +216,16 @@ flora:
 # `make birds` · `make birds ARGS="--rows=gull,eagle"` · `make birds ARGS=--skip-build`
 birds:
 	node scripts/birds-preview.mjs $(ARGS)
+
+# EVERY MARK THE MENUS DRAW, at the three sizes it is read at, over the
+# menu's own plate — `previews/glyphs.png`. A screenshot of the front door
+# shows one glyph at one size beside three others over moving water, so a
+# silhouette that has gone to mush at the size a phone draws it comes back
+# looking like a card that is fine. Same Chromium requirements as
+# `screenshots`.
+# `make glyphs` · `make glyphs ARGS=--skip-build`
+glyphs:
+	node scripts/glyph-preview.mjs $(ARGS)
 
 # Meter what one frame costs the renderer: draw calls, triangles, program
 # and texture binds, per scene. Same Chromium requirements as

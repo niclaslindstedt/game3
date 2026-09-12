@@ -62,6 +62,7 @@ the door comes up over the shore the player was just on.
 | Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
 | The run held mid-ride: RESUME, its own strip of knobs, MAIN MENU | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
 | The app's mark, building | `pwa/src/game/mark-wave.tsx` over `app-mark.ts`'s paths |
+| THE MARKS the cards are read by | `pwa/src/game/menu-glyphs.tsx` — one 24x24 box per idea, stroked in `currentColor`; `make glyphs` is the contact sheet |
 | Every word on every card | `pwa/src/game/strings.ts` (§39.1) — no card carries a literal |
 | The chrome | `pwa/src/styles.css`, from `── THE MENU SYSTEM` down |
 
@@ -153,6 +154,7 @@ the door comes up over the shore the player was just on.
 
 ```sh
 make build
+CHROMIUM_PATH=/opt/pw-browsers/chromium make glyphs                     # a mark changed
 CHROMIUM_PATH=/opt/pw-browsers/chromium node scripts/screenshot.mjs --surface all
 CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=cruise   # the run behind it
 npx vitest run tests/menu_system_test.ts
@@ -162,6 +164,15 @@ npx vitest run tests/menu_system_test.ts
 reference viewports; it waits on the card being in the DOM rather than on
 `window.__SH_READY__`, which is a RUN's flag. Then LOOK, and run `ui-review`'s
 audit at 1280×720 and 390×844.
+
+**A MARK IS JUDGED ON THE SHEET, NEVER ON THE CARD.** A tile shows one
+glyph, at one size, over moving water: a silhouette that has gone to mush at
+the size a phone draws it comes back looking like a card that is fine. `make
+glyphs` draws the whole set at 14, 22 and 40 px over the menu's own plate,
+which is where two drafts of a craft in profile died — a wedge with a stick
+on it, and the same wedge over a wave, both a horizontal smear at the small
+end. What replaced them stands UP out of the water (the buoy), because a
+vertical against the wave's horizontal is the thing that survives.
 
 **A picture is not the machine.** The surfaces can all photograph correctly
 while the shell is broken — the hold bug above passed every screenshot. Drive

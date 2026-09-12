@@ -50,6 +50,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The HUD, the controls                                   | `screenshots`                  | `hud-and-menus`, `ui-review`                   |
 | A sound: a bed, a splash, the listener, the mix         | `audition`, `audition ARGS=--meter` | `sound-effects`                           |
 | A menu, a setting, the splash or loading card           | `screenshots ARGS=--surface`   | `menu-system`, `ui-review`                     |
+| A MARK on a card: a glyph added, redrawn or re-sized     | `glyphs`, then `screenshots ARGS=--surface` | `menu-system`, `ui-review`        |
 | The shutter, the roll, the gallery                      | `screenshots ARGS="--surface gallery"`, and a run photographed by hand | `menu-system` |
 | The sky, the light, the clouds, the night, the weather  | `sky`, `screenshots`           | `atmosphere`                                   |
 | The desktop app, the store app, the seam with the page  | `tauri-test`, `native-typecheck`, the three seam tests | `platform-shells`      |
@@ -58,7 +59,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | A contact, a gate, a reset                              | `ride`, `sim`                  | `collision`                                    |
 | Anything rendered                                       | `profile`                      | `write-code`                                   |
 
-`waves`, `ride`, `crafts`, `level`, `analyze` and `audition` are pure Node — no build, no browser, seconds (the audition's `--meter` is the one browser-driven half: it drives the page it wrote in Chromium and prints every level). `screenshots`, `profile`, `sky`, `flora` and `birds` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky`, `flora`, `birds` and `wake` build their own one-off bundle from a harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
+`waves`, `ride`, `crafts`, `level`, `analyze` and `audition` are pure Node — no build, no browser, seconds (the audition's `--meter` is the one browser-driven half: it drives the page it wrote in Chromium and prints every level). `screenshots`, `profile`, `sky`, `flora` and `birds` are browser-driven. The first two drive the BUILT SITE, so **`make build` first, every time**: a stale dist photographs the last change rather than this one, and the picture that comes back is wrong in a way that reads as a bug in the code. `sky`, `flora`, `birds`, `wake` and `glyphs` build their own one-off bundle from a harness page and so need no `make build`. In Claude web sessions Chromium is preinstalled — prefix the browser-driven ones with `CHROMIUM_PATH=/opt/pw-browsers/chromium`.
 
 Five of these are worth knowing about even when they are not your subject:
 
@@ -167,6 +168,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | THE SCORE AS READ: the run's total, the combo over the nose, the beat | `pwa/src/game/snapshot.ts`'s `comboTile`, `hud.tsx`, `.hud-score` / `.hud-combo` in `styles.css` | `hud-and-menus`      |
 | The frame rate the HUD's corner reads                 | `pwa/src/game/frame-rate.ts`                                  | `hud-and-menus`      |
 | The splash, the main menu, options, the developer page | `pwa/src/game/menu*.ts*`, `splash*.ts*`, `loading-screen.tsx` | `menu-system`       |
+| THE MARKS the cards are read by: the glyph set and its shapes | `pwa/src/game/menu-glyphs.tsx`, judged with `make glyphs` | `menu-system`, `ui-review` |
 | THE SHUTTER: what a picture is, how it is signed, the HUD rasterized into it | `pwa/src/game/screenshots.ts`, `shot-plan.ts` (the arithmetic, DOM-free), `shot-hud.ts` | `menu-system`, `hud-and-menus` |
 | The pictures KEPT: the roll, its cap, the store under it, the thumbnails | `pwa/src/lib/shot-roll.ts` (the policy, storage-free), `shot-store.ts` (IndexedDB), `shot-thumbs.ts` | `menu-system`      |
 | The gallery, and the three ways a picture leaves the game | `pwa/src/game/menu-gallery.tsx`, `pwa/src/lib/share-image.ts` | `menu-system`, `ui-review` |

@@ -4,7 +4,14 @@
 // bot-ridden run behind this card the whole time it is up. A menu that
 // stopped the water would be a menu that announces the game is not running.
 //
-// FOUR ROWS, AND THE FIRST ONE IS THE POINT.
+// FOUR TILES, AND THE FIRST ONE IS THE POINT.
+//
+// Each is a MARK and a NAME (menu-glyphs.tsx), two abreast. The rows this
+// replaced carried the same four words in a column three deep, which is
+// correct and reads as a form rather than as the way into a game: the mark
+// is what the eye lands on, the word is what confirms it, and a player
+// learns each one once. START keeps the orange it always had, so which tile
+// the door is FOR is still answered before anything is read.
 //
 //   START      → the start card (menu-start.tsx): the shore, the hour and
 //                the day; then the craft card (menu-craft.tsx), where the
@@ -15,7 +22,7 @@
 //                The only way into a run there is: this is
 //                a vertical slice, and a front door offering four modes that
 //                all lead to the same shore would be a door telling four
-//                lies. Campaign, Time Trial and the rest arrive as rows here
+//                lies. Campaign, Time Trial and the rest arrive as tiles here
 //                on the day `campaign.ts` stops being a placeholder.
 //   GALLERY    → the pictures the player took (menu-gallery.tsx), and the
 //                only place one is ever shown. It stands above OPTIONS
@@ -29,7 +36,7 @@
 //
 // The hold is on START and not on the wordmark or a corner because a secret
 // nobody can be told about is a secret nobody finds. "Hold the button you
-// already press" is one sentence long, needs no diagram, and — since the row
+// already press" is one sentence long, needs no diagram, and — since the tile
 // fills and SAYS SO while it is being held — cannot be stumbled into without
 // the player seeing exactly what they are about to open.
 //
@@ -52,6 +59,7 @@ import {
 import { CraftPage } from "./menu-craft.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
 import { GalleryPage } from "./menu-gallery.tsx";
+import { Glyph } from "./menu-glyphs.tsx";
 import { KeysPage } from "./menu-keys.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
@@ -66,14 +74,14 @@ export type MenuPage =
   | { page: "keys" }
   | { page: "developer" };
 
-/** How often the held row redraws its fill, ms. Ten a second is a fill that
+/** How often the held tile redraws its fill, ms. Ten a second is a fill that
  * reads as continuous and a hundredth of the work a frame loop would do —
  * and the main thread is idle during a hold, so there is nothing here for a
  * compositor animation to buy. The bar the LOADING card draws is the other
  * case, and it is a transform for exactly that reason. */
 const HOLD_TICK_MS = 100;
 
-/** How far into the hold the row starts saying what is about to happen. Late
+/** How far into the hold the tile starts saying what is about to happen. Late
  * enough that an ordinary press never sees it, early enough that nobody
  * reaches seven seconds without having been told where they are going. */
 const HOLD_SAYS_AT = 0.15;
@@ -102,17 +110,17 @@ function VersionStamp() {
 
 /**
  * START — a press that opens the start card, and a seven-second hold that
- * opens the developer menu (see this module's header for why it is this row).
+ * opens the developer menu (see this module's header for why it is this tile).
  *
  * THE PRESS IS TAKEN ON `click`, NOT ON `pointerup`, and that is what makes
- * the row reachable three ways at once. A pointer, a key and `menu-nav.ts`'s
+ * the tile reachable three ways at once. A pointer, a key and `menu-nav.ts`'s
  * cursor all end in a click; only the first of them has pointer events at
  * all. So the pointer and key handlers do nothing but run the HOLD, and the
  * click is where the card actually opens — with `holdRelease` deciding
  * whether this particular click is one, because a hold that has already
  * unlocked something must not also walk off the page it just unlocked.
  */
-function StartRow({
+function StartTile({
   unlocked,
   onStart,
   onUnlock,
@@ -155,7 +163,7 @@ function StartRow({
     setAt(0);
     put({ from: performance.now(), armed: false });
   };
-  // Letting go — including dragging the finger off the row, which is how a
+  // Letting go — including dragging the finger off the tile, which is how a
   // player who changed their mind about the hold says so. A hold that FIRED
   // stays armed across this: the click it is about to produce is the one it
   // has to swallow, and `press` below is where it is spent.
@@ -168,7 +176,7 @@ function StartRow({
     // happens. A browser only raises `click` when the press and the release
     // land on the same element, and the release that ARMS this hold is the
     // one release guaranteed to change the card under the finger — the
-    // DEVELOPER row appears and the receipt with it. Measured in Chromium:
+    // DEVELOPER tile appears and the receipt with it. Measured in Chromium:
     // that release raises no click at all. An `armed` left standing then
     // waits for the NEXT press and eats that instead, which is a START
     // button that unlocks the developer menu once and never rides again.
@@ -198,12 +206,12 @@ function StartRow({
   return (
     <button
       type="button"
-      class={`menu-item menu-item-start${saying ? " menu-item-holding" : ""}`}
+      class={`menu-tile menu-tile-start${saying ? " menu-tile-holding" : ""}`}
       data-menu="start"
       data-nav-next
       // Only BEGINNING is gated on there being something left to unlock.
       // The enders are always bound: a hold that armed on the last press has
-      // to be let go of even though the row has stopped holding.
+      // to be let go of even though the tile has stopped holding.
       onPointerDown={holds ? begin : undefined}
       onPointerUp={end}
       onPointerLeave={end}
@@ -224,10 +232,12 @@ function StartRow({
       }}
       onClick={press}
     >
-      {/* The fill, behind the label: the row itself is the progress bar, so
-          what is filling and what is being held are the same object. */}
-      <span class="menu-item-hold" style={{ transform: `scaleX(${at})` }} aria-hidden="true" />
-      <span class="menu-item-name">{saying ? STRINGS.menuHolding : STRINGS.menuStart}</span>
+      {/* The fill, behind the mark and the label: the tile itself is the
+          progress bar, so what is filling and what is being held are the
+          same object. */}
+      <span class="menu-tile-hold" style={{ transform: `scaleX(${at})` }} aria-hidden="true" />
+      <Glyph name="buoy" />
+      <span class="menu-tile-name">{saying ? STRINGS.menuHolding : STRINGS.menuStart}</span>
     </button>
   );
 }
@@ -254,8 +264,12 @@ function RootPage({
         </div>
         <span class="menu-brand-tag">{STRINGS.menuTag}</span>
       </div>
-      <div class="menu-items">
-        <StartRow
+      {/* Three tiles is the door every player sees — the developer one is
+          out until it is found — so the last of them takes the whole bottom
+          row rather than sitting beside a hole (`.menu-tiles`'s odd rule).
+          Unlocking makes it a square block of four and nothing else moves. */}
+      <div class="menu-tiles">
+        <StartTile
           unlocked={settings.developer}
           onStart={() => onNavigate({ page: "start" })}
           onUnlock={() => {
@@ -265,32 +279,35 @@ function RootPage({
         />
         <button
           type="button"
-          class="menu-item"
+          class="menu-tile"
           data-menu="gallery"
           onClick={() => onNavigate({ page: "gallery" })}
         >
-          <span class="menu-item-name">{STRINGS.menuGallery}</span>
+          <Glyph name="camera" />
+          <span class="menu-tile-name">{STRINGS.menuGallery}</span>
         </button>
         <button
           type="button"
-          class="menu-item"
+          class="menu-tile"
           data-menu="options"
           onClick={() => onNavigate({ page: "options" })}
         >
-          <span class="menu-item-name">{STRINGS.menuOptions}</span>
+          <Glyph name="sliders" />
+          <span class="menu-tile-name">{STRINGS.menuOptions}</span>
         </button>
         {settings.developer && (
           <button
             type="button"
-            class="menu-item menu-item-dev"
+            class="menu-tile menu-tile-dev"
             data-menu="developer"
             onClick={() => onNavigate({ page: "developer" })}
           >
-            <span class="menu-item-name">{STRINGS.menuDeveloper}</span>
+            <Glyph name="terminal" />
+            <span class="menu-tile-name">{STRINGS.menuDeveloper}</span>
           </button>
         )}
       </div>
-      {/* Said once, on the visit where the hold actually landed. The row
+      {/* Said once, on the visit where the hold actually landed. The tile
           appearing is the lasting answer; this is the moment's one, so
           nobody has to wonder whether the seven seconds did anything. */}
       {said && <p class="menu-said">{STRINGS.menuUnlocked}</p>}
