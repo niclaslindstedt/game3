@@ -259,15 +259,19 @@ function jonswap(w: number, wp: number): number {
 }
 
 /** The directional half-width at `omega`, radians: `TUNING.sea.spread` at
- * the peak, widening away from it by the two exponents beside it
- * (Mitsuyasu et al. 1975; Hasselmann et al. 1980 — the spreading parameter
- * peaks at f_p, so the FAN is narrowest there), and held under
- * `spreadMax`, past which a component is no longer part of this wind's
- * sea and the eikonal has only one rim to sweep it from. */
+ * and below the peak, opening above it by `spreadTilt` (Mitsuyasu et al.
+ * 1975; Hasselmann et al. 1980 — the spreading parameter peaks at f_p, so
+ * the FAN is narrowest there), and held under `spreadMax`, past which a
+ * component is no longer part of this wind's sea and the eikonal has only
+ * one rim to sweep it from.
+ *
+ * Flat below the peak on purpose: the measurements have the fan opening
+ * that way too, but this band's floor is 0.7 f_p and fanning the longest,
+ * most energetic components is what stops a wave FRONT forming — which is
+ * the whole of what a rider reads as a wave. The dial says why. */
 function spreadAt(omega: number, wp: number): number {
   const r = Math.max(1e-6, omega / wp);
-  const tilt = r >= 1 ? S.spreadAbovePeak : S.spreadBelowPeak;
-  return Math.min(S.spread * Math.pow(r, tilt), S.spreadMax);
+  return r <= 1 ? S.spread : Math.min(S.spread * Math.pow(r, S.spreadTilt), S.spreadMax);
 }
 
 /** The cos² spread's own quantile: the offset, as a FRACTION of the
@@ -311,18 +315,98 @@ function strata(rng: Rng, n: number): Int32Array {
   return order;
 }
 
-/** Lay one band of components over a JONSWAP spectrum: `n` of them,
- * log-spaced over `[low, high]` multiples of the peak, travelling `travel`
- * with a cos² directional spread about it (Longuet-Higgins et al. 1963),
- * and scaled so that 4·√m0 = `hs`.
+/** Where to cut a band into `n` slices of EQUAL ENERGY, and where each
+ * slice's weight sits inside it: the spectrum's own cumulative curve over
+ * `[low, high]` multiples of the peak, inverted at every i/n, with each
+ * slice's energy centroid beside it.
  *
- * Both draws are STRATIFIED — a frequency inside its own slice of the band
- * rather than at the slice's midpoint, a heading inside its own slice of
- * the spread rather than anywhere in the fan. A sum of a handful of sines
- * is only as unrepetitive as its components are unalike, and a fixed
- * geometric ladder of frequencies all running one way beats against itself
- * into a pattern that repeats down the wind — which is what a rider sees
- * on calm water, where the swell is all there is.
+ * This is the whole reason a sea of eight components does not repeat. Cut
+ * into equal slices of FREQUENCY instead and the peak — where a JONSWAP
+ * sea keeps most of its energy — is carried by one component, which is one
+ * sine: the wave a rider reads is then a single wavelength, and the nearest
+ * frequency to beat against it is a whole slice away, so the pattern comes
+ * round inside the water he can see. Cut by energy and the slices crowd in
+ * on the peak, three or four of them within a tenth of it: they carry ONE
+ * wave train between them, and the beat of frequencies that close is
+ * hundreds of metres long. The tail gets the two or three wide slices it
+ * deserves, which is the texture riding on top.
+ *
+ * The centroid rather than the slice's middle because a wide tail slice
+ * holds its energy at the LOW end: a component standing at the middle of
+ * it would carry a whole slice's amplitude at a wavenumber the slice does
+ * not really have, which is how a tail component ends up steeper than any
+ * wave stands. Returns `n + 1` edges followed by `n` centroids, all as
+ * multiples of the peak frequency. */
+function energySlices(n: number, low: number, high: number, mix: number): Float64Array {
+  // The density on a fine log grid, once — 256 steps over a band under two
+  // octaves wide is a thousandth of the total in the worst cell. Two
+  // running sums: the true ENERGY (which places the centroids and scales
+  // the amplitudes) and the energy raised to `sliceMix` (which places the
+  // EDGES). The exponent is the whole dial between the two ways of cutting
+  // a band, and both ends of it are a real thing: at 0 the cut is even in
+  // log frequency, which is a plain octave ladder; at 1 it is even in
+  // energy. Slicing by energy is what crowds the slices onto the peak, and
+  // it must be short of 1 because a slice is finally represented by ONE
+  // sine — so the WIDEST slice, out in the tail where an octave of band
+  // holds its eighth of the sea, would stand that eighth up as a single
+  // wave at a wavenumber the slice as a whole does not have. That is the
+  // only way this cut can hand out a component steeper than a wave stands
+  // (`tests/waves_test.ts` sweeps every band for it).
+  const STEPS = 256;
+  const cum = new Float64Array(STEPS + 1);
+  const raw = new Float64Array(STEPS + 1);
+  const mom = new Float64Array(STEPS + 1);
+  const step = Math.pow(high / low, 1 / STEPS);
+  for (let i = 0; i < STEPS; i++) {
+    const a = low * Math.pow(step, i);
+    const b = a * step;
+    const mid = Math.sqrt(a * b);
+    const e = jonswap(mid, 1) * (b - a);
+    cum[i + 1] = cum[i] + Math.pow(e, mix);
+    raw[i + 1] = raw[i] + e;
+    mom[i + 1] = mom[i] + e * mid;
+  }
+  const total = cum[STEPS];
+  const out = new Float64Array(2 * n + 1);
+  out[0] = low;
+  out[n] = high;
+  // The edges: where the cumulative curve crosses each i/n, read between
+  // the two cells it falls in.
+  let at = 0;
+  for (let i = 1; i < n; i++) {
+    const target = (total * i) / n;
+    while (at < STEPS && cum[at + 1] < target) at++;
+    const span = cum[at + 1] - cum[at];
+    const f = span > 0 ? (target - cum[at]) / span : 0;
+    out[i] = low * Math.pow(step, at + f);
+  }
+  // ...and each slice's energy centroid, off the true-energy sums.
+  const readAt = (w: number): { c: number; m: number } => {
+    const x = Math.log(w / low) / Math.log(step);
+    const i = Math.min(STEPS - 1, Math.max(0, Math.floor(x)));
+    const f = Math.min(1, Math.max(0, x - i));
+    return { c: raw[i] + f * (raw[i + 1] - raw[i]), m: mom[i] + f * (mom[i + 1] - mom[i]) };
+  };
+  for (let i = 0; i < n; i++) {
+    const a = readAt(out[i]);
+    const b = readAt(out[i + 1]);
+    const e = b.c - a.c;
+    out[n + 1 + i] = e > 0 ? (b.m - a.m) / e : Math.sqrt(out[i] * out[i + 1]);
+  }
+  return out;
+}
+
+/** Lay one band of components over a JONSWAP spectrum: `n` of them, one per
+ * slice of equal ENERGY over `[low, high]` multiples of the peak
+ * (`energySlices`), travelling `travel` with a cos² directional spread
+ * about it (Longuet-Higgins et al. 1963), and scaled so that 4·√m0 = `hs`.
+ *
+ * Both draws are STRATIFIED — a frequency about its own slice's centroid, a
+ * heading inside its own slice of the spread rather than anywhere in the
+ * fan. A sum of a handful of sines is only as unrepetitive as its
+ * components are unalike, and a fixed ladder of frequencies all running one
+ * way beats against itself into a pattern that repeats down the wind —
+ * which is what a rider sees on calm water, where the swell is all there is.
  *
  * `ground` is the bed the phase field is integrated over, or null for a
  * band short enough to be a plane wave everywhere a hull can float.
@@ -338,18 +422,22 @@ function layBand(
   high: number,
   travel: number,
   ground: Heightfield | null,
+  mix: number = S.sliceMix,
 ): WaveComponent[] {
   const wp = TAU / tp;
   const raw: { omega: number; dir: number; weight: number }[] = [];
   let energy = 0;
   const lane = strata(rng, n);
+  const slice = energySlices(n, low, high, mix);
   for (let i = 0; i < n; i++) {
-    // Log-spaced over the band, each component owning the band between the
-    // midpoints to its neighbours — and standing anywhere inside its own
-    // slice, not at the middle of it.
-    const lo = low * Math.pow(high / low, i / n);
-    const hi = low * Math.pow(high / low, (i + 1) / n);
-    const omega = wp * lo * Math.pow(hi / lo, rng.next());
+    // One slice of equal energy each, the component standing at that
+    // slice's own centroid — jittered a quarter of the way toward either
+    // edge, so two levels' seas are not the same set of frequencies.
+    const lo = slice[i];
+    const hi = slice[i + 1];
+    const mid = slice[n + 1 + i];
+    const sway = (2 * rng.next() - 1) * 0.25;
+    const omega = wp * (sway >= 0 ? mid + sway * (hi - mid) : mid + sway * (mid - lo));
     const dOmega = wp * (hi - lo);
     // ...and pointing somewhere inside its own slice of the SPREAD, which
     // is the whole energy of that slice: the fan is even, every component
@@ -489,6 +577,16 @@ export function createSea(
           O.bandHigh,
           travel,
           null,
+          // CUT EVENLY IN FREQUENCY out here, not crowded onto the peak.
+          // The crowding is there to keep a coast's sea from repeating
+          // inside the water a rider can see, and a rung's waves are 130 m
+          // to 250 m long — their beat is kilometres either way. What the
+          // crowding WOULD cost is the thing this band is worst placed to
+          // pay: its span is 4.8 peaks, the widest the field lays, so its
+          // tail slice is the one where an eighth of the sea stood up as a
+          // single wave comes nearest to breaking (a·k 0.41 against
+          // Michell's 0.44, where cutting it evenly gives 0.15).
+          0,
         ),
       });
     }

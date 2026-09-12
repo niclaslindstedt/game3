@@ -5,25 +5,17 @@ scope: engine/game/water.ts, engine/lib/heightfield.ts
 concepts: [phase, refraction, diffraction, eikonal, river, renderer]
 ---
 
-`∫k(d)·ds` along a component's fixed heading is not a phase field. Every
-cell one path crosses at a different depth from its neighbour's leaves an
-OFFSET between the two that nothing downstream relaxes, and the offset's
-lateral gradient is a wavenumber the wave never had. Over ten seeds a fifth
-of the exposed water carried an ocean band three to seven times too short,
-heading 70° sideways, crawling — in the lee of every reef and either side of
-every river mouth, where a course's first gates stand. Land (integrated at
-`minDepth`'s k, seven times the deep rate) was the worst case, and fixing it
-alone left the bad share unchanged: the offsets came from 300 m upwind.
+Why, in one line: `∫k(d)·ds` along a fixed heading leaves an OFFSET between
+neighbouring paths that nothing downstream relaxes, and its lateral gradient
+is a wavenumber the wave never had — over ten seeds a fifth of the exposed
+water read three to seven times too short, crawling sideways, in every lee
+and either side of every river mouth. SKILL.md carries the rule; these are
+the traps in obeying it.
 
-The phase is the EIKONAL |∇φ| = k(d). Fast sweeping (Godunov's update in the
-four sweep orders) settles every generated level in two rounds to a
-thousandth of a radian of eight, at ~25 ms a component. Refraction (Snell's
-law, exactly) and the front wrapping into a river mouth as arcs about the
-corner fall out for free; the amplitude stays the exposure's. What it cannot
-do is heal the CREASE where two arrivals meet in a lee — a kink a cell or two
-wide where the gradient collapses, at an exposure of a few tenths.
-
-Three traps:
+Fast sweeping settles a generated level in two rounds to a thousandth of a
+radian of eight, at ~25 ms a component. Refraction and the wrap into a river
+mouth come free; the CREASE where two arrivals meet in a lee does not — a
+kink a cell or two wide, at an exposure of a few tenths.
 
 - **Feed the rim the DEEP-WATER plane wave, only on the sides the wave comes
   in over.** A plane at each rim cell's own k(d) scales the ABSOLUTE phase,
