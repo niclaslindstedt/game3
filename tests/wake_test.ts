@@ -121,8 +121,8 @@ describe("the fan", () => {
     // cusps ride on top of that, so the claim is the RATE: twice the age,
     // twice the spread, whatever the wobble at this point along the trail.
     const at = (speed: number, age: number) => fanHalf(BEAM, speed, age);
-    expect((at(15, 2) - at(5, 2)) / (at(15, 4) - at(5, 4))).toBeCloseTo(0.5, 5);
-    expect(at(15, 4) - at(5, 4)).toBeGreaterThan(10 * 4 * KELVIN_TAN * 0.9);
+    expect((at(15, 0.5) - at(5, 0.5)) / (at(15, 1) - at(5, 1))).toBeCloseTo(0.5, 5);
+    expect(at(15, 1) - at(5, 1)).toBeGreaterThan(10 * 1 * KELVIN_TAN * 0.9);
     // …and the cap holds it: a faster hull does not open a wider V once it
     // is there, and the cap is a width, not a wobble.
     expect(at(30, FAN_LIFE)).toBe(at(60, FAN_LIFE));
@@ -130,21 +130,27 @@ describe("the fan", () => {
     expect(at(30, FAN_LIFE)).toBeLessThan(FAN_HALF_MAX * 1.1);
   });
 
-  it("keeps opening the length of the trail, and is still white where it ends", () => {
-    // The aerial photographs' claim: the V is wider every metre further
-    // back, and the trail leaves the frame white rather than fading out
-    // inside it. The map reaches WAKE_MAP_BACK + WAKE_REACH behind the
-    // craft, so the whole of it must still be opening and still lit.
-    const reach = WAKE_MAP_BACK + WAKE_REACH;
+  it("opens over the near water, holds its width, and is still white where it ends", () => {
+    // Two claims that pull against each other. The V must still be OPENING
+    // over the water a rider is actually looking at — a wake that reached
+    // its width in the first metre is a stripe — and it must STOP, because
+    // Kelvin's angle never does and a trail let run at pace is thirty
+    // metres across before it has left the map, every metre of it white
+    // once the wedge has filled in. What carries the trail's LENGTH is the
+    // life: it leaves the frame white rather than fading out inside it.
     const speed = 20;
-    const edge = reach / speed;
-    expect(edge).toBeLessThan(FAN_LIFE);
-    expect(fanHalf(BEAM, speed, edge)).toBeGreaterThan(fanHalf(BEAM, speed, edge / 2) * 1.5);
+    const reach = (WAKE_MAP_BACK + WAKE_REACH) / speed;
+    expect(reach).toBeLessThan(FAN_LIFE);
+    // Still opening a second back, held by the time the trail is halfway
+    // down the map.
+    expect(fanHalf(BEAM, speed, 1)).toBeGreaterThan(fanHalf(BEAM, speed, 0.5) * 1.6);
+    expect(fanHalf(BEAM, speed, reach)).toBe(fanHalf(BEAM, speed, reach / 2));
+    expect(fanHalf(BEAM, speed, reach)).toBeLessThan(FAN_HALF_MAX * 1.1);
     const s = wakeSection();
-    fanAt(0.8, edge, speed, 1, s);
+    fanAt(0.8, reach, speed, 1, s);
     expect(s.foam).toBeGreaterThan(0.2);
     // …and the road under it outlives the map too.
-    expect(ROAD_LIFE).toBeGreaterThan(edge);
+    expect(ROAD_LIFE).toBeGreaterThan(reach);
   });
 
   it("is two rails at the transom and a filled wedge once it has aged", () => {

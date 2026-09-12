@@ -102,12 +102,17 @@ function relief(age: number, life: number): number {
  * one, so the wedge holds its white while it opens and then breaks into
  * patches, rather than dissolving as fast as it spreads. Its half-width at
  * the transom as a share of the beam, and the most it may ever spread to,
- * m: the cap is past the far edge of the map, so the V is still opening
- * wherever the rider can see it. */
+ * m. The cap is what stops the V reading as a field of foam rather than as
+ * a wake: Kelvin's angle never stops opening, so a trail let run at pace
+ * is thirty metres across before it has left the map, and once the wedge
+ * FILLS IN with age that whole span is white. It holds instead a couple of
+ * seconds back, which is the near half of what a rider can see — the trail
+ * opens the length of the water they are looking at and then runs on at
+ * that width. What makes it read LONG is the life, not the spread. */
 export const FAN_LIFE = 6;
 const FAN_FADE_POWER = 0.75;
 const FAN_HALF_BEAM = 0.6;
-export const FAN_HALF_MAX = 34;
+export const FAN_HALF_MAX = 16;
 /** The fan's foam at full pace — the loudest white in the picture, which is
  * what the aerial photographs say and the first pass did not: a fan at 0.4
  * sat under the lace's threshold and read as a grey smear beside the road.
