@@ -277,12 +277,41 @@ describe("the surface", () => {
       sz += w * Math.cos(d);
       weight += w;
     }
-    expect(Math.atan2(sx, sz)).toBeCloseTo(0, 1);
     // The spread the energy actually stands at, not the one it was drawn
     // from: acos of the resultant's length (Mardia's circular dispersion).
+    // It is a THIRD of the nominal half-width and that is the number to
+    // read the dial by — eight strata of a cos² fan, weighted by the
+    // energy the spectrum gives each, come out narrower than the fan.
     const spread = Math.acos(Math.min(1, Math.hypot(sx, sz) / weight));
-    expect(spread).toBeGreaterThan(0.15);
+    expect(spread).toBeGreaterThan(0.1);
+    expect(spread).toBeLessThan(TUNING.sea.spread);
     expect(widest).toBeGreaterThan(TUNING.sea.spread);
+  });
+
+  it("runs the energy the wind's own way on average, over the corpus", () => {
+    // One level's eight strata are one DRAW: its energy-weighted heading
+    // sits a few degrees off the wind, either way, and which way is the
+    // seed's business. What has to hold is the expectation — so this is
+    // asked of the corpus, not of a seed. Asked of one it was ±5°, which
+    // is a bar that passes or fails on the draw.
+    let sum = 0;
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      const sea = createSea(level, seed);
+      const toward = level.wind.from + Math.PI;
+      let sx = 0;
+      let sz = 0;
+      for (const c of sea.components) {
+        let d = Math.atan2(c.dirX, c.dirZ) - toward;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        const w = c.amp * c.amp;
+        sx += w * Math.sin(d);
+        sz += w * Math.cos(d);
+      }
+      sum += Math.atan2(sx, sz);
+    }
+    expect(Math.abs(sum / LEVEL_SEEDS.length)).toBeLessThan(0.05);
   });
 
   it("fans the short waves wider than the peak", () => {
@@ -296,14 +325,17 @@ describe("the surface", () => {
       while (d < -Math.PI) d += 2 * Math.PI;
       return Math.abs(d);
     };
-    const wp = (2 * Math.PI) / sea.tp;
-    const ocean = sea.components.filter((c) => c.band === "ocean");
+    // Split at the band's own MIDDLE component rather than at a multiple
+    // of the peak: `sliceMix` crowds the slices onto the peak, so where
+    // the components actually sit is the cut's business and not a number
+    // this case should restate.
+    const ocean = sea.components
+      .filter((c) => c.band === "ocean")
+      .sort((a, b) => a.omega - b.omega);
+    const half = ocean.length >> 1;
     const mean = (cs: typeof ocean): number => cs.reduce((s, c) => s + off(c), 0) / cs.length;
-    const near = ocean.filter((c) => c.omega < 1.3 * wp);
-    const far = ocean.filter((c) => c.omega >= 1.3 * wp);
-    expect(near.length).toBeGreaterThan(2);
-    expect(far.length).toBeGreaterThan(2);
-    expect(mean(far)).toBeGreaterThan(mean(near));
+    expect(half).toBeGreaterThan(2);
+    expect(mean(ocean.slice(half))).toBeGreaterThan(mean(ocean.slice(0, half)));
   });
 
   it("spreads a band's energy over its components rather than lumping it", () => {
@@ -414,7 +446,7 @@ describe("the phase field", () => {
     // south-west, so the waves travel north-east — toward the shore at
     // z = 0 and along it. Snell's law falls out of the eikonal: k·sin θ
     // along the shore is conserved, k grows over the rising bed, so the
-    // angle to the shore's normal closes — by 20° for the longest
+    // angle to the shore's normal closes — by about 10° for the longest
     // component, which feels 10 m of water, and by nothing for the
     // shortest, which does not. The bed is deepened to 40 m so the water
     // at the rim is deep for every component: the field is fed the
@@ -470,7 +502,13 @@ describe("the phase field", () => {
       expect(shallow, `component ${i} never turns away`).toBeLessThanOrEqual(deep + 0.02);
       mostTurned = Math.max(mostTurned, deep - shallow);
     }
-    expect(mostTurned).toBeGreaterThan(0.3);
+    // ...and by enough to SEE, which is a smaller angle than it was: the
+    // fan is 26° about the wind rather than 34°, so the most oblique
+    // component arrives at 71° to this shore's normal rather than 79°, and
+    // how much a ray turns goes with how obliquely it came in. Measured
+    // over eight seeds of this coast, the most-turned component swings
+    // 6.5°–12.7°; seed 1's is 10.4°.
+    expect(mostTurned).toBeGreaterThan(0.1);
   });
 });
 

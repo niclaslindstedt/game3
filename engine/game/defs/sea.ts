@@ -29,25 +29,53 @@
  * LONG (the scale), how SHARP (the shape), how CONFUSED (the spread),
  * and what WATER it stands in. `docs/water.md` has the whole board. */
 export const SEA = {
-  /** How many components the field is summed from. Few enough that the
-   * renderer can displace a two-hundred-metre mesh with it — and this is
-   * ALSO how far the sea gets before it repeats, which is what calm water
-   * seen from the saddle is a picture of.
+  /** How many components the field is summed from, and THE FRAME'S BUDGET
+   * IS WHAT SETS IT. Eight.
    *
-   * A sum of n components beats against itself over roughly n/2 of its own
-   * wavelengths, because that is how far apart in frequency neighbouring
-   * components have to sit to cover the band: at eight that is a couple of
-   * hundred metres, well inside the drawn sea, and the swell out there
-   * reads as corduroy — a pattern, not a sea. MEASURED over the seed
-   * corpus as the biggest autocorrelation down the wind between 1.5 and 8
-   * peak wavelengths: 0.23 at eight, 0.21 at twelve, 0.14 at sixteen.
+   * A component is ~140 ns of every `surfaceAt` against ~300 ns of fixed
+   * work, and the water mesh calls `surfaceAt` once per vertex per frame —
+   * 5400 of them at the design WATER row (`DESIGN_WATER`). So the eight
+   * ocean components plus the five local ones are most of a 10 ms frame on
+   * this machine, and every component added is another 0.75 ms. Sixteen
+   * was tried and shipped and taken back out: it put the same frame at
+   * 17 ms, which is the difference between a sea that holds 60 fps and one
+   * that does not.
    *
-   * It costs both ways and neither is free: one `surfaceAt` is ~6 ns a
-   * component against ~220 ns of fixed work, and `createSea` builds a
-   * PHASE FIELD per ocean component, which is 20 ms each — a third of a
-   * run's whole build at eight. Sixteen is where the repeat has left the
-   * drawn sea and the level still stands up in under a second. */
-  components: 16,
+   * A phase field per ocean component is ~20 ms of `createSea` on top,
+   * a third of a run's whole build at eight — the other reason.
+   *
+   * WHAT THIS NUMBER IS NOT is how far the sea gets before it repeats.
+   * That is `sliceMix`, which decides where the eight slices SIT: crowded
+   * on the peak they carry one wave train with a beat hundreds of metres
+   * long, and spread evenly over the band they are an octave apart and
+   * beat inside the water a rider can see. Raising the count to fix a
+   * repeat is paying a frame for what a cut costs nothing. */
+  components: 8,
+  /** HOW THE BAND IS CUT INTO ONE SLICE PER COMPONENT: the exponent the
+   * spectral density is raised to before the cut is made even. 0 cuts
+   * evenly in log frequency — a plain octave ladder, one slice the same
+   * width as the next; 1 cuts evenly in ENERGY, which crowds the slices
+   * onto the peak where a JONSWAP sea keeps most of it.
+   *
+   * It has to be most of the way to 1, because the peak is where the wave
+   * a rider READS comes from: cut evenly in frequency and the peak is one
+   * component, which is one sine, with its nearest neighbour a whole
+   * octave away — so the two beat against each other inside the water he
+   * can see, which is the corduroy. Crowd three or four slices within a
+   * tenth of the peak and they carry ONE wave train between them whose
+   * beat is hundreds of metres long.
+   *
+   * And it has to be short of 1, because a slice is finally represented by
+   * ONE sine at its energy centroid: out in the tail, where an octave of
+   * band holds its whole eighth of the sea, that puts an eighth of the sea
+   * into a single wave at a short wavelength. MEASURED over the seed
+   * corpus, the worst component of any band (Michell breaks at a·k 0.44):
+   * 0.06 at 0, 0.16 at 0.7, 0.41 at 1 — that last on the OPEN band, whose
+   * 4.8-peak span is the widest the field lays.
+   *
+   * 0.7 is where the repeat has left the drawn sea and no band is within a
+   * third of breaking. */
+  sliceMix: 0.7,
   /** The frequency band the components are laid over, as multiples of the
    * spectrum's peak: JONSWAP's energy sits between ~0.7 and ~2 f_p, and
    * the tail past 2.5 f_p is too short to feel through a hull. */
@@ -64,39 +92,52 @@ export const SEA = {
    * The floor is what the water mesh can still draw — 2.5 s is a ten-
    * metre wave, some six cells at the craft. */
   minPeriod: 2.5,
-  /** Directional spread half-width AT THE PEAK, radians (~35°) — a cos²
-   * spread (Longuet-Higgins 1963) truncated there, drawn by inverse
-   * transform so a component's heading is distributed by it rather than
-   * merely weighted against it. How CONFUSED the sea is across the frame:
-   * at 0 every component runs the same way and the sea is a corduroy of
-   * parallel crests; wide, the crests cross and the surface is a chop
-   * with no direction to it. */
-  spread: 0.6,
-  /** ...AND IT IS NARROWEST AT THE PEAK. A real sea is not one fan: the
-   * swell that carries the energy runs nearly together, and the shorter
-   * waves riding on it are increasingly confused, which is why open water
-   * reads as texture over order rather than as corduroy. Mitsuyasu et al.
-   * (1975) and Hasselmann et al. (1980) measure the spreading parameter s
-   * peaking at f_p and falling as (f/f_p)^5 below it and (f/f_p)^-2.5
-   * above; with D(θ) ∝ cos^2s(θ/2) the width goes as s^-1/2, so the
-   * HALF-WIDTH here is `spread` times (ω/ω_p) to these two exponents —
-   * three times the peak's width at 2.4 f_p, and wider still below it,
-   * where `spreadMax` is what actually holds the fan.
+  /** Directional spread half-width AT THE PEAK, radians (~26°) — a cos²
+   * spread (Longuet-Higgins 1963) truncated there, DRAWN through rather
+   * than weighted against (`spreadQuantile`). How CONFUSED the sea is
+   * across the frame: at 0 every component runs the same way and the sea is
+   * a corduroy of parallel crests; wide, the crests cross and the surface
+   * is a chop with no direction to it, with no wave front long enough to
+   * read as a wave.
    *
-   * MEASUREMENTS, not dials: change one and you are claiming the ocean's
-   * directional shape is wrong. */
-  spreadBelowPeak: -2.5,
-  spreadAbovePeak: 1.25,
-  /** ...held under this half-width, radians (~57°). The law above has no
+   * IT IS A NOMINAL HALF-WIDTH AND THE SEA REALISES LESS THAN IT — so the
+   * number to tune against is the realised one, measured as the
+   * energy-weighted circular spread of the band: 26° nominal comes out as
+   * 11°. It was 34° nominal for as long as the heading was drawn flat and
+   * the cos² weighted the energy, which realised the same 11° because the
+   * weighting threw away most of the fan; drawing through the spread made
+   * the nominal nearly honest, and 34° then realised 16° — a sea with no
+   * wave in it. The realised 11° is what the game was tuned at and what
+   * wave fronts 20 m long come from. */
+  spread: 0.45,
+  /** ...AND IT OPENS ABOVE THE PEAK. A real sea is not one fan: the swell
+   * that carries the energy runs nearly together, and the shorter waves
+   * riding on it are increasingly confused, which is why open water reads
+   * as texture over order rather than as one corduroy. Mitsuyasu et al.
+   * (1975) and Hasselmann et al. (1980) measure the spreading parameter s
+   * peaking at f_p and falling as (f/f_p)^-2.5 above it; with D(θ) ∝
+   * cos^2s(θ/2) the width goes as s^-1/2, so the half-width is `spread`
+   * times (ω/ω_p) to this exponent — the measured −2.5 halved by that
+   * square root, and signed the other way because it is a WIDTH.
+   *
+   * AT AND BELOW THE PEAK it is `spread` flat, and that is a deliberate
+   * simplification of the same measurements: they have s falling below the
+   * peak too (as (f/f_p)^5), but this band's floor is 0.7 f_p — still the
+   * peak region — and fanning the longest, most energetic components is
+   * exactly what stops a wave front forming. Taken literally it asked for
+   * 2.4× the peak's width at the band's floor, and the sea lost a third of
+   * its crest length to it. */
+  spreadTilt: 1.25,
+  /** ...held under this half-width, radians (~43°). The law above has no
    * ceiling in it — at 4.8 f_p (the open ocean's short end) it asks for
-   * 2.2 rad, which is a component running back INTO the wind, and at the
-   * bottom of a band it asks for 1.5. Measured directional widths do not
-   * go past about this even in the tail (Mitsuyasu et al. 1975), and the
-   * eikonal is the other reason: a component crossing the wind
-   * this steeply enters the level's grid by one rim only, and the field
-   * swept from that rim alone holds |∇φ| = k(d) to a few per cent less
-   * well than one fed from two (`tests/waves_test.ts`). */
-  spreadMax: 1.0,
+   * 1.7 rad, which is a component running back INTO the wind. Measured
+   * directional widths do not go past about this even in the tail
+   * (Mitsuyasu et al. 1975), and the eikonal is the other reason: a
+   * component crossing the wind this steeply enters the level's grid by one
+   * rim only, and the field swept from that rim alone holds |∇φ| = k(d) to
+   * a few per cent less well than one fed from two
+   * (`tests/waves_test.ts`). */
+  spreadMax: 0.75,
   /** JONSWAP's peak enhancement γ, dimensionless — how much of the
    * sea's energy sits AT the peak period rather than spread around it.
    * 3.3 is Hasselmann et al. (1973)'s mean for the North Sea and the

@@ -198,11 +198,24 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
    `offshore`, plateaus), the breaking cap (H/d ≤ 0.78 everywhere), bounded
    heights (a sweep over seeds, winds and points never exceeds the cap),
    and the wind's gust statistics.
-5. **Measure the SLOPE, not only the height.** Hs is what the spectrum is
-   quoted at; the rms surface slope (and its p99) is what the hull feels and
-   what reads as a wave. A change that leaves Hs identical to three figures
-   can still move the slope a tenth — and a tenth of the slope is a quarter
-   of the air in a bot run.
+5. **Measure the three things the lab does not print, because each of them
+   is a way this model has already been broken.** Hs is what the spectrum
+   is quoted at and it can be identical to three figures across a change
+   that ruins the sea.
+   - **The SLOPE** — rms surface slope and its p99 — is what the hull
+     feels. A tenth of the slope is a quarter of the air in a bot run.
+   - **The CREST LENGTH** — the along-crest correlation length over a patch
+     a few hundred metres square, and its ratio to the across-crest one —
+     is whether there is a WAVE there at all. 20 m along reads as a sea; 13
+     m reads as texture with no wave in it. Measure the REALISED
+     directional spread beside it (`acos(|Σ w·d̂| / Σ w)` over the band),
+     never `TUNING.sea.spread`, which is a nominal the sea realises about a
+     third of.
+   - **THE FRAME COST** — ns per `surfaceAt` at a point where the band you
+     changed is actually carried (print `seaShares` there first), quoted as
+     ms for the design grid's 5400 vertices. A component is ~140 ns and the
+     mesh calls it once per vertex per frame, so two more components is a
+     millisecond of somebody's frame.
 6. **Then the hull** — `make ride SCENARIO=chop` and `SCENARIO=swell`,
    because a sea change is a hull change: taller water is more slams, more
    launches, more dives. And `make sim`: the `Hs`, `air`, `dive` and `avg`
