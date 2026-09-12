@@ -389,6 +389,77 @@ describe("standing a run up (run-loader.ts)", () => {
     }
     expect(Object.keys(loadTimes(job)).sort()).toEqual(["a", "b"]);
   });
+
+  // THE FAULT THIS EXISTS FOR: the generator refuses a seed it cannot build a
+  // clean coast on, by THROWING out of `generateLevel` — and the load runs
+  // inside a frame, where the next frame is already booked. An exception let
+  // out of here is thrown again every frame from then on, against a card
+  // whose mark is a compositor transform and so keeps turning: the game
+  // reads as "still loading" forever, with no way off it.
+  it("ABANDONS the load when a step throws, rather than letting it out", () => {
+    const ran: string[] = [];
+    const job = createLoad([
+      {
+        id: "level",
+        label: "Building the shore",
+        run: () => {
+          throw new Error("level generation failed for seed 42 after 24 attempts");
+        },
+      },
+      once("scene", "Standing the world up", ran),
+    ]);
+    expect(() =>
+      advanceLoad(
+        job,
+        () => true,
+        () => 0,
+      ),
+    ).not.toThrow();
+    expect(job.failed).toContain("seed 42");
+    // Done, so the caller's one question — "is there more?" — stays one
+    // question, and the steps after the failure never run over a world that
+    // was never built.
+    expect(
+      advanceLoad(
+        job,
+        () => true,
+        () => 0,
+      ),
+    ).toBe(false);
+    expect(ran).toEqual([]);
+    // A failed load is abandoned part-way whatever its step counter reads, so
+    // its costs must not become the next card's estimate.
+    expect(loadTimes(job)).toEqual({});
+  });
+
+  it("carries a non-Error throw through as words too", () => {
+    const job = createLoad([
+      {
+        id: "level",
+        label: "Building the shore",
+        run: () => {
+          throw "no coast";
+        },
+      },
+    ]);
+    advanceLoad(
+      job,
+      () => true,
+      () => 0,
+    );
+    expect(job.failed).toBe("no coast");
+  });
+
+  it("says nothing failed on a load that simply finished", () => {
+    const ran: string[] = [];
+    const job = createLoad([once("a", "Building", ran)]);
+    advanceLoad(
+      job,
+      () => true,
+      () => 0,
+    );
+    expect(job.failed).toBeNull();
+  });
 });
 
 describe("the wind a seed deals, as one of the card's three rungs (conditionsFor)", () => {

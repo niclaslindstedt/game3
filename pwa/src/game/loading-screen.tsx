@@ -42,7 +42,43 @@ import { MarkWave } from "./mark-wave.tsx";
 import type { LoadPhase } from "./run-loader.ts";
 import { STRINGS } from "./strings.ts";
 
-export function LoadingScreen({ leaving, phase }: { leaving: boolean; phase: LoadPhase | null }) {
+export function LoadingScreen({
+  leaving,
+  phase,
+  failed,
+  onBack,
+}: {
+  leaving: boolean;
+  phase: LoadPhase | null;
+  /** Set once a step has thrown — see `run-loader.ts`'s `LoadJob.failed`. */
+  failed: string | null;
+  /** The way out of a load that will not finish. */
+  onBack: () => void;
+}) {
+  // A FAILED LOAD KEEPS THE CARD UP rather than dropping the player back on
+  // the menu with nothing said. The shore they asked for is the thing that
+  // did not happen, and this is the surface that was promising it to them;
+  // sliding silently back to the front door would read as a press that did
+  // not land, and they would make it again.
+  if (failed !== null) {
+    return (
+      <div class="loading loading-failed" aria-live="assertive">
+        <div class="loading-card">
+          {/* STILL, not looping: the loop's fill is what says "the game is
+              working", and a mark still turning over a load that has stopped
+              would be the card contradicting its own word. */}
+          <MarkWave lay="once" className="loading-mark" title={STRINGS.loadFailed} />
+          <p class="loading-word">{STRINGS.loadFailed}</p>
+          <p class="loading-step">{STRINGS.loadFailedHint}</p>
+          {/* `data-nav-back` is every surface's way out (menu-nav.ts), so
+              Escape leaves this card without it learning about a key. */}
+          <button type="button" class="menu-item loading-back" data-nav-back onClick={onBack}>
+            <span class="menu-item-name">{STRINGS.loadFailedBack}</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
   return (
     <div class={`loading${leaving ? " leaving" : ""}`} aria-live="polite" aria-busy={!leaving}>
       <div class="loading-card">

@@ -102,22 +102,36 @@ export type LoadJob = {
    * thing a phase that cannot count its own work has to fill a bar from, and
    * empty until a machine has stood a run up once. */
   expected: Readonly<Record<string, number>>;
+  /** Why the load was ABANDONED, or null while it is honest work.
+   *
+   * A step is allowed to fail, and one of them regularly can: the generator
+   * searches a bounded number of sub-seeds and THROWS when every one of them
+   * is refused (`generateLevel`), which is how a seed with no coast on it
+   * announces itself rather than hanging. That throw has to stop here. The
+   * caller drives this from inside a frame, and an exception let out of a
+   * frame does not stop the loop — the next frame is already booked — so it
+   * would be thrown again on every frame from now on, against a card whose
+   * animation is a compositor transform and so keeps moving. The load looks
+   * like it is still working, forever, and the page around it never gets a
+   * way out. */
+  failed: string | null;
 };
 
 export function createLoad(
   steps: readonly LoadStep[],
   expected: Readonly<Record<string, number>> = {},
 ): LoadJob {
-  return { steps, at: 0, spent: steps.map(() => 0), expected };
+  return { steps, at: 0, spent: steps.map(() => 0), expected, failed: null };
 }
 
 /** What this load cost, by step id — the next one's `expected`. Only worth
  * keeping off a load that RAN to the end; a job abandoned part-way has half
  * a step's cost in it, and remembering that would tell the next card the
- * work takes half as long as it does. */
+ * work takes half as long as it does. A FAILED load is abandoned part-way by
+ * definition, whatever its step counter reads. */
 export function loadTimes(job: LoadJob): Record<string, number> {
   const times: Record<string, number> = {};
-  if (job.at < job.steps.length) return times;
+  if (job.failed !== null || job.at < job.steps.length) return times;
   job.steps.forEach((step, i) => (times[step.id] = job.spent[i]));
   return times;
 }
@@ -228,7 +242,19 @@ export function advanceLoad(job: LoadJob, budget: () => boolean, clock: () => nu
   while (job.at < job.steps.length) {
     const at = job.at;
     const started = clock();
-    const more = job.steps[at].run(budget);
+    let more: boolean;
+    try {
+      more = job.steps[at].run(budget);
+    } catch (e) {
+      // ABANDONED, not retried: every step here is the same call on the same
+      // seed, so a second attempt can only fail the same way. The job is
+      // marked done so the caller's "is there more?" stays the one question
+      // it asks, and `failed` is what it reads once the answer is no.
+      job.spent[at] += clock() - started;
+      job.failed = e instanceof Error ? e.message : String(e);
+      job.at = job.steps.length;
+      return false;
+    }
     job.spent[at] += clock() - started;
     if (!more) job.at = at + 1;
     if (!budget()) break;
