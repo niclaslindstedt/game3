@@ -99,7 +99,17 @@ module.exports = () => ({
       // expo-audio pulls in RECORD_AUDIO for its recorder; the game only ever
       // PLAYS synthesized sound, so strip it — otherwise Play Store review
       // asks why a game wants the microphone.
-      blockedPermissions: ["android.permission.RECORD_AUDIO"],
+      // expo-screen-capture is the same story with photos: below Android 14 its
+      // screenshot listener watches the media store and so declares the rider's
+      // whole photo library, which is a far bigger ask than the feature is
+      // worth (the picture is already in their gallery). Blocked, which leaves
+      // DETECT_SCREEN_CAPTURE — Android 14+, install-time, prompts nobody — as
+      // the only way the shell hears a screenshot. See src/screen-capture.ts.
+      blockedPermissions: [
+        "android.permission.RECORD_AUDIO",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_IMAGES",
+      ],
     },
     web: {
       favicon: "./assets/favicon.png",

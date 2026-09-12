@@ -4,7 +4,9 @@
 // the website, plus the two things a browser can't give iOS on its own — an
 // audio session that lets the game's synthesized sound play through the
 // ringer switch, and the phone's haptics under a game that already knows what
-// it wants felt (src/rumble.ts, src/haptics.ts). Further platform services
+// it wants felt (src/rumble.ts, src/haptics.ts) — and it hears the phone's own
+// screenshot, which no browser can, so a picture taken with the hardware is
+// filed in the game's gallery too (src/screen-capture.ts). Further platform services
 // (cloud save, achievements, a share sheet) are bridges to be added one at a
 // time on top of this, each as its own module under src/ and a flag on the
 // message channel below.
@@ -28,10 +30,11 @@ import type { WebViewMessageEvent, WebViewNavigation } from "react-native-webvie
 
 import { BRAND_BG, REMOTE_GAME_URL } from "./src/config";
 import { playRumble } from "./src/haptics";
-import { NATIVE_FLAG, RUMBLE_BRIDGE, VIEWPORT_HARDENING } from "./src/injected";
+import { NATIVE_FLAG, RUMBLE_BRIDGE, SHOT_COMMAND, VIEWPORT_HARDENING } from "./src/injected";
 import { startLocalServer, type LocalServer } from "./src/local-server";
 import { isExternalUrl } from "./src/navigation";
 import { parseRumble } from "./src/rumble";
+import { watchScreenshots } from "./src/screen-capture";
 
 // Keep the native splash up until the WebView paints its first frame, so the
 // rider never sees a white flash or a half-loaded page.
@@ -82,6 +85,18 @@ export default function App() {
   useEffect(() => {
     setAudioModeAsync({ playsInSilentMode: true }).catch(() => {});
   }, []);
+
+  // THE PHONE'S SHUTTER, RELAYED. A screenshot taken with the hardware buttons
+  // is invisible to the page, so the shell hears it for the game and presses
+  // the game's own shutter — a second way to a button the website already has,
+  // never a feature of its own. Only once the page is up: a press into a
+  // WebView that has not loaded is a script evaluated against nothing.
+  useEffect(() => {
+    if (!loaded) return;
+    return watchScreenshots(() => {
+      webRef.current?.injectJavaScript(SHOT_COMMAND);
+    });
+  }, [loaded]);
 
   // Android hardware back navigates the WebView history instead of closing the
   // app, until there's nowhere left to go back to (then default: exit).

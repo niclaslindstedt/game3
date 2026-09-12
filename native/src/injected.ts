@@ -1,6 +1,8 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// JavaScript injected into the game WebView. Three jobs, all invisible to the
-// game's own code:
+// JavaScript injected into the game WebView. Four jobs, all invisible to the
+// game's own code — the first three run on their own as the page loads, the
+// fourth is fired at it by the shell when the phone does something the page
+// cannot see:
 //
 //  1. NATIVE_FLAG — names this shell to the page BEFORE the game boots, on
 //     the one global every shell shares (`__SH_SHELL__`, read by
@@ -24,6 +26,12 @@
 //  3. VIEWPORT_HARDENING — make the page feel like an app, not a document:
 //     kill the long-press callout/selection and rubber-band scroll that a raw
 //     WKWebView still allows even with the website's own viewport meta.
+//
+//  4. SHOT_COMMAND — press the game's own SHUTTER, because the phone has one
+//     of its own and the page cannot hear it. Fired through
+//     `injectJavaScript` when the OS says the rider took a screenshot
+//     (src/screen-capture.ts), so the picture they took with the hardware is
+//     also filed in the game's gallery.
 //
 // Every script must be an IIFE ending in `true;` — iOS requires an injected
 // script to evaluate to a primitive, or it warns and aborts.
@@ -77,6 +85,32 @@ export const VIEWPORT_HARDENING = `(function () {
     style.setAttribute("data-sh-app", "");
     style.appendChild(document.createTextNode(css));
     (document.head || document.documentElement).appendChild(style);
+  } catch (e) {}
+  true;
+})();`;
+
+/** THE SHUTTER, PRESSED FROM OUTSIDE — the shell's one way INTO the page, and
+ * the same door the desktop app's macOS menu bar uses: a command word on the
+ * `sh-shell-command` event, named in `pwa/src/shell-host.ts` (`SHELL_COMMAND`
+ * and `SHELL_COMMANDS`) and spelled again here because neither file can import
+ * the other; `tests/shell_test.ts` holds them together.
+ *
+ * A phone's screenshot is taken by the hardware and lands in the phone's own
+ * photo gallery, and nothing on the page ever learns it happened — which is
+ * why the game's shutter has no button over the water on a touchscreen. The
+ * store app is the one place that CAN be told, so it presses ENTER on the
+ * rider's behalf: the same picture, with the HUD composited in and the game's
+ * mark in the corner, filed in the gallery on the front door.
+ *
+ * A press the game cannot serve where it stands — under the attract card,
+ * with no run to photograph — does nothing at all, exactly as the key does.
+ * Sent through `injectJavaScript`, so it runs long after the document is up
+ * and still has to evaluate to a primitive for iOS. */
+export const SHOT_COMMAND = `(function () {
+  try {
+    window.dispatchEvent(
+      new CustomEvent("sh-shell-command", { detail: { command: "shot" } }),
+    );
   } catch (e) {}
   true;
 })();`;

@@ -1,25 +1,24 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE THREE PRESSES MADE WHILE THE CRAFT IS MOVING: the way back to the last
-// gate, the next camera, and the shutter. They share a row in the top-right
-// cluster, directly over the minimap, because that is the corner a rider
-// already glances at — and they are MARKS rather than words, because the top
-// strip is the one part of this screen that has to stay out of the way of the
-// water.
+// THE TWO PRESSES MADE WHILE THE CRAFT IS MOVING: the way back to the last
+// gate and the next camera. They share a row in the top-right cluster,
+// directly over the minimap, because that is the corner a rider already
+// glances at — and they are MARKS rather than words, because the top strip is
+// the one part of this screen that has to stay out of the way of the water.
 //
-// All three are drawn on every device rather than on touch alone. The keys
-// (R, C and Enter) are the fast way for anybody who has learned them; the
-// buttons are what makes those doors visible to everybody who has not — and
-// the reset in particular is reached for with the hull upside down on a reef,
-// which is the worst possible moment to be remembering a binding.
+// Both are drawn on every device rather than on touch alone. The keys (R and
+// C) are the fast way for anybody who has learned them; the buttons are what
+// makes those doors visible to everybody who has not — and the reset in
+// particular is reached for with the hull upside down on a reef, which is the
+// worst possible moment to be remembering a binding.
 //
-// THE SHUTTER IS THE ONE THAT HAS NO OTHER DOOR ON A PHONE. A touchscreen
-// has no ENTER to press, so without this button the whole feature — the
-// picture, the roll, the gallery on the front door — would be a thing only a
-// keyboard could reach.
+// THE SHUTTER IS NOT ONE OF THEM. A picture is worth a key (ENTER) and a menu
+// row, and it is not worth a third mark over the water: a phone already has a
+// shutter of its own, in the hardware, and the one thing this row must never
+// become is the place a rider's thumb finds a camera instead of the reset.
 //
 // They live here rather than in hud.tsx because a glyph is geometry and
-// hud.tsx is a layout: the three buttons are the same shape at the same
-// weight, and a rider who has learned one has learned the others.
+// hud.tsx is a layout: the two buttons are the same shape at the same weight,
+// and a rider who has learned one has learned the other.
 
 import { STRINGS } from "./strings.ts";
 
@@ -53,44 +52,11 @@ function CameraGlyph() {
   );
 }
 
-/** The shutter's mark: a stills camera, body and lens, with the finder's
- * hump on top. Deliberately NOT the movie camera above — one takes a picture
- * and the other changes where you are looking FROM, and a rider glancing at
- * this row has to tell them apart at speed, which is why one is a box with a
- * round hole in it and the other is two reels and a cone.
- *
- * ONE PATH, `evenodd`: the lens is a hole CUT OUT of the body rather than a
- * disc drawn over it. The whole glyph is filled with `currentcolor`
- * (styles.css), so a second colour would have to name a background this file
- * has no business knowing — and at eighteen pixels a hole is what reads as a
- * lens anyway, where a filled disc reads as a button. */
-function ShotGlyph() {
-  return (
-    <svg class="hud-glyph" viewBox="0 0 24 24" aria-hidden="true">
-      <path
-        fill-rule="evenodd"
-        d="M 9 3 L 15 3 L 16.4 5.4 L 20 5.4 A 2 2 0 0 1 22 7.4 L 22 18 A 2 2 0 0 1 20 20 L 4 20 A 2 2 0 0 1 2 18 L 2 7.4 A 2 2 0 0 1 4 5.4 L 7.6 5.4 Z M 12 8.6 A 4.2 4.2 0 1 0 12.01 8.6 Z"
-      />
-      {/* The pupil, standing in the hole — what stops the lens reading as a
-          porthole. */}
-      <circle cx="12" cy="12.8" r="1.9" />
-    </svg>
-  );
-}
-
 /** The row itself. A button that keeps the focus keeps the next Enter, and
- * the next Enter is the shutter — so all three let go of it on mouse-up,
- * which is what stops a press on RESET being repeated by every picture the
- * rider takes afterwards. */
-export function HudActions({
-  onReset,
-  onCamera,
-  onShot,
-}: {
-  onReset: () => void;
-  onCamera: () => void;
-  onShot: () => void;
-}) {
+ * the next Enter is the shutter — so both let go of it on mouse-up, which is
+ * what stops a press on RESET being repeated by every picture the rider takes
+ * afterwards. */
+export function HudActions({ onReset, onCamera }: { onReset: () => void; onCamera: () => void }) {
   return (
     <div class="hud-action-stack">
       <button
@@ -112,16 +78,6 @@ export function HudActions({
         onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
       >
         <CameraGlyph />
-      </button>
-      <button
-        type="button"
-        class="hud-mini hud-mini-icon"
-        title={STRINGS.shotTitle}
-        aria-label={STRINGS.shotTitle}
-        onClick={onShot}
-        onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
-      >
-        <ShotGlyph />
       </button>
     </div>
   );

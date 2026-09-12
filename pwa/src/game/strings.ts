@@ -55,13 +55,10 @@ export const STRINGS = {
   /** The two presses on the HUD's action row (hud-actions.tsx). Both are a
    * MARK rather than a word — the top bar is the one strip that has to stay
    * out of the way of the water — so these are what a hover, a screen reader
-   * and the keyboard hint get. */
+   * and the keyboard hint get. The shutter is not among them: it is ENTER, a
+   * menu row, and on a phone the hardware's own. */
   resetTitle: "Back to the last gate (R)",
   cameraTitle: "Next camera (C)",
-  /** ...and the third, the SHUTTER. Named for what it keeps rather than for
-   * what it does, because the picture landing somewhere is the half a rider
-   * cannot see happen. */
-  shotTitle: "Take a screenshot (Enter)",
   /** The build corner: which stage and which craft this frame is of. */
   stage: (seed: number): string => `SEED ${seed}`,
   /** ...and the two diagnostics that share it. The frame rate is rounded to
