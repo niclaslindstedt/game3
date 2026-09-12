@@ -191,6 +191,21 @@ export const TUNING = {
      * gains fixes that (see its lessons). Raise the two together. */
     carve: 16,
     carveDead: 0.09,
+    /** THE BRAKED BOTTOM — the floor the reverse gate puts under `planing`
+     * in the carve, at full deployment. A craft with no gate fitted never
+     * leaves `bucket` 0 and so gets none of it.
+     *
+     * The carve reads `planing` because a banked bottom needs a bottom, and
+     * dropping the gate takes most of that reading away: the hull settles
+     * off the plane (measured on the flat bench, the skiff, two seconds of
+     * full brake from 60 km/h: `planing` 0.72 → 0.26). That is honest about
+     * the PLANING surface and wrong about the HULL — a braked craft has its
+     * stern squatted and its bow buried, so its forefoot and the front half
+     * of its keel are in water its planing attitude kept clear. There is
+     * MORE hull in the sea under the brake, not less, and it is further
+     * forward, which is the whole reason a rider can brake into a corner.
+     * Sized to hand the carve back about the bottom the gate took. */
+    brakeBite: 0.7,
     /** How quickly `planing` (the state readout) follows the lift share,
      * per second. */
     planingFollow: 6,
@@ -394,6 +409,42 @@ export const TUNING = {
      * nozzle per (m/s)² — the sponsons and the hull's turned attitude turn
      * it a little without thrust, the way a real one barely answers. */
     keelYaw: 0.6,
+    /** THE BRAKE AS THE TURN-TIGHTENER — how much MORE everything the
+     * nozzle is worth (the jet's side thrust and `keelYaw` alike) buys with
+     * the gate fully down. A craft with no gate fitted never leaves `bucket`
+     * 0 and so gets none of it.
+     *
+     * The rest of the pump model says the gate cannot COST the rider the
+     * turn (`propulsion.ts`: the nozzle is upstream of the gate, so the side
+     * reaction is the same whatever the gate is doing). This and
+     * `hull.brakeBite` are what buy him MORE of it than the throttle would,
+     * and the reason is the bow: a planing hull rides on a hand's breadth of
+     * bottom aft with its forefoot clear of the water, and dropping the gate
+     * squats the stern, puts the nose down and wets the front half of the
+     * keel — lateral grip the hull does not have on the plane. Brake-and-turn
+     * is the one thing a rider does with a brake that is not stopping, and
+     * the 90s arcade generation this game is measured against put it under
+     * the same button.
+     *
+     * MEASURED on the flat bench, full lock held for 2 s from 60 km/h:
+     * degrees of heading turned on the brake against the same run on full
+     * throttle, and the tightest radius each comes round at, m.
+     *
+     *   craft    brake° / throttle°   brake r / throttle r
+     *   skiff        99  /  69            4.6  /  18.2
+     *   marlin       58  /  61           10.3  /  19.4
+     *   otter        97  /  59            5.0  /  20.8
+     *   dart         26  /  78           39.7  /  19.0   (no gate fitted)
+     *
+     * — the braked line about half the radius of the throttled one on every
+     * craft that has a gate, paid for in the speed the gate was already
+     * taking (the skiff: 60 → 22 km/h over those two seconds). It is held
+     * HERE rather than higher because the next notch up turns the skiff and
+     * the otter on their own length: at 0.5 both come round inside 4 m,
+     * which is a pirouette rather than a turn. The marlin stays the tracker
+     * by design — its gate is the smallest, its ride plate the longest and
+     * its nozzle the least angled — and even it halves its radius. */
+    brakeSteer: 0.35,
     /** THE HIGH-SPEED STEER — how much more everything the nozzle is worth
      * (the jet's side thrust and `keelYaw` alike) buys at the craft's OWN
      * top speed, ramping in with the square of the speed so the bottom half

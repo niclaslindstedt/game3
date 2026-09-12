@@ -65,7 +65,13 @@ import {
   promoteVideo,
   videoUntouched,
 } from "../pwa/src/game/video-probe.ts";
-import { layWaterGrid, waterReach, waterSamples } from "../pwa/src/game/water-grid.ts";
+import {
+  MAX_RINGS,
+  layWaterGrid,
+  waterReach,
+  waterRings,
+  waterSamples,
+} from "../pwa/src/game/water-grid.ts";
 
 describe("the WATER ladder", () => {
   it("is a real step at every stop, in every direction that matters", () => {
@@ -75,8 +81,8 @@ describe("the WATER ladder", () => {
     for (let i = 1; i < WATER_LEVELS.length; i++) {
       const under = WATER_LOOK[WATER_LEVELS[i - 1]];
       const over = WATER_LOOK[WATER_LEVELS[i]];
-      expect(waterSamples(over)).toBeGreaterThan(waterSamples(under));
-      expect(waterReach(over)).toBeGreaterThan(waterReach(under));
+      expect(waterSamples(over, over.rings)).toBeGreaterThan(waterSamples(under, under.rings));
+      expect(waterReach(over, over.rings)).toBeGreaterThan(waterReach(under, under.rings));
       // The CELL goes the other way: smaller is finer.
       expect(over.cell).toBeLessThan(under.cell);
       expect(over.rippleFade[0]).toBeGreaterThan(under.rippleFade[0]);
@@ -108,7 +114,8 @@ describe("the WATER ladder", () => {
     // reason this is a row rather than a number the game picks. HIGH is under
     // twice the design point: past that the water alone eats a 60 Hz frame,
     // and the stop would be one nobody could actually use.
-    const calls = (level: keyof typeof WATER_LOOK): number => waterSamples(WATER_LOOK[level]);
+    const calls = (level: keyof typeof WATER_LOOK): number =>
+      waterSamples(WATER_LOOK[level], WATER_LOOK[level].rings);
     expect(calls("low")).toBeLessThan(calls("medium"));
     expect(calls("high") / calls("medium")).toBeGreaterThan(1.3);
     expect(calls("high") / calls("medium")).toBeLessThan(2);
@@ -146,6 +153,32 @@ describe("the DISTANCE ladder", () => {
       expect(over.shore).toBeGreaterThan(under.shore);
       expect(over.cover).toBeGreaterThan(under.cover);
       expect(over.haze).toBeGreaterThan(under.haze);
+      // …and more SEA, which is the half the row used not to own at all.
+      expect(over.waterRings).toBeGreaterThan(under.waterRings);
+    }
+  });
+
+  it("DOUBLES THE DRAWN SEA at every stop, and never lays fewer rings than WATER asked for", () => {
+    // The shore and the cover END at their radii and the haze hides that they
+    // do; the sea cannot end, so what a short reach costs is the sea's own
+    // chop stopping in open view with flat water past it. This row is what
+    // pushes that change out, and it may only ever ADD to the shape the WATER
+    // row laid — a rider turning the view up must never get a shorter sea.
+    for (const water of WATER_LEVELS) {
+      const look = WATER_LOOK[water];
+      let was = 0;
+      for (const id of DISTANCE_LEVELS) {
+        const rings = waterRings(look, DISTANCE_LOOK[id]);
+        expect(rings).toBeGreaterThanOrEqual(look.rings);
+        expect(rings).toBeLessThanOrEqual(MAX_RINGS);
+        // A ring is a DOUBLING of the reach for one more annulus of vertices —
+        // which is the only reason the row can afford to push the sea out at
+        // all, and the thing a test has to hold if a stop is ever retuned into
+        // a shade nobody can see.
+        const reach = waterReach(look, rings);
+        if (was > 0) expect(reach).toBeGreaterThanOrEqual(2 * was);
+        was = reach;
+      }
     }
   });
 
@@ -623,7 +656,8 @@ describe("the first-visit probe (video-probe.ts)", () => {
     // water is the one row whose bill is counted, so the constant is held
     // above its ratio rather than asserted in a comment.
     expect(PROBE_HEADROOM).toBeGreaterThan(
-      waterSamples(WATER_LOOK.high) / waterSamples(WATER_LOOK.medium),
+      waterSamples(WATER_LOOK.high, WATER_LOOK.high.rings) /
+        waterSamples(WATER_LOOK.medium, WATER_LOOK.medium.rings),
     );
   });
 

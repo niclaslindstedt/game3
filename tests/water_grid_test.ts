@@ -6,11 +6,12 @@
 // it sampled last frame — which is the whole reason the rings exist.
 import { describe, expect, it } from "vitest";
 
-import { WATER_LOOK } from "../pwa/src/game/settings-video.ts";
+import { DISTANCE_LOOK, WATER_LOOK } from "../pwa/src/game/settings-video.ts";
 import {
   layWaterGrid,
   snapOrigin,
   waterReach,
+  waterRings,
   waterSamples,
   type WaterGrid,
 } from "../pwa/src/game/water-grid.ts";
@@ -32,13 +33,20 @@ function edgeCounts(grid: WaterGrid): Map<string, number> {
 }
 
 describe("the water grid", () => {
-  const looks = Object.values(WATER_LOOK);
+  // EVERY GRID THE TWO ROWS CAN LAY, not just the three the WATER row names:
+  // how many rings stand round the core is the DISTANCE row's (`waterRings`),
+  // so the lattice, the seams and the snap have to hold over the product of
+  // the two ladders rather than over one of them.
+  const looks = Object.values(WATER_LOOK).flatMap((look) =>
+    Object.values(DISTANCE_LOOK).map((distance) => ({ look, rings: waterRings(look, distance) })),
+  );
 
   it("counts and reaches what settings-video promises", () => {
-    for (const look of looks) {
-      const grid = layWaterGrid(look);
-      expect(grid.ox.length).toBe(waterSamples(look));
-      expect(grid.reach).toBe(waterReach(look));
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
+      expect(grid.rings).toBe(rings);
+      expect(grid.ox.length).toBe(waterSamples(look, rings));
+      expect(grid.reach).toBe(waterReach(look, rings));
       let far = 0;
       for (let k = 0; k < grid.ox.length; k++) {
         far = Math.max(far, Math.abs(grid.ox[k]), Math.abs(grid.oz[k]));
@@ -48,8 +56,8 @@ describe("the water grid", () => {
   });
 
   it("states every vertex once, on its lattice", () => {
-    for (const look of looks) {
-      const grid = layWaterGrid(look);
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
       const seen = new Set<string>();
       for (let k = 0; k < grid.ox.length; k++) {
         const ix = grid.ox[k] / look.cell;
@@ -66,8 +74,8 @@ describe("the water grid", () => {
   it("is a closed sheet: every interior edge is shared by exactly two faces", () => {
     // A crack at a ring's seam is an edge with one face on it that is not on
     // the outer rim; a fold is an edge with three.
-    for (const look of looks) {
-      const grid = layWaterGrid(look);
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
       const counts = edgeCounts(grid);
       const rim = (k: number): boolean =>
         Math.abs(Math.abs(grid.ox[k]) - grid.reach) < 1e-4 ||
@@ -81,8 +89,8 @@ describe("the water grid", () => {
   });
 
   it("winds every face upward", () => {
-    for (const look of looks) {
-      const grid = layWaterGrid(look);
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
       const idx = grid.index;
       for (let f = 0; f < idx.length; f += 3) {
         const a = idx[f];
@@ -103,8 +111,8 @@ describe("the water grid", () => {
     // multiple of every ring's cell — a vertex's world position is always a
     // point of its ring's lattice, and the set of sampled points is the same
     // set shifted by whole coarse cells.
-    for (const look of looks) {
-      const grid = layWaterGrid(look);
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
       for (const c of [0, 3.7, 11.2, 100.4, -57.9]) {
         const o = snapOrigin(c, grid);
         expect(Math.abs(o / grid.snap - Math.round(o / grid.snap))).toBeLessThan(1e-9);
@@ -127,8 +135,8 @@ describe("the water grid", () => {
   });
 
   it("tells every vertex how much sea it speaks for", () => {
-    for (const look of looks) {
-      const grid = layWaterGrid(look);
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
       let core = 0;
       for (let k = 0; k < grid.ox.length; k++) {
         // A vertex's step is its own ring's cell — and a seam vertex, shared

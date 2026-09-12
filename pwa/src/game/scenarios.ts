@@ -48,6 +48,7 @@ export type ScenarioName =
   | "stand"
   | "carve"
   | "brake"
+  | "brakeTurn"
   | "chop"
   | "swell"
   | "launch"
@@ -74,6 +75,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "stand",
   "carve",
   "brake",
+  "brakeTurn",
   "chop",
   "swell",
   "launch",
@@ -493,6 +495,18 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.8 },
         script: (t) => (t < 0.6 ? input(0, 1, 0) : braking(0, 1)),
         seconds: 9,
+      };
+    }
+    case "brakeTurn": {
+      // BRAKE AND TURN: the same corner as `carve`, taken on the gate
+      // instead of the pump. The bow goes down, the forefoot bites and the
+      // craft comes round in half the water it needs on the throttle — what
+      // the brake button is FOR, past stopping. The stand-up is the control:
+      // with no gate fitted it just runs on.
+      return {
+        moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.7 },
+        script: (t) => (t < 0.6 ? input(0, 1, 0) : braking(1, 1)),
+        seconds: 5,
       };
     }
     case "chop": {

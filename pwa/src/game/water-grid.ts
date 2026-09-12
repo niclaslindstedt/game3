@@ -26,7 +26,7 @@
 // layout: every vertex on its ring's lattice, every seam stitched, no
 // duplicate, and a snapped origin that keeps the sample set the same.
 
-import { type WaterLook } from "./settings-video.ts";
+import { type DistanceLook, type WaterLook } from "./settings-video.ts";
 
 export type WaterGrid = {
   /** Vertices: their plan offsets from the grid's origin, m. */
@@ -48,29 +48,53 @@ export type WaterGrid = {
   snap: number;
   /** The finest cell, m. */
   cell: number;
+  /** How many rings stand round the core — what `waterRings` settled on. */
+  rings: number;
 };
 
-/** How far the near water reaches either side of the craft for a look, m:
- * the core's half-width doubled once per ring. */
-export function waterReach(look: WaterLook): number {
-  return (look.core / 2) * look.cell * 2 ** look.rings;
+/** THE MOST RINGS ANY COMBINATION OF ROWS MAY LAY. The reach doubles per
+ * ring, so a pair of rows that each ask for more would run the near water out
+ * past the level itself; this is where the ladder stops. Six rings is over a
+ * kilometre of near water at the design point, which is already twice the
+ * furthest fog the sky can deal. */
+export const MAX_RINGS = 6;
+
+/** HOW MANY RINGS STAND ROUND THE CORE — the WATER row's own shape, plus what
+ * the DISTANCE row buys.
+ *
+ * The reach is the one thing about the sea that belongs to DISTANCE rather
+ * than to WATER: WATER says how FINE the sea is at the rider (the cell, the
+ * core, the ripples, the filtering) and DISTANCE says how far the world goes.
+ * A ring is the cheap way to spend that — it doubles the reach for a fixed
+ * annulus of vertices, whose cells double with it — which is why the row can
+ * push the drawn sea out toward the fog rather than leaving it to end in open
+ * view. */
+export function waterRings(look: WaterLook, distance: DistanceLook): number {
+  return Math.min(MAX_RINGS, look.rings + distance.waterRings);
+}
+
+/** How far the near water reaches either side of the craft, m: the core's
+ * half-width doubled once per ring. */
+export function waterReach(look: WaterLook, rings: number): number {
+  return (look.core / 2) * look.cell * 2 ** rings;
 }
 
 /** How many `surfaceAt` calls a frame a look costs with nothing culled —
  * the near grid's vertex count: the core's, plus each ring's annulus. */
-export function waterSamples(look: WaterLook): number {
+export function waterSamples(look: WaterLook, rings: number): number {
   const n = look.core + 1;
   const inner = look.core / 2 + 1;
-  return n * n + look.rings * (n * n - inner * inner);
+  return n * n + rings * (n * n - inner * inner);
 }
 
-/** Lay the rings for a look. `core` must be a multiple of four: the core's
- * half-width is a whole number of the first ring's cells, and every ring's
- * inner edge is a whole number of its own. */
-export function layWaterGrid(look: WaterLook): WaterGrid {
-  const { cell, core, rings } = look;
+/** Lay the rings for a look, at the ring count the two rows have agreed on
+ * (`waterRings`). `core` must be a multiple of four: the core's half-width is
+ * a whole number of the first ring's cells, and every ring's inner edge is a
+ * whole number of its own. */
+export function layWaterGrid(look: WaterLook, rings: number = look.rings): WaterGrid {
+  const { cell, core } = look;
   if (core % 4 !== 0) throw new Error(`water core ${core} is not a multiple of four`);
-  const reach = waterReach(look);
+  const reach = waterReach(look, rings);
   // Lattice units are the finest cell; a point is keyed by its lattice
   // coordinates, offset so both are non-negative.
   const span = (core / 2) * 2 ** rings;
@@ -161,6 +185,7 @@ export function layWaterGrid(look: WaterLook): WaterGrid {
     reach,
     snap: cell * 2 ** rings,
     cell,
+    rings,
   };
 }
 
