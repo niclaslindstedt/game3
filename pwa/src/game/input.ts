@@ -18,9 +18,10 @@
 //   Q / ↑        lean forward         Shift      TUCK (hold)
 //   R            back to the last gate (edge)    B  restart the run
 //   Enter        take a screenshot    C          next camera
+//   H            the readouts off, and back
 //
 // AN ACTION MAY BE HELD OR TAKEN ON THE PRESS, and `settings-input.ts` is
-// what says which: the craft's seven are held and ramped, the five around a
+// what says which: the craft's seven are held and ramped, the six around a
 // run happen once however long the key is down. One key may be bound to
 // both kinds — nothing stops a rider putting the brake and the reset under
 // one finger — so a press applies every action its code carries.
@@ -28,6 +29,13 @@
 //                pressing it again over the card resumes, because the card's
 //                RESUME row is its `data-nav-back` and menu-nav.ts takes
 //                Escape upstream of this manager
+//
+// H TAKES THE READOUTS OFF THE WATER, and it writes the very switch
+// OPTIONS ▸ HUD and the pause card's own row write (`settings.hud.on`) —
+// one answer, reachable from the key, the card and the options page, so a
+// rider who cleared the screen to watch a wave finds it cleared next run
+// too. Which is why it is a press the APP answers rather than anything the
+// craft hears: the run carries on exactly as it was.
 //
 // ENTER IS THE SHUTTER, and the two restarts moved off it rather than
 // sharing it. A picture is the press a rider makes while everything is

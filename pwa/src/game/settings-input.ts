@@ -21,11 +21,11 @@ import type { KeysHeld } from "./input-model.ts";
  * ramps in `input-model.ts` know about. */
 export type HeldAction = keyof KeysHeld;
 
-/** The presses the APP answers rather than the craft. `reset` is the fifth
- * edge and is not here: it reaches the engine as an input flag on the step
+/** The presses the APP answers rather than the craft. `reset` is the one
+ * edge that is not here: it reaches the engine as an input flag on the step
  * it arrives in rather than as an app-level press, which is the whole
  * difference between putting the craft back and changing the camera. */
-export type InputAction = "restart" | "camera" | "pause" | "shot";
+export type InputAction = "restart" | "camera" | "pause" | "shot" | "hud";
 
 /** An action taken on the PRESS, not held: it happens once however long the
  * key is down. */
@@ -70,6 +70,7 @@ export const KEY_ACTIONS: { id: KeyAction; label: string }[] = [
   { id: "reset", label: STRINGS.keyReset },
   { id: "restart", label: STRINGS.keyRestart },
   { id: "camera", label: STRINGS.keyCamera },
+  { id: "hud", label: STRINGS.keyHud },
   { id: "shot", label: STRINGS.keyShot },
   { id: "pause", label: STRINGS.keyPause },
 ];
@@ -118,6 +119,12 @@ export const DEFAULT_KEYS: KeyBindings = {
   reset: ["KeyR"],
   restart: ["KeyB"],
   camera: ["KeyC"],
+  // H FOR THE READOUTS THEMSELVES, beside C for what the camera is looking
+  // at: the two presses a rider makes about the PICTURE rather than the
+  // craft, and the one next to the other on the row the other hand rests
+  // on. It writes the same switch as OPTIONS ▸ HUD, so the water can be
+  // cleared for a wave or for a photograph without walking out to a card.
+  hud: ["KeyH"],
   shot: ["Enter"],
   // The way out of a run. It is a key the browser and the OS both have
   // opinions about (full screen, pointer lock), which is exactly why it is

@@ -715,6 +715,15 @@ describe("the key bindings", () => {
     expect(DEFAULT_KEYS.shot).toEqual(["Enter"]);
   });
 
+  it("puts the readouts' own switch on H, beside the camera's C", () => {
+    // The two presses about the PICTURE rather than the craft, under the hand
+    // that is not on the throttle. H writes `hud.on` — the same switch
+    // OPTIONS ▸ HUD and the pause card's row write.
+    expect(DEFAULT_KEYS.hud).toEqual(["KeyH"]);
+    expect(DEFAULT_KEYS.camera).toEqual(["KeyC"]);
+    expect(isHeldAction("hud")).toBe(false);
+  });
+
   it("ships no key on two actions at once", () => {
     for (const action of ACTIONS) expect(clashesWith(DEFAULT_KEYS, action)).toEqual([]);
   });
