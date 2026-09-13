@@ -816,6 +816,12 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // ramp's deck or the water: a hold carried up a deck is a trick set up
   // and paid at the lip, and the same hold carried across a sea is the line
   // the rider was riding and paid nowhere.
+  //
+  // ...and whether the hull is still GOING UP, which is what the FIRST
+  // stroke of a flight needs and the ones after it do not: a rider cannot
+  // open a trick on the way down, and cannot be stopped from working one he
+  // opened on the way up. `launchVy` above says the flight began going up,
+  // which a flight past its apex still satisfies — this is the reading NOW.
   stepStrokes(
     c,
     spec,
@@ -826,6 +832,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       c.airTime >= T.flight.minAir &&
       c.launchVy >= T.flight.launchVy,
     contact.onRamp,
+    c.vy > 0,
   );
 
   // A DIVE develops over the steps after a landing: the bow keeps going

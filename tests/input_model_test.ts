@@ -11,6 +11,8 @@ import { TUNING } from "@engine";
 import {
   BAR_REACH_PX,
   KEY_CROUCH_ATTACK,
+  KEY_LEAN_ATTACK,
+  KEY_LEAN_RELEASE,
   KEY_STEER_ATTACK,
   LEAN_DEAD_PX,
   LEAN_REACH_PX,
@@ -76,6 +78,56 @@ describe("the handlebar", () => {
     expect(barLean(-(LEAN_DEAD_PX + LEAN_REACH_PX))).toBeCloseTo(-1, 9);
     expect(barLean(LEAN_DEAD_PX + LEAN_REACH_PX / 2)).toBeCloseTo(0.5, 9);
     expect(barLean(10_000)).toBe(1);
+  });
+
+  it("maxes BOTH axes on the ring the player can see", () => {
+    // The bar is drawn as one circle of radius `BAR_REACH_PX`
+    // (`hud-touch.tsx`'s reach ring), and the promise that circle makes is
+    // that it is the control's whole extent: full lock across it, full lean
+    // up and down it. The lean's dead band is spent INSIDE the ring rather
+    // than added outside it, which is the only arrangement that keeps the
+    // promise — and the end of the lean's travel is where the engine reads a
+    // haul on the bars, so a player reaching for a trick has to be able to
+    // see where it is.
+    expect(LEAN_DEAD_PX + LEAN_REACH_PX).toBe(BAR_REACH_PX);
+    expect(barLean(BAR_REACH_PX)).toBeCloseTo(1, 9);
+    expect(barSteer(BAR_REACH_PX)).toBeCloseTo(1, 9);
+  });
+});
+
+describe("the lean keys against the engine's stroke gate", () => {
+  /** Where the lean axis gets to after `seconds` of a key held down, from
+   * rest, on the app's own ramp at the engine's own step rate. */
+  function afterPress(seconds: number): number {
+    let v = 0;
+    for (let i = 0; i < Math.round(seconds / DT); i++)
+      v = rampToward(v, 1, DT, KEY_LEAN_ATTACK, KEY_LEAN_RELEASE);
+    return v;
+  }
+
+  it("clears the gate on a press and not on a flick", () => {
+    // THE PARITY THIS HOLDS: the engine puts the pump up at the top of the
+    // lean axis (`flight.pumpGate` — only a maxed lean is a haul), and a key
+    // can only get to the top of a ramp by being held there. So the ramp and
+    // the gate are one decision made in two files that cannot import each
+    // other: soften this ramp and a keyboard rider silently loses the trick
+    // altogether, and a keyboard rider is meant to be able to tap one out.
+    const G = TUNING.flight.pumpGate;
+    expect(afterPress(0.1)).toBeGreaterThan(G);
+    // ...and a flick is still a trim, which is the other half of it: the
+    // rider has to be able to ask for some nose-up without buying a flip.
+    expect(afterPress(0.05)).toBeLessThan(G);
+  });
+
+  it("falls back under the gate quickly enough that the next press is a fresh stroke", () => {
+    // A crossing already made is not re-made while it is held (`strokes.ts`),
+    // so a worked key only earns a second haul if it gets back DOWN under the
+    // gate between taps. At a hand's own five a second that is a tenth of a
+    // second of release.
+    let v = afterPress(0.1);
+    for (let i = 0; i < Math.round(0.1 / DT); i++)
+      v = rampToward(v, 0, DT, KEY_LEAN_ATTACK, KEY_LEAN_RELEASE);
+    expect(v).toBeLessThan(TUNING.flight.pumpGate);
   });
 });
 

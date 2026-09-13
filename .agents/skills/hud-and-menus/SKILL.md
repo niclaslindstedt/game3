@@ -110,6 +110,20 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=rest       # …a
 npx vitest run tests/input_model_test.ts                                  # the gestures, headless
 ```
 
+**`make screenshots` CANNOT SHOW YOU THE TOUCH CONTROLS.** The handlebar and
+the lever overlays are anchored under a thumb and only exist while a pointer
+is down (`hud-touch.tsx` sets `display: none` on release), and the lab
+presses nothing — so a phone shot proves the thumb ZONES are laid out right
+and says nothing whatever about the controls drawn in them. A change to
+either one is LOOKED at with a scratch probe over the built site instead:
+`serveDir("pwa/dist")`, a Chromium context with `hasTouch: true` at
+390×844, then `dispatchEvent` a `pointerdown` on `[data-touch="bar"]` (or
+`"lever"`) and a `pointermove` to each end of the travel, shooting between
+the two and only then sending `pointerup`. `page.touchscreen.tap` will not
+do — a tap is down-and-up, and the overlay is gone by the time the shutter
+opens. Keep the probe out of the tree when you are done unless it earns a
+place on the shelf (`lab-tooling`).
+
 Then run `ui-review`'s audit at the reference viewports (desktop landscape
 1280×720 and phone portrait 390×844, and rotation is its own case). A HUD
 change is not finished until it has been LOOKED at on a phone-shaped

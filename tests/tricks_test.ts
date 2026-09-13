@@ -277,14 +277,15 @@ describe("the side spin", () => {
   });
 
   it("is not turned by a hull steering through a jump under the line", () => {
-    // The dead band, which is what keeps the levelling loop out of the
-    // trick — and what `sim/bot.ts` caps itself at. A whole flight spent
-    // holding just under the threshold buys no throw at all.
+    // THE GATE, which is what keeps the levelling loop — and the ordinary
+    // business of steering — out of the trick, and what `sim/bot.ts` caps
+    // itself at. A whole flight spent holding just under it, which is most
+    // of full lock, buys no throw at all.
     const state = createGame({ seed: 1, craft: "dart", level: FLAT, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
     const events = ride(state, 3.5, () => ({
       ...COAST,
-      steer: TUNING.flight.whipRise * 0.99,
+      steer: TUNING.flight.whipGate * 0.99,
     }));
     expect(events.filter((e) => e.kind === "trick" && e.trick === "roll")).toHaveLength(0);
   });

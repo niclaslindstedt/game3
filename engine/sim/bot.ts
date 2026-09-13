@@ -47,6 +47,26 @@ export type BotProfile = {
   airRollGain: number;
   airRollDamp: number;
   airYawDamp: number;
+  /** THE LOOP'S OWN CEILINGS on what it may ask for in the air, 0..1: how
+   * far back it will lean and how far over it will put the bars.
+   *
+   * They exist to keep the loop clear of the engine's two stroke gates
+   * (`flight.pumpGate`, `.whipGate`) — past either the engine reads the
+   * input as a haul or a throw and hands the hull a trick's worth of
+   * rotation (`strokes.ts`), which is the right answer for a rider going
+   * for one and the wrong one for a loop whose whole job is to put the hull
+   * back the right way up.
+   *
+   * But they are the LOOP'S numbers and not the gates', which is the
+   * mistake to avoid here: the gates sit up at the ends of their axes, and
+   * a levelling loop handed that much authority over-rotates on its own
+   * before any stroke is involved — measured, capping at the gates instead
+   * of these cost seed 1 a fourth reset and seed 3 four more, the bot
+   * standing its own hull on its tail to trim a landing. These are the
+   * most a PD with these gains should ever ask for, and they sit far below
+   * the gates as a consequence rather than as the point. */
+  airLeanCap: number;
+  airBarsCap: number;
   /** How far ahead the bot looks for a rock, m, and how far off the line it
    * moves its aim to miss one, m. */
   lookAhead: number;
@@ -95,6 +115,8 @@ export const RIDER_BOT: BotProfile = {
   airRollGain: 3,
   airRollDamp: 0.6,
   airYawDamp: 1.2,
+  airLeanCap: 0.22,
+  airBarsCap: 0.3,
   lookAhead: 40,
   dodge: 9,
   // Two seconds of water, and never less than half a gate's spacing: far
@@ -349,11 +371,13 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   // the lip would otherwise turn the whole flight.
   const eta = Math.hypot(ax - c.x, az - c.z) / Math.max(c.speed, 4);
   // ...AND NEVER A THROW OF THE BARS, which is the levelling loop's own
-  // version of the cap on its lean below. Past `flight.whipRise` the engine
+  // version of the cap on its lean below. Past `flight.whipGate` the engine
   // reads the bars as a stroke of THE WHIP and throws in a side spin's
   // worth of roll (`strokes.ts`) — the right answer for a rider going for
   // the trick and the wrong one for a loop whose whole job is to put the
-  // hull back the right way up.
+  // hull back the right way up. `airBarsCap` is the loop's own ceiling and
+  // sits well under that gate — see the profile, where the measurement for
+  // why it is not simply the gate lives.
   //
   // ONLY ON A REAL FLIGHT, which is the difference between this cap and the
   // lean's: a stroke is only ever spent on a hull that LEFT THE WATER GOING
@@ -377,7 +401,7 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   // on from the first airborne step of anything that could be thrown, and
   // the same sixteen runs turn ZERO rolls and zero flips by accident.
   const thrown = c.airborne && c.launchVy >= TUNING.flight.launchVy;
-  const bars = thrown ? TUNING.flight.whipRise : 1;
+  const bars = thrown ? profile.airBarsCap : 1;
   let steer = c.airborne
     ? clamp(
         -c.roll * profile.airRollGain + c.wz * profile.airRollDamp - c.wy * profile.airYawDamp,
@@ -426,7 +450,7 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
       -1,
       1,
     );
-    // ...AND NEVER A HAUL ON THE BARS. Lean back past `flight.pumpRise` in
+    // ...AND NEVER A HAUL ON THE BARS. Lean back past `flight.pumpGate` in
     // the air and the engine reads it as a stroke of the pump and throws in
     // a flip's worth of rotation (`strokes.ts`) — which is the right answer
     // for a rider going for the trick and the wrong one for a levelling
@@ -434,8 +458,9 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
     // because nose-DOWN is most of what this loop asks for off a ramp and
     // none of it is a haul. Measured: uncapped it cost 3 km/h of pace and
     // six gates over ten seeds, the bot flipping itself by accident once or
-    // twice a run.
-    lean = Math.min(lean, TUNING.flight.pumpRise);
+    // twice a run. `airLeanCap` is the loop's own ceiling, as the bars'
+    // is above.
+    lean = Math.min(lean, profile.airLeanCap);
   } else if (c.onRamp) {
     lean = 1;
   } else if (gate.kind === "air" && gate.ramp && onRampDeck(gate.ramp, c.x, c.z)) {

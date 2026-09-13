@@ -42,10 +42,20 @@ export const KEY_THROTTLE_RELEASE = 12;
  * up lag on top of the real one. */
 export const KEY_REVERSE_ATTACK = 10;
 export const KEY_REVERSE_RELEASE = 14;
-/** The lean keys' ramp, 1/s: a rider shifting their weight takes a moment,
- * and coming back to centre is quicker than going out. */
-export const KEY_LEAN_ATTACK = 5;
-export const KEY_LEAN_RELEASE = 8;
+/** The lean keys' ramp, 1/s — the quickest of the lot, and quickened on
+ * purpose. THE TRICK LIVES AT THE TOP OF THIS AXIS (`flight.pumpGate`: only
+ * a lean carried to the end of its travel is a haul on the bars, and
+ * anything short of it is trim), and a key can only reach the end of a soft
+ * ramp by being HELD there — so a soft ramp would have left a keyboard
+ * rider unable to tap out a flip at all. At this rate a press of 0.1 s
+ * reaches 0.86 and buys a stroke, a flick of 0.05 s reaches 0.62 and trims,
+ * and a hand working the key above about six a second stops clearing the
+ * gate — a rider cannot machine-gun it. Coming back to centre is quicker
+ * than going out, as everywhere else, and it matters more here: the lean
+ * has to fall back under the gate before the next press is a fresh stroke
+ * rather than the same one still held. */
+export const KEY_LEAN_ATTACK = 18;
+export const KEY_LEAN_RELEASE = 16;
 /** THE TUCK's ramp, 1/s. The same shape as the lean's and a touch slower
  * to ask for, because it is a bigger move of the same body: the rider is
  * getting right down behind the bars, not shifting on the seat. The
@@ -115,20 +125,32 @@ export function leverReverse(dyPx: number): number {
   return clamp(past / LEVER_REVERSE_PX, 0, 1);
 }
 
-/** THE HANDLEBAR. Thumb travel sideways from the anchor for full lock —
- * the bar's whole throw. Long enough that holding a line is a push, not a
- * switch. */
-export const BAR_REACH_PX = 70;
+/** THE HANDLEBAR, AND HOW BIG IT IS. Thumb travel from the anchor to the
+ * end of the bar's throw — full lock across, full lean up and down, and the
+ * radius the reach ring is drawn at (`hud-touch.tsx`), so the circle a
+ * player can see IS the control's whole extent on both axes.
+ *
+ * Long, and lengthened on purpose. The ends of both axes are where the
+ * committed asks live — full lock is a corner held, and full lean is a haul
+ * on the bars the engine reads as a trick (`flight.pumpGate`) — so the
+ * travel short of them is where all the ordinary riding happens, and a
+ * thumb needs room to sit in it. At 70 px there was not enough of it to
+ * hold a line without wandering into the ends; this leaves about a
+ * centimetre of glass between a trim lean and a backflip. */
+export const BAR_REACH_PX = 90;
 /** The throw is shaped `travel ** this`, so the first centimetre of thumb
  * buys less lock than the last: a slight steer is a target a thumb can hit
  * instead of the twitch either side of centre — but only just past linear,
  * because the hull's own response carries the rest. */
 export const BAR_THROW_CURVE = 1.15;
-/** Vertical thumb travel for full lean, px, and the dead band around the
- * anchor a sideways drag may wander in without shifting the rider's
- * weight: steering alone must never lean the nose. */
-export const LEAN_REACH_PX = 60;
+/** The dead band around the anchor a sideways drag may wander in without
+ * shifting the rider's weight: steering alone must never lean the nose. */
 export const LEAN_DEAD_PX = 14;
+/** ...and the travel past it for full lean, px, which is the rest of the
+ * way to the bar's own edge: the lean maxes exactly where the reach ring
+ * is drawn, as the steer does, so both ends of the control are the one
+ * circle the player can see. */
+export const LEAN_REACH_PX = BAR_REACH_PX - LEAN_DEAD_PX;
 
 /** Screen-space steer, -1..1, for a thumb `dxPx` right of its anchor. */
 export function barSteer(dxPx: number): number {

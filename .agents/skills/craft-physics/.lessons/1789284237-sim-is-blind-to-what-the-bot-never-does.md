@@ -5,8 +5,9 @@ scope: engine/game/, engine/sim/bot.ts
 concepts: [sim, measurement, bench, game-feel, air]
 ---
 
-`sim/bot.ts` deliberately caps its air lean at `flight.pumpRise` and its air
-steer at `flight.whipRise` so a levelling loop never earns a stroke. So a
+`sim/bot.ts` deliberately caps its air lean and its air steer (`airLeanCap`,
+`airBarsCap`) under the engine's stroke gates so a levelling loop never
+earns a stroke. So a
 whole control — both strokes, and anything else gated behind an input the
 bot holds under a threshold — is exercised zero times in sixteen runs. A
 change that rewrote when a stroke may be earned moved not one of the
