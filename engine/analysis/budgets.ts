@@ -235,11 +235,11 @@ export const ANALYSIS = {
   /** R35 — the fewest decks a TRICK FIELD may come out with and still be a
    * field. Under it the shore is a stretch of water with a lip on it, which
    * is what a tricks run already was before the rule; the generator rerolls
-   * the sub-seed instead, and the coast it draws next usually carries six.
+   * the sub-seed instead, and the coast it draws next usually carries five.
    *
-   * MEASURED over eighty seeds: the field's median is 5 decks and its
-   * quartiles are 4 and 6, so a floor of 3 refuses the tail rather than the
-   * population — about one sub-seed in eight — which is well inside what
-   * `search.attempts` absorbs. */
+   * MEASURED over eighty-one seeds on the taiga: the field's median is 5
+   * decks with its quartiles at 4 and 5, so a floor of 3 refuses the tail
+   * rather than the population — and no seed in that sweep was refused
+   * outright, so the reroll finds a shore every time. */
   trickField: 3,
 } as const;

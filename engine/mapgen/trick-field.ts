@@ -28,17 +28,25 @@
 // the one place the coast is awkward, and a gap in the line reads as a
 // stretch of open water while a pair reads as a bug.
 //
-// AND IT IS LAID TWICE: OUT, AND BACK. A race course is a thing with an end
-// on it, and a tricks run is a CLOCK — two minutes at the pace R35 spaces
-// the field for is most of two kilometres, which is the whole of a coast
-// course, so a field laid one way would run out under the rider halfway
-// through the shortest run there is. So the second pass walks the same line
-// the other way, half a stride out of step with the first: a ramp faces the
-// way it is climbed, so an outbound deck is not a deck to a rider coming
-// home, and the two passes interleave into a shuttle down the shore and back
-// up it rather than into a line at half the stride. A rider going either way
-// meets a lip every `trickStride` metres, which is the rule; what the second
-// pass buys is that they never stop meeting them.
+// AND IT IS LAID TWICE: OUT, AND BACK, ON TWO SEPARATE LINES. A race course
+// is a thing with an end on it, and a tricks run is a CLOCK — two minutes at
+// the pace R35 spaces the field for is most of two kilometres, which is the
+// whole of a coast course, so a field laid one way would run out under the
+// rider halfway through the shortest run there is. So the second pass walks
+// the same line the other way, half a stride out of step with the first, and
+// a rider going either way meets a lip every `trickStride` metres.
+//
+// THE RETURN PASS STANDS OFF THE LINE, AND THAT IS NOT A DETAIL. A ramp is a
+// wedge with a hinge at one end, so it is ridden from ONE side and met from
+// the other as a wall — `collision.ts` pushes a hull out through the flank or
+// the end wall under the lip, which is exactly right and exactly what a
+// rider does not want at speed. Laid on the same line, every other deck a
+// rider met riding out would be one of those: not a lip they chose to leave
+// alone, a thing in the way. So the homebound decks are moved `RETURN_OFF`
+// metres to the SEAWARD side, off the water the outbound rider is on, where
+// they read as the other half of the field rather than as an obstacle — and
+// the whole corridor moves with the hinge, so the depth, the solids and the
+// crowding are all checked where the deck actually ends up.
 
 import { angleDiff } from "../lib/math.ts";
 import { sampleField, type Heightfield } from "../lib/heightfield.ts";
@@ -73,14 +81,42 @@ const RUN_UP_SHARE = 0.45;
 /** How far off the beam a trick ramp's approach may lie, as a multiple of
  * R9's band for a race ramp.
  *
- * R9 holds a race ramp close to beam-on because a ring has to be THREADED:
- * a hull that stuffs its bow in a head sea arrives under the arc the ring
- * stands on and the gate is missed. A trick ramp has nothing to thread, so
- * a lip taken a little into the sea is a jump that goes a little shorter
- * rather than a jump that fails — and holding the whole field to the race
- * band would leave the legs that run up and down the sea bare.
- */
-const BEAM_WIDEN = 3;
+ * R9 holds a race ramp inside a third of a right angle of beam-on because a
+ * ring has to be THREADED: a hull that stuffs its bow in a head sea arrives
+ * under the arc the ring stands on and the gate is simply missed. A trick
+ * ramp has nothing to thread, so a heading off the beam costs a shorter jump
+ * rather than a failed one — and the band here is set to exclude the two
+ * ENDS rather than to keep the middle third: dead into the sea, where the
+ * bow stuffs, and dead with it, where the hull cannot climb past the wave in
+ * front of it.
+ *
+ * TWO AND A HALF, NEVER THREE. R9's band is measured from the beam, so a
+ * multiple of 3 is a right angle either way — which covers every heading
+ * there is and leaves the check unable to reject anything. A widening that
+ * reaches 3 has not widened the rule, it has deleted it. Measured over
+ * eighty seeds, this figure carries a median of 7 decks a level against 6 at
+ * R9's own band, which is the leg of shore that had no lip on it at all and
+ * now has one. */
+const BEAM_WIDEN = 2.5;
+
+/** R9, R35 — how far off the beam a trick ramp's approach may actually lie,
+ * rad. Exported so the test can hold the band to being a BAND: a widening
+ * that reaches a right angle covers every heading there is, and the check
+ * that reads it stops being able to reject anything. Stated here for
+ * `trickDeck`'s reason — the field and its analysis read one number. */
+export function trickBeam(pace: number, rampWidth: number): number {
+  return rulesAtPace(pace, rampWidth).ramp.beam * BEAM_WIDEN;
+}
+
+/** How far to the side the HOMEBOUND pass stands from the outbound one, m.
+ *
+ * Far enough that a rider riding out is never near a deck that faces them:
+ * four deck widths, which is well past the flank the hull would be pushed
+ * out through and past the spray of a landing besides. Not so far that the
+ * return line leaves the water the level was carved for — every offset
+ * station is re-checked for depth, for solids and for R1's band where it
+ * actually stands, and one that falls outside is skipped like any other. */
+const RETURN_OFF = 4;
 
 /** A trick ramp's deck, as a share of the way through R8's length band. The
  * field is one vocabulary rather than a draw per station: a rider learns
@@ -134,6 +170,33 @@ export function nextAfter(a: Ramp, b: Ramp): boolean {
   if (off <= 0) return true;
   const along = (dx * Math.sin(a.heading) + dz * Math.cos(a.heading)) / off;
   return along >= Math.cos(AHEAD);
+}
+
+/** Whether `b` stands IN `a`'S LANE — close enough, square enough and
+ * head-on enough that a rider riding up `a` meets it.
+ *
+ * A ramp is a wedge hinged at one end: ridden from one side, and met from
+ * the other as a wall `collision.ts` pushes the hull out of. So a deck
+ * FACING another one, standing on the water that one is ridden on, is not a
+ * lip a rider chose to leave alone — it is a thing in the way, and R35
+ * refuses it.
+ *
+ * Three conditions, and each rules out a case that is fine. Headings inside
+ * a right angle are two decks a rider meets the same way, which is the
+ * stride's business and not this one. Past a stride apart, the rider has a
+ * whole run-up in which to steer, which is what a run-up is. And past a
+ * deck's width off the axis, the hull goes by the flank rather than into it.
+ *
+ * Symmetric on purpose, unlike `nextAfter`: being in the way is a fact about
+ * a pair, not a direction. Stated here and read by the layer, by the
+ * analysis and by the test. */
+export function inLane(a: Ramp, b: Ramp, stride: number): boolean {
+  if (Math.abs(angleDiff(a.heading, b.heading)) <= Math.PI / 2) return false;
+  const dx = b.x - a.x;
+  const dz = b.z - a.z;
+  if (Math.hypot(dx, dz) > stride) return false;
+  const across = Math.abs(dx * Math.cos(a.heading) - dz * Math.sin(a.heading));
+  return across <= Math.max(a.width, b.width);
 }
 
 /** Where the field's ramps stand on a level whose line is `path`.
@@ -198,12 +261,37 @@ export function layTrickField(
    * is actually met at rather than the line's tangent at the hinge. */
   const stand = (at: number, sense: 1 | -1): Ramp | null => {
     const span = (d: number): number => Math.min(length, Math.max(0, at + sense * d));
-    const hinge = pointAlong(path, cum, at);
-    const from = pointAlong(path, cum, span(-runUp));
-    const to = pointAlong(path, cum, span(reach));
+    let hinge: Vec2 = pointAlong(path, cum, at);
+    let from: Vec2 = pointAlong(path, cum, span(-runUp));
+    let to: Vec2 = pointAlong(path, cum, span(reach));
     const heading = Math.atan2(to.x - from.x, to.z - from.z);
     const off = Math.abs(angleDiff(waveHeading, heading));
     if (Math.abs(off - Math.PI / 2) > beam) return null;
+    // THE HOMEBOUND PASS STEPS ASIDE (see the header): its whole corridor —
+    // the run-up, the hinge and the landing — is moved to the seaward side
+    // of the line, so the water an outbound rider is on carries no deck
+    // facing them. Which side is seaward is asked of the `offshore` field
+    // rather than assumed, because the line doubles back on itself (R24) and
+    // "left of the heading" is a different side of the coast each time it
+    // does.
+    if (sense === -1) {
+      const step = RETURN_OFF * R.ramp.width;
+      const sx = Math.cos(heading) * step;
+      const sz = -Math.sin(heading) * step;
+      const seaward =
+        sampleField(water.offshore, hinge.x + sx, hinge.z + sz) >=
+        sampleField(water.offshore, hinge.x - sx, hinge.z - sz)
+          ? 1
+          : -1;
+      const shift = (p: Vec2): Vec2 => ({ x: p.x + sx * seaward, z: p.z + sz * seaward });
+      hinge = shift(hinge);
+      from = shift(from);
+      to = shift(to);
+      // R1 — and it still has to be a piece of THIS coast: a deck shoved out
+      // past the band the course is laid in is a deck out in the open sea.
+      const band = sampleField(water.offshore, hinge.x, hinge.z);
+      if (band < R.course.offshore.min || band > R.course.offshore.max) return null;
+    }
     // The deck runs from the hinge along the heading — the straight line the
     // hull climbs, not the curve the path takes.
     const lip = {
@@ -241,6 +329,12 @@ export function layTrickField(
     const clash = (r: Ramp): boolean => {
       const off = Math.hypot(r.x - hinge.x, r.z - hinge.z);
       if (off < reach) return true;
+      // A deck standing in this one's lane, or this one in its: the route
+      // doubles back on itself (R24), so two OUTBOUND stations on the two
+      // legs of a hairpin can end up facing each other with the line's own
+      // width between them, which the homebound pass's seaward step does
+      // nothing about.
+      if (inLane(stood, r, stride) || inLane(r, stood, stride)) return true;
       // Either order: a deck this one would be reached too soon after, and
       // one that would be reached too soon after this one.
       return off < stride && (nextAfter(r, stood) || nextAfter(stood, r));

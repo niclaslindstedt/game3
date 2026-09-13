@@ -23,7 +23,8 @@ import { topSpeedOf } from "../game/limits.ts";
 import { launchSpeedFor } from "../sim/bot.ts";
 import { airCorridor, distanceAlong, ringPlacement, segmentDistance } from "../mapgen/course.ts";
 import { withinBand } from "../mapgen/rules.ts";
-import { nextAfter, trickDeck } from "../mapgen/trick-field.ts";
+import { inLane, nextAfter, trickDeck } from "../mapgen/trick-field.ts";
+import { rampsOf } from "../game/collision.ts";
 import { rulesAtPace, trickStride } from "../mapgen/pace.ts";
 import type { Gate, Level, Vec2 } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
@@ -247,6 +248,9 @@ export function analyzeRunUp(rep: Report, pace = 1): void {
  *   ignore.
  * - A DECK IN ANOTHER DECK'S WATER. Two lips inside `reach` of each other
  *   are one lip with a step in it, and the rider lands on the second.
+ * - A DECK FACING ONE A RIDER IS RIDING UP (`inLane`). A ramp is met from
+ *   behind as a wall, so one standing head-on in another's lane is not a lip
+ *   left alone, it is a thing in the way at speed.
  * - A STRIDE THE RIDER CANNOT USE. The gap from one deck to the next ONE
  *   THEY FACE has to be at least the stride, or the field is asking for a
  *   jump off a hull that is still accelerating — which is the failure R35
@@ -287,6 +291,17 @@ export function analyzeTrickField(level: Level, rep: Report): void {
           at: ramp,
           value: off,
         });
+      }
+    }
+  }
+  // Over EVERY deck on the level, the course's own included: a rider cannot
+  // tell an air gate's ramp from the field's, so neither may this.
+  const all = rampsOf(level);
+  for (const a of all) {
+    for (const b of all) {
+      if (a === b) continue;
+      if (inLane(a, b, stride)) {
+        rep.fail("R35", "lane", `${b.id} faces ${a.id} and stands in its lane`, { at: b });
       }
     }
   }

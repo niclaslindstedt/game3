@@ -12,7 +12,7 @@ export {
   type LevelRules,
   type SolidRule,
 } from "./rules.ts";
-export { nextAfter, trickDeck, type FieldWater } from "./trick-field.ts";
+export { inLane, nextAfter, trickBeam, trickDeck, type FieldWater } from "./trick-field.ts";
 export {
   clampDial,
   GATE_CORNER,

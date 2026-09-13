@@ -16,8 +16,10 @@ import {
   CRAFT,
   craftAtClass,
   generateLevel,
+  inLane,
   nextAfter,
   rampsOf,
+  trickBeam,
   runUpTo,
   topSpeedOf,
   TRICK_SHARE,
@@ -82,6 +84,59 @@ describe("R35 — the trick field", () => {
           expect(gap, `${a.id} and ${b.id} on seed ${level.seed}`).toBeGreaterThanOrEqual(
             stride - 0.5,
           );
+        }
+      }
+    }
+  });
+
+  it("keeps every deck across the sea, and keeps the band a BAND", () => {
+    // R9's rule survives into the field, widened rather than dropped: a lip
+    // taken dead into the sea stuffs the bow and one taken dead with it
+    // cannot climb past the wave in front of it.
+    //
+    // The second assertion is the one worth having. The band is measured
+    // FROM THE BEAM, so a widening that reaches a right angle spans every
+    // heading there is and the check that reads it can never reject
+    // anything — a rule deleted rather than relaxed, which is exactly what
+    // it looks like in the diff that does it and exactly what nothing else
+    // here would have caught.
+    expect(trickBeam(1, 1)).toBeLessThan(Math.PI / 2);
+    for (const level of TRICK_LEVELS) {
+      const beam = trickBeam(level.pace, level.rampWidth);
+      const waves = level.wind.from + Math.PI;
+      for (const ramp of level.ramps) {
+        // Folded to [0, π] FIRST — the band is measured from the beam, and
+        // a signed difference makes a ramp 120° off the waves read as 240°.
+        const turn = Math.abs(((ramp.heading - waves + Math.PI * 3) % (Math.PI * 2)) - Math.PI);
+        const off = Math.min(turn, Math.PI * 2 - turn);
+        expect(
+          Math.abs(off - Math.PI / 2),
+          `${ramp.id} on seed ${level.seed} is ${((off * 180) / Math.PI).toFixed(0)}° off the waves`,
+        ).toBeLessThanOrEqual(beam + 1e-6);
+      }
+    }
+  });
+
+  it("never stands a deck facing back up the water a rider is riding out on", () => {
+    // THE ONE THAT BIT. A ramp is a wedge hinged at one end: ridden from one
+    // side, met from the other as a wall the collision engine pushes the hull
+    // out of. The field is laid out AND back, so half its decks face the
+    // other way by design — and standing one of those on the water an
+    // outbound rider is on makes it a thing in the way rather than a lip they
+    // chose to leave alone. Two things keep it off: the homebound pass steps
+    // to seaward, and `inLane` refuses any pair the step does not separate —
+    // a hairpin in the route (R24) faces two OUTBOUND decks at each other,
+    // which no amount of stepping the return pass aside would have caught.
+    for (const level of TRICK_LEVELS) {
+      const stride = trickStride(level.pace);
+      const ramps = rampsOf(level);
+      for (const a of ramps) {
+        for (const b of ramps) {
+          if (a === b) continue;
+          expect(
+            inLane(a, b, stride),
+            `${b.id} faces ${a.id} and stands in its lane on seed ${level.seed}`,
+          ).toBe(false);
         }
       }
     }
