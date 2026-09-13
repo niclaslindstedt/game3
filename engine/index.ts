@@ -21,7 +21,23 @@ export {
 } from "./output.ts";
 
 // The simulation.
-export { createGame, freshCraft, step, type CreateGameOptions } from "./game/step.ts";
+export { createGame, freshCraft, rulesFor, step, type CreateGameOptions } from "./game/step.ts";
+// THE THREE MODES (game/defs/modes.ts): what each switches on, the open
+// rules a measurement rides, and the race's own numbers.
+export {
+  GAME_MODES,
+  MODE_RULES,
+  OPEN_RULES,
+  RACE,
+  TRICK_LIMITS,
+  TRICK_RESET_BACK,
+  isGameMode,
+  type GameMode,
+  type RunRules,
+} from "./game/defs/modes.ts";
+// THE FIELD (game/rivals.ts): the grid, the standings, how far down the
+// course a run is.
+export { courseProgress, gridPoses, playerSlot, racePlace, rivalSlot } from "./game/rivals.ts";
 // A run stood at a moment instead of ridden to it (place.ts).
 export { placeRun, type RunMoment } from "./game/place.ts";
 export {
@@ -32,6 +48,7 @@ export {
   type GamePhase,
   type GameState,
   type Progress,
+  type Rival,
   type TrickKind,
   type TrickPart,
   type TrickState,
@@ -79,7 +96,7 @@ export {
   type FaunaPose,
 } from "./game/fauna.ts";
 export { freshDamage, type CraftDamage } from "./game/damage.ts";
-export { airPointsPerSecond, freshTricks, stepTricks } from "./game/tricks.ts";
+export { airPointsPerSecond, closeCombo, freshTricks, stepTricks } from "./game/tricks.ts";
 
 // THE SEA (water.ts): the field, the surface at a point, and the numbers
 // that describe it.

@@ -77,6 +77,13 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   // Before anything reads the sea: every height below is taken at the
   // world's clock, so moving it is the first thing done, not the last.
   if (moment.clock !== undefined) state.t = moment.clock;
+  // A moment stood has no lights in front of it: a run placed at speed
+  // under a countdown would be held at the grid with its way pinned
+  // (`run.ts`) for as long as the lights ran, which is a scene of nothing.
+  if (state.phase === "countdown") {
+    state.phase = "running";
+    state.countdown = 0;
+  }
   const c = state.craft;
   standCraft(state, moment.x, moment.z, moment.heading);
   const speed = moment.speed ?? 0;

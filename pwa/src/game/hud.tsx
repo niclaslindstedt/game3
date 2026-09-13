@@ -59,6 +59,17 @@ export type HudFlash = {
   tone: "good" | "bad" | "info";
 };
 
+/** THE RESULT PLATE, over a finished run: the headline in the mode's own
+ * currency (a place, a time, a score), a second line under it (the time
+ * behind a place, the standing best behind a figure), and whether the run
+ * is the best this shore has seen. Composed by the app, which is the one
+ * thing that knows the record book (`records.ts`); the HUD draws it. */
+export type HudResult = {
+  headline: string;
+  detail: string | null;
+  record: boolean;
+};
+
 /** Whether the device has a touchscreen to put the thumb zones on. A
  * laptop with one reports it and gets them; a desktop does not. */
 export function hasTouch(): boolean {
@@ -88,6 +99,7 @@ export function Hud({
   touch,
   input,
   away,
+  result,
   fps,
   cost,
   onReset,
@@ -96,6 +108,8 @@ export function Hud({
 }: {
   snap: HudSnapshot;
   flashes: HudFlash[];
+  /** The run's result, once it has one — null while it is being ridden. */
+  result: HudResult | null;
   /** Draw the thumb zones. */
   touch: boolean;
   input: InputManager;
@@ -137,10 +151,26 @@ export function Hud({
     >
       <div class="hud-top">
         <div class="hud-top-row">
-          <div class="hud-clock">
-            <span class="hud-clock-time">{formatTime(snap.time)}</span>
-            <span class="hud-chip-sub">{STRINGS.clockLabel}</span>
+          {/* THE CLOCK — up on a race, DOWN on a timed run, where what it
+              reads is what is LEFT and the caption says so. The last ten
+              seconds of a timed run are marked, because a rider mid-combo
+              needs to know the buzzer is close without reading the figure. */}
+          <div
+            class={`hud-clock${snap.left !== null && snap.left < 10 && !snap.finished ? " hud-clock-low" : ""}`}
+          >
+            <span class="hud-clock-time">{formatTime(snap.left ?? snap.time)}</span>
+            <span class="hud-chip-sub">
+              {snap.left === null ? STRINGS.clockLabel : STRINGS.clockLeftLabel}
+            </span>
           </div>
+          {/* THE PLACE, in a race — the one number a racer reads more than
+              the clock. Left out of a run alone, where 1 / 1 says nothing. */}
+          {snap.riders > 1 ? (
+            <div class="hud-chip hud-place" key={snap.place}>
+              <span>{STRINGS.place(snap.place, snap.riders)}</span>
+              <span class="hud-chip-sub">{STRINGS.placeLabel}</span>
+            </div>
+          ) : null}
           {/* R30 — the lap, on a circuit only. A coast sprint is one pass
               of one course and a chip reading "1 / 1" is a chip that says
               nothing. */}
@@ -150,10 +180,14 @@ export function Hud({
               <span class="hud-chip-sub">{STRINGS.lapsLabel}</span>
             </div>
           ) : null}
-          <div class="hud-chip">
-            <span>{STRINGS.gates(snap.passed, snap.gates)}</span>
-            <span class="hud-chip-sub">{STRINGS.gatesLabel}</span>
-          </div>
+          {/* ...and the gates, only where the run is counting them: a tricks
+              run has no course to keep a count of. */}
+          {snap.courseOn ? (
+            <div class="hud-chip">
+              <span>{STRINGS.gates(snap.passed, snap.gates)}</span>
+              <span class="hud-chip-sub">{STRINGS.gatesLabel}</span>
+            </div>
+          ) : null}
         </div>
         {/* Under the clock rather than across the screen from it: the vane
             says where the sea is coming from, and it is read together with
@@ -173,10 +207,12 @@ export function Hud({
             is the whole animation: the score does not tick up to its new
             value, it ARRIVES at it with a thump, the way a mechanical
             scoreboard does. */}
-        <div class="hud-chip hud-score" key={snap.score}>
-          <span>{STRINGS.score(snap.score)}</span>
-          <span class="hud-chip-sub">{STRINGS.scoreLabel}</span>
-        </div>
+        {snap.tricksOn ? (
+          <div class="hud-chip hud-score" key={snap.score}>
+            <span>{STRINGS.score(snap.score)}</span>
+            <span class="hud-chip-sub">{STRINGS.scoreLabel}</span>
+          </div>
+        ) : null}
       </div>
 
       <div class="hud-topright">
@@ -258,7 +294,22 @@ export function Hud({
           the run's best and the moment after the landing that took it — and
           the word goes beside the clock rather than under it, so the number
           never moves off the centreline to make room for news. */}
-      {(snap.airTime > 0 || snap.combo > 0) && (
+      {/* THE LIGHTS, dead centre and as big as the frame allows: the one
+          moment the whole screen is about one number. Keyed on the count,
+          so each light lands with its own beat; GO is the same element
+          with the word in it, for the moment after. */}
+      {(snap.countdown > 0 || snap.go) && (
+        <div class="hud-center hud-lights">
+          <span
+            class={`hud-count${snap.go ? " hud-count-go" : ""}`}
+            key={snap.go ? 0 : snap.countdown}
+          >
+            {snap.go ? STRINGS.go : STRINGS.count(snap.countdown)}
+          </span>
+        </div>
+      )}
+
+      {snap.tricksOn && (snap.airTime > 0 || snap.combo > 0) && (
         <div
           class={`hud-air ${snap.airRecord ? "hud-air-record" : ""}`}
           style={{ "--air-grow": String(snap.airGrow) }}
@@ -347,6 +398,22 @@ export function Hud({
           {__BUILD_LABEL__}
         </a>
       </div>
+
+      {/* THE RESULT, once there is one: the run's figure in its own
+          currency, where it stood, and whether the book has a new row. It
+          shares the tab-away card's plate because it is the same kind of
+          thing — the game stopping to say one line — and it stays until the
+          rider rides again or leaves. */}
+      {result && !away && (
+        <div class="hud-center">
+          <div class={`hud-card hud-result${result.record ? " hud-result-record" : ""}`}>
+            <span class="hud-card-title">{result.headline}</span>
+            {result.detail && <span class="hud-card-note">{result.detail}</span>}
+            {result.record && <span class="hud-result-best">{STRINGS.resultNewBest}</span>}
+            {!touch && <span class="hud-card-note hud-result-note">{STRINGS.resultNote}</span>}
+          </div>
+        </div>
+      )}
 
       {away && (
         <div class="hud-center">

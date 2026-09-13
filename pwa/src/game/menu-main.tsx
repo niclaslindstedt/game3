@@ -19,11 +19,13 @@
 //                because four hulls are four shapes and a row of names
 //                cannot show one — and the last thing a rider looks at
 //                before the water should be the hull.
-//                The only way into a run there is: this is
-//                a vertical slice, and a front door offering four modes that
-//                all lead to the same shore would be a door telling four
-//                lies. Campaign, Time Trial and the rest arrive as tiles here
-//                on the day `campaign.ts` stops being a placeholder.
+//                The MODE — a race, a tricks run, a time trial — is the
+//                start card's first row rather than three tiles here,
+//                because the three share every other row on that card and
+//                a door with three ways to the same card is a door that
+//                asks the same question three times. The CAMPAIGN arrives
+//                as a tile here on the day `campaign.ts` stops being a
+//                placeholder.
 //   GALLERY    → the pictures the player took (menu-gallery.tsx), and the
 //                only place one is ever shown. It stands above OPTIONS
 //                because it is the player's own, and under START because
@@ -44,6 +46,7 @@
 // to keep in step, and the whole menu is one component tree over one canvas.
 
 import { useEffect, useRef, useState } from "preact/hooks";
+import type { TrackKind } from "@engine";
 
 import { APP_NAME, REPO_URL } from "../identity.ts";
 import { MarkWave } from "./mark-wave.tsx";
@@ -63,6 +66,7 @@ import { Glyph } from "./menu-glyphs.tsx";
 import { KeysPage } from "./menu-keys.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
+import type { RecordBook } from "./records.ts";
 import { STRINGS } from "./strings.ts";
 
 export type MenuPage =
@@ -319,12 +323,18 @@ function RootPage({
 export function MainMenu({
   page,
   settings,
+  records,
+  track,
   onSettings,
   onNavigate,
   onStart,
 }: {
   page: MenuPage;
   settings: Settings;
+  /** The record book, for the start card's line under the chart. */
+  records: RecordBook;
+  /** R29 — the URL's track kind, part of what names a record. */
+  track: TrackKind | undefined;
   onSettings: (settings: Settings) => void;
   onNavigate: (page: MenuPage) => void;
   onStart: () => void;
@@ -341,6 +351,8 @@ export function MainMenu({
       {page.page === "start" && (
         <StartPage
           settings={settings}
+          records={records}
+          track={track}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
           onNext={() => onNavigate({ page: "craft" })}

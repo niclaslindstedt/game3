@@ -153,6 +153,8 @@ const args = parseArgs(
     seed: { kind: "number", default: 38, help: "level seed" },
     biome: { kind: "string", help: "which coast the seed is built on (taiga, mangrove)" },
     track: { kind: "string", help: "circuit — a lap out at sea (R29) instead of a coast sprint" },
+    mode: { kind: "string", help: "the start card's MODE row: race, tricks or timeTrial" },
+    minutes: { kind: "number", help: "...and its LENGTH row, for a tricks run: 2, 4 or 6" },
     craft: { kind: "string", default: "skiff", help: "craft id" },
     t: {
       kind: "number",
@@ -199,7 +201,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
-    "[--seed n] [--biome taiga|mangrove] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
+    "[--seed n] [--biome taiga|mangrove] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
     "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );
@@ -292,6 +294,8 @@ async function capture(name, params, viewportName, script, surface) {
 const base = { seed: String(args.seed), craft: args.craft, shot: "1" };
 if (args.update) base.update = "1";
 if (args.track !== undefined) base.track = String(args.track);
+if (args.mode !== undefined) base.mode = String(args.mode);
+if (args.minutes !== undefined) base.minutes = String(args.minutes);
 if (args.biome !== undefined) base.biome = String(args.biome);
 if (args.camera !== undefined) base.camera = String(args.camera);
 if (args.wind !== undefined) base.wind = String(args.wind);
@@ -318,10 +322,14 @@ if (args.surface) {
     // and the first-visit probe must not move a row under the camera.
     const params = { seed: String(args.seed), craft: args.craft, probe: "0", ...surface.params };
     if (args.update) params.update = "1";
+    // The start card's own two rows ride along, because they change what the
+    // start and craft cards SHOW: a LENGTH row, a class row with one chip.
+    if (args.mode !== undefined) params.mode = String(args.mode);
+    if (args.minutes !== undefined) params.minutes = String(args.minutes);
     // Named apart for the same reason a forced scene is: the pair is what a
     // review compares, so a card WITH the notice never overwrites the card
     // without it.
-    const shot = `${name}${args.update ? "-update" : ""}`;
+    const shot = `${name}${args.mode !== undefined ? `-${args.mode}` : ""}${args.update ? "-update" : ""}`;
     for (const v of viewports) await capture(shot, params, v, undefined, surface);
   }
 } else if (args.drive) {
@@ -329,9 +337,17 @@ if (args.surface) {
   // from the start line, and whatever the sea did in those seconds.
   const [key, secs] = String(args.drive).split(":");
   const hold = Number(secs ?? 3) * 1000;
-  const name = `drive-${key.toLowerCase()}${secs ?? 3}${args.update ? "-update" : ""}`;
+  const name =
+    `drive-${key.toLowerCase()}${secs ?? 3}` +
+    `${args.mode !== undefined ? `-${args.mode}` : ""}${args.update ? "-update" : ""}`;
+  // `start=1` rather than `shot=1`: the shot flag FREEZES the run on its
+  // first frame, and a key held over a frozen run drives nothing — the
+  // frame has to move for the seconds the key is down, and is stilled by
+  // the flag being raised here once they have.
+  const driven = { ...base, start: "1" };
+  delete driven.shot;
   for (const v of viewports) {
-    await capture(name, base, v, async (page) => {
+    await capture(name, driven, v, async (page) => {
       await page.waitForFunction("window.__SH_READY__ === true", null, {
         timeout: args.timeout * 1000,
       });
@@ -356,6 +372,7 @@ if (args.surface) {
     const name =
       `${scene}${args.biome !== undefined ? `-${args.biome}` : ""}` +
       `${args.track !== undefined ? `-${args.track}` : ""}` +
+      `${args.mode !== undefined ? `-${args.mode}` : ""}` +
       `${args.camera !== undefined ? `-${args.camera}` : ""}` +
       `${args.update ? "-update" : ""}`;
     for (const v of viewports) await capture(name, params, v);

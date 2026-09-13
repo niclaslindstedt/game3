@@ -35,6 +35,7 @@ import { COUNT_SECONDS, countAt } from "../lib/count.ts";
 import { CraftPicker } from "./craft-picker.tsx";
 import { craftBars, craftFacts, type CraftFact } from "./craft-stats.ts";
 import { MenuHead } from "./menu.tsx";
+import { classFor } from "./new-game.ts";
 import type { Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
@@ -133,7 +134,11 @@ export function CraftPage({
 }) {
   const craft = settings.ride.craft;
   const spec = craftById(craft);
-  const speedClass = settings.ride.speedClass;
+  // The class the run WILL be ridden at — the rider's own, or stock in a
+  // tricks run, which is stock only (`new-game.ts` says why). The sheet
+  // beside the hull reads the same answer, so it says what the water does.
+  const speedClass = classFor(settings);
+  const classLocked = settings.ride.mode === "tricks";
   return (
     <div class="menu-card menu-card-craft">
       <MenuHead back={onBack} backLabel={STRINGS.startTitle} title={STRINGS.craftTitle} />
@@ -158,7 +163,7 @@ export function CraftPage({
               is not using. */}
           <p class="craft-blurb">{spec.blurb}</p>
         </div>
-        <CraftReadings craft={craft} speedClass={settings.ride.speedClass} />
+        <CraftReadings craft={craft} speedClass={speedClass} />
       </div>
       {/* THE CLASS — the one row on this card, under the hull it applies
           to. It moves the whole roster together rather than this craft
@@ -166,18 +171,32 @@ export function CraftPage({
           different race and not only a faster ski. */}
       <div class="craft-class" role="radiogroup" aria-label={STRINGS.classRow}>
         <span class="craft-class-label">{STRINGS.classRow}</span>
-        {CLASS_BAND.map((k) => (
-          <button
-            key={k}
-            type="button"
-            role="radio"
-            aria-checked={k === speedClass}
-            class={`craft-class-chip${k === speedClass ? " is-on" : ""}`}
-            onClick={() => onSettings({ ...settings, ride: { ...settings.ride, speedClass: k } })}
-          >
-            {STRINGS.className(String(k))}
-          </button>
-        ))}
+        {/* STOCK ONLY in a tricks run: a score is compared across riders,
+            and a class that throws the hull higher off every lip would make
+            this row the score. The row stays, with one chip on it and a
+            word saying why, rather than vanishing — a row that comes and
+            goes with the mode reads as a bug. */}
+        {classLocked ? (
+          <>
+            <span class="craft-class-chip is-on" aria-disabled="true">
+              {STRINGS.className("1")}
+            </span>
+            <span class="craft-class-note">{STRINGS.classLocked}</span>
+          </>
+        ) : null}
+        {!classLocked &&
+          CLASS_BAND.map((k) => (
+            <button
+              key={k}
+              type="button"
+              role="radio"
+              aria-checked={k === speedClass}
+              class={`craft-class-chip${k === speedClass ? " is-on" : ""}`}
+              onClick={() => onSettings({ ...settings, ride: { ...settings.ride, speedClass: k } })}
+            >
+              {STRINGS.className(String(k))}
+            </button>
+          ))}
       </div>
       {/* The press that rides, wearing the front door's own START weight and
           marked as this surface's `next` — so a controller that walked in

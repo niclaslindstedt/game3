@@ -37,9 +37,12 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
     seed: s.ride.seed ?? DEFAULT_SEED,
     biome: s.ride.biome,
     craft: s.ride.craft,
+    // THE MODE, and the length a tricks run was asked for, seconds.
+    mode: s.ride.mode,
+    limit: s.ride.tricksMinutes * 60,
     // R32 — the CLASS: the hull is derived at it and the COURSE is paced
     // for it, so the same seed in two classes is two different races.
-    speedClass: s.ride.speedClass,
+    speedClass: classFor(s),
     track: params.track,
     // The developer's own rows win where they are set: they are the exact
     // figure, and the card's is a word standing for one.
@@ -53,6 +56,14 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
     // one R19 would have dealt.
     weather: s.ride.weather ?? day?.weather,
   });
+}
+
+/** THE CLASS A RUN IS RIDDEN AT: the rider's own, except in a TRICKS run,
+ * which is stock only — a score is compared across riders, and a class that
+ * throws the hull higher off every lip would make the row the score. The
+ * craft card reads this too, so the sheet says what the water does. */
+export function classFor(s: Settings): number {
+  return s.ride.mode === "tricks" ? 1 : s.ride.speedClass;
 }
 
 /** The same level, or null where the generator REFUSED the seed.

@@ -466,6 +466,104 @@ export const RUN_BANK: SoundBank = {
     ],
   },
 
+  bump: {
+    description:
+      "A hull on a hull: two fibreglass shells meeting — a short driven " +
+      "triangle bending down for the body of it, a soft band of white for " +
+      "the knock, no crack and no stone in it — with the water squeezed up " +
+      "between the two hulls as a thin pink sheet. Quieter and rounder than " +
+      "the rock, because nothing here is hard.",
+    voices: [
+      {
+        call: "noise",
+        durationMs: 60,
+        volume: 0.03,
+        filter: { type: "bandpass", frequency: 900, q: 3 },
+      },
+      {
+        call: "tone",
+        type: "triangle",
+        from: 160,
+        to: 90,
+        durationMs: 200,
+        volume: 0.045,
+        drive: 0.4,
+        filter: { type: "lowpass", frequency: 1200, to: 400 },
+        echo: 0.15,
+      },
+      {
+        call: "noise",
+        durationMs: 260,
+        volume: 0.022,
+        color: "pink",
+        attackMs: 12,
+        delayMs: 20,
+        filter: { type: "bandpass", frequency: 1100, to: 2400, q: 0.9 },
+      },
+    ],
+  },
+
+  count: {
+    description:
+      "One light of the countdown: a single short sine at the buoy's own " +
+      "pitch, dry and plain, so three of them a second apart read as a " +
+      "count and not as three gates taken. The one sound in the bank with " +
+      "nothing of the water in it, because nothing has happened yet.",
+    voices: [{ call: "tone", type: "sine", from: 880, durationMs: 110, volume: 0.03 }],
+  },
+
+  go: {
+    description:
+      "The lights out: the count's note a fifth up and held, with a little " +
+      "chorus and the shore's echo under it, so the last beep is heard as " +
+      "the one that was different — the go — before anybody has read the " +
+      "word.",
+    voices: [
+      {
+        call: "tone",
+        type: "sine",
+        from: 1320,
+        durationMs: 420,
+        volume: 0.034,
+        holdMs: 100,
+        detuneCents: 6,
+        echo: 0.18,
+      },
+    ],
+  },
+
+  time_up: {
+    description:
+      "The buzzer on a timed run: the finish's three notes falling instead " +
+      "of rising — an octave, then a fifth — each a sine with a little " +
+      "chorus on the echo bus, the last held; a run closing rather than a " +
+      "line crossed.",
+    voices: [
+      { call: "tone", type: "sine", from: 1320, durationMs: 200, volume: 0.032, detuneCents: 6 },
+      {
+        call: "tone",
+        type: "sine",
+        from: 660,
+        durationMs: 220,
+        volume: 0.034,
+        delayMs: 140,
+        detuneCents: 6,
+        echo: 0.15,
+      },
+      {
+        call: "tone",
+        type: "sine",
+        from: 440,
+        durationMs: 560,
+        volume: 0.036,
+        delayMs: 280,
+        holdMs: 140,
+        detuneCents: 6,
+        echo: 0.2,
+      },
+    ],
+  },
+
   air_record: {
     description:
       "THE RUN'S LONGEST FLIGHT, landed: a four-note arpeggio straight up a " +

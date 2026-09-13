@@ -30,6 +30,7 @@ import {
   spanNow,
 } from "../pwa/src/game/minimap-scene.ts";
 import { buildMinimap, scaleBar } from "../pwa/src/game/minimap-view.ts";
+import { STRINGS } from "../pwa/src/game/strings.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 /** The rig: the synthetic shore — a straight coast along z = 0, six gates
@@ -356,5 +357,29 @@ describe("minimap marks", () => {
 
     stand(state, 300, 4000);
     expect(buildMinimap(state).ends).toEqual([]);
+  });
+});
+
+describe("the field and a run with no course", () => {
+  it("draws every rival the window holds, and none it does not", () => {
+    const state = createGame({ seed: 2, level: LEVEL, mode: "race", quiet: true });
+    const near = buildMinimap(state);
+    expect(near.rivals.length).toBe(state.rivals.length);
+    for (const r of near.rivals) expect(inView([r.x, r.y])).toBe(true);
+    stand(state, 100, 4000);
+    expect(buildMinimap(state).rivals).toEqual([]);
+  });
+
+  it("shows only the rings on a tricks run, owes no gate, and reads the nearest ramp", () => {
+    const state = createGame({ seed: 2, level: LEVEL, mode: "tricks", quiet: true });
+    const ramp = LEVEL.course.gates.find((g) => g.ramp)!.ramp!;
+    stand(state, ramp.x - 100, ramp.z);
+    const map = buildMinimap(state);
+    expect(map.gates.every((g) => g.kind === "air" && g.state === "ahead")).toBe(true);
+    expect(map.chevron).toBeNull();
+    expect(map.ends).toEqual([]);
+    expect(map.label).toBe(STRINGS.mapToRamp(100));
+    // ...and the gauge is the clock's share, which has not started.
+    expect(map.progress).toBe(0);
   });
 });

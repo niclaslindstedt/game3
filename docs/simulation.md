@@ -21,7 +21,7 @@ The profile is data (`BotProfile`); `RIDER_BOT` is the default and the profile e
 
 ## The harness (`engine/sim/simulate.ts`)
 
-`simulateStage({ seed, craft?, level?, wind?, profile?, maxSeconds? })` stands up a run (`createGame`, `quiet`), steps it with the bot until the run finishes or `maxSeconds` (default `SIM_SECONDS` = 360) of sim time have passed, and returns a `RunReport`:
+`simulateStage({ seed, craft?, level?, wind?, profile?, maxSeconds? })` stands up a run (`createGame`, `quiet` — on the OPEN rules, `OPEN_RULES`: every system on, no lights, no buzzer, nobody else on the water, which is what a measurement wants under it; the three modes the start card offers are bundles of those rules and never the sim's subject), steps it with the bot until the run finishes or `maxSeconds` (default `SIM_SECONDS` = 360) of sim time have passed, and returns a `RunReport`:
 
 | Field                                                           | What it is                                                                                                                                                                                                                                                                                                                                                                      |
 | --------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

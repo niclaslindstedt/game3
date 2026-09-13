@@ -173,6 +173,27 @@ export function soundForEvent(event: GameEvent): { id: string; shape?: PlayShape
     case "finish":
       return { id: "finish" };
 
+    // THE LIGHTS: one beep a light, and the last of them — GO — a fifth up
+    // and held, so the ear knows which one it was without counting.
+    case "count":
+      return { id: "count" };
+    case "go":
+      return { id: "go" };
+
+    // A HULL ON A HULL. Duller than a rock — two shells meeting, no stone
+    // in it — and sized by the closing speed the way the rock is.
+    case "bump": {
+      const hard = ramp(event.speed, 1, HIT_FULL);
+      return {
+        id: "bump",
+        shape: { gain: 0.55 + 0.7 * hard, pitch: 1.1 - 0.25 * hard, stretch: 0.9 + 0.4 * hard },
+      };
+    }
+
+    // THE BUZZER on a timed run: the finish's phrase, falling.
+    case "timeUp":
+      return { id: "time_up" };
+
     default:
       return null;
   }

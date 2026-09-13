@@ -187,7 +187,11 @@ const EVERY_EVENT_BY_KIND: { [K in GameEvent["kind"]]: Extract<GameEvent, { kind
   combo: { kind: "combo", t: 1, points: 944, base: 472, mult: 2 },
   bail: { kind: "bail", t: 1, lost: 944 },
   reset: { kind: "reset", t: 1, gate: 3 },
-  finish: { kind: "finish", t: 1, time: 88 },
+  finish: { kind: "finish", t: 1, time: 88, place: 1 },
+  count: { kind: "count", t: 1, left: 3 },
+  go: { kind: "go", t: 3 },
+  bump: { kind: "bump", t: 1, rival: 4, speed: 6 },
+  timeUp: { kind: "timeUp", t: 120, score: 4200 },
 };
 
 /** The kinds the bank deliberately says nothing about, with the reason. */

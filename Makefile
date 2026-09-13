@@ -162,12 +162,14 @@ audition:
 # `make screenshots SCENE=cruise HOUR=20.5 WEATHER=clear` (the level under
 # another hour and another sky — how a sunset is looked at on demand) ·
 # `make screenshots SCENE=carve CAMERA=heli` (one rung of the camera ladder;
-# the shot is named after it, so a sweep leaves one file per camera)
+# the shot is named after it, so a sweep leaves one file per camera) ·
+# `make screenshots MODE=race ARGS="--drive W:8"` (the field five seconds
+# after GO) · `make screenshots MODE=tricks MINUTES=4 ARGS="--surface start"`
 screenshots:
 	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) \
 		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
 		$(if $(WEATHER),--weather $(WEATHER),) $(if $(CAMERA),--camera $(CAMERA),) \
-		$(if $(TRACK),--track $(TRACK),) $(ARGS)
+		$(if $(TRACK),--track $(TRACK),) $(if $(MODE),--mode $(MODE),) $(if $(MINUTES),--minutes $(MINUTES),) $(ARGS)
 
 # EVERY SKY SIDE BY SIDE: one contact sheet, one weather per row, one hour
 # per column, all on one coast — `previews/sky.png`. The sky is the one part

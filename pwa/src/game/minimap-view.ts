@@ -72,6 +72,10 @@ export type MinimapChevron = { x: number; y: number; angle: number };
  * was launched from, and the line it is riding for. */
 export type MinimapEnd = { x: number; y: number; kind: "start" | "finish" };
 
+/** ANOTHER RIDER on the map, where the window holds them: a dot with a
+ * heading, in view units. */
+export type MinimapRival = { id: number; x: number; y: number; heading: number };
+
 /** THE SCALE BAR: a rule along the frame's foot, and what it is worth.
  * `length` is in view units. */
 export type MinimapScale = { length: number; label: string };
@@ -115,6 +119,8 @@ export type HudMinimap = {
    * it (the gate's own mark carries it then) and on a finished run. */
   chevron: MinimapChevron | null;
   ends: MinimapEnd[];
+  /** THE FIELD, where the window holds it — empty on a run alone. */
+  rivals: MinimapRival[];
   /** The rule along the frame's foot, which is what makes the breathing
    * window readable rather than merely alive. */
   scale: MinimapScale;
@@ -170,8 +176,13 @@ function gateMarks(state: GameState, span: number): GateMark[] {
   const k = VIEW / span;
   const { gates, lapGates, laps } = state.level.course;
   const lap = Math.min(Math.floor(state.progress.nextGate / lapGates), laps - 1);
+  // A RUN WITH NO COURSE (`rules.course` off) has no buoys to show and no
+  // gate it owes: the rings mark where the ramps are, and every one of them
+  // is simply there.
+  const course = state.rules.course;
   for (let slot = 0; slot < lapGates; slot++) {
     const gate = gates[lap * lapGates + slot];
+    if (!course && gate.kind !== "air") continue;
     const at = project(state, gate.x, gate.z, span);
     if (!inView(at)) continue;
     out.push({
@@ -181,7 +192,7 @@ function gateMarks(state: GameState, span: number): GateMark[] {
       y: at[1],
       buoys: gateBuoys(gate).map((b) => project(state, b.x, b.z, span)),
       radius: gate.kind === "air" ? (gate.width / 2) * k : 0,
-      state: gateState(state, gate.index),
+      state: course ? gateState(state, gate.index) : "ahead",
     });
   }
   return out;
@@ -193,7 +204,7 @@ function gateMarks(state: GameState, span: number): GateMark[] {
 function chevronFor(state: GameState, span: number): MinimapChevron | null {
   const gates = state.level.course.gates;
   const n = state.progress.nextGate;
-  if (n >= gates.length) return null;
+  if (!state.rules.course || n >= gates.length) return null;
   const at = project(state, gates[n].x, gates[n].z, span);
   const slack = RIM_SLACK * (VIEW / span);
   const on = at[0] >= -slack && at[0] <= VIEW + slack && at[1] >= -slack && at[1] <= VIEW + slack;
@@ -205,6 +216,7 @@ function chevronFor(state: GameState, span: number): MinimapChevron | null {
  * not a point past it. */
 function endMarks(state: GameState, span: number): MinimapEnd[] {
   const out: MinimapEnd[] = [];
+  if (!state.rules.course) return out;
   const start = project(state, state.level.start.x, state.level.start.z, span);
   if (inView(start)) out.push({ x: start[0], y: start[1], kind: "start" });
   const gates = state.level.course.gates;
@@ -212,6 +224,32 @@ function endMarks(state: GameState, span: number): MinimapEnd[] {
   const finish = project(state, last.x, last.z, span);
   if (inView(finish)) out.push({ x: finish[0], y: finish[1], kind: "finish" });
   return out;
+}
+
+/** The field, where the window holds it. */
+function rivalMarks(state: GameState, span: number): MinimapRival[] {
+  const out: MinimapRival[] = [];
+  for (const r of state.rivals) {
+    const c = r.run.craft;
+    const at = project(state, c.x, c.z, span);
+    if (!inView(at)) continue;
+    out.push({ id: r.id, x: at[0], y: at[1], heading: -c.heading * (180 / Math.PI) });
+  }
+  return out;
+}
+
+/** The nearest ramp's hinge, m from the craft, on a run with no course —
+ * the one distance a tricks rider is reading the map for. Null with no
+ * ramp on the shore. */
+function nearestRamp(state: GameState): number | null {
+  let best: number | null = null;
+  const c = state.craft;
+  for (const g of state.level.course.gates) {
+    if (!g.ramp) continue;
+    const d = Math.hypot(g.ramp.x - c.x, g.ramp.z - c.z);
+    if (best === null || d < best) best = d;
+  }
+  return best;
 }
 
 /** The HUD's minimap payload for this frame. */
@@ -226,6 +264,8 @@ export function buildMinimap(state: GameState): HudMinimap {
   const span = spanNow(state.level, SPAN, state.craft.speed * 3.6, state.t);
   const bearing = bearingToNext(state);
   const total = state.level.course.gates.length;
+  const course = state.rules.course;
+  const ramp = course ? null : nearestRamp(state);
   return {
     scene: minimapScene(state, span),
     gates: gateMarks(state, span),
@@ -234,10 +274,25 @@ export function buildMinimap(state: GameState): HudMinimap {
     heading: -state.craft.heading * (180 / Math.PI),
     chevron: chevronFor(state, span),
     ends: endMarks(state, span),
+    rivals: rivalMarks(state, span),
     scale: scaleBar(span),
     // The gauge and the HUD's own `n / N` are the same reading in two forms,
-    // so both ask the engine for it rather than each summing the book.
-    progress: total === 0 ? 0 : Math.min(1, gatesReached(state.progress) / total),
-    label: bearing === null ? STRINGS.mapAtFinish : STRINGS.mapToNext(bearing.distance),
+    // so both ask the engine for it rather than each summing the book. On a
+    // run with no course it is the CLOCK's share instead — the one thing a
+    // timed run is spending.
+    progress: !course
+      ? state.rules.limit > 0
+        ? Math.min(1, state.progress.time / state.rules.limit)
+        : 0
+      : total === 0
+        ? 0
+        : Math.min(1, gatesReached(state.progress) / total),
+    label: !course
+      ? ramp === null
+        ? ""
+        : STRINGS.mapToRamp(ramp)
+      : bearing === null
+        ? STRINGS.mapAtFinish
+        : STRINGS.mapToNext(bearing.distance),
   };
 }

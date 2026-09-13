@@ -122,6 +122,11 @@ export type Gates = {
   /** How tall the drawing buffer is, px — the glare is a share of it, so a
    * lamp is the same ANGLE of glare at every stop of the RESOLUTION row. */
   setLens: (height: number) => void;
+  /** Whether the run is COUNTING the course (`rules.course`). Off, the
+   * buoys are put away — a tricks run has no line to cross — and no mark or
+   * ring is ever lit; the rings and the ramps stand, because the ramps are
+   * what the run is for and the ring says where each one throws. */
+  setCourse: (on: boolean) => void;
 };
 
 /**
@@ -398,12 +403,14 @@ export function createGates(level: Level): Gates {
     }
   };
 
+  let courseOn = true;
   const update = (state: GameState, camera: THREE.Object3D): void => {
     // The lap slot the run's next gate stands in, and how many of this
     // lap's gates are behind it — the finish is the start line again, so on
-    // the last crossing every buoy of the lap is already done.
+    // the last crossing every buoy of the lap is already done. A run not
+    // counting the course owes no gate, so nothing is lit.
     const raw = state.progress.nextGate;
-    const next = raw >= level.course.gates.length ? lapGates : slotOf(raw);
+    const next = !courseOn ? -1 : raw >= level.course.gates.length ? lapGates : slotOf(raw);
     const { sea, level: lvl, t } = state;
     camera.getWorldPosition(world);
     for (let i = 0; i < n; i++) {
@@ -476,6 +483,12 @@ export function createGates(level: Level): Gates {
     },
     setLens: (height) => {
       (glare.material as THREE.PointsMaterial).size = height * GLARE.share;
+    },
+    setCourse: (on) => {
+      courseOn = on;
+      for (const mesh of [bodies, ribs, frames, lenses, glare]) mesh.visible = on;
+      // Re-lit on the next update, whichever way it went.
+      litFor = -2;
     },
   };
 }

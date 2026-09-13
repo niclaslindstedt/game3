@@ -23,7 +23,10 @@ import {
   CLASS_BAND,
   CRAFT_IDS,
   type CraftId,
+  type GameMode,
   isBiomeId,
+  isGameMode,
+  TRICK_LIMITS,
   SEASONS,
   type Season,
   TIMES_OF_DAY,
@@ -118,7 +121,20 @@ export function conditionsFor(windMs: number): Conditions {
   return nearest;
 }
 
+/** THE LENGTHS A TRICKS RUN MAY BE, in whole minutes — the engine's own
+ * ladder (`TRICK_LIMITS`, s) read as the row reads it. */
+export const TRICK_MINUTES: readonly number[] = TRICK_LIMITS.map((s) => s / 60);
+
 export type RideSettings = {
+  /** WHICH WAY ONTO THE WATER (`GAME_MODES`): a race against the field, a
+   * timed run for tricks, or the course against the clock alone. The first
+   * row of the start card, because it decides what the rows under it are
+   * FOR. */
+  mode: GameMode;
+  /** How long a TRICKS run is, minutes, off {@link TRICK_MINUTES}. Only
+   * read in that mode, and kept when another is chosen so the row is where
+   * the rider left it when he comes back. */
+  tricksMinutes: number;
   craft: CraftId;
   /** WHICH COAST — the biome the shore is built on (`BIOME_IDS`). Never
    * null: unlike the hour or the sky, a coast is not something a seed
@@ -284,6 +300,12 @@ export const DEFAULT_SETTINGS: Settings = {
   rumble: true,
   probed: false,
   ride: {
+    // THE RACE. The first mode on the card and the one the game is: a
+    // field on the water is what the front door's own sea shows.
+    mode: "race",
+    // The shortest tricks run — long enough to string a few combos, short
+    // enough that a first one is not a commitment.
+    tricksMinutes: TRICK_MINUTES[0],
     // The taiga: the coast every rule was written against, and the one the
     // game opened on.
     biome: BIOME_IDS[0],
@@ -418,6 +440,12 @@ export function mergeSettings(parsed: unknown): Settings {
   if (typeof blob.rumble === "boolean") settings.rumble = blob.rumble;
 
   const ride = blob.ride as Partial<Record<keyof RideSettings, unknown>> | undefined;
+  // The mode against the engine's own list, and the length against its
+  // ladder: a length off it is a row with no pip to stand on.
+  if (isGameMode(ride?.mode)) settings.ride.mode = ride.mode;
+  if (TRICK_MINUTES.some((m) => m === ride?.tricksMinutes)) {
+    settings.ride.tricksMinutes = ride?.tricksMinutes as number;
+  }
   // Checked against the coasts this build has BUILT: a biome id the engine
   // reserves but has no row for is a level that throws on load.
   if (isBiomeId(ride?.biome)) settings.ride.biome = ride.biome;
