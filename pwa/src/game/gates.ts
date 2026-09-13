@@ -18,14 +18,21 @@
 // the surface reads as a cone stuck in the sea, and what says something is
 // moored is the shoulder of the collar standing clear of it.
 //
-// AND THE LANTERN IS WHAT SAYS WHICH GATES ARE STILL AHEAD. A mark's lamp
-// burns while its gate is unridden and GOES OUT the moment the line is
-// crossed, so the course reads from the saddle as a chain of lights
-// running away down the coast with darkness closing up behind — the one
-// reading a rider can take at a glance in the dark without looking at the
-// minimap. `markLamp` is the whole rule and the only place it is stated;
-// the rounding buoys' flash CHARACTER is a different question entirely and
-// lives in the engine (`buoyLightAt`), because that one is charted.
+// AND THE LANTERN IS WHAT SAYS WHICH GATE IS YOURS. Exactly ONE mark pair
+// is lit at a time — the gate the run is riding at — and it lights the
+// moment the gate before it is crossed, so the reading a rider takes at a
+// glance is "go there", not "the course runs off that way somewhere". A
+// chain of lit lamps running down the coast was information about the
+// COURSE; what a rider needs from the saddle at 80 km/h, in the dark, is
+// the next buoy pair and nothing competing with it. `markLamp` is the whole
+// rule and the only place it is stated; the rounding buoys' flash CHARACTER
+// is a different question entirely and lives in the engine
+// (`buoyLightAt`), because that one is charted.
+//
+// The PAINT still carries the chain: a gate still ahead is the stock amber,
+// the next one is warmer and brighter, a gate behind goes to a dull
+// weathered tone. By day that is what the course is read by, and the lamp
+// is the one thing on top of it that says which gate is being ridden at.
 
 import * as THREE from "three";
 import { gateBuoys, surfaceAt, type GameState, type Level, type Ramp } from "@engine";
@@ -64,11 +71,6 @@ const FLOAT = new THREE.Color(0xd9dde0);
  * pool on the sea is thrown from. */
 const LANTERN_Y = 1.735;
 
-/** What the lamp is worth on a gate STILL AHEAD, as a share of the next
- * gate's. The chain behind the next one is information, not a target, and
- * a course of forty equally bright lamps says nothing about which is
- * which. */
-const AHEAD = 0.5;
 /** How much of the lamp survives DAYLIGHT, 0..1. A lit mark in sunshine is
  * a wink of glass rather than a beacon — but it is not nothing, or the one
  * reading that says "this gate is still yours" would exist only after
@@ -127,15 +129,16 @@ export type Gates = {
  * rule is stated.
  *
  * `gate` is the mark's own gate index and `next` the gate the run is riding
- * at. A gate already crossed is DARK, which is the whole signal: the lamps
- * ahead of the rider are the gates still owed, and a finished course (every
- * gate behind) is a dark one. The gate being ridden at burns full with a
- * slow breath under it; the rest of the chain burns at `AHEAD`.
+ * at, and ONLY that one burns: a gate already crossed is dark and so is
+ * every gate still ahead of the one being ridden at, so the lamp is a
+ * target rather than a map. It lights the instant `next` advances onto it,
+ * which is the instant the gate before it was crossed — that hand-over IS
+ * the signal, and a finished course (every gate behind) is a dark one. The
+ * lit gate burns full with a slow breath under it.
  */
 export function markLamp(gate: number, next: number, night: number, t: number): number {
-  if (gate < next) return 0;
+  if (gate !== next) return 0;
   const sky = BY_DAY + (1 - BY_DAY) * night;
-  if (gate > next) return AHEAD * sky;
   return (1 - BREATH.depth + BREATH.depth * Math.sin(t * BREATH.rate)) * sky;
 }
 
@@ -378,12 +381,19 @@ export function createGates(level: Level): Gates {
   let night = 0;
   const sample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
-  /** The rings' own light, by how dark it is. Emissive rather than a light
-   * in the scene, because forty marks are forty lamps and the one thing a
-   * mark's light has to do is be SEEN — it lights nothing but itself. */
+  /** The ring's own light, by how dark it is — and only the NEXT gate's,
+   * for `markLamp`'s reason: one lit thing on the water is a target and
+   * three are a map. Emissive rather than a light in the scene, because the
+   * one thing a mark's light has to do is be SEEN — it lights nothing but
+   * itself. A ring further down the course keeps its paint and is lit by
+   * the sky like anything else. */
   const applyNight = (): void => {
     for (const r of rings) {
-      r.material.emissive.setHex(r.gate === litFor ? 0x663300 : 0x000000);
+      if (r.gate !== litFor) {
+        r.material.emissive.setHex(0x000000);
+        continue;
+      }
+      r.material.emissive.setHex(0x663300);
       r.material.emissive.lerp(color.copy(r.material.color).multiplyScalar(0.8), night);
     }
   };

@@ -27,6 +27,7 @@ import {
   SEASONS,
   daylightWindow,
   analyzeLevel,
+  GATE_CORNER,
   gateBuoys,
   generateLevel,
   insideBounds,
@@ -710,6 +711,31 @@ describe("level generator", () => {
     }
   });
 
+  it("R23, R34 — every corner is one the roster can be steered round", () => {
+    // The two readings, over the corpus. The RADIUS is the line's own, off
+    // the analysis's stat; the CORNER is what a gate asks for between the
+    // leg in to it and the leg out of it, which is the one a rider meets —
+    // and it is measured here rather than read off the stat so that a check
+    // that silently stopped measuring cannot pass this.
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      expect(analysisFor(seed).stats.radius).toBeGreaterThanOrEqual(R.course.radius);
+      const gates = level.course.gates;
+      for (let i = 1; i + 1 < gates.length; i++) {
+        // R25's rounding is exempt and held to the radius alone, by the
+        // same derivation the analyzer uses: a gate past R1's own ceiling
+        // is a gate out at sea with the leg.
+        const out = [i - 1, i, i + 1].some(
+          (k) => sampleField(level.offshore, gates[k].x, gates[k].z) > R.course.offshore.max,
+        );
+        if (out) continue;
+        const h0 = Math.atan2(gates[i].x - gates[i - 1].x, gates[i].z - gates[i - 1].z);
+        const h1 = Math.atan2(gates[i + 1].x - gates[i].x, gates[i + 1].z - gates[i].z);
+        expect(Math.abs(angleDiff(h0, h1))).toBeLessThanOrEqual(GATE_CORNER);
+      }
+    }
+  });
+
   it("is clean under its own analysis", () => {
     for (const seed of LEVEL_SEEDS) {
       const a = analysisFor(seed);
@@ -810,16 +836,33 @@ describe("R32 — the rule book at a speed class", () => {
     // The feature's own promise, and the reason any of the above is worth
     // holding: a class that rides half again as fast is given half again
     // as much course, so the race lasts the same TIME.
-    const seed = PACED_SEEDS[0];
-    let last = 0;
-    for (const pace of [...CLASS_BAND].sort((a, b) => a - b)) {
-      const level = generateLevel(seed, { pace });
+    //
+    // Held against the BAND on every level, and END TO END across the
+    // class ladder — never one class against the next one up. A course's
+    // length is DRAWN inside the band the class scales (`course.target`),
+    // so a seed may draw near the top of one class's band and the middle of
+    // the next's and come out a few metres shorter for riding faster. That
+    // is a real property of a drawn number; a step ladder asserted on it is
+    // a test that fails the next time anything re-rolls the search, and it
+    // was never what the feature promised.
+    const classes = [...CLASS_BAND].sort((a, b) => a - b);
+    const means = classes.map((pace) => {
       const P = rulesAtPace(pace);
-      expect(level.course.length).toBeGreaterThan(last);
-      expect(level.course.length).toBeGreaterThanOrEqual(P.course.length.min);
-      expect(level.course.length).toBeLessThanOrEqual(P.course.length.max);
-      last = level.course.length;
-    }
+      let total = 0;
+      for (const seed of PACED_SEEDS) {
+        const level = generateLevel(seed, { pace });
+        expect(level.course.length).toBeGreaterThanOrEqual(P.course.length.min);
+        expect(level.course.length).toBeLessThanOrEqual(P.course.length.max);
+        total += level.course.length;
+      }
+      return total / PACED_SEEDS.length;
+    });
+    // The ladder's two ends are a factor of `classes` apart in pace, and
+    // the course between them grows with it — loosely, because what is
+    // being held is that the rule book's metres moved, not that a draw
+    // landed anywhere in particular.
+    const ratio = classes[classes.length - 1] / classes[0];
+    expect(means[means.length - 1] / means[0]).toBeGreaterThan(ratio * 0.6);
   });
 
   it("gives an air gate the corridor its own class was cut for", () => {

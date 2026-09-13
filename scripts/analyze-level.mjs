@@ -201,7 +201,13 @@ if (reports.length > 1) {
       `(${range((s) => s.gates)}), ${mean((s) => s.airGates).toFixed(1)} air (${range((s) => s.airGates)}), ` +
       `${(mean((s) => s.length) / 1000).toFixed(2)} km (${range((s) => s.length / 1000, 2)}), ` +
       `min depth ${range((s) => s.minDepth, 1)} m, offshore ${range((s) => s.minOffshore)}…${range((s) => s.maxOffshore)} m, ` +
-      `clearance ${range((s) => s.minClearance, 1)} m, ${mean((s) => s.solids).toFixed(0)} rocks, ` +
+      `clearance ${range((s) => s.minClearance, 1)} m, ` +
+      // R23 and R34 — the two readings of a corner: the radius the LINE
+      // turns at, and the turn a GATE asks for. Both in the summary rather
+      // than the table because a corner is judged over a population: one
+      // seed's tightest bend says nothing about whether the book is right.
+      `corners ${range((s) => s.radius)} m / ${range((s) => (s.corner * 180) / Math.PI)}°, ` +
+      `${mean((s) => s.solids).toFixed(0)} rocks, ` +
       `${mean((s) => s.pods).toFixed(1)} pods of ${mean((s) => s.animals).toFixed(0)} animals, ` +
       `wind ${range((s) => s.windSpeed, 1)} m/s, ${(good.reduce((a, r) => a + r.ms, 0) / good.length).toFixed(0)} ms each`,
   );

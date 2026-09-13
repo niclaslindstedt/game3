@@ -210,7 +210,7 @@
 //       as much as about the line, because the line follows the shore: the
 //       head of an inlet is a U the course turns round the INSIDE of, so
 //       an inlet's mouth is drawn wide enough (R15) that the radius its
-//       head leaves the line is this one.
+//       head leaves the line is this one. R34 is its other half.
 //   R25 THE COURSE GOES OUT TO THE OCEAN, AND ROUNDS A MARK. One stretch
 //       of the route — `leg.span` metres of it, leaving the coast at
 //       `leg.at` — turns off the shore, runs out past R1's ceiling into
@@ -289,10 +289,10 @@ export type { GenerateOptions, TrackKind } from "./types.ts";
 const DEG = TAU / 360;
 
 /** R23's floor, m — the tightest radius the course's line may turn at.
- * Named before the table because two of the table's own entries are stated
- * in terms of it: the rule the finished line is held to, and the mouth
- * width an inlet has to be drawn at for its head not to break it. */
-const R_COURSE_RADIUS = 55;
+ * Named before the table because three of its own entries are stated in
+ * terms of it: the rule the finished line is held to, the mouth width an
+ * inlet needs for its head not to break it, R25's rounding. */
+const R_COURSE_RADIUS = 80;
 
 export const LEVEL_RULES = {
   /** R14 — the heightfield grid. Cell pitch, m: 4 m is under the hull's
@@ -314,12 +314,12 @@ export const LEVEL_RULES = {
     length: { min: 1500, max: 2300 },
     /** How hard it turns, as a share of the tightest circle R23 allows: at
      * 1 the line spends whole stretches at the limit, which is a course of
-     * hairpins; at the band's floor it is a long open curve. Drawn per
-     * level, so one seed is a river run and the next a sweeping bay. */
-    swing: { min: 0.45, max: 0.95 },
-    /** …over this period of line, m. Long against a gate's spacing (R4) so
-     * a corner is a corner rather than a wobble. */
-    swingScale: 260,
+     * hairpins; at the floor a long open curve. Drawn per level — one seed
+     * a river run, the next a sweeping bay — under R34's own ceiling. */
+    swing: { min: 0.35, max: 0.7 },
+    /** …over this period of line, m. Long against TWO gate spacings (R4),
+     * so a bend is shared over several gates rather than a kink (R34). */
+    swingScale: 360,
     /** How far the walk may stray from the middle before it is bent home,
      * m. This is what makes a level a PLACE — a compact basin the rider
      * comes back through — rather than a line receding into the distance. */
@@ -373,23 +373,24 @@ export const LEVEL_RULES = {
     /** The radius every turn in the leg is drawn at, m: the quarter turns
      * off the coast and back, and the half circle round the mark. Over
      * R23's floor with room, because this is the one corner of a course
-     * ridden at whatever speed the run out built. */
-    round: { min: 58, max: 76 },
+     * ridden at whatever speed the run out built. Under that floor at
+     * 58–76 m it was the course's tightest corner on 79 of eighty (R34). */
+    round: { min: 84, max: 100 },
     /** How far out the leg's furthest point stands from the shore, m.
      * DERIVED — `sea.line.edge` + 2·round + out — so this is the band that
      * result has to land in: a route whose walk strayed further seaward
      * than the leg's own entry cuts the sea's edge past it and is refused
      * here rather than shipped as a leg that never left the band. */
-    offshore: { min: 130, max: 360 },
+    offshore: { min: 170, max: 400 },
     /** How much of the PATH ends up outside R1's band, m. Shorter than the
      * leg itself (which is 2π·round + 2·out): the leg's ends are inside the
      * band, and only what is past the ceiling counts. A band because a leg
      * that reads as a wiggle is as wrong as one that turns the race into an
-     * offshore course. MEASURED over forty seeds: 274 m at the shortest,
-     * 522 at the longest, a median of 414 — so the floor refuses a leg an
+     * offshore course. MEASURED over eighty levels: 326 m at the shortest,
+     * 676 at the longest, a median of 528 — so the floor refuses a leg an
      * air gate's chord has straightened most of the way out (R9), and the
      * ceiling refuses a course that spent a third of itself at sea. */
-    span: { min: 200, max: 620 },
+    span: { min: 230, max: 780 },
     /** How far over the entry's own seaward reach the walk has to stray
      * before it is turned back inland at full strength, m (R25's sea wall).
      * A short fade rather than a wall proper, so the line bends away from
@@ -744,11 +745,6 @@ export const LEVEL_RULES = {
   course: {
     /** The band the path and every gate keep to, m from the shore. */
     offshore: { min: 15, max: 100 },
-    /** The path's own target band inside it, m — the search aims here and
-     * lets the shore's slope and the shelves push it about. */
-    aim: { min: 25, max: 90 },
-    /** Period of the path's wander between the aim band's edges, m. */
-    aimScale: 320,
     /** Water under every point of the path, m. */
     minDepth: 1.5,
     /** Open water between a solid's edge and the path or a buoy: this
@@ -772,11 +768,10 @@ export const LEVEL_RULES = {
      * population. */
     wind: 1.06,
     sweep: 3.5,
-    /** R23 — the tightest turn the line may ask for, m of radius. A hull
-     * doing 15 m/s round a 60 m radius is pulling 0.38 g sideways, which a
-     * planing hull holds on its keel; under about forty the line asks for
-     * a corner nothing in the catalog can hold at a pace worth riding, and
-     * a rider meets it as a beach rather than as a corner. */
+    /** R23 — the tightest turn the line may ask for, m of radius. MEASURED
+     * off the roster, and off the TURN IN rather than the settled circle:
+     * the fastest craft spends 68 m of ground down its entry heading to
+     * come round a right angle, and a quarter circle of r spends r (R34). */
     radius: R_COURSE_RADIUS,
   },
 
@@ -929,7 +924,12 @@ export const LEVEL_RULES = {
    * reads the baked, bilinear grid rather than the analytic field the
    * search reads — finds the finished level inside the bands. */
   search: {
-    attempts: 24,
+    /** Sub-seeds tried before the generator gives up and THROWS — a hard
+     * failure on a seed a player can share. MEASURED over 600 levels on
+     * both coasts: 3.5 attempts and 0.65 s for a level, and only the
+     * awkward tail ever reaches the bound — at 24 one seed in 150 threw
+     * (on the rules before this too), at 32 one in 600, at 48 none. */
+    attempts: 48,
     /** How many COURSES are laid in one basin before the basin itself is
      * thrown away.
      *

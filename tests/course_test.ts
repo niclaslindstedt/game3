@@ -120,12 +120,40 @@ describe("a run", () => {
     expect(p.time).toBeGreaterThan(TUNING.course.missedPenalty);
   });
 
-  it("a gate two ahead does not count", () => {
+  it("two gates skipped are both charged when the third is threaded", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    // Stand between G2 (x = 200) and G3 (x = 300) with G1 and G2 untaken.
     placeRun(state, { x: 250, z: 40, heading: Math.PI / 2, speed: 15 });
     ride(state, 5, () => FULL);
-    // Crossed G3 (x = 300) with G1 and G2 untaken: nothing happens.
+    const p = state.progress;
+    expect(p.missed).toEqual([0, 1]);
+    expect(p.passed).toEqual([2]);
+    expect(p.nextGate).toBe(3);
+    expect(p.penalty).toBe(2 * TUNING.course.missedPenalty);
+  });
+
+  it("a gate past the look-ahead does not count", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    // Stand just short of the gate `lookAhead` + 1 along, with every gate
+    // before it untaken: threading it is cutting the course, not recovering
+    // from a miss, and the run still owes G1.
+    const far = LEVEL.course.gates[TUNING.course.lookAhead + 1];
+    placeRun(state, { x: far.x - 50, z: 40, heading: Math.PI / 2, speed: 15 });
+    ride(state, 5, () => FULL);
     expect(state.progress.passed).toEqual([]);
+    expect(state.progress.nextGate).toBe(0);
+  });
+
+  it("a crossing outside the buoys is not a gate reached", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g = LEVEL.course.gates[0];
+    // Past the buoys by five gate-widths, on the gate's own line: the run
+    // has not been through anything, so it still owes G1.
+    placeRun(state, { x: g.x - 40, z: g.z + 5 * g.width, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.craft.x).toBeGreaterThan(g.x);
+    expect(state.progress.passed).toEqual([]);
+    expect(state.progress.missed).toEqual([]);
     expect(state.progress.nextGate).toBe(0);
   });
 

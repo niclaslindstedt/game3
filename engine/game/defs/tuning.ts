@@ -801,16 +801,17 @@ export const TUNING = {
     /** Where a reset stands the craft: this far behind the gate it goes
      * back to, m, so the line is crossed by a MOVE. */
     resetBack: 6,
-    /** How far off a gate's centre a crossing still counts as having gone
-     * PAST that gate, m — five gate-widths.
+    /** HOW MANY GATES AHEAD still count. A gate is reached by going
+     * THROUGH it and by nothing else, so taking the third gate along
+     * charges the two skipped and rides on; past this the crossing is
+     * ignored and the gate the run owes is still the one it owed.
      *
-     * A gate's line is infinite, and a craft crossing it half a level away
-     * has not passed the gate, it has passed somewhere else. Inside this,
-     * a crossing outside the buoys is a rider who went by the gate on the
-     * wrong side, and the run carries on with the miss charged; outside it
-     * the crossing means nothing and the gate is still ahead. Without it a
-     * course with corners in it (R22) can deadlock — a rider who misses
-     * two gates in a row is never given a third. */
-    missWide: 60,
+     * The number exists to keep a rider who has blown past two gates from
+     * deadlocking on a course with corners in it — there has to be a gate
+     * ahead that will eventually count. Three is what R4's spacing makes
+     * of that: the fourth gate along is at least 240 m of course away and
+     * on a corner is behind the rider, so counting it would be cutting the
+     * course rather than recovering from a miss. */
+    lookAhead: 3,
   },
 } as const;
