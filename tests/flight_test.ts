@@ -391,6 +391,72 @@ describe("a flight", () => {
     expect(rotationOf(true)).toBeLessThan(rotationOf(false) - 1);
   });
 
+  /** A REAL SEA to be thrown off — deep enough that the shallows do not
+   * break it, and long enough for a hull at speed to meet a dozen crests.
+   * The stroke rule that matters to a rider is read here rather than on a
+   * ramp: this is the water he spends the whole run on. */
+  const SEA = syntheticLevel({ windSpeed: 12, noSolids: true, depth: 25, plan: 2200 });
+
+  /** Ride the sea for `seconds` holding one axis, and report the longest
+   * flight it was thrown into and everything the strokes spent on the way.
+   * `release` is the rider taking his hands off and asking again once the
+   * hull is up — the one thing that must still be a stroke out here. */
+  function acrossTheSea(
+    axis: "steer" | "lean",
+    release: boolean,
+  ): { air: number; strokes: number; spent: number } {
+    const state = createGame({ seed: 7, craft: "marlin", level: SEA, quiet: true, assist: 0 });
+    placeRun(state, { x: 20, z: 120, heading: Math.PI / 2, speed: 22 });
+    let held = 0;
+    let air = 0;
+    let strokes = 0;
+    let spent = 0;
+    let was = false;
+    ride(state, 30, (s) => {
+      const c = s.craft;
+      air = Math.max(air, c.airTime);
+      spent = Math.max(spent, axis === "steer" ? c.whipped : c.pumped);
+      const rising = axis === "steer" ? c.whipRising : c.pumpRising;
+      if (rising && !was) strokes++;
+      was = rising;
+      // Held from the first step — the lock a rider carries through a turn,
+      // or the trim he carries through a head sea. `release` lets go for a
+      // tenth of a second at the top of every flight and asks again.
+      const off = release && c.airborne && c.airTime > 0.3 && c.airTime % 0.2 < 0.1;
+      held = ramped(held, off ? 0 : 1);
+      return {
+        steer: axis === "steer" ? held : 0,
+        throttle: 1,
+        reverse: 0,
+        lean: axis === "lean" ? held : 0,
+        crouch: 0,
+        reset: false,
+      };
+    });
+    return { air, strokes, spent };
+  }
+
+  it("a hold carried across the water is no stroke, however many crests it leaves", () => {
+    // THE COMPLAINT this rule exists for: a rider steering a turn had the
+    // bars over when the crest dropped out from under him, and the whip
+    // spent most of a barrel roll on a jump he never asked for — 0.98 of a
+    // revolution on this hull, and the landing assist folded away with it.
+    // The lean-back a head sea is trimmed with did the same thing on the
+    // pitch axis.
+    for (const axis of ["steer", "lean"] as const) {
+      const carried = acrossTheSea(axis, false);
+      // It really is being thrown into the air, over and over.
+      expect(carried.air).toBeGreaterThan(TUNING.flight.airCounts);
+      expect(carried.strokes).toBe(0);
+      expect(carried.spent).toBe(0);
+      // ...and a rider who lets the bars come back and asks again is
+      // throwing one, out here as much as off a lip.
+      const worked = acrossTheSea(axis, true);
+      expect(worked.strokes).toBeGreaterThan(0);
+      expect(worked.spent).toBeGreaterThan(0);
+    }
+  });
+
   it("in the air the throttle does nothing and the steer rolls", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 8, vy: 4 });

@@ -63,10 +63,14 @@ export const FLIGHT = {
    * A yank is EARNED every time the lean-back input rises `pumpRise`
    * above its own low-water mark, and SPENT the moment the hull is light
    * enough to be thrown with the lean still back. So one input does both
-   * jobs a rider does with it: hold it back off a lip and the hull takes
-   * one yank at the lip, TAP it — off a crest, or again and again through
-   * a hang — and it takes one a tap, which is how a flip comes round off
-   * a ramp no craft could carry one off in a single pull.
+   * jobs a rider does with it: hold it back up a RAMP'S DECK and the hull
+   * takes one yank at the lip, TAP it — off a crest, or again and again
+   * through a hang — and it takes one a tap, which is how a flip comes
+   * round off a ramp no craft could carry one off in a single pull.
+   *
+   * A DECK, and not a crest: what a flight starts its mark from is what
+   * was under the hull last (`strokes.ts`). The lean a rider trims a head
+   * sea with is not a haul waiting to be spent on the next wave he leaves.
    *
    * What a yank is worth is the craft's own and nothing here: `pump ·
    * riderAuthority / I_x` spans 1.1 rad/s on the tourer to 5.7 on the
@@ -84,9 +88,10 @@ export const FLIGHT = {
    * worked at 3 Hz swings the axis 0.50, at 5 Hz 0.36, at 6 Hz 0.29 and
    * at 8 Hz only 0.20. So this earns a yank a tap anywhere a hand
    * actually taps and stops earning above about 7 Hz — a rider cannot
-   * machine-gun it — and a player HOLDING the key gets exactly one,
-   * because a mark that only ever falls cannot be risen above twice on
-   * one stroke. */
+   * machine-gun it — and a player HOLDING the key gets exactly one off a
+   * deck (a mark that only ever falls cannot be risen above twice on one
+   * stroke) and none at all off a crest, where the mark starts at the lean
+   * he was already carrying. */
   pumpRise: 0.22,
   /** ...and the nose-up rate, rad/s, ALL the strokes of one spell may add
    * up to, times the craft's own `riderAuthority`. This is the bound on
@@ -173,7 +178,11 @@ export const FLIGHT = {
    * throw has to be unmistakably a throw and not the lock he was already
    * carrying. On the app's own steer ramp (`KEY_STEER_ATTACK`, quicker
    * than the lean's) a key worked at 2–5 a second clears it comfortably
-   * and a held key clears it once, at the lip.
+   * and a held key clears it once, at a RAMP's lip — and never off a
+   * crest, where the mark is armed at the lock he was already carrying
+   * (`strokes.ts`). Which is the same reason read twice: a threshold keeps
+   * the lock out of the trick WITHIN a flight, and the arming keeps it out
+   * across the launch.
    *
    * The bot reads this and caps its air steer at it, exactly as it caps
    * its nose-up lean at `pumpRise`: a levelling loop that whipped would

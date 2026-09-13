@@ -10,11 +10,26 @@
 // live here and not in `flight.ts`: every rise of the input `rise` above
 // its own low-water mark EARNS a stroke, and a stroke is SPENT as an
 // angular impulse once the hull is flying with the input still committed.
-// One input, both of the things a rider does with it — hold it up the face
-// or up a deck and the hull takes one stroke as it comes off (the mark only
-// ever rises while the input does, so a hold cannot clear the rise twice),
-// then WORK it, and it takes one a tap. That is how a flip and a roll come
-// round off a ramp no craft could carry one off in a single pull.
+// One input, both of the things a rider does with it — hold it up a deck
+// and the hull takes one stroke as it comes off the lip (the mark only ever
+// rises while the input does, so a hold cannot clear the rise twice), then
+// WORK it, and it takes one a tap. That is how a flip and a roll come round
+// off a ramp no craft could carry one off in a single pull.
+//
+// A DECK, AND NOT A CREST. That hold is paid at a RAMP's lip and nowhere
+// else, and the difference is the whole of `armed`: a rider crossing a real
+// sea has the bars over for most of it, and the water drops out from under
+// him at the top of every second wave. Paying the lock he was already
+// carrying bought him most of a barrel roll off a crest he did not jump —
+// measured, holding one turn across an Hs 3 m sea: 3–6 throws and 0.98 of a
+// revolution on the runabout, and the lean-back a rider trims a head sea
+// with was worth 1.4 nose-over-tail. Neither is a trick he asked for, and
+// both take the landing assist away with them (`craft.ts`'s `flown`), so
+// what a held turn actually reads as is a craft that spins when the rider
+// leaves a wave. So the mark is ARMED against whatever the water was left
+// with: off a crest the line he was riding buys nothing, and a stroke is
+// something he STARTS — a tap, or the bars shoved further over than he was
+// carrying them — once the hull is already up.
 //
 // THE DEAD BAND AND THE CEILING are what keep the trick out of the ride,
 // and both were measured rather than assumed (`strokeDepth`). Ordinary
@@ -120,25 +135,48 @@ function throwOver(
  *   pace and a fifth of its gates across the roster.
  *
  * Let the input go before the line and the stroke goes with it: a touch of
- * lean off a lip is not a flip, and a touch of lock is not a roll. */
+ * lean off a lip is not a flip, and a touch of lock is not a roll.
+ *
+ * `onDeck` is the other half of the gate, and it decides what the flight
+ * INHERITS rather than what it may spend. A hull riding a ramp is a rider
+ * setting a trick up, so its marks are zeroed and the hold he carried up
+ * the deck is one stroke at the lip. A hull on the water is a rider RIDING,
+ * so its marks are armed at whatever he is holding and the same hold off a
+ * crest is worth nothing. Between the two — airborne, but short of the line
+ * above — nothing is written at all: that reading was taken at the last
+ * contact and re-arming inside a flight would take a rider's own throw off
+ * him a fifth of a second after he made it. */
 export function stepStrokes(
   c: CraftState,
   spec: CraftSpec,
   I: Vec3,
   input: CraftInput,
   flying: boolean,
+  onDeck: boolean,
 ): void {
+  // Whether this step gets to say what the next flight starts from: the hull
+  // has something under it, so whatever the rider is holding is technique for
+  // the water rather than a stroke in the air. Read off `CraftState.airborne`,
+  // which `craft.ts` has already settled for this step, and only ever read
+  // below where the hull is not flying — `flying` implies `airborne`, so the
+  // two are never both true.
+  const armed = !c.airborne;
+
   // THE PUMP, on the lean-back half of the lean axis. Pulling only: a rider
   // standing on the hull has nothing to push the nose down against.
   const back = Math.max(clamp(input.lean, -1, 1), 0);
   if (!flying) {
     // Nothing is hauled against the water or a deck, and every flight
-    // starts the stroke and the budget fresh — which is also what makes an
-    // input held through the lip worth a stroke AT the lip: the first
-    // flying step reads the whole of it as one rise.
-    c.pumpMark = 0;
-    c.pumpRising = false;
+    // starts the budget fresh.
     c.pumped = 0;
+    if (armed) {
+      // A DECK starts from nothing, which is what makes a lean held back up
+      // it worth a haul AT the lip: the first flying step reads the whole of
+      // it as one rise. THE WATER starts from where the rider's hands
+      // already are, so the same lean off a crest reads as no rise at all.
+      c.pumpMark = onDeck ? 0 : back;
+      c.pumpRising = false;
+    }
   } else if (c.pumpRising) {
     // Up the stroke: a peak that has grown is a haul that is still being
     // pulled, and it is paid for as it grows. The first sign of the bars
@@ -178,10 +216,12 @@ export function stepStrokes(
   const side = steer > 0 ? 1 : steer < 0 ? -1 : 0;
   const over = Math.abs(steer);
   if (!flying) {
-    c.whipMark = 0;
-    c.whipRising = false;
-    c.whipSide = 0;
     c.whipped = 0;
+    if (armed) {
+      c.whipMark = onDeck ? 0 : over;
+      c.whipRising = false;
+      c.whipSide = onDeck ? 0 : side;
+    }
   } else if (side !== 0 && c.whipSide !== 0 && side !== c.whipSide) {
     // THE BARS HAVE CROSSED THE CENTRE. Whatever throw was running is over
     // — his hands and his weight went with them — and a fresh stroke starts

@@ -166,8 +166,11 @@ export type CraftState = {
    * is where the lean-back input has got to on this stroke, 0..1: its PEAK
    * while `pumpRising` (so a key held down cannot haul twice), and its
    * trough once the bars have started back (so the next rise of
-   * `flight.pumpRise` is a fresh haul). Both are reset by every step the
-   * hull is not flying. */
+   * `flight.pumpRise` is a fresh haul). Every step the hull has something
+   * UNDER it rearms both, and what to: zeroed on a ramp's deck, so the lean
+   * held up it is a haul at the lip; set to the lean the rider is already
+   * carrying on the water, so the same hold off a crest is no rise at all.
+   * A flight leaves them alone from its first step to its last. */
   pumpMark: number;
   pumpRising: boolean;
   /** How hard the last yank threw the rider back, 0..1, decaying over
@@ -179,10 +182,11 @@ export type CraftState = {
    * a deck has the hull again. */
   pumped: number;
   /** THE WHIP's stroke detector — the same three readings on the steer
-   * axis, and a fourth the pump has no need of. `whipMark` is how far OVER
-   * the bars have got on this stroke (0..1, unsigned) and `whipSide` which
-   * way (+1 right, −1 left, 0 with no stroke running): the bars crossing
-   * the centre ends the throw that was running rather than deepening it. */
+   * axis, rearmed on the same rule, and a fourth the pump has no need of.
+   * `whipMark` is how far OVER the bars have got on this stroke (0..1,
+   * unsigned) and `whipSide` which way (+1 right, −1 left, 0 with no stroke
+   * running): the bars crossing the centre ends the throw that was running
+   * rather than deepening it. */
   whipMark: number;
   whipRising: boolean;
   whipSide: number;
