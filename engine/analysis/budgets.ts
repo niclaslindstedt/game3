@@ -111,10 +111,21 @@ export const ANALYSIS = {
   },
   course: {
     /** R23 — how far apart the three points the corner's circle is drawn
-     * through stand, m. The path is a polyline of 10 m stations and its
-     * vertices carry the search's own rounding, so a circle through three
-     * neighbours measures that rounding rather than the corner; three
-     * stations apart is a stencil the size of a hull's turn. */
+     * through stand. The path's vertices carry the search's own rounding,
+     * so a circle through three neighbours measures that rounding rather
+     * than the corner.
+     *
+     * Divided by `stride`, so what this actually buys is a stencil fifteen
+     * VERTICES wide — and that is deliberate rather than a slip. The path
+     * is not evenly spaced: the route draws it at 10 m stations, R9's
+     * straightening replaces a whole run-up window with a single chord
+     * (one vertex gap of a couple of hundred metres), and the joins either
+     * side of that chord are clusters of sub-metre segments. Walk it at
+     * `stride` and take a stencil 30 m wide instead and the tightest
+     * circle on a level comes back at 17 m — which is one of those
+     * clusters, not a corner anybody rides. Over the sustained bends that
+     * ARE corners this reads true: a leg rounding drawn at 84 m comes back
+     * at 85. The turn a rider meets AT A GATE is R34's reading. */
     stencil: 30,
   },
   shore: {

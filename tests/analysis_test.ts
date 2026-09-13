@@ -8,6 +8,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  GATE_CORNER,
   LEVEL_RULES as R,
   analyzeLevel,
   fieldGradient,
@@ -47,15 +48,30 @@ const errors = (level: Level): string[] =>
  * along it: a basin has no "shore's left" to walk (R15), and one step in
  * the direction the field falls at a point can come out further from the
  * water than it started when the water it was measuring is a bend of a
- * channel. This follows the field until it is actually on land. */
+ * channel. The walk can still stall — a corridor's own middle is a ridge of
+ * the field with no downhill at all, and a bend of a channel can turn the
+ * walk round in a circle — so where it has not reached land the level's own
+ * most inland CELL is used instead. That is always dry, and the whole point
+ * of the helper is a point that is; which particular piece of country it is
+ * does not matter to any rule being asserted against it. */
 function inlandFrom(level: Level, x: number, z: number): { x: number; z: number } {
   let at = { x, z };
   for (let step = 0; step < 60; step++) {
-    if (sampleField(level.offshore, at.x, at.z) < -20) break;
+    if (sampleField(level.offshore, at.x, at.z) < -20) return at;
     const g = fieldGradient(level.offshore, at.x, at.z);
     const len = Math.hypot(g.gx, g.gz);
     if (len < 1e-6) break;
     at = { x: at.x - (g.gx / len) * 8, z: at.z - (g.gz / len) * 8 };
+  }
+  const { offshore } = level;
+  let least = Infinity;
+  for (let i = 0; i < offshore.data.length; i++) {
+    if (offshore.data[i] >= least) continue;
+    least = offshore.data[i];
+    at = {
+      x: offshore.originX + (i % offshore.cols) * offshore.cell,
+      z: offshore.originZ + Math.floor(i / offshore.cols) * offshore.cell,
+    };
   }
   return at;
 }
@@ -257,6 +273,35 @@ describe("level analysis", () => {
     expect(errors(broken(seed, { weather: "fjord-fog" as Level["weather"] }))).toContain(
       "R19.weather",
     );
+  });
+
+  it("R34 — flags a gate swung round until its two legs make a kink", () => {
+    // Two neighbouring gates SWAPPED, so the chain doubles back on itself
+    // twice. Nothing moves off the racing line — every gate is where the
+    // generator put it, in R1's band over R5's water — and the only thing
+    // wrong with the level is the order a rider would have to take them in,
+    // which is exactly what this rule reads.
+    const seed = LEVEL_SEEDS[0];
+    const level = withGates(seed, (gates) => {
+      const i = gates.findIndex(
+        (g, k) =>
+          k > 0 && k + 1 < gates.length && g.kind === "water" && gates[k + 1].kind === "water",
+      );
+      const a = gates[i];
+      const b = gates[i + 1];
+      gates[i] = { ...a, x: b.x, z: b.z };
+      gates[i + 1] = { ...b, x: a.x, z: a.z };
+      return gates;
+    });
+    const a = analyzeLevel(level);
+    expect(a.ok).toBe(false);
+    const kink = a.findings.find((f) => f.code === "R34.corner");
+    expect(kink).toBeDefined();
+    expect(kink!.at).toBeDefined();
+    expect(a.stats.corner).toBeGreaterThan(GATE_CORNER);
+    // …and the levels the generator ships are all inside it.
+    for (const s of LEVEL_SEEDS)
+      expect(analysisFor(s).stats.corner).toBeLessThanOrEqual(GATE_CORNER);
   });
 
   it("R17 — flags a reef sunk under the bed and two rocks on top of each other", () => {

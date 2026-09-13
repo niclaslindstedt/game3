@@ -131,7 +131,9 @@ check, because it will be optimised against.
 | `generate.ts` | **The search.** Draws a route, the basin round it, then a course, validates against the rules, retries bounded, rejects a whole attempt and re-rolls a sub-seed rather than ever shipping a violation. `generateLevel(seed, opts?) → Level`. |
 | `compile.ts` | **The geometry.** Bakes the two heightfields (`ground`, `offshore`; cell 4 m), the surface classifier, the solids and the course into the `Level` — the single geometric truth read by physics, renderer, bot and labs alike. |
 | `index.ts` | The block `engine/index.ts` re-exports. |
-| `fauna.ts`, `weather.ts` | Placeholders with a header comment: what will live there. Not this session's. |
+| `fauna.ts` | **What swims here (R20)**, placed: the pods, their loops, the water and rock each one is kept clear of. What an animal IS is `game/defs/fauna.ts`, and where it is at a moment is `game/fauna.ts` — `nature` owns both. |
+| `weather.ts` | **Which sky a seed is dealt (R19)**, off the biome's own list and how heavy the wind makes it. Drawn LAST of the things the search judges, because no sky makes a basin unrideable. `atmosphere` owns what it then looks like. |
+| `pace.ts` | **The rule book's third chapter** — R32's speed class, R33's ramp dial, and R34's cap on the turn a GATE may ask for. New rule prose lands here when `rules.ts` is at the §20.5 cap. |
 
 And the scoreboard, which is NOT in `mapgen/` on purpose:
 

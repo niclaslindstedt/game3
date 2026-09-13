@@ -2,11 +2,19 @@
 // THE COURSE — the gates in order, and what crossing one means. A WATER
 // gate is a line between two buoys, crossed by a move through it in the
 // facing direction; an AIR gate is a ring whose centre stands `y` metres
-// up, passed by a move through its disc. The gates are taken in order: the
-// next one counts, the one after it counts too but charges for the one
-// skipped (`missedGate` — the skipped gate is then treated as reached, so
-// a rider who overshoots a buoy is not sent back for it), and anything
-// further ahead is ignored. The last gate is the finish.
+// up, passed by a move through its disc.
+//
+// A GATE IS REACHED BY GOING THROUGH IT AND BY NOTHING ELSE. Between the
+// buoys, or inside the ring: a rider who goes by a gate on the wrong side
+// of a buoy has not taken it, and the run does not move on for them. What
+// keeps that from being a dead end is the LOOK-AHEAD — taking any of the
+// next `course.lookAhead` gates counts, and charges every gate skipped on
+// the way (`missedGate`, which then treats the skipped gate as reached, so
+// nobody is sent back down the coast for it). So a rider who overshoots
+// one buoy carries on and pays for it at the next, and a rider who
+// overshoots the lot has to come back and thread one. The last gate is the
+// finish, and it is crossed like any other: there is no wide crossing of a
+// finish line.
 //
 // `reset` stands the craft a few metres behind the last gate it took (or
 // the start), facing the next one, at rest — the way home from a rock.
@@ -126,26 +134,18 @@ export function stepCourse(
   const c = state.craft;
   const n = p.nextGate;
   if (n >= gates.length) return;
-  const hit = crossedGate(gates[n], x0, y0, z0, c.x, c.y, c.z);
-  if (hit) {
-    take(state, n, c.y, events);
-    p.nextGate = n + 1;
-  } else if (n + 1 < gates.length && crossedGate(gates[n + 1], x0, y0, z0, c.x, c.y, c.z)) {
-    miss(state, n, events);
-    take(state, n + 1, c.y, events);
-    p.nextGate = n + 2;
-  } else {
-    // …or the craft went PAST this gate, crossing its line outside the
-    // buoys near enough for the crossing to be about this gate (see
-    // `course.missWide`). The rider pays for it and rides on: a gate gone
-    // by is never one to be sent back to, and a course with corners in it
-    // can otherwise leave a rider who misses two in a row with no gate
-    // ahead that will ever count.
-    const wide = crossedLine(gates[n], x0, y0, z0, c.x, c.y, c.z);
-    if (wide && offCentre(gates[n], wide) <= K.missWide) {
-      miss(state, n, events);
-      p.nextGate = n + 1;
-    }
+  // The gate the run owes, and the few after it: the FIRST of them the move
+  // actually went through is the one taken, and everything before it is
+  // charged as skipped. Nothing about crossing a gate's LINE outside its
+  // buoys counts — that is a rider who went past, and the gate stays theirs
+  // until they thread it or thread a later one.
+  const last = Math.min(gates.length - 1, n + K.lookAhead);
+  for (let g = n; g <= last; g++) {
+    if (!crossedGate(gates[g], x0, y0, z0, c.x, c.y, c.z)) continue;
+    for (let skipped = n; skipped < g; skipped++) miss(state, skipped, events);
+    take(state, g, c.y, events);
+    p.nextGate = g + 1;
+    break;
   }
   if (p.nextGate >= gates.length) {
     p.finished = true;

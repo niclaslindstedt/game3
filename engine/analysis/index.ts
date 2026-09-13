@@ -41,7 +41,7 @@ import {
   walkPolyline,
 } from "../mapgen/course.ts";
 import { LEVEL_RULES as R, solidBerth, withinBand } from "../mapgen/rules.ts";
-import { rulesAtPace } from "../mapgen/pace.ts";
+import { GATE_CORNER, rulesAtPace } from "../mapgen/pace.ts";
 import { insideBounds } from "../mapgen/compile.ts";
 import type { Level, Pod, Vec2, Weather } from "../mapgen/types.ts";
 import { analyzeAirGate, analyzeRunUp } from "./air.ts";
@@ -97,10 +97,12 @@ export type LevelAnalysis = {
     sandShare: number;
     /** R22 — the path's length as a multiple of the straight line from the
      * start to the finish, and the total heading change along it, rad —
-     * and R23's tightest corner on it, m of radius. */
+     * R23's tightest corner on it, m of radius, and R34's worst turn from
+     * one gate's approach to its exit, rad. */
     wind: number;
     turn: number;
     radius: number;
+    corner: number;
     windSpeed: number;
     hour: number;
     weather: Weather;
@@ -582,6 +584,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       wind: winding.wind,
       turn: winding.turn,
       radius: winding.radius,
+      corner: winding.corner,
       windSpeed: level.wind.speed,
       hour: level.hour,
       weather: level.weather,
@@ -666,9 +669,13 @@ function analyzeWinding(
   level: Level,
   circuit: boolean,
   rep: Report,
-): { wind: number; turn: number; radius: number } {
+): { wind: number; turn: number; radius: number; corner: number } {
+  // R32 — the rule book AT THE PACE the level was drawn to, as everywhere
+  // else in this file: `course.radius` is the one number here the class
+  // moves, and it moves by the SQUARE of it.
+  const R = rulesAtPace(level.pace, level.rampWidth);
   const p = level.course.path;
-  if (p.length < 3) return { wind: 1, turn: 0, radius: Infinity };
+  if (p.length < 3) return { wind: 1, turn: 0, radius: Infinity, corner: 0 };
   let length = 0;
   for (let i = 0; i + 1 < p.length; i++) {
     length += Math.hypot(p[i + 1].x - p[i].x, p[i + 1].z - p[i].z);
@@ -704,10 +711,13 @@ function analyzeWinding(
     }
   }
   // R23 — and no one corner of it is tighter than a hull can hold. Read
-  // over a stencil a few stations wide rather than vertex to vertex: the
-  // line is a polyline of 10 m stations and the circle through three
-  // neighbouring ones answers to their own rounding as much as to the
-  // corner they are on.
+  // over a stencil several VERTICES wide rather than vertex to vertex: the
+  // line's own vertices carry the search's rounding, and the circle through
+  // three neighbours answers to that as much as to the corner they are on
+  // (`A.course.stencil` says why the count is in vertices rather than
+  // metres). It is the sustained bends this reads — over a clean arc it
+  // comes back within a couple of metres of the radius that arc was drawn
+  // at. What a rider MEETS at one gate is R34's reading, below.
   let tightest = Infinity;
   let at: { x: number; z: number } | undefined;
   const step = Math.max(1, Math.round(A.course.stencil / A.stride));
@@ -726,7 +736,57 @@ function analyzeWinding(
       { at, value: tightest },
     );
   }
-  return { wind, turn, radius: tightest };
+  return { wind, turn, radius: tightest, corner: analyzeCorners(level, circuit, rep) };
+}
+
+/**
+ * R34 — NO GATE IS A KINK: the turn each gate asks for, from the leg in to
+ * it to the leg out of it, and the worst of them (rad).
+ *
+ * This is the corner a rider MEETS, which is not the one R23 measures: a
+ * rider steers gate to gate, so a bend well inside R23's radius still rides
+ * as a wall when the whole of it falls between one gate and the next.
+ *
+ * R25's rounding is exempt — a half circle drawn round a mark is a corner on
+ * purpose, held to R23's radius alone. A `Level` carries no route to read
+ * the leg off, so the exemption is DERIVED the way `oceanRun` derives the
+ * leg itself: a gate standing past R1's own offshore ceiling is a gate out
+ * at sea with the leg, and a corner whose three gates include one of those
+ * is the leg's. A circuit has no leg and no R1, so nothing is exempt there
+ * and the whole lap answers for its corners.
+ */
+function analyzeCorners(level: Level, circuit: boolean, rep: Report): number {
+  const gates = level.course.gates;
+  // R30 — one lap's worth: a lapped course publishes its gates again for
+  // every lap, and the seam between the last gate of a lap and the first is
+  // the same corner read twice.
+  const n = circuit ? level.course.lapGates : gates.length;
+  if (n < 3) return 0;
+  const offshore = (i: number): number => sampleField(level.offshore, gates[i].x, gates[i].z);
+  let worst = 0;
+  let at: { x: number; z: number } | undefined;
+  for (let i = 0; i < n; i++) {
+    const before = circuit ? (i - 1 + n) % n : i - 1;
+    const after = circuit ? (i + 1) % n : i + 1;
+    if (before < 0 || after >= n) continue;
+    if (!circuit && [before, i, after].some((k) => offshore(k) > R.course.offshore.max)) continue;
+    const h0 = Math.atan2(gates[i].x - gates[before].x, gates[i].z - gates[before].z);
+    const h1 = Math.atan2(gates[after].x - gates[i].x, gates[after].z - gates[i].z);
+    const turn = Math.abs(angleDiff(h0, h1));
+    if (turn > worst) {
+      worst = turn;
+      at = { x: gates[i].x, z: gates[i].z };
+    }
+  }
+  if (worst > GATE_CORNER) {
+    rep.fail(
+      "R34",
+      "corner",
+      `a gate asks for ${fmt(worst)} rad from one leg to the next (rule ${GATE_CORNER} rad)`,
+      { at, value: worst },
+    );
+  }
+  return worst;
 }
 
 /** R20 — one pod, re-checked on the finished level: the animal is one the

@@ -116,7 +116,7 @@ export const CIRCUIT_RULES = {
    * `turn` is actually asking for. */
   harmonics: { min: 2, max: 3 },
   harmonic: { min: 2, max: 5 },
-  swing: { min: 0.05, max: 0.15 },
+  swing: { min: 0.04, max: 0.1 },
   /** R29 — how near the loop may come back to itself, m, and how far apart
    * along it two stations have to stand for their closeness to count.
    * R24's numbers, for R24's reason: two stretches of line a rider cannot
@@ -133,12 +133,12 @@ export const CIRCUIT_RULES = {
    * about two and a half turns of accumulated steering the lobes are
    * shorter than the hull's own turning circle and the loop reads as a cog
    * rather than as a track. */
-  turn: { min: 7.2, max: 16 },
+  turn: { min: 6.8, max: 16 },
   /** R30 — one lap, m. The floor is what R29's own shape costs: a lap has
    * to hold a shore leg, a run out, a rounding and a run back, and under
    * this the four of them are one continuous corner. The ceiling keeps
    * three laps inside `length`. */
-  lap: { min: 900, max: 1500 },
+  lap: { min: 1350, max: 1950 },
   /** R30 — how many times round. Two is a race with one chance to learn the
    * corners; four laps of the shortest loop in the band is the same six
    * gates ridden two dozen times, which is where a circuit stops being a
@@ -149,7 +149,7 @@ export const CIRCUIT_RULES = {
    * measured in whole laps and a lap is a coarse unit — the band has to
    * hold `laps.min` of the shortest loop and `laps.max` of nearly the
    * longest. */
-  length: { min: 1900, max: 3500 },
+  length: { min: 2600, max: 4600 },
   /** R30 — how many air gates one LAP carries. Exactly one, so that every
    * lap has the jump in it and R7's count over the whole ride (2–3) comes
    * out of the lap count rather than being drawn against it. */

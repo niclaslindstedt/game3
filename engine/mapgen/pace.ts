@@ -42,6 +42,24 @@
 //       clear across the deck's width, so a wider ramp asks the search for
 //       a wider corridor of open water, and the stock dial is the stock
 //       book by identity — no level anyone has ridden re-rolls.
+//   R34 NO GATE IS A KINK. R23's other half, and the one a rider actually
+//       meets: no gate asks for more than `GATE_CORNER` radians between
+//       the leg in to it and the leg out of it. R23 bounds the RADIUS of
+//       the line, but a rider steers gate to gate rather than along a
+//       polyline, so a bend well inside that radius still rides as a wall
+//       when the whole of it falls between one gate and the next — at R4's
+//       widest spacing, 150 m of line. It was the commonest way a
+//       generated course came out unrideable: over eighty levels the worst
+//       gate asked for 87° on the median seed and 112° on the worst, where
+//       the fastest craft in the catalog needs 68 m of ground down its
+//       entry heading to come round 90° at all. R25's rounding is EXEMPT
+//       and held to R23's radius alone — a half circle drawn round a mark
+//       is a corner on purpose — and the exemption is derived out of the
+//       finished level (`analysis/reach.ts`'s `oceanRun`) rather than
+//       taken on trust, because a `Level` carries no route to read it off.
+//       The angle does not move with the speed class: a class stretches
+//       R4's spacing by k and R23's radius by k², so the turn a gate asks
+//       for comes out GENTLER at a faster pace without anything scaling it.
 //
 // Split out of `rules.ts` for the §20.5 cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
@@ -136,6 +154,18 @@ export function rulesAtPace(pace: number, rampWidth = 1): PacedRules {
   PACED.set(key, paced);
   return paced;
 }
+
+/** R34 — the most a GATE may ask of the rider, rad between the leg in to
+ * it and the leg out of it. Seventy degrees, which is what the line
+ * actually delivers once `route.swing` keeps it off R23's limit — 47° on
+ * the median level and 68° on the worst of eighty — so the rule refuses
+ * the tail rather than the population, and a tuning pass that puts the
+ * kinks back has to argue with a failing check rather than with nobody.
+ *
+ * Stated here rather than in `rules.ts` for R33's reason: that file is at
+ * the §20.5 cap, and a rule whose prose cannot live beside its number is
+ * worse off split across two files than moved whole into one. */
+export const GATE_CORNER = 1.22;
 
 /** R33 — THE RAMP DIAL'S BAND: the multiples of `ramp.width` a run may be
  * dealt. Stated here rather than in `rules.ts` because R33 is stated here

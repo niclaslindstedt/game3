@@ -30,21 +30,27 @@ describe("a gate mark's lantern", () => {
     }
   });
 
-  it("burns on every gate still ahead, brightest on the one being ridden at", () => {
+  it("burns on the gate being ridden at and on no other", () => {
+    // The whole reading: ONE pair of lamps on the water at a time, so the
+    // lit mark is a target rather than a map of where the course goes.
     for (const t of MOMENTS) {
-      const next = markLamp(4, 4, 1, t);
-      const ahead = markLamp(7, 4, 1, t);
-      expect(ahead).toBeGreaterThan(0);
-      expect(next).toBeGreaterThan(ahead);
-      expect(next).toBeLessThanOrEqual(1);
+      expect(markLamp(4, 4, 1, t)).toBeGreaterThan(0);
+      expect(markLamp(4, 4, 1, t)).toBeLessThanOrEqual(1);
+      for (const gate of [5, 7, 9, 20]) expect(markLamp(gate, 4, 1, t)).toBe(0);
     }
   });
 
-  it("breathes on the next gate and holds steady on the rest", () => {
+  it("hands over the instant the gate before it is crossed", () => {
+    // Gate 5 is dark while 4 is being ridden at and lit the moment the run
+    // moves on to it — which is the moment 4's line was crossed.
+    expect(markLamp(5, 4, 1, 1.3)).toBe(0);
+    expect(markLamp(5, 5, 1, 1.3)).toBeGreaterThan(0);
+    expect(markLamp(4, 5, 1, 1.3)).toBe(0);
+  });
+
+  it("breathes on the gate being ridden at", () => {
     const next = MOMENTS.map((t) => markLamp(4, 4, 1, t));
-    const ahead = MOMENTS.map((t) => markLamp(9, 4, 1, t));
     expect(Math.max(...next) - Math.min(...next)).toBeGreaterThan(0.05);
-    expect(Math.max(...ahead) - Math.min(...ahead)).toBe(0);
   });
 
   it("is a wink of glass by day and a beacon after dark", () => {
