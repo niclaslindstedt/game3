@@ -811,6 +811,11 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // has this step's answer, because what they need is whether the hull is
   // FLYING: off the water going up, with the deck behind it, and
   // `flight.minAir` past that.
+  //
+  // ...and, on the steps it is NOT, whether what is under the hull is a
+  // ramp's deck or the water: a hold carried up a deck is a trick set up
+  // and paid at the lip, and the same hold carried across a sea is the line
+  // the rider was riding and paid nowhere.
   stepStrokes(
     c,
     spec,
@@ -820,6 +825,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
       !contact.overRamp &&
       c.airTime >= T.flight.minAir &&
       c.launchVy >= T.flight.launchVy,
+    contact.onRamp,
   );
 
   // A DIVE develops over the steps after a landing: the bow keeps going
