@@ -130,6 +130,23 @@ export type CraftState = {
   slam: number;
   /** |v|, m/s — what the speedo reads. */
   speed: number;
+  /** HOW HIGH THE CRAFT IS, m — what the altimeter reads: the CoG's height
+   * above where this hull would float on a FLAT CALM (`restY`), so a craft
+   * at rest reads 0 whatever its draft, a trough reads negative, and a
+   * crest reads the crest.
+   *
+   * The datum is the still-water plane rather than the water actually
+   * under the hull, and that is the whole point of the reading: on the open
+   * ocean past the rim, where the storm deals the biggest sea the roster
+   * can still fly (`ocean.ts`), a rider carried up a ten-metre face IS ten
+   * metres up, and a meter measuring from the surface beneath him would say
+   * nothing was happening. A flight then reads the wave AND the air over
+   * it, which is what a jump off a crest is actually worth, and the column
+   * past the ocean's far edge (`tornado.ts`) reads the whole climb.
+   *
+   * Written once at the end of `stepCraft` beside `speed`; nothing in the
+   * engine reads it back. */
+  altitude: number;
   /** THE WAY MADE GOOD, m/s: the velocity on the craft's own nose, flattened.
    * Signed, so a hull going astern reads negative where `speed` cannot — and
    * stated once here because the physics, the rider's body and anything else
@@ -245,6 +262,13 @@ export type Progress = {
    * own, which is what keeps the HUD a reader of the state
    * (`pwa/src/game/snapshot.ts`). */
   bestAirAt: number;
+  /** THE RUN'S HIGH-WATER MARK, m — the highest `craft.altitude` has read
+   * so far, 0 until the craft has been above still water at all. The
+   * altimeter is a live number and the apex of a flight is gone in a
+   * moment, so the run keeps the best of it here; like `bestAir` it stands
+   * across a reset, because being put back at a gate does not un-fly what
+   * was flown. */
+  peakAltitude: number;
 };
 
 /** WHAT A COMBO IS MADE OF — one element of it, as the engine names it.

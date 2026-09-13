@@ -65,6 +65,55 @@ const AIR_HOLD = 2.4;
  * time. */
 const COMBO_HOLD = 1.6;
 
+/** THE ALTIMETER'S SCALE — where a height in metres sits on the tape.
+ *
+ * The tape has to carry three readings that span two orders: a hull riding
+ * a sea, which swings a metre or two either side of the still plane; a
+ * flight off a ramp or a crest, which is a handful of metres; and the
+ * column past the ocean's far edge (`tornado.ts`), which lifts a rider tens
+ * of metres. A straight scale over the last of those makes the first two
+ * one motionless pixel.
+ *
+ * So: the still-water line stands a quarter of the way up at `ALT_ZERO`,
+ * with the TROUGHS under it running to `ALT_DOWN` at the foot — a rider on
+ * the open ocean is genuinely below the plane he measures from, and the
+ * swing between the two is how big that sea is. Above it are two straight
+ * runs with a knee, exactly as the air clock's growth has: `KNEE_SHARE` of
+ * the remaining track is spent reaching `ALT_KNEE`, a good jump, so every
+ * metre of an ordinary one MOVES; the rest is spread thin out to `ALT_BIG`,
+ * which is not a jump at all but a rider taken by the tornado — twenty-odd
+ * metres at the shipped class and about twice that at the top of the class
+ * band, since the column's apex goes as the class squared (`defs/sea.ts`).
+ * The top is therefore reachable and almost never reached.
+ *
+ * And the FIGURE beside the marker is exact at every height on here, so the
+ * compression costs no precision — only travel. */
+const ALT_DOWN = 5;
+export const ALT_ZERO = 0.24;
+const ALT_KNEE = 6;
+const ALT_BIG = 60;
+const ALT_KNEE_SHARE = 0.7;
+
+/** THE PEAK'S FLOOR, m — how high the run has to have been before the tape
+ * carries a high-water tick. A brisk sea lifts a hull a metre and a half
+ * just by being a sea, and a mark that read the chop would sit against the
+ * zero line all run saying nothing. Two metres is clear of every sea a
+ * sheltered coast deals and short of every ramp on the course, so the tick
+ * arrives on the first jump and on nothing else. */
+const ALT_PEAK_SHOWN = 2;
+
+/** Where `m` metres above still water sits on the tape, 0 at its foot and
+ * 1 at its top. Exported because the tape draws its own still-water line
+ * off the same scale (`hud-dial.tsx`), and a second opinion about where
+ * zero is would be a zero line the marker does not agree with. */
+export function altitudeShare(m: number): number {
+  if (m <= 0) return ALT_ZERO * (1 - Math.min(1, -m / ALT_DOWN));
+  const above = 1 - ALT_ZERO;
+  if (m <= ALT_KNEE) return ALT_ZERO + above * ALT_KNEE_SHARE * (m / ALT_KNEE);
+  const past = Math.min(1, (m - ALT_KNEE) / (ALT_BIG - ALT_KNEE));
+  return ALT_ZERO + above * (ALT_KNEE_SHARE + (1 - ALT_KNEE_SHARE) * past);
+}
+
 export type HudSnapshot = {
   speedKmh: number;
   /** Revs as a share of the redline, 0..1, and where idle sits on the
@@ -124,6 +173,19 @@ export type HudSnapshot = {
    * craft's nose), and its speed, m/s. */
   windAngle: number;
   windMs: number;
+  /** THE ALTIMETER, m above still water (`CraftState.altitude`) — signed,
+   * and the engine's own reading rather than anything worked out here.
+   * This is the FIGURE that rides beside the tape's marker. */
+  altitude: number;
+  /** ...and where that marker sits on the tape, 0..1 (`altitudeShare`).
+   * The travel is compressed and the figure is not, so the shape says how
+   * big the moment is and the number says exactly how big. */
+  altitudeShare: number;
+  /** The run's high-water tick, 0..1 on the same scale — or −1 when the run
+   * has not yet been above `ALT_PEAK_SHOWN` and the tape carries no mark.
+   * A share rather than the metres, because nothing draws the figure: it is
+   * a line on the track. */
+  altitudePeakShare: number;
   airborne: boolean;
   /** THE AIR CLOCK, s — the flight so far, and 0 until it has lasted
    * `flight.airCounts`. A hop off a crest is not air time, and a readout
@@ -284,6 +346,9 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     // is the screen's counter-clockwise (input-model.ts).
     windAngle: (blowsTo - c.heading) * SCREEN_TO_ENGINE,
     windMs: Math.hypot(wind.vx, wind.vz),
+    altitude: c.altitude,
+    altitudeShare: altitudeShare(c.altitude),
+    altitudePeakShare: p.peakAltitude >= ALT_PEAK_SHOWN ? altitudeShare(p.peakAltitude) : -1,
     airborne: c.airborne,
     airTime: air.time,
     airGrow: air.grow,

@@ -117,6 +117,13 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   c.throttleEff = speed > 1 ? 1 : 0;
   c.planing = speed > 8 ? 1 : 0;
   c.speed = Math.hypot(c.vx, c.vy, c.vz);
+  // ...and the ALTIMETER, the same case: a staged flight is asked how high
+  // it is before it has taken a step. The RUN'S peak goes with it, the way
+  // the air clock's `airTime` does: a moment stood four metres up is a run
+  // that has been four metres up, and a scene frozen for a photograph never
+  // takes the step that would otherwise notice.
+  c.altitude = c.y - restY(c.spec, state.level.water.density);
+  if (c.altitude > state.progress.peakAltitude) state.progress.peakAltitude = c.altitude;
   // ...and the WAY beside it: a placed craft is pointed where it is going, so
   // the way made good is the whole of that speed. It is written here because
   // it is a readout like `speed`, and anything derived that a placement leaves

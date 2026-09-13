@@ -125,6 +125,13 @@ export const STRINGS = {
   /** The wind chip: metres per second, one decimal. */
   wind: (ms: number): string => `${ms.toFixed(1)} m/s`,
   windLabel: "WIND",
+  /** THE ALTIMETER's figure, riding beside the tape's marker (hud-dial.tsx):
+   * metres above still water, to one decimal — the tape's travel is
+   * compressed and this is not, so the shape says how big and the figure
+   * says exactly how big. Signed, because a trough is a real place to be and
+   * on a big sea the swing between the two is the reading. */
+  altitude: (m: number): string => `${m.toFixed(1)} m`,
+  altitudeLabel: "ALTITUDE",
   /** The air-time readout, tenths. */
   air: (seconds: number): string => `${seconds.toFixed(1)}s`,
   airLabel: "AIR",

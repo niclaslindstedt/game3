@@ -195,6 +195,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.pitch = r.pitch;
     c.roll = r.roll;
     c.speed = Math.hypot(c.vx, c.vy, c.vz);
+    c.altitude = c.y - restY(spec, density);
     c.way = 0;
     c.airborne = false;
     c.airTime = 0;
@@ -753,6 +754,10 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.pitch = e.pitch;
   c.roll = e.roll;
   c.speed = Math.hypot(c.vx, c.vy, c.vz);
+  // THE ALTIMETER, off the still-water plane rather than off the water
+  // under the hull (`state.ts` says why). `restY` is a constant of the run
+  // and memoized as one, so this is a subtraction.
+  c.altitude = c.y - restY(spec, density);
   c.wetted = hull.wetted;
   c.slam = hull.slam;
   c.submergedDepth = Math.max(0, hull.submerged);
