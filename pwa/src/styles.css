@@ -1060,6 +1060,107 @@ canvas {
   gap: 0.25rem;
 }
 
+/* THE ALTITUDE TAPE, standing on the speed cluster (hud-dial.tsx). The
+   track is narrow on purpose: nothing is read OFF it — the figure riding
+   the marker says the number — so its whole job is to show the marker's
+   TRAVEL, and a wide bar there would be chrome over the water for no
+   reading. Its height is what it spends instead, because travel is the
+   only thing a tape has to say with.
+
+   Everything in it takes the dressing's own tokens, so the instrument dips
+   with the lamp along with the rev bar under it. */
+.hud-alt {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  /* Enough that the FIGURE still clears the caption with the marker at the
+     very foot of the track: it is centred on the marker's line, so half its
+     own height hangs below the tape, and a rider deep in an ocean trough is
+     exactly when this readout is worth having. */
+  gap: 0.7rem;
+  margin-bottom: 0.15rem;
+}
+
+.hud-tape {
+  position: relative;
+  width: clamp(0.4rem, 1.3vmin, 0.55rem);
+  height: clamp(4.5rem, 16vmin, 7.5rem);
+  border-radius: 2px;
+  background: rgb(var(--hud-plate) / 55%);
+  /* The rev bar's outline, as an INSET ring so the track's own percentages
+     still measure the whole of it. Without it the empty headroom above the
+     marker is invisible over a dark sea, and an instrument whose travel
+     cannot be seen has nothing to say. */
+  box-shadow:
+    inset 0 0 0 1px var(--hud-track),
+    0 2px 2px rgb(0 0 0 / 40%);
+}
+
+/* THE STILL-WATER LINE, drawn across the track and past both its edges so
+   it reads as a datum rather than as part of the fill. Everything above it
+   is air and everything below it is a trough. */
+.hud-tape-zero {
+  position: absolute;
+  left: -0.25rem;
+  right: -0.25rem;
+  height: 0;
+  border-top: 1px solid var(--hud-track);
+}
+
+/* ...and the fill FROM that line to the marker, which is why it carries
+   both ends rather than a height alone: it grows downward as readily as up. */
+.hud-tape-fill {
+  position: absolute;
+  left: 0;
+  right: 0;
+  border-radius: 2px;
+  background: var(--hud-ink);
+  /* Tweened between the HUD's 12 Hz snapshots, as the rev bar's fill is. */
+  transition:
+    bottom 90ms linear,
+    height 90ms linear;
+}
+
+/* THE RUN'S HIGH-WATER MARK: a tick left standing at the highest the run
+   has been, so a rider can see his own best against where he is now without
+   a word being printed. On the vane's colour rather than the buoy orange —
+   a peak is a reading, not a warning, and it comes down with the lamp like
+   the rest of the dressing. */
+.hud-tape-peak {
+  position: absolute;
+  left: -0.2rem;
+  right: -0.2rem;
+  height: 0;
+  border-top: 2px solid var(--hud-info);
+  transition: bottom 200ms ease-out;
+}
+
+/* THE MARKER, and the FIGURE riding beside it — the one thing on this
+   screen whose POSITION is the reading. It overhangs the track at both
+   edges so the eye finds it against the fill it caps. */
+.hud-tape-mark {
+  position: absolute;
+  left: -0.3rem;
+  right: -0.3rem;
+  height: 0;
+  border-top: 2px solid var(--hud-ink);
+  transition: bottom 90ms linear;
+}
+
+.hud-tape-num {
+  position: absolute;
+  left: 100%;
+  top: 0;
+  transform: translateY(-50%);
+  margin-left: 0.45rem;
+  font-size: clamp(0.85rem, 2.4vmin, 1.2rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
 .hud-revs-row {
   display: flex;
   align-items: center;

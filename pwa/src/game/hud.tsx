@@ -14,7 +14,10 @@
 //                 and the press that holds the run and puts the pause card
 //                 up — with the RESET and CAMERA presses hung under it, and
 //                 the new-build mark over it on the days there is one
-//   bottom left   the rev bar and the speed
+//   bottom left   the ALTITUDE TAPE, the rev bar and the speed — the
+//                 corner's three instruments, the tape on top because a
+//                 climb is a vertical reading and this is the only edge
+//                 with the room for one
 //   top centre    the AIR CLOCK, while the hull is off the water — the one
 //                 number a rider is trying to make go up, so it sits where
 //                 he is already looking to aim the landing — with the COMBO
@@ -38,7 +41,7 @@ import { REPO_URL } from "../identity.ts";
 import { formatTime } from "../lib/util.ts";
 import { hourLabel } from "./daylight.ts";
 import { HudActions } from "./hud-actions.tsx";
-import { RevBar } from "./hud-dial.tsx";
+import { AltitudeTape, RevBar } from "./hud-dial.tsx";
 import { BarZone, LeverZone } from "./hud-touch.tsx";
 import type { InputManager } from "./input.ts";
 import { Minimap } from "./minimap.tsx";
@@ -204,6 +207,22 @@ export function Hud({
       </div>
 
       <div class="hud-speed">
+        {/* THE ALTITUDE TAPE, standing on top of the speed cluster. It is
+            here rather than up among the run's facts because it is an
+            INSTRUMENT rather than a readout — a thing with a moving part,
+            read the way the rev bar beneath it is read, out of the corner
+            of an eye already on that corner for the speed — and because a
+            vertical reading wants vertical room, which this is the only
+            edge of the screen with. The figure rides the marker, so how
+            high and how high exactly are one glance. */}
+        <div class="hud-alt">
+          <AltitudeTape
+            share={snap.altitudeShare}
+            peak={snap.altitudePeakShare}
+            reading={STRINGS.altitude(snap.altitude)}
+          />
+          <span class="hud-chip-sub">{STRINGS.altitudeLabel}</span>
+        </div>
         <div class="hud-revs-row">
           <RevBar rpm={snap.rpm} idle={snap.idle} braking={snap.braking} />
           {/* The caption says what the bar is doing: RPM, or the one brake

@@ -42,6 +42,7 @@ export function freshProgress(level: Level): Progress {
     lastResetAt: 0,
     bestAir: 0,
     bestAirAt: 0,
+    peakAltitude: 0,
   };
 }
 
@@ -195,6 +196,10 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.x = x;
   c.z = z;
   c.y = surface + restY(c.spec, state.level.water.density);
+  // Afloat at its rest draft, so the altimeter reads the WAVE it is sitting
+  // on and nothing else. Written here for the same reason `speed` is: a
+  // readout a placement leaves stale is one the first frame has to catch up.
+  c.altitude = surface;
   c.vx = c.vy = c.vz = 0;
   c.q = fromEuler(heading, 0, 0);
   c.wx = c.wy = c.wz = 0;

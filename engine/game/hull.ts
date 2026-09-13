@@ -183,11 +183,35 @@ function stillVolume(probes: readonly HullProbe[], y: number): number {
   return v;
 }
 
+/** The rest drafts already bisected, per spec OBJECT and water density.
+ * Keyed on the object rather than on `spec.id` the way the probe cache is,
+ * because the draft reads the spec's MASS: a spec copied with weight added
+ * keeps its id and floats somewhere else, and a test does exactly that. */
+const drafts = new WeakMap<CraftSpec, Map<number, number>>();
+
 /** The height of the CoG above a still surface at rest, level, m —
  * where Archimedes puts it: submerged volume × density = mass. Bisected,
  * because the probes fill in bands. The buoyancy test holds the settled
- * craft to this. */
+ * craft to this.
+ *
+ * Memoized because it is a CONSTANT of the run that something now wants
+ * every step: the altimeter's datum (`craft.ts`) is this height, so the
+ * bisection would otherwise run at the physics rate to return the same
+ * number it returned last time. */
 export function restY(spec: CraftSpec, density: number): number {
+  let byDensity = drafts.get(spec);
+  if (!byDensity) {
+    byDensity = new Map();
+    drafts.set(spec, byDensity);
+  }
+  const hit = byDensity.get(density);
+  if (hit !== undefined) return hit;
+  const y = bisectRestY(spec, density);
+  byDensity.set(density, y);
+  return y;
+}
+
+function bisectRestY(spec: CraftSpec, density: number): number {
   const probes = hullProbes(spec);
   const need = totalMass(spec) / density;
   let lo = -spec.height;

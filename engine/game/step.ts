@@ -123,6 +123,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     submergedDepth: 0,
     slam: 0,
     speed: 0,
+    altitude: 0,
     way: 0,
     landing: 1e6,
     onRamp: false,
@@ -263,6 +264,11 @@ export function step(state: GameState, input: CraftInput): GameState {
   const z0 = c.z;
   stepCraft(state, state.phase === "running" ? input : NEUTRAL_INPUT, events);
   noteAirRecord(state, events);
+  // THE RUN'S HIGH-WATER MARK, taken at the physics rate rather than off a
+  // landing: the apex of a flight is an instant with no event at it, and a
+  // presentation sampling the altimeter a dozen times a second would read
+  // the top of a jump only by luck.
+  if (c.altitude > state.progress.peakAltitude) state.progress.peakAltitude = c.altitude;
   // After the craft and before the course: the score reads what the hull
   // just did (it is airborne or it is not, and this step's `land`, `dive`
   // and `capsize` are already on the list), and the course has no opinion

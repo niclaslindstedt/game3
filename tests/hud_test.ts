@@ -31,7 +31,7 @@ import {
 } from "@engine";
 
 import { skyAt } from "../pwa/src/game/sky.ts";
-import { takeSnapshot } from "../pwa/src/game/snapshot.ts";
+import { ALT_ZERO, altitudeShare, takeSnapshot } from "../pwa/src/game/snapshot.ts";
 import { STRINGS } from "../pwa/src/game/strings.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
@@ -318,5 +318,134 @@ describe("the combo's line", () => {
     expect(STRINGS.comboLine(parts).startsWith("AIR + BARREL ROLL")).toBe(true);
     // ...and nothing he did not do: the bars were never hauled back.
     expect(parts.some((p) => p.kind === "backflip" || p.kind === "frontflip")).toBe(false);
+  });
+});
+
+// THE ALTIMETER (`CraftState.altitude`, `progress.peakAltitude`). Its whole
+// design is in its DATUM: it measures from the still-water plane, not from
+// the water under the hull, so the sea itself registers on it. That is what
+// the first two cases are about, and it is the difference between a readout
+// that answers "how far up does the open ocean throw me" and one that reads
+// zero all the way over a ten-metre face.
+describe("the altimeter", () => {
+  it("reads zero at rest on a flat calm, whatever the hull draws", () => {
+    // The datum is per-hull — the dart floats a different depth from the
+    // otter — so a chip reading anything but 0 on still water would be
+    // reading the craft rather than the water.
+    for (const craft of ["skiff", "marlin", "otter", "dart"] as const) {
+      const state = createGame({ seed: 1, craft, level: FLAT, quiet: true });
+      placeRun(state, { x: 100, z: 200, heading: Math.PI / 2 });
+      for (let i = 0; i < TUNING.physicsHz; i++) step(state, COAST);
+      expect(Math.abs(takeSnapshot(state).altitude)).toBeLessThan(0.15);
+    }
+  });
+
+  it("swings with the sea on a hull that never leaves the water", () => {
+    // A running sea and the throttle shut: the hull is riding, not flying,
+    // and the meter has to be moving. Both signs — a trough is a place a
+    // rider is genuinely below the plane he measures from, and the swing
+    // between the two IS how big the sea is.
+    const sea = syntheticLevel({ windSpeed: 14, noSolids: true });
+    const state = createGame({ seed: 3, craft: "otter", level: sea, quiet: true });
+    placeRun(state, { x: 100, z: 340, heading: Math.PI / 2 });
+    let low = Infinity;
+    let high = -Infinity;
+    for (let i = 0; i < 30 * TUNING.physicsHz; i++) {
+      step(state, COAST);
+      const alt = takeSnapshot(state).altitude;
+      low = Math.min(low, alt);
+      high = Math.max(high, alt);
+    }
+    expect(low).toBeLessThan(-0.2);
+    expect(high).toBeGreaterThan(0.2);
+  });
+
+  it("reads the whole climb in a flight, apex included", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1, vy: 9 });
+    let top = -Infinity;
+    while (state.craft.airborne) {
+      top = Math.max(top, state.craft.altitude);
+      step(state, COAST);
+    }
+    // Ballistic from 9 m/s is a little over four metres of climb on top of
+    // the metre it was launched from; the assertion is the ORDER, not the
+    // figure, since the air's drag is `flight.ts`'s to tune.
+    expect(top).toBeGreaterThan(4);
+    expect(top).toBeLessThan(8);
+  });
+
+  it("keeps the run's peak, which the apex is too brief to be read at", () => {
+    // The point of the peak: the snapshot is taken about twelve times a
+    // second and the top of a jump is one instant, so the run keeps the
+    // best of the physics rate and the chip reads that back.
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1, vy: 9 });
+    let sampled = -Infinity;
+    for (let i = 0; i < 6 * TUNING.physicsHz; i++) {
+      step(state, COAST);
+      if (i % 10 === 0) sampled = Math.max(sampled, takeSnapshot(state).altitude);
+    }
+    expect(state.progress.peakAltitude).toBeGreaterThanOrEqual(sampled);
+    expect(state.progress.peakAltitude).toBeGreaterThan(4);
+  });
+
+  it("holds the high-water tick back until the run has been somewhere worth marking", () => {
+    // Nothing on the track on the water, and a tick once a jump has cleared
+    // the floor — so the tape gains its mark on the first real flight and on
+    // no amount of chop.
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2 });
+    for (let i = 0; i < TUNING.physicsHz; i++) step(state, COAST);
+    expect(takeSnapshot(state).altitudePeakShare).toBeLessThan(0);
+
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1, vy: 9 });
+    for (let i = 0; i < 6 * TUNING.physicsHz; i++) step(state, COAST);
+    const snap = takeSnapshot(state);
+    // ...and it stands where the run's best was, not where the craft is:
+    // back on the water, the marker has come home and the tick has not.
+    expect(state.craft.airborne).toBe(false);
+    expect(snap.altitudePeakShare).toBe(altitudeShare(state.progress.peakAltitude));
+    expect(snap.altitudePeakShare).toBeGreaterThan(snap.altitudeShare);
+  });
+});
+
+// THE TAPE'S SCALE. The marker's TRAVEL is compressed and the figure beside
+// it is not, so these are claims about what the shape says, never about what
+// the rider reads: the number is `craft.altitude` to a decimal at every
+// height on here.
+describe("where the altimeter's marker sits", () => {
+  it("stands the still-water line off the foot, so a trough has somewhere to go", () => {
+    expect(altitudeShare(0)).toBe(ALT_ZERO);
+    expect(ALT_ZERO).toBeGreaterThan(0.05);
+    expect(altitudeShare(-1)).toBeLessThan(ALT_ZERO);
+    expect(altitudeShare(-1)).toBeGreaterThan(0);
+  });
+
+  it("never leaves the track at either end, however deep or however high", () => {
+    for (const m of [-400, -40, -8, 0, 0.5, 12, 150, 4000]) {
+      expect(altitudeShare(m)).toBeGreaterThanOrEqual(0);
+      expect(altitudeShare(m)).toBeLessThanOrEqual(1);
+    }
+  });
+
+  it("rises with the height and never falls back", () => {
+    let last = -1;
+    for (let m = -12; m <= 120; m += 0.25) {
+      const at = altitudeShare(m);
+      expect(at).toBeGreaterThanOrEqual(last);
+      last = at;
+    }
+  });
+
+  it("spends most of the track on the heights a rider actually reaches", () => {
+    // A ten-metre jump is most of the way up; the rest of the tape is the
+    // tornado's, which is a height nothing but the tornado reaches. Without
+    // the knee a four-metre launch — a good one off a ramp — would move the
+    // marker a few pixels and read as nothing happening.
+    const jump = altitudeShare(10) - ALT_ZERO;
+    const beyond = altitudeShare(100) - altitudeShare(10);
+    expect(jump).toBeGreaterThan(beyond * 2);
+    expect(altitudeShare(4) - ALT_ZERO).toBeGreaterThan(0.2);
   });
 });
