@@ -162,17 +162,17 @@ export type CraftState = {
    * once the rider is climbing back on (0 when not). */
   capsizedFor: number;
   righting: number;
-  /** THE PUMP's stroke detector (`TUNING.flight`, `strokes.ts`). `pumpMark`
-   * is where the lean-back input has got to on this stroke, 0..1: its PEAK
-   * while `pumpRising` (so a key held down cannot haul twice), and its
-   * trough once the bars have started back (so the next rise of
-   * `flight.pumpRise` is a fresh haul). Every step the hull has something
-   * UNDER it rearms both, and what to: zeroed on a ramp's deck, so the lean
-   * held up it is a haul at the lip; set to the lean the rider is already
-   * carrying on the water, so the same hold off a crest is no rise at all.
-   * A flight leaves them alone from its first step to its last. */
-  pumpMark: number;
-  pumpRising: boolean;
+  /** THE PUMP's stroke detector (`TUNING.flight`, `strokes.ts`): whether
+   * the lean-back input is over `flight.pumpGate` on a crossing that has
+   * already been PAID, so one crossing is one haul however long the bars
+   * are held back there. Cleared the moment the input falls back to the
+   * gate, which is what makes the next crossing a fresh haul. Every step
+   * the hull has something UNDER it rearms it, and to what: false on a
+   * ramp's deck, so the lean held up it is a haul at the lip; true on the
+   * water if he is already past the gate, so the same hold off a crest was
+   * a crossing he made down there and is worth nothing up here. A flight
+   * leaves it alone from its first step to its last. */
+  pumpCrossed: boolean;
   /** How hard the last yank threw the rider back, 0..1, decaying over
    * `flight.yankFade`: the extra reach aft it is worth (`riderAft`), and
    * what the pose draws. */
@@ -181,14 +181,14 @@ export type CraftState = {
    * what `flight.pumpCeiling` bounds, and zeroed the moment the water or
    * a deck has the hull again. */
   pumped: number;
-  /** THE WHIP's stroke detector — the same three readings on the steer
-   * axis, rearmed on the same rule, and a fourth the pump has no need of.
-   * `whipMark` is how far OVER the bars have got on this stroke (0..1,
-   * unsigned) and `whipSide` which way (+1 right, −1 left, 0 with no stroke
-   * running): the bars crossing the centre ends the throw that was running
-   * rather than deepening it. */
-  whipMark: number;
-  whipRising: boolean;
+  /** THE WHIP's stroke detector — the same reading on the steer axis,
+   * against `flight.whipGate` and rearmed on the same rule, and a second
+   * the pump has no need of: `whipSide` is which way the throw that is
+   * running went (+1 right, −1 left, 0 with none), because the bars
+   * crossing the centre END that throw rather than deepening it — and they
+   * can cross it in one step, without ever being read below the gate, when
+   * a thumb leaves the glass on one side and lands on the other. */
+  whipCrossed: boolean;
   whipSide: number;
   /** Which way the last throw went and how much of it is left, −1..1,
    * decaying over `flight.yankFade`: the reach it hangs the rider out to
@@ -199,6 +199,18 @@ export type CraftState = {
    * `flight.whipCeiling` bounds, unsigned like `pumped`, so a rider who
    * throws one way and then the other spends one budget and not two. */
   whipped: number;
+  /** WHETHER THIS FLIGHT IS A TRICK: true from the step a stroke of either
+   * kind is spent on it until the water or a deck has the hull again.
+   *
+   * It is the latch behind the one rule a rider states as "you cannot
+   * START a trick on the way down": a FIRST stroke is only ever spent by a
+   * hull that is still going UP, because a rider who leans back while
+   * falling is a rider reaching for his landing and must not be handed a
+   * flip for it. Once he has committed to one going up, though, he is
+   * committed — so every stroke AFTER the first is his to throw whichever
+   * way the hull is going, which is what lets a flip started off the lip be
+   * worked all the way down to the water (`strokes.ts`). */
+  tricking: boolean;
 };
 
 export type Progress = {

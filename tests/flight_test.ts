@@ -264,10 +264,13 @@ describe("a flight", () => {
   /** A ramp the GENERATOR actually builds (R8: 15–22°, 8–10 m), ridden the
    * way a rider rides one — the lean held back up the deck, then worked
    * from the lip. `key` is the keyboard's own lean ramp
-   * (`KEY_LEAN_ATTACK` 5 / `KEY_LEAN_RELEASE` 8), because the pump is read
-   * off the SHAPE of that axis and a raw square wave is not one. */
+   * (`KEY_LEAN_ATTACK` 18 / `KEY_LEAN_RELEASE` 16 in `input-model.ts`, which
+   * the engine cannot import), because the pump is read off the SHAPE of
+   * that axis and a raw square wave is not one — and because what a press
+   * of a given length actually REACHES is the whole question on an axis
+   * whose trick lives at the top of it. */
   function ramped(value: number, target: number): number {
-    return value + (target - value) * Math.min(1, (target === 0 ? 8 : 5) * TUNING.dt);
+    return value + (target - value) * Math.min(1, (target === 0 ? 16 : 18) * TUNING.dt);
   }
 
   function jump(
@@ -345,11 +348,11 @@ describe("a flight", () => {
       ride(state, 3, (s) => {
         lean = ramped(lean, key(t));
         t += TUNING.dt;
-        // A stroke is `pumpRising` turning true — counted here rather than
+        // A stroke is `pumpCrossed` turning true — counted here rather than
         // off `yank`, so that the strokes the budget has nothing left for
         // still count as strokes.
-        if (s.craft.pumpRising && !was) n++;
-        was = s.craft.pumpRising;
+        if (s.craft.pumpCrossed && !was) n++;
+        was = s.craft.pumpCrossed;
         return { steer: 0, throttle: 0, reverse: 0, lean, crouch: 0, reset: false };
       });
       return n;
@@ -411,18 +414,23 @@ describe("a flight", () => {
     let air = 0;
     let strokes = 0;
     let spent = 0;
-    let was = false;
+    let was = 0;
     ride(state, 30, (s) => {
       const c = s.craft;
       air = Math.max(air, c.airTime);
       spent = Math.max(spent, axis === "steer" ? c.whipped : c.pumped);
-      const rising = axis === "steer" ? c.whipRising : c.pumpRising;
-      if (rising && !was) strokes++;
-      was = rising;
+      // A stroke is ROTATION BOUGHT — the flight's budget growing. The
+      // crossing flag cannot be the reading out here: off the water it also
+      // turns true for a crossing the rider made DOWN there, which is the
+      // whole of what this case is about and the exact opposite of a stroke.
+      const budget = axis === "steer" ? c.whipped : c.pumped;
+      if (budget > was) strokes++;
+      was = budget;
       // Held from the first step — the lock a rider carries through a turn,
-      // or the trim he carries through a head sea. `release` lets go for a
-      // tenth of a second at the top of every flight and asks again.
-      const off = release && c.airborne && c.airTime > 0.3 && c.airTime % 0.2 < 0.1;
+      // or the trim he carries through a head sea. `release` lets go at the
+      // launch and asks again on the way UP, which is the only part of a
+      // flight a stroke can be opened in (`strokes.ts`).
+      const off = release && c.airborne && c.airTime < 0.15;
       held = ramped(held, off ? 0 : 1);
       return {
         steer: axis === "steer" ? held : 0,
@@ -455,6 +463,90 @@ describe("a flight", () => {
       expect(worked.strokes).toBeGreaterThan(0);
       expect(worked.spent).toBeGreaterThan(0);
     }
+  });
+
+  /** Ride a placed flight asking for the whole of one axis over a window of
+   * the flight, and report the rotation bought and whether any of it was
+   * bought while the hull was falling. The craft is stood in the air already
+   * going up, so there is no ramp and no crest in the reading — only the
+   * clock. */
+  function asked(
+    axis: "lean" | "steer",
+    from: number,
+    to: number,
+  ): { spent: number; whileFalling: number } {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true, assist: 0 });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 22, vy: 7 });
+    let t = 0;
+    let whileFalling = 0;
+    let was = 0;
+    let spent = 0;
+    ride(state, 2.4, (s) => {
+      const c = s.craft;
+      const budget = axis === "steer" ? c.whipped : c.pumped;
+      if (budget > was && c.vy <= 0) whileFalling++;
+      was = budget;
+      spent = Math.max(spent, budget);
+      // A key held the whole way through the window, so what is under test
+      // is WHEN the bars are back and never how quickly they got there.
+      const on = t >= from && t < to;
+      t += TUNING.dt;
+      return { ...COAST, [axis]: on ? 1 : 0 } as CraftInput;
+    });
+    return { spent, whileFalling };
+  }
+
+  it("a trick cannot be OPENED on the way down", () => {
+    // THE RULE a rider states as "you cannot start a trick while falling":
+    // a lean back as the water comes up is a rider reaching for his landing,
+    // and the engine used to hand him a flip for it. The apex of this flight
+    // is 0.7 s in (7 m/s under gravity), so the two windows are the same ask
+    // either side of it.
+    for (const axis of ["lean", "steer"] as const) {
+      expect(asked(axis, 0.1, 0.6).spent).toBeGreaterThan(0);
+      expect(asked(axis, 1.0, 1.8).spent).toBe(0);
+    }
+  });
+
+  it("...but one OPENED on the way up is worked the whole way down", () => {
+    // The other half of the latch (`CraftState.tricking`): committed going
+    // up, and every stroke after the first is his to throw whenever he
+    // likes. Asked for across the apex, with the bars let go in the middle
+    // so the second crossing is a fresh stroke on the way down.
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true, assist: 0 });
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 22, vy: 7 });
+    let t = 0;
+    let falling = 0;
+    let was = 0;
+    ride(state, 2.4, (s) => {
+      const c = s.craft;
+      if (c.pumped > was && c.vy <= 0) falling++;
+      was = c.pumped;
+      // Back on the way up, off over the apex, back again on the way down.
+      const on = t < 0.5 || t > 0.9;
+      t += TUNING.dt;
+      return { ...COAST, lean: on ? 1 : 0 };
+    });
+    expect(falling).toBeGreaterThan(0);
+    expect(state.craft.tricking).toBe(true);
+  });
+
+  it("only MAXING the lean is a haul; a trim under the gate is not", () => {
+    // The pitch axis's half of the gate (`tricks_test` holds the steer's):
+    // a rider trims constantly on a real sea, and everything short of the
+    // end of the axis has to stay his to trim with.
+    const G = TUNING.flight.pumpGate;
+    function spent(lean: number): number {
+      const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true, assist: 0 });
+      placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 22, vy: 7 });
+      ride(state, 0.6, () => ({ ...COAST, lean }));
+      return state.craft.pumped;
+    }
+    expect(spent(G * 0.99)).toBe(0);
+    expect(spent(1)).toBeGreaterThan(0);
+    // And the gate really is up at the end of the axis — a rider is not
+    // tricking on half of it.
+    expect(G).toBeGreaterThan(0.7);
   });
 
   it("in the air the throttle does nothing and the steer rolls", () => {

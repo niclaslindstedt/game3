@@ -135,15 +135,14 @@ export function freshCraft(spec: CraftSpec): CraftState {
     launchPending: false,
     capsizedFor: 0,
     righting: 0,
-    pumpMark: 0,
-    pumpRising: false,
+    pumpCrossed: false,
     yank: 0,
     pumped: 0,
-    whipMark: 0,
-    whipRising: false,
+    whipCrossed: false,
     whipSide: 0,
     whip: 0,
     whipped: 0,
+    tricking: false,
   };
 }
 

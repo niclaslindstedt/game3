@@ -229,15 +229,14 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   // ...and nothing of either STROKE: a craft stood here has none half
   // earned on the bars, and neither a yank nor a throw still fading out
   // from under the rider (`strokes.ts`).
-  c.pumpMark = 0;
-  c.pumpRising = false;
+  c.pumpCrossed = false;
   c.yank = 0;
   c.pumped = 0;
-  c.whipMark = 0;
-  c.whipRising = false;
+  c.whipCrossed = false;
   c.whipSide = 0;
   c.whip = 0;
   c.whipped = 0;
+  c.tricking = false;
 }
 
 /** `reset`: back to the last gate. Emits the event. */

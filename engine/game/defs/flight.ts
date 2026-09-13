@@ -60,13 +60,13 @@ export const FLIGHT = {
    * the nose down against — and together with the hold it is what a
    * backflip is made of.
    *
-   * A yank is EARNED every time the lean-back input rises `pumpRise`
-   * above its own low-water mark, and SPENT the moment the hull is light
-   * enough to be thrown with the lean still back. So one input does both
-   * jobs a rider does with it: hold it back up a RAMP'S DECK and the hull
-   * takes one yank at the lip, TAP it — off a crest, or again and again
-   * through a hang — and it takes one a tap, which is how a flip comes
-   * round off a ramp no craft could carry one off in a single pull.
+   * A yank is EARNED every time the lean-back input is carried across
+   * `pumpGate`, and SPENT the moment the hull is light enough to be thrown
+   * with the lean still back. So one input does both jobs a rider does with
+   * it: hold it back up a RAMP'S DECK and the hull takes one yank at the
+   * lip, TAP it — again and again through a hang — and it takes one a tap,
+   * which is how a flip comes round off a ramp no craft could carry one off
+   * in a single pull.
    *
    * A DECK, and not a crest: what a flight starts its mark from is what
    * was under the hull last (`strokes.ts`). The lean a rider trims a head
@@ -77,22 +77,34 @@ export const FLIGHT = {
    * stand-up, so how many taps a flip costs IS the archetype, and no
    * craft carries a knob of its own for it. */
   pump: 620,
-  /** How far the lean-back input must RISE above its low-water mark to
-   * read as a fresh yank, 0..1 — and, read the other way, how far back
-   * it must STILL be when the yank is spent, because a rider who has let
-   * go of the bars has let go of the pull.
+  /** THE GATE ON THE LEAN AXIS: how far back the input must be to be a
+   * HAUL at all, 0..1. Below it the lean is trim and buys nothing but the
+   * hold's own torque; at or above it, every fresh crossing is one whole
+   * yank (`strokes.ts` — the stroke is all-or-nothing, and this is the
+   * line it is all on one side of).
    *
-   * MEASURED against the ramp the app's keyboard actually puts on that
-   * axis (`KEY_LEAN_ATTACK` 5 / `KEY_LEAN_RELEASE` 8 in
-   * `input-model.ts`), because a tap does not reach the ends of it: a key
-   * worked at 3 Hz swings the axis 0.50, at 5 Hz 0.36, at 6 Hz 0.29 and
-   * at 8 Hz only 0.20. So this earns a yank a tap anywhere a hand
-   * actually taps and stops earning above about 7 Hz — a rider cannot
-   * machine-gun it — and a player HOLDING the key gets exactly one off a
-   * deck (a mark that only ever falls cannot be risen above twice on one
-   * stroke) and none at all off a crest, where the mark starts at the lean
-   * he was already carrying. */
-  pumpRise: 0.22,
+   * UP AT THE TOP OF THE AXIS, and that is the whole point of it. A rider
+   * crossing a real sea trims constantly — a touch back over a crest, a
+   * touch forward down its face — and a threshold set where a trim lives
+   * cannot tell the two apart: it read a rider holding his nose up through
+   * a head sea as a rider asking for a backflip. So the trick is put where
+   * nothing but a trick goes: the bars all the way back. Leaning a tad
+   * corrects the attitude, and only MAXING it turns the hull.
+   *
+   * MEASURED against the ramp the app's keyboard puts on that axis
+   * (`KEY_LEAN_ATTACK` / `KEY_LEAN_RELEASE` in `input-model.ts`, which
+   * were quickened to this gate rather than the other way round): a press
+   * of 0.1 s clears it and a flick of 0.05 s reaches 0.6 and does not, so
+   * a hand can still tap out a flip and a hand can still trim. A player
+   * HOLDING the key gets exactly one yank off a deck — one crossing is one
+   * stroke however long it is held — and none at all off a crest, where
+   * the crossing was already made on the water (`strokes.ts`).
+   *
+   * The bot reads this and caps its nose-up levelling lean AT it, which is
+   * the whole of what keeps a levelling loop from flipping the hull: the
+   * crossing is strictly above the gate, so a cap on the gate never
+   * strokes. */
+  pumpGate: 0.8,
   /** ...and the nose-up rate, rad/s, ALL the strokes of one spell may add
    * up to, times the craft's own `riderAuthority`. This is the bound on
    * the whole mechanism, and the reason there is no count of taps: it is
@@ -171,23 +183,22 @@ export const FLIGHT = {
    * which is the wrong way round for the trick a rider is asked to find
    * first. */
   whip: 620,
-  /** How far the steer input must rise above its own low-water mark to be
-   * read as a fresh throw, 0..1. LARGER than `pumpRise`, and for a reason
-   * the pitch axis does not have: the bars are in the rider's hands the
-   * whole way down every straight and through every gate, so a sideways
-   * throw has to be unmistakably a throw and not the lock he was already
-   * carrying. On the app's own steer ramp (`KEY_STEER_ATTACK`, quicker
-   * than the lean's) a key worked at 2–5 a second clears it comfortably
-   * and a held key clears it once, at a RAMP's lip — and never off a
-   * crest, where the mark is armed at the lock he was already carrying
-   * (`strokes.ts`). Which is the same reason read twice: a threshold keeps
-   * the lock out of the trick WITHIN a flight, and the arming keeps it out
-   * across the launch.
+  /** THE GATE ON THE STEER AXIS — `pumpGate` on the other one, and HIGHER
+   * than it, for a reason the pitch axis does not have: the bars are in
+   * the rider's hands the whole way down every straight and through every
+   * gate, so a sideways throw has to be unmistakably a throw and not the
+   * lock he was already carrying. Full lock is a corner; a hair past full
+   * lock is a side spin.
    *
-   * The bot reads this and caps its air steer at it, exactly as it caps
-   * its nose-up lean at `pumpRise`: a levelling loop that whipped would
+   * Below it the steer is steering and nothing else. At or above it, every
+   * fresh crossing is one whole throw, which is the same rule read twice:
+   * the gate keeps the lock out of the trick WITHIN a flight, and the
+   * arming keeps it out across the launch (`strokes.ts`).
+   *
+   * The bot reads this and caps its air steer AT it, exactly as it caps
+   * its nose-up lean at `pumpGate`: a levelling loop that whipped would
    * be a bot rolling itself over by accident. */
-  whipRise: 0.3,
+  whipGate: 0.85,
   /** ...and the budget one rider has to give one flight, rad/s of roll
    * times his own `riderAuthority` (`CraftState.whipped`) — the pump's
    * `pumpCeiling` on the other axis, and HALF AGAIN as much, for the

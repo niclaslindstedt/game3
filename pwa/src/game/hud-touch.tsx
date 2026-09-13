@@ -72,6 +72,23 @@ const BAR_LOCK_DEG = 28;
  * mapped onto a hundred-unit box — so the reach ring can be drawn at the
  * thumb's real travel. */
 const BAR_SVG_PX = 200;
+/** ...which puts the reach ring at this radius in the drawing's own units. */
+const BAR_REACH_UNITS = (BAR_REACH_PX / BAR_SVG_PX) * 100;
+/** Half the drawn bar's own height, units: the crossbar's top edge to the
+ * base grip's bottom. The art is drawn CENTRED on the box (that is what the
+ * −8 in every y below is for), so this one number bounds its travel in both
+ * directions instead of one. */
+const BAR_ART_HALF = 17;
+/** ...so the bar slides this far at full lean: right up against the reach
+ * ring and no further, at BOTH ends of the axis.
+ *
+ * The lean is the one axis of the two with nothing to SHOW for itself — a
+ * turned bar is unmistakable, a leaning rider is a few degrees of pitch
+ * behind a chase camera — and it is now the axis a trick is asked for on
+ * (`flight.pumpGate`: only a MAXED lean is a haul). So the overlay carries
+ * the whole of its travel rather than a hint of it, and the end of that
+ * travel is the ring the player can already see. */
+const BAR_LEAN_SLIDE = BAR_REACH_UNITS - BAR_ART_HALF;
 
 /** The left thumb: touching anywhere in the zone anchors a handlebar under
  * the finger; dragging sideways turns it, dragging up or down leans the
@@ -88,10 +105,11 @@ export function BarZone({ touch }: { touch: InputManager["touch"] }) {
     const rotor = rotorRef.current;
     if (rotor) {
       // A bar seen from the saddle: it turns with the steer and slides
-      // toward the rider (down) with the lean back.
+      // toward the rider (down) with the lean back, the whole way to the
+      // ring at the ends of its travel.
       rotor.setAttribute(
         "transform",
-        `translate(0 ${(lean * 8).toFixed(1)}) rotate(${(steer * BAR_LOCK_DEG).toFixed(1)} 50 50)`,
+        `translate(0 ${(lean * BAR_LEAN_SLIDE).toFixed(1)}) rotate(${(steer * BAR_LOCK_DEG).toFixed(1)} 50 50)`,
       );
     }
   };
@@ -147,12 +165,16 @@ export function BarZone({ touch }: { touch: InputManager["touch"] }) {
           <circle cx="50" cy="50" r={(BAR_REACH_PX / BAR_SVG_PX) * 100} class="hud-bar-reach" />
           <g ref={rotorRef}>
             {/* The bar itself: a crossbar with two grips and a column down
-                to the deck, seen from the saddle. */}
-            <path d="M 14 48 Q 50 40 86 48" class="hud-bar-tube" />
-            <rect x="6" y="43" width="16" height="9" rx="4" class="hud-bar-grip" />
-            <rect x="78" y="43" width="16" height="9" rx="4" class="hud-bar-grip" />
-            <path d="M 50 46 L 50 66" class="hud-bar-tube" />
-            <rect x="42" y="64" width="16" height="10" rx="3" class="hud-bar-grip" />
+                to the deck, seen from the saddle — drawn CENTRED on the box
+                (every y is 8 up from where the bar was first drawn), so that
+                a lean slides it the same distance each way and reaches the
+                ring at both ends. It still turns about the column, which is
+                on the box's centre wherever the art sits. */}
+            <path d="M 14 40 Q 50 32 86 40" class="hud-bar-tube" />
+            <rect x="6" y="35" width="16" height="9" rx="4" class="hud-bar-grip" />
+            <rect x="78" y="35" width="16" height="9" rx="4" class="hud-bar-grip" />
+            <path d="M 50 38 L 50 58" class="hud-bar-tube" />
+            <rect x="42" y="56" width="16" height="10" rx="3" class="hud-bar-grip" />
           </g>
         </svg>
       </div>
