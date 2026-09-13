@@ -12,7 +12,16 @@ export {
   type LevelRules,
   type SolidRule,
 } from "./rules.ts";
-export { clampDial, GATE_CORNER, RAMP_DIAL, rulesAtPace, type PacedRules } from "./pace.ts";
+export { nextAfter, trickDeck, type FieldWater } from "./trick-field.ts";
+export {
+  clampDial,
+  GATE_CORNER,
+  RAMP_DIAL,
+  TRICK_SHARE,
+  rulesAtPace,
+  trickStride,
+  type PacedRules,
+} from "./pace.ts";
 export { BIOMES, BIOME_IDS, biomeOf, isBiomeId, type Biome } from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";

@@ -21,6 +21,7 @@ import { valueNoise } from "../lib/noise.ts";
 import type { Biome } from "./biomes.ts";
 import { traceCoast } from "./basin.ts";
 import { type CoursePlan } from "./course.ts";
+import { layTrickField } from "./trick-field.ts";
 import type { Geology } from "./geology.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { River } from "./river.ts";
@@ -29,6 +30,7 @@ import type {
   Bounds,
   Level,
   Pod,
+  Ramp,
   Solid,
   Surface,
   TrackKind,
@@ -45,6 +47,8 @@ export type LevelPlan = {
   readonly pace: number;
   /** R33 — the multiple of R8's stock width its ramps were built at. */
   readonly rampWidth: number;
+  /** R35 — lay the TRICK FIELD down the line as well as the course. */
+  readonly tricks: boolean;
   readonly bounds: Bounds;
   /** The two grids, already baked (`layBasin`, `bakeGround`). */
   readonly offshore: Heightfield;
@@ -123,6 +127,24 @@ export function compileLevel(plan: LevelPlan): Level {
   // coast that is a function of a base line and a coast that is a place.
   const shore = traceCoast(offshore);
 
+  // R35 — the trick field, laid on the finished line. It draws nothing from
+  // the seeded stream and changes nothing else about the level, so a seed
+  // asked for a tricks run and the same seed asked for a race are the same
+  // shore with one list on it or without.
+  const gateRamps: Ramp[] = [];
+  for (const g of plan.course.gates) if (g.ramp) gateRamps.push(g.ramp);
+  const ramps = plan.tricks
+    ? layTrickField(
+        plan.course.path,
+        plan.course.length,
+        { ground, offshore, solids: plan.solids },
+        plan.wind,
+        plan.pace,
+        plan.rampWidth,
+        gateRamps,
+      )
+    : [];
+
   return {
     seed: plan.seed,
     biome: biome.id,
@@ -145,6 +167,8 @@ export function compileLevel(plan: LevelPlan): Level {
       laps: plan.course.laps,
       lapGates: plan.course.lapGates,
     },
+    ramps,
+    tricks: plan.tricks,
     start: { ...plan.course.start },
     wind: { ...plan.wind },
     water: { ...plan.water },

@@ -20,7 +20,7 @@
 // DOM-free, like every HUD payload here: this module decides, `minimap.tsx`
 // draws, and `tests/minimap_test.ts` reads this half without a browser.
 
-import { bearingToNext, gateBuoys, gatesReached, type GameState } from "@engine";
+import { bearingToNext, gateBuoys, gatesReached, rampsOf, type GameState } from "@engine";
 
 import {
   SPAN,
@@ -177,12 +177,29 @@ function gateMarks(state: GameState, span: number): GateMark[] {
   const { gates, lapGates, laps } = state.level.course;
   const lap = Math.min(Math.floor(state.progress.nextGate / lapGates), laps - 1);
   // A RUN WITH NO COURSE (`rules.course` off) has no buoys to show and no
-  // gate it owes: the rings mark where the ramps are, and every one of them
-  // is simply there.
+  // gate it owes. What it has is RAMPS — the course's own, and R35's whole
+  // trick field beside them — so the map shows every deck on the level and
+  // nothing else. They are drawn at the kind an air gate is drawn at, which
+  // is the reading a rider wants: a mark on the water worth aiming at.
   const course = state.rules.course;
+  if (!course) {
+    for (const ramp of rampsOf(state.level)) {
+      const at = project(state, ramp.x, ramp.z, span);
+      if (!inView(at)) continue;
+      out.push({
+        index: out.length,
+        kind: "air",
+        x: at[0],
+        y: at[1],
+        buoys: [],
+        radius: (ramp.width / 2) * k,
+        state: "ahead",
+      });
+    }
+    return out;
+  }
   for (let slot = 0; slot < lapGates; slot++) {
     const gate = gates[lap * lapGates + slot];
-    if (!course && gate.kind !== "air") continue;
     const at = project(state, gate.x, gate.z, span);
     if (!inView(at)) continue;
     out.push({
@@ -192,7 +209,7 @@ function gateMarks(state: GameState, span: number): GateMark[] {
       y: at[1],
       buoys: gateBuoys(gate).map((b) => project(state, b.x, b.z, span)),
       radius: gate.kind === "air" ? (gate.width / 2) * k : 0,
-      state: course ? gateState(state, gate.index) : "ahead",
+      state: gateState(state, gate.index),
     });
   }
   return out;

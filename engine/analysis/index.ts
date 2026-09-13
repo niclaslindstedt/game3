@@ -44,7 +44,7 @@ import { LEVEL_RULES as R, solidBerth, withinBand } from "../mapgen/rules.ts";
 import { GATE_CORNER, rulesAtPace } from "../mapgen/pace.ts";
 import { insideBounds } from "../mapgen/compile.ts";
 import type { Level, Pod, Vec2, Weather } from "../mapgen/types.ts";
-import { analyzeAirGate, analyzeRunUp } from "./air.ts";
+import { analyzeAirGate, analyzeRunUp, analyzeTrickField } from "./air.ts";
 import { analyzeCircuit, analyzeCircuitTurn } from "./circuit.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import {
@@ -404,6 +404,9 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     if (gates[i].kind === "air") analyzeAirGate(level, gates[i], gateD[i], path, cum, depthAt, rep);
   }
   analyzeRunUp(rep, level.pace);
+  // R35 — the trick field, on the levels that carry one. Silent on a race
+  // course, which has no `ramps` at all.
+  analyzeTrickField(level, rep);
   for (const gate of gates) {
     if (gate.kind === "water" && gate.ramp)
       rep.fail("R8", "stray", `${gate.id} is a water gate with a ramp`);

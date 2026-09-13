@@ -141,7 +141,15 @@ export function CraftPage({
   const classLocked = settings.ride.mode === "tricks";
   return (
     <div class="menu-card menu-card-craft">
-      <MenuHead back={onBack} backLabel={STRINGS.startTitle} title={STRINGS.craftTitle} />
+      {/* BACK is the start card, and the start card is now titled with the
+          GAME that was chosen at the front door — so the way out says which
+          one, and the mode is still on screen at the last card before the
+          water. */}
+      <MenuHead
+        back={onBack}
+        backLabel={STRINGS.modeName(settings.ride.mode)}
+        title={STRINGS.craftTitle}
+      />
       <div class="craft-pick-body">
         {/* THE CRAFT takes the room. It is the only thing on this card that
             cannot be said in words, and the one the whole screen exists to

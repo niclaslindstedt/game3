@@ -269,37 +269,35 @@ export const STRINGS = {
   /* ── THE MAIN MENU (menu-main.tsx) ─────────────────────────────────── */
   /** The game's own billing, under the wordmark on the front door. */
   menuTag: "ride the northern shores",
-  menuStart: "START",
+  /** The three ways onto the water are the front door's first three tiles,
+   * and their words are `modeName`'s — a tile and the card it opens must not
+   * be able to disagree about which game was pressed. */
   menuGallery: "GALLERY",
   menuOptions: "OPTIONS",
   menuDeveloper: "DEVELOPER",
   /** The way out of every page under the front door. */
   menuBack: "MENU",
-  /** What START says while it is being held down — the developer menu is
-   * seven seconds away and the row says so before it arrives, never after
+  /** What RACE says while it is being held down — the developer menu is
+   * seven seconds away and the tile says so before it arrives, never after
    * (menu-hold.ts). */
   menuHolding: "KEEP HOLDING…",
   menuUnlocked: "DEVELOPER MENU UNLOCKED",
 
   /* ── THE START CARD (menu-start.tsx, seed-preview.tsx) ─────────────── */
-  /** The card START opens: where this run is and what day it is in, before
-   * the craft card asks what rides it. */
-  startTitle: "THE RUN",
-  startSub: "Your shore, and the day you want it in",
   /** Which coast the shore is built on — the biome. One word a rung, off
    * the engine's own id, because the row is a ladder like the others. */
   startCoast: "COAST",
   startCoastHint:
     "The kind of coast the seed builds — a cold skerry shore of granite and pine, or a warm flat one of white sand and mangrove",
   coastName: (id: string): string => COAST_NAMES[id] ?? id.toUpperCase(),
-  /** THE MODE, the first row: which game the rows under it are setting up. */
-  startMode: "MODE",
+  /** THE GAME, as the front door's tiles name it and as the start card's
+   * head is titled with it. */
   modeName: (id: GameMode): string => MODE_NAMES[id],
-  modeRaceHint:
-    "Eleven others on the grid, everybody off on the same GO, and a hull you can lean on — the clock decides, and the tricks are off",
-  modeTricksHint:
-    "The shore with the course taken off it: no gates, the ramps left standing, a clock that runs down and a score that runs up — stock craft only",
-  modeTimeTrialHint: "The course against the clock, alone — your best time on this shore is kept",
+  /** The start card's one line of billing, by the game it is setting up:
+   * the head says WHICH, and this says what that one is. */
+  modeRaceLine: "Eleven others on the grid, off on the same GO — the clock decides",
+  modeTricksLine: "The course taken off the shore, the ramps left standing — stock craft only",
+  modeTimeTrialLine: "The course against the clock, with nobody else on the water",
   /** How long a tricks run is. */
   startMinutes: "LENGTH",
   startMinutesHint: "How long the clock gives you before the buzzer",

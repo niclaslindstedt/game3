@@ -8,6 +8,13 @@
 // lets the hull ride behind the hinge. The NEXT gate is lit, a passed gate
 // is dimmed, so the course reads at a glance from the saddle.
 //
+// A RAMP IS NOT ALWAYS A GATE'S. R35's TRICK FIELD is a line of decks down
+// a tricks level with no ring over any of them, and this module draws them
+// with the very same builder: a lip is a lip, and a rider must not be able
+// to tell from the water which kind they are about to climb. What tells the
+// two runs apart is the RINGS and the buoys, which `setCourse` puts away
+// together the moment there is no course to count.
+//
 // A MARK IS A LITTLE BROTHER OF THE ROUNDING BUOY (buoys.ts): the same
 // moulded-plastic navigation float an exposed coast is actually marked
 // with — a wide float collar riding the waterline, a ribbed cone over it
@@ -123,9 +130,11 @@ export type Gates = {
    * lamp is the same ANGLE of glare at every stop of the RESOLUTION row. */
   setLens: (height: number) => void;
   /** Whether the run is COUNTING the course (`rules.course`). Off, the
-   * buoys are put away — a tricks run has no line to cross — and no mark or
-   * ring is ever lit; the rings and the ramps stand, because the ramps are
-   * what the run is for and the ring says where each one throws. */
+   * BUOYS AND THE RINGS are both put away and nothing is ever lit: a ring
+   * is a checkpoint (R35), and a run with no course to count has nothing to
+   * check — a hoop left hanging over a lip in a tricks run is a target the
+   * rider is scored no points for hitting. What stands is the RAMPS, all of
+   * them, because the ramps are what the run is for. */
   setCourse: (on: boolean) => void;
 };
 
@@ -366,7 +375,8 @@ export function createGates(level: Level): Gates {
   glare.frustumCulled = false;
   group.add(glare);
 
-  // The rings and their ramps.
+  // The rings and their ramps. The ring goes away with the buoys when the
+  // course is not being counted (`setCourse`); the ramp under it never does.
   const rings: { gate: number; mesh: THREE.Mesh; material: THREE.MeshLambertMaterial }[] = [];
   for (const g of gates) {
     if (g.kind !== "air") continue;
@@ -380,6 +390,12 @@ export function createGates(level: Level): Gates {
     rings.push({ gate: g.index, mesh, material });
     if (g.ramp) group.add(buildRamp(g.ramp));
   }
+  // R35 — THE TRICK FIELD: the decks that belong to no gate, standing down
+  // the line on a level built for a tricks run and absent from every other.
+  // They are built exactly as an air gate's is — a rider must not be able to
+  // tell from the water which kind of lip they are riding at — and there is
+  // nothing over them.
+  for (const ramp of level.ramps) group.add(buildRamp(ramp));
 
   const lamps: BuoyLamp[] = markAt.map((b) => ({ x: b.x, y: LANTERN_Y, z: b.z, lit: 0 }));
   let litFor = -1;
@@ -487,6 +503,7 @@ export function createGates(level: Level): Gates {
     setCourse: (on) => {
       courseOn = on;
       for (const mesh of [bodies, ribs, frames, lenses, glare]) mesh.visible = on;
+      for (const r of rings) r.mesh.visible = on;
       // Re-lit on the next update, whichever way it went.
       litFor = -2;
     },

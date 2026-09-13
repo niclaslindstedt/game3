@@ -105,6 +105,31 @@ export function label(canvas, x, y, str, color = INK, scale = 2) {
 }
 
 /** An arrow from (x, y) along (dx, dy) pixels, `stroke` wide. */
+/** ONE RAMP, hinge to lip: the rear edge across the water and an arrow up
+ * the deck the way the hull climbs it, labelled with the ramp's id. Drawn
+ * the same for R8's decks and R35's trick field — the two are the same
+ * object, and a plan that drew them differently would be inventing a
+ * distinction the water does not make. */
+function drawRamp(canvas, rp, px, py, scale) {
+  const hx = Math.sin(rp.heading);
+  const hz = Math.cos(rp.heading);
+  const lipX = rp.x + hx * rp.length;
+  const lipZ = rp.z + hz * rp.length;
+  const wx = Math.cos(rp.heading) * (rp.width / 2);
+  const wz = -Math.sin(rp.heading) * (rp.width / 2);
+  canvas.line(px(rp.x + wx), py(rp.z + wz), px(rp.x - wx), py(rp.z - wz), MARK.ramp, 2);
+  arrow(
+    canvas,
+    px(rp.x),
+    py(rp.z),
+    px(lipX) - px(rp.x),
+    py(lipZ) - py(rp.z),
+    MARK.ramp,
+    Math.max(2, scale * 1.5),
+  );
+  label(canvas, px(rp.x) - hx * 14 - 8, py(rp.z) + hz * 14 - 4, rp.id, MARK.ramp, 1);
+}
+
 function arrow(canvas, x, y, dx, dy, ink, stroke = 2) {
   const len = Math.hypot(dx, dy);
   if (len < 2) return;
@@ -258,27 +283,7 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       const r = Math.max(5, (g.width / 2) * scale + 2);
       canvas.circle(px(g.x), py(g.z), r, MARK.ring, 2);
       canvas.circle(px(g.x), py(g.z), r - 3, [MARK.ring[0], MARK.ring[1], MARK.ring[2], 120], 1);
-      if (g.ramp) {
-        const rp = g.ramp;
-        const hx = Math.sin(rp.heading);
-        const hz = Math.cos(rp.heading);
-        // The hinge at the waterline, the arrow up the deck to the lip.
-        const lipX = rp.x + hx * rp.length;
-        const lipZ = rp.z + hz * rp.length;
-        const wx = Math.cos(rp.heading) * (rp.width / 2);
-        const wz = -Math.sin(rp.heading) * (rp.width / 2);
-        canvas.line(px(rp.x + wx), py(rp.z + wz), px(rp.x - wx), py(rp.z - wz), MARK.ramp, 2);
-        arrow(
-          canvas,
-          px(rp.x),
-          py(rp.z),
-          px(lipX) - px(rp.x),
-          py(lipZ) - py(rp.z),
-          MARK.ramp,
-          Math.max(2, scale * 1.5),
-        );
-        label(canvas, px(rp.x) - hx * 14 - 8, py(rp.z) + hz * 14 - 4, rp.id, MARK.ramp, 1);
-      }
+      if (g.ramp) drawRamp(canvas, g.ramp, px, py, scale);
     }
     const isFinish = g.index === gates.length - 1;
     const tag = isFinish ? `${g.id} FIN` : g.id;
@@ -294,6 +299,12 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       2,
     );
   }
+
+  // ── R35 — THE TRICK FIELD ─────────────────────────────────────────────
+  // The decks that belong to no gate, on the levels built for a tricks run
+  // and absent from every other. Nothing is drawn over them, which is the
+  // whole point of the rule: a ring on the plan is a checkpoint.
+  for (const rp of level.ramps) drawRamp(canvas, rp, px, py, scale);
 
   // ── The start ─────────────────────────────────────────────────────────
   const st = level.start;

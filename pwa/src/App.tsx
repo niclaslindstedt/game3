@@ -269,6 +269,13 @@ export function App() {
     gate.setCap(FRAME_RATE_CAP[settings.video.frameRate]);
   }, [settings.video, gate]);
 
+  // …and so does the HUD's own switch, because one of the HUD's readouts is
+  // drawn in the WATER rather than on the glass: the guide line under the
+  // surface (`guide-line.ts`).
+  useEffect(() => {
+    rendererRef.current?.setGuide(settings.hud.on);
+  }, [settings.hud.on]);
+
   // ...AND SO DOES THE CAMERA ROW, for the same reason and one more: the
   // pause card opens that page over a FROZEN run, and a row worded CAMERA
   // that only took effect on the next one would be a row the app ignores

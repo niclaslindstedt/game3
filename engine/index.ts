@@ -206,11 +206,13 @@ export {
   maxReverse,
   maxRpm,
   maxTrim,
+  runUpTo,
   topSpeedOf,
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).
-export { boundsPush, onRampDeck, rampDeckY, solidNear } from "./game/collision.ts";
+export { boundsPush, onRampDeck, rampDeckY, rampsOf, solidNear } from "./game/collision.ts";
 export {
+  aimPoint,
   bearingToNext,
   crossedGate,
   crossedLine,

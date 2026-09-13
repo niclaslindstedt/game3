@@ -4,39 +4,41 @@
 // bot-ridden run behind this card the whole time it is up. A menu that
 // stopped the water would be a menu that announces the game is not running.
 //
-// FOUR TILES, AND THE FIRST ONE IS THE POINT.
+// FIVE TILES, AND THE FIRST THREE ARE THE GAME.
 //
-// Each is a MARK and a NAME (menu-glyphs.tsx), two abreast. The rows this
-// replaced carried the same four words in a column three deep, which is
-// correct and reads as a form rather than as the way into a game: the mark
-// is what the eye lands on, the word is what confirms it, and a player
-// learns each one once. START keeps the orange it always had, so which tile
-// the door is FOR is still answered before anything is read.
+// Each is a MARK and a NAME (menu-glyphs.tsx), two abreast. The mark is what
+// the eye lands on, the word is what confirms it, and a player learns each
+// one once.
 //
-//   START      → the start card (menu-start.tsx): the shore, the hour and
-//                the day; then the craft card (menu-craft.tsx), where the
-//                hull is chosen and the press that rides lives. Two cards
-//                because four hulls are four shapes and a row of names
-//                cannot show one — and the last thing a rider looks at
-//                before the water should be the hull.
-//                The MODE — a race, a tricks run, a time trial — is the
-//                start card's first row rather than three tiles here,
-//                because the three share every other row on that card and
-//                a door with three ways to the same card is a door that
-//                asks the same question three times. The CAMPAIGN arrives
-//                as a tile here on the day `campaign.ts` stops being a
-//                placeholder.
+//   RACE       → the start card, set up for a race: eleven others on the
+//   TRICKS       grid, or the shore with its course taken off it, or the
+//   TIME TRIAL   course against the clock alone. THREE TILES RATHER THAN A
+//                ROW ON THE CARD BEHIND THEM, because the mode is not a
+//                setting on a run — it is which game is being played, and
+//                the three are what this game IS. A door that opens onto a
+//                card and then asks which game you meant is a door that has
+//                not answered anything. RACE keeps the orange the one way
+//                on always had, so a rider who came here to ride is looking
+//                at the tile to press before they have read a word.
+//                Each writes `settings.ride.mode` on the way through, so the
+//                card that follows is titled with the game it is setting up
+//                and its LENGTH row appears for the one mode that has one.
+//                The CAMPAIGN arrives as a tile here on the day
+//                `campaign.ts` stops being a placeholder.
 //   GALLERY    → the pictures the player took (menu-gallery.tsx), and the
-//                only place one is ever shown. It stands above OPTIONS
-//                because it is the player's own, and under START because
-//                nothing gets into it without a run first.
+//                only place one is ever shown. It stands under the three
+//                because nothing gets into it without a run first.
 //   OPTIONS    → the knobs the game actually has (menu-options.tsx), and
 //                behind one of its rows the keyboard's bindings
 //                (menu-keys.tsx).
-//   DEVELOPER  → hidden until START has been HELD for seven seconds
+//   DEVELOPER  → hidden until RACE has been HELD for seven seconds
 //                (menu-hold.ts, `DEV_HOLD_MS`), and out for good once found.
 //
-// The hold is on START and not on the wordmark or a corner because a secret
+// GALLERY and OPTIONS are QUIET (`menu-tile-quiet`): they are not ways onto
+// the water, and a front door where five tiles shout equally is a front door
+// with no way on.
+//
+// The hold is on RACE and not on the wordmark or a corner because a secret
 // nobody can be told about is a secret nobody finds. "Hold the button you
 // already press" is one sentence long, needs no diagram, and — since the tile
 // fills and SAYS SO while it is being held — cannot be stumbled into without
@@ -46,7 +48,7 @@
 // to keep in step, and the whole menu is one component tree over one canvas.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import type { TrackKind } from "@engine";
+import { GAME_MODES, type GameMode, type TrackKind } from "@engine";
 
 import { APP_NAME, REPO_URL } from "../identity.ts";
 import { MarkWave } from "./mark-wave.tsx";
@@ -62,7 +64,7 @@ import {
 import { CraftPage } from "./menu-craft.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
 import { GalleryPage } from "./menu-gallery.tsx";
-import { Glyph } from "./menu-glyphs.tsx";
+import { Glyph, type GlyphName } from "./menu-glyphs.tsx";
 import { KeysPage } from "./menu-keys.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
@@ -112,9 +114,19 @@ function VersionStamp() {
   );
 }
 
+/** The mark each way onto the water is read by, in `GAME_MODES` order. The
+ * words are the strings table's (`STRINGS.modeName`); nothing here restates
+ * one. */
+const MODE_GLYPHS: Record<GameMode, GlyphName> = {
+  race: "flag",
+  tricks: "air",
+  timeTrial: "stopwatch",
+};
+
 /**
- * START — a press that opens the start card, and a seven-second hold that
- * opens the developer menu (see this module's header for why it is this tile).
+ * RACE — a press that opens the start card set up for a race, and a
+ * seven-second hold that opens the developer menu (see this module's header
+ * for why it is this tile).
  *
  * THE PRESS IS TAKEN ON `click`, NOT ON `pointerup`, and that is what makes
  * the tile reachable three ways at once. A pointer, a key and `menu-nav.ts`'s
@@ -124,11 +136,16 @@ function VersionStamp() {
  * whether this particular click is one, because a hold that has already
  * unlocked something must not also walk off the page it just unlocked.
  */
-function StartTile({
+function HoldTile({
+  glyph,
+  label,
   unlocked,
   onStart,
   onUnlock,
 }: {
+  glyph: GlyphName;
+  /** The tile's word, already in the strings table's casing. */
+  label: string;
   unlocked: boolean;
   onStart: () => void;
   onUnlock: () => void;
@@ -211,7 +228,7 @@ function StartTile({
     <button
       type="button"
       class={`menu-tile menu-tile-start${saying ? " menu-tile-holding" : ""}`}
-      data-menu="start"
+      data-menu="race"
       data-nav-next
       // Only BEGINNING is gated on there being something left to unlock.
       // The enders are always bound: a hold that armed on the last press has
@@ -240,8 +257,8 @@ function StartTile({
           progress bar, so what is filling and what is being held are the
           same object. */}
       <span class="menu-tile-hold" style={{ transform: `scaleX(${at})` }} aria-hidden="true" />
-      <Glyph name="buoy" />
-      <span class="menu-tile-name">{saying ? STRINGS.menuHolding : STRINGS.menuStart}</span>
+      <Glyph name={glyph} />
+      <span class="menu-tile-name">{saying ? STRINGS.menuHolding : label}</span>
     </button>
   );
 }
@@ -249,10 +266,15 @@ function StartTile({
 function RootPage({
   settings,
   onNavigate,
+  onMode,
   onUnlock,
 }: {
   settings: Settings;
   onNavigate: (page: MenuPage) => void;
+  /** Which game the start card behind this door is setting up. Written on
+   * the way through rather than read back here: the tiles are a CHOICE, not
+   * a ladder showing where the stored setting stands. */
+  onMode: (mode: GameMode) => void;
   onUnlock: () => void;
 }) {
   const [said, setSaid] = useState(false);
@@ -268,22 +290,45 @@ function RootPage({
         </div>
         <span class="menu-brand-tag">{STRINGS.menuTag}</span>
       </div>
-      {/* Three tiles is the door every player sees — the developer one is
-          out until it is found — so the last of them takes the whole bottom
-          row rather than sitting beside a hole (`.menu-tiles`'s odd rule).
-          Unlocking makes it a square block of four and nothing else moves. */}
+      {/* THE THREE WAYS ONTO THE WATER FIRST, then the two things that are
+          not riding. Five is odd, so OPTIONS takes the whole bottom row
+          rather than sitting beside a hole (`.menu-tiles`'s odd rule);
+          unlocking the developer tile makes it a block of six and nothing
+          else moves. */}
       <div class="menu-tiles">
-        <StartTile
+        <HoldTile
+          glyph={MODE_GLYPHS.race}
+          label={STRINGS.modeName("race")}
           unlocked={settings.developer}
-          onStart={() => onNavigate({ page: "start" })}
+          onStart={() => {
+            onMode("race");
+            onNavigate({ page: "start" });
+          }}
           onUnlock={() => {
             setSaid(true);
             onUnlock();
           }}
         />
+        {/* RACE is the held one and is spelled out above; the other two are
+            the same press with no secret behind it. */}
+        {GAME_MODES.filter((mode) => mode !== "race").map((mode) => (
+          <button
+            key={mode}
+            type="button"
+            class="menu-tile"
+            data-menu={mode}
+            onClick={() => {
+              onMode(mode);
+              onNavigate({ page: "start" });
+            }}
+          >
+            <Glyph name={MODE_GLYPHS[mode]} />
+            <span class="menu-tile-name">{STRINGS.modeName(mode)}</span>
+          </button>
+        ))}
         <button
           type="button"
-          class="menu-tile"
+          class="menu-tile menu-tile-quiet"
           data-menu="gallery"
           onClick={() => onNavigate({ page: "gallery" })}
         >
@@ -292,7 +337,7 @@ function RootPage({
         </button>
         <button
           type="button"
-          class="menu-tile"
+          class="menu-tile menu-tile-quiet"
           data-menu="options"
           onClick={() => onNavigate({ page: "options" })}
         >
@@ -345,6 +390,7 @@ export function MainMenu({
         <RootPage
           settings={settings}
           onNavigate={onNavigate}
+          onMode={(mode) => onSettings({ ...settings, ride: { ...settings.ride, mode } })}
           onUnlock={() => onSettings({ ...settings, developer: true })}
         />
       )}
