@@ -128,6 +128,12 @@ const HALO_R = 8.4;
  * end to end. */
 const CHEVRON = "M 0 -4.6 L 3.4 1.6 L 0 0.1 L -3.4 1.6 Z";
 
+/** ANOTHER RIDER: a hull's outline at a third of the player's, pointed the
+ * way it is going. Small on purpose — eleven of them stand on this plate at
+ * the start, and the one glyph that has to stay legible among them is the
+ * player's own. */
+const RIVAL = "M 0 -3.2 L 1.5 -1.2 L 1.6 2 L -1.6 2 L -1.5 -1.2 Z";
+
 /** The run's two ends: a flag on a staff, drawn from its foot so the foot is
  * the place. Squared off for the finish, swallow-tailed for the start, so the
  * two read apart with no colour at all. */
@@ -292,6 +298,17 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
             is the one that goes on last. */}
         {map.gates.map((gate) => (
           <Gate key={gate.index} gate={gate} />
+        ))}
+        {/* THE FIELD, over the gates and under the craft: other riders are
+            things that move, which is why they stand above the marks that
+            do not, and under the one glyph that must never be hidden. */}
+        {map.rivals.map((r) => (
+          <path
+            key={r.id}
+            class="hud-minimap-rival"
+            d={RIVAL}
+            style={{ transform: place(r.x, r.y, r.heading) }}
+          />
         ))}
         {map.chevron !== null && (
           <path

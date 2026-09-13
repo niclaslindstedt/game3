@@ -27,7 +27,9 @@ change — it owns the craft rules (comments, file caps, the edit loop).
 | The rigid body and its forces | `engine/game/craft.ts` (the body, the jet, the steering, the lean, aero), `hull.ts` (the probes: buoyancy, drag, planing, slamming), `flight.ts` (the air) — the `craft-physics` skill |
 | The sea | `engine/game/water.ts` (pure functions of `x, z, t`) + `wind.ts` — the `water-feel` skill |
 | Contacts: ground, solids, ramps, gates | `engine/game/collision.ts` — the `collision` skill |
-| Run orchestration (phase, progress, splits, reset, finish, event emission) | `engine/game/step.ts` — `createGame` and the fixed 120 Hz `step`; `course.ts` for gate order and splits |
+| Run orchestration (create, the lights, the field, event emission) | `engine/game/step.ts` — `createGame`, `rulesFor` and the fixed 120 Hz `step`; ONE rider's own step (the reset, the craft, the record, the score, the clock, the course, the buzzer) is `run.ts`'s `stepRun`, run for the player and for every rival; `course.ts` for gate order and splits |
+| What a run is PLAYING BY: a mode as a bundle of rules, the open rules a measurement rides | `engine/game/defs/modes.ts` (`RunRules`, `MODE_RULES`, `OPEN_RULES`, `RACE`) → `GameState.rules`; nothing below the app branches on a mode's name, and `createGame` with no mode is the open rules, so the sim and the tests never notice a mode landing |
+| The field: the grid, rivals as whole runs over the same world, hull against hull, the standings | `engine/game/rivals.ts` — a rival is a `GameState` sharing the level, the sea, the wind, the rules and the RNG by reference, ridden by `sim/bot.ts` |
 | Standing the craft at a moment | `engine/game/place.ts` — `placeRun(state, moment)`; the `test-scenario` skill |
 | What a craft CAN do | `engine/game/limits.ts` — read by `craft.ts` AND `sim/bot.ts`; never restate a ceiling |
 | Level generation rules / vocabulary | `engine/mapgen/rules.ts` + `generate.ts` + `compile.ts` — the `mapgen-improvement` skill |

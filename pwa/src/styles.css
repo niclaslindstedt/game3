@@ -986,6 +986,16 @@ canvas {
   fill: rgb(8 32 52 / 82%);
 }
 
+/* THE FIELD on the plate: the same ink as the rocks' halo, so the eye reads
+   eleven of them as traffic and finds the red hull among them. */
+.hud-minimap-rival {
+  fill: rgb(250 252 253 / 78%);
+  stroke: rgb(8 32 52 / 80%);
+  stroke-width: 0.7;
+  paint-order: stroke fill;
+  transition: transform 120ms linear;
+}
+
 .hud-minimap-ring-track {
   fill: none;
   stroke: rgb(255 255 255 / 22%);
@@ -1620,6 +1630,96 @@ canvas {
   opacity: 0.9;
   text-shadow: 0 1px 2px var(--hud-shadow);
   white-space: nowrap;
+}
+
+/* THE LAST TEN SECONDS of a timed run: the clock goes the news column's
+   red and breathes, so a rider mid-combo knows the buzzer is close without
+   reading the figure. */
+.hud-clock-low .hud-clock-time {
+  color: var(--hud-bad);
+  animation: hud-clock-low 1s ease-in-out infinite;
+}
+
+@keyframes hud-clock-low {
+  50% {
+    opacity: 0.55;
+  }
+}
+
+/* THE PLACE: keyed on its value in the markup, so a place gained or lost
+   lands with the score chip's own thump. */
+.hud-place {
+  animation: hud-score-bank 340ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+/* THE LIGHTS. Dead centre, as big as the frame allows, and each one arrives
+   with a punch and fades as its second runs out — the same beat the sound
+   makes. Nothing is under the pointer here: the whole box lets presses
+   through to the water. */
+.hud-lights {
+  pointer-events: none;
+}
+
+.hud-count {
+  font-size: clamp(5rem, 24vmin, 12rem);
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  line-height: 1;
+  color: #fff;
+  text-shadow:
+    0 0 2px var(--hud-shadow),
+    0 3px 0 var(--hud-shadow),
+    0 4px 18px rgb(0 0 0 / 45%);
+  animation: hud-count-in 1s ease-out both;
+}
+
+.hud-count-go {
+  color: var(--hud-good);
+}
+
+/* It settles rather than vanishing: a light that faded to nothing before
+   the next one landed would leave a held frame — the pause card, a
+   screenshot — with no count on it at all. */
+@keyframes hud-count-in {
+  0% {
+    transform: scale(1.5);
+    opacity: 0;
+  }
+  18% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  60% {
+    opacity: 1;
+  }
+  100% {
+    transform: scale(0.94);
+    opacity: 0.8;
+  }
+}
+
+/* THE RESULT PLATE — the tab-away card's plate with one more line on it,
+   and a gold rim on the day the book gains a row. */
+.hud-result {
+  min-width: min(20rem, 80vw);
+  animation: hud-air-in 420ms ease-out;
+}
+
+.hud-result-record {
+  border-color: var(--hud-good);
+}
+
+.hud-result-best {
+  font-size: clamp(0.9rem, 3vmin, 1.3rem);
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--hud-good);
+  animation: hud-score-bank 340ms cubic-bezier(0.2, 1.4, 0.4, 1);
+}
+
+.hud-result-note {
+  margin-top: 0.3rem;
+  opacity: 0.7;
 }
 
 /* The centre: the pause card. */
@@ -3260,6 +3360,22 @@ button.knob-read:focus-visible {
   opacity: 0.8;
 }
 
+/* THE BEST ON THIS SHORE, under the chart: the same small type as the
+   chart's own reading, in the HUD's good green when there is one to beat. */
+.start-best {
+  margin: 0;
+  font-size: 0.64rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--hud-good);
+  text-align: center;
+}
+
+.start-best-none {
+  color: var(--hud-info);
+  opacity: 0.7;
+}
+
 .seed-preview-read {
   margin: 0;
   font-size: 0.64rem;
@@ -3571,6 +3687,14 @@ button.knob-read:focus-visible {
   border-color: var(--sea);
   background: var(--sea);
   color: #fff;
+}
+
+/* The word beside the one chip a tricks run leaves on the row. */
+.craft-class-note {
+  font-size: clamp(0.5rem, 1.9vmin, 0.62rem);
+  letter-spacing: 0.1em;
+  color: var(--hud-info);
+  opacity: 0.8;
 }
 
 .craft-blurb {

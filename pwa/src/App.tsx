@@ -26,6 +26,8 @@
 // these, so a frame is always handed on as a URL):
 //   ?seed=38       which level (default 38)
 //   ?biome=taiga   which COAST the seed is built on (taiga | mangrove)
+//   ?mode=race     the start card's MODE row: race | tricks | timeTrial
+//   ?minutes=4     ...and its LENGTH row, for a tricks run: 2 | 4 | 6
 //   ?craft=skiff   which craft (skiff | marlin | otter | dart)
 //   ?scene=launch  stand the run in a staged moment (scenarios.ts) and ride
 //                  its script; without it the run starts at `level.start`
@@ -121,23 +123,15 @@
 // holding is the one surface that has to know the difference.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import {
-  type CraftInput,
-  type GameEvent,
-  type GameState,
-  TUNING,
-  botInput,
-  craftById,
-  error,
-  step,
-} from "@engine";
+import { type CraftInput, type GameState, TUNING, botInput, error, step } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
 import { onShellCommand } from "./shell-host.ts";
 import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
 import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
 import { runRumble, setRumble } from "./game/haptics.ts";
-import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
+import { Hud, hasTouch, type HudFlash, type HudResult } from "./game/hud.tsx";
+import { flashFor, recordKeyFor, resultFor, shotLabel } from "./game/run-news.ts";
 import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager, type InputAction } from "./game/input.ts";
 import { LoadingScreen } from "./game/loading-screen.tsx";
@@ -146,6 +140,7 @@ import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
 import type { FrameCost, GameRenderer } from "./game/renderer.ts";
 import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
+import { bestFor, loadRecords, noteRecord, saveRecords, type RecordBook } from "./game/records.ts";
 import { createRunClock } from "./game/run-loop.ts";
 import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
 import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
@@ -183,60 +178,6 @@ declare global {
   }
 }
 
-/** The line an event earns in the news column, or null for the ones the
- * picture already says everything about. */
-function flashFor(e: GameEvent): { text: string; tone: HudFlash["tone"] } | null {
-  switch (e.kind) {
-    case "gate":
-      return { text: STRINGS.split(e.gate + 1, e.split), tone: "good" };
-    case "airGate":
-      return { text: STRINGS.airGate(e.gate + 1, e.split), tone: "good" };
-    case "missedGate":
-      return { text: STRINGS.missed(e.gate + 1, e.penalty), tone: "bad" };
-    case "finish":
-      return { text: STRINGS.finish(e.time), tone: "good" };
-    case "dive":
-      return { text: STRINGS.dive, tone: "bad" };
-    case "hit":
-      return { text: STRINGS.hit, tone: "bad" };
-    case "ground":
-      return { text: STRINGS.grounded, tone: "bad" };
-    // AN ELEMENT, named as it completes. The tile over the nose is already
-    // building the whole combo's line; this is the column's own record of
-    // each one as it landed, which is what a rider reads BACK after a run
-    // rather than during it. The air's own rung is not one of them: it buys
-    // no points and it is already the first word on the tile, and a news
-    // line saying AIR under every flip would push the flips off the column.
-    case "trick":
-      return e.trick === "air"
-        ? null
-        : { text: STRINGS.trick(e.trick, e.spins, e.mult), tone: "good" };
-    // ...and the combo thrown away. The BANKED half gets no line: the tile
-    // holds the figure for a moment and the score chip takes it. A bail is
-    // the one end the rider misses, because by then he is upside down.
-    case "bail":
-      return { text: STRINGS.bailed(e.lost), tone: "bad" };
-    case "land":
-      // THE RECORD IS THE BETTER NEWS. A landing that took the run's
-      // longest flight is called out as one; every other flight that
-      // counted gets the plain reading, and a hop that was not air time at
-      // all (`flight.airCounts`) is a wave, not a jump, and gets no line.
-      if (e.record) return { text: STRINGS.airRecord(e.airTime), tone: "good" };
-      return e.airTime > TUNING.flight.airCounts
-        ? { text: STRINGS.landed(e.airTime), tone: "info" }
-        : null;
-    default:
-      return null;
-  }
-}
-
-/** The one line of context a picture carries: which shore it was taken on
- * and which hull was under the rider. It is the gallery's caption and half
- * of the file's name (`game/screenshots.ts`). */
-function shotLabel(state: GameState): string {
-  return STRINGS.shotLabel(state.seed, craftById(state.craft.spec.id).name);
-}
-
 export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snap, setSnap] = useState<HudSnapshot | null>(null);
@@ -260,6 +201,14 @@ export function App() {
   const [settings, setSettings] = useState<Settings>(() =>
     settingsFor(loadSettings(), readParams(location.search)),
   );
+  /** THE RECORD BOOK (`game/records.ts`), and the run's RESULT once it has
+   * one — the plate the HUD draws over a finished run, cleared by whatever
+   * stands a new run. */
+  const [records, setRecords] = useState<RecordBook>(loadRecords);
+  const [result, setResult] = useState<HudResult | null>(null);
+  const recordsRef = useRef(records);
+  recordsRef.current = records;
+  useEffect(() => saveRecords(records), [records]);
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
   const rendererRef = useRef<GameRenderer | null>(null);
   const [touch] = useState(hasTouch);
@@ -461,6 +410,33 @@ export function App() {
       // the receipt then says only that the picture was filed.
       wantedShot = { label: shotLabel(state), hud: readHudLayer(), copy: copyWhenReady() };
     };
+    /** THE RUN IS OVER — the finish line or the buzzer. The figure goes to
+     * the record book and the result plate goes up, only with the player's
+     * hands on the craft and only on an honest run: a scene stood by hand,
+     * a developer's wind or sea, or the bot riding under a card is not a
+     * time on this shore. */
+    const settle = (value: number): void => {
+      const s = settingsRef.current;
+      const honest =
+        playerRides(shellRef.current) &&
+        scenario === null &&
+        s.dev.scene === null &&
+        s.dev.wind === null &&
+        s.dev.hs === null;
+      if (!honest) return;
+      const key = recordKeyFor(s, params.track);
+      const book = recordsRef.current;
+      const standing = bestFor(book, key);
+      const noted = noteRecord(book, key, { value, craft: state.craft.spec.id, at: Date.now() });
+      if (noted.record) {
+        // Written through the ref as well as the state, so a second finish
+        // inside one render reads the row this one just set.
+        recordsRef.current = noted.book;
+        setRecords(noted.book);
+      }
+      setResult(resultFor(s, state, value, standing?.value ?? null, noted.record));
+    };
+
     const stepOnce = (): void => {
       step(state, inputFor());
       renderer.observe(state);
@@ -473,8 +449,10 @@ export function App() {
         runRumble.step(state.craft);
       }
       for (const e of state.events) {
-        const line = flashFor(e);
+        const line = flashFor(e, state);
         if (line) live.push({ id: flashId++, ...line, until: wall + FLASH_LIFE });
+        if (e.kind === "finish") settle(e.time);
+        else if (e.kind === "timeUp") settle(e.score);
       }
     };
 
@@ -488,6 +466,7 @@ export function App() {
       state = tryNewGame() ?? state;
       scenario = null;
       live.length = 0;
+      setResult(null);
       audio.reset();
       runRumble.reset();
       if (scene) {
@@ -561,6 +540,7 @@ export function App() {
           run: () => {
             if (built) state = built;
             live.length = 0;
+            setResult(null);
             audio.reset();
             runRumble.reset();
             renderer.load(state);
@@ -617,6 +597,7 @@ export function App() {
       toMenu: () => {
         frozen = false;
         clock.resume();
+        setResult(null);
         setMenuPage({ page: "root" });
         setShellNow("menu");
       },
@@ -909,6 +890,7 @@ export function App() {
           touch={touch}
           input={inputRef.current!}
           away={away}
+          result={result}
           fps={settings.hud.fps ? fps : null}
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
@@ -953,6 +935,8 @@ export function App() {
         <MainMenu
           page={menuPage}
           settings={settings}
+          records={records}
+          track={params.track}
           onSettings={setSettings}
           onNavigate={setMenuPage}
           onStart={() => startRunRef.current()}

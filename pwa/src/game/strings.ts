@@ -6,9 +6,9 @@
 // templates — functions of their parameters — never concatenations at the
 // call site (§39.2). Developer diagnostics are deliberately not here.
 
-import type { TrickKind, TrickPart } from "@engine";
+import type { GameMode, TrickKind, TrickPart } from "@engine";
 
-import { formatScore, formatTime } from "../lib/util.ts";
+import { formatScore, formatTime, ordinal } from "../lib/util.ts";
 
 /** The class ladder's words, by the multiple each rung is. Novice is the
  * detuned ski a rider is handed first; stock is the roster as the catalog
@@ -18,6 +18,13 @@ import { formatScore, formatTime } from "../lib/util.ts";
 const COAST_NAMES: Record<string, string> = {
   taiga: "TAIGA",
   mangrove: "MANGROVE",
+};
+
+/** THE THREE MODES' words, by the engine's id. */
+const MODE_NAMES: Record<GameMode, string> = {
+  race: "RACE",
+  tricks: "TRICKS",
+  timeTrial: "TIME TRIAL",
 };
 
 const CLASS_NAMES: Record<string, string> = {
@@ -117,6 +124,30 @@ export const STRINGS = {
   /** The gate counter, `passed / total`. */
   gates: (passed: number, total: number): string => `${passed} / ${total}`,
   gatesLabel: "GATES",
+  /** THE PLACE, in a race: where the rider stands against the field, and
+   * how many are in it. */
+  place: (place: number, of: number): string => `${ordinal(place)} / ${of}`,
+  placeLabel: "PLACE",
+  /** THE CLOCK's caption on a timed run, where it counts DOWN. */
+  clockLeftLabel: "LEFT",
+  /** THE LIGHTS: each whole second as it begins, then the word. */
+  count: (left: number): string => String(left),
+  go: "GO!",
+  /** A rival leaned on. One word: the picture says the rest. */
+  bump: "BUMP",
+  /** THE BUZZER on a timed run, in the news column. */
+  timeUp: "TIME UP",
+  /** THE RESULT PLATE, over a finished run: what the run was worth in the
+   * mode's own currency, where it stood, and whether it is the best this
+   * shore has seen. */
+  resultRace: (place: number, of: number): string => `${ordinal(place)} OF ${of}`,
+  resultTime: (seconds: number): string => formatTime(seconds),
+  resultScore: (points: number): string => `${formatScore(points)} PTS`,
+  resultNewBest: "NEW BEST",
+  resultBest: (best: string): string => `BEST ${best}`,
+  resultFirst: "FIRST RUN ON THIS SHORE",
+  /** ...and the way on, for a keyboard. */
+  resultNote: "B rides again · ESC for the menu",
   /** R30 — which lap of how many, on a circuit. Nothing to read on a coast
    * sprint, which is one pass of one course, so the HUD leaves it out. */
   laps: (lap: number, total: number): string => `${lap} / ${total}`,
@@ -173,6 +204,8 @@ export const STRINGS = {
    * what stands there once the last one is behind the craft. */
   mapToNext: (metres: number): string => `${Math.round(metres)} M`,
   mapAtFinish: "FINISH",
+  /** ...and on a run with no course, how far the nearest ramp is. */
+  mapToRamp: (metres: number): string => `RAMP ${Math.round(metres)} M`,
   /** What the minimap's scale bar is worth. Always a round figure, so it is
    * read rather than parsed. */
   mapScale: (metres: number): string => `${metres} M`,
@@ -197,6 +230,8 @@ export const STRINGS = {
   airGate: (gate: number, seconds: number): string => `RING ${gate}  ${formatTime(seconds)}`,
   missed: (gate: number, penalty: number): string => `MISSED GATE ${gate}  +${penalty.toFixed(0)}s`,
   finish: (seconds: number): string => `FINISH  ${formatTime(seconds)}`,
+  finishPlace: (place: number, of: number, seconds: number): string =>
+    `${ordinal(place)} OF ${of}  ${formatTime(seconds)}`,
   dive: "DIVE",
   hit: "HIT",
   grounded: "AGROUND",
@@ -257,6 +292,26 @@ export const STRINGS = {
   startCoastHint:
     "The kind of coast the seed builds — a cold skerry shore of granite and pine, or a warm flat one of white sand and mangrove",
   coastName: (id: string): string => COAST_NAMES[id] ?? id.toUpperCase(),
+  /** THE MODE, the first row: which game the rows under it are setting up. */
+  startMode: "MODE",
+  modeName: (id: GameMode): string => MODE_NAMES[id],
+  modeRaceHint:
+    "Eleven others on the grid, everybody off on the same GO, and a hull you can lean on — the clock decides, and the tricks are off",
+  modeTricksHint:
+    "The shore with the course taken off it: no gates, the ramps left standing, a clock that runs down and a score that runs up — stock craft only",
+  modeTimeTrialHint: "The course against the clock, alone — your best time on this shore is kept",
+  /** How long a tricks run is. */
+  startMinutes: "LENGTH",
+  startMinutesHint: "How long the clock gives you before the buzzer",
+  minutes: (n: number): string => `${n} MIN`,
+  /** THE BEST THIS SHORE HAS SEEN, under the chart: the record in the
+   * mode's own currency and the hull that set it, or the line that says
+   * there is none yet. */
+  startBestTime: (seconds: number, craft: string): string =>
+    `BEST ${formatTime(seconds)} · ${craft.toUpperCase()}`,
+  startBestScore: (points: number, craft: string): string =>
+    `BEST ${formatScore(points)} PTS · ${craft.toUpperCase()}`,
+  startBestNone: "NO BEST YET ON THIS SHORE",
   startShore: "SHORE",
   startShoreHint: "The seed the whole coast is built from — type one in to ride somebody else's",
   startTime: "TIME",
@@ -298,6 +353,8 @@ export const STRINGS = {
    * rather than only a faster hull. */
   classRow: "CLASS",
   className: (id: string): string => CLASS_NAMES[id] ?? id,
+  /** ...and why the row has one chip on it in a tricks run. */
+  classLocked: "STOCK ONLY IN TRICKS",
   /** The arrows either side of the hull, for a reader who cannot see it. */
   craftPrev: "Previous craft",
   craftNext: "Next craft",

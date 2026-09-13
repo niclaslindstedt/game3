@@ -11,6 +11,8 @@
 
 import {
   type CraftId,
+  type GameMode,
+  isGameMode,
   SEASONS,
   type Season,
   TIMES_OF_DAY,
@@ -26,7 +28,7 @@ import {
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import type { MenuPage } from "./menu-main.tsx";
 import { isScenarioName, type ScenarioName } from "./scenarios.ts";
-import { CONDITIONS, type Conditions, type Settings } from "./settings.ts";
+import { CONDITIONS, TRICK_MINUTES, type Conditions, type Settings } from "./settings.ts";
 import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
@@ -70,6 +72,10 @@ export type Params = {
   weather: Weather | undefined;
   /** The start card's COAST row: which biome the seed is built on. */
   biome: BiomeId | undefined;
+  /** The start card's MODE row, and the LENGTH row under it in a tricks
+   * run, minutes. Settings like the rows above them. */
+  mode: GameMode | undefined;
+  minutes: number | undefined;
   /** The picture rows a link names — the same three ladders and the same
    * switch OPTIONS ▸ VIDEO turns, and settings in the same way: laid over the
    * stored ones, never read straight into the renderer. */
@@ -145,6 +151,8 @@ export function readParams(search: string): Params {
       ? (p.get("day") as Conditions)
       : undefined,
     biome: isBiomeId(p.get("biome")) ? (p.get("biome") as BiomeId) : undefined,
+    mode: isGameMode(p.get("mode")) ? (p.get("mode") as GameMode) : undefined,
+    minutes: TRICK_MINUTES.find((m) => String(m) === p.get("minutes")),
     camera: stop(CAMERA_MODES, "camera"),
     water: stop(WATER_LEVELS, "water"),
     resolution: stop(RESOLUTION_LEVELS, "res"),
@@ -193,6 +201,8 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.craft !== null) settings.ride.craft = params.craft;
   if (params.seed !== null) settings.ride.seed = params.seed;
   if (params.biome !== undefined) settings.ride.biome = params.biome;
+  if (params.mode !== undefined) settings.ride.mode = params.mode;
+  if (params.minutes !== undefined) settings.ride.tricksMinutes = params.minutes;
   if (params.time !== undefined) settings.ride.time = params.time;
   if (params.season !== undefined) settings.ride.season = params.season;
   if (params.day !== undefined) settings.ride.conditions = params.day;

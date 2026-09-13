@@ -133,7 +133,7 @@ describe("what an event is worth in the hands", () => {
       { kind: "missedGate", t: 0, gate: 4, penalty: 5 },
       { kind: "launch", t: 0, vy: 6, speed: 22 },
       { kind: "reset", t: 0, gate: 4 },
-      { kind: "finish", t: 0, time: 96.3 },
+      { kind: "finish", t: 0, time: 96.3, place: 1 },
     ];
     for (const event of quiet) expect(rumbleForEvent(event), event.kind).toBe(null);
   });

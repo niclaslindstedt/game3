@@ -766,6 +766,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.hitCooldown = Math.max(0, c.hitCooldown - dt);
   c.groundCooldown = Math.max(0, c.groundCooldown - dt);
   c.tornadoCooldown = Math.max(0, c.tornadoCooldown - dt);
+  c.bumpCooldown = Math.max(0, c.bumpCooldown - dt);
   c.landing = Math.min(c.landing + dt, 1e6);
 
   // FLIGHT is read, not declared: the hull is airborne when nothing on it
@@ -827,18 +828,23 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // open a trick on the way down, and cannot be stopped from working one he
   // opened on the way up. `launchVy` above says the flight began going up,
   // which a flight past its apex still satisfies — this is the reading NOW.
-  stepStrokes(
-    c,
-    spec,
-    I,
-    input,
-    airborne &&
-      !contact.overRamp &&
-      c.airTime >= T.flight.minAir &&
-      c.launchVy >= T.flight.launchVy,
-    contact.onRamp,
-    c.vy > 0,
-  );
+  // ...AND ONLY WHERE THE RUN IS PLAYING FOR THEM (`rules.tricks`): in a
+  // race a lean held back through the lip is trim and nothing more, so a
+  // rider trimming a landing at full lean is not handed a flip for it.
+  if (state.rules.tricks) {
+    stepStrokes(
+      c,
+      spec,
+      I,
+      input,
+      airborne &&
+        !contact.overRamp &&
+        c.airTime >= T.flight.minAir &&
+        c.launchVy >= T.flight.launchVy,
+      contact.onRamp,
+      c.vy > 0,
+    );
+  }
 
   // A DIVE develops over the steps after a landing: the bow keeps going
   // in. Reported once per landing.

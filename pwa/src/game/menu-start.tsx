@@ -2,11 +2,18 @@
 // THE START CARD — the first of the two questions between the front door and
 // the water: WHERE, and WHEN.
 //
-// SIX ROWS, AND NOT ONE MORE. A card standing between a player and a game
+// SEVEN ROWS, AND NOT ONE MORE. A card standing between a player and a game
 // they have already said yes to earns its place only if every row on it
-// changes the ride they are about to have, so it asks the six things that
+// changes the ride they are about to have, so it asks the seven things that
 // do and leaves everything else to OPTIONS:
 //
+//   MODE     which GAME the rows under it are setting up (`GAME_MODES`): a
+//            RACE against the field, a timed run for TRICKS, or the course
+//            against the clock alone in a TIME TRIAL. First, because it
+//            decides what the shore is FOR — and because the length row
+//            under it exists only in one of the three: LENGTH, how many
+//            minutes a tricks run is given, stands under MODE while TRICKS
+//            is chosen and nowhere otherwise.
 //   COAST    which BIOME the seed is built on — the taiga's granite and
 //            pine, or the mangrove's white sand and turquoise water. Above
 //            the seed because the seed is read against it: the same number
@@ -75,11 +82,14 @@
 
 import {
   BIOME_IDS,
+  GAME_MODES,
   SEASONS,
   TIMES_OF_DAY,
   type BiomeId,
+  type GameMode,
   type Season,
   type TimeOfDay,
+  type TrackKind,
   type Weather,
   biomeOf,
 } from "@engine";
@@ -87,17 +97,42 @@ import { useState } from "preact/hooks";
 
 import { MenuHead } from "./menu.tsx";
 import { Caption, NumberRow, StepRow, type Stop } from "./menu-knobs.tsx";
+import { classFor } from "./new-game.ts";
+import { bestFor, scoresHigher, type RecordBook } from "./records.ts";
 import { SeedPreview, useSeedPreview } from "./seed-preview.tsx";
 import {
   CONDITIONS,
   CONDITION_DAY,
   DEFAULT_SEED,
   SEED_RANGE,
+  TRICK_MINUTES,
   conditionsFor,
   type Conditions,
   type Settings,
 } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
+
+const MODE_HINTS: Record<GameMode, string> = {
+  race: STRINGS.modeRaceHint,
+  tricks: STRINGS.modeTricksHint,
+  timeTrial: STRINGS.modeTimeTrialHint,
+};
+
+/** The modes, in the engine's order, each with its own line for the
+ * caption: a row whose stops are three different games is the one row on
+ * this card whose hint has to change with the value. */
+const MODE_STOPS: Stop<GameMode>[] = GAME_MODES.map((id) => ({
+  id,
+  label: STRINGS.modeName(id),
+  hint: MODE_HINTS[id],
+}));
+
+/** How long a tricks run is, as the row spells it — the ids are the minutes
+ * themselves, so the row and the setting are the same number. */
+const MINUTE_STOPS: Stop<string>[] = TRICK_MINUTES.map((m) => ({
+  id: String(m),
+  label: STRINGS.minutes(m),
+}));
 
 const TIME_LABELS: Record<TimeOfDay, string> = {
   sunrise: STRINGS.timeSunrise,
@@ -158,11 +193,19 @@ const COAST_STOPS: Stop<BiomeId>[] = BIOME_IDS.map((id) => ({
 
 export function StartPage({
   settings,
+  records,
+  track,
   onSettings,
   onBack,
   onNext,
 }: {
   settings: Settings;
+  /** The record book, for the line under the chart: the best this shore has
+   * seen in this mode. */
+  records: RecordBook;
+  /** R29 — which chapter the seed is dealt from, which is the URL's alone
+   * and part of what names a record. */
+  track: TrackKind | undefined;
   onSettings: (settings: Settings) => void;
   onBack: () => void;
   /** On to the craft card, which is where RIDE is (see the header). */
@@ -209,6 +252,25 @@ export function StartPage({
   const pick = <T extends string>(id: T, dealtId: T | null): T | null =>
     id === dealtId ? null : id;
 
+  // THE BEST THIS SHORE HAS SEEN, in this mode — the one line on the card
+  // that is about the player rather than the level, and the reason to ride
+  // this seed again. The key is the level's identity as `records.ts` names
+  // it, at the class the run will actually be ridden at.
+  const best = bestFor(records, {
+    mode: ride.mode,
+    biome: ride.biome,
+    seed,
+    track: track ?? "coast",
+    speedClass: classFor(settings),
+    minutes: ride.tricksMinutes,
+  });
+  const bestLine =
+    best === null
+      ? STRINGS.startBestNone
+      : scoresHigher(ride.mode)
+        ? STRINGS.startBestScore(best.value, best.craft)
+        : STRINGS.startBestTime(best.value, best.craft);
+
   return (
     <div class="menu-card menu-card-start" onPointerLeave={() => setHint(null)}>
       <MenuHead
@@ -250,6 +312,25 @@ export function StartPage({
         <div class="start-col">
           <div class="knob-rows">
             <StepRow
+              label={STRINGS.startMode}
+              stops={MODE_STOPS}
+              value={ride.mode}
+              onPick={(mode) => setRide({ mode })}
+              onHint={setHint}
+            />
+            {/* Under MODE and only under TRICKS: the one row whose question
+                only one of the three games asks. */}
+            {ride.mode === "tricks" && (
+              <StepRow
+                label={STRINGS.startMinutes}
+                hint={STRINGS.startMinutesHint}
+                stops={MINUTE_STOPS}
+                value={String(ride.tricksMinutes)}
+                onPick={(m) => setRide({ tricksMinutes: Number(m) })}
+                onHint={setHint}
+              />
+            )}
+            <StepRow
               label={STRINGS.startCoast}
               hint={STRINGS.startCoastHint}
               stops={COAST_STOPS}
@@ -272,6 +353,7 @@ export function StartPage({
           {/* The coast that seed makes, cut from the real generated level —
               the row above is a number, and this is what the number means. */}
           <SeedPreview chart={chart} />
+          <p class={`start-best${best === null ? " start-best-none" : ""}`}>{bestLine}</p>
         </div>
         <div class="start-col">
           <div class="knob-rows">

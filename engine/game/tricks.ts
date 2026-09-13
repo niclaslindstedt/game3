@@ -189,6 +189,16 @@ export function resetTricks(state: GameState, events: GameEvent[]): void {
   bail(state, events);
 }
 
+/** THE BUZZER (`rules.limit`, `step.ts`): whatever the combo has in hand is
+ * paid as the link window would have paid it. The run is over and the
+ * rider is on the craft or he is not — a bail is a capsize or a dive and
+ * both have already had their say by the time the clock reads zero — so a
+ * flip landed on the last second is a flip he is paid for. Nothing to pay
+ * is nothing done. */
+export function closeCombo(state: GameState, events: GameEvent[]): void {
+  if (state.tricks.base > 0) bank(state, events);
+}
+
 /** One fixed step of the score, run after the craft has been stepped and
  * has left this step's `launch`, `land`, `dive` and `capsize` on the
  * events: the craft says what the hull did, and this decides what it was

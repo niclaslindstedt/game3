@@ -11,6 +11,7 @@ import type { Rng } from "../lib/prng.ts";
 import type { Quat } from "../lib/quat.ts";
 import type { Level } from "../mapgen/types.ts";
 import type { CraftSpec } from "./defs/craft.ts";
+import type { RunRules } from "./defs/modes.ts";
 import type { SeaState } from "./water.ts";
 import type { WindState } from "./wind.ts";
 
@@ -168,6 +169,12 @@ export type CraftState = {
   hitCooldown: number;
   groundCooldown: number;
   tornadoCooldown: number;
+  /** ...and one more for another HULL (`rivals.ts`): a rider leaning on a
+   * rival down a whole straight is one bump and not a hundred and twenty a
+   * second. Its own, not `hitCooldown`'s, because that one is what the bot
+   * reads to decide it is wedged against a rock — and a hull wedged in a
+   * pack at the first buoy is a hull that wants the throttle, not a reset. */
+  bumpCooldown: number;
   /** The launch's vertical speed, m/s, remembered for the `land` event. */
   launchVy: number;
   /** Whether the landing in progress has already been reported as a dive,
@@ -359,6 +366,20 @@ export type TrickState = {
   lastParts: TrickPart[];
 };
 
+/** ANOTHER RIDER ON THE SAME WATER (`rivals.ts`). A rival is a whole run
+ * of its own — its craft, its progress, its input and its events — over
+ * the SAME world: `run.level`, `.sea`, `.wind`, `.rng` and `.rules` are the
+ * player's very objects, so the two hulls ride one sea, and the bot rides
+ * it exactly as it rides the sim (`sim/bot.ts`). `pace` is the throttle the
+ * bot is allowed on this hull, 0..1, dealt off the run's stream once at the
+ * grid (`RACE.paceBand`), which is the whole of what tells one rival from
+ * the next. `id` is the slot it started from, and its name on the HUD. */
+export type Rival = {
+  id: number;
+  run: GameState;
+  pace: number;
+};
+
 export type GameEvent =
   | { kind: "gate"; t: number; gate: number; split: number }
   | { kind: "airGate"; t: number; gate: number; split: number; height: number }
@@ -420,9 +441,30 @@ export type GameEvent =
    * gate. `lost` is what it would have been worth. */
   | { kind: "bail"; t: number; lost: number }
   | { kind: "reset"; t: number; gate: number }
-  | { kind: "finish"; t: number; time: number };
+  /** ONE LIGHT OF THE COUNTDOWN: `left` is the whole seconds still to run
+   * (3, 2, 1), emitted as each begins — the beat a presentation counts
+   * on. Never emitted on a run with no lights (`rules.countdown` 0). */
+  | { kind: "count"; t: number; left: number }
+  /** THE LIGHTS WENT OUT: the countdown ran off and the clock has started.
+   * Never emitted on a run with no lights, which is `running` from its
+   * first step. */
+  | { kind: "go"; t: number }
+  /** ANOTHER HULL, met at `speed` m/s closing — the player's own contact
+   * with rival `rival` (`Rival.id`). A rival's own bumps are on its own run's
+   * events, not here. */
+  | { kind: "bump"; t: number; rival: number; speed: number }
+  /** THE BUZZER: a timed run (`rules.limit`) ran out. `score` is what was
+   * banked by then, the combo still in hand closed and paid first. */
+  | { kind: "timeUp"; t: number; score: number }
+  /** The last gate, crossed. `place` is where that put the rider against
+   * the field — 1 with nobody else on the water — and `time` the clock. */
+  | { kind: "finish"; t: number; time: number; place: number };
 
-export type GamePhase = "running" | "finished";
+/** `countdown` is the lights: the sea moves, the engines idle, nothing is
+ * steered and the clock reads 0 until `rules.countdown` seconds have gone
+ * (`GameState.countdown` is what is left of them). A run with no lights is
+ * never in it. */
+export type GamePhase = "countdown" | "running" | "finished";
 
 export type GameState = {
   seed: number;
@@ -467,6 +509,16 @@ export type GameState = {
    * all. A hard difficulty shortens this rather than only softening the
    * spring (`TUNING.assist.band`, which moves all three together). */
   assistWindow: number;
+  /** WHAT THIS RUN IS PLAYING BY (`defs/modes.ts`): whether the gates and
+   * the tricks count, how many rivals there are, how long the lights hold
+   * and whether a buzzer ends it. Read everywhere, written once. */
+  rules: RunRules;
+  /** THE FIELD: every other rider on the water, in grid order. Empty on a
+   * run nobody else is in, which is every run but a race (`rivals.ts`). */
+  rivals: Rival[];
+  /** Seconds of the lights still to run; 0 once they are out, and for the
+   * whole of a run that never had any. */
+  countdown: number;
   phase: GamePhase;
   /** This step's events, cleared at the top of each step. */
   events: GameEvent[];

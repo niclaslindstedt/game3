@@ -132,6 +132,18 @@ export function rumbleForEvent(event: GameEvent): Rumble | null {
       return { ms: 90 + 140 * hard, strength: 0.6 + 0.4 * hard };
     }
 
+    // ANOTHER HULL. A shoulder rather than a rock: shorter and softer than
+    // the same speed into stone, because the other shell gives.
+    case "bump": {
+      const hard = ramp(event.speed, 1, HIT_FULL);
+      return { ms: 60 + 90 * hard, strength: 0.4 + 0.35 * hard };
+    }
+
+    // THE LIGHTS OUT — one short tap, so a rider looking at the water
+    // rather than the count still knows the throttle is his.
+    case "go":
+      return { ms: 60, strength: 0.5 };
+
     // The keel on the bottom — a beach, a reef. A grounding is a scrape
     // rather than a blow, and it stays a scrape however fast it was taken:
     // long, and never as hard as the rock it did not hit.

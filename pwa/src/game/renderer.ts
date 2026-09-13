@@ -172,6 +172,13 @@ export function createRenderer(
   let buoys: Buoys | null = null;
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
+  /** THE FIELD, drawn: one hull and one rider per rival, posed off the
+   * rival's own run each frame. The bodies are built once per craft KIND
+   * and cloned — eleven hulls share four geometries — and the riders are
+   * each their own, because a rider is a mesh rewritten every frame. Keyed
+   * on the state's own `rivals` list, so a new run stands a new field. */
+  let field: { run: GameState; group: THREE.Group; rider: Rider }[] = [];
+  let fieldFor: GameState["rivals"] | null = null;
   let lamps: CraftLamps | null = null;
   let craftId: CraftId | null = null;
   /** The cockpit the SEA is cut out of, measured off the hull that was just
@@ -268,6 +275,30 @@ export function createRenderer(
       wellCut = wellCutOf(spec, style);
       scene.add(craft);
     }
+    if (state.rivals !== fieldFor) {
+      for (const f of field) {
+        scene.remove(f.group);
+        f.rider.dispose();
+      }
+      fieldFor = state.rivals;
+      // The pristine bodies never enter the scene: every rival is a CLONE
+      // of its kind's, so no clone carries another rival's rider with it.
+      const bodies = new Map<CraftId, THREE.Group>();
+      field = state.rivals.map((r) => {
+        const spec = r.run.craft.spec;
+        let body = bodies.get(spec.id);
+        if (!body) {
+          body = buildCraft(spec, CRAFT_STYLES[spec.id], surface);
+          bodies.set(spec.id, body);
+        }
+        const group = body.clone();
+        const own = createRider(cockpitOf(spec, CRAFT_STYLES[spec.id]), surface);
+        group.add(own.mesh);
+        scene.add(group);
+        return { run: r.run, group, rider: own };
+      });
+    }
+    gates?.setCourse(state.rules.course);
     wake.reset();
     spray.reset();
     rider?.reset();
@@ -363,13 +394,20 @@ export function createRenderer(
 
   const render = (state: GameState, dt: number): void => {
     const t0 = performance.now();
-    if (state.level !== level || state.craft.spec.id !== craftId) load(state);
+    if (state.level !== level || state.craft.spec.id !== craftId || state.rivals !== fieldFor)
+      load(state);
     const c = state.craft;
     if (craft) {
       craft.position.set(c.x, c.y, c.z);
       craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
     }
     rider?.update(state);
+    for (const f of field) {
+      const rc = f.run.craft;
+      f.group.position.set(rc.x, rc.y, rc.z);
+      f.group.quaternion.set(rc.q.x, rc.q.y, rc.q.z, rc.q.w);
+      f.rider.update(f.run);
+    }
     // THE CAMERA, applied — before the water and the cover, because both
     // submit only what the lens can see and have to be told where it stands.
     // The pose is the rig's; the lens is widened for a narrow viewport so a
@@ -526,6 +564,7 @@ export function createRenderer(
       wake.observe(state);
       spray.observe(state);
       rider?.observe(state);
+      for (const f of field) f.rider.observe(f.run);
       birds?.observe(state);
     },
     camera: rig,
@@ -547,6 +586,7 @@ export function createRenderer(
       wake.dispose();
       spray.dispose();
       rider?.dispose();
+      for (const f of field) f.rider.dispose();
       surface.dispose();
       lamps?.dispose();
       if (terrain) disposeTerrain(terrain);

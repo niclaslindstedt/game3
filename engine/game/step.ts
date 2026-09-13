@@ -11,20 +11,22 @@ import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
 import type { BiomeId, Level, TrackKind, Weather, Wind } from "../mapgen/types.ts";
 import type { Season } from "../lib/solar.ts";
 import { status } from "../output.ts";
-import { stepCraft } from "./craft.ts";
-import { freshProgress, resetCraft, standCraft, stepCourse } from "./course.ts";
-import { craftAtClass, craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
+import { freshProgress, standCraft } from "./course.ts";
+import { CRAFT_IDS, craftAtClass, craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
+import {
+  MODE_RULES,
+  OPEN_RULES,
+  TRICK_LIMITS,
+  type GameMode,
+  type RunRules,
+} from "./defs/modes.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { identity } from "../lib/quat.ts";
-import {
-  NEUTRAL_INPUT,
-  type CraftInput,
-  type CraftState,
-  type GameEvent,
-  type GameState,
-} from "./state.ts";
+import { NEUTRAL_INPUT, type CraftInput, type CraftState, type GameState } from "./state.ts";
 import { createShelter } from "./fetch.ts";
-import { freshTricks, resetTricks, stepTricks } from "./tricks.ts";
+import { clipRiders, createRivals, stepRivals } from "./rivals.ts";
+import { stepRun } from "./run.ts";
+import { freshTricks } from "./tricks.ts";
 import { createSea, seaSummary, type SeaOverride } from "./water.ts";
 import { createWind, stepWind } from "./wind.ts";
 
@@ -85,9 +87,32 @@ export type CreateGameOptions = {
    * together are what a difficulty setting moves (`TUNING.assist.band` is
    * the ladder, and it carries the ramp's dial in the same rung). */
   assistWindow?: number;
+  /** WHICH WAY ONTO THE WATER (`defs/modes.ts`): a race against a field, a
+   * timed run for tricks, or the course against the clock alone. Left out,
+   * the run is dealt the OPEN rules — every system on, nothing timed,
+   * nobody else on the water — which is what the sim, the labs and the
+   * tests ride. */
+  mode?: GameMode;
+  /** How long a TRICKS run lasts, s — one of `TRICK_LIMITS`; the shortest
+   * when nothing says. Ignored by every other mode. */
+  limit?: number;
+  /** Any rule of the mode's, overridden by hand — a lab riding a race with
+   * no lights, a test riding the open rules with a buzzer on them. */
+  rules?: Partial<RunRules>;
   /** Build without announcing the level (the sim's sweeps). */
   quiet?: boolean;
 };
+
+/** The rules a run is dealt from what it asked for: the mode's, the
+ * tricks run's own length laid over them, then any rule set by hand. */
+export function rulesFor(options: Pick<CreateGameOptions, "mode" | "limit" | "rules">): RunRules {
+  const base = options.mode === undefined ? OPEN_RULES : MODE_RULES[options.mode];
+  const limit =
+    options.mode === "tricks" && options.limit !== undefined
+      ? (TRICK_LIMITS.find((l) => l === options.limit) ?? base.limit)
+      : base.limit;
+  return { ...base, limit, ...options.rules };
+}
 
 /** A craft at rest with nothing read yet; `standCraft` puts it somewhere. */
 export function freshCraft(spec: CraftSpec): CraftState {
@@ -131,6 +156,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     hitCooldown: 0,
     groundCooldown: 0,
     tornadoCooldown: 0,
+    bumpCooldown: 0,
     launchVy: 0,
     dived: false,
     launchPending: false,
@@ -187,6 +213,7 @@ export function createGame(options: CreateGameOptions): GameState {
   // models, since they are two readings of the same coast.
   const shelter = createShelter(level, wind);
   const sea = createSea(level, options.seed, wind, options.sea, shelter);
+  const rules = rulesFor(options);
   const state: GameState = {
     seed: options.seed,
     rng: createRng(options.seed),
@@ -202,10 +229,25 @@ export function createGame(options: CreateGameOptions): GameState {
     assist: clamp(options.assist ?? TUNING.assist.air.strength, 0, 1),
     rampAssist: clamp(options.rampAssist ?? options.assist ?? TUNING.assist.ramp.strength, 0, 1),
     assistWindow: Math.max(0, options.assistWindow ?? TUNING.assist.air.window),
-    phase: "running",
+    rules,
+    rivals: [],
+    countdown: rules.countdown,
+    phase: rules.countdown > 0 ? "countdown" : "running",
     events: [],
   };
   standCraft(state, level.start.x, level.start.z, level.start.heading);
+  // THE FIELD, on the roster at the player's own class, each hull the next
+  // in the catalog after the last — so a race is against every kind of
+  // craft the game has, and the grid deals itself from the run's stream
+  // (`rivals.ts`). Nothing is drawn on a run with nobody else in it.
+  if (rules.rivals > 0) {
+    const crafts: CraftState[] = [];
+    for (let i = 0; i < rules.rivals; i++) {
+      const id = CRAFT_IDS[(CRAFT_IDS.indexOf(spec.id) + 1 + i) % CRAFT_IDS.length];
+      crafts.push(freshCraft(craftAtClass(craftById(id), speedClass)));
+    }
+    createRivals(state, crafts);
+  }
   if (!options.quiet) {
     const summary = seaSummary(sea, level.start.x, level.start.z);
     status(
@@ -218,24 +260,6 @@ export function createGame(options: CreateGameOptions): GameState {
 }
 
 /** Advance the run by exactly one fixed step. */
-/** THE RUN'S AIR RECORD, read off the flight the craft has just reported.
- * The craft knows how long it was up; only the run knows whether anything
- * has been up longer, so the comparison is here and the landing that won it
- * is marked as it goes past — one event, one flash, and `progress.bestAir`
- * and `bestAirAt` left holding the number and the moment it was set, so a
- * readout can hold it on screen without a clock of its own. A flight under `flight.airCounts` is not air
- * time at all and cannot take it. */
-function noteAirRecord(state: GameState, events: GameEvent[]): void {
-  for (let i = 0; i < events.length; i++) {
-    const e = events[i];
-    if (e.kind !== "land") continue;
-    if (e.airTime <= TUNING.flight.airCounts || e.airTime <= state.progress.bestAir) continue;
-    state.progress.bestAir = e.airTime;
-    state.progress.bestAirAt = state.t;
-    e.record = true;
-  }
-}
-
 export function step(state: GameState, input: CraftInput): GameState {
   const events = state.events;
   events.length = 0;
@@ -250,30 +274,29 @@ export function step(state: GameState, input: CraftInput): GameState {
   // or not anything feels it, so a finished run replays the same stream.
   stepWind(state.wind, state.rng, TUNING.dt);
 
-  if (input.reset && state.phase === "running") {
-    resetCraft(state, events);
-    // Being put back at a gate is the rider stepping off: whatever the
-    // combo had riding on it goes with him (`tricks.ts`).
-    resetTricks(state, events);
-    return state;
+  // THE LIGHTS. The sea moves and the engines idle under them; nothing is
+  // steered and no clock runs until they are out, and the step they go out
+  // on is the first the rider is given the throttle.
+  if (state.phase === "countdown") {
+    const was = state.countdown;
+    state.countdown = Math.max(0, was - TUNING.dt);
+    // Each light as it begins: the first on the first step, the rest as
+    // the count drops through a whole second.
+    if (was === state.rules.countdown || Math.ceil(state.countdown) < Math.ceil(was)) {
+      if (state.countdown > 0)
+        events.push({ kind: "count", t: state.t, left: Math.ceil(state.countdown) });
+    }
+    if (state.countdown <= 0) {
+      state.phase = "running";
+      events.push({ kind: "go", t: state.t });
+    }
   }
 
-  const c = state.craft;
-  const x0 = c.x;
-  const y0 = c.y;
-  const z0 = c.z;
-  stepCraft(state, state.phase === "running" ? input : NEUTRAL_INPUT, events);
-  noteAirRecord(state, events);
-  // THE RUN'S HIGH-WATER MARK, taken at the physics rate rather than off a
-  // landing: the apex of a flight is an instant with no event at it, and a
-  // presentation sampling the altimeter a dozen times a second would read
-  // the top of a jump only by luck.
-  if (c.altitude > state.progress.peakAltitude) state.progress.peakAltitude = c.altitude;
-  // After the craft and before the course: the score reads what the hull
-  // just did (it is airborne or it is not, and this step's `land`, `dive`
-  // and `capsize` are already on the list), and the course has no opinion
-  // about it either way.
-  stepTricks(state, events);
-  stepCourse(state, x0, y0, z0, events);
+  // The player, then the field, each by the same step (`run.ts`); then
+  // every hull against every other, once all of them have moved
+  // (`rivals.ts`).
+  stepRun(state, input, events);
+  stepRivals(state);
+  clipRiders(state, events);
   return state;
 }

@@ -22,6 +22,7 @@
 import { angleDiff } from "../lib/math.ts";
 import { fromEuler } from "../lib/quat.ts";
 import type { Gate, Level } from "../mapgen/types.ts";
+import { TRICK_RESET_BACK } from "./defs/modes.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { restY } from "./hull.ts";
 import type { GameEvent, GameState, Progress } from "./state.ts";
@@ -120,7 +121,9 @@ function take(state: GameState, index: number, height: number, events: GameEvent
 }
 
 /** Check the move the craft just made against the next gate (and the one
- * after it), advance the clock, and finish the run at the last gate. */
+ * after it), and finish the run at the last gate. The clock is not advanced
+ * here — `step.ts` runs it, because a run with no course to count
+ * (`rules.course` off) still has a clock to run down. */
 export function stepCourse(
   state: GameState,
   x0: number,
@@ -130,7 +133,6 @@ export function stepCourse(
 ): void {
   const p = state.progress;
   if (p.finished) return;
-  p.time += TUNING.dt;
   const gates = state.level.course.gates;
   const c = state.craft;
   const n = p.nextGate;
@@ -151,8 +153,19 @@ export function stepCourse(
   if (p.nextGate >= gates.length) {
     p.finished = true;
     state.phase = "finished";
-    events.push({ kind: "finish", t: state.t, time: p.time });
+    events.push({ kind: "finish", t: state.t, time: p.time, place: placeOf(state) });
   }
+}
+
+/** WHERE A RUN THAT HAS JUST FINISHED STANDS AGAINST THE FIELD: one more
+ * than the rivals already home. 1 with nobody else on the water. A rival's
+ * own run has no field of its own (`rivals.ts` gives it none), so a rival
+ * finishing reads 1 here and the standings are the player's to work out
+ * (`racePlace`). */
+function placeOf(state: GameState): number {
+  let ahead = 0;
+  for (const r of state.rivals) if (r.run.progress.finished) ahead += 1;
+  return ahead + 1;
 }
 
 /** Where a reset stands the craft: behind the last gate it is DONE with —
@@ -172,6 +185,35 @@ export function resetPose(state: GameState): {
 } {
   const gates = state.level.course.gates;
   const p = state.progress;
+  // A RUN WITH NO COURSE TO SEND HIM BACK ALONG (`rules.course` off): the
+  // ramps are what he is out here for, so he is stood at the foot of the
+  // nearest one's run-up, facing up it — the way home from a rock is the
+  // way to the next jump. A shore with no ramp on it sends him to the
+  // start.
+  if (!state.rules.course) {
+    const c = state.craft;
+    let best: Gate | null = null;
+    let bestD = Infinity;
+    for (const g of gates) {
+      if (!g.ramp) continue;
+      const d = Math.hypot(g.ramp.x - c.x, g.ramp.z - c.z);
+      if (d < bestD) {
+        bestD = d;
+        best = g;
+      }
+    }
+    if (best?.ramp) {
+      const r = best.ramp;
+      return {
+        x: r.x - Math.sin(r.heading) * TRICK_RESET_BACK,
+        z: r.z - Math.cos(r.heading) * TRICK_RESET_BACK,
+        heading: r.heading,
+        gate: -1,
+      };
+    }
+    const s = state.level.start;
+    return { x: s.x, z: s.z, heading: s.heading, gate: -1 };
+  }
   const last = p.nextGate - 1;
   const next = gates[Math.min(p.nextGate, gates.length - 1)];
   if (last < 0) {
@@ -226,6 +268,7 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   // hull still wedged, on a step that never runs the contact model.
   c.hitCooldown = 0;
   c.groundCooldown = 0;
+  c.bumpCooldown = 0;
   c.dived = false;
   c.launchPending = false;
   c.landing = 1e6;

@@ -8,7 +8,7 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
-import { BIOME_IDS, CLASS_BAND, SEASONS, TIMES_OF_DAY, WEATHER_IDS } from "@engine";
+import { BIOME_IDS, CLASS_BAND, GAME_MODES, SEASONS, TIMES_OF_DAY, WEATHER_IDS } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -46,6 +46,7 @@ import {
   CONDITION_DAY,
   DEFAULT_SETTINGS,
   DEV_HOLD_MS,
+  TRICK_MINUTES,
   conditionsFor,
   freshSettings,
   mergeSettings,
@@ -497,6 +498,17 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings("not a blob")).toEqual(DEFAULT_SETTINGS);
   });
 
+  it("takes a MODE off the engine's list and a tricks LENGTH off its ladder, and nothing else", () => {
+    for (const mode of GAME_MODES) expect(mergeSettings({ ride: { mode } }).ride.mode).toBe(mode);
+    expect(mergeSettings({ ride: { mode: "campaign" } }).ride.mode).toBe("race");
+    expect(mergeSettings({ ride: { mode: 2 } }).ride.mode).toBe("race");
+    for (const m of TRICK_MINUTES) {
+      expect(mergeSettings({ ride: { tricksMinutes: m } }).ride.tricksMinutes).toBe(m);
+    }
+    expect(mergeSettings({ ride: { tricksMinutes: 3 } }).ride.tricksMinutes).toBe(2);
+    expect(mergeSettings({ ride: { tricksMinutes: "4" } }).ride.tricksMinutes).toBe(2);
+  });
+
   it("takes a CLASS the build still offers and refuses one it does not", () => {
     // The same rule every picture row is held to: a rung that has been
     // retuned or dropped is one the craft card could not put the cursor
@@ -522,6 +534,10 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       hud: { on: false },
     });
     expect(stored.ride).toEqual({
+      // Not in the blob either: the mode and the tricks run's length a
+      // blob from before the start card asked them rides at the defaults.
+      mode: "race",
+      tricksMinutes: 2,
       biome: "taiga",
       craft: "dart",
       camera: "nose",

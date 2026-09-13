@@ -19,6 +19,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  RACE,
   TUNING,
   biomeOf,
   createGame,
@@ -447,5 +448,59 @@ describe("where the altimeter's marker sits", () => {
     const beyond = altitudeShare(100) - altitudeShare(10);
     expect(jump).toBeGreaterThan(beyond * 2);
     expect(altitudeShare(4) - ALT_ZERO).toBeGreaterThan(0.2);
+  });
+});
+
+describe("what the HUD reads of the mode", () => {
+  it("shows the lights while they hold, GO for a moment after, and nothing on the open rules", () => {
+    const race = createGame({ seed: 1, level: FLAT, mode: "timeTrial", quiet: true });
+    expect(takeSnapshot(race).countdown).toBe(RACE.countdown);
+    expect(takeSnapshot(race).go).toBe(false);
+    for (let i = 0; i < 1.2 * TUNING.physicsHz; i++) step(race, COAST);
+    expect(takeSnapshot(race).countdown).toBe(2);
+    while (race.phase === "countdown") step(race, COAST);
+    const snap = takeSnapshot(race);
+    expect(snap.countdown).toBe(0);
+    expect(snap.go).toBe(true);
+    for (let i = 0; i < 1.5 * TUNING.physicsHz; i++) step(race, COAST);
+    expect(takeSnapshot(race).go).toBe(false);
+
+    const open = createGame({ seed: 1, level: FLAT, quiet: true });
+    expect(takeSnapshot(open).countdown).toBe(0);
+    expect(takeSnapshot(open).go).toBe(false);
+  });
+
+  it("counts a timed run DOWN, and leaves the course off it", () => {
+    const state = createGame({
+      seed: 1,
+      level: FLAT,
+      mode: "tricks",
+      rules: { limit: 30 },
+      quiet: true,
+    });
+    for (let i = 0; i < 5 * TUNING.physicsHz; i++) step(state, COAST);
+    const snap = takeSnapshot(state);
+    expect(snap.left).toBeCloseTo(25, 2);
+    expect(snap.courseOn).toBe(false);
+    expect(snap.tricksOn).toBe(true);
+    expect(snap.riders).toBe(1);
+  });
+
+  it("reads the place against the field in a race, and the tricks off", () => {
+    const state = createGame({
+      seed: 2,
+      level: FLAT,
+      mode: "race",
+      rules: { countdown: 0 },
+      quiet: true,
+    });
+    const snap = takeSnapshot(state);
+    expect(snap.riders).toBe(RACE.rivals + 1);
+    expect(snap.place).toBeGreaterThanOrEqual(1);
+    expect(snap.place).toBeLessThanOrEqual(RACE.rivals + 1);
+    expect(snap.left).toBeNull();
+    expect(snap.tricksOn).toBe(false);
+    expect(snap.courseOn).toBe(true);
+    expect(snap.minimap.rivals.length).toBe(RACE.rivals);
   });
 });

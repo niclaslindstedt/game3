@@ -144,6 +144,9 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | THE TUCK: the rider down behind the bars, and what it costs | `CraftInput.crouch` → `CraftState.crouch` in `engine/game/craft.ts`, the drag half in `flight.ts`, `TUNING.tuck` | `craft-physics`      |
 | THE TWO STROKES: the lean-back TAPPED and the bars THROWN OVER, and the backflip and the side spin they buy | `engine/game/strokes.ts`, `TUNING.flight.pump*` / `.whip*` / `.yank*` (stated in `defs/flight.ts`) | `craft-physics`      |
 | THE SCORE: what the air, the flips and the side spins are worth, the combo and its multiplier | `engine/game/tricks.ts`, `TUNING.tricks`               | `engine-system`      |
+| THE THREE MODES: what each switches on, the open rules a measurement rides, the race's own numbers | `engine/game/defs/modes.ts` (`MODE_RULES`, `OPEN_RULES`, `RACE`, `TRICK_LIMITS`), `GameState.rules` | `engine-system`      |
+| ONE RIDER'S STEP: the reset, the craft, the record, the score, the clock, the course, the buzzer | `engine/game/run.ts` (`stepRun`) — run for the player and for every rival alike | `engine-system`      |
+| THE FIELD: the grid, the rivals ridden by the bot, hull against hull, the standings | `engine/game/rivals.ts`                                       | `engine-system`, `collision`, `bot-improvement` |
 | THE TRICK VOCABULARY: what each element is CALLED, and the line the combo reads as | `TRICK_WORDS` / `comboLine` in `pwa/src/game/strings.ts` (§39.1 — the engine names the thing, never the word) | `hud-and-menus`, `menu-system` |
 | What separates one craft from another                 | `engine/game/defs/craft.ts`                                   | `craft-tuning`       |
 | Hitting things: rocks, the ground, ramps, the bounds  | `engine/game/collision.ts`, `TUNING.contact`                  | `collision`          |
@@ -168,13 +171,15 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | WHICH KEY DOES WHAT: the actions, the shipped layout, the page that changes it | `pwa/src/game/settings-input.ts`, `menu-keys.tsx` | `menu-system`, `hud-and-menus` |
 | THE SCORE AS READ: the run's total, the combo over the nose, the beat | `pwa/src/game/snapshot.ts`'s `comboTile`, `hud.tsx`, `.hud-score` / `.hud-combo` in `styles.css` | `hud-and-menus`      |
 | The frame rate the HUD's corner reads                 | `pwa/src/game/frame-rate.ts`                                  | `hud-and-menus`      |
+| WHAT A RUN SAYS: the news line an event earns, a picture's caption, the result plate and the record row a finish takes | `pwa/src/game/run-news.ts` (pure; `App.tsx` only calls it) | `hud-and-menus`, `menu-system` |
 | The splash, the main menu, options, the developer page | `pwa/src/game/menu*.ts*`, `splash*.ts*`, `loading-screen.tsx` | `menu-system`       |
 | THE MARKS the cards are read by: the glyph set and its shapes | `pwa/src/game/menu-glyphs.tsx`, judged with `make glyphs` | `menu-system`, `ui-review` |
 | THE SHUTTER: what a picture is, how it is signed, the HUD rasterized into it | `pwa/src/game/screenshots.ts`, `shot-plan.ts` (the arithmetic, DOM-free), `shot-hud.ts` | `menu-system`, `hud-and-menus` |
 | The pictures KEPT: the roll, its cap, the store under it, the thumbnails | `pwa/src/lib/shot-roll.ts` (the policy, storage-free), `shot-store.ts` (IndexedDB), `shot-thumbs.ts` | `menu-system`      |
 | The gallery, and the three ways a picture leaves the game | `pwa/src/game/menu-gallery.tsx`, `pwa/src/lib/share-image.ts` | `menu-system`, `ui-review` |
 | The pause card: the run HELD, and the three ways on   | `pwa/src/game/menu-pause.tsx`                                  | `menu-system`       |
-| The start card: shore, time, wind, weather, then the craft | `pwa/src/game/menu-start.tsx`                                | `menu-system`       |
+| The start card: the mode, the shore, time, wind, weather, then the craft | `pwa/src/game/menu-start.tsx`                                | `menu-system`       |
+| THE RECORD BOOK: the best on each shore in each mode, what names a row, what beats one | `pwa/src/game/records.ts` (the policy, storage-free; `tests/records_test.ts` reads it) | `menu-system`        |
 | The craft card: the hull on a turntable, its spec sheet, then RIDE | `pwa/src/game/menu-craft.tsx`, `craft-picker.tsx`, `craft-turntable.ts`, `craft-stats.ts` | `menu-system`, `craft-design` |
 | The seed's chart and the day it deals, and the worker that builds both | `pwa/src/game/seed-preview.tsx`, `seed-preview-worker.ts` | `menu-system`   |
 | What the game REMEMBERS between visits                | `pwa/src/game/settings.ts`                                    | `menu-system`        |
@@ -221,14 +226,14 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | --------------------------------------------- | ---------------------------------------------------------------- |
 | Every NOTE — the scores (the sounds are built)  | nothing yet: `pwa/src/game/audio/scores/` when the reserved soundtrack skill lands, as a second view of the one synth |
 | Damage: what a hit costs the machinery        | `engine/game/damage.ts`, `pwa/src/game/damage-fx.ts`             |
-| The campaign, its modes, which seeds          | `pwa/src/game/campaign.ts`, `engine/rating/index.ts`             |
+| The campaign: which seeds make a ladder (the modes are built: `defs/modes.ts`) | `pwa/src/game/campaign.ts`, `engine/rating/index.ts`             |
 | A run recorded and watched again              | `engine/sim/tape.ts`, `pwa/src/game/replay.ts`                   |
 
 And the pieces that belong to no skill in particular:
 
 | Kind of change                                     | Where it goes                                                                                              |
 | -------------------------------------------------- | ---------------------------------------------------------------------------------------------------------- |
-| Run orchestration (create, step, phase, events)    | `engine/game/step.ts`                                                                                      |
+| Run orchestration (create, the lights, the field, events) | `engine/game/step.ts` — one rider's own step is `run.ts`, so the player and a rival are stepped by one function |
 | The state shape and the events                     | `engine/game/state.ts` — only `craft.ts`, `collision.ts`, `course.ts` and `step.ts` write it during a run (`place.ts` stands one at a moment)              |
 | A number that shapes the FEEL, shared by every craft | `engine/game/defs/tuning.ts` — every number carries its unit; the model it feeds cites its source. Three blocks are stated next door and folded in under the same names, to keep it under the §20.5 cap: `defs/assist.ts` → `TUNING.assist`, `defs/sea.ts` → `TUNING.sea` / `.wind`, `defs/flight.ts` → `TUNING.tuck` / `.flight` |
 | Level geometry / compilation                       | `engine/mapgen/compile.ts` (bakes the two heightfields ONCE; nothing downstream regenerates any of it)      |
@@ -285,6 +290,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 
 - **WHAT A TRICK IS WORTH** — `engine/game/tricks.ts`, and `TUNING.tricks` is every number behind it. Air time pays by the SECOND at a rate rising with the flight (`airPointsPerSecond`, logarithmic in how long the hull has been up, so a flight's purse grows faster than the flight does); a revolution pays base AND a step of multiplier, both rising with the revolution's index, so a double is ×4 rather than ×3; the two AXES are counted apart (`rotation`/`spins` nose-over-tail off the body pitch rate, `roll`/`rolls` about the hull's length off the body roll rate — both summed while aloft, the same readings `flight_test` measures a backflip with), so a flip with a roll in it is two FIRST revolutions; the FLIGHT ITSELF is an element worth one more step, credited only beside a trick and only once per combo, adding no base because the seconds are already paid; and nothing is banked until the combo closes with the rider still on the craft. Nothing else anywhere prices a moment: the HUD, the news column and the sim's `score` column all read `GameState.tricks` or the `trick` / `combo` / `bail` events. **No WORD for any of it is in the engine** — `TrickKind` names the thing and `TrickPart` carries the revolutions and which flight of the combo won it; the vocabulary is `pwa/src/game/strings.ts`'s (§39.1), including its one compound (a flip and a roll in ONE flight is a CORKSCREW).
 
+- **WHAT A RUN IS PLAYING BY** — `GameState.rules` (`RunRules`, `engine/game/defs/modes.ts`): whether the course counts, whether the tricks do, how many rivals there are, how long the lights hold and whether a buzzer ends it. A MODE is a named bundle of them (`MODE_RULES`) and nothing below the app branches on a mode's name; `createGame` without a mode deals `OPEN_RULES` — every system on, no lights, nobody else on the water — which is what the sim, the labs and every existing test ride, so no digest moved when the modes landed. `run.ts` reads the rules; `craft.ts` reads one (`tricks`, to leave the strokes unread). A RIVAL is a whole `GameState` over the same world (`rivals.ts`) — the level, the sea, the wind, the rules and the stream are the player's own objects — so the field is stepped by the very function the player is and ridden by the very bot the sim rides; what tells one from the next is `Rival.pace`, dealt off the stream once at the grid. `racePlace` is the one reading of where the player stands in it.
 - **The ONE clock** — `state.t` advances by `TUNING.dt` per step and is the only time the engine knows; the sea is a function of it. Nothing in `engine/` reads a wall clock (`analyzeLevel`'s report timer is the recorded exception, dev-time only).
 
 ## Test conventions

@@ -15,6 +15,7 @@ import {
   biomeOf,
   gatesReached,
   maxRpm,
+  racePlace,
   sunHourAt,
   windAt,
   type CraftId,
@@ -114,6 +115,9 @@ export function altitudeShare(m: number): number {
   return ALT_ZERO + above * (ALT_KNEE_SHARE + (1 - ALT_KNEE_SHARE) * past);
 }
 
+/** How long GO stays on screen after the lights go out, s of run clock. */
+const GO_HOLD = 1;
+
 export type HudSnapshot = {
   speedKmh: number;
   /** Revs as a share of the redline, 0..1, and where idle sits on the
@@ -131,6 +135,27 @@ export type HudSnapshot = {
   /** The run clock, s, and whether it has stopped. */
   time: number;
   finished: boolean;
+  /** THE CLOCK RUNNING DOWN: on a timed run (`rules.limit`), the seconds
+   * left rather than the seconds gone — what the clock reads, with LEFT
+   * for its caption. Null on a run that ends at a finish line. */
+  left: number | null;
+  /** THE LIGHTS: the whole second showing (3, 2, 1) while they hold the
+   * field, and 0 once they are out — or on a run that never had any. `go`
+   * is the moment after: true for `GO_HOLD` seconds of the run clock on a
+   * run that had lights, read off the engine's clock so nothing here keeps
+   * time. */
+  countdown: number;
+  go: boolean;
+  /** WHAT THIS RUN IS PLAYING FOR (`rules`): whether the gates count and
+   * whether the tricks do. A chip for a thing the run is not counting is a
+   * chip that says nothing, so the HUD leaves each out. */
+  courseOn: boolean;
+  tricksOn: boolean;
+  /** THE FIELD: where the rider stands in it, 1-based, and how many are in
+   * it, the rider included. 1 of 1 on a run alone, which is what the HUD
+   * reads to leave the chip out. */
+  place: number;
+  riders: number;
   /** THE SUN'S CLOCK: the hour the run has reached (`sunHourAt`, an hour a
    * minute from the level's own), and the word for its light — which is
    * the astronomy's word (`daylightOf`), the same one the sky keys on. */
@@ -333,6 +358,13 @@ export function takeSnapshot(state: GameState): HudSnapshot {
       c.vx * Math.sin(c.heading) + c.vz * Math.cos(c.heading) < -ASTERN_FROM,
     time: p.time,
     finished: p.finished,
+    left: state.rules.limit > 0 ? Math.max(0, state.rules.limit - p.time) : null,
+    countdown: state.phase === "countdown" ? Math.ceil(state.countdown) : 0,
+    go: state.rules.countdown > 0 && state.phase !== "countdown" && p.time < GO_HOLD,
+    courseOn: state.rules.course,
+    tricksOn: state.rules.tricks,
+    place: racePlace(state),
+    riders: state.rivals.length + 1,
     passed: gatesReached(p),
     gates: state.level.course.gates.length,
     // The final crossing of the start line belongs to the last lap rather
