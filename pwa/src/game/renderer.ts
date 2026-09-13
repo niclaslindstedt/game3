@@ -13,7 +13,7 @@
 // steer in input-model.ts.
 
 import * as THREE from "three";
-import { heightAt, type CraftId, type GameState, type Level } from "@engine";
+import { heightAt, surfaceAt, type CraftId, type GameState, type Level } from "@engine";
 
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
@@ -29,6 +29,7 @@ import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
 import { createBuoys, nearestLamps, type Buoys, type BuoyLamp } from "./buoys.ts";
 import { createGates, type Gates } from "./gates.ts";
+import { createGuideLine, type GuideLine } from "./guide-line.ts";
 import { createFlora, type CoverMirror, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
 import { createReflection } from "./reflection.ts";
@@ -94,6 +95,12 @@ export type GameRenderer = {
    * blob rather than a diff — this is the one place that knows which rows are
    * cheap to move and which are not. */
   setVideo: (video: VideoSettings) => void;
+  /** Whether the GUIDE LINE is drawn (`guide-line.ts`) — the dashed mark
+   * under the surface running to whatever the rider is riding at. It rides
+   * with the HUD's own switch rather than with a row of its own: it is a
+   * readout that happens to be drawn in the water, and a rider who turned
+   * the HUD off turned off being told where to go. */
+  setGuide: (on: boolean) => void;
   /** Let the water effects see EVERY engine step — the wake, the spray
    * and the foam read the craft at the step's cadence and are drawn at
    * the frame's — including the steps of a scene pre-rolled for a
@@ -170,6 +177,11 @@ export function createRenderer(
   let flora: Flora | null = null;
   let gates: Gates | null = null;
   let buoys: Buoys | null = null;
+  /** The guide line under the surface (`guide-line.ts`). It carries no level
+   * geometry of its own — it is rebuilt from the run every frame — so it is
+   * built ONCE here and re-added to each world rather than torn down with
+   * the shore. */
+  const guide: GuideLine = createGuideLine();
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
   /** THE FIELD, drawn: one hull and one rider per rival, posed off the
@@ -238,6 +250,7 @@ export function createRenderer(
         createFootprints(level),
         gates.group,
         buoys.group,
+        guide.group,
         fauna.group,
         birds.group,
       );
@@ -448,6 +461,12 @@ export function createRenderer(
     water.setWell(craft ? wellCut : null, c);
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state, camera);
+    // THE GUIDE LINE, under the surface, from the hull to whatever the rider
+    // is riding at. It reads the ENGINE's own water (`surfaceAt` through the
+    // run's sea and clock) rather than the mesh's vertices, so a dash two
+    // hundred metres out lies on the wave that is actually there and not on
+    // the nearest ring of a grid that has thinned by then.
+    guide.update(state, (x, z, out) => surfaceAt(state.sea, state.level, x, z, state.t, out));
     buoys?.update(state, camera);
     // R31 — THE LAMPS ON THE SEA. The gate marks and the rounding buoys
     // both throw a pool, the water can carry four of them, and which four
@@ -560,6 +579,7 @@ export function createRenderer(
     load,
     resize,
     setVideo,
+    setGuide: guide.setShown,
     observe: (state) => {
       wake.observe(state);
       spray.observe(state);

@@ -48,6 +48,7 @@ const {
   CRAFT_IDS,
   craftAtClass,
   rulesAtPace,
+  trickStride,
 } = await import(join(root, "engine/index.ts"));
 // The hinge speed a ring asks for is the bot's arithmetic (engine/sim/
 // bot.ts); it is not on the engine's public surface yet, so it is read
@@ -80,10 +81,14 @@ const args = parseArgs(
       default: 1,
       help: "R33's ramp dial — the multiple of R8's stock deck width; 1 is STOCK",
     },
+    tricks: {
+      kind: "flag",
+      help: "R35 — build it for a TRICKS run: the line of ringless ramps down the course",
+    },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -105,6 +110,7 @@ const level = generateLevel(args.seed, {
   track: args.track,
   pace: args.pace,
   rampWidth: args.ramp,
+  tricks: args.tricks,
 });
 // The rules the LISTING quotes are the ones this level was built to (R32),
 // and the hulls it quotes launch speeds for are at the same class — a run-up
@@ -207,6 +213,18 @@ const rosterLine =
         )
         .join(", ");
 const airCount = gates.filter((g) => g.kind === "air").length;
+// R35 — the trick field, which a level only carries when it was asked for.
+const fieldLine =
+  level.ramps.length === 0
+    ? ""
+    : `\ntrick field (R35): ${level.ramps.length} ringless decks every ` +
+      `${trickStride(level.pace).toFixed(0)} m, plus the ${airCount} under the rings — ` +
+      level.ramps
+        .map(
+          (r) =>
+            `${r.id} at (${r.x.toFixed(0)}, ${r.z.toFixed(0)}) facing ${deg(r.heading).toFixed(0)}°`,
+        )
+        .join(", ");
 const hour = `${String(Math.floor(level.hour)).padStart(2, "0")}:${String(
   Math.floor((level.hour % 1) * 60),
 ).padStart(2, "0")}`;
@@ -287,7 +305,7 @@ const flowLine =
     : "current: none";
 const lines = [
   heading,
-  statLine,
+  statLine + fieldLine,
   legLine,
   riverLine,
   flowLine,

@@ -364,6 +364,9 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       track,
       pace,
       rampWidth,
+      // R35 — a TRICKS run's line of ramps. Read off the option rather than
+      // drawn, so nothing in the seeded stream above moves for it.
+      tricks: opts.tricks === true,
       bounds,
       offshore: basin.offshore,
       ground,

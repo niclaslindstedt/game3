@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // CONTACT WITH WHAT IS NOT WATER: the ground under the shallows, the rocks
-// standing in the water, the ramps before the air gates, and the edge of
+// standing in the water, the ramps (an air gate's, and a tricks run's own
+// field of them), and the edge of
 // the level. Three models:
 //
 // - GROUND and RAMPS are penalty contacts on the hull probes: a probe under
@@ -140,6 +141,28 @@ export function onRampDeck(
   return { along, across };
 }
 
+/** EVERY RAMP ON A LEVEL, in course order then field order — stated once,
+ * here, because there are two places a deck comes from and nothing else
+ * should have to know that. R8's stand before an air gate and throw the
+ * hull through its ring; R35's TRICK FIELD (`Level.ramps`) stands on its own
+ * down a tricks level's line with no ring over it. A hull cannot tell them
+ * apart and neither can this function.
+ *
+ * Cached per level rather than rebuilt: a level is read-only from the
+ * moment it compiles, and this is asked once per physics step — 120 times a
+ * second, for as long as the run lasts. */
+const RAMPS = new WeakMap<Level, readonly Ramp[]>();
+
+export function rampsOf(level: Level): readonly Ramp[] {
+  const held = RAMPS.get(level);
+  if (held) return held;
+  const ramps: Ramp[] = [];
+  for (const gate of level.course.gates) if (gate.ramp) ramps.push(gate.ramp);
+  for (const ramp of level.ramps) ramps.push(ramp);
+  RAMPS.set(level, ramps);
+  return ramps;
+}
+
 /** Ground and ramp contacts over the probes, summed into `out`. */
 export function contactForces(
   level: Level,
@@ -156,8 +179,7 @@ export function contactForces(
   out.ramp = null;
   out.overRamp = false;
   out.groundSpeed = 0;
-  const ramps: Ramp[] = [];
-  for (const gate of level.course.gates) if (gate.ramp) ramps.push(gate.ramp);
+  const ramps = rampsOf(level);
   for (let i = 0; i < probes.length; i++) {
     const s = samples[i];
     // The ground — `bedAt`, not the field, so that a level's last row of

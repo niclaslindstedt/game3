@@ -57,3 +57,37 @@ export function airPitchTorque(spec: CraftSpec): number {
 export function topSpeedOf(spec: CraftSpec): number {
   return spec.topSpeed / 3.6;
 }
+
+/** HOW MUCH WATER A CRAFT NEEDS TO GET UP TO SPEED — the distance, m, from a
+ * standing start to `share` of its own top speed on flat water.
+ *
+ * A closed form rather than a scripted run, because it is asked at BUILD
+ * time: R35 spaces a tricks run's ramps by it, and a level that had to ride
+ * a hull for two hundred metres to find out where to put the next lip would
+ * be a level nobody could stand up on a phone.
+ *
+ * The model is the hull's own: thrust flat and drag quadratic in speed, so
+ * `dv/dt = a0 (1 − v²/v_max²)`, which integrates in distance to
+ * `x = (v_max² / 2a0) · ln(1 / (1 − share²))`. The initial acceleration `a0`
+ * is read back out of the spec's own `accel0to50` under the same model, so
+ * the answer moves when a craft is retuned and there is no third number to
+ * keep in step. The SPEED CLASS is already in the spec (`craftAtClass`).
+ *
+ * It is an UNDERESTIMATE in a sea and deliberately so — measured against a
+ * scripted full-throttle run on flat water it is within about a tenth
+ * (marlin 153 m against 154, dart 75 m against 69), and in a 6 m/s sea the
+ * same run takes half again as long, because a hull climbing a head sea is
+ * spending thrust on the wave rather than on the speedo. What that costs a
+ * tricks run is a rider arriving at the odd lip at ninety-odd per cent
+ * instead of ninety-five, which is a jump; what the honest sea figure would
+ * cost is half the ramps on the shore.
+ */
+export function runUpTo(spec: CraftSpec, share: number): number {
+  const vMax = topSpeedOf(spec);
+  const f = Math.min(Math.max(share, 0), 0.999);
+  // `a0` from the spec's documented standing-start time to 50 km/h, under
+  // the same model: t = (v_max / 2a0) · ln((1 + f50) / (1 − f50)).
+  const f50 = Math.min(50 / 3.6 / vMax, 0.999);
+  const a0 = (vMax / (2 * spec.accel0to50)) * Math.log((1 + f50) / (1 - f50));
+  return ((vMax * vMax) / (2 * a0)) * Math.log(1 / (1 - f * f));
+}

@@ -61,10 +61,31 @@
 //       R4's spacing by k and R23's radius by k², so the turn a gate asks
 //       for comes out GENTLER at a faster pace without anything scaling it.
 //
+//   R35 A TRICKS RUN IS A LINE OF RAMPS, AND NO RINGS. A level built for a
+//       tricks run carries a TRICK FIELD as well as its course: ramps laid
+//       down the racing line every `trickStride` metres, each one a deck of
+//       the vocabulary R8 draws and NONE of them a gate. No ring stands
+//       over a trick ramp — a ring is a checkpoint, and a run with no
+//       course to count has nothing to check — so what the rider meets is
+//       the lip and the air off it, and the whole of what the ramp is for
+//       is the score. The stride is the ONE number the field has and it is
+//       measured rather than chosen: the distance the catalog's most
+//       road-hungry hull needs to reach `TRICK_SHARE` of its own top speed
+//       from a standing start (`runUpTo`), plus the deck it climbs and the
+//       clear water R7 gives it to come down in. Every lip is therefore
+//       ridden at a pace worth leaving the water at — the failure the rule
+//       exists to prevent is a shore of ramps a rider dribbles over — and
+//       it is calibrated on the WORST craft rather than per craft so that
+//       one seed is one field: a tricks score is compared across the roster
+//       (which is why `classFor` pins the run to stock too), and a field
+//       that grew with the hull would make the hull the score.
+//
 // Split out of `rules.ts` for the §20.5 cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
 // they become at a pace and under a run's own dials.
 
+import { CRAFT, craftAtClass } from "../game/defs/craft.ts";
+import { runUpTo } from "../game/limits.ts";
 import { LEVEL_RULES } from "./rules.ts";
 
 /** The rule book with its literal types widened to plain numbers — what a
@@ -181,4 +202,47 @@ export const RAMP_DIAL = { min: 0.5, max: 2 } as const;
  * the analyzer scores against a book nothing built it to. */
 export function clampDial(rampWidth: number): number {
   return Math.min(Math.max(rampWidth, RAMP_DIAL.min), RAMP_DIAL.max);
+}
+
+/** R35 — the share of its own top speed a rider is to arrive at every lip
+ * at: the PRACTICAL top speed, as opposed to the asymptote the catalog
+ * documents. Ninety-five per cent, because the last few are a hull sitting
+ * on its own drag — a runabout spends as long going from 95 to 99 as it
+ * spent reaching 95 — and a field spaced for the asymptote is a field of
+ * long empty straights with a ramp at the end of each.
+ *
+ * Stated here rather than in `rules.ts` for R33's and R34's reason: that
+ * file is at the §20.5 cap. */
+export const TRICK_SHARE = 0.95;
+
+/** R35 — HOW FAR APART A TRICKS RUN'S RAMPS STAND, m from one hinge to the
+ * next, at the speed class `pace`.
+ *
+ * The whole of the rule: the longest run-up any hull in the catalog needs
+ * to reach {@link TRICK_SHARE} of its top speed from rest, plus the deck it
+ * then climbs and R7's landing past the lip. Taken over the roster rather
+ * than off one craft — the field is the level's, not the rider's — and the
+ * catalog's answer is not the one intuition gives: the DART is the slowest
+ * craft and needs the least road (75 m), because a low top speed is reached
+ * sooner; the MARLIN is the fastest and needs the most (153 m), so it is
+ * the marlin the shore is laid out for.
+ *
+ * Memoised per class for `rulesAtPace`'s reason — the generator asks once a
+ * level and the analyzer once a report, and the answer is a loop over four
+ * hulls. */
+const STRIDE = new Map<number, number>();
+
+export function trickStride(pace = 1): number {
+  const k = Math.max(0.1, pace);
+  const held = STRIDE.get(k);
+  if (held !== undefined) return held;
+  const R = rulesAtPace(k);
+  let run = 0;
+  for (const spec of CRAFT) run = Math.max(run, runUpTo(craftAtClass(spec, k), TRICK_SHARE));
+  // The deck and the landing are the metres the rider is NOT accelerating
+  // over, so they are added rather than counted against the run-up: the
+  // stride is hinge to hinge and the run-up is the water before a hinge.
+  const stride = run + R.ramp.length.max + R.air.landing;
+  STRIDE.set(k, stride);
+  return stride;
 }

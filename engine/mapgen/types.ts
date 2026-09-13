@@ -54,6 +54,12 @@ export type GenerateOptions = {
    * knob that lives in the LEVEL — `createGame`'s `assist` and
    * `rampAssist` are the two that live in the run. */
   rampWidth?: number;
+  /** R35 — build this level for a TRICKS run: lay the line of ramps
+   * (`trick-field.ts`) beside the course as well as on it. Off by default,
+   * and off is byte-for-byte the level every seed has always built — the
+   * field is laid after everything the seeded stream draws, so asking for
+   * one moves nothing else about the shore. */
+  tricks?: boolean;
   /** Bounded sub-seed attempts before the generator throws; defaults to
    * `LEVEL_RULES.search.attempts`. */
   attempts?: number;
@@ -152,9 +158,15 @@ export type Pod = {
   readonly scatter: number;
 };
 
-/** A floating ramp before an air gate: a flat plane the hull rides up,
- * hinged at the water at its rear edge and rising `angle` radians toward
- * its front edge. `heading` is the direction of travel up it. */
+/** A floating ramp: a flat plane the hull rides up, hinged at the water at
+ * its rear edge and rising `angle` radians toward its front edge.
+ * `heading` is the direction of travel up it.
+ *
+ * Two kinds of place carry one, and nothing about the deck itself tells
+ * them apart: R8's, which stands before an air gate and throws the hull
+ * through its ring, and R35's TRICK FIELD, which stands on its own down a
+ * tricks level's line with no ring over it at all. `Level.ramps` is the
+ * second kind; the first is `Gate.ramp`. */
 export type Ramp = {
   readonly id: string;
   readonly x: number;
@@ -286,6 +298,18 @@ export type Level = {
    * renderer through `faunaPose`; nothing in the physics touches it. */
   readonly fauna: readonly Pod[];
   readonly course: Course;
+  /** R35 — THE TRICK FIELD: the ramps that belong to no gate, in course
+   * order down the line. Empty on every level not built for a tricks run
+   * (`GenerateOptions.tricks`), which is every level a race or a time trial
+   * is ridden on. Anything that has to find the ramps a hull can hit reads
+   * BOTH this and the course's air gates — `game/collision.ts` is where the
+   * two lists are joined, and it is the only place that has to. */
+  readonly ramps: readonly Ramp[];
+  /** R35 — whether this level was BUILT for a tricks run. Carried for
+   * `pace`'s and `rampWidth`'s reason: the analyzer is handed a `Level` and
+   * nothing else, and a field that came out empty is a defect only on a
+   * level that asked for one. */
+  readonly tricks: boolean;
   /** Where the run starts: behind the first gate, pointing at it. */
   readonly start: { readonly x: number; readonly z: number; readonly heading: number };
   readonly wind: Wind;

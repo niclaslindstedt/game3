@@ -184,7 +184,15 @@ export function createGame(options: CreateGameOptions): GameState {
   // class is part of what the level is (`mapgen/rules.ts`'s `rulesAtPace`).
   const dealt =
     options.level ??
-    generateLevel(options.seed, { biome: options.biome, track: options.track, pace: speedClass });
+    generateLevel(options.seed, {
+      biome: options.biome,
+      track: options.track,
+      pace: speedClass,
+      // R35 — a TRICKS run is ridden on a shore with a line of ramps down
+      // it. The mode is what asks for them: the level is otherwise the very
+      // one a race on this seed is ridden on.
+      tricks: options.mode === "tricks",
+    });
   // A named time of day is resolved against the coast that was actually
   // dealt, which is why it is read here rather than by the caller: only the
   // level knows the latitude its daylight window is cut from (R13).

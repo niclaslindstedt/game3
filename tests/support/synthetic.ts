@@ -171,6 +171,11 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // own pods (tests/fauna_test.ts).
     fauna: [],
     course: { gates, path, length: 680, laps: 1, lapGates: gates.length },
+    // R35 — no trick field: the synthetic level's one ramp belongs to its
+    // air gate, and a rule suite staging a contact wants exactly the decks
+    // it put there.
+    ramps: [],
+    tricks: false,
     start: { x: 20, z: 40, heading: east },
     wind: { from: opts.windFrom ?? 0, speed: opts.windSpeed ?? 4 },
     water: { density: opts.density ?? 1005, temperature: 14 },

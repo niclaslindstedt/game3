@@ -15,8 +15,9 @@
 // read at a dozen pixels.
 //
 // The vocabulary is the sibling rally game's, retyped in ours: the shutter,
-// the mixing desk and the prompt mean the same thing in both. The buoy is
-// ours alone — it is what its stage marker is, on water.
+// the mixing desk, the prompt, the flag and the stopwatch mean the same
+// thing in both. The RAMP AND ITS ARC is ours alone — a rally game has no
+// mark for a shore with its course taken off it.
 //
 // A mark is judged SIDE BY SIDE and SMALL, never in the card it ends up on:
 // `make glyphs` draws the whole set at the three sizes they are read at.
@@ -26,28 +27,50 @@ import type { JSX } from "preact";
 /** Every mark the menus can ask for, in the order the contact sheet walks
  * them (`make glyphs`). One list, so a mark added here is a mark the sheet
  * shows without being told twice. */
-export const GLYPH_NAMES = ["buoy", "camera", "sliders", "terminal"] as const;
+export const GLYPH_NAMES = ["flag", "air", "stopwatch", "camera", "sliders", "terminal"] as const;
 
 export type GlyphName = (typeof GLYPH_NAMES)[number];
 
 /** The 24x24 body of each mark. Stroke geometry only — the wrapper below
  * sets the paint, so a glyph inherits the colour of whatever it sits in. */
 const GLYPHS: Record<GlyphName, JSX.Element> = {
-  // A BUOY STANDING IN THE WATER, its lamp on top: the way ON — the course
-  // the press leads to, which is a line of these.
-  //
-  // It is not the CRAFT, and two drafts of one died on the sheet proving
-  // why: a personal watercraft in profile is a wedge with a stick on it, and
-  // at the size a phone draws a tile the wedge, the wave under it and the
-  // handlebars above it all run together into one horizontal smear. A buoy
-  // stands UP out of the water, which is the one thing on this coast that
-  // does — so the mark has a vertical against the wave's horizontal and
-  // survives being fourteen pixels tall.
-  buoy: (
+  // THE CHEQUERED FLAG: the race, and the only one of the three ways onto
+  // the water where somebody else is on it. Two hulls seen from above were
+  // the first draft and read as a pair of pills at the size a tile is
+  // actually looked at; a flag is the one mark every player already knows.
+  flag: (
     <>
-      <path d="M9.2 18.4 10.4 9.4h3.2l1.2 9Z" />
-      <circle cx="12" cy="6.6" r="2" />
-      <path d="M2.6 19.2c1.9-1.8 3.8-1.8 5.7 0s3.8 1.8 5.7 0 3.8-1.8 5.7 0" />
+      <path d="M5 3.5v17.5" />
+      <path d="M5 4.5h14v9H5z" />
+      <path
+        d="M5 4.5h3.5v4.5H5zM12 4.5h3.5v4.5H12zM8.5 9H12v4.5H8.5zM15.5 9H19v4.5h-3.5z"
+        fill="currentColor"
+        stroke="none"
+      />
+    </>
+  ),
+  // A RAMP AND THE ARC OFF IT: the tricks run, which is this shore with the
+  // course taken off it and the ramps left standing. A looped arrow was the
+  // first draft, and every browser in the world has already taught that mark
+  // to mean RELOAD.
+  //
+  // The wedge and the arc MEET — the arc leaves the lip, which is the one
+  // thing that makes the pair read as a jump rather than as a triangle and a
+  // squiggle — and the head is at the far end, coming DOWN, because a mark
+  // whose arrow points back up its own arc reads as the hull being winched.
+  air: (
+    <>
+      <path d="M2.4 19.8 9.4 13.4v6.4Z" fill="currentColor" stroke="none" />
+      <path d="M9.4 13.4c3-9.4 9-8.6 11.2-1.4" />
+      <path d="M21.3 14.4 18.4 12.2l4.2-1.1Z" fill="currentColor" stroke="none" />
+    </>
+  ),
+  // A STOPWATCH: the time trial, where the clock is the whole opponent.
+  stopwatch: (
+    <>
+      <circle cx="12" cy="14" r="7.2" />
+      <path d="M12 10.5V14l2.6 2" />
+      <path d="M9.6 3h4.8M12 3v2.4" />
     </>
   ),
   // The shutter: the pictures a rider took, and the press that takes one.

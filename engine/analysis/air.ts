@@ -1,7 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// R7, R8, R9, R18 — THE AIR, re-checked. The third of `analyzeLevel`'s
+// R7, R8, R9, R18, R35 — THE AIR, re-checked. The third of `analyzeLevel`'s
 // halves: everything the analysis asks about a ring, the ramp that throws a
-// hull through it and the straight water in front of that ramp.
+// hull through it, the straight water in front of that ramp, and — on a
+// level built for a tricks run — the FIELD of ringless decks laid down its
+// line.
 //
 // Split from `index.ts` by subject, the way `coast.ts` is: these two read a
 // gate, its ramp and the water under the corridor, and neither knows the
@@ -21,7 +23,8 @@ import { topSpeedOf } from "../game/limits.ts";
 import { launchSpeedFor } from "../sim/bot.ts";
 import { airCorridor, distanceAlong, ringPlacement, segmentDistance } from "../mapgen/course.ts";
 import { withinBand } from "../mapgen/rules.ts";
-import { rulesAtPace } from "../mapgen/pace.ts";
+import { nextAfter, trickDeck } from "../mapgen/trick-field.ts";
+import { rulesAtPace, trickStride } from "../mapgen/pace.ts";
 import type { Gate, Level, Vec2 } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import { bandText, fmt, type Report } from "./report.ts";
@@ -225,6 +228,102 @@ export function analyzeRunUp(rep: Report, pace = 1): void {
         "reach",
         `the ${spec.id} needs ${fmt(dist)} m to reach ${fmt(v * 3.6)} km/h; the run-up is ${R.ramp.runUp} m`,
         { value: dist },
+      );
+    }
+  }
+}
+
+/** R35 — THE TRICK FIELD, scored. Silent on a level that was not built for
+ * a tricks run (`Level.tricks`), which is every race course.
+ *
+ * Four things, and each is the rule failing in a different way:
+ *
+ * - A FIELD TOO THIN TO BE ONE. `ANALYSIS.trickField` is the floor and the
+ *   reasoning behind it; under it the generator rerolls the sub-seed.
+ *
+ * - A DECK WITH A RING OVER IT. The whole of R35's second half is that a
+ *   trick ramp is not a checkpoint, so a field ramp standing where an air
+ *   gate's ring floats is a hoop the run cannot score and the rider cannot
+ *   ignore.
+ * - A DECK IN ANOTHER DECK'S WATER. Two lips inside `reach` of each other
+ *   are one lip with a step in it, and the rider lands on the second.
+ * - A STRIDE THE RIDER CANNOT USE. The gap from one deck to the next ONE
+ *   THEY FACE has to be at least the stride, or the field is asking for a
+ *   jump off a hull that is still accelerating — which is the failure R35
+ *   exists to prevent and the only one worth a number.
+ *
+ * What is NOT checked here is how EVENLY they fall: a shore with awkward
+ * water in the middle of it carries a gap, and a gap is a stretch of open
+ * sea rather than a defect. `tests/trick_field_test.ts` holds the
+ * population, which is where a field that has quietly stopped being laid
+ * shows up. */
+export function analyzeTrickField(level: Level, rep: Report): void {
+  if (!level.tricks) return;
+  const ramps = level.ramps;
+  // THE FIELD HAS TO BE A FIELD. A tricks level that came out with two decks
+  // on it is a shore the rider runs out of lip on in the first thirty
+  // seconds, and the generator has a whole sub-seed to spend on a better
+  // one — which is exactly what failing here makes it do.
+  if (ramps.length < A.trickField) {
+    rep.fail(
+      "R35",
+      "thin",
+      `the trick field carries ${ramps.length} decks (rule ${A.trickField})`,
+      { value: ramps.length },
+    );
+  }
+  if (ramps.length === 0) return;
+  const R = rulesAtPace(level.pace, level.rampWidth);
+  const stride = trickStride(level.pace);
+  // The field's own numbers, asked of the module that laid it — `R18`'s
+  // arithmetic is not repeated here and neither is R35's.
+  const { reach } = trickDeck(level.pace, level.rampWidth);
+  for (const gate of level.course.gates) {
+    if (gate.kind !== "air") continue;
+    for (const ramp of ramps) {
+      const off = Math.hypot(ramp.x - gate.x, ramp.z - gate.z);
+      if (off < R.air.width) {
+        rep.fail("R35", "ring", `${ramp.id} stands under ${gate.id}'s ring`, {
+          at: ramp,
+          value: off,
+        });
+      }
+    }
+  }
+  for (let i = 0; i < ramps.length; i++) {
+    for (let j = i + 1; j < ramps.length; j++) {
+      const a = ramps[i];
+      const b = ramps[j];
+      const off = Math.hypot(a.x - b.x, a.z - b.z);
+      if (off < reach - A.distance) {
+        rep.fail(
+          "R35",
+          "crowd",
+          `${a.id} and ${b.id} stand ${fmt(off)} m apart (rule ${fmt(reach)} m)`,
+          {
+            at: a,
+            value: off,
+          },
+        );
+      }
+    }
+  }
+  // THE STRIDE, read the way a rider rides it: for each deck, the nearest
+  // one they ARRIVE at off it (`nextAfter` — ahead of it, and facing near
+  // enough its way to be climbed). The field is laid out and back, so a
+  // deck on the return pass is somebody else's lip and not this gap.
+  for (const a of ramps) {
+    let nearest = Infinity;
+    for (const b of ramps) {
+      if (b === a || !nextAfter(a, b)) continue;
+      nearest = Math.min(nearest, Math.hypot(a.x - b.x, a.z - b.z));
+    }
+    if (nearest < stride - A.distance) {
+      rep.fail(
+        "R35",
+        "stride",
+        `${a.id} is ${fmt(nearest)} m from the next deck along (rule ${fmt(stride)} m)`,
+        { at: a, value: nearest },
       );
     }
   }

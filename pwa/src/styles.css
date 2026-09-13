@@ -2525,9 +2525,9 @@ canvas {
   text-wrap: balance;
 }
 
-/* The way ON, given the weight the eye should land on first. Its mark goes
-   the other way round — ink on the orange, where the rest are orange on the
-   card — so the tile reads as the lit one rather than as one of three. */
+/* RACE — the way ON, given the weight the eye should land on first. Its mark
+   goes the other way round — ink on the orange, where the rest are orange on
+   the card — so the tile reads as the lit one rather than as one of three. */
 .menu-tile-start {
   background: rgb(242 140 40 / 78%);
   border-color: rgb(242 247 248 / 42%);
@@ -2543,6 +2543,33 @@ canvas {
   background: var(--buoy);
 }
 
+/* GALLERY and OPTIONS: on the door, and visibly not a way onto the water.
+   The three mode tiles above them are what the door is FOR, so these give up
+   the card's blue for the ground it is painted on and their marks go quiet
+   with them — present, findable, and not competing with a press that starts
+   a run. */
+.menu-tile-quiet {
+  background: rgb(8 42 56 / 55%);
+  border-color: rgb(242 247 248 / 18%);
+}
+
+.menu-tile-quiet .menu-glyph {
+  color: rgb(242 247 248 / 62%);
+}
+
+.menu-tile-quiet:hover,
+.menu-tile-quiet:focus-visible,
+.menu-tile-quiet.nav-cursor {
+  border-color: var(--buoy);
+  background: rgb(27 111 138 / 70%);
+}
+
+.menu-tile-quiet:hover .menu-glyph,
+.menu-tile-quiet:focus-visible .menu-glyph,
+.menu-tile-quiet.nav-cursor .menu-glyph {
+  color: var(--buoy);
+}
+
 /* The developer tile, once it has been let out: present, and visibly not
    part of the game. */
 .menu-tile-dev {
@@ -2556,7 +2583,7 @@ canvas {
   color: var(--hud-info);
 }
 
-/* AN ODD COUNT LEAVES A HOLE — three tiles is the door every player sees,
+/* AN ODD COUNT LEAVES A HOLE — five tiles is the door every player sees,
    since the developer one is out until it is found. The last one takes the
    whole row instead of sitting beside a gap, and lies down while it does:
    a full-width tile as tall as a square is a slab. */

@@ -21,7 +21,8 @@
 
 import { angleDiff } from "../lib/math.ts";
 import { fromEuler } from "../lib/quat.ts";
-import type { Gate, Level } from "../mapgen/types.ts";
+import type { Gate, Level, Ramp } from "../mapgen/types.ts";
+import { rampsOf } from "./collision.ts";
 import { TRICK_RESET_BACK } from "./defs/modes.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { restY } from "./hull.ts";
@@ -192,18 +193,21 @@ export function resetPose(state: GameState): {
   // start.
   if (!state.rules.course) {
     const c = state.craft;
-    let best: Gate | null = null;
+    let best: Ramp | null = null;
     let bestD = Infinity;
-    for (const g of gates) {
-      if (!g.ramp) continue;
-      const d = Math.hypot(g.ramp.x - c.x, g.ramp.z - c.z);
+    // R35 — every deck on the level, the course's and the trick field's
+    // alike (`rampsOf`): a tricks level's ramps are mostly the field's, and
+    // a reset that only knew about the air gates' would send a rider the
+    // length of the shore to a ring he is not riding for.
+    for (const r of rampsOf(state.level)) {
+      const d = Math.hypot(r.x - c.x, r.z - c.z);
       if (d < bestD) {
         bestD = d;
-        best = g;
+        best = r;
       }
     }
-    if (best?.ramp) {
-      const r = best.ramp;
+    if (best) {
+      const r = best;
       return {
         x: r.x - Math.sin(r.heading) * TRICK_RESET_BACK,
         z: r.z - Math.cos(r.heading) * TRICK_RESET_BACK,
@@ -302,6 +306,51 @@ export function resetCraft(state: GameState, events: GameEvent[]): void {
 export function gatesReached(progress: Progress): number {
   return progress.passed.length + progress.missed.length;
 }
+
+/** WHAT THE RIDER IS AIMING AT — stated once, because three surfaces ask it
+ * and none of them may answer it differently: the HUD's guide line, the
+ * bearing below, and the minimap's marks.
+ *
+ * In a run that COUNTS THE COURSE it is the next gate, and null once the
+ * finish is behind — a run with nothing left to ride for is aiming at
+ * nothing. In a run that does not (R35's tricks run), it is the next LIP:
+ * the nearest deck ahead of the hull, inside `AIM_CONE` of the way it is
+ * pointed, since the field is laid out and back and a ramp behind the rider
+ * or facing them is not one they are riding at. Null where there is nothing
+ * ahead, which is a rider who has turned round and is about to find the
+ * next one as they come about.
+ */
+export function aimPoint(state: GameState): { x: number; z: number } | null {
+  const c = state.craft;
+  if (state.rules.course) {
+    const gates = state.level.course.gates;
+    const n = state.progress.nextGate;
+    return n >= gates.length ? null : { x: gates[n].x, z: gates[n].z };
+  }
+  const fx = Math.sin(c.heading);
+  const fz = Math.cos(c.heading);
+  let best: { x: number; z: number } | null = null;
+  let bestD = Infinity;
+  for (const r of rampsOf(state.level)) {
+    const dx = r.x - c.x;
+    const dz = r.z - c.z;
+    const d = Math.hypot(dx, dz);
+    if (d <= 0 || d >= bestD) continue;
+    if ((dx * fx + dz * fz) / d < Math.cos(AIM_CONE)) continue;
+    // …and the deck has to be one this rider can CLIMB: a lip met from
+    // behind is a wall, and the return pass's decks all face that way.
+    if (Math.abs(angleDiff(c.heading, r.heading)) > Math.PI / 2) continue;
+    bestD = d;
+    best = { x: r.x, z: r.z };
+  }
+  return best;
+}
+
+/** How far off the hull's own heading the next LIP may lie and still be the
+ * one the rider is riding at, rad. A right angle either way: wider and a
+ * deck abeam becomes the target every time the line bends, narrower and the
+ * mark drops out every time the rider trims. */
+const AIM_CONE = Math.PI / 2;
 
 /** The heading from the craft to the next gate's centre, and how far off
  * the craft's own heading that is, for the HUD's arrow and the bot. */

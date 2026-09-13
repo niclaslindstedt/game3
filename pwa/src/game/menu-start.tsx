@@ -2,18 +2,11 @@
 // THE START CARD — the first of the two questions between the front door and
 // the water: WHERE, and WHEN.
 //
-// SEVEN ROWS, AND NOT ONE MORE. A card standing between a player and a game
+// SIX ROWS, AND NOT ONE MORE. A card standing between a player and a game
 // they have already said yes to earns its place only if every row on it
-// changes the ride they are about to have, so it asks the seven things that
+// changes the ride they are about to have, so it asks the six things that
 // do and leaves everything else to OPTIONS:
 //
-//   MODE     which GAME the rows under it are setting up (`GAME_MODES`): a
-//            RACE against the field, a timed run for TRICKS, or the course
-//            against the clock alone in a TIME TRIAL. First, because it
-//            decides what the shore is FOR — and because the length row
-//            under it exists only in one of the three: LENGTH, how many
-//            minutes a tricks run is given, stands under MODE while TRICKS
-//            is chosen and nowhere otherwise.
 //   COAST    which BIOME the seed is built on — the taiga's granite and
 //            pine, or the mangrove's white sand and turquoise water. Above
 //            the seed because the seed is read against it: the same number
@@ -39,6 +32,16 @@
 //   WEATHER  the sky over it: the skies THIS COAST offers (`Biome.weathers`,
 //            R19), lightest first — a warm coast has a haze on the ladder
 //            where a cold one has none.
+//
+// THE MODE IS NOT ONE OF THEM, AND IT IS NOT ASKED HERE. Which game is being
+// played — a RACE against the field, a timed run for TRICKS, the course
+// against the clock alone in a TIME TRIAL — is the front door's own question
+// (`menu-main.tsx`), because it is not a setting on a run: it decides what
+// the shore is FOR, and a door that opens onto a card and then asks which
+// game you meant has not answered anything. What is left of it here is the
+// card's HEAD, which is titled with the game that was chosen, and the one
+// row only one of the three has: LENGTH, how many minutes a tricks run is
+// given, which stands at the top of the card under TRICKS and nowhere else.
 //
 // THE CRAFT IS THE SECOND QUESTION AND IT IS NOT ASKED HERE. A shore is a
 // seed with a chart under it and an hour is a word that means an hour; a
@@ -82,7 +85,6 @@
 
 import {
   BIOME_IDS,
-  GAME_MODES,
   SEASONS,
   TIMES_OF_DAY,
   type BiomeId,
@@ -112,20 +114,15 @@ import {
 } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
-const MODE_HINTS: Record<GameMode, string> = {
-  race: STRINGS.modeRaceHint,
-  tricks: STRINGS.modeTricksHint,
-  timeTrial: STRINGS.modeTimeTrialHint,
+/** The card's billing, one line per game: the head says WHICH game is being
+ * set up, and this says what that game is. It is the mode's whole
+ * explanation now that the row it used to caption is a tile on the front
+ * door. */
+const MODE_LINES: Record<GameMode, string> = {
+  race: STRINGS.modeRaceLine,
+  tricks: STRINGS.modeTricksLine,
+  timeTrial: STRINGS.modeTimeTrialLine,
 };
-
-/** The modes, in the engine's order, each with its own line for the
- * caption: a row whose stops are three different games is the one row on
- * this card whose hint has to change with the value. */
-const MODE_STOPS: Stop<GameMode>[] = GAME_MODES.map((id) => ({
-  id,
-  label: STRINGS.modeName(id),
-  hint: MODE_HINTS[id],
-}));
 
 /** How long a tricks run is, as the row spells it — the ids are the minutes
  * themselves, so the row and the setting are the same number. */
@@ -276,8 +273,12 @@ export function StartPage({
       <MenuHead
         back={onBack}
         backLabel={STRINGS.menuBack}
-        title={STRINGS.startTitle}
-        sub={STRINGS.startSub}
+        /* THE HEAD IS WHERE THE MODE IS NOW — the game is chosen on the
+           front door, and a card that never named it would leave a rider who
+           pressed TRICKS setting up a shore with no way to tell which of the
+           three they are about to ride. */
+        title={STRINGS.modeName(ride.mode)}
+        sub={MODE_LINES[ride.mode]}
         /* THE WAY ON STANDS IN THE HEAD, opposite the way back. It used to be
            a full-width press under the caption, which put the card's tallest
            row below the one square element on it — and `.menu-card` scrolls
@@ -311,15 +312,9 @@ export function StartPage({
       <div class="start-cols">
         <div class="start-col">
           <div class="knob-rows">
-            <StepRow
-              label={STRINGS.startMode}
-              stops={MODE_STOPS}
-              value={ride.mode}
-              onPick={(mode) => setRide({ mode })}
-              onHint={setHint}
-            />
-            {/* Under MODE and only under TRICKS: the one row whose question
-                only one of the three games asks. */}
+            {/* The one row only one of the three games asks — it stands
+                first because it is the tricks run's own length, and the
+                rows under it are the shore that run is ridden on. */}
             {ride.mode === "tricks" && (
               <StepRow
                 label={STRINGS.startMinutes}
