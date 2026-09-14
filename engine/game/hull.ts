@@ -4,9 +4,9 @@
 // each a keel point and two chine points, plus four deck points at the
 // gunwales so a heeled hull rights and an inverted one still floats. Each probe owns a share of the hull's volume
 // and of its bottom area, and every water force is summed probe by probe
-// off the wave surface at that probe — its height AND its orbital
-// velocity, so a wave face lifts the bow and its crest carries the hull
-// forward. Torques fall out of where the probes sit.
+// off the wave surface at that probe — its height AND its Lagrangian
+// velocity (orbit, Stokes drift and current), so a wave face lifts the bow
+// and its crest transports the hull. Torques fall out of where the probes sit.
 //
 // Models, each at the function that implements it: Archimedes for the
 // buoyancy; the ITTC-57 friction line for the skin friction; a bluff-body
@@ -277,8 +277,8 @@ export type HullResult = {
   /** The water's total sideways push on the hull, body right, N — what the
    * sponsons bank against. */
   lateral: number;
-  /** Mean orbital velocity of the water under the wet probes, world
-   * frame, m/s — the flow the trim is read against. */
+  /** Mean Lagrangian surface velocity under the wet probes, world frame,
+   * m/s — wave orbit, Stokes drift and current; the flow the trim reads. */
   waterVx: number;
   waterVy: number;
   waterVz: number;

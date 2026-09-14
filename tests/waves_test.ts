@@ -3,9 +3,9 @@
 // relation in both limits, the shoaling coefficient's growth over a rising
 // bed, the fetch law, R28's two bands (the ocean's sea reaching the shore
 // and stopping at the land, the local wind's chop filling what it cannot
-// reach), R27's current, McCowan's breaking cap in the shallows, bounded
-// heights everywhere, and purity — the same point at the same time is the
-// same surface.
+// reach), the spectrum's finite-depth Stokes transport, R27's current,
+// McCowan's breaking cap in the shallows, bounded heights everywhere, and
+// purity — the same point at the same time is the same surface.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -271,6 +271,56 @@ describe("the surface", () => {
     // Deep water: u ≈ a·ω, and ω is a couple of rad/s for this chop.
     expect(maxV).toBeGreaterThan(maxH * 0.8);
     expect(maxV).toBeLessThan(maxH * 8);
+  });
+
+  it("carries the spectrum's finite-depth Stokes drift as a mean flow", () => {
+    const level = syntheticLevel({ windSpeed: 0, depth: 8, seaward: 800, noSolids: true });
+    const sea = createSea(level, 9, level.wind, { hs: 2, tp: 5 });
+    const x = 300;
+    const z = 400;
+    const share = seaShares(sea, x, z);
+    expect(share.ocean).toBeCloseTo(1, 3);
+
+    // Phillips (1966) / Kenyon (1969), summed over the discrete spectrum:
+    // u_s = a^2 omega k cosh(2kd) / (2 sinh^2(kd)) in each wave's
+    // direction. The identity cosh(2x)/(2 sinh^2 x) = (coth^2 x + 1)/2
+    // keeps the finite-depth factor numerically well behaved in deep water.
+    let expectedX = 0;
+    let expectedZ = 0;
+    for (const c of sea.components) {
+      if (c.band !== "ocean") continue;
+      const k = wavenumber(c.omega, 8);
+      const a = c.amp * shoaling(c.omega, k, 8);
+      const coth = 1 / Math.tanh(k * 8);
+      const speed = a * a * c.omega * k * 0.5 * (coth * coth + 1);
+      expectedX += speed * c.dirX;
+      expectedZ += speed * c.dirZ;
+    }
+
+    let meanX = 0;
+    let meanZ = 0;
+    const samples = 6000;
+    for (let i = 0; i < samples; i++) {
+      const s = surfaceAt(sea, level, x, z, i * 0.1);
+      meanX += s.vx / samples;
+      meanZ += s.vz / samples;
+    }
+    expect(Math.hypot(expectedX, expectedZ)).toBeGreaterThan(0.05);
+    expect(meanX).toBeCloseTo(expectedX, 2);
+    expect(meanZ).toBeCloseTo(expectedZ, 2);
+  });
+
+  it("drifts an idle craft with the waves rather than along its bow", () => {
+    const level = syntheticLevel({ windSpeed: 0, depth: 40, seaward: 800, noSolids: true });
+    const state = createGame({ seed: 9, level, sea: { hs: 2, tp: 5 }, quiet: true });
+    // The sea travels toward -z; point the bow across it so any residual
+    // axial propulsion would make an unmistakable x drift instead.
+    placeRun(state, { x: 300, z: 400, heading: Math.PI / 2, speed: 0 });
+    for (let i = 0; i < 60 * TUNING.physicsHz; i++) step(state, NEUTRAL_INPUT);
+    const dx = state.craft.x - 300;
+    const dz = state.craft.z - 400;
+    expect(-dz).toBeGreaterThan(3);
+    expect(Math.abs(dz)).toBeGreaterThan(Math.abs(dx) * 2);
   });
 
   it("the components travel with the wind, fanned about it", () => {

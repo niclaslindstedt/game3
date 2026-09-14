@@ -170,13 +170,13 @@ describe("stability", () => {
     expect(Math.abs(runs[0][2])).toBeLessThan(0.15);
   });
 
-  it("at rest the engine idles and the pump only creeps", () => {
+  it("at neutral the engine idles without propelling the craft", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: STILL, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: 0 });
     settle(state, 4);
     expect(state.craft.rpm).toBe(state.craft.spec.idleRpm);
-    // An idling jet makes a little way, the way a real one does.
-    expect(state.craft.speed).toBeLessThan(2.5);
+    expect(state.craft.speed).toBeLessThan(0.1);
     expect(Math.abs(state.craft.x - 100)).toBeLessThan(0.5);
+    expect(Math.abs(state.craft.z - 200)).toBeLessThan(0.5);
   });
 });

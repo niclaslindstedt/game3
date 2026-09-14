@@ -397,11 +397,9 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   //
   // A HULL UNDER THE WATER IS NOT CAPSIZED. It is a rider mid-manoeuvre
   // with his intake fed better than it has ever been, and reading `up.y`
-  // alone could not tell the two apart: a bow driven in takes the hull
-  // past vertical in a fifth of a second, and past vertical the engine
-  // used to go out — so the one input that could have flown him back out
-  // was cut at precisely the moment he needed it. Inverted ON THE SURFACE
-  // is still over, and still costs the run.
+  // alone cannot tell the two apart: a bow driven in takes the hull past
+  // vertical in a fifth of a second and still needs thrust to fly back out.
+  // Inverted ON THE SURFACE is over, and still costs the run.
   //
   // The BRAKE LEVER asks for its own throttle: the bucket can only turn
   // flow the pump is already making.
@@ -424,7 +422,16 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.bucket = stepBucket(spec, c.bucket, onFeet ? brake : 0, dt);
   const throughWater =
     hull.flowFwd > 0 ? hull.flowFwd : Math.max(0, unrotate(c.q, { x: c.vx, y: c.vy, z: c.vz }).z);
-  const push = thrust(spec, density, c.rpm, throughWater, wet);
+  // ZERO LEVER REQUEST IS NEUTRAL, not forward at the idle governor. The
+  // shaft and impeller still turn — rpm, pump load and the engine sound all
+  // keep their honest idle — but the control system balances the idle jet
+  // so the craft makes no propulsive way. Current operator guidance for an
+  // adjustable neutral gate specifies exactly that target: no movement at
+  // idle, with any remaining motion attributed to wind or water current.
+  // This force-level model carries the resulting net zero rather than a
+  // second geometric model of the split jet. A forward or reverse request
+  // engages the gross momentum-theory thrust at the rpm the engine has.
+  const push = throttle > 0 ? thrust(spec, density, c.rpm, throughWater, wet) : 0;
   // THE HIGH-SPEED STEER: an ARCADE DIAL over everything the nozzle is
   // worth, and the reason it is needed is geometry rather than the pump. A
   // turn rate is the lateral acceleration over the speed, so the same force
@@ -517,10 +524,9 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   //
   // It is `planing` that says there is a bottom to carve ON, and dropping
   // the gate takes that reading away: the hull comes down off the plane and
-  // the carve goes with it, which is the biggest single reason a braked turn
-  // used to be the WORST line a rider had. But a hull with its bow buried
-  // and its forefoot in the water is not a hull with nothing in the water —
-  // it is a different bottom, wetted further forward. So the gate puts its
+  // the carve goes with it. But a hull with its bow buried and its forefoot
+  // in the water is not a hull with nothing in the water — it is a different
+  // bottom, wetted further forward. So the gate puts its
   // own floor under the reading (`hull.brakeBite`), scaled by the flow that
   // craft's gate turns down, exactly as the bow-down moment is.
   const bank = Math.max(0, Math.abs(c.roll) - T.hull.carveDead) * Math.sign(c.roll);
@@ -865,10 +871,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // at pace keeps its deck up (`up.y` stays above 0.9 through the whole
   // bury, measured over the roster on the air gate's own dive), so a dive
   // never started this clock in the first place. What reaches `up.y < 0`
-  // is a hull that has been rolled, and that is over however deep it is —
-  // exempting it was measured to make a craft tossed onto its back
-  // un-capsizable as long as it sank far enough, which is not the same
-  // question at all.
+  // is a hull that has been rolled, and that is over however deep it is.
   if (up.y < 0 && !airborne) {
     c.capsizedFor += dt;
     if (c.capsizedFor >= T.capsize.after) {
