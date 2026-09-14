@@ -54,6 +54,7 @@ moment and photographs it after `t` seconds. The moments that matter:
 | `swell` | A long swell taken at speed — the lift, the crest, the drop |
 | `launch` | Leaving a ramp — the nose up, the engine free |
 | `apex` | The top of a flight through an air gate — the ring, the horizon, the air time on the HUD |
+| `missed` | Just past a water checkpoint outside its opening — the warning and the pulsing red minimap marker |
 | `landing` | Coming down flat — the plume, the camera's shudder |
 | `dive` | Coming down nose-first — the bow buried, the pitch-down, the wall over the rider, the crater and the ring on the water |
 | `capsize` | Past vertical and still rolling — the sheet off the side, the boil round a hull on its back, the righting (`--t 0.4`, `--t 1.2`, `--t 2.2`) |

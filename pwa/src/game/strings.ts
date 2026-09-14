@@ -225,10 +225,10 @@ export const STRINGS = {
   fps: (rate: number): string => `${Math.round(rate)} FPS`,
   frameCost: (waterMs: number, calls: number, triangles: number): string =>
     `${waterMs.toFixed(1)} ms · ${calls} draws · ${(triangles / 1000).toFixed(0)}k tris`,
-  /** The split flash after a gate, and the penalty after a missed one. */
+  /** The split flash after a gate, and the warning after a missed one. */
   split: (gate: number, seconds: number): string => `GATE ${gate}  ${formatTime(seconds)}`,
   airGate: (gate: number, seconds: number): string => `RING ${gate}  ${formatTime(seconds)}`,
-  missed: (gate: number, penalty: number): string => `MISSED GATE ${gate}  +${penalty.toFixed(0)}s`,
+  missed: "MISSED CHECKPOINT",
   finish: (seconds: number): string => `FINISH  ${formatTime(seconds)}`,
   finishPlace: (place: number, of: number, seconds: number): string =>
     `${ordinal(place)} OF ${of}  ${formatTime(seconds)}`,

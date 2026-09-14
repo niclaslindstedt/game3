@@ -144,17 +144,30 @@ describe("a run", () => {
     expect(state.progress.nextGate).toBe(0);
   });
 
-  it("a crossing outside the buoys is not a gate reached", () => {
+  it("misses the owed gate as soon as its line is crossed outside the buoys", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
     const g = LEVEL.course.gates[0];
-    // Past the buoys by five gate-widths, on the gate's own line: the run
-    // has not been through anything, so it still owes G1.
+    // Past the buoys by five gate-widths, aimed across the gate's own line:
+    // the warning belongs at that crossing rather than at the next gate.
     placeRun(state, { x: g.x - 40, z: g.z + 5 * g.width, heading: Math.PI / 2, speed: 15 });
-    ride(state, 4, () => FULL);
+    const events = ride(state, 4, () => FULL);
     expect(state.craft.x).toBeGreaterThan(g.x);
     expect(state.progress.passed).toEqual([]);
+    expect(state.progress.missed).toEqual([0]);
+    expect(state.progress.nextGate).toBe(1);
+    expect(events.filter((e) => e.kind === "missedGate")).toHaveLength(1);
+  });
+
+  it("still requires the finish to be crossed through its opening", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g = LEVEL.course.gates.at(-1)!;
+    state.progress.nextGate = g.index;
+    placeRun(state, { x: g.x - 40, z: g.z + 5 * g.width, heading: Math.PI / 2, speed: 15 });
+    const events = ride(state, 4, () => FULL);
+    expect(state.craft.x).toBeGreaterThan(g.x);
     expect(state.progress.missed).toEqual([]);
-    expect(state.progress.nextGate).toBe(0);
+    expect(state.progress.nextGate).toBe(g.index);
+    expect(events.some((e) => e.kind === "missedGate" || e.kind === "finish")).toBe(false);
   });
 
   it("the bearing to the next gate reads right", () => {

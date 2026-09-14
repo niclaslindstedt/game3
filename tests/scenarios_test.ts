@@ -144,6 +144,14 @@ describe("staging", () => {
     expect(dive.some((e) => e.kind === "dive")).toBe(true);
   });
 
+  it("missed rides outside a water gate and raises its warning there", () => {
+    const state = fresh();
+    const events = ride(state, "missed", 4);
+    const missed = events.find((e) => e.kind === "missedGate");
+    expect(missed).toBeDefined();
+    if (missed?.kind === "missedGate") expect(state.progress.missed).toContain(missed.gate);
+  });
+
   it("capsize goes over on its first steps and the rider rights it", () => {
     const state = fresh();
     const events = ride(state, "capsize", 3);

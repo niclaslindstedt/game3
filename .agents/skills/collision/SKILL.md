@@ -25,7 +25,7 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 | Grounding: probes vs `level.ground` — normal force + friction, the `ground` event | `engine/game/collision.ts` |
 | Ramps: a plane the probes ride on, hinged at the water at its rear edge, contact normal from its angle | `engine/game/collision.ts` reading `Gate.ramp` |
 | Level bounds: a soft push back inside `level.bounds` | `engine/game/collision.ts` |
-| Gates: line crossing (water) / ring pass (air), in course order; `missedGate` when the next gate is skipped by passing the one after it — the missed gate then counts as reached with a penalty | `engine/game/course.ts` (`gate`, `airGate`, `missedGate`, `finish`, the splits) |
+| Gates: line crossing (water) / ring pass (air), in course order; `missedGate` when the craft crosses the owed gate's plane outside its opening, or reaches a later gate after already passing it — the missed gate then counts as reached with a penalty | `engine/game/course.ts` (`gate`, `airGate`, `missedGate`, `finish`, the splits) |
 | Reset to the last gate passed, facing the next | `engine/game/course.ts` + `step.ts` on the `reset` edge |
 | Every number: restitution, friction, the push-out margin, the bounds' spring, the miss penalty | `engine/game/defs/tuning.ts` → `TUNING.collision`, `TUNING.course` |
 | What a solid IS (kind, radius, top height) and where it stands | `engine/mapgen/types.ts` (`Solid`), placed by `compile.ts` under `rules.ts` — the `mapgen-improvement` skill |
@@ -47,7 +47,7 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 | `dive` | A landing buried the bow probes past `TUNING.hull.diveDepth` | the depth, the speed lost |
 | `gate` | The craft's path crossed a water gate's line, facing direction, in order | the gate index, the split |
 | `airGate` | The CoG passed through a ring's disc, in order | the gate index, the split, the height margin |
-| `missedGate` | Gate n+1 was taken with gate n still next | the gate index missed, the penalty |
+| `missedGate` | The craft crossed the owed gate's plane outside its opening, or took a later gate with the owed gate still next | the gate index missed, the penalty |
 | `reset` | The rider asked, and the craft was stood at the last gate passed | the gate index |
 | `finish` | The last gate was taken | the total time, the splits |
 
@@ -91,10 +91,12 @@ transition into it.
   crosses the ring's disc. Sampling position alone skips a gate at speed
   (25 m/s is 0.2 m per step — fine — but a swell can put the CoG through a
   ring's plane between samples on the way up and down).
-- **A miss is FORWARD progress, penalised.** Taking gate n+1 with gate n
-  still next fires `missedGate` for n, then `gate` for n+1, and the run goes
-  on; nothing sends the craft back. Keep it that simple — a miss that
-  demands a return is a run that ends in circles.
+- **A miss is FORWARD progress, penalised.** Crossing an owed checkpoint's
+  plane outside its opening fires `missedGate` for it immediately; reaching
+  a later gate remains the recovery path when the craft went around the end
+  of that plane. Either advances the run, and the finish gate itself cannot
+  be skipped. Nothing sends the craft back — a miss that demands a return is
+  a run that ends in circles.
 - **Bounds push, they do not stop.** The level's edge is a spring, not a
   wall: a craft leaving the bounds is pushed back proportionally to how far
   it is out, so a wide line costs speed and a runaway comes back. A hard
@@ -121,15 +123,18 @@ transition into it.
    lost), skimming a reef at the crest (no contact) and at the trough
    (contact), grounding on a slope (pushed up the gradient), a ramp taken
    square (probes on the plane, `launch` at the lip), a gate crossed
-   backwards (no `gate`), a gate skipped (`missedGate` then `gate`).
+   backwards (no `gate`), a gate crossed outside its opening (one immediate
+   `missedGate`), and a gate bypassed before the next is taken (recovery
+   `missedGate` then `gate`).
 4. **Measure.** `make sim` before and after — watch `hit`, `ground`, `miss`
    and `fin`; bots must keep finishing at pace with all four at ≈ 0.
 5. **Bench it.** `make ride SCENARIO=launch` (and `landing`, `dive`) — the
    strip shows the probes on the ramp, the lip, the arc and the re-entry
    with the numbers beside each cell, before and after.
-6. **LOOK.** `make build`, then `make screenshots SCENE=launch` and
-   `SCENE=landing` — the ring where the ramp throws, the plume where the
-   hull lands.
+6. **LOOK.** `make build`, then `make screenshots SCENE=launch`,
+   `SCENE=landing` and, for a miss, `SCENE=missed` — the ring where the ramp
+   throws, the plume where the hull lands, and the warning while its map
+   marker is still close astern.
 7. Docs: `docs/riding.md` ("Contacts and gates"); the sim columns in
    `docs/simulation.md`; `docs/level-generator.md` if a rule about where a
    solid or a ramp may stand moved.
