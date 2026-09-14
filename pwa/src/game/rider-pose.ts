@@ -11,12 +11,15 @@
 // over the tray at a crouch); the torso leans forward from it by an angle
 // the throttle, the pace and the rider's own lean decide, and rolls into a
 // turn; the hands are ON THE GRIPS, always, so each arm is solved back
-// from its grip to its shoulder (two-bone IK, the elbow out and down), and
-// if the shoulders cannot reach, the torso leans further until they can —
-// which is why a rider leaning back sits with straight arms, the way a
-// real one does. The feet stand in the footwells and the knees are solved
-// the same way, up and out. The head follows the torso only partly and
-// turns into the turn.
+// from its grip to its shoulder (two-bone IK, the elbow hanging down at a
+// reach and winging OUT as the arm folds), and the torso's lean is then
+// whatever the deck allows rather than whatever the input asked for —
+// leaned FURTHER when the shoulders cannot reach, which is why a rider
+// leaning back sits with straight arms the way a real one does, and stood
+// back UP when they have come so far onto the bars that the arm has
+// nowhere left to fold. The feet stand in the footwells and the knees are
+// solved the same way, up and out. The head follows the torso only partly
+// and turns into the turn.
 //
 // WHAT MOVES IT. Everything deliberate is a `CraftState` field the engine
 // wrote — `riderAft` and `riderRight` are where the engine has put the
@@ -167,6 +170,32 @@ export const STANCE = {
   standBack: 0.2,
   crouch: 0.76,
   crouchThrottle: 0.08,
+  /** HOW CLOSE THE SHOULDER MAY COME TO ITS GRIP, as a share of the arm's
+   * whole length — the near end of the reach, the far end being the arm
+   * itself.
+   *
+   * It is needed because the torso pivots at the pelvis AND the pelvis
+   * slides forward under it, so the two together bring the shoulders down
+   * onto the bars: unbounded, a rider leaning hard forward and hanging off
+   * one side got his inside shoulder to within a hundredth of the arm's
+   * length of its grip, and a fold that deep leaves the two-bone solve
+   * nowhere to put the elbow but back along the arm's own line, inside the
+   * chest — which is the whole of why that arm vanished into the vest.
+   *
+   * 0.28 is an elbow closed to about 32° — a human's limit of flexion, so
+   * it bounds the fold where the body does rather than where the picture
+   * starts to suffer. It is deliberately no tighter than that: the lean,
+   * the throttle's crouch and the tuck all buy their read by folding the
+   * arm, and a floor generous enough to keep an elbow comfortable would
+   * eat the whole of it. What keeps a fold this deep LEGIBLE is the elbow
+   * winging out (`elbowWideFold`), not a shallower fold. */
+  reachMin: 0.28,
+  /** THE ELBOW, winged: how far out to the side and how far up the pole
+   * swings as the arm folds from a right angle at the elbow to that stop.
+   * A rider crouched over the bars has nowhere to put a bent arm but OUT,
+   * and an elbow left hanging down folds through his own chest. */
+  elbowWideFold: 1.15,
+  elbowLiftFold: 1.35,
   /** THE HEAD: how much of the torso's lean it follows (the rest is the
    * neck looking up), and the up-look on top of that, rad. */
   headFollow: 0.3,
@@ -467,18 +496,33 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     ankleZ = footZ;
   }
 
-  // THE TORSO'S FRAME, and the reach: lean further until both shoulders
-  // can reach their grips, and when the torso is as far forward as it
-  // goes, slide the pelvis up the bucket toward the bars.
+  // THE TORSO'S FRAME, AND THE REACH, WHICH IS BOUNDED BOTH WAYS. The hands
+  // are on the grips, so what the torso ends up holding is what the deck
+  // allows rather than what the input asked for. TOO FAR: lean further until
+  // both shoulders can reach, and when the torso is as far forward as it
+  // goes, slide the pelvis up the bucket toward the bars. TOO CLOSE: stand
+  // back up until the arm has somewhere to fold to.
+  //
+  // The near bound is the one a lean forward needs, because the lean does
+  // two things at once — it pitches the torso about the pelvis AND slides
+  // the pelvis forward under it — and the two together walk the shoulders
+  // down onto the bars. Hanging off into a turn walks the INSIDE shoulder
+  // the rest of the way, which is why it was that arm that went.
   const hands: [P, P] = [
     [-grip.x, grip.y, grip.z],
     [grip.x, grip.y, grip.z],
   ];
-  const reach = BODY.upperArm + BODY.forearm - 0.005;
+  const arm = BODY.upperArm + BODY.forearm;
+  const reach = arm - 0.005;
+  const close = STANCE.reachMin * arm;
   let torsoUp: P = [0, 1, 0];
   let torsoRight: P = [1, 0, 0];
   let chest: P = pelvis;
   let shoulders: [P, P] = [pelvis, pelvis];
+  // Which way the torso is being eased, latched on the first step: easing
+  // one shoulder in can put the other out, and a relaxation free to reverse
+  // sits between the two stops trading a step each way for ever.
+  let easing = 0;
   for (let i = 0; i < 40; i++) {
     const cl = Math.cos(lean);
     const sl = Math.sin(lean);
@@ -491,11 +535,19 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
       sub(chest, scale(torsoRight, BODY.shoulderHalf)),
       add(chest, scale(torsoRight, BODY.shoulderHalf)),
     ];
-    const short =
-      length(sub(hands[0], shoulders[0])) > reach || length(sub(hands[1], shoulders[1])) > reach;
-    if (!short) break;
-    if (lean < STANCE.leanMax) lean = Math.min(STANCE.leanMax, lean + 0.03);
-    else if (!footed && pelvis[2] < seat.zMax) pelvis[2] = Math.min(seat.zMax, pelvis[2] + 0.02);
+    const left = length(sub(hands[0], shoulders[0]));
+    const right = length(sub(hands[1], shoulders[1]));
+    // THE FAR BOUND WINS when both could fire at once: a hand off its grip
+    // is the first thing a player sees, and a folded arm is only ugly.
+    const want = Math.max(left, right) > reach ? 1 : Math.min(left, right) < close ? -1 : 0;
+    if (want === 0) break;
+    if (easing === 0) easing = want;
+    else if (want !== easing) break;
+    if (easing > 0) {
+      if (lean < STANCE.leanMax) lean = Math.min(STANCE.leanMax, lean + 0.03);
+      else if (!footed && pelvis[2] < seat.zMax) pelvis[2] = Math.min(seat.zMax, pelvis[2] + 0.02);
+      else break;
+    } else if (lean > STANCE.leanMin) lean = Math.max(STANCE.leanMin, lean - 0.03);
     else break;
   }
   const torsoFwd = cross(torsoRight, torsoUp);
@@ -509,11 +561,23 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
     [-grip.dx, grip.dy, grip.dz],
     [grip.dx, grip.dy, grip.dz],
   ];
+  // Where the elbow goes at a right angle: past this the forearm is coming
+  // back across the upper arm, which is where a hanging elbow starts folding
+  // through the rider's own chest.
+  const square = Math.hypot(BODY.upperArm, BODY.forearm);
   SIDES.forEach((side, i) => {
-    // The elbows hang DOWN and only a little out — a relaxed rider's arms
-    // drop off his shoulders, and elbows winged out to the side read as a
-    // man braced against something rather than one riding.
-    const pole: P = [side * 0.35, -1, -0.3];
+    // AT A REACH the elbows hang DOWN and only a little out — a relaxed
+    // rider's arms drop off his shoulders, and elbows winged out to the side
+    // read as a man braced against something rather than one riding. FOLDED
+    // they go the other way, out and up: that is where a rider crouched over
+    // his bars actually puts them, and it is the only place a bent arm is
+    // still clear of the chest and still visible from behind.
+    const fold = clamp((square - length(sub(hands[i], shoulders[i]))) / (square - close), 0, 1);
+    const pole: P = [
+      side * (0.35 + STANCE.elbowWideFold * fold),
+      -1 + STANCE.elbowLiftFold * fold,
+      -0.3,
+    ];
     const { mid } = solveLimb(shoulders[i], hands[i], BODY.upperArm, BODY.forearm, pole);
     elbows[i] = mid;
     wrists[i] = sub(hands[i], scale(normalize(sub(hands[i], mid)), BODY.fist));

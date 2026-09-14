@@ -20,6 +20,7 @@ import {
   REST_READ,
   STANCE,
   createRiderDynamics,
+  dot,
   length,
   poseRider,
   riderHaul,
@@ -148,6 +149,81 @@ describe("the pose on every craft", () => {
       expect(crown - spec.cog.y).toBeGreaterThan(0.7);
       for (const j of [...rest.shoulders, ...rest.elbows, ...rest.knees])
         expect(Math.abs(j[0])).toBeLessThan(spec.beam / 2 + 0.1);
+    });
+  }
+});
+
+describe("the arms survive every lean the inputs can ask for", () => {
+  // THE BUG THIS HOLDS SHUT. Leaning forward pitches the torso about the
+  // pelvis AND slides the pelvis forward under it, so the two together
+  // walk the shoulders down onto the bars; leaning into a turn rolls the
+  // torso and slides it across, which walks the INSIDE shoulder down the
+  // rest of the way. Unbounded, the inside shoulder ended up on its own
+  // grip, the two-bone solve had nowhere to put the elbow but straight
+  // back through the shoulder, and that arm vanished inside the vest —
+  // which from the chase camera is a one-armed rider. So the reach is
+  // bounded at BOTH ends, and the elbow wings out as the arm folds.
+  const ARM = BODY.upperArm + BODY.forearm;
+  const CLOSE = STANCE.reachMin * ARM;
+  /** The whole space the engine can hand the pose, coarsely swept: both
+   * lean axes at their `TUNING.rider` reaches, the tuck, the stand, and
+   * the springs at their stops. */
+  function* reads(): Generator<RiderRead> {
+    for (let a = -1; a <= 1; a += 0.25)
+      for (let r = -1; r <= 1; r += 0.25)
+        for (const tuck of [0, 1])
+          for (const stand of [0, 1])
+            for (const sway of [-DYNAMICS.swayMax, 0, DYNAMICS.swayMax])
+              for (const crush of [DYNAMICS.crushMin, 0, DYNAMICS.crushMax])
+                yield read({
+                  aft: a * TUNING.rider.leanReach,
+                  right: r * TUNING.rider.leanIn,
+                  throttle: 1,
+                  pace: 1,
+                  tuck,
+                  stand,
+                  sway,
+                  crush,
+                });
+  }
+
+  for (const [id, cockpit] of cockpits()) {
+    it(`${id}: no lean folds an arm past the elbow, and both hands stay on the grips`, () => {
+      const grips: P[] = [
+        [-cockpit.grip.x, cockpit.grip.y, cockpit.grip.z],
+        [cockpit.grip.x, cockpit.grip.y, cockpit.grip.z],
+      ];
+      for (const r of reads()) {
+        const p = poseRider(cockpit, r);
+        for (let i = 0; i < 2; i++) {
+          expect(length(sub(p.hands[i], grips[i]))).toBeLessThan(1e-9);
+          // The upper arm is always its own length off the shoulder — an
+          // elbow solved to anything else is the degenerate fold.
+          expect(length(sub(p.elbows[i], p.shoulders[i]))).toBeCloseTo(BODY.upperArm, 6);
+          expect(length(sub(p.hands[i], p.shoulders[i]))).toBeGreaterThanOrEqual(CLOSE - 1e-6);
+        }
+      }
+    });
+
+    it(`${id}: a folded arm swings its elbow WIDE of the shoulder-to-grip line`, () => {
+      // What makes a folded arm visible at all: the elbow standing off the
+      // line from the shoulder to the grip. Collapsed onto that line the
+      // upper arm and the forearm lie along each other inside the chest,
+      // which is the arm disappearing; a right angle at the elbow already
+      // stands it 0.25 m off, and it only goes wider as the fold deepens.
+      // Measured off the line rather than in any axis, so a rider hung
+      // right off one side is judged the same as one sat square.
+      const square = Math.hypot(BODY.upperArm, BODY.forearm);
+      for (const r of reads()) {
+        const p = poseRider(cockpit, r);
+        for (let i = 0; i < 2; i++) {
+          const line = sub(p.hands[i], p.shoulders[i]);
+          if (length(line) > square) continue;
+          const arm = sub(p.elbows[i], p.shoulders[i]);
+          const along = dot(arm, line) / Math.max(1e-9, length(line));
+          expect(Math.sqrt(Math.max(0, dot(arm, arm) - along * along))).toBeGreaterThan(0.2);
+        }
+      }
     });
   }
 });
