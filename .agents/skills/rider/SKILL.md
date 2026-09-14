@@ -35,10 +35,16 @@ both ends, `write-code` beside this for any code change, and
    the pace's share, minus the rider's lean back, plus the springs' pitch;
    it rolls into a turn by `riderRight`.
 3. The hands are ON THE GRIPS. Each arm is solved back from its grip
-   (`solveLimb`, the elbow out and down). If a shoulder cannot reach, the
-   torso leans further, and at full lean the pelvis slides up the bucket
-   (`seat.zMax`). A rider leaning back therefore sits with straight arms,
-   the way a real one does — the torso angle barely changes.
+   (`solveLimb`, the elbow hanging down at a reach and winging OUT as the
+   arm folds). **The reach is bounded BOTH ways.** If a shoulder cannot
+   reach, the torso leans further, and at full lean the pelvis slides up
+   the bucket (`seat.zMax`) — so a rider leaning back sits with straight
+   arms, the way a real one does, the torso angle barely changing. If a
+   shoulder comes CLOSER to its grip than `STANCE.reachMin` of the arm's
+   length, the torso stands back up: leaning forward pitches the torso and
+   slides the pelvis forward at once, which walks the shoulders onto the
+   bars, and an arm folded past an elbow's own limit collapses back through
+   the shoulder and disappears inside the vest.
 4. The feet stand on the footwell floor ahead of the pelvis; the knees are
    solved up and in beside the saddle (forward, stood).
 5. The head follows a share of the torso's lean and turns into the turn.
@@ -59,6 +65,14 @@ the engine's dt, so a pre-rolled screenshot shows the same body.
    the reach: arms at full stretch at rest mean the grips are out of reach
    (`tests/rider_test.ts` holds the reach; it fails before the picture
    does).
+   **That sheet is `REST_READ` and nothing else, so it cannot show a POSE
+   fault at all.** A change to `STANCE`, to the reach or to a limb's solve
+   is judged off a grid of READS — a scratch script that poses
+   `createRider` over a spread of `RiderRead`s (both lean axes at their
+   `TUNING.rider` reaches, the tuck, the stand, the springs at their stops)
+   and paints it the way `scripts/craft-preview.mjs` does. Size each cell to
+   the craft's own footprint in that view plus a gutter, or the views bleed
+   into one another and hide the very fault you are looking for.
 2. A pose change is a `STANCE` number; a body change is `BODY`; a look
    change is `PAINT` or a `segment` in `figure`. One axis, re-sheet, look.
 3. `make build`, then `CHROMIUM_PATH=/opt/pw-browsers/chromium make
