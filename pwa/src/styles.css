@@ -447,11 +447,14 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* THREE TO THE MAP'S WIDTH — the row is as wide as the minimap over it and
+  /* TWO TO THE MAP'S WIDTH — the row is as wide as the minimap over it and
      no wider, so the cluster reads as one block down the right-hand edge
-     rather than as a map with a row of buttons sticking out from under it. */
-  width: calc((var(--hud-map) - var(--hud-mini-gap) * 2) / 3);
-  height: calc((var(--hud-map) - var(--hud-mini-gap) * 2) / 3);
+     rather than as a map with a row of buttons sticking out from under it.
+     The divisor is the number of presses in the row and the gap count is one
+     less: a third press would make it three and two, and `.hud-zone`'s
+     clearance (a map plus one button) follows from this line. */
+  width: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
+  height: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
   padding: 0;
 }
 
