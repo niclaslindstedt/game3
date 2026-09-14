@@ -39,69 +39,9 @@ import {
 
 import { FLUSH_SECONDS, birdPose, freshBirdPose, planBirds, type Flock } from "./bird-plan.ts";
 import { clamp } from "../lib/util.ts";
+import { type ScenarioName } from "./scenario-names.ts";
 
-export type ScenarioName =
-  | "rest"
-  | "jet"
-  | "cruise"
-  | "tuck"
-  | "stand"
-  | "carve"
-  | "brake"
-  | "brakeTurn"
-  | "chop"
-  | "swell"
-  | "launch"
-  | "apex"
-  | "landing"
-  | "dive"
-  | "capsize"
-  | "offshore"
-  | "storm"
-  | "ocean"
-  | "backflip"
-  | "sidespin"
-  | "wildlife"
-  | "breach"
-  | "birds"
-  | "mark"
-  | "gate"
-  | "missed"
-  | "river";
-
-export const SCENARIO_NAMES: readonly ScenarioName[] = [
-  "rest",
-  "jet",
-  "cruise",
-  "tuck",
-  "stand",
-  "carve",
-  "brake",
-  "brakeTurn",
-  "chop",
-  "swell",
-  "launch",
-  "apex",
-  "landing",
-  "dive",
-  "capsize",
-  "offshore",
-  "storm",
-  "ocean",
-  "backflip",
-  "sidespin",
-  "wildlife",
-  "breach",
-  "birds",
-  "mark",
-  "gate",
-  "missed",
-  "river",
-];
-
-export function isScenarioName(name: string): name is ScenarioName {
-  return (SCENARIO_NAMES as readonly string[]).includes(name);
-}
+export { isScenarioName, SCENARIO_NAMES, type ScenarioName } from "./scenario-names.ts";
 
 export type Scenario = {
   moment: RunMoment;
@@ -449,6 +389,15 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.45 },
         script: () => input(0, 0.6, 0),
         seconds: 5,
+      };
+    case "coast":
+      // Under way with the lever released: the hull-side wash without the
+      // pump's central tongue, staged long enough to see the road pale and
+      // narrow while the craft still carries useful speed.
+      return {
+        moment: { x: start.x, z: start.z, heading: start.heading, speed: top * 0.45 },
+        script: () => NEUTRAL,
+        seconds: 2,
       };
     case "tuck":
       // THE TUCK, flat out: the rider down behind the bars. It is staged

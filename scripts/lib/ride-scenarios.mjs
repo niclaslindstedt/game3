@@ -142,6 +142,14 @@ export const SCENARIOS = {
       input: () => ({ ...NEUTRAL, throttle: 1 }),
     }),
   },
+  coast: {
+    blurb: "under way with the throttle released: the hull-side wash alone",
+    seconds: 4,
+    stage: (level) => ({
+      moment: { x: level.start.x, z: level.start.z, heading: level.start.heading, speed: 12 },
+      input: () => NEUTRAL,
+    }),
+  },
   tuck: {
     blurb: "flat out with the rider tucked down behind the bars",
     seconds: 8,

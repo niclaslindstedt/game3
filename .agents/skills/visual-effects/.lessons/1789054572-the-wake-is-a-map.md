@@ -16,9 +16,10 @@ the road goes through the same lace as a whitecap, the churn bends the
 mirror and the glint, the relief is added to the engine's own surface
 and its slope to the wave's normal, and Gerstner's horizontal term along
 the map's gradient pushes the surface aside. The reference is the aerial
-photograph of a runabout: a beam-wide road that stays white for a few
-seconds and breaks into patches, a boil at the transom, and a pale V at
-Kelvin's angle whose width is the SPEED — `wake-profile.ts` holds each.
+photograph of a runabout: a narrow road that stays white for a few seconds
+and breaks into patches, a boil opening behind the transom, dense broken
+water widening gradually inside the faint Kelvin wave, and a thin live jet
+core — `wake-profile.ts` holds each.
 
 Three traps, each of which cost a build. **The mark material must be
 double-sided**: a ribbon's winding in plan turns with the heading and

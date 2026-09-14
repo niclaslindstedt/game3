@@ -8,18 +8,19 @@
 // The reference is the aerial photograph of a runabout at speed: three
 // things in it, each with its own life.
 //
-//   THE ROAD   the jet's churned white core, about a beam wide, solid at the
-//              transom and lasting several seconds — long enough that the
-//              trail behind a craft at pace runs out of the picture before
+//   THE ROAD   the jet's narrow churned core, born under the hull and lasting
+//              several seconds — long enough that the trail behind a craft
+//              at pace runs out of the picture before
 //              it runs out of white — breaking into mottled patches as the
 //              bubbles pop rather than paling evenly.
-//   THE BOIL   the bulb right behind the transom, wider than the road,
+//   THE BOIL   the bulb opening just behind the transom, wider than the road,
 //              where the jet's hole collapses and the chine sheets land: the
 //              widest, whitest, most turbulent water in the picture, and
 //              gone in under a second, which is what necks the road in
 //              behind it.
-//   THE FAN    the V either side, Kelvin's angle whatever the speed. At the
-//              transom it is a pair of rails — the diverging crests — with
+//   THE FAN    the V either side: faint wave arms at Kelvin's angle, with
+//              dense broken water opening much more slowly inside. At the
+//              transom it is a pair of rails — the breaking crests — with
 //              water the hull has merely aerated between them; with AGE the
 //              rails break inward until the whole wedge is broken white,
 //              and the wedge KEEPS OPENING the length of the trail. It is
@@ -64,13 +65,13 @@ export const WASH_FULL = 8;
  * frame does not. */
 export const ROAD_LIFE = 7;
 const ROAD_FADE_POWER = 1.2;
-/** The road's half-width at the transom as a share of the beam, what a m/s
- * of pace adds to it, m, and how fast it spreads with age, m/s. The road is
- * the THIN bright line down the middle of the photograph — what opens is
- * the fan round it — so it spreads slowly. */
-const ROAD_HALF_BEAM = 0.42;
+/** The road's half-width where it is born under the hull as a share of the
+ * beam, what a m/s of pace adds to it, m, and how fast it spreads with age,
+ * m/s. It begins inside the chines so no bright edge can show across the
+ * stern; the boil below opens only after the water has cleared the hull. */
+const ROAD_HALF_BEAM = 0.24;
 const ROAD_HALF_PER_SPEED = 0.008;
-const ROAD_SPREAD = 0.12;
+const ROAD_SPREAD = 0.06;
 /** Where the road's flat top ends, as a share of its half-width; outside it
  * the section feathers to nothing. */
 const ROAD_CORE = 0.55;
@@ -105,6 +106,8 @@ const ROAD_FAR = 0.15;
  * nothing to be thin against. */
 export const BOIL_RUN = 2.2;
 const BOIL_HALF_BEAM = 0.6;
+/** How far the boil takes to open after the road's hidden birth, m. */
+const BOIL_OPEN_RUN = 1.4;
 /** How long the churn behind the transom lives, s. The road carries no
  * relief of its own: the hollow behind the transom is the STERN WAVE's,
  * laid on a footprint wide enough for the grid to stand on. */
@@ -127,20 +130,15 @@ function relief(age: number, life: number): number {
 /** How long the fan's foam lives, s, and the power its fade runs on — under
  * one, so the wedge holds its white while it opens and then breaks into
  * patches, rather than dissolving as fast as it spreads. Its half-width at
- * the transom as a share of the beam, and the most it may ever spread to,
- * m. The WHITE FOLLOWS THE RELIEF OUT: the stern wave's arms ride Kelvin's
- * angle for the whole length of the trail, and a wedge of foam that stopped
- * opening halfway along left the water bending past the edge of the white
- * that was supposed to be the same wave. So the cap sits far enough back to
- * be most of the map rather than the near half of it — it is still a cap,
- * because Kelvin's angle never stops and an uncapped V is a field of foam
- * with a craft somewhere in it, but the V a rider looks back at is opening
- * the whole way. What makes it read LONG is still the life, not the
- * spread. */
+ * the hidden birth as a share of the beam, the share of Kelvin's physical
+ * wave angle occupied by dense broken water, and the distant safety cap,
+ * m. The stern wave carries the faint outer arms at Kelvin's angle; the
+ * brilliant aerated road in aerial views opens much more slowly inside it. */
 export const FAN_LIFE = 6;
 const FAN_FADE_POWER = 0.75;
-const FAN_HALF_BEAM = 0.6;
-export const FAN_HALF_MAX = 26;
+const FAN_HALF_BEAM = 0.45;
+const FAN_SPREAD_SHARE = 0.22;
+export const FAN_HALF_MAX = 12;
 /** The fan's foam at full pace — the loudest white in the picture, which is
  * what the aerial photographs say and the first pass did not: a fan at 0.4
  * sat under the lace's threshold and read as a grey smear beside the road.
@@ -232,14 +230,15 @@ export function washOf(speed: number): number {
   return clamp(speed / WASH_FULL, 0, 1);
 }
 
-/** The road's half-width at an age, m: the boil's bulb at the transom
- * decaying into the road proper, which spreads slowly. */
+/** The road's half-width at an age, m: narrow under the hull, opening into
+ * the boil behind it, then decaying into the road proper. */
 export function roadHalf(beam: number, speed: number, age: number, astern = 0): number {
+  const boilOpen = 1 - Math.exp(-astern / BOIL_OPEN_RUN);
   return (
     beam * ROAD_HALF_BEAM +
     speed * ROAD_HALF_PER_SPEED +
     ROAD_SPREAD * age +
-    beam * BOIL_HALF_BEAM * Math.exp(-astern / BOIL_RUN)
+    beam * BOIL_HALF_BEAM * boilOpen * Math.exp(-astern / BOIL_RUN)
   );
 }
 
@@ -252,12 +251,14 @@ export function fanCusp(run: number): number {
   return 0.6 * a + 0.4 * b;
 }
 
-/** The fan's half-width at an age, m: Kelvin's V at the speed the hull was
- * making, scalloped by where the sample sits along the trail (`run`, m),
- * thrown wide on the outside of a turn (`bias`, `turnBias`) and capped so a
- * long trail at pace is not a map full of fan. */
+/** The fan's half-width at an age, m: dense broken water opening inside the
+ * stern wave's Kelvin V, scalloped by where the sample sits along the trail
+ * (`run`, m), and thrown wide on the outside of a turn (`bias`, `turnBias`). */
 export function fanHalf(beam: number, speed: number, age: number, run = 0, bias = 0): number {
-  const half = Math.min(FAN_HALF_MAX, beam * FAN_HALF_BEAM + age * speed * KELVIN_TAN);
+  const half = Math.min(
+    FAN_HALF_MAX,
+    beam * FAN_HALF_BEAM + age * speed * KELVIN_TAN * FAN_SPREAD_SHARE,
+  );
   return half * (1 + CUSP_SHARE * fanCusp(run)) * (1 + TURN_WIDEN * bias);
 }
 
@@ -782,21 +783,23 @@ export function trailAction(live: boolean, end: TrailEnd, moved: boolean): Trail
 // of the transom, spreading and dying over its reach, driven by the pump
 // and not by the speed.
 //
-// It FADES OUT as the craft picks up pace, and that is the physics rather
-// than a fudge: a transom standing still blasts the same patch of water for
-// as long as the throttle is open, so the white piles up in one place; a
-// transom at speed has left that water behind before it has finished
-// breaking, and what the jet churns becomes the ROAD instead. By the time
-// the road is white (`SPEED_FULL`) the jet has handed over entirely, and
-// the two cross without either of them popping.
+// Its PILED-UP SHARE fades as the craft picks up pace, while a thinner core
+// remains attached to the nozzle: a transom standing still blasts the same
+// patch of water for as long as the throttle is open; a transom at speed has
+// left that water behind before it has finished breaking, so most of what
+// the jet churns becomes the ROAD instead. The core lengthens continuously
+// as water passes the nozzle, so the first seconds build rather than pop.
 
-/** How far astern the jet reaches at a standstill, as a multiple of the
- * hull's length, and its half-width at the nozzle and at that reach, as
- * shares of the beam: a tongue, narrow where it leaves and spread where it
- * has broken up. */
-const JET_REACH = 4.5;
-const JET_HALF_NOZZLE = 0.35;
-const JET_HALF_REACH = 1.6;
+/** How far astern the visible jet reaches at rest and once up to pace, as
+ * multiples of the hull's length. Its geometry grows with the moving water
+ * even while the piled-up white at a standstill hands over to the road. */
+const JET_REACH_REST = 0.65;
+const JET_REACH_PACE = 3.2;
+/** Its half-width at the nozzle, and at the reach at rest and pace, as
+ * shares of the beam: a tongue narrow where it leaves and opening steadily. */
+const JET_HALF_NOZZLE = 0.12;
+const JET_HALF_REACH_REST = 0.25;
+const JET_HALF_REACH_PACE = 1.05;
 /** The pace by which the jet has handed the water over to the road. It IS
  * the pace at which the road is fully white, read off it rather than quoted
  * beside it: the two are one hand-over, and a jet that let go before the
@@ -837,8 +840,7 @@ export const JET_ROWS = 7;
 
 /** What the jet is doing, for a pump at `throttle` on a hull making `speed`
  * m/s the way it points. `reach` and the half-widths are m; `blast` is 0..1
- * — nothing at all at 0, which is a shut throttle, a craft at pace, or a
- * hull that is not in the water. */
+ * — nothing at all at 0, which is a shut throttle or a hull out of water. */
 export type JetMark = {
   blast: number;
   reach: number;
@@ -867,26 +869,32 @@ export function jetBlast(
   // Linear in the hand-over, not squared: squared, the jet was already half
   // gone by walking pace and the road had not started, which is a hole.
   const stall = 1 - clamp(speed / JET_STALL, 0, 1);
+  const pace = 1 - stall;
   const pump = afloat ? clamp(throttle, 0, 1) : 0;
   out.blast = pump * (JET_PACE_FLOOR + (1 - JET_PACE_FLOOR) * stall);
-  // JUST BEHIND THE CRAFT. The stream is a near-field mark — two or three
-  // hull lengths at pace — and nothing here may draw it out with speed: the
-  // long bright line down the middle of the whole wedge is the ROAD's, and
-  // a jet stretched to match it stops reading as a jet at all.
-  out.reach = length * JET_REACH * out.blast;
+  // JUST BEHIND THE CRAFT. The stream lengthens with the water passing the
+  // nozzle, but remains a near-field mark at full pace; the long line down
+  // the whole wedge belongs to the road.
+  out.reach = length * (JET_REACH_REST + (JET_REACH_PACE - JET_REACH_REST) * pace) * pump;
   out.halfNozzle = beam * JET_HALF_NOZZLE;
-  out.halfReach = beam * JET_HALF_REACH;
+  out.halfReach = beam * (JET_HALF_REACH_REST + (JET_HALF_REACH_PACE - JET_HALF_REACH_REST) * pace);
 }
 
-/** THE JET'S SECTION at `u` along it (0 at the nozzle, 1 at the reach) and
- * `s` across it (−1..1 of the half-width there). */
-/** The jet's half-width at `u` along it, as a share of the beam. It opens
- * FAST out of the nozzle and then holds, rather than widening evenly over
- * the whole reach: a tongue that is still a hull's beam wide two metres
- * astern is a tongue the hull itself hides from every camera in the game,
- * which is where the first pass put it. */
-export function jetHalf(u: number, beam: number): number {
-  return beam * (JET_HALF_NOZZLE + (JET_HALF_REACH - JET_HALF_NOZZLE) * Math.sqrt(clamp(u, 0, 1)));
+/** The jet's half-width at `u` along it, as a share of the beam. It stays
+ * narrow through the hidden stretch under the hull, then opens evenly once
+ * it is visible behind the stern. */
+export function jetHalf(u: number, halfNozzle: number, halfReach: number): number {
+  return halfNozzle + (halfReach - halfNozzle) * clamp(u, 0, 1);
+}
+
+/** How far forward of the physical transom every continuous wake mark is
+ * born, m. The overlap hides the map's hard head row beneath the hull. */
+export const WAKE_BIRTH_FORWARD = 0.45;
+
+/** The wake origin behind the centre of gravity, m. A craft's transom is
+ * `length / 2 + cogZ` behind its CoG; the mark begins forward of that edge. */
+export function wakeBirthBack(length: number, cogZ: number): number {
+  return Math.max(0, length / 2 + cogZ - WAKE_BIRTH_FORWARD);
 }
 
 export function jetAt(u: number, s: number, blast: number, out: WakeSection): void {

@@ -165,6 +165,9 @@ audition:
 # the shot is named after it, so a sweep leaves one file per camera) ·
 # `make screenshots MODE=race ARGS="--drive W:8"` (the field five seconds
 # after GO) · `make screenshots MODE=tricks MINUTES=4 ARGS="--surface start"`
+# · `make screenshots SCENE=coast ARGS=--details` (the normal reference
+# views plus 3× tight overhead and 45-degree stern crops, clear at noon in
+# a time trial; coast isolates the hull-side wash with the throttle released)
 screenshots:
 	node scripts/screenshot.mjs $(if $(SCENE),--scene $(SCENE),) $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) \
 		$(if $(CRAFT),--craft $(CRAFT),) $(if $(HOUR),--hour $(HOUR),) \
