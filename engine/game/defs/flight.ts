@@ -224,6 +224,34 @@ export const FLIGHT = {
    * the water's lateral centre. */
   windageY: 0.3,
   windageZ: -0.12,
+  /** ...and where the SIDEWAYS one stands, which is not the same place:
+   * this share of the length FORWARD of the centre of gravity, at the
+   * centroid of the ABOVE-WATER side profile.
+   *
+   * Take the profile as a trapezoid: a watercraft floats with a quarter
+   * of a metre of freeboard at the transom and two thirds of one at the
+   * stem, and the centroid of a trapezoid of heights h₁ and h₂ sits
+   * (h₁ + 2·h₂) / 3·(h₁ + h₂) along it from the short end — 0.58 of the
+   * length from the transom, an unremarkable 8 % of it forward of
+   * amidships. The rider is a second sail a little AFT of that, which
+   * pulls the pair of them back to about 6 %; the centre of gravity sits
+   * aft of amidships again, which puts it back where it started.
+   *
+   * The sign is the whole point, and it is the one thing here that is not
+   * a guess. The WET hull's lateral centre is right aft —
+   * `hull.lateralStationShare` puts a third of the sideways push on the
+   * transom station alone, because that is where the pump tunnel, the ride
+   * plate and the sponsons are — and the air's stands forward of it. Wind
+   * pressure ahead of water resistance is a body that will NOT nose up into
+   * the wind the way a moored boat on a chain does: it lies across it and
+   * blows away, which is what everyone who has watched a machine get away
+   * from them has seen. What it settles at is a balance rather than a
+   * heading — broadside in a light air, squaring away as it freshens — and
+   * the search-and-rescue leeway experiments call that angle the
+   * DIVERGENCE and measure it out to forty-odd degrees for small craft.
+   * The model lies 37° off downwind at 6 m/s and 4° at 16; nothing here
+   * aims at those, they are what the two centres and the wet hull produce. */
+  windageSideZ: 0.08,
   /** The rider's roll authority in the air, N·m at full steer, and the
    * yaw the same input buys. */
   steerRoll: 140,

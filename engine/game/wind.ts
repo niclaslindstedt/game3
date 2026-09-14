@@ -32,10 +32,22 @@
 //   with the turbulence intensity's stationary deviation and the gust
 //   integral time scale's memory, stepped from `state.rng` so a seed
 //   replays its gusts; and a second, slower one wandering the direction.
-//   The Gaussian draws come from Box–Muller over the seeded stream.
+//   The Gaussian draws come from Box–Muller over the seeded stream. It is
+//   the WHOLE LEVEL's gust — the energy-containing eddies over water are
+//   hundreds of metres across, and at that size one number is honest.
+// - ...and under it an EDDY FIELD for the sizes that are not: a sum of
+//   octaves of value noise weighted by Kolmogorov's −5/3 law (amplitude
+//   as the cube root of the scale) and carried past by the mean wind,
+//   which is Taylor's frozen-turbulence hypothesis (1938) — the pattern
+//   is advected rather than remade, so what a fixed point reads over
+//   time is a slice of it sweeping by. Two craft eight metres apart feel
+//   nearly the same wind and not quite; two a hundred apart feel
+//   different weather. Nothing is drawn from the stream for it: the field
+//   is a pure function of place, the clock and the level's seed.
 
 import { sampleField } from "../lib/heightfield.ts";
 import { clamp, TAU } from "../lib/math.ts";
+import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
@@ -65,6 +77,18 @@ export type WindState = {
   veer: number;
   /** What the coast does to that mean, place by place (`fetch.ts`). */
   readonly shelter: Shelter;
+  /** The seed the eddy field is hashed off, so a level replays the
+   * turbulence it was ridden in. */
+  readonly seed: number;
+  /** How far the eddy field has been CARRIED, m, along each axis — the
+   * mean wind's velocity integrated by `stepWind`. Taylor's hypothesis
+   * says the pattern is advected rather than remade, so the field is
+   * frozen and this is the only thing about it that moves. Kept here
+   * rather than asked for as a clock, so `windAt` stays a function of
+   * place and the wind's own state and nothing else learns to pass a
+   * time it does not otherwise have. */
+  driftX: number;
+  driftZ: number;
 };
 
 export function createWind(
@@ -81,6 +105,9 @@ export function createWind(
     gust: 1,
     veer: 0,
     shelter,
+    seed: level.seed,
+    driftX: 0,
+    driftZ: 0,
   };
 }
 
@@ -99,13 +126,64 @@ function ou(x: number, mean: number, tau: number, sigma: number, dt: number, rng
   return x + ((mean - x) / tau) * dt + sigma * Math.sqrt((2 * dt) / tau) * gaussian(rng);
 }
 
-/** Advance the gusts by `dt` seconds. Draws exactly two numbers from the
+/** How much of the turbulence the LEVEL-WIDE process carries and how much
+ * the eddy field does. Variances add for two independent processes, so
+ * each one's σ is the quoted intensity times the square root of its share
+ * and the pair of them still deliver `W.intensity`. */
+const SQUALL = Math.sqrt(W.squallShare);
+const EDDY = Math.sqrt(1 - W.squallShare);
+
+/** Advance the gusts by `dt` seconds, and carry the eddy field downwind by
+ * what the mean did in that time. Draws exactly two numbers from the
  * stream every step regardless of the wind, so a calm level and a windy
- * one consume the same randomness. */
+ * one consume the same randomness — and the field draws none at all. */
 export function stepWind(wind: WindState, rng: Rng, dt: number): void {
-  wind.gust = clamp(ou(wind.gust, 1, W.gustTime, W.intensity, dt, rng), W.gustMin, W.gustMax);
-  wind.veer = clamp(ou(wind.veer, 0, W.veerTime, W.veer, dt, rng), -3 * W.veer, 3 * W.veer);
+  wind.gust = clamp(
+    ou(wind.gust, 1, W.gustTime, W.intensity * SQUALL, dt, rng),
+    W.gustMin,
+    W.gustMax,
+  );
+  wind.veer = clamp(
+    ou(wind.veer, 0, W.veerTime, W.veer * SQUALL, dt, rng),
+    -3 * W.veer,
+    3 * W.veer,
+  );
+  const toward = wind.meanFrom + Math.PI;
+  wind.driftX += Math.sin(toward) * wind.meanSpeed * dt;
+  wind.driftZ += Math.cos(toward) * wind.meanSpeed * dt;
 }
+
+/** THE EDDY FIELD, in standard deviations: a sum of octaves of value noise
+ * over the plan, each half the size of the last and weighted by
+ * Kolmogorov's inertial-subrange law — an octave's amplitude goes as the
+ * cube root of its scale, so the big eddies carry the weather and the
+ * small ones carry the difference between one hull and the one beside it.
+ * Read at the point the field has been CARRIED past (Taylor), so a fixed
+ * rider sees it sweep by at the mean wind and a rider running downwind
+ * sits in one gust for longer than he should have.
+ *
+ * Normalised to unit variance by `eddySigma`, which is what one octave of
+ * `valueNoise` is worth once centred; `tests/wind_test.ts` measures what
+ * comes out and holds it to the quoted intensity, which is the only
+ * reason this is exported at all. */
+export function eddyAt(wind: WindState, x: number, z: number, seed: number): number {
+  const px = x - wind.driftX;
+  const pz = z - wind.driftZ;
+  let sum = 0;
+  let norm = 0;
+  for (let k = 0; k < W.eddyOctaves; k++) {
+    const octave = 1 / 2 ** k;
+    const weight = octave ** W.eddyExponent;
+    sum += weight * (valueNoise(px, pz, W.eddyScale * octave, seed + k) - 0.5);
+    norm += weight * weight;
+  }
+  return sum / (W.eddySigma * Math.sqrt(norm));
+}
+
+/** The two fields are read off the level's seed a stride apart, so the
+ * gust's octaves and the veer's never share a lattice. */
+const GUST_FIELD = 0;
+const VEER_FIELD = 64;
 
 const inflow = new Float64Array(2);
 
@@ -132,15 +210,26 @@ export function windAt(
   const profile = Math.log(h / W.roughness) / Math.log(W.referenceHeight / W.roughness);
   const shelter = sampleField(wind.shelter.shelter, x, z);
   const mean = oceanWind(wind.meanSpeed, shelter, stormAt(wind.bounds, x, z));
-  const toward = wind.meanFrom + wind.veer + Math.PI;
+  // THE PLACE'S OWN SHARE OF THE TURBULENCE, on top of the level's: the
+  // eddies small enough that the hull beside you is not in the same one.
+  // Both are multiples of the quoted σ, and the product of the level's
+  // gust and the place's is clamped once — a point cannot be handed a
+  // calm or a hurricane by the two of them agreeing.
+  const gust = clamp(
+    wind.gust * (1 + W.intensity * EDDY * eddyAt(wind, x, z, wind.seed + GUST_FIELD)),
+    W.gustMin,
+    W.gustMax,
+  );
+  const veer = wind.veer + W.veer * EDDY * eddyAt(wind, x, z, wind.seed + VEER_FIELD);
+  const toward = wind.meanFrom + veer + Math.PI;
   // The level's own wind first and on its own terms — `mean · gust ·
   // profile`, in that order — so that everywhere the tornado is not, which
   // is everywhere a run is ridden, this returns the same bits it returned
   // before there was one. Folding the two winds into a common scale factor
   // reorders the multiply, and float multiplication is not associative: the
   // last bit it costs is a different sim digest on every seed.
-  const speed = mean * wind.gust * profile;
-  const scale = wind.gust * profile;
+  const speed = mean * gust * profile;
+  const scale = gust * profile;
   tornadoInflow(tornadoAt(wind.bounds, wind.pace, x, z), wind.pace, wind.home, x, z, inflow);
   return {
     vx: speed * Math.sin(toward) + inflow[0] * scale,
