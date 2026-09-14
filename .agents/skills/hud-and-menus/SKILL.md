@@ -84,6 +84,16 @@ here, the keys that walk a card are there.
   same decision applied to a picture, so a right-hand turn swings the icon
   clockwise. North is up and east is LEFT — the price of agreeing with the
   chase camera, and not a bug to be tidied.
+- **THE WHOLE TOP-RIGHT CORNER IS SIZED OFF `--hud-map` AND NOTHING ELSE, so
+  a rule there STATES THE NUMBER OF PRESSES IN THE ROW** — `.hud-mini-icon`'s
+  `(map - gap · (n-1)) / n` and `.hud-zone`'s clearance (a map plus one
+  button) are that count written twice, and adding or removing a press means
+  editing both. A press REMOVED is the trap: the button survives with the
+  divisor of the row it used to share, and nothing looks broken — the marks
+  just come out small with a gap of sea under the plate. The shutter left for
+  a key and a menu row and the two that remain stayed at thirds for it. When
+  the two numbers disagree, the ZONE and the comments are the ones to believe:
+  the divisor is what gets left behind.
 - **The build label is §38's "the running build says what it is".** It reads
   `engine/version.ts` and the build's short hash; do not drop it for room.
 - **A new colour on this screen owes the night dressing a ramp.** The HUD dips
