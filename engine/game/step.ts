@@ -146,6 +146,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     airTime: 0,
     planing: 0,
     submergedDepth: 0,
+    submerged: 0,
     slam: 0,
     speed: 0,
     altitude: 0,

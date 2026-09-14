@@ -244,6 +244,23 @@ export const SCENARIOS = {
       };
     },
   },
+  following: {
+    blurb: "a following sea: the wave overtaking the bow at half throttle",
+    seconds: 10,
+    stage: (level) => {
+      const p = outerPoint(level);
+      const out = 100;
+      return {
+        moment: {
+          x: p.x + Math.sin(level.wind.from) * out,
+          z: p.z + Math.cos(level.wind.from) * out,
+          heading: level.wind.from + Math.PI,
+          speed: 8,
+        },
+        input: () => ({ ...NEUTRAL, throttle: 0.5 }),
+      };
+    },
+  },
   launch: {
     blurb: "the first ramp at the speed the ring asks for, levelled for the landing",
     seconds: 7,

@@ -18,7 +18,6 @@ import {
   cumulative,
   faunaById,
   faunaPose,
-  fieldGradient,
   freshPose,
   isMale,
   launchSpeedFor,
@@ -38,10 +37,12 @@ import {
 } from "@engine";
 
 import { FLUSH_SECONDS, birdPose, freshBirdPose, planBirds, type Flock } from "./bird-plan.ts";
+import { outToSea, seawardAt } from "./scenario-water.ts";
 import { clamp } from "../lib/util.ts";
 import { type ScenarioName } from "./scenario-names.ts";
 
 export { isScenarioName, SCENARIO_NAMES, type ScenarioName } from "./scenario-names.ts";
+export { seawardAt } from "./scenario-water.ts";
 
 export type Scenario = {
   moment: RunMoment;
@@ -76,26 +77,6 @@ const CAPSIZE_ROLL = 1.75;
 const CAPSIZE_ROLL_RATE = 3;
 const CAPSIZE_SPEED = 4;
 
-/** The unit vector pointing out to sea at a plan point — up the `offshore`
- * distance field. */
-export function seawardAt(level: Level, x: number, z: number): { x: number; z: number } {
-  const { gx, gz } = fieldGradient(level.offshore, x, z);
-  const n = Math.hypot(gx, gz);
-  if (n < 1e-6) return { x: 0, z: 1 };
-  return { x: gx / n, z: gz / n };
-}
-
-/**
- * A point `metres` out to sea of (x, z) — or as far out as the water goes,
- * whichever comes first.
- *
- * A level is a BASIN now (R15): a channel has a far bank, and forty metres
- * seaward of a gate in one is dry land. Every staged moment that wanted
- * "further out" wants the water further out, so the walk follows the
- * offshore gradient step by step and stops where the water stops getting
- * deeper — which on the open coast is the full distance and in a channel is
- * the middle of it.
- */
 /** Straight on along `sea` from (x, z) until the level's rim is astern and
  * the storm stands in full — `TUNING.sea.open.reach` metres of open ocean
  * past the last cell of the grid (`engine/game/ocean.ts`). Nothing is
@@ -115,21 +96,6 @@ function outPastTheRim(
   }
   const past = TUNING.sea.open.reach;
   return { x: at.x + sea.x * past, z: at.z + sea.z * past };
-}
-
-function outToSea(level: Level, x: number, z: number, metres: number): { x: number; z: number } {
-  const STEP = 4;
-  let at = { x, z };
-  let best = sampleField(level.offshore, x, z);
-  for (let d = STEP; d <= metres; d += STEP) {
-    const sea = seawardAt(level, at.x, at.z);
-    const next = { x: at.x + sea.x * STEP, z: at.z + sea.z * STEP };
-    const off = sampleField(level.offshore, next.x, next.z);
-    if (off < best) break;
-    best = off;
-    at = next;
-  }
-  return at;
 }
 
 /** The first air gate, or null for a course without one. */
@@ -491,6 +457,24 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         },
         script: () => input(0, 0.3, 0),
         seconds: 6,
+      };
+    }
+    case "following": {
+      // Running WITH the sea toward shore, far enough out that the craft
+      // has ten seconds of full swell before the shallows tame it. This is
+      // the counterpart to `chop`: the same waves catching the transom and
+      // overtaking the bow instead of meeting it head-on.
+      const at = outToSea(level, mid.x, mid.z, 140);
+      return {
+        moment: {
+          x: at.x,
+          z: at.z,
+          heading: level.wind.from + Math.PI,
+          speed: 8,
+          nextGate: mid.index,
+        },
+        script: () => input(0, 0.5, 0),
+        seconds: 10,
       };
     }
     case "launch": {

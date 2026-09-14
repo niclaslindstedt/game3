@@ -65,10 +65,10 @@ export {
   type CraftSpec,
 } from "./game/defs/craft.ts";
 export { TUNING } from "./game/defs/tuning.ts";
-// THE ARCADE'S HAND (game/assist.ts): both hands and the ballistic clock
-// the air's is scheduled against, so a test can hold the mechanism itself
-// rather than only the rides it changes.
-export { landingAssist, rampAssist, timeToWater } from "./game/assist.ts";
+// THE ARCADE'S HAND (game/assist.ts): its three hands and the ballistic
+// clock the air's is scheduled against, so a test can hold the mechanisms
+// themselves rather than only the rides they change.
+export { followingSeaAssist, landingAssist, rampAssist, timeToWater } from "./game/assist.ts";
 export { aeroForces, type AeroResult } from "./game/flight.ts";
 // THE HULL UNDER THE WATER (game/submerged.ts): the regime, what the rider
 // still commands in it, and what the deck's float does once it is under.

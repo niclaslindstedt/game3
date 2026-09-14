@@ -5,20 +5,23 @@
 // It lives beside `tuning.ts` rather than inside it because that file had
 // grown past the §20.5 cap, and this is the piece that comes out cleanly:
 // every number in here is argued against a BENCH (the flight bench, the
-// ramp bench) rather than against the world, and every one of them is a
-// DIAL a difficulty setting is expected to move. `TUNING.assist` is still
+// ramp bench, the following-sea corpus) rather than against the world. The
+// air and ramp hands are DIALS a difficulty setting is expected to move;
+// the following-sea hand is a fixed part of the ride. `TUNING.assist` is still
 // how the whole repo spells it — `tuning.ts` folds this in under that name
 // — and `engine/game/assist.ts` is the code these numbers feed.
 
 /** THE ARCADE ASSIST — the hand on the rider's shoulder (`assist.ts`).
  *
- * TWO HANDS, TWO DIALS, and they are separate because they answer two
+ * THREE HANDS. Two are difficulty dials, separate because they answer two
  * different ways of losing a jump you had already earned: `air` is the
  * landing (`landingAssist`, `GameState.assist`) and `ramp` is the run
  * up the deck before it (`rampAssist`, `GameState.rampAssist`). A
  * difficulty setting is expected to move both, and to move them by
  * different amounts — the ramp's hand is the gentler of the two and
  * survives further up a difficulty ladder than the air's.
+ * `following` is part of the core ride instead: the pitch-up that makes a
+ * wave overtaking the hull feel as survivable as one meeting it head-on.
  *
  * This game is an ARCADE game before it is a simulation, and the
  * sensation it sells is the flight: the launch, the hang, the landing
@@ -200,6 +203,45 @@ export const ASSIST = {
      * three would be the gutter, and none of them is a jump being
      * followed through. */
     pace: 6,
+  },
+
+  /** THE FOLLOWING SEA'S HAND (`followingSeaAssist`): an intentionally
+   * arcade pitch-up when a crest overtakes the hull and starts swallowing
+   * the bow. Unlike the landing and ramp hands this is not a difficulty
+   * dial: it repairs a directional asymmetry in the core water feel. */
+  following: {
+    /** Bow immersion where the hand begins and reaches full strength, m.
+     * The first is beyond the forefoot's ordinary planing draft; the second
+     * is still short of the line that reports a dive, so the help arrives
+     * before the drag has taken the ride away. */
+    begin: 0.12,
+    full: 0.45,
+    /** How much deeper the bow must be than the transom for full engagement,
+     * m. A hull riding level in a trough therefore feels nothing. */
+    difference: 0.2,
+    /** Whole-hull submerged share at which the hand is fully engaged, 0..1.
+     * This keeps the correction after the deck follows the bow. */
+    under: 0.15,
+    /** Minimum dot product between the hull's horizontal nose and the wave
+     * travel direction. 0.65 is a cone about 49° wide; beam and head seas
+     * remain entirely outside it. */
+    align: 0.65,
+    /** Forward speed through the water for full engagement, m/s. The hand
+     * fades to nothing at rest and is all in below planing pace. */
+    pace: 8,
+    /** How close the bow probe must be to the water while airborne, m, and
+     * the nose-up attitude aimed for over that last gap, rad. `pitchBand`
+     * is how far nose-down the correction takes to reach full strength.
+     * This is the short following-wave skip the general landing assist must
+     * ignore in a head sea to preserve its drumroll. */
+    airReach: 1,
+    landPitch: 0.1,
+    pitchBand: 0.15,
+    /** Nose-up angular acceleration, rad/s², and extra damping of a nose-down
+     * body rate, rad/s² per rad/s. Arcade numbers measured on the following
+     * ride corpus, expressed as accelerations so every hull gets one hand. */
+    right: 12,
+    damp: 4,
   },
 
   /** THE LADDER a difficulty setting picks from: how hard the air's
