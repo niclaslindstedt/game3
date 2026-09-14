@@ -82,6 +82,7 @@ import {
   sternHalf,
   trailAction,
   turnBias,
+  wakeBirthBack,
   wakeSection,
 } from "./wake-profile.ts";
 
@@ -93,9 +94,6 @@ import {
 const SAMPLES = 128;
 const ROWS = SAMPLES + 1;
 const SPACING = 1.0;
-/** Where the trail starts: this far behind the centre of gravity, as a share
- * of the hull's length — the transom, not the seat. */
-const STERN = 0.45;
 /** Below this along-track speed, m/s, the hull is not laying a trail. */
 const SPEED_LIVE = 1;
 /** Vertices across each ribbon. The fan's are placed so one stands on its
@@ -404,7 +402,7 @@ export function createWake(): Wake {
   };
   const readTransom = (state: GameState): typeof transom => {
     const c = state.craft;
-    const back = c.spec.length * STERN;
+    const back = wakeBirthBack(c.spec.length, c.spec.cog.z);
     transom.x = c.x - Math.sin(c.heading) * back;
     transom.z = c.z - Math.cos(c.heading) * back;
     // A hull under its bucket stops and then backs up, and a craft moving
@@ -601,8 +599,9 @@ export function createWake(): Wake {
     fan.colAttr.needsUpdate = true;
 
     // THE JET, astern of the nozzle: a tongue along the heading, widening
-    // from the transom to its reach. Folded to nothing when the throttle is
-    // shut or the hull is up to pace, at which point the road has it.
+    // from its hidden birth under the hull to its reach. Folded to nothing
+    // when the throttle is shut; at pace a thin live core remains while the
+    // road carries the long-lived churn.
     jetBlast(Math.max(0, c.throttleEff), now.along, now.afloat, c.spec.length, c.spec.beam, blast);
     const jx = Math.sin(c.heading);
     const jz = Math.cos(c.heading);
@@ -610,7 +609,7 @@ export function createWake(): Wake {
     const jrz = -Math.sin(c.heading);
     for (let r = 0; r < JET_ROWS; r++) {
       const u = r / (JET_ROWS - 1);
-      const half = jetHalf(u, c.spec.beam);
+      const half = jetHalf(u, blast.halfNozzle, blast.halfReach);
       const back = blast.reach * u;
       for (let a = 0; a < JET_ACROSS; a++) {
         const sAcross = (a / (JET_ACROSS - 1)) * 2 - 1;

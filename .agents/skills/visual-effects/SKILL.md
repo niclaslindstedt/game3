@@ -41,7 +41,7 @@ that wants the camera to move goes there, not into an ad-hoc transform.
 | Effect | Where |
 | --- | --- |
 | The spray: the chine sheets while planing, the pump's rooster tail, the reverse bucket's boil, the landing's plume, the bow driving into a face | `pwa/src/game/spray.ts` — one `THREE.Points` pool, a custom shader so every droplet has its own size, everything within a hull length of the craft |
-| The wake's SHAPE by speed and by age — the road, the boil, the fan at Kelvin's angle, the hollow, the rise time of the relief | `pwa/src/game/wake-profile.ts`; `tests/wake_test.ts` holds the reference photograph's claims as arithmetic |
+| The wake's SHAPE by speed and by age — the road, the boil, dense fan foam inside the Kelvin wave, the hollow, the rise time of the relief | `pwa/src/game/wake-profile.ts`; `tests/wake_test.ts` holds the reference photograph's claims as arithmetic |
 | The wake's MAP — the trail rasterised once a frame from straight above, one channel each for foam, churn, crest and hollow; a landing's foam stamped into it by the spray | `pwa/src/game/wake.ts` |
 | The foam's mottling and the droplet, made in code; the anisotropy every tile seen along the water needs | `pwa/src/game/fx-textures.ts` |
 | Footprints on the sand — decoration placed on the level's own seed, on `sand` only, instanced, never a solid | `pwa/src/game/footprints.ts` |
@@ -78,10 +78,10 @@ particle shader or a smoke sprite reads as pasted on.
   the last few metres to the lens — a few big soft sprites read as smoke,
   and a soft disc with grain reads as soap bubbles at the next zoom.
 - **The white road is foam ON the water.** The reference is the aerial
-  photograph of a runabout at pace: a beam-wide road that stays white for a
-  few seconds and breaks into patches, a boil at the transom, a pale V at
-  Kelvin's angle whose width is the SPEED, and a rooster tail as a fine fan
-  over it — not blobs down its middle.
+  photograph of a runabout at pace: a narrow road that stays white for a few
+  seconds and breaks into patches, a boil opening behind the transom, dense
+  broken water widening gradually inside the faint Kelvin wave, and a
+  rooster tail as a fine fan over it — not blobs down its middle.
 - **Lit by the world's lights.** The droplets take the hemisphere and the key
   each frame, so a plume at dusk is the dusk's colour; the road goes through
   the same lace as a whitecap. Palette colours from `identity.ts`, no greys
@@ -132,11 +132,11 @@ Never tune an effect blind:
    plunge). An effect you are ADDING gets its scene in the same change — it
    is how a human reviews it without playing for it. The ride lab's list
    (`scripts/lib/ride-scenarios.mjs`) is named separately; add to both.
-2. `make build && CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots
-   SCENE=<name> CAMERA=close`, then **read the PNGs at 3×**: a 1280 px frame
-   hides a dark gap behind the transom and a road with no texture in it. A
-   scratch page over `scripts/lib/serve-dist.mjs` with `deviceScaleFactor: 3`
-   and a `clip` on the stern is ten lines (`lab-tooling`).
+2. `make build`, then `CHROMIUM_PATH=/opt/pw-browsers/chromium make
+   screenshots SCENE=<name> ARGS=--details`. Read the two 3× stern crops:
+   `stern-overhead` for the plan seam and `stern-chase` for the 45-degree
+   player view. They default to clear noon so foam contrast is stable; an
+   explicit `HOUR=` or `WEATHER=` still wins.
 3. **Two or three offsets for a timeline** (`--t`), one per beat: a landing
    is a burst, then a sheet, then the foam on the water.
 4. **Ride it** for anything that moves — a twitch at the grid's scale and a

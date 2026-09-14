@@ -18,9 +18,10 @@ brake's pool and the capsized hull's boil already use, because it is
 attached to the machine and not to the water. Two things make it land:
 
 - **Hand it over on the OTHER mark's constant, not a number beside it.**
-  The jet fades out at `SPEED_FULL`, the pace at which the road is fully
-  white, read off it directly. Quoted separately, the two drift and a
-  version ships with a hole between them.
+  The jet's piled-up share falls to its live-core floor at `SPEED_FULL`, the
+  pace at which the road is fully white, read off it directly. Its reach and
+  width grow continuously over the same interval. Quoted separately, the
+  two drift and a version ships with a hole or a visible size step.
 - **It needs something in the AIR or it reads as a decal.** A map is flat by
   construction. And the airborne half had the keel-birth bug this skill has
   already recorded once: the rooster tail was born at `keelY`, which a

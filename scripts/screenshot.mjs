@@ -27,6 +27,8 @@
 //   node scripts/screenshot.mjs --scene launch             # one scene
 //   node scripts/screenshot.mjs --all                      # every scene
 //   node scripts/screenshot.mjs --scene dive --seed 7 --craft otter
+//   node scripts/screenshot.mjs --scene cruise --details    # tight stern
+//        views from overhead and the 45-degree chase camera, clear at noon
 //   node scripts/screenshot.mjs --scene rest --update            # the
 //        new-build button, which has no other way to be looked at
 //   node scripts/screenshot.mjs --surface menu --update          # the same
@@ -52,7 +54,7 @@ const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "pwa", "dist");
 const outDir = join(root, "previews");
 
-/** The scenes the app stages (`SCENARIO_NAMES` in scenarios.ts). Restated
+/** The scenes the app stages (`SCENARIO_NAMES` in scenario-names.ts). Restated
  * here rather than imported because the app module pulls the engine in
  * under the `@engine` alias and a list of two dozen words is not worth the
  * loader hook; `--all` with a name the app does not know prints the app's
@@ -61,6 +63,7 @@ const SCENES = [
   "rest",
   "jet",
   "cruise",
+  "coast",
   "tuck",
   "carve",
   "brake",
@@ -87,10 +90,10 @@ const SCENES = [
   "river",
 ];
 
-/** Scenes whose subject is an event reached by their script rather than the
- * pose they are stood in. The shutter pre-rolls to that beat by default so
- * `make screenshots SCENE=<name>` photographs what the scene promises. */
-const SCENE_AT = { missed: 2.5 };
+/** Scenes whose subject is reached by their script rather than the pose they
+ * are stood in. The shutter pre-rolls to that beat by default so an event or
+ * a wake needing trail history is present when the scene is photographed. */
+const SCENE_AT = { coast: 2, missed: 2.5 };
 
 /** THE MENU SURFACES, and how to photograph each one.
  *
@@ -147,6 +150,26 @@ const VIEWPORTS = {
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true },
 };
 
+/** Tight, high-resolution views for judging how a craft meets its wake.
+ * They use real camera rungs and crop the player craft out of the reference
+ * desktop frame, so the view is what the game draws rather than a second
+ * diagnostic renderer. Clear noon in a time trial is the stable default:
+ * other craft do not cover the trail, while explicit --hour, --weather or
+ * --mode flags still win. Clip units are CSS px and the 3× context makes
+ * the resulting images large enough to inspect individual foam marks. */
+const DETAIL_VIEWS = {
+  overhead: {
+    context: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 3 },
+    camera: "drone",
+    clip: { x: 500, y: 180, width: 280, height: 520 },
+  },
+  chase: {
+    context: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 3 },
+    camera: "heli",
+    clip: { x: 500, y: 330, width: 280, height: 380 },
+  },
+};
+
 const args = parseArgs(
   process.argv.slice(2),
   {
@@ -173,6 +196,10 @@ const args = parseArgs(
     update: {
       kind: "flag",
       help: "draw the new-build button (?update=1); the shot is named <scene|surface>-update",
+    },
+    details: {
+      kind: "flag",
+      help: "also capture 3× tight stern views from overhead and 45 degrees behind (scenes only)",
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
@@ -208,7 +235,7 @@ const args = parseArgs(
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
     "[--seed n] [--biome taiga|mangrove] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
-    "[--camera c] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
+    "[--camera c] [--details] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );
 const viewports =
@@ -252,8 +279,8 @@ let failures = 0;
  * wait for the app's ready flag, the file. Console errors and page errors
  * are printed under the file name: a screenshot of a frame the app threw
  * on is a screenshot of the wrong thing. */
-async function capture(name, params, viewportName, script, surface) {
-  const page = await browser.newPage({ ...VIEWPORTS[viewportName] });
+async function capture(name, params, viewportName, script, surface, options = {}) {
+  const page = await browser.newPage({ ...(options.context ?? VIEWPORTS[viewportName]) });
   const problems = [];
   page.on("pageerror", (err) => problems.push(`pageerror: ${err.message}`));
   page.on("console", (msg) => {
@@ -275,7 +302,7 @@ async function capture(name, params, viewportName, script, surface) {
         timeout: args.timeout * 1000,
       });
     }
-    await page.screenshot({ path: file });
+    await page.screenshot({ path: file, ...(options.clip ? { clip: options.clip } : {}) });
     console.log(`previews/shot-${name}-${viewportName}.png  ← ${url}`);
   } catch (err) {
     failures += 1;
@@ -376,13 +403,34 @@ if (args.surface) {
     // Named apart so a forced button, or a camera off the default rung,
     // never overwrites the plain shot of the same moment — the pair, or the
     // ladder, is what a review compares.
-    const name =
-      `${scene}${args.biome !== undefined ? `-${args.biome}` : ""}` +
+    const nameBase =
+      `${scene}${args.t !== undefined ? `-t${args.t}` : ""}` +
+      `${args.biome !== undefined ? `-${args.biome}` : ""}` +
       `${args.track !== undefined ? `-${args.track}` : ""}` +
-      `${args.mode !== undefined ? `-${args.mode}` : ""}` +
-      `${args.camera !== undefined ? `-${args.camera}` : ""}` +
-      `${args.update ? "-update" : ""}`;
+      `${args.mode !== undefined ? `-${args.mode}` : ""}`;
+    const name = `${nameBase}${args.camera !== undefined ? `-${args.camera}` : ""}${
+      args.update ? "-update" : ""
+    }`;
     for (const v of viewports) await capture(name, params, v);
+    if (args.details) {
+      for (const [detailName, detail] of Object.entries(DETAIL_VIEWS)) {
+        const detailParams = {
+          weather: "clear",
+          hour: "12",
+          mode: "timeTrial",
+          ...params,
+          camera: detail.camera,
+        };
+        await capture(
+          `${nameBase}${args.update ? "-update" : ""}`,
+          detailParams,
+          `stern-${detailName}`,
+          undefined,
+          undefined,
+          detail,
+        );
+      }
+    }
   }
 }
 

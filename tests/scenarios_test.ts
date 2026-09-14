@@ -107,10 +107,14 @@ describe("staging", () => {
     expect(state.progress.time).toBe(0);
   });
 
-  it("cruise and carve stand the craft under way, and carve turns it", () => {
+  it("cruise, coast and carve stand the craft under way; coast releases the throttle", () => {
     const cruise = fresh();
     stageScenario(cruise, "cruise");
     expect(cruise.craft.speed).toBeGreaterThan(5);
+    const coast = fresh();
+    const coastScene = stageScenario(coast, "coast");
+    expect(coast.craft.speed).toBeGreaterThan(5);
+    expect(coastScene.script(0).throttle).toBe(0);
     const carve = fresh();
     const heading0 = carve.craft.heading;
     ride(carve, "carve", 2);

@@ -84,6 +84,11 @@ const TAIL_UP = 3;
 const TAIL_UP_PER_THROTTLE = 4.5;
 const TAIL_BACK = 3;
 const TAIL_BACK_PER_THROTTLE = 5;
+/** How far forward of the transom droplets may begin, m, and their lateral
+ * velocity band, m/s. The hidden overlap makes the tail read as flow through
+ * the craft instead of a particle strip attached behind it. */
+const TAIL_BIRTH_FORWARD = 0.45;
+const TAIL_ACROSS = 0.7;
 /** …and the share of that rate a hull at a DEAD STOP throws. The pump is
  * moving its whole mass flow whether or not the craft has begun to move, so
  * a standing start is not a third of a tail — it is nearly all of one, aimed
@@ -530,7 +535,7 @@ export function createSpray(stamp: FoamStamp): Spray {
           c,
           (rng() - 0.5) * 0.18,
           keelY + 0.05,
-          -L / 2 - spec.cog.z - rng() * TAIL_SPREAD,
+          -L / 2 - spec.cog.z + TAIL_BIRTH_FORWARD - rng() * TAIL_SPREAD,
         );
         // BORN AT THE SURFACE, never at the keel. A planing hull skims its
         // keel along the water and the two are the same point; a hull at a
@@ -551,9 +556,9 @@ export function createSpray(stamp: FoamStamp): Spray {
           tx,
           ty,
           tz,
-          c.vx * 0.2 - fwdX * back + rightX * (rng() - 0.5) * 1.6,
+          c.vx * 0.2 - fwdX * back + rightX * (rng() - 0.5) * TAIL_ACROSS,
           up,
-          c.vz * 0.2 - fwdZ * back + rightZ * (rng() - 0.5) * 1.6,
+          c.vz * 0.2 - fwdZ * back + rightZ * (rng() - 0.5) * TAIL_ACROSS,
           0.45 + 0.4 * rng(),
           0.16,
           0.45,
