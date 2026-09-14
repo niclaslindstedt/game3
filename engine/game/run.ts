@@ -2,8 +2,7 @@
 // ONE RIDER'S STEP — the craft, the air record, the score, the clock and
 // the course, in that order, for ONE run: the player's, or one of the
 // rivals' (`rivals.ts`), which is a run of its own over the same sea. It is
-// the whole of what `step.ts` used to do after the wind, lifted out so the
-// field can be stepped by the same function the player is — a rival that
+// The field is stepped by the same function the player is — a rival that
 // rode a different step would be a rival on a different game.
 //
 // The RULES (`GameState.rules`) are read here and nowhere above: whether
@@ -59,13 +58,13 @@ export function stepRun(run: GameState, input: CraftInput, events: GameEvent[]):
   const z0 = c.z;
   stepCraft(run, live ? input : NEUTRAL_INPUT, events);
   // UNDER THE LIGHTS THE FIELD HOLDS STATION — IN THE WATER, NOT AGAINST
-  // IT. A jet idles forward at about a metre a second, so a grid left to
-  // the physics for three seconds has drifted apart before GO; the hull
-  // still heaves and pitches, it just makes no WAY.
+  // IT. Neutral makes no propulsive way, but a grid left to the wind and
+  // sea for three seconds still drifts apart before GO; the hull heaves
+  // and pitches while its place in the field stays fair.
   //
   // Making no way is having no velocity THROUGH THE WATER, which is not
   // the same as having none over the ground: a coast has a current in it
-  // (R27) and every wave has its orbit. A hull pinned to the ground in
+  // (R27) and every wave has its orbit and Stokes transport. A hull pinned to the ground in
   // either is a hull with a metre a second of flow past it — a moored
   // buoy, not a rider sitting on his machine — and a flow past a hull is a
   // sideways push at every station of it and a couple about the ride

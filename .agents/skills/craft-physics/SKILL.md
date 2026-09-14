@@ -36,7 +36,7 @@ Three modules answer it, and the split matters:
 
 | Load beside this one | For |
 | --- | --- |
-| `water-feel` | the surface the probes read, and the orbital velocity in the drag |
+| `water-feel` | the surface the probes read, and its Lagrangian velocity in the drag |
 | `craft-tuning` | the catalog's per-craft numbers, and the roster they have to stay a roster across |
 | `collision` | the probes meeting the bed, a rock or a ramp instead of water |
 | `game-feel` | whether the answer READS as a hull meeting a wave |
@@ -50,10 +50,10 @@ term and the comment's claim has to stay true.
 | Force | Model | Where |
 | --- | --- | --- |
 | Buoyancy | Archimedes: per probe, the submerged share of its volume from the surface height minus the probe's depth, smoothly clipped; F = ρ g V, ρ from `level.water.density`; torques from the probe offsets | `hull.ts` — `probeBuoyancy` |
-| Hydrodynamic drag | Quadratic against the RELATIVE velocity (orbital velocity included), split three ways: longitudinal on the ITTC-57 friction line, lateral as the keel/sponsons (large — this is what makes it carve), vertical as heave damping | `hull.ts` — `probeDrag` |
+| Hydrodynamic drag | Quadratic against the RELATIVE velocity (wave orbit, Stokes drift and current included), split three ways: longitudinal on the ITTC-57 friction line, lateral as the keel/sponsons (large — this is what makes it carve), vertical as heave damping | `hull.ts` — `probeDrag` |
 | Planing lift | Savitsky (1964): C_L0 = τ^1.1 (0.0120 λ^0.5 + 0.0055 λ^2.5 / Cv²), deadrise-corrected C_Lβ = C_L0 − 0.0065 β C_L0^0.6, lift ∝ ρ V² B² C_L, clamped to the method's valid ranges | `hull.ts` — `planingLift` |
 | Slamming | von Kármán (1929) / Wagner (1932) wedge impact: added vertical damping ∝ ρ v_z² × the wetted-area growth rate, per probe, on re-entry | `hull.ts` — `slam` |
-| Propulsion | Waterjet momentum theory: Q = A_n V_j, V_j from rpm × impeller pitch, T = ρ Q (V_j − V_in), V_in ≈ the hull's speed through the water; zero when the intake probe is dry | `craft.ts` — `jetThrust` |
+| Propulsion | Waterjet momentum theory: Q = A_n V_j, V_j from rpm × impeller pitch, T = ρ Q (V_j − V_in), V_in ≈ the hull's speed through the water; zero when the intake probe is dry, and zero NET axial propulsion at neutral while the shaft still idles | `craft.ts` — `thrust`, `stepCraft` |
 | The engine | A torque curve vs rpm from the spec, a pump absorbing P ∝ rpm³, rpm integrating (T_eng − T_pump)/I from idle to the spec's redline; free-revving when the intake is dry | `craft.ts` — `stepEngine` |
 | Steering | The nozzle deflects ±`nozzleAngle`; yaw moment = T sin δ × lever; a small hull-keel yaw authority beside it — NO thrust ⇒ almost no steering | `craft.ts` — `steer` |
 | Roll into the turn | The lateral force acting below the CoG, plus the rider's lean (steer × `leanIn`); the rider is a point mass at `riderHeight` even though nothing draws it | `craft.ts` — `riderMoment` |
@@ -217,10 +217,13 @@ is made on flat water or not at all.
   `tests/craft_test.ts` holds both (turn radius with vs without throttle;
   the off-throttle steering loss). The small keel authority is the
   ceiling; do not "help".
+- **NEUTRAL IDLES WITHOUT MAKING WAY.** Zero forward/reverse request keeps
+  the engine, shaft and pump at idle but balances their NET axial force to
+  zero. Environmental motion remains: wind leeway, current, the wave orbit
+  and Stokes drift. Forward or reverse request exposes the gross jet thrust.
 - **V_in IS THE SPEED THROUGH THE WATER.** Thrust is ρ Q (V_j − V_in), and
-  V_in is the hull's velocity relative to the water at the intake, orbital
-  velocity included — not the ground speed. Against a current or up a
-  wave's face the difference is real.
+  V_in is the hull's velocity relative to the Lagrangian water at the intake
+  — wave orbit, Stokes drift and current included, not ground speed.
 - **THE ENGINE AND THE PUMP MUST MEET.** rpm integrates (T_eng − T_pump)/I;
   a pump curve that never absorbs the engine's torque is an rpm that runs
   past the redline, and one that absorbs it at idle is an engine that

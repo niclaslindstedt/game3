@@ -503,9 +503,8 @@ describe("a flight", () => {
   it("a trick cannot be OPENED on the way down", () => {
     // THE RULE a rider states as "you cannot start a trick while falling":
     // a lean back as the water comes up is a rider reaching for his landing,
-    // and the engine used to hand him a flip for it. The apex of this flight
-    // is 0.7 s in (7 m/s under gravity), so the two windows are the same ask
-    // either side of it.
+    // not opening a flip. The apex of this flight is 0.7 s in (7 m/s under
+    // gravity), so the two windows are the same ask either side of it.
     for (const axis of ["lean", "steer"] as const) {
       expect(asked(axis, 0.1, 0.6).spent).toBeGreaterThan(0);
       expect(asked(axis, 1.0, 1.8).spent).toBe(0);
@@ -578,13 +577,11 @@ describe("a craft the wind has to itself", () => {
   const MEASURED = 0.0424;
 
   /** Where a craft nobody is riding has got to after a minute, m/s, less
-   * the water that carried it there — the LEEWAY and nothing else. The
-   * engine is stopped, because a watercraft idles forward at better than
-   * two metres a second and the field experiments drift a dead one. */
+   * the Lagrangian water that carried it there — the LEEWAY and nothing
+   * else. Neutral keeps the engine idling without propulsive way. */
   function leeway(windSpeed: number, craft: "skiff" | "marlin" | "otter" | "dart"): number {
     const level = syntheticLevel({ windSpeed, seaward: 3000, depth: 40, noSolids: true });
     const state = createGame({ seed: 4, level, craft, quiet: true });
-    state.craft.spec = { ...state.craft.spec, idleRpm: 0 };
     // ACROSS the wind, and half a minute to settle. The synthetic coast's
     // wind blows in off the sea along −z, so heading 0 is bow straight into
     // it — which in this model is the UNSTABLE balance (the air's centre
@@ -614,8 +611,8 @@ describe("a craft the wind has to itself", () => {
 
   it("blows downwind at the share of the wind a real one has been measured to", () => {
     // Read at riding winds. Below about 6 m/s a hull makes a few
-    // centimetres a second and what is left is the sea moving it about, so
-    // the ratio there is measuring the waves and not the wind.
+    // centimetres a second, where resolving leeway from the sea's own
+    // transport becomes ill-conditioned.
     for (const wind of [8, 12, 16]) {
       const share = leeway(wind, "marlin") / wind;
       expect(share, `${wind} m/s`).toBeGreaterThan(MEASURED * 0.8);

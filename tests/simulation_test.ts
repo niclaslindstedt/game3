@@ -106,11 +106,14 @@ describe("the bot on the synthetic shore", () => {
 
 describe("nothing explodes", () => {
   it("survives 60 s of 4 m/s chop offshore at full throttle with a weave", () => {
-    const level = syntheticLevel({ windSpeed: 4, noSolids: true, seaward: 800 });
+    // Give the weave open water for its whole kilometre-long run. The stress
+    // belongs to the sea; reaching the synthetic shore or bounds turns it
+    // into a collision test instead.
+    const level = syntheticLevel({ windSpeed: 4, noSolids: true, seaward: 4000, plan: 4000 });
     const state = createGame({ seed: 12, craft: "skiff", level, quiet: true });
     const c = state.craft;
-    c.x = 30;
-    c.z = 350;
+    c.x = 1500;
+    c.z = 2000;
     let maxSpeed = 0;
     for (let i = 0; i < 60 * TUNING.physicsHz; i++) {
       const t = state.t;

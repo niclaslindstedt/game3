@@ -1,6 +1,6 @@
 ---
 name: water-feel
-description: "Use when working on THE SEA — the wave field the hull rides (the Stokes-corrected component sum, its spectrum, its steepness), the sea state a level's wind and fetch build (the JONSWAP / Pierson–Moskowitz spectrum, the fetch-limited growth), how a wave changes coming ashore (dispersion, shoaling, breaking), the orbital velocity the craft feels, the gusts, and how the renderer's water mesh follows all of it. Owns `engine/game/water.ts` and `wind.ts`, `TUNING.sea`, `pwa/src/game/water-mesh.ts`'s displacement, and `make waves` — the lab that must run before and after any change here. Not the hull's answer to the water (`craft-physics`)."
+description: "Use when working on THE SEA — the wave field the hull rides (the Stokes-corrected component sum, its spectrum, its steepness), the sea state a level's wind and fetch build (the JONSWAP / Pierson–Moskowitz spectrum, the fetch-limited growth), how a wave changes coming ashore (dispersion, shoaling, breaking), the orbital and Stokes velocities the craft feels, the gusts, and how the renderer's water mesh follows all of it. Owns `engine/game/water.ts` and `wind.ts`, `TUNING.sea`, `pwa/src/game/water-mesh.ts`'s displacement, and `make waves` — the lab that must run before and after any change here. Not the hull's answer to the water (`craft-physics`)."
 ---
 
 # The water's feel
@@ -25,7 +25,7 @@ protects above all else.
 
 | Load beside this one | For |
 | --- | --- |
-| `craft-physics` | how the hull ANSWERS the surface — buoyancy, slamming, the orbital velocity in the drag |
+| `craft-physics` | how the hull ANSWERS the surface — buoyancy, slamming, the Lagrangian surface velocity in the drag |
 | `game-feel` | whether the sea reads as drama — the sensation the numbers are in service of |
 | `water-look` | what the surface LOOKS like once sampled — the grid of rings, the light, the mirror, the foam; anything that is not a height |
 | `mapgen-improvement` | the `offshore` field the fetch reads, the depth the shoaling reads |
@@ -50,7 +50,7 @@ comment's claim has to stay true.
 | Which of a level's two seas a point is dealt (R28) | Its EXPOSURE — the share of that fan reaching the open sea. Ocean band × exposure, local wind chop × (1 − exposure) × the chop it grows on its own water | `seaShares(sea, x, z)` |
 | How much of the mean wind reaches a place | The same measurement, averaged onto `wind.cell` squares: full over open water, `wind.shelter` of it behind the land | `createShelter`'s `shelter` field |
 | What the water itself is doing, where a river runs (R27) | v = Q/A over the channel's cross-section, summed into the wave model's own velocity | `engine/mapgen/flow.ts` — `flowAt` |
-| What the water under the surface is doing | The orbital velocity of the same components (the tangent of the water particle's circle) | `surfaceAt`'s `vx, vy, vz` |
+| What the water under the surface is doing | Each component's phase-resolved Airy orbit plus its finite-depth, second-order Stokes drift; river current is added beside them | `surfaceAt`'s `vx, vy, vz` |
 | The mean wind, and the gusts on it | A log-law height profile, the shelter field over the plan, and a slowly varying gust factor (Ornstein–Uhlenbeck-like, seeded from `state.rng`) | `engine/game/wind.ts` — `createWind`, `stepWind`, `windAt(wind, y, x, z)` |
 | The summary a level or a lab quotes | Hs = 4√m₀ over every band at its share, Tp of whichever is carrying it there | `seaSummary(sea, x, z) → { Hs, Tp }` |
 | How big the sea is PAST the level's rim | The biggest a craft can still fly over the rim of and down to the floor of — a closed form QUADRATIC in the top speed, since a wave's width grows with its height and a flight's reach does not. Each level deals its own storm just under it, so the biggest is rare | `jumpableHs`, `STORM_CEILING` (`ocean.ts`), `TUNING.sea.open` |
@@ -163,13 +163,14 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
   a `createSea` that does not short-circuit returns NaN into every probe.
   Every physics test stages a calm sea with `wind: { from: 0, speed: 0 }`,
   so this is the first thing a test suite finds.
-- **The orbital velocity is real and the hull feels it.** `surfaceAt`
-  returns `vx, vy, vz` — the water's own motion at the point — and the hull's
-  drag is against the RELATIVE velocity. That is what makes a wave push the
-  craft up its face and pull it back over the crest; a drag against the
-  absolute velocity makes the sea a bumpy floor. Sign it against the
-  crest's direction of travel (water moves forward at the crest, backward
-  in the trough), and prove the sign in `tests/waves_test.ts`.
+- **The Lagrangian surface velocity is real and the hull feels it.**
+  `surfaceAt` returns `vx, vy, vz`: the phase-resolved Airy orbit plus the
+  finite-depth Stokes mean and any current. The hull's drag is against that
+  RELATIVE velocity. The orbit makes a wave push the craft up its face and
+  pull it back over the crest; the Stokes term keeps an unpowered craft
+  travelling with the spectrum after those cycles are averaged. Sign the
+  orbit against the crest's travel, sum Stokes component by component over
+  the directional spectrum, and prove both in `tests/waves_test.ts`.
 - **Determinism: no state advances.** Phases are seeded in `createSea`;
   `t` is `state.t`; nothing in `water.ts` reads `state.rng` after creation
   or keeps a counter. Two calls with the same arguments return the same

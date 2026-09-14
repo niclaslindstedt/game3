@@ -69,11 +69,13 @@
 //   `periodScale` — the two arcade dials that say how big and how long a
 //   wind sea is here, against what the law alone would grow. The shares
 //   are ratios, so neither disturbs the shape.
-// - THE WATER ITSELF MOVES. The orbital velocity a component carries is
-//   the wave's; a river's is not (R27), and `surfaceAt` adds the level's
-//   baked current to what it reports. Everything that asks the water how
-//   fast it is going — the hull's drag, the spray, the wake — therefore
-//   feels the river drift the craft without knowing there is a river.
+// - THE WATER ITSELF MOVES. Each component carries Airy's oscillatory
+//   velocity and the second-order STOKES DRIFT its open particle orbit
+//   makes (Phillips 1966; Kenyon 1969); a river's current is not a wave
+//   term (R27), and `surfaceAt` adds it beside both. Everything that asks
+//   the water how fast it is going — the hull's drag, the spray, the wake
+//   — therefore feels waves and rivers drift the craft without knowing
+//   where either velocity came from.
 // - WHAT THE BED DOES to a component — the dispersion relation its
 //   wavenumber follows, the shoaling that grows it, the depth table both
 //   are precomputed into, and the eikonal phase field that turns its crests
@@ -240,7 +242,8 @@ export type SeaBand = {
 };
 
 /** What `surfaceAt` fills: the surface height, its unit normal, and the
- * water's orbital velocity at the surface, all world frame, SI. */
+ * water's Lagrangian surface velocity (orbit + Stokes drift + current),
+ * all world frame, SI. */
 export type SurfaceSample = {
   height: number;
   nx: number;
@@ -498,8 +501,7 @@ export function createSea(
  *
  * `fillShares` below is where all of it is decided, rung by rung; this is
  * the reading of it a lab or a test wants. `storm` is 0 everywhere inside a
- * level, so the three shares there are exactly what they were before there
- * was an ocean beyond the rim. */
+ * level, so the open-ocean extension cannot change water on the course. */
 export function seaShares(
   sea: SeaState,
   x: number,
@@ -578,10 +580,9 @@ export function seaBandShares(sea: SeaState, x: number, z: number): Float64Array
  * WHICH rungs carry it is the second half. The ramp is the ladder's own
  * height profile (`stormRamp`), so the height standing here sits between
  * two rungs, and those two — and only those two — share the energy, by how
- * far between them it is. Below the first rung that rung takes all of it,
- * which is exactly what the single open band did before there was a ladder.
- * The wavelength a rider reads therefore walks up the ladder with the
- * height rather than jumping between rungs.
+ * far between them it is. Below the first rung that rung takes all of it.
+ * The wavelength a rider reads therefore walks up the ladder with the height
+ * rather than jumping between rungs.
  *
  * Writes rather than returns: `surfaceAt` calls it tens of thousands of
  * times a frame under the renderer's water grid. */
@@ -844,6 +845,20 @@ export function surfaceAt(
       vx += horizontal * kx;
       vz += horizontal * kz;
       vy -= a * c.omega * cos;
+      // FINITE-DEPTH STOKES DRIFT, component by component over the full
+      // directional spectrum (Phillips 1966; Kenyon 1969):
+      //   u_s = a²·omega·k_vec·cosh(2kd) / (2·sinh²(kd)).
+      // Airy's velocity above is Eulerian and its orbit closes at a fixed
+      // point. A floating hull follows the faster forward water at a crest
+      // and the slower return in the trough, so its Lagrangian mean does
+      // not close. `coth²(kd) + 1` is the same finite-depth factor by the
+      // double-angle identity and stays finite when deep-water cosh/sinh
+      // would overflow. Cross terms average away in an irregular sea, so
+      // the spectral algorithm is the sum of these steady contributions.
+      const coth = held[i * 3 + 2];
+      const stokes = 0.5 * a * a * c.omega * (coth * coth + 1);
+      vx += stokes * kx;
+      vz += stokes * kz;
     }
   }
   // R27 — and the water it is all riding on may itself be going somewhere.
