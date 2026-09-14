@@ -95,8 +95,8 @@ export type GameRenderer = {
    * blob rather than a diff — this is the one place that knows which rows are
    * cheap to move and which are not. */
   setVideo: (video: VideoSettings) => void;
-  /** Whether the GUIDE LINE is drawn (`guide-line.ts`) — the dashed mark
-   * under the surface running to whatever the rider is riding at. It rides
+  /** Whether the GUIDE LINE is drawn (`guide-line.ts`) — the dashed mark on
+   * the water running from the checkpoint behind the rider to the one ahead. It rides
    * with the HUD's own switch rather than with a row of its own: it is a
    * readout that happens to be drawn in the water, and a rider who turned
    * the HUD off turned off being told where to go. */
@@ -370,6 +370,10 @@ export function createRenderer(
     if (next.water !== was.water || next.distance !== was.distance) buildWater();
     setTextureAnisotropy(WATER_LOOK[next.water].anisotropy);
     water.setWindow(next.seeThrough);
+    // …and the guide line is told the same thing: with the window closed the
+    // sea is opaque, so the mark moves from under the surface to just proud
+    // of it rather than disappearing under water nobody can see into.
+    guide.setWindow(next.seeThrough);
     // `viewport` is cleared rather than compared: `resize` short-circuits on a
     // box it has already measured, and the box has NOT changed — only what it
     // is worth in device pixels has.
@@ -461,11 +465,11 @@ export function createRenderer(
     water.setWell(craft ? wellCut : null, c);
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state, camera);
-    // THE GUIDE LINE, under the surface, from the hull to whatever the rider
-    // is riding at. It reads the ENGINE's own water (`surfaceAt` through the
-    // run's sea and clock) rather than the mesh's vertices, so a dash two
-    // hundred metres out lies on the wave that is actually there and not on
-    // the nearest ring of a grid that has thinned by then.
+    // THE GUIDE LINE, along the course's own line from the checkpoint behind
+    // the rider to the one ahead. It reads the ENGINE's own water (`surfaceAt`
+    // through the run's sea and clock) rather than the mesh's vertices, so a
+    // dash two hundred metres out lies on the wave that is actually there and
+    // not on the nearest ring of a grid that has thinned by then.
     guide.update(state, (x, z, out) => surfaceAt(state.sea, state.level, x, z, state.t, out));
     buoys?.update(state, camera);
     // R31 — THE LAMPS ON THE SEA. The gate marks and the rounding buoys

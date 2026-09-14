@@ -189,7 +189,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | How much WORLD is drawn before the haze takes it      | `pwa/src/game/draw-distance.ts`, `DISTANCE_LOOK`              | `game-feel`, `menu-system` |
 | Standing a run up behind a card                       | `pwa/src/game/run-loader.ts` + the steps in `App.tsx`          | `menu-system`        |
 | The minimap: the coast it cuts, what stands on it     | `pwa/src/game/minimap-scene.ts`, `minimap-view.ts`, `minimap.tsx` | `hud-and-menus`   |
-| THE GUIDE LINE: the dashes under the surface to whatever the rider is riding at | `pwa/src/game/guide-line.ts` (what the engine aims at is `aimPoint`) | `hud-and-menus`, `water-look` |
+| THE GUIDE LINE: the dashes on the water from the checkpoint behind the rider to the one ahead | `pwa/src/game/guide-line.ts`, `guide-plan.ts` (the stretch of the course's line it covers, three-free; what the engine aims at is `aimPoint`) | `hud-and-menus`, `water-look` |
 | The water as DRAWN: the grid of rings, the far grid, the see-through radius | `pwa/src/game/water-mesh.ts`, `water-grid.ts`     | `water-look`         |
 | What the water MIRRORS besides the sky: the shore, the craft | `pwa/src/game/reflection.ts`                                | `water-look`         |
 | The terrain, the rocks                                | `pwa/src/game/terrain.ts`, `rocks.ts`                         | `nature`             |
