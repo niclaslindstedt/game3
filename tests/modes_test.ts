@@ -15,6 +15,7 @@ import {
   TRICK_RESET_BACK,
   TUNING,
   botInput,
+  craftById,
   createGame,
   gridPoses,
   placeRun,
@@ -25,6 +26,7 @@ import {
   sampleField,
   standCraft,
   step,
+  surfaceAt,
   type CraftInput,
   type GameEvent,
   type GameState,
@@ -258,6 +260,74 @@ describe("the grid", () => {
     const poses = gridPoses(shallow, RACE.rivals + 1);
     for (const at of poses)
       expect(-sampleField(shallow.ground, at.x, at.z)).toBeGreaterThanOrEqual(RACE.gridDepth);
+  });
+
+  it("holds the field in the WATER under the lights, not against it", () => {
+    // Making no way is having no velocity THROUGH the water. A coast has a
+    // current in it (R27) and every wave has its orbit, so a hull pinned to
+    // the GROUND in either has a flow past it — a moored buoy rather than a
+    // rider sat on his machine — and a flow past a hull is a couple about
+    // its ride plate. Every slot stands in the same current, so that couple
+    // used to swing the whole grid the same way at the same rate.
+    const state = createGame({ seed: 38, mode: "race", quiet: true });
+    ride(state, RACE.countdown - 0.2, () => COAST);
+    expect(state.phase).toBe("countdown");
+    for (const c of [state.craft, ...state.rivals.map((r) => r.run.craft)]) {
+      const water = surfaceAt(state.sea, state.level, c.x, c.z, state.t);
+      expect(Math.hypot(c.vx - water.vx, c.vz - water.vz)).toBeLessThan(1e-9);
+    }
+  });
+
+  it("never swings the whole field in step under the lights", () => {
+    // THE THING A START LINE NEVER LOOKS LIKE. Every hull is in its own
+    // water, under its own eddy (`TUNING.wind.eddyScale`), with its own
+    // rider on it (`RACE.riderBand`) — so what the field does about its
+    // heading has to be twelve answers and not one. Read as the spread
+    // ACROSS the craft against the mean of it: a field all turning together
+    // is a big mean over a small spread.
+    for (const seed of [7, 12, 101]) {
+      const state = createGame({ seed, mode: "race", quiet: true });
+      const rates: number[][] = [];
+      while (state.phase === "countdown") {
+        step(state, COAST);
+        rates.push([state.craft, ...state.rivals.map((r) => r.run.craft)].map((c) => c.wy));
+      }
+      expect(rates.length).toBeGreaterThan(100);
+      const worst = Math.max(
+        ...rates.map((row) => {
+          const mean = row.reduce((a, b) => a + b, 0) / row.length;
+          const spread = Math.sqrt(row.reduce((a, b) => a + (b - mean) ** 2, 0) / row.length);
+          // Every hull turning at once, as a multiple of how differently
+          // they do it. Guarded so a field standing still is not a
+          // division by nothing.
+          return Math.abs(mean) / Math.max(spread, 1e-6);
+        }),
+      );
+      expect(worst, `seed ${seed}`).toBeLessThan(12);
+      // ...and nothing is spinning: a hull holding station on the water
+      // turns at the pace weather turns it, not at a rate a rider would
+      // have to catch.
+      for (const row of rates) for (const wy of row) expect(Math.abs(wy)).toBeLessThan(0.6);
+    }
+  });
+
+  it("puts a rider of his own weight on every rival, and the catalog's on the player", () => {
+    const state = createGame({ seed: 38, craft: "marlin", mode: "race", quiet: true });
+    const nominal = craftById("marlin").riderMass;
+    expect(state.craft.spec.riderMass).toBe(nominal);
+    // Each rival rides the next hull in the catalog, so each one's band is
+    // read off ITS OWN nominal rider rather than off one shared number.
+    const riders = state.rivals.map((r) => r.run.craft.spec.riderMass);
+    for (const rival of state.rivals) {
+      const kg = rival.run.craft.spec.riderMass;
+      const own = craftById(rival.run.craft.spec.id).riderMass;
+      expect(kg).toBeGreaterThanOrEqual(own * RACE.riderBand.min - 1e-9);
+      expect(kg).toBeLessThanOrEqual(own * RACE.riderBand.max + 1e-9);
+    }
+    // Twelve different people, not twelve copies of one.
+    expect(new Set(riders.map((kg) => kg.toFixed(3))).size).toBe(riders.length);
+    const spread = Math.max(...riders) - Math.min(...riders);
+    expect(spread).toBeGreaterThan(15);
   });
 });
 

@@ -11,13 +11,17 @@ import { describe, expect, it } from "vitest";
 
 import {
   TUNING,
+  aeroForces,
+  craftById,
   createGame,
   fromEuler,
   integrate,
   placeRun,
   rotate,
   step,
+  surfaceAt,
   toEuler,
+  type AeroResult,
   type CraftInput,
   type GameEvent,
   type GameState,
@@ -559,5 +563,135 @@ describe("a flight", () => {
     // No thrust: horizontal speed can only have fallen (air drag).
     expect(Math.hypot(state.craft.vx, state.craft.vz)).toBeLessThanOrEqual(v0);
     expect(state.craft.roll).toBeGreaterThan(0.02);
+  });
+});
+
+describe("a craft the wind has to itself", () => {
+  // THE LEEWAY. The one part of this model that can be checked against a
+  // number somebody measured at sea rather than against itself: the
+  // search-and-rescue leeway field experiments drift real objects and quote
+  // what each one makes as a share of the 10 m wind, and a personal
+  // watercraft with one person aboard comes out at 4.24 % of it. That is
+  // what `spec.cdASide` and `hull.lateralCd` between them have to deliver
+  // with the engine off, and it is the whole reason the beam carries a
+  // drag area of its own rather than the frontal one the bow does.
+  const MEASURED = 0.0424;
+
+  /** Where a craft nobody is riding has got to after a minute, m/s, less
+   * the water that carried it there — the LEEWAY and nothing else. The
+   * engine is stopped, because a watercraft idles forward at better than
+   * two metres a second and the field experiments drift a dead one. */
+  function leeway(windSpeed: number, craft: "skiff" | "marlin" | "otter" | "dart"): number {
+    const level = syntheticLevel({ windSpeed, seaward: 3000, depth: 40, noSolids: true });
+    const state = createGame({ seed: 4, level, craft, quiet: true });
+    state.craft.spec = { ...state.craft.spec, idleRpm: 0 };
+    // ACROSS the wind, and half a minute to settle. The synthetic coast's
+    // wind blows in off the sea along −z, so heading 0 is bow straight into
+    // it — which in this model is the UNSTABLE balance (the air's centre
+    // stands forward of the water's), and a hull put exactly on it takes an
+    // age to fall off. Standing it beam-on starts it where a craft that
+    // somebody fell off is, and it settles from there.
+    placeRun(state, { x: 400, z: 1200, heading: Math.PI / 2, speed: 0 });
+    for (let i = 0; i < 30 * TUNING.physicsHz; i++) step(state, COAST);
+    const c = state.craft;
+    const x0 = c.x;
+    const z0 = c.z;
+    const t0 = state.t;
+    let wx = 0;
+    let wz = 0;
+    let n = 0;
+    for (let i = 0; i < 60 * TUNING.physicsHz; i++) {
+      step(state, COAST);
+      if (i % 24 !== 0) continue;
+      const w = surfaceAt(state.sea, level, c.x, c.z, state.t);
+      wx += w.vx;
+      wz += w.vz;
+      n++;
+    }
+    const dt = state.t - t0;
+    return Math.hypot((c.x - x0) / dt - wx / n, (c.z - z0) / dt - wz / n);
+  }
+
+  it("blows downwind at the share of the wind a real one has been measured to", () => {
+    // Read at riding winds. Below about 6 m/s a hull makes a few
+    // centimetres a second and what is left is the sea moving it about, so
+    // the ratio there is measuring the waves and not the wind.
+    for (const wind of [8, 12, 16]) {
+      const share = leeway(wind, "marlin") / wind;
+      expect(share, `${wind} m/s`).toBeGreaterThan(MEASURED * 0.8);
+      expect(share, `${wind} m/s`).toBeLessThan(MEASURED * 1.6);
+    }
+  });
+
+  it("holds the WHOLE ROSTER in that band, which is what sizes every cdASide", () => {
+    // Not one hull tuned to the number and three left alone. What the drift
+    // actually settles at is the beam's area over the wet hull's, so a
+    // craft whose side windage was guessed rather than reasoned falls out
+    // of the band here and nowhere else.
+    for (const craft of ["skiff", "marlin", "otter", "dart"] as const) {
+      const share = leeway(12, craft) / 12;
+      expect(share, craft).toBeGreaterThan(MEASURED * 0.8);
+      expect(share, craft).toBeLessThan(MEASURED * 1.6);
+    }
+  });
+
+  it("leaves a craft under way where it was: the beam is a CROSSFLOW area", () => {
+    // A hull at ninety km/h in a beam wind sideslips a few degrees, and the
+    // crossflow principle (Hoerner 1965 §3) says what it feels across
+    // itself goes with the square of THAT and not with the whole airspeed
+    // times it. Take the slab at speed instead and the side force is some
+    // hundreds of newtons the hull has no business feeling: measured, it
+    // moved the bot's pace across the roster by a fifth in both directions.
+    //
+    // Asked of the model directly, because it is a statement about the
+    // model: the SAME crosswind, on the same hull, at a standstill and at
+    // speed. An isotropic drag would scale the side force by the airspeed
+    // ratio; the crossflow form barely moves it.
+    const spec = craftById("marlin");
+    const out: AeroResult = { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 };
+    const sideAt = (forward: number): number => {
+      aeroForces(
+        spec,
+        fromEuler(0, 0, 0),
+        0, // the hull's own velocity is all along its heading (+z)
+        0,
+        forward,
+        10, // ...and the wind is square on the beam, 10 m/s along +x
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        0,
+        out,
+      );
+      return Math.abs(out.fx);
+    };
+    const CROSSWIND = 10;
+    const airspeed = (forward: number): number => Math.hypot(CROSSWIND, forward);
+    /** What the FRONTAL area alone is worth on the beam at that speed —
+     * the isotropic term, which is the whole of what the model had before
+     * the slab was added and is untouched by it. */
+    const frontal = (forward: number): number =>
+      0.5 * TUNING.air.density * spec.cdA * airspeed(forward) * CROSSWIND;
+
+    // THE SLAB'S OWN SHARE, at a standstill and at ninety km/h. The
+    // crossflow principle's whole signature is that this number does not
+    // move: the crossflow is 10 m/s either way, and the hull going forward
+    // faster does not push it harder sideways.
+    expect(sideAt(0) - frontal(0)).toBeGreaterThan(60);
+    expect(sideAt(28) - frontal(28)).toBeCloseTo(sideAt(0) - frontal(0), 6);
+
+    // ...and the frontal half DOES grow with the airspeed, as drag does —
+    // so this is an anisotropy in the model and not the whole side force
+    // frozen.
+    expect(sideAt(28)).toBeGreaterThan(sideAt(0));
+    // Had the slab been carried isotropically the beam would feel half as
+    // much again at speed as it does, which is the force that moved the
+    // roster's pace by a fifth.
+    const isotropic = 0.5 * TUNING.air.density * spec.cdASide * airspeed(28) * CROSSWIND;
+    expect(sideAt(28)).toBeLessThan(isotropic * 0.6);
   });
 });

@@ -7,8 +7,17 @@
 //
 // Models:
 // - Quadratic drag ½·ρ_air·C_dA·|v_rel|·v_rel against the WIND-relative
-//   velocity, C_dA from the spec (hull plus rider), at the centre of
-//   gravity.
+//   velocity, with the beam carrying a second, far larger area
+//   (`cdASide`) by the crossflow principle — the whole slab at rest, where
+//   all the air a hull meets is crossflow, and next to nothing of it at
+//   speed, where the sideslip is a few degrees. The fore-and-aft push acts at the rider's
+//   body; the sideways one at the centroid of the above-water side
+//   profile, which stands forward of it — and forward of the wet hull's
+//   lateral centre, which is what lays a drifting craft across the wind
+//   instead of nose-up into it. The areas are not invented: engine off,
+//   what comes out is 4.3–5.5 % of the wind speed, against the 4.24 % the
+//   search-and-rescue leeway experiments measure for a watercraft with
+//   one person aboard.
 // - The hull as a FLAT PLATE at angle of attack α to the airflow, with the
 //   Newtonian normal-force coefficient C_N = 2·sin α·cos α (Hoerner 1965;
 //   good to 45° and bounded past it) on the plate area `plateShare` of
@@ -79,33 +88,71 @@ export function aeroForces(
   const ry = vy;
   const rz = vz - windZ;
   const speed = Math.hypot(rx, ry, rz);
-  // Drag on the whole, at the WINDAGE's centre: where the rider sits,
-  // above the hull and a little aft — over the water's lateral centre,
-  // so a crosswind pushes the hull sideways where the water resists it
-  // and does not weathervane the bow downwind on every straight.
+  // THE AIR DOES NOT MEET THE HULL EQUALLY FROM EVERY SIDE, and it does
+  // not push equally along it. The hole a craft makes in the air head-on
+  // is a beam wide by a foot of topside (`spec.cdA`); the same craft
+  // BEAM-ON is a slab most of its length by most of its freeboard with a
+  // bluff body's coefficient behind it (`spec.cdASide`), two or three
+  // times as much. So the drag is resolved in the hull's OWN axes and each
+  // one is given its own area: nose-on and vertical keep `cdA` — a craft
+  // under way meets the air from ahead and nothing about a top speed or a
+  // flight moves — and only the beam gets the bigger one.
+  //
   // THE TUCK takes its share of the hole in the air, and takes the
   // rider's shoulders down with it: what is left of the windage is mostly
   // hull, so the push acts lower on the craft.
   const tuck = clamp(crouch, 0, 1);
-  const cdA = spec.cdA * (1 - K.dragCut * tuck);
-  const drag = 0.5 * RHO * cdA * speed;
-  out.fx = -drag * rx;
-  out.fy = -drag * ry;
-  out.fz = -drag * rz;
-  const at = {
-    x: 0,
-    y: F.windageY * (1 - (1 - K.windageLeft) * tuck),
-    z: F.windageZ * spec.length,
-  };
-  const fb = unrotate(q, { x: out.fx, y: out.fy, z: out.fz });
-  out.tx = at.y * fb.z - at.z * fb.y;
-  out.ty = at.z * fb.x - at.x * fb.z;
-  out.tz = at.x * fb.y - at.y * fb.x;
+  const shrink = 1 - K.dragCut * tuck;
+  const flow = unrotate(q, { x: rx, y: ry, z: rz });
+  const qbar = 0.5 * RHO * speed * shrink;
+  const fby = -qbar * spec.cdA * flow.y;
+  const fbz = -qbar * spec.cdA * flow.z;
+  // The beam's EXTRA area, by the CROSSFLOW PRINCIPLE (Hoerner 1965 §3):
+  // the force a slender body feels across itself goes with the square of
+  // the CROSSFLOW alone, not with the whole airspeed times it. The
+  // difference is the whole difference between a craft at rest and a craft
+  // at speed, and both ends have to be right:
+  //
+  //   At rest the only airflow there is is the crossflow, so the two forms
+  //   are the same number and the hull feels the whole slab — which is what
+  //   makes the leeway come out at the 4–5 % of the wind that has actually
+  //   been measured at sea.
+  //
+  //   At ninety km/h in a beam wind the sideslip is a few degrees, and the
+  //   two forms differ by a factor of the airspeed over the crosswind. Take
+  //   the whole slab there and a crosswind shoves a hull off its line with
+  //   four hundred newtons it has no business feeling: the bot's pace
+  //   across the roster moved by a fifth, in both directions, for no
+  //   reason a rider would recognise. The crossflow form leaves a hull
+  //   under way where it was.
+  //
+  // So the frontal area is carried on the beam as it always was, and only
+  // what is over and above it is a slab.
+  const slab = Math.max(0, spec.cdASide - spec.cdA);
+  const fbx = -qbar * spec.cdA * flow.x - 0.5 * RHO * slab * shrink * Math.abs(flow.x) * flow.x;
+  const world = rotate(q, { x: fbx, y: fby, z: fbz });
+  out.fx = world.x;
+  out.fy = world.y;
+  out.fz = world.z;
+  // ...AND THE TWO PUSHES STAND IN DIFFERENT PLACES. The fore-and-aft one
+  // is on the centreline at the rider's body, a little aft, and turns
+  // nothing; the sideways one is at the centroid of the above-water side
+  // profile, `windageSideZ` of the length FORWARD of the centre of gravity
+  // (the stem stands high and the transom barely clears the water). The
+  // wet hull's lateral centre is right aft of both of them, so the couple
+  // between the two lays a drifting craft ACROSS the wind rather than
+  // nose-up into it — broadside in a light air and squaring away as it
+  // freshens, which is the DIVERGENCE the leeway experiments measure.
+  const high = F.windageY * (1 - (1 - K.windageLeft) * tuck);
+  const aft = F.windageZ * spec.length;
+  const ahead = F.windageSideZ * spec.length;
+  out.tx = high * fbz - aft * fby;
+  out.ty = ahead * fbx;
+  out.tz = -high * fbx;
   if (airShare <= 0) return;
 
-  // The plate: airflow in the body frame, angle of attack in the pitch
-  // plane, normal force along the hull's up.
-  const flow = unrotate(q, { x: rx, y: ry, z: rz });
+  // The plate: angle of attack in the pitch plane off the body-frame
+  // airflow, normal force along the hull's up.
   const alpha = Math.atan2(-flow.y, Math.max(Math.abs(flow.z), 0.1));
   const area = spec.length * spec.beam * F.plateShare;
   const cn = 2 * Math.sin(alpha) * Math.cos(alpha);

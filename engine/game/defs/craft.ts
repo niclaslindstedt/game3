@@ -188,8 +188,19 @@ export type CraftSpec = {
    * hull with their whole mass free to move has far more of it than one
    * sat down behind a backrest. Scales every control the air gives them. */
   riderAuthority: number;
-  /** Aerodynamic drag area of hull plus rider, m² (C_d × A). */
+  /** Aerodynamic drag area of hull plus rider, m² (C_d × A) — HEAD-ON,
+   * which is the only direction a craft under way meets the air from. */
   cdA: number;
+  /** ...and the same thing BEAM-ON, m², which is the direction a craft
+   * standing still meets it from. Two or three times `cdA`: a hull seen
+   * from the side is most of its length by most of its freeboard where
+   * head-on it is a beam by a foot of topside, and a slab across the flow
+   * carries a bluff body's coefficient (C_d ≈ 1.1) where a bow carries a
+   * streamlined one. It is the number that decides how hard a crosswind
+   * shoves a hull sideways and how briskly it swings a drifting one round,
+   * so the roster's answers to those are set HERE and not derived from the
+   * frontal area they have nothing to do with. */
+  cdASide: number;
   /** Lateral drag coefficient of the underwater profile — the keel and the
    * sponsons; what makes the hull carve rather than skate. */
   lateralCd: number;
@@ -280,6 +291,7 @@ export const CRAFT: readonly CraftSpec[] = [
     bowRise: 1,
     riderAuthority: 1,
     cdA: 0.75,
+    cdASide: 1.9,
     lateralCd: 1.25,
     riderMass: 80,
     riderHeight: 0.55,
@@ -342,6 +354,7 @@ export const CRAFT: readonly CraftSpec[] = [
     // where raw power bought BOTH, which is how one craft came to be best
     // at everything.
     cdA: 0.7,
+    cdASide: 2.1,
     lateralCd: 1.35,
     riderMass: 82,
     riderHeight: 0.58,
@@ -397,6 +410,7 @@ export const CRAFT: readonly CraftSpec[] = [
     bowRise: 0.8,
     riderAuthority: 0.9,
     cdA: 0.95,
+    cdASide: 2.4,
     lateralCd: 1.15,
     riderMass: 85,
     riderHeight: 0.6,
@@ -450,6 +464,7 @@ export const CRAFT: readonly CraftSpec[] = [
     bowRise: 1.3,
     riderAuthority: 1.5,
     cdA: 0.8,
+    cdASide: 1.6,
     lateralCd: 1.05,
     riderMass: 78,
     riderHeight: 0.95,

@@ -131,6 +131,16 @@ export function createRivals(state: GameState, crafts: readonly CraftState[]): v
       rivals: [],
       events: [],
     };
+    // ...AND THE RIDER ON IT, before the hull is stood anywhere: a spec is
+    // what the draft, the inertia and the windage are all read off, and
+    // `standCraft` floats the craft at the draft the spec it has says. The
+    // catalog's own rider is the nominal one and every rival gets his own
+    // weight off it (`RACE.riderBand`), so no two hulls on the grid sit
+    // quite as deep, answer a gust quite as fast, or turn quite as easily.
+    craft.spec = {
+      ...craft.spec,
+      riderMass: craft.spec.riderMass * state.rng.range(RACE.riderBand.min, RACE.riderBand.max),
+    };
     const at = poses[rivalSlot(i, slots)];
     standCraft(run, at.x, at.z, at.heading);
     return { id: i, run, pace: state.rng.range(RACE.paceBand.min, RACE.paceBand.max) };

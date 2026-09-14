@@ -16,6 +16,7 @@ import { TUNING } from "./defs/tuning.ts";
 import { stepCraft } from "./craft.ts";
 import { resetCraft, stepCourse } from "./course.ts";
 import { NEUTRAL_INPUT, type CraftInput, type GameEvent, type GameState } from "./state.ts";
+import { surfaceAt, type SurfaceSample } from "./water.ts";
 import { closeCombo, resetTricks, stepTricks } from "./tricks.ts";
 
 /** THE RUN'S AIR RECORD, read off the flight the craft has just reported.
@@ -36,6 +37,10 @@ function noteAirRecord(state: GameState, events: GameEvent[]): void {
   }
 }
 
+/** The water under a hull holding station, read into one shared sample:
+ * the countdown asks for it once per rider per step and never keeps it. */
+const station: SurfaceSample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
+
 /** Advance one rider's run by the step the world has just taken. `events`
  * is the run's own list, already cleared for this step. */
 export function stepRun(run: GameState, input: CraftInput, events: GameEvent[]): void {
@@ -53,13 +58,27 @@ export function stepRun(run: GameState, input: CraftInput, events: GameEvent[]):
   const y0 = c.y;
   const z0 = c.z;
   stepCraft(run, live ? input : NEUTRAL_INPUT, events);
-  // UNDER THE LIGHTS THE FIELD HOLDS STATION. A jet idles forward at about
-  // a metre a second and a swell carries a hull sideways, so a grid left
-  // to the physics for three seconds has drifted apart before GO; the hull
-  // still heaves and pitches on the water, it just makes no way.
+  // UNDER THE LIGHTS THE FIELD HOLDS STATION — IN THE WATER, NOT AGAINST
+  // IT. A jet idles forward at about a metre a second, so a grid left to
+  // the physics for three seconds has drifted apart before GO; the hull
+  // still heaves and pitches, it just makes no WAY.
+  //
+  // Making no way is having no velocity THROUGH THE WATER, which is not
+  // the same as having none over the ground: a coast has a current in it
+  // (R27) and every wave has its orbit. A hull pinned to the ground in
+  // either is a hull with a metre a second of flow past it — a moored
+  // buoy, not a rider sitting on his machine — and a flow past a hull is a
+  // sideways push at every station of it and a couple about the ride
+  // plate. Every hull on the grid stands in the same current, so every one
+  // of them weathervaned the same way at the same rate: a dozen craft
+  // swinging in step, which is the one thing a start line never looks
+  // like. Held to the WATER the phantom flow is gone, the whole grid
+  // surges with the swell together, and what is left to turn a hull is the
+  // wind and the wave it happens to be sitting on.
   if (run.phase === "countdown") {
-    c.vx = 0;
-    c.vz = 0;
+    const water = surfaceAt(run.sea, run.level, c.x, c.z, run.t, station);
+    c.vx = water.vx;
+    c.vz = water.vz;
   }
   noteAirRecord(run, events);
   // THE RUN'S HIGH-WATER MARK, taken at the physics rate rather than off a

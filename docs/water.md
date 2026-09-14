@@ -380,10 +380,16 @@ The sea is built from the level's MEAN wind (the spectrum needs a wind that has 
 
 - **The shelter** is the field above — a level is a coast, which is the one place a wind changes over a few hundred metres — so the speed is read at the craft's POSITION as well as its height.
 - **The profile** is the log law (Prandtl; Stull 1988 §9): `U(z) = U_ref · ln(z/z₀) / ln(z_ref/z₀)` with the sea's roughness length `z₀` = `roughness` = 2·10⁻⁴ m (Charnock 1955 at moderate winds), `referenceHeight` = 10 m, and the height floored at `minHeight` = 0.3 m so a probe in a trough never reads a wind blowing backwards. A rider six metres up off a ramp feels more wind than the hull did.
-- **The gust factor** is an Ornstein–Uhlenbeck process about 1 — `dx = −(x − 1)/τ·dt + σ·√(2dt/τ)·N` — with `intensity` σ = 0.11 (the turbulence intensity σ_u/U over water at 10 m, IEC 61400-3 offshore class), `gustTime` τ = 12 s (the gust integral time scale), clamped to `gustMin..gustMax` = 0.55–1.6 × the mean. A second, slower process wanders the direction: `veer` σ = 0.12 rad, `veerTime` = 25 s, clamped to ±3σ.
+- **The gust factor** is an Ornstein–Uhlenbeck process about 1 — `dx = −(x − 1)/τ·dt + σ·√(2dt/τ)·N` — with `gustTime` τ = 12 s (the gust integral time scale), clamped to `gustMin..gustMax` = 0.55–1.6 × the mean. A second, slower process wanders the direction: `veer` σ = 0.12 rad, `veerTime` = 25 s, clamped to ±3σ. This is the LEVEL-WIDE gust: one number everywhere at once.
+- **The eddy field** is the rest of the turbulence, and it is the half that has a SIZE. Eddies run from the boundary layer's depth down to centimetres and are carried past a fixed point by the mean wind rather than made and unmade where they stand (Taylor 1938, the frozen-turbulence hypothesis), which is why a gust felt here is felt a moment later a hundred metres downwind and not at all a kilometre across it. Twelve hulls on a start grid are twelve PLACES in a wind, not one number twelve craft share — and while they shared it, they leaned on the bars together.
+
+  So `intensity` σ = 0.11 (the turbulence intensity σ_u/U over water at 10 m, IEC 61400-3 offshore class) is split between the two, and because they are independent their VARIANCES add: `squallShare` = 0.55 of it stays with the process above — the energy-containing eddies really are hundreds of metres across, and over a grid thirty metres long they really are one number — and 0.45 goes to the field, with σ_total still `intensity`. The field is `eddyOctaves` = 7 octaves of `valueNoise` from `eddyScale` = 120 m down, each half the last, weighted by `eddyExponent` = ⅓: Kolmogorov's inertial subrange puts S(k) ∝ k^(−5/3), so an octave's variance goes as k^(−2/3) and its amplitude as the cube root of its scale, and an eddy an eighth the size is half as strong. `eddySigma` = 0.209 normalises one octave of value noise to unit variance. It is sampled at the point the field has been CARRIED past (`WindState.driftX`/`driftZ`, the mean wind integrated by `stepWind`), so a fixed rider watches it sweep by and a rider running downwind sits in one gust longer than he should. **Nothing is drawn from the stream for it** — it is a pure function of place, the wind's own drift and the level's seed.
+
+  Worth checking against the standard model rather than only against itself. Davenport's exponential coherence (1961), at the decay of 12 IEC 61400-1 fixes it at, integrated over a Kaimal spectrum of this length scale, puts the correlation of the along-wind component at 0.76 four metres apart, 0.66 at eight, 0.43 at thirty and 0.20 at 120. The field measures 0.89, 0.81, 0.49 and 0.06 — a shade stiffer than the standard over a grid's width, looser out at level range, which for a seven-octave sum is as close as a fractal gets to a spectrum.
+
 - Each Gaussian is one Box–Muller draw (two uniforms off `state.rng`, the second of the pair deliberately NOT kept — a state that carries a spare draw replays differently from where it was saved), so `stepWind` draws four uniforms a step, every step, whether or not anything feels the wind. That is what keeps a calm level and a gale consuming the same stream and a replay on the same numbers.
 
-`windAt(wind, y, x, z)` is the wind VELOCITY there — it blows TOWARD the opposite of `from`. `tests/wind_test.ts` holds the profile, the reference height, the shelter's floor and the drop over the land, the bounds and the seeding.
+`windAt(wind, y, x, z)` is the wind VELOCITY there — it blows TOWARD the opposite of `from`, under the level's gust times the place's own. Note what this means for a reading: **no single point reads the level's mean**, and asking one whether it does is asking the wrong question; what holds is that a patch of sea averages to it. `tests/wind_test.ts` holds the profile against a patch average, the intensity the field delivers, its correlation at four metres and at level range, the shelter's floor and the drop over the land, the bounds and the seeding.
 
 ## The numbers, in one place
 
@@ -425,7 +431,10 @@ The sea is built from the level's MEAN wind (the spectrum needs a wind that has 
 | `water.viscosity`                    | 1.14·10⁻⁶    | m²/s   | kinematic viscosity for the ITTC-57 line (fresh water at ~15 °C)  |
 | `wind.roughness`                     | 2·10⁻⁴       | m      | the log law's z₀                                                  |
 | `wind.referenceHeight` / `minHeight` | 10 / 0.3     | m      | where the mean is quoted; the profile's floor                     |
-| `wind.intensity` / `gustTime`        | 0.11 / 12    | —, s   | the gust process                                                  |
+| `wind.intensity` / `gustTime`        | 0.11 / 12    | —, s   | the turbulence in total, and the level-wide gust's memory         |
+| `wind.squallShare`                   | 0.55         | —      | how much of that variance is level-wide; the rest is the field    |
+| `wind.eddyScale` / `eddyOctaves`     | 120 / 7      | m, —   | the field's biggest eddy, and how far down it goes                |
+| `wind.eddyExponent` / `eddySigma`    | ⅓ / 0.209    | —      | Kolmogorov's octave weighting, and one octave's own σ             |
 | `wind.veer` / `veerTime`             | 0.12 / 25    | rad, s | the direction's wander                                            |
 | `wind.gustMin` / `gustMax`           | 0.55 / 1.6   | × mean | the gust factor's bounds                                          |
 | `wind.shelter` / `shelterFetch`      | 0.3 / 220    | ×, m   | what a wind off the land keeps, and the run it recovers over      |
@@ -452,7 +461,7 @@ A list a future session can pick from, each a known simplification rather than a
 - **Wave–wave (nonlinear) interaction**, wave set-up, set-down and run-up at the shore.
 - **Reflection and diffraction** off skerries and headlands, beyond what the exposure sweep's lateral mixing gives for free: the lee of a single skerry is not calmer, though the lee of a headland is.
 - **The amplitude's own gradient in the slope** (shoaling is too slow to tilt the surface, and it is left out of the normal).
-- **Gusts in the sea.** The spectrum reads the mean wind only; a gust changes the aero, never the water.
+- **Gusts in the sea.** The spectrum reads the mean wind only; a gust changes the aero, never the water. The eddy field is the same: it is what a hull FEELS, and the sea under it was grown hours ago by a wind that had no eddies in it.
 - **Temperature.** One viscosity for the friction line; the water's temperature is carried on the level for the fauna and the spray to read later.
 - **Rain, ice, tides.** The weather module (`engine/mapgen/weather.ts`) is a placeholder.
 

@@ -19,6 +19,17 @@ import {
 
 import { syntheticLevel } from "./support/synthetic.ts";
 
+/** Within `share` of what was asked for. The wind carries an eddy field
+ * over the whole plan (`TUNING.wind.eddyScale`), so the MEAN wind is what
+ * an average of enough places comes to and never what one of them reads —
+ * and an average over any finite patch still has a percent or two of the
+ * field left on it. Every case below that is about the mean rather than
+ * about the turbulence is held this way. */
+function near(got: number, want: number, share = 0.05): void {
+  expect(got).toBeGreaterThan(want * (1 - share));
+  expect(got).toBeLessThan(want * (1 + share));
+}
+
 describe("the wind profile", () => {
   const level = syntheticLevel({ windSpeed: 8 });
   const wind = createWind(level);
@@ -26,8 +37,56 @@ describe("the wind profile", () => {
   // has crossed nothing but sea and the shelter is one.
   const OUT = { x: 400, z: 320 };
 
-  it("reads the level's mean at the reference height, out at sea", () => {
-    expect(windSpeedAt(wind, TUNING.wind.referenceHeight, OUT.x, OUT.z)).toBeCloseTo(8, 3);
+  // THE MEAN IS A MEAN. The wind carries an eddy field on top of it, so no
+  // one point reads the level's number and asking a single one whether it
+  // does is asking the wrong question; what has to hold is that a patch of
+  // sea AVERAGES to it.
+  const patch = (fn: (x: number, z: number) => number, step = 7, n = 90): number[] => {
+    const out: number[] = [];
+    for (let i = 0; i < n; i++)
+      for (let j = 0; j < n; j++) out.push(fn(OUT.x + i * step, OUT.z + j * step));
+    return out;
+  };
+  const mean = (a: number[]): number => a.reduce((x, y) => x + y, 0) / a.length;
+  const spread = (a: number[]): number => {
+    const m = mean(a);
+    return Math.sqrt(mean(a.map((v) => (v - m) ** 2)));
+  };
+
+  it("averages to the level's mean at the reference height, out at sea", () => {
+    const over = patch((x, z) => windSpeedAt(wind, TUNING.wind.referenceHeight, x, z));
+    near(mean(over), 8, 0.03);
+  });
+
+  it("carries the quoted turbulence intensity as a field over the plan", () => {
+    const over = patch((x, z) => windSpeedAt(wind, TUNING.wind.referenceHeight, x, z));
+    // The level-wide gust is 1 on a wind nothing has stepped, so what is
+    // left over a patch is the eddy field's own share of the variance
+    // (`squallShare`) — and that share is what it has to deliver.
+    const want = TUNING.wind.intensity * Math.sqrt(1 - TUNING.wind.squallShare);
+    expect(spread(over) / mean(over)).toBeGreaterThan(want * 0.8);
+    expect(spread(over) / mean(over)).toBeLessThan(want * 1.25);
+  });
+
+  it("hands two places a few metres apart nearly, but not quite, the same wind", () => {
+    // What a start grid is made of: the hull in the next lane is in the
+    // same weather and not in the same eddy (`TUNING.wind.eddyScale` and
+    // the octaves under it). Correlated close in, gone by level range.
+    const at = (x: number, z: number): number =>
+      windSpeedAt(wind, TUNING.wind.referenceHeight, x, z);
+    const corr = (sep: number): number => {
+      const a = patch((x, z) => at(x, z));
+      const b = patch((x, z) => at(x + sep, z));
+      const ma = mean(a);
+      const mb = mean(b);
+      let cov = 0;
+      for (let i = 0; i < a.length; i++) cov += (a[i] - ma) * (b[i] - mb);
+      return cov / a.length / (spread(a) * spread(b));
+    };
+    expect(corr(4)).toBeGreaterThan(0.7);
+    expect(corr(4)).toBeLessThan(0.99);
+    expect(corr(30)).toBeLessThan(corr(4));
+    expect(corr(TUNING.wind.eddyScale * 2)).toBeLessThan(0.3);
   });
 
   it("grows with height and never reads negative near the surface", () => {
@@ -42,11 +101,11 @@ describe("the wind profile", () => {
     // From the north (heading 0, +z — the sea on this coast) means blowing
     // toward −z, in against the shore.
     const v = windAt(wind, 10, OUT.x, OUT.z);
-    expect(v.vz).toBeLessThan(-7);
-    expect(Math.abs(v.vx)).toBeLessThan(0.5);
+    expect(v.vz).toBeLessThan(-6);
+    expect(Math.abs(v.vx)).toBeLessThan(1.5);
     const east = createWind(syntheticLevel({ windSpeed: 5, windFrom: Math.PI / 2 }));
     const e = windAt(east, 10, OUT.x, OUT.z);
-    expect(e.vx).toBeLessThan(-4.5);
+    expect(e.vx).toBeLessThan(-4);
   });
 
   it("drops over the land behind the shore, and never below its floor", () => {
@@ -64,22 +123,45 @@ describe("the wind past the level's rim", () => {
   const level = syntheticLevel({ windSpeed: 8, depth: 40, seaward: SEAWARD });
   const wind = createWind(level);
   const O = TUNING.sea.open;
-  const at = (past: number): number =>
-    windSpeedAt(wind, TUNING.wind.referenceHeight, 400, SEAWARD + past);
+  // ALONG the shore rather than at one point on it: the storm's ramp, the
+  // shelter and the tornado are all functions of how far out a rider is and
+  // vary barely at all across a few hundred metres of x, while the eddy
+  // field varies over metres (`TUNING.wind.eddyScale` and the octaves under
+  // it). So a line average in x is the MEAN wind at that distance with the
+  // turbulence taken off, which is the thing every case below is about.
+  const across = (
+    air: ReturnType<typeof createWind>,
+    z: number,
+    y: number = TUNING.wind.referenceHeight,
+  ): number => {
+    let sum = 0;
+    const n = 81;
+    for (let i = 0; i < n; i++) sum += windSpeedAt(air, y, 400 + (i - (n - 1) / 2) * 9, z);
+    return sum / n;
+  };
+  const at = (past: number): number => across(wind, SEAWARD + past);
 
   it("freshens into the storm the further out a rider holds the throttle open", () => {
-    expect(at(0)).toBeCloseTo(8, 3);
+    near(at(0), 8);
+    // In FIFTHS of the ramp, and never falling by more than the field.
+    // A line average still carries a few percent of the eddy field, and the
+    // ramp is an S: over a twentieth of the reach its own rise is smaller
+    // than that near the rim, and at the top it has reached its ceiling and
+    // there is no rise left at all. So the sweep is coarse enough that the
+    // climb is an order above the turbulence where there IS a climb, and
+    // the plateau is held to not falling THROUGH the turbulence.
     let last = 0;
-    for (let past = 0; past <= O.reach; past += O.reach / 20) {
-      expect(at(past), `${past} m past the rim`).toBeGreaterThanOrEqual(last - 1e-9);
+    for (let past = 0; past <= O.reach; past += O.reach / 5) {
+      expect(at(past), `${past} m past the rim`).toBeGreaterThan(last * 0.97);
       last = at(past);
     }
-    expect(at(O.reach)).toBeCloseTo(O.wind, 3);
+    expect(at(O.reach)).toBeGreaterThan(at(0) * 2);
+    near(at(O.reach), O.wind);
     // ...and it is a ceiling, not a ramp that runs away. Read short of
     // `TORNADO_EDGE`, because past THAT edge the wind climbs again and for a
     // different reason: the storm has stopped building and the tornado has
     // started (`tornado.ts`), which `tests/tornado_test.ts` owns.
-    expect(at(TORNADO_EDGE - 1)).toBeCloseTo(O.wind, 3);
+    near(at(TORNADO_EDGE - 1), O.wind);
   });
 
   it("opens the coast's own shelter out as the coast falls astern", () => {
@@ -87,10 +169,10 @@ describe("the wind past the level's rim", () => {
     // full storm far out: the weather out at sea is the same whichever rim
     // a rider left the level by.
     const ashore = createWind(syntheticLevel({ windSpeed: 8, seaward: SEAWARD }));
-    const sheltered = windSpeedAt(ashore, TUNING.wind.referenceHeight, 400, -110);
+    const sheltered = across(ashore, -110);
     expect(sheltered).toBeLessThan(8 * 0.6);
-    const far = windSpeedAt(ashore, TUNING.wind.referenceHeight, 400, ashore.bounds.minZ - O.reach);
-    expect(far).toBeCloseTo(O.wind, 3);
+    const far = across(ashore, ashore.bounds.minZ - O.reach);
+    near(far, O.wind);
   });
 
   it("leaves a calm level's STORM calm, however far out it is ridden", () => {
@@ -106,10 +188,7 @@ describe("the wind past the level's rim", () => {
     // ride to infinity would be a calm seed with no edge at all.
     const calm = createWind(syntheticLevel({ windSpeed: 0, seaward: SEAWARD }));
     const far = SEAWARD + TORNADO_EDGE + tornadoBand(TUNING.pump.speedClass);
-    expect(windSpeedAt(calm, TUNING.wind.referenceHeight, 400, far)).toBeCloseTo(
-      tornadoBlow(TUNING.pump.speedClass),
-      3,
-    );
+    near(across(calm, far), tornadoBlow(TUNING.pump.speedClass));
   });
 });
 

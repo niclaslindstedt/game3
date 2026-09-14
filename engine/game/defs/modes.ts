@@ -112,6 +112,25 @@ export const RACE = {
    * quick as the bot — and the bottom is a rider a fifth off the pace, who
    * is still ahead of anyone who hits a rock. */
   paceBand: { min: 0.8, max: 1 },
+  /** THE FIELD'S RIDERS, as a multiple of the catalog's own rider on that
+   * hull — dealt off the same stream as the pace, once, at the grid. The
+   * catalog carries one rider of about eighty kilos on every craft because
+   * a spec sheet has to quote SOMETHING; a start line does not have twelve
+   * of him on it. Real riders run from a light teenager to a heavy adult in
+   * wet gear, which over an eighty-kilo nominal is roughly this band.
+   *
+   * It is not dressing. The rider is a point mass above the centre of
+   * gravity, so the draw moves what the hull weighs, what it floats at,
+   * how much of it is out of the water for the wind to push on, and how
+   * hard it is to turn — on the DART, a hundred and fifty kilos of hull,
+   * a heavy rider is a fifth of the whole machine. Twelve hulls sitting on
+   * one start line answering the same puff at twelve slightly different
+   * rates is most of what tells a grid from a formation, and this is where
+   * it comes from.
+   *
+   * The PLAYER's rider is never dealt: the craft card quotes a spec sheet
+   * and a spec sheet that changed per run would be a lie on the card. */
+  riderBand: { min: 0.72, max: 1.3 },
 } as const;
 
 /** THE TRICKS RUN'S LENGTHS, s, in the order the start card offers them:

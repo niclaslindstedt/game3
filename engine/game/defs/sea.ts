@@ -529,6 +529,53 @@ export const WIND = {
    * three-sigma draw is a strong gust and never a calm or a hurricane. */
   gustMin: 0.55,
   gustMax: 1.6,
+
+  /** A GUST IS NOT ONE NUMBER OVER THE WHOLE LEVEL. Turbulence has a SIZE:
+   * eddies of every scale from the boundary layer's depth down to
+   * centimetres, carried past a fixed point by the mean wind rather than
+   * made and unmade where they stand (Taylor 1938, the frozen-turbulence
+   * hypothesis). That is why a gust felt here is felt a moment later a
+   * hundred metres downwind and not at all a kilometre across it — and it
+   * is why a dozen hulls on a start grid are a dozen PLACES in a wind
+   * rather than one number a dozen craft share. Share it and they all lean
+   * on the bars together, which is the one thing a start line never does.
+   *
+   * So the turbulence is dealt twice and the VARIANCES add, σ_total
+   * staying `intensity` either way. `squallShare` of the variance is the
+   * level-wide Ornstein–Uhlenbeck process above: the energy-containing
+   * eddies over water really are hundreds of metres across, and over a
+   * grid thirty metres long they really are one number. The rest is the
+   * field below. */
+  squallShare: 0.55,
+  /** The biggest eddy the FIELD carries, m — the octave below where the
+   * squall hands over, so the two do not state the same eddy twice. */
+  eddyScale: 120,
+  /** ...and how many octaves down from it, each half the last, so the
+   * smallest is the couple of metres that tells one hull on a grid from
+   * the one beside it. */
+  eddyOctaves: 7,
+  /** How the octaves are weighted. Kolmogorov's inertial subrange puts
+   * S(k) ∝ k^(−5/3), so an octave's variance goes as k^(−2/3) and its
+   * AMPLITUDE as the cube root of its scale: an eddy an eighth the size is
+   * half as strong. Stated as the exponent, so the law is visible where a
+   * table of seven numbers would only be its answer. */
+  eddyExponent: 1 / 3,
+  /** What ONE octave of `valueNoise` is worth: its standard deviation once
+   * centred on zero. Bilinear value noise over a lattice of uniform draws
+   * is not unit variance and the sum has to be normalised by something;
+   * `tests/wind_test.ts` measures the field's and holds it to 1, so this
+   * is the number that makes the quoted σ the delivered one.
+   *
+   * What comes out is worth checking against the standard model rather
+   * than only against itself. Davenport's exponential coherence (1961),
+   * with the decay of 12 IEC 61400-1 fixes it at, integrated over a
+   * Kaimal spectrum of this same length scale, puts the correlation of
+   * the along-wind component at 0.76 four metres apart, 0.66 at eight,
+   * 0.43 at thirty and 0.20 at a hundred and twenty. The field measures
+   * 0.89, 0.81, 0.49 and 0.06 — a shade stiffer than the standard over a
+   * grid's width and looser than it out at level range, which for a
+   * seven-octave sum is as close as a fractal gets to a spectrum. */
+  eddySigma: 0.209,
   /** THE WIND IS NOT THE SAME EVERYWHERE. A level is a coast, and a
    * coast is the one place the wind changes over a few hundred metres:
    * it blows full strength over the open sea, drops as it crosses the

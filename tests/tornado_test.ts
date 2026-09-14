@@ -325,9 +325,16 @@ describe("what the tornado does to a rider", () => {
     const shore: number[] = [];
     const oceanApex: number[] = [];
     const shoreApex: number[] = [];
+    // Three minutes a hull rather than two. What is read below are
+    // PERCENTILES, and a percentile is only as good as the sample under it:
+    // at two minutes the shore column landed the roster right on the
+    // twenty-flight bar, so any change to the wind that cost it one flight
+    // failed the case without saying anything about the tornado. The extra
+    // minute a hull puts both columns comfortably clear of it.
+    const SECONDS = 180;
     for (const craft of CRAFT) {
-      const out = throws(level, craft.id, 400, b.maxZ + far);
-      const along = throws(level, craft.id, b.maxX + far, 60);
+      const out = throws(level, craft.id, 400, b.maxZ + far, SECONDS);
+      const along = throws(level, craft.id, b.maxX + far, 60, SECONDS);
       ocean.push(...out.air);
       oceanApex.push(...out.apex);
       shore.push(...along.air);
