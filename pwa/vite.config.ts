@@ -46,6 +46,11 @@ const version = process.env.GITHUB_SHA ? buildLabel : `${buildLabel}+${new Date(
 
 export default defineConfig({
   base,
+  // The lazy renderer carries three.js and the generated rider shapes in a
+  // 571 kB chunk by design. Keep Vite's warning just above that measured
+  // envelope; `check-seo` owns the tighter raw and gzip budgets for the
+  // scripts that actually gate first render.
+  build: { chunkSizeWarningLimit: 600 },
   resolve: {
     alias: {
       "@engine": here("../engine/index.ts"),

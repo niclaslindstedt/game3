@@ -83,8 +83,14 @@ const SCENES = [
   "birds",
   "mark",
   "gate",
+  "missed",
   "river",
 ];
+
+/** Scenes whose subject is an event reached by their script rather than the
+ * pose they are stood in. The shutter pre-rolls to that beat by default so
+ * `make screenshots SCENE=<name>` photographs what the scene promises. */
+const SCENE_AT = { missed: 2.5 };
 
 /** THE MENU SURFACES, and how to photograph each one.
  *
@@ -365,7 +371,8 @@ if (args.surface) {
   const scenes = args.all ? SCENES : [args.scene];
   for (const scene of scenes) {
     const params = { ...base, scene };
-    if (args.t !== undefined) params.t = String(args.t);
+    const at = args.t ?? SCENE_AT[scene];
+    if (at !== undefined) params.t = String(at);
     // Named apart so a forced button, or a camera off the default rung,
     // never overwrites the plain shot of the same moment — the pair, or the
     // ladder, is what a review compares.

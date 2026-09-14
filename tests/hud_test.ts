@@ -451,6 +451,12 @@ describe("where the altimeter's marker sits", () => {
   });
 });
 
+describe("course feedback", () => {
+  it("uses the whole checkpoint warning as the missed-gate flash", () => {
+    expect(STRINGS.missed).toBe("MISSED CHECKPOINT");
+  });
+});
+
 describe("what the HUD reads of the mode", () => {
   it("shows the lights while they hold, GO for a moment after, and nothing on the open rules", () => {
     const race = createGame({ seed: 1, level: FLAT, mode: "timeTrial", quiet: true });

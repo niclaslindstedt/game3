@@ -5,16 +5,13 @@
 // up, passed by a move through its disc.
 //
 // A GATE IS REACHED BY GOING THROUGH IT AND BY NOTHING ELSE. Between the
-// buoys, or inside the ring: a rider who goes by a gate on the wrong side
-// of a buoy has not taken it, and the run does not move on for them. What
-// keeps that from being a dead end is the LOOK-AHEAD — taking any of the
-// next `course.lookAhead` gates counts, and charges every gate skipped on
-// the way (`missedGate`, which then treats the skipped gate as reached, so
-// nobody is sent back down the coast for it). So a rider who overshoots
-// one buoy carries on and pays for it at the next, and a rider who
-// overshoots the lot has to come back and thread one. The last gate is the
-// finish, and it is crossed like any other: there is no wide crossing of a
-// finish line.
+// buoys, or inside the ring: crossing the owed gate's plane outside its
+// opening misses it there and then, charges the clock, and moves the run on
+// so the HUD can answer while the checkpoint is still beside the rider.
+// The LOOK-AHEAD is the recovery for a rider already past the line — taking
+// any of the next `course.lookAhead` gates counts, and charges every gate
+// skipped on the way. The last gate is the finish and must still be crossed
+// through its opening: there is no wide crossing of a finish line.
 //
 // `reset` stands the craft a few metres behind the last gate it took (or
 // the start), facing the next one, at rest — the way home from a rock.
@@ -140,9 +137,9 @@ export function stepCourse(
   if (n >= gates.length) return;
   // The gate the run owes, and the few after it: the FIRST of them the move
   // actually went through is the one taken, and everything before it is
-  // charged as skipped. Nothing about crossing a gate's LINE outside its
-  // buoys counts — that is a rider who went past, and the gate stays theirs
-  // until they thread it or thread a later one.
+  // charged as skipped. If none was taken, crossing the OWED gate's plane
+  // outside its opening is the miss itself. The finish is excluded: it is
+  // the one line the run cannot pay to ride around.
   const last = Math.min(gates.length - 1, n + K.lookAhead);
   for (let g = n; g <= last; g++) {
     if (!crossedGate(gates[g], x0, y0, z0, c.x, c.y, c.z)) continue;
@@ -150,6 +147,14 @@ export function stepCourse(
     take(state, g, c.y, events);
     p.nextGate = g + 1;
     break;
+  }
+  if (
+    p.nextGate === n &&
+    n < gates.length - 1 &&
+    crossedLine(gates[n], x0, y0, z0, c.x, c.y, c.z)
+  ) {
+    miss(state, n, events);
+    p.nextGate = n + 1;
   }
   if (p.nextGate >= gates.length) {
     p.finished = true;

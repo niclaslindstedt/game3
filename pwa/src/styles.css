@@ -893,6 +893,37 @@ canvas {
   }
 }
 
+/* A checkpoint just left behind keeps its red gate shape and gains a ring
+   with a quicker heartbeat. Reduced motion leaves the circle standing at
+   full strength: the warning survives even when its movement does not. */
+.hud-minimap-missed-halo {
+  fill: none;
+  stroke: var(--hud-bad);
+  stroke-width: 1.6;
+  opacity: 0.9;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hud-minimap-missed-halo {
+    transform-box: fill-box;
+    transform-origin: center;
+    animation: minimap-missed-beat 900ms ease-in-out infinite;
+  }
+}
+
+@keyframes minimap-missed-beat {
+  0%,
+  100% {
+    opacity: 0.55;
+    transform: scale(0.78);
+  }
+
+  45% {
+    opacity: 1;
+    transform: scale(1.12);
+  }
+}
+
 /* What the next gate becomes once it is off the window: a wedge on the rim,
    turned to point at it. The window is a few hundred metres across and the
    legs between gates are over a hundred, so this is the state the mark is in

@@ -66,6 +66,7 @@ export type ScenarioName =
   | "birds"
   | "mark"
   | "gate"
+  | "missed"
   | "river";
 
 export const SCENARIO_NAMES: readonly ScenarioName[] = [
@@ -94,6 +95,7 @@ export const SCENARIO_NAMES: readonly ScenarioName[] = [
   "birds",
   "mark",
   "gate",
+  "missed",
   "river",
 ];
 
@@ -893,13 +895,32 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
       const gate = water[Math.min(1, water.length - 1)];
       if (!gate) return scenarioFor(state, "cruise");
       return {
-        moment: {
+        moment: atGate(gate, {
           x: gate.x - Math.sin(gate.heading) * GATE_STANDOFF,
           z: gate.z - Math.cos(gate.heading) * GATE_STANDOFF,
-          heading: gate.heading,
           speed: top * 0.45,
-          nextGate: gate.index,
-        },
+        }),
+        script: () => input(0, 0.6, 0),
+        seconds: 4,
+      };
+    }
+    case "missed": {
+      // THE MISSED CHECKPOINT: the gate is still close enough behind the
+      // craft to read on the minimap when its warning arrives. One whole
+      // gate-width to the right puts the line safely outside the buoys;
+      // the straight script crosses its plane and lets the course emit the
+      // miss rather than staging the HUD's answer by hand.
+      const water = level.course.gates.filter((g) => g.kind === "water");
+      const gate = water[Math.min(1, water.length - 1)];
+      if (!gate) return scenarioFor(state, "cruise");
+      const rightX = Math.cos(gate.heading);
+      const rightZ = -Math.sin(gate.heading);
+      return {
+        moment: atGate(gate, {
+          x: gate.x - Math.sin(gate.heading) * GATE_STANDOFF + rightX * gate.width,
+          z: gate.z - Math.cos(gate.heading) * GATE_STANDOFF + rightZ * gate.width,
+          speed: top * 0.45,
+        }),
         script: () => input(0, 0.6, 0),
         seconds: 4,
       };

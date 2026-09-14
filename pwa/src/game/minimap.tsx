@@ -183,6 +183,9 @@ function Gate({ gate }: { gate: GateMark }) {
       {gate.state === "next" && (
         <circle class="hud-minimap-halo" cx={gate.x} cy={gate.y} r={HALO_R} />
       )}
+      {gate.state === "missed" && (
+        <circle class="hud-minimap-missed-halo" cx={gate.x} cy={gate.y} r={HALO_R} />
+      )}
     </g>
   );
 }

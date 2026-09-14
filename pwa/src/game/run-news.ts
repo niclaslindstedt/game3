@@ -30,7 +30,7 @@ export function flashFor(
     case "airGate":
       return { text: STRINGS.airGate(e.gate + 1, e.split), tone: "good" };
     case "missedGate":
-      return { text: STRINGS.missed(e.gate + 1, e.penalty), tone: "bad" };
+      return { text: STRINGS.missed, tone: "bad" };
     case "finish":
       return state.rivals.length > 0
         ? { text: STRINGS.finishPlace(e.place, state.rivals.length + 1, e.time), tone: "good" }
