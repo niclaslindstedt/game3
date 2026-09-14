@@ -23,7 +23,7 @@
 
 import { clamp } from "../lib/math.ts";
 import { fromEuler, integrate, rotate, toEuler, unrotate } from "../lib/quat.ts";
-import { landingAssist, rampAssist } from "./assist.ts";
+import { followingSeaAssist, landingAssist, rampAssist } from "./assist.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { aeroForces, type AeroResult } from "./flight.ts";
@@ -655,6 +655,28 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // one is half faded — a rider who stops working the bars is caught as he
   // always was, and one who pushes the nose down has his yank taken at once.
   const flown = Math.max(Math.abs(airLean), Math.min(1, c.yank * 2));
+
+  // THE FOLLOWING SEA'S HAND. A head sea lifts the bow by meeting it; a
+  // crest overtaking from astern can instead carry the transom up and stuff
+  // the bow before the bottom has an angle from which to answer. It catches
+  // the nose-down skip just before re-entry as well as the wet bow after it,
+  // unless the rider is deliberately flying the hull himself.
+  followingSeaAssist(
+    c.q,
+    c.wx,
+    throughWater,
+    state.sea.windFrom,
+    hull.bowDepth,
+    hull.transomDepth,
+    under,
+    c.airborne,
+    flown,
+    input.lean,
+    I.x,
+    aero,
+  );
+  tbx += aero.tx;
+
   if (c.airborne && state.assist > 0) {
     landingAssist(
       c.q,
@@ -767,6 +789,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.wetted = hull.wetted;
   c.slam = hull.slam;
   c.submergedDepth = Math.max(0, hull.submerged);
+  c.submerged = under;
   c.onRamp = contact.onRamp;
   c.onGround = contact.onGround;
   c.hitCooldown = Math.max(0, c.hitCooldown - dt);

@@ -313,7 +313,13 @@ function drawCell(canvas, run, f, index, x, y, cell, count) {
     INK.dim,
     1,
   );
-  canvas.text(`SUB ${round(f.submergedDepth, 2)}M`, x + 124, y + 30, INK.dim, 1);
+  canvas.text(
+    `SUB ${round(f.submergedDepth, 2)}M  UNDER ${round(f.submerged * 100)}%`,
+    x + 124,
+    y + 30,
+    INK.dim,
+    1,
+  );
   canvas.text(`WAVE ${round(f.water, 2)}M`, x + 124, y + 40, INK.dim, 1);
 }
 

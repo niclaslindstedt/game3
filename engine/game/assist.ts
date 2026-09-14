@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE ARCADE'S HAND — the help the rider is given, and the two places it
+// THE ARCADE'S HAND — the help the rider is given, and the three places it
 // is allowed to touch the craft.
 //
 // Nothing here is a model of anything. Every number is argued against the
-// feel (`TUNING.assist`), and both hands are DIALS a difficulty setting
-// moves: `GameState.assist` for the air, `GameState.rampAssist` for the
-// deck, each 0..1, each read and never written during a run.
+// feel (`TUNING.assist`). Two hands are DIALS a difficulty setting moves:
+// `GameState.assist` for the air and `GameState.rampAssist` for the deck,
+// each 0..1, each read and never written during a run. The following-sea
+// hand is part of the core ride and does not move with difficulty.
 //
 // - THE AIR (`landingAssist`): a predicted attitude at splashdown, and a
 //   torque toward the one the hull ought to land at when the prediction
@@ -14,12 +15,16 @@
 //   plastic with no keel in the water and no nozzle to steer with, so
 //   whatever sideways way it climbed aboard with carries it off a flank.
 //   The hand takes some of that slide out and turns the bow up the deck.
+// - THE FOLLOWING SEA (`followingSeaAssist`): a wave overtaking a planing
+//   hull can swallow its bow before any physical lift has a useful angle to
+//   work through. The hand pitches that bow clear while it is being caught.
 //
-// BOTH FOLD AWAY UNDER THE RIDER'S OWN HAND, and that is what keeps
-// either of them from reading as a rail the game is on: `flown` — the lean,
+// THE AIR AND RAMP FOLD AWAY UNDER THE RIDER'S OWN HAND, and that is what
+// keeps either from reading as a rail the game is on: `flown` — the lean,
 // and a yank of the pump still fading — retires the air's hand in
-// proportion, `steer` the ramp's. A rider working the bars gets the bare
-// physics and no argument.
+// proportion, `steer` the ramp's. The following-sea hand likewise leaves
+// an airborne hull alone when the rider is deliberately flying it, and a
+// wet hull when he leans forward to put the bow under on purpose.
 
 import { integrate, rotate, unrotate, type Quat } from "../lib/quat.ts";
 import { angleDiff, clamp } from "../lib/math.ts";
@@ -30,7 +35,76 @@ import type { AeroResult } from "./flight.ts";
 
 const A = TUNING.assist.air;
 const R = TUNING.assist.ramp;
+const F = TUNING.assist.following;
 const G = 9.81;
+
+/** THE FOLLOWING SEA'S HAND: keep an overtaking wave from swallowing the
+ * bow of a hull that is already riding on it.
+ *
+ * Head seas make their own answer: the bow meets the wave face, its bottom
+ * earns pressure lift, and the entering probes slam upward. Running WITH a
+ * wave takes those two cues away just when the crest catches the transom and
+ * drives the bow into the face ahead. The physical model then reacts only
+ * after the section is buried, when its drag has already taken the speed and
+ * the rider's control with it. This is the intentionally arcade counterpart:
+ * a pitch-up acceleration as the bow goes in, before the deck follows.
+ *
+ * The hull must be making way and aligned with the sea's travel. Once wet,
+ * the bow must also be deeper than the transom and past the immersion an
+ * ordinary planing forefoot carries; a hull wholly under keeps the hand until
+ * it has broken the surface again. While dry, only a nose-down bow inside the
+ * last metre before re-entry qualifies, and the rider's own air input retires
+ * it. The result is body-x torque, N·m; nose-up is negative x. */
+export function followingSeaAssist(
+  q: Quat,
+  wx: number,
+  forwardSpeed: number,
+  windFrom: number,
+  bowDepth: number,
+  transomDepth: number,
+  under: number,
+  airborne: boolean,
+  flown: number,
+  lean: number,
+  ix: number,
+  out: AeroResult,
+): void {
+  out.fx = 0;
+  out.fy = 0;
+  out.fz = 0;
+  out.tx = 0;
+  out.ty = 0;
+  out.tz = 0;
+  if (forwardSpeed <= 0) return;
+
+  const nose = rotate(q, { x: 0, y: 0, z: 1 });
+  const horizontal = Math.hypot(nose.x, nose.z);
+  if (horizontal < 1e-6) return;
+  // Waves travel WITH the wind; `windFrom` is where that wind came from.
+  const travel = windFrom + Math.PI;
+  const aligned = (nose.x * Math.sin(travel) + nose.z * Math.cos(travel)) / horizontal;
+  const withSea = clamp((aligned - F.align) / (1 - F.align), 0, 1);
+  const pace = clamp(forwardSpeed / F.pace, 0, 1);
+  if (withSea <= 0 || pace <= 0) return;
+
+  const bowWet = clamp((bowDepth - F.begin) / (F.full - F.begin), 0, 1);
+  const bowFirst = clamp((bowDepth - transomDepth) / F.difference, 0, 1);
+  const pitch = Math.atan2(nose.y, horizontal);
+  const approaching = airborne
+    ? clamp((F.airReach + bowDepth) / F.airReach, 0, 1) *
+      clamp((F.landPitch - pitch) / F.pitchBand, 0, 1) *
+      (1 - clamp(Math.abs(flown), 0, 1))
+    : 0;
+  const caught = Math.max(bowWet * bowFirst, clamp(under / F.under, 0, 1), approaching);
+  if (caught <= 0) return;
+
+  const gain = withSea * pace * caught;
+  // Full forward lean is a dive request. The hand prevents the wave from
+  // choosing that line for the rider; it must not prevent him choosing it.
+  const yielded = 1 - clamp(-lean, 0, 1);
+  const noseDown = Math.max(0, wx);
+  out.tx = -(F.right + F.damp * noseDown) * ix * gain * yielded;
+}
 
 /** How long, s, until the keel reaches the water, from `height` m above it
  * falling at `vy` m/s (up positive) under gravity alone. The air's drag is

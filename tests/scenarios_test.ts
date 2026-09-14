@@ -192,7 +192,7 @@ describe("staging", () => {
 });
 
 describe("on a generated shore", () => {
-  it("seaward points out to sea, and offshore / swell / chop stand the craft on water", () => {
+  it("seaward points out to sea, and the open-water scenes stand the craft on water", () => {
     const level = levelFor(38);
     const state = createGame({ seed: 38, craft: "marlin", level, quiet: true });
     const mid = level.course.gates[Math.floor(level.course.gates.length / 2)];
@@ -202,7 +202,7 @@ describe("on a generated shore", () => {
     expect(sampleField(level.offshore, mid.x + sea.x * 20, mid.z + sea.z * 20)).toBeGreaterThan(
       sampleField(level.offshore, mid.x, mid.z),
     );
-    for (const name of ["offshore", "swell", "chop"] as const) {
+    for (const name of ["offshore", "swell", "chop", "following"] as const) {
       const s = scenarioFor(state, name);
       expect(sampleField(level.ground, s.moment.x, s.moment.z)).toBeLessThan(-1);
       expect(level.materialAt(s.moment.x, s.moment.z)).toBe("water");

@@ -66,7 +66,7 @@ const args = parseArgs(
     },
     assist: {
       kind: "number",
-      help: "the arcade assist, 0..1, BOTH hands (the tuning's defaults when left out); 0 is the bare physics",
+      help: "the air-and-ramp assist, 0..1, both difficulty hands (the tuning's defaults when left out)",
     },
     "ramp-assist": {
       kind: "number",
@@ -145,6 +145,7 @@ function ride(id) {
       airTime: c.airTime,
       onRamp: c.onRamp,
       submergedDepth: c.submergedDepth,
+      submerged: c.submerged,
       water: heightAt(state.sea, level, c.x, c.z, state.t),
       ground: sampleField(level.ground, c.x, c.z),
       events,
@@ -210,6 +211,7 @@ for (const id of wanted) {
       pad("lean", 5),
       pad("air", 5),
       pad("sub", 5),
+      pad("under", 5),
       "  events",
     ].join(" "),
   );
@@ -232,6 +234,7 @@ for (const id of wanted) {
         pad(round(f.lean, 1), 5),
         pad(f.airborne ? round(f.airTime, 2) : f.onRamp ? "ramp" : "-", 5),
         pad(round(f.submergedDepth, 2), 5),
+        pad(round(f.submerged * 100) + "%", 5),
         "  " + f.events.map((e) => e.kind).join(","),
       ].join(" "),
     );

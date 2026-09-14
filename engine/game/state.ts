@@ -124,6 +124,10 @@ export type CraftState = {
   planing: number;
   /** How deep the deepest probe sits under the surface, m; 0 when dry. */
   submergedDepth: number;
+  /** How far the WHOLE hull has gone under, 0..1: the least-immersed
+   * bottom probe times the deck's flooded share. A buried bow alone is 0;
+   * a deck swallowed by a following wave rises toward 1. */
+  submerged: number;
   /** The slam the hull took this step, N — the wedge impact of the probes
    * ENTERING the water (`hull.ts`), capped as the physics caps it. Zero on a
    * hull that is riding rather than landing. Read by the app's audio for the

@@ -16,6 +16,7 @@ export const SCENARIO_NAMES = [
   "brakeTurn",
   "chop",
   "swell",
+  "following",
   "launch",
   "apex",
   "landing",

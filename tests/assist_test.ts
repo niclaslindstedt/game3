@@ -1,25 +1,26 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE ARCADE'S HAND (`engine/game/assist.ts`): the two moments it is
-// allowed to touch — the last of a flight (`landingAssist`) and the run
-// up a ramp's deck before it (`rampAssist`) — and what it may do with
-// each.
+// THE ARCADE'S HAND (`engine/game/assist.ts`): the three moments it is
+// allowed to touch — the last of a flight (`landingAssist`), the run up a
+// ramp's deck (`rampAssist`), and a following wave swallowing the bow
+// (`followingSeaAssist`) — and what it may do with each.
 //
-// The whole promise is two-sided and both sides are held here, for both
-// hands. A ride that was going to end badly — a flight thrown sideways
-// off a lip, a hull skidding off the flank of a four-metre deck — is
-// turned toward the one it ought to have and the rider keeps it. A ride
-// that was going to be fine is not touched AT ALL: a clean landing, a
-// backflip coming round and a jump lined up straight all ride out with
-// the assist adding nothing, which is what keeps the air a decision
-// rather than a cutscene and a ramp a ramp rather than a gutter.
+// The whole promise is two-sided and both sides are held here. A ride that
+// was going to end badly — a flight thrown sideways off a lip, a hull
+// skidding off the flank of a four-metre deck, a following crest swallowing
+// the bow — is turned toward the one it ought to have and the rider keeps
+// it. A ride that was going to be fine is not touched AT ALL: a clean
+// landing, a backflip coming round, a jump lined up straight, and every head
+// or beam sea all ride out with the assist adding nothing. A full forward
+// lean also keeps a deliberate dive in the rider's hands.
 //
-// Every case here is staged with `placeRun` on the synthetic level, so
-// what is measured is the assist and not a generator.
+// The mechanisms are staged with `placeRun` on the synthetic level; the
+// following-sea regression uses one known generated shore.
 import { describe, expect, it } from "vitest";
 
 import {
   TUNING,
   createGame,
+  followingSeaAssist,
   fromEuler,
   landingAssist,
   onRampDeck,
@@ -34,6 +35,8 @@ import {
 } from "@engine";
 
 import { syntheticLevel } from "./support/synthetic.ts";
+import { levelFor } from "./support/levels.ts";
+import { stageScenario } from "../pwa/src/game/scenarios.ts";
 
 const FLAT = syntheticLevel({ windSpeed: 0, noSolids: true });
 const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false };
@@ -141,6 +144,46 @@ describe("the ballistic clock", () => {
 });
 
 describe("the arcade's hand", () => {
+  it("keeps a following wave from swallowing the hull", () => {
+    // Seed 29's following swell catches the touring hull twice in twenty
+    // seconds. Bare, the whole-hull measure reaches 0.32 for 1.39 s and the
+    // speed falls to 8 km/h; the hand keeps the deck at the surface and the
+    // ride above planing-entry pace.
+    const level = levelFor(29);
+    const state = createGame({ seed: 29, craft: "otter", level, quiet: true });
+    const scenario = stageScenario(state, "following");
+    let deepest = 0;
+    let mostUnder = 0;
+    let slowest = Infinity;
+    for (let i = 0; i < 20 * TUNING.physicsHz; i++) {
+      step(state, scenario.script(i * TUNING.dt));
+      deepest = Math.max(deepest, state.craft.submergedDepth);
+      mostUnder = Math.max(mostUnder, state.craft.submerged);
+      if (i > 2 * TUNING.physicsHz) slowest = Math.min(slowest, state.craft.speed);
+    }
+    expect(mostUnder).toBeLessThan(0.1);
+    expect(deepest).toBeLessThan(0.8);
+    expect(slowest).toBeGreaterThan(8);
+  });
+
+  it("still lets the rider dive into a following wave deliberately", () => {
+    const level = levelFor(29);
+    const state = createGame({ seed: 29, craft: "otter", level, quiet: true });
+    const scenario = stageScenario(state, "following");
+    let mostUnder = 0;
+    let underFor = 0;
+    let longestUnder = 0;
+    for (let i = 0; i < 20 * TUNING.physicsHz; i++) {
+      const input = scenario.script(i * TUNING.dt);
+      step(state, { ...input, lean: -1 });
+      mostUnder = Math.max(mostUnder, state.craft.submerged);
+      underFor = state.craft.submerged > 0.1 ? underFor + TUNING.dt : 0;
+      longestUnder = Math.max(longestUnder, underFor);
+    }
+    expect(mostUnder).toBeGreaterThan(0.1);
+    expect(longestUnder).toBeGreaterThan(0.25);
+  });
+
   it("lands a hull thrown on its side on its bottom", () => {
     // Sixty-three degrees of bank off the lip. The bare hull arrives
     // still on its side; the caught one arrives on its bottom.
@@ -197,6 +240,64 @@ describe("the arcade's hand", () => {
     const rolls = [0, 0.5, 1].map((assist) => Math.abs(toss({ roll: 1.1, assist }).roll));
     expect(rolls[0]).toBeGreaterThan(rolls[1]);
     expect(rolls[1]).toBeGreaterThan(rolls[2]);
+  });
+});
+
+describe("the following sea's hand", () => {
+  function torque(
+    opts: {
+      heading?: number;
+      speed?: number;
+      pitch?: number;
+      bow?: number;
+      transom?: number;
+      under?: number;
+      wx?: number;
+      airborne?: boolean;
+      flown?: number;
+      lean?: number;
+    } = {},
+  ): number {
+    const out = { fx: 0, fy: 0, fz: 0, tx: 0, ty: 0, tz: 0 };
+    followingSeaAssist(
+      fromEuler(opts.heading ?? Math.PI, opts.pitch ?? 0, 0),
+      opts.wx ?? 0,
+      opts.speed ?? 16,
+      0,
+      opts.bow ?? TUNING.assist.following.full,
+      opts.transom ?? 0,
+      opts.under ?? 0,
+      opts.airborne ?? false,
+      opts.flown ?? 0,
+      opts.lean ?? 0,
+      228,
+      out,
+    );
+    return out.tx;
+  }
+
+  it("pitches up when a wave overtakes and begins to swallow the bow", () => {
+    expect(torque()).toBeLessThan(-100);
+    expect(torque({ wx: 1 })).toBeLessThan(torque());
+  });
+
+  it("catches the nose-down skip before it enters, unless the rider is flying it", () => {
+    const skip = { airborne: true, pitch: -0.2, bow: -0.1, transom: -0.2 };
+    expect(torque(skip)).toBeLessThan(-100);
+    expect(torque({ ...skip, flown: 1 })).toBe(0);
+  });
+
+  it("yields the bow to a deliberate forward lean", () => {
+    expect(torque({ lean: -1 })).toBeCloseTo(0);
+    expect(torque({ lean: -0.5 })).toBeCloseTo(torque() * 0.5);
+  });
+
+  it("is silent head-on, beam-on, at rest, and at an ordinary draft", () => {
+    expect(torque({ heading: 0 })).toBe(0);
+    expect(torque({ heading: Math.PI / 2 })).toBe(0);
+    expect(torque({ speed: 0 })).toBe(0);
+    expect(torque({ bow: TUNING.assist.following.begin * 0.9 })).toBe(0);
+    expect(torque({ bow: 0.4, transom: 0.4 })).toBe(0);
   });
 });
 

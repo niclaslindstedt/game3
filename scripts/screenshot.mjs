@@ -70,6 +70,7 @@ const SCENES = [
   "brakeTurn",
   "chop",
   "swell",
+  "following",
   "launch",
   "apex",
   "landing",
