@@ -448,16 +448,6 @@ export function BenchmarkCard({
           backLabel={done ? STRINGS.menuDeveloper : STRINGS.benchStop}
           title={STRINGS.benchTitle}
           sub={conditions}
-          action={
-            done ? (
-              <CopyButton
-                label={STRINGS.benchCopy}
-                hint={STRINGS.benchCopyReport}
-                text={report}
-                className="opt-reset bench-copy"
-              />
-            ) : undefined
-          }
         />
         {done && (
           <div class="bench-score">
@@ -489,6 +479,23 @@ export function BenchmarkCard({
             that kept running through it would be timing the machine's
             screensaver. */}
         {!done && <div class="bench-note">{STRINGS.benchKeepInFront}</div>}
+        {/* THE COPY PRESS IS A ROW HERE AND A CORNER EVERYWHERE ELSE. A head
+            corner is not a banner — but this card is `min(28rem, 100%)`, which
+            on a phone is the whole 390 px, and `MenuHead`'s three columns
+            (back, billing, action) do not fit in it: BENCHMARK is one word and
+            cannot wrap, so it ran under the action's border however short the
+            action's own word was made. The card's other two presses are
+            full-width rows, so this is the shape it already has room for — and
+            a row can carry the whole sentence, which a corner could not. The
+            full-screen graph (64rem) and the history page (44rem) keep theirs
+            in the head, where they fit. */}
+        {done && (
+          <CopyButton
+            label={STRINGS.benchCopyReport}
+            text={report}
+            className="menu-item menu-item-dev bench-copy-row"
+          />
+        )}
         {done && (
           <button type="button" class="menu-item menu-item-dev" onClick={onHistory}>
             {STRINGS.benchHistory}

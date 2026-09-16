@@ -2504,6 +2504,20 @@ canvas {
   letter-spacing: 0.06em;
 }
 
+/* …AND THAT PROMISE NEEDS THIS LINE. A flex column at `max-height` SHRINKS its
+   children to fit before it will scroll, so a card taller than the viewport
+   was squeezing every row instead of scrolling — and `.menu-item`'s
+   `overflow: hidden` hid the evidence by clipping the row's own text mid-word.
+   The benchmark's card is where it showed (a head, a score, a graph, six
+   picture cells and two rows is the tallest card in the game), but the trap is
+   the rule's rather than that card's, and it is armed for every card that
+   outgrows a phone.
+
+   It costs nothing on a card that FITS: there is no shrinking to refuse. */
+.menu-card > * {
+  flex-shrink: 0;
+}
+
 /* The front door is the one card that centres on its own wordmark rather than
    opening with a head, so it gets its air from the brand block above. */
 .menu-card-root {
@@ -4983,4 +4997,12 @@ button.knob-read:focus-visible {
   .bench-legend-row {
     grid-template-columns: 1fr;
   }
+}
+
+/* The card's copy press is a `.menu-item` row rather than a head corner (see
+   `menu-bench.tsx`), so it gives back the row's shouting weight and keeps only
+   its box: this is a tool, not the way on. */
+.bench-copy-row {
+  font-size: 0.74rem;
+  letter-spacing: 0.14em;
 }

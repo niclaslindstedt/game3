@@ -616,14 +616,9 @@ export const STRINGS = {
   benchStop: "STOP",
   benchClose: "CLOSE",
   benchAgain: "RUN AGAIN",
-  /** THE WORD SHRINKS WITH THE BUTTON. A head corner is not a banner, and the
-   * benchmark's CARD is the narrowest surface in the game to carry one: at
-   * 28rem, `COPY DEBUG REPORT` squeezed the head's middle column to nothing,
-   * printed itself over the title and wrapped the billing under it to four
-   * lines. So the card says the short word and the wide surfaces — the
-   * full-screen graph and the history page — say what it copies. The `title`
-   * on the short one carries the long form for a pointer that rests on it. */
-  benchCopy: "COPY",
+  /** One word for one control, wherever it stands: a ROW on the card (which is
+   * 28rem and, on a phone, the whole screen — see the note beside it) and a
+   * head corner on the two surfaces wide enough for one. */
   benchCopyReport: "COPY DEBUG REPORT",
   benchCopySheet: "COPY SCORE SHEET",
   benchEnlarge: "TAP TO ENLARGE",
