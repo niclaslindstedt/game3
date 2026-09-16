@@ -16,6 +16,7 @@ import * as THREE from "three";
 import { heightAt, surfaceAt, type CraftId, type GameState, type Level } from "@engine";
 
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
+import type { FrameCost, SceneShare } from "./benchmark-report.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { isEyeCamera } from "./camera-rigs.ts";
 import { createCheckpointArrow } from "./checkpoint-arrow.ts";
@@ -71,14 +72,24 @@ const NO_LAMPS: readonly BuoyLamp[] = [];
 const NEAR = 0.2;
 const FAR = 4200;
 
-/** What one frame cost, for the profile: the water's CPU time, the whole
- * frame's, and what the GPU was asked for. */
-export type FrameCost = {
-  waterMs: number;
-  frameMs: number;
-  calls: number;
-  triangles: number;
-};
+/** THE SEA, NAMED for the benchmark's scene breakdown — the near grid and the
+ * far one under one heading, because a report saying the water is half the
+ * frame's triangles is the useful reading and "near grid" against "far grid"
+ * is a detail that belongs in `water-grid.ts`. Called wherever a mesh is
+ * built, which is twice: once here and again whenever WATER or DISTANCE moves
+ * and the grids are laid afresh. */
+function nameWater(mesh: WaterMesh): void {
+  mesh.mesh.name = "water";
+  mesh.far.name = "water";
+}
+
+/** What one frame cost, for the HUD's FRAME COST row and for the benchmark's
+ * report — the water's CPU time, the whole frame's, and what the GPU was
+ * asked for. STATED IN `benchmark-report.ts`, because the report, the history
+ * and the score sheet are DOM-free and read by the root suite, and a type
+ * imported from here would drag three.js into a suite that runs on plain
+ * Node. Re-exported so nothing outside has to know that. */
+export type { FrameCost, SceneShare };
 
 export type GameRenderer = {
   /** Draw the state. `dt` is the frame's wall time, s, for the camera's
@@ -114,6 +125,15 @@ export type GameRenderer = {
   observe: (state: GameState) => void;
   camera: CameraRig;
   cost: () => FrameCost;
+  /** What was standing in the scene, by subsystem — the benchmark's report
+   * asks once, on the last frame of a run. A walk of the whole graph, so
+   * nothing calls it from a frame it cares about the length of. */
+  sceneTally: () => SceneShare[];
+  /** The drawing buffer the last frame was drawn into, DEVICE pixels — the
+   * canvas's CSS box times the ratio times the RESOLUTION row's share. The
+   * benchmark's card reports it beside the score, because a time without the
+   * pixels it was spent on is not a measurement. */
+  bufferSize: () => { w: number; h: number };
   /** WAIT FOR THE GPU to finish the frame just submitted, and say how long
    * that took, ms. `cost.frameMs` is the processor's half of a frame; the
    * GPU's runs on after `render` returns and nothing on the page can time it
@@ -177,6 +197,8 @@ export function createRenderer(
     mirror,
   );
   water.setWake(wake.map);
+  nameWater(water);
+  spray.group.name = "spray";
   scene.add(water.mesh, water.far, spray.group);
 
   let world: THREE.Group | null = null;
@@ -208,7 +230,15 @@ export function createRenderer(
   let wellCut: WellCut | null = null;
   let level: Level | null = null;
 
-  const cost: FrameCost = { waterMs: 0, frameMs: 0, calls: 0, triangles: 0 };
+  const cost: FrameCost = {
+    waterMs: 0,
+    frameMs: 0,
+    calls: 0,
+    triangles: 0,
+    programs: 0,
+    geometries: 0,
+    textures: 0,
+  };
   /** The one pixel `drain` reads back, allocated once. */
   const drained = new Uint8Array(4);
   const eye = new THREE.Vector3();
@@ -252,11 +282,27 @@ export function createRenderer(
       birds = createBirds(level);
       birds.group.visible = video.fauna;
       world = new THREE.Group();
+      // NAMED, and not for debugging: the benchmark's report buckets the scene
+      // by the nearest named ancestor (`sceneTally`), so a group without a
+      // name is a subsystem that reports as "everything else". A name added
+      // here is a row in that breakdown; a group added without one is a row
+      // silently folded into its parent's.
+      terrain.name = "shore";
+      flora.group.name = "cover";
+      gates.group.name = "gates";
+      buoys.group.name = "buoys";
+      guide.group.name = "guide";
+      fauna.group.name = "fauna";
+      birds.group.name = "birds";
+      const rocks = createRocks(level);
+      rocks.name = "rocks";
+      const prints = createFootprints(level);
+      prints.name = "footprints";
       world.add(
         terrain,
-        createRocks(level),
+        rocks,
         flora.group,
-        createFootprints(level),
+        prints,
         gates.group,
         buoys.group,
         guide.group,
@@ -295,6 +341,7 @@ export function createRenderer(
       const style = CRAFT_STYLES[id];
       rig.setFit({ deck: (z) => deckOf(spec, style, z), gripZ: cockpitOf(spec, style).grip.z });
       wellCut = wellCutOf(spec, style);
+      craft.name = "craft";
       scene.add(craft);
     }
     if (state.rivals !== fieldFor) {
@@ -316,6 +363,9 @@ export function createRenderer(
         const group = body.clone();
         const own = createRider(cockpitOf(spec, CRAFT_STYLES[spec.id]), surface);
         group.add(own.mesh);
+        // Every rival under one name: the report wants what THE FIELD costs,
+        // not eleven rows a hull each.
+        group.name = "field";
         scene.add(group);
         return { run: r.run, group, rider: own };
       });
@@ -362,6 +412,7 @@ export function createRenderer(
     scene.remove(water.mesh, water.far);
     water.dispose();
     water = createWaterMesh(sky.uniforms, WATER_LOOK[video.water], gridRings(), mirror);
+    nameWater(water);
     water.setWake(wake.map);
     water.setWakeLook(WAKE_LOOK[video.wake]);
     water.setMirrorLook(REFLECTION_LOOK[video.reflections]);
@@ -569,7 +620,54 @@ export function createRenderer(
     renderer.render(scene, camera);
     cost.calls = renderer.info.render.calls + pass.calls + marks.calls;
     cost.triangles = renderer.info.render.triangles + pass.triangles + marks.triangles;
+    // WHAT THE SHORE IS HOLDING rather than what this frame drew: the driver's
+    // compiled programs and the buffers and textures still resident. Read here
+    // with the rest so a reading is one frame's whole account, and flat to ask
+    // — three keeps all three as counters.
+    cost.programs = renderer.info.programs?.length ?? 0;
+    cost.geometries = renderer.info.memory.geometries;
+    cost.textures = renderer.info.memory.textures;
     cost.frameMs = performance.now() - t0;
+  };
+
+  /** THE SCENE, WALKED, and bucketed by what it belongs to — the benchmark's
+   * report asks for it once, on the last frame of a run
+   * (`benchmark-report.ts`). It is the half of that report that says WHERE to
+   * look: a frame's draw calls say a machine is struggling, and this says the
+   * cover is four fifths of its triangles.
+   *
+   * The bucket is the nearest NAMED ancestor, which is why the groups this
+   * module adds to the scene carry names: without one an object would be
+   * reported against the scene itself and the breakdown would be a single row
+   * saying "all of it".
+   *
+   * Only what would actually be DRAWN: an invisible object, and everything
+   * under it, is skipped exactly as three's own traversal skips it — a
+   * breakdown that counted the sea life with SEE-THROUGH off would send
+   * somebody optimising a thing that was never submitted.
+   *
+   * A WALK OF THE WHOLE GRAPH, so it is never called from a frame that is
+   * being timed for anything but this. */
+  const sceneTally = (): SceneShare[] => {
+    const buckets = new Map<string, SceneShare>();
+    const walk = (object: THREE.Object3D, under: string): void => {
+      if (!object.visible) return;
+      const name = object.name !== "" ? object.name : under;
+      const geometry = (object as Partial<THREE.Mesh>).geometry;
+      if (geometry !== undefined) {
+        const share = buckets.get(name) ?? { name, objects: 0, triangles: 0 };
+        share.objects += 1;
+        const index = geometry.getIndex();
+        const position = geometry.getAttribute("position");
+        const verts = index ? index.count : (position?.count ?? 0);
+        const instances = (object as Partial<THREE.InstancedMesh>).count ?? 1;
+        share.triangles += (verts / 3) * instances;
+        buckets.set(name, share);
+      }
+      for (const child of object.children) walk(child, name);
+    };
+    walk(scene, "scene");
+    return [...buckets.values()];
   };
 
   resize();
@@ -605,6 +703,8 @@ export function createRenderer(
     },
     camera: rig,
     cost: () => cost,
+    sceneTally,
+    bufferSize: () => ({ w: bufferSize.x, h: bufferSize.y }),
     drain: () => {
       const t0 = performance.now();
       const gl = renderer.getContext();

@@ -62,7 +62,14 @@ import {
   mergeSettings,
 } from "../pwa/src/game/settings.ts";
 import { WATER_PRESETS } from "../pwa/src/game/settings-video.ts";
-import { SHELLS, canPause, hudOver, playerRides, simulates } from "../pwa/src/game/shell.ts";
+import {
+  SHELLS,
+  appDraws,
+  canPause,
+  hudOver,
+  playerRides,
+  simulates,
+} from "../pwa/src/game/shell.ts";
 import {
   SPLASH_MIN_MS,
   SPLASH_STUCK_MS,
@@ -247,10 +254,28 @@ describe("which surface is up, and what follows from it (shell.ts)", () => {
   });
 
   it("KEEPS THE SEA MOVING BEHIND EVERY CARD BUT THE PAUSE CARD", () => {
-    for (const shell of SHELLS.filter((s) => s !== "pause")) expect(simulates(shell)).toBe(true);
+    for (const shell of SHELLS.filter((s) => s !== "pause" && s !== "bench")) {
+      expect(simulates(shell)).toBe(true);
+    }
     // The one exception, and the whole reason this module exists: the other
     // cards stand over a run nobody is riding, this one over the player's.
     expect(simulates("pause")).toBe(false);
+  });
+
+  it("leaves the canvas to the benchmark, which pumps its own frames", () => {
+    // TWO DIFFERENT NOES. The pause card stops the clock and keeps drawing;
+    // the bench stops neither — somebody else is turning the water, and a
+    // frame the app drew between two of the benchmark's own is time the
+    // measurement is charged for and did not spend.
+    expect(simulates("bench")).toBe(false);
+    expect(appDraws("bench")).toBe(false);
+    for (const shell of SHELLS.filter((s) => s !== "bench")) expect(appDraws(shell)).toBe(true);
+    expect(appDraws("pause")).toBe(true);
+    // And nothing about a benchmark is a run: no hands on the craft, no
+    // readouts over it, no card to pause it with.
+    expect(playerRides("bench")).toBe(false);
+    expect(hudOver("bench")).toBe(false);
+    expect(canPause("bench")).toBe(false);
   });
 
   it("keeps the readouts up under the pause card — the frozen frame IS the run", () => {
@@ -259,6 +284,7 @@ describe("which surface is up, and what follows from it (shell.ts)", () => {
     expect(hudOver("menu")).toBe(false);
     expect(hudOver("loading")).toBe(false);
     expect(hudOver("splash")).toBe(false);
+    expect(hudOver("bench")).toBe(false);
   });
 
   it("lets the pause card be reached from a RUN and from nowhere else", () => {

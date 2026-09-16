@@ -586,12 +586,77 @@ export const STRINGS = {
   devReproCopied: "COPIED",
   devReproFailed: "COPY FAILED",
 
+  /* ── THE BENCHMARK (menu-bench.tsx, benchmark*.ts) ─────────────────── */
+  /** The developer page's two rows into it, and what each promises. The
+   * length is read off the plan rather than spelled, so the row cannot
+   * disagree with the run it starts. */
+  benchTitle: "BENCHMARK",
+  benchRowHint: (seconds: number, craft: number): string =>
+    `Race ${craft} craft off one green and time it — the same ${seconds.toFixed(0)} seconds ` +
+    "every run, drawn as fast as this machine will draw them",
+  benchHistoryRowHint: (kept: number): string =>
+    kept === 0
+      ? "Nothing scored on this machine yet"
+      : `${kept} run${kept === 1 ? "" : "s"} kept, with what the picture was set to on each`,
+  /** THE SCORE'S UNIT, and the one gradation on its scale that means
+   * something on its own. Said the same way on the card, on the graph's own
+   * axis and in the pasted sheet, because they are one number. */
+  benchIndexUnit: "INDEX",
+  benchRealTime: "100 · REAL TIME",
+  benchScoreLine: (index: number, fps: number): string => `INDEX ${index} · ${fps} FPS`,
+  benchFpsAverage: (fps: number): string => `${fps} FPS AVERAGE`,
+  /** What a run was measured ON — the billing under every one of the
+   * benchmark's three surfaces. */
+  benchShore: (seed: number, biome: string): string => `SEED ${seed} · ${biome.toUpperCase()}`,
+  benchConditions: (shore: string, craft: number, w: number, h: number): string =>
+    `${shore} · ${craft} CRAFT · ${w}×${h}`,
+  /** The card's own presses. STOP is the way out MID-RUN and says what
+   * leaving costs; once there is a score the same corner goes back to the
+   * page the run was started from. */
+  benchStop: "STOP",
+  benchClose: "CLOSE",
+  benchAgain: "RUN AGAIN",
+  benchCopyReport: "COPY DEBUG REPORT",
+  benchCopySheet: "COPY SCORE SHEET",
+  benchEnlarge: "TAP TO ENLARGE",
+  benchEnlargeHint: "See the whole run full screen",
+  /** A browser stops drawing a page nobody is looking at, and a clock that
+   * kept running through it would be timing the machine's screensaver. */
+  benchKeepInFront: "LEAVE THE WINDOW IN FRONT",
+  /** The way to the list, from the card that has just made a row for it. */
+  benchHistory: "HISTORY",
+  benchHistorySub: (kept: number): string =>
+    kept === 1
+      ? "This run, kept — run it again with a row of VIDEO moved and the two sit side by side"
+      : `All ${kept} runs this machine has scored, with what the picture was set to on each`,
+  /** THE LIST. Its billing says what the scale means, because a page of
+   * numbers with no unit on it is a page nobody can read twice. */
+  benchHistoryTitle: "BENCHMARK HISTORY",
+  benchHistoryBilling: (kept: number): string =>
+    kept === 0
+      ? "Nothing scored on this machine yet"
+      : `${kept} run${kept === 1 ? "" : "s"} kept, newest first · 100 is real time, higher is better`,
+  benchHistoryEmpty:
+    "Run the BENCHMARK, move a row of OPTIONS ▸ VIDEO, run it again — the two land here side by " +
+    "side and the difference is what that row costs on this machine",
+  benchRunHint: "See this run's graph, and copy its debug report",
+  benchDraws: (calls: string): string => `${calls} DRAWS`,
+  benchClear: "CLEAR",
+  /** The glyph code's legend, under the list — the same words the pasted
+   * sheet prints, so the screen and the paste read alike. */
+  benchLegendHead: "PICTURE — ONE GLYPH A ROW, LOW BAR CHEAPEST, IN THIS ORDER",
+  benchLegendUnknown: "A STOP THIS BUILD DOES NOT HAVE",
+
   /* ── THE LOADING CARD (loading-screen.tsx) ─────────────────────────── */
   /** What each slice of standing a run up is called, for the card's line.
    * Steps sharing a label are one PHASE and one slot in the count. */
   loadLevel: "Building the shore",
   loadScene: "Standing the world up",
   loadWarm: "Compiling shaders",
+  /** The benchmark's own last phase: the lights, counted out frame by frame
+   * so the measurement behind the card starts on a warm machine at green
+   * (`benchmark.ts`). Only ever seen on the way into a benchmark. */
+  loadGrid: "Warming up on the grid",
   /** The phase and where it sits in the plan — a count of PHASES, never of
    * seconds (see `run-loader.ts`). */
   loadStep: (label: string, at: number, of: number): string => `${label}… (${at}/${of})`,
