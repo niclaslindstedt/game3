@@ -202,20 +202,20 @@ function overCourse(level: Level, read: (x: number, z: number) => number): numbe
   return sum / gates.length;
 }
 
-/** Measure a level against a wind. */
-export function createShelter(level: Level, wind: Wind = level.wind): Shelter {
-  const water = level.offshore;
+/** THE FAN, swept once: for water travelling `toward`, every cell's
+ * effective fetch (m) and the share of the fan behind it that traces back
+ * to the open sea. Both normalised, neither dilated — the caller decides
+ * which of them it reads at a beach.
+ *
+ * SPM's effective fetch is Σ(X·cos²θ) / Σ(cos θ); the exposure is a SHARE,
+ * so it is normalised by its own weights instead. */
+function fanFields(water: Heightfield, toward: number): { reach: Heightfield; open: Heightfield } {
   const { originX, originZ, cell, cols, rows } = water;
   const n = cols * rows;
-  const exposure = createHeightfield(originX, originZ, cell, cols, rows);
   const reach = createHeightfield(originX, originZ, cell, cols, rows);
-  const chop = createHeightfield(originX, originZ, cell, cols, rows);
-
-  // ── The fan ───────────────────────────────────────────────────────────
-  // Waves and wind travel WITH the wind: `from` is where it blows from.
-  const toward = wind.from + Math.PI;
+  const exposure = createHeightfield(originX, originZ, cell, cols, rows);
   const run = new Float32Array(n);
-  const open = new Float32Array(n);
+  const seen = new Float32Array(n);
   const rays = Math.max(1, S.fanRays);
   let sumCos = 0;
   let sumCos2 = 0;
@@ -225,18 +225,56 @@ export function createShelter(level: Level, wind: Wind = level.wind): Shelter {
     const w2 = w * w;
     sumCos += w;
     sumCos2 += w2;
-    sweep(water, toward + theta, run, open);
+    sweep(water, toward + theta, run, seen);
     for (let i = 0; i < n; i++) {
       reach.data[i] += w2 * run[i];
-      exposure.data[i] += w2 * open[i];
+      exposure.data[i] += w2 * seen[i];
     }
   }
-  // SPM's effective fetch is Σ(X·cos²θ) / Σ(cos θ); the exposure is a
-  // SHARE, so it is normalised by its own weights instead.
   for (let i = 0; i < n; i++) {
     reach.data[i] /= sumCos;
     exposure.data[i] /= sumCos2;
   }
+  return { reach, open: exposure };
+}
+
+/** HOW MUCH OF THE OPEN SEA A POINT CAN SEE STRAIGHT OUT — the same fan
+ * measurement `createShelter` makes, aimed DEAD ONSHORE (`Level.seaHeading`)
+ * instead of down the wind.
+ *
+ * R36's groundswell came from weather a thousand kilometres away, so what
+ * decides how much of it stands at a point is the land between that point
+ * and the open water — never what this coast's wind happens to be doing
+ * today. Measured off the wind (which is what the swell used to read), a
+ * FREE ride's WIND FROM row turned past the beam flattened a twenty-metre
+ * swell to nothing, which is exactly the thing R36 says a swell does not do.
+ *
+ * It is a function of the level alone, so it is CACHED per level the way
+ * `rampsOf` is: `createSea` runs per RUN and the fan is five sweeps of the
+ * whole grid. */
+export function seaExposure(level: Level): Heightfield {
+  const held = seaExposures.get(level.offshore);
+  if (held) return held;
+  const { open } = fanFields(level.offshore, level.seaHeading + Math.PI);
+  dilate(open, level.offshore, 2);
+  seaExposures.set(level.offshore, open);
+  return open;
+}
+
+/** Keyed on the WATER rather than on the level: `createGame` re-wraps a
+ * level to lay an hour or a sky over it, and every copy shares this very
+ * field and the heading measured across it. */
+const seaExposures = new WeakMap<Heightfield, Heightfield>();
+
+/** Measure a level against a wind. */
+export function createShelter(level: Level, wind: Wind = level.wind): Shelter {
+  const water = level.offshore;
+  const { originX, originZ, cell, cols, rows } = water;
+  const chop = createHeightfield(originX, originZ, cell, cols, rows);
+
+  // ── The fan ───────────────────────────────────────────────────────────
+  // Waves and wind travel WITH the wind: `from` is where it blows from.
+  const { reach, open: exposure } = fanFields(water, wind.from + Math.PI);
 
   // ── The wind ──────────────────────────────────────────────────────────
   // Averaged onto `wind.cell` squares, land and water together: that

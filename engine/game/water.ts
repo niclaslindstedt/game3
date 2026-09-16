@@ -112,7 +112,14 @@ import { biomeOf } from "../mapgen/biomes.ts";
 import { flowAt } from "../mapgen/flow.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
-import { createShelter, effectiveFetch, fetchHeight, fetchPeriod, type Shelter } from "./fetch.ts";
+import {
+  createShelter,
+  effectiveFetch,
+  fetchHeight,
+  fetchPeriod,
+  seaExposure,
+  type Shelter,
+} from "./fetch.ts";
 import { oceanDepth, oceanOffset, oceanOut, STORM_CEILING, stormRamp } from "./ocean.ts";
 import { layBand } from "./wave-band.ts";
 import { tableAt } from "./wave-bed.ts";
@@ -186,6 +193,13 @@ export type SeaState = {
   /** What the level looks like to that wind: the exposure and chop shares
    * `surfaceAt` reads, and the shelter the wind model reads (`fetch.ts`). */
   readonly shelter: Shelter;
+  /** ...and what it looks like to the SEA, measured dead onshore rather
+   * than down the wind (`seaExposure`). The GROUNDSWELL's share, and only
+   * the swell's: it is somebody else's weather, so the land between a point
+   * and the open water is the whole of what decides how much of it stands
+   * there (R36). A function of the level alone, so every run on one coast
+   * shares the same field. */
+  readonly swellShare: Heightfield;
   /** Effective fetch the OCEAN band is quoted at, m — the course's own —
    * and the significant height, m, and peak period, s, there. */
   readonly fetchRef: number;
@@ -355,16 +369,22 @@ export function createSea(
   // A quoted OVERRIDE is the sea the run asked for and nothing else: a
   // `?hs=20` storm is not a coast with a swell on top of it.
   //
-  // NO WIND IS NO WEATHER, and so no swell — the same gate the storm ladder
-  // below stands behind, and for the same reason. It is not a physical
-  // claim: a groundswell does not care what this coast's wind is doing, and
-  // that is the whole point of it. It is that `wind.speed === 0` in this
-  // engine means a FLAT CALM, the state every physics test stages its hull
-  // at rest on and every turntable and rest scene is drawn over, and a
-  // three-metre swell under a craft that is meant to be floating still is
-  // not a sea — it is a broken harness. R12 never deals a wind under 6 m/s,
-  // so no ridden level takes this branch.
-  const swellDealt = override || u <= 0 ? 0 : Math.max(0, level.swell);
+  // NO WIND IS NO WEATHER, and so no swell the coast was DEALT — the same
+  // gate the storm ladder below stands behind, and for the same reason. It
+  // is not a physical claim: a groundswell does not care what this coast's
+  // wind is doing, and that is the whole point of it. It is that
+  // `wind.speed === 0` in this engine means a FLAT CALM, the state every
+  // physics test stages its hull at rest on and every turntable and rest
+  // scene is drawn over, and a three-metre swell under a craft that is
+  // meant to be floating still is not a sea — it is a broken harness.
+  //
+  // A swell the RUN ASKED FOR (`Level.swellAsked`) is the exception, and it
+  // is the whole of what R36's dial is for: a rider who sets the WIND row
+  // to nothing and the WAVES row to twenty has asked for a glassy morning
+  // with an ocean rolling under it, and handing him a mirror instead is the
+  // card lying about what it does. Nothing that stages a calm asks for a
+  // swell, so the harness keeps its flat water.
+  const swellDealt = override || (u <= 0 && !level.swellAsked) ? 0 : Math.max(0, level.swell);
   // Its period follows from its HEIGHT and the steepness it is quoted at,
   // exactly as the storm ladder's does (`periodForHeight`) — a swell is a
   // sea quoted rather than grown, and what a rider reads off one is the
@@ -504,6 +524,9 @@ export function createSea(
     windFrom: wind.from,
     bounds: level.bounds,
     shelter,
+    // The swell's own share of the coast, measured once per level rather
+    // than per run — and never off the wind, which is not what put it here.
+    swellShare: seaExposure(level),
     fetchRef,
     hsRef,
     tp,
@@ -621,14 +644,23 @@ function fillShares(sea: SeaState, x: number, z: number, past: number, out: Floa
   out.fill(0, 0, bands.length);
   const exposure = clamp(sampleField(sea.shelter.exposure, x, z), 0, 1);
   out[1] = (1 - exposure) * Math.max(0, sampleField(sea.shelter.chop, x, z));
-  // THE SWELL STANDS WHERE THE OPEN SEA CAN REACH, exactly as the wind sea
-  // does: it came in off that sea, so the same land that cuts the fetch cuts
-  // it, and a river a hundred metres up has no groundswell in it at all.
-  // What it does NOT do is fade with the local wind — a calm coast still has
-  // surf, which is the whole point of carrying it.
+  // THE SWELL STANDS WHERE THE OPEN SEA CAN REACH, as the wind sea does —
+  // it came in off that sea, so the same land cuts it, and a river a
+  // hundred metres up has no groundswell in it at all — but it is CUT
+  // ALONG A DIFFERENT LINE. The wind sea's exposure is measured up the
+  // wind, because that is the water that grew it; the swell was grown a
+  // thousand kilometres away and arrives off the open sea whatever today's
+  // wind is doing (R36), so its share is the fan measured DEAD ONSHORE
+  // (`seaExposure`). Read off the wind instead, a run that turned the
+  // quarter off the land flattened the swell with the sea it really does
+  // flatten — the one thing R36 says a groundswell never does.
+  // Sampled only where there IS a swell: this is the hottest function in
+  // the game, and a band quoted at nothing needs no field read to stay at
+  // nothing.
+  const seaward = sea.swellHs > 0 ? clamp(sampleField(sea.swellShare, x, z), 0, 1) : 0;
   if (past <= 0 || bands.length <= OPEN0 || sea.openHs <= 0) {
     out[0] = exposure;
-    out[2] = exposure;
+    out[2] = seaward;
     return;
   }
   // ONE ramp: the coast's own sea fades out on it as the coast goes astern
@@ -639,10 +671,10 @@ function fillShares(sea: SeaState, x: number, z: number, past: number, out: Floa
   // The coast's own sea is the wind sea AND the swell, added in energy the
   // way two spectra standing in the same water are — so the handover to the
   // storm starts from the height a rider actually has under him.
-  const coast = Math.hypot(sea.hsRef, sea.swellHs) * exposure;
+  const coast = Math.hypot(sea.hsRef * exposure, sea.swellHs * seaward);
   const carried = coast * (1 - storm);
   out[0] = exposure * (1 - storm);
-  out[2] = exposure * (1 - storm);
+  out[2] = seaward * (1 - storm);
   // Hs² = carried² + need², and the sea here is what is left of the coast's
   // plus the storm over it — so at the full reach, where the coast is gone,
   // the sea is exactly the storm this level was dealt.

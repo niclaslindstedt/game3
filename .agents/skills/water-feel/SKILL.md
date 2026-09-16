@@ -48,6 +48,7 @@ comment's claim has to stay true.
 | The ceiling on height in shallow water | The depth-limited SIGNIFICANT height, Hs/d = 0.55 (Nelson 1994) — never McCowan's 0.78 applied to the summed amplitudes, which saturates every big sea to one value | the clip inside `surfaceAt` |
 | How far out to sea the sea has built | The fetch-limited significant-height law, Hs ∝ U √F (SPM / JONSWAP), capped at the fully developed sea; F is the EFFECTIVE fetch upwind of the point, over a cos-weighted fan (SPM 1984 / Saville) | `engine/game/fetch.ts` — `fetchHeight`, `fetchPeriod`, `createShelter` |
 | Which of a level's two seas a point is dealt (R28) | Its EXPOSURE — the share of that fan reaching the open sea. Ocean band × exposure, local wind chop × (1 − exposure) × the chop it grows on its own water | `seaShares(sea, x, z)` |
+| …and how much of the GROUNDSWELL stands there (R36) | The same fan, aimed DEAD ONSHORE rather than up the wind — a swell is somebody else's weather, so land cuts it and the local wind does not. A function of the level, cached per coast | `seaExposure(level)` in `fetch.ts` |
 | How much of the mean wind reaches a place | The same measurement, averaged onto `wind.cell` squares: full over open water, `wind.shelter` of it behind the land | `createShelter`'s `shelter` field |
 | What the water itself is doing, where a river runs (R27) | v = Q/A over the channel's cross-section, summed into the wave model's own velocity | `engine/mapgen/flow.ts` — `flowAt` |
 | What the water under the surface is doing | Each component's phase-resolved Airy orbit plus its finite-depth, second-order Stokes drift; river current is added beside them | `surfaceAt`'s `vx, vy, vz` |
@@ -184,11 +185,15 @@ lands in.
   a `SeaState` that is no longer a pure function of the seed). The gusts
   reach the craft through the AERO term and the flight, not through the
   water.
-- **Zero wind is zero sea — and a spectrum that divides by U says so
+- **Zero wind is zero WIND sea — and a spectrum that divides by U says so
   loudly.** JONSWAP's peak frequency is ∝ g/U; at U = 0 it is infinite, and
   a `createSea` that does not short-circuit returns NaN into every probe.
   Every physics test stages a calm sea with `wind: { from: 0, speed: 0 }`,
-  so this is the first thing a test suite finds.
+  so this is the first thing a test suite finds. It is a claim about the
+  band the WIND grew and about the harness, never about the sea as a whole:
+  R36's groundswell was quoted rather than grown, so a height the RUN asked
+  for (`Level.swellAsked`) stands in that calm and only the one a coast was
+  DEALT goes with the wind.
 - **The Lagrangian surface velocity is real and the hull feels it.**
   `surfaceAt` returns `vx, vy, vz`: the phase-resolved Airy orbit plus the
   finite-depth Stokes mean and any current. The hull's drag is against that

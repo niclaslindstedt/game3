@@ -375,7 +375,8 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
     // metre of it. An asked-for height wins outright and is clamped here,
     // once, for `rampWidth`'s reason — the level carries the height its sea
     // was actually built at.
-    const swell = opts.swell === undefined ? dealSwell(rng.range(0, 1)) : clampSwell(opts.swell);
+    const swellAsked = opts.swell !== undefined;
+    const swell = swellAsked ? clampSwell(opts.swell as number) : dealSwell(rng.range(0, 1));
     const level = compileLevel({
       seed,
       biome,
@@ -403,6 +404,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       hour,
       weather,
       swell,
+      swellAsked,
     });
     const analysis = analyzeLevel(level);
     if (analysis.ok) return level;

@@ -204,6 +204,10 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // water no level ever offers, little enough that a staged moment is
     // still about the hull (see the option).
     swell: opts.swell ?? 1.5,
+    // DEALT, never asked: the bench's swell is the coast's own weather, so
+    // a fixture that takes the wind out to isolate the current or stand a
+    // hull still gets the flat water it is staging (`createSea`).
+    swellAsked: false,
   };
 }
 

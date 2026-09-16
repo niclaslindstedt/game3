@@ -711,16 +711,52 @@ describe("the groundswell", () => {
       const lv = levelFor(seed);
       const s = createSea(lv, seed);
       const where = `seed ${seed}`;
-      for (const gate of lv.course.gates) {
-        const sh = seaShares(s, gate.x, gate.z);
-        // A gate stands in water the course is ridden in, and the swell is
-        // there in exactly the measure the coast's own sea is.
-        expect(sh.swell, where).toBeCloseTo(sh.ocean, 6);
-      }
+      // The course is ridden in water that can see the open sea, so the
+      // swell is standing over most of it — and R12's onshore wind means
+      // the two fans point much the same way, so it is close to the coast's
+      // own sea without being measured off it.
+      const at = lv.course.gates.map((g) => seaShares(s, g.x, g.z));
+      const open = at.filter((sh) => sh.ocean > 0.5);
+      expect(open.length, where).toBeGreaterThan(at.length / 2);
+      for (const sh of open) expect(sh.swell, where).toBeGreaterThan(0.4);
       // ...and up at the head of the river there is none of it.
       const head = lv.river.at(-1);
       if (head) expect(seaShares(s, head.x, head.z).swell, where).toBeLessThan(0.1);
     }
+  });
+
+  it("R36 — does not move when the WIND FROM row does, though the wind sea does", () => {
+    // A groundswell is somebody else's weather, days old: turning today's
+    // wind round off the land takes the sea the wind grew and leaves the
+    // swell exactly where it stood. Measured off the wind — which is what
+    // it used to read — a FREE ride's quarter row flattened a twenty-metre
+    // swell to nothing.
+    const seed = LEVEL_SEEDS[0];
+    const onshore = createGame({ seed, swell: 12, windQuarter: 0, quiet: true });
+    const offshore = createGame({ seed, swell: 12, windQuarter: Math.PI, quiet: true });
+    const gates = onshore.level.course.gates;
+    let windSeaFell = false;
+    for (const g of gates) {
+      const a = seaShares(onshore.sea, g.x, g.z);
+      const b = seaShares(offshore.sea, g.x, g.z);
+      expect(b.swell, `gate ${g.id}`).toBeCloseTo(a.swell, 6);
+      if (a.ocean > 0.5 && b.ocean < a.ocean * 0.5) windSeaFell = true;
+    }
+    expect(windSeaFell).toBe(true);
+  });
+
+  it("R36 — a swell the RUN asked for survives a flat calm; a dealt one does not", () => {
+    // `wind.speed === 0` is how every physics test stages still water, so
+    // the coast's own dealt swell goes with the wind. A height the run
+    // asked for is the one thing the dial is for — a glassy morning with an
+    // ocean rolling under it — and it stands.
+    const seed = LEVEL_SEEDS[1];
+    const asked = createGame({ seed, swell: 12, windSpeed: 0, quiet: true });
+    expect(asked.sea.swellHs).toBeGreaterThan(0);
+    expect(asked.sea.hsRef).toBe(0);
+    const dealt = createGame({ seed, windSpeed: 0, quiet: true });
+    expect(dealt.level.swell).toBeGreaterThan(0);
+    expect(dealt.sea.swellHs).toBe(0);
   });
 
   it("is a quoted sea's alone when a run asks for one outright", () => {
