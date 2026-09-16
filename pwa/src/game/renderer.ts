@@ -24,6 +24,7 @@ import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { applyCraftSky, craftSurface } from "./craft-surface.ts";
 import { cullByDistance } from "./draw-distance.ts";
+import { createEdgeNet, type EdgeNet } from "./edge-net.ts";
 import { createBirds, type Birds } from "./birds.ts";
 import { createEnvironment, type Environment } from "./environment.ts";
 import { createFauna, type Fauna } from "./fauna.ts";
@@ -207,6 +208,9 @@ export function createRenderer(
    * it, and this is the one thing it is told. */
   let wellCut: WellCut | null = null;
   let level: Level | null = null;
+  /** THE EDGE OF THE WORLD, drawn (`edge-net.ts`): the lattice standing where
+   * the tornado starts, lit where the hull is in it. */
+  let edgeNet: EdgeNet | null = null;
 
   const cost: FrameCost = { waterMs: 0, frameMs: 0, calls: 0, triangles: 0 };
   /** The one pixel `drain` reads back, allocated once. */
@@ -232,6 +236,7 @@ export function createRenderer(
         fauna?.dispose();
         birds?.dispose();
         flora?.dispose();
+        edgeNet?.dispose();
       }
       level = state.level;
       terrain = createTerrain(level);
@@ -251,6 +256,10 @@ export function createRenderer(
       // water, the eagle in the pine, and whatever is crossing this season.
       birds = createBirds(level);
       birds.group.visible = video.fauna;
+      // THE EDGE OF THE WORLD: the net standing where this level's tornado
+      // starts. Its shape is the engine's (`tornadoNetPlan`), so what a rider
+      // can see is what takes him.
+      edgeNet = createEdgeNet(level);
       world = new THREE.Group();
       world.add(
         terrain,
@@ -259,6 +268,7 @@ export function createRenderer(
         createFootprints(level),
         gates.group,
         buoys.group,
+        edgeNet.group,
         guide.group,
         fauna.group,
         birds.group,
@@ -475,6 +485,7 @@ export function createRenderer(
     water.setWell(craft ? wellCut : null, c);
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state, camera);
+    edgeNet?.update(state, dt);
     // THE GUIDE LINE, along the course's own line from the checkpoint behind
     // the rider to the one ahead. It reads the ENGINE's own water (`surfaceAt`
     // through the run's sea and clock) rather than the mesh's vertices, so a

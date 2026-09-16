@@ -16,6 +16,8 @@ import {
   seaSummary,
   step,
   stormAt,
+  tornadoAt,
+  tornadoEdge,
   type GameEvent,
   type GameState,
 } from "@engine";
@@ -70,16 +72,34 @@ describe("the scenario list", () => {
       expect(Number.isFinite(s.moment.z)).toBe(true);
       expect(Number.isFinite(s.moment.heading)).toBe(true);
       expect(s.seconds).toBeGreaterThan(0);
-      // ...every scene but `ocean`, which is the one that stands the craft
-      // OUT past the rim on purpose, in the storm the coast shelters it
-      // from (`engine/game/ocean.ts`).
-      if (name === "ocean") continue;
+      // ...every scene but the two that stand the craft OUT past the rim on
+      // purpose: `ocean`, in the storm the coast shelters it from
+      // (`engine/game/ocean.ts`), and `net`, run at the edge of the world
+      // itself (`engine/game/tornado.ts`).
+      if (name === "ocean" || name === "net") continue;
       const b = LEVEL.bounds;
       expect(s.moment.x).toBeGreaterThanOrEqual(b.minX);
       expect(s.moment.x).toBeLessThanOrEqual(b.maxX);
       expect(s.moment.z).toBeGreaterThanOrEqual(b.minZ);
       expect(s.moment.z).toBeLessThanOrEqual(b.maxZ);
     }
+  });
+
+  it("stands `net` short of the edge of the world, running at it", () => {
+    // Short of it and pointed AT it, so the scene opens with the lattice
+    // ahead and the hull reaches it under its own throttle: what is being
+    // staged is the contact, and a craft stood already inside the net has
+    // nothing left to photograph.
+    const state = fresh();
+    const s = scenarioFor(state, "net");
+    const past = oceanOut(LEVEL.bounds, s.moment.x, s.moment.z);
+    const edge = tornadoEdge(LEVEL.pace);
+    expect(past).toBeGreaterThan(TUNING.sea.open.reach);
+    expect(past).toBeLessThan(edge);
+    expect(tornadoAt(LEVEL.bounds, LEVEL.pace, s.moment.x, s.moment.z)).toBe(0);
+    // ...and the run-in is short enough that the throttle carries him there
+    // inside the scene's own length.
+    expect((edge - past) / (s.moment.speed ?? 1)).toBeLessThan(s.seconds);
   });
 
   it("stands `ocean` out in the open sea, in the full storm", () => {

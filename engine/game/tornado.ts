@@ -9,10 +9,16 @@
 // no coast, no course and nothing built. A rider holding the throttle open
 // out there is riding away from the game.
 //
-// So this is what he meets instead. One ramp past one edge, in EVERY
-// direction the bounds let him out of (`collision.ts` — seaward, and along
-// the coast either way where the rim stands in open water), and two things
-// on it:
+// So this is what he meets instead. THE NET: one ramp past one edge, in
+// EVERY direction the bounds let him out of (`collision.ts` — seaward, and
+// along the coast either way where the rim stands in open water). It is
+// called that because it is DRAWN — `pwa/src/game/edge-net.ts` stands a
+// lattice on the line this module puts the edge at, and lights it where the
+// hull is in it — and the whole point of drawing it is that a rider sees the
+// edge of the world coming instead of being taken by an empty horizon. The
+// band is thin for the same reason: what he was looking at is what has him.
+//
+// Two things stand on that ramp:
 //
 //   THE WIND blows toward the level's start line, at EF3 strength, spiralled
 //   in cyclonically the way a tornado's surface inflow is. It goes out
@@ -25,14 +31,28 @@
 //   a hull going up is not going forwards — it meets the column bottom-first
 //   and shows it the plan area as a flat plate. So the updraft is its own
 //   force, worked against `length · beam` at a plate's Cd, in proportion to
-//   how much of the hull is out of the water (`airShare`). Which is the
-//   whole design: on the water the rider is only shoved about, and the
-//   moment a wave throws him clear the column has him and he goes up.
+//   how much of the hull is out of the water (`airShare`).
+//
+// AND BOTH ARE READ OFF HOW HIGH THE RIDER IS (`tornadoHeightGain`). A real
+// tornado's inflow is choked by friction in the first few metres over the
+// sea and stands in full above that layer, and taking that seriously is what
+// turns a wall into a hazard with a shape: meet the net down in a trough and
+// the tornado is a fifth of itself — it stops the hull and carries it
+// twenty-odd metres back, and that is the whole of it — meet it up on a
+// crest, or already flying, and the column has the hull at full strength and
+// throws it. The sea out there swings thirty metres, so which of the two a
+// rider gets is the sea's to say and not a dice roll.
+//
+// At the very foot of that layer the inflow has converged from every side
+// and has nowhere left to go but up, and `tornadoTilt` is that turn: under
+// `tornado.tiltUpTo` the air is rising, on a hull's DECK as much as on a
+// hull in the air. It is what keeps the twenty-metre case from being a shove
+// along the surface — the rider is put UP and back, which both reads as a
+// contact and hands him the height the column wants.
 //
 // AND THAT IS ALL IT IS. Nothing here teleports a craft, resets a run, ends
-// a run, or stands a wall in the water. The rider is thrown — some 25 to
-// 33 m up and a long way back toward where he started — by a wind, lands,
-// and rides on. Ride out again and it happens again.
+// a run, or stands a wall in the water. The rider is thrown — by a wind —
+// lands, and rides on. Ride out again and it happens again.
 //
 // Deterministic and stateless, like every other answer past the rim: pure
 // functions of the level's bounds, its start line and a plan point, with no
@@ -114,6 +134,29 @@ export function tornadoEdge(pace: number): number {
  * doc, a test bench). */
 export const TORNADO_EDGE: number = tornadoEdge(TUNING.pump.speedClass);
 
+/** THE NET'S PLAN — the shape a drawn net has to stand on if the thing a
+ * rider sees is to be the thing that has him: the level's own bounds, and the
+ * distance every point of the net stands outside them.
+ *
+ * IT IS A ROUNDED RECTANGLE AND NOT A RECTANGLE, and that is `oceanOffset`'s
+ * doing rather than a choice: past a SIDE it measures one axis, and past a
+ * CORNER it measures the hypotenuse of both, so the locus of points exactly
+ * {@link tornadoEdge} metres out is four straight runs joined by four quarter
+ * circles of that same radius about the box's corners. A net drawn as a plain
+ * rectangle would stand `edge · (√2 − 1)` — some 1 800 m at the shipped class
+ * — beyond its own tornado at the corners, and a rider would ride through a
+ * lattice into nothing at all.
+ *
+ * Stated here because it is the one shape both sides answer to: the renderer
+ * walks it to build the lattice, and `tornadoAt` is what decides whether a
+ * hull is in it. */
+export function tornadoNetPlan(
+  bounds: Bounds,
+  pace: number,
+): { readonly box: Bounds; readonly radius: number } {
+  return { box: bounds, radius: tornadoEdge(pace) };
+}
+
 /** How much of the tornado stands `out` metres past the rim: 0 up to
  * {@link TORNADO_EDGE}, 1 a `tornado.band` further out, easing between.
  *
@@ -130,6 +173,41 @@ export function tornadoRamp(out: number, pace: number): number {
  * ridden. */
 export function tornadoAt(bounds: Bounds, pace: number, x: number, z: number): number {
   return tornadoRamp(oceanOut(bounds, x, z), pace);
+}
+
+/** HOW MUCH OF THE COLUMN REACHES A HULL `over` metres above the sea's mean
+ * level, 0..1 — `tornado.deck` down on the water, all of it `tornado.reachUp`
+ * up, easing between, and never less than the first however deep a trough the
+ * hull is in.
+ *
+ * THE COLUMN AND NOT THE INFLOW. The wind is what a rider meets AT the net,
+ * at any height, and it is the whole of what the net does to him down on the
+ * water: it stops him and carries him home. The column is what he meets when
+ * he is UP, and it is the difference between being turned back and being
+ * thrown — so it is the one that answers to height, and the hazard reads as
+ * two different mistakes rather than one with a dial on it.
+ *
+ * Above MEAN sea level rather than above the water under the hull, and the
+ * difference is the feature: out here the sea swings thirty metres, so a
+ * rider carried up on a crest IS higher in the tornado's inflow layer even
+ * though the water is still under his hull. Reading it off the local surface
+ * would say a hull on a crest and a hull in a trough are in the same air,
+ * which is exactly the thing the inflow layer is not — and it is what makes
+ * the sea itself decide who gets thrown, rather than a dice roll. */
+export function tornadoHeightGain(over: number): number {
+  return T.deck + (1 - T.deck) * smooth(clamp(over / T.reachUp, 0, 1));
+}
+
+/** HOW MUCH THE INFLOW IS STILL TURNING UP at `over` metres over mean sea
+ * level, 0..1 — all of it at the water, none of it at `tornado.tiltUpTo`.
+ *
+ * The air converging on the column from every side has nowhere to go but up
+ * when it arrives, and this is the depth of that turn. Above it the column
+ * proper is the only thing lifting anything; at the water it is the only
+ * thing that can, because the column is worked against a height the hull has
+ * not got yet. */
+export function tornadoTilt(over: number): number {
+  return smooth(clamp(1 - over / T.tiltUpTo, 0, 1));
 }
 
 /** THE INFLOW at a plan point, m/s at the reference height, written into
@@ -229,14 +307,34 @@ export function updraftFor(
   return hoverSpeed(spec) + CLIMB;
 }
 
-/** THE COLUMN'S LIFT on the hull, N upward — `height` is the hull's own
- * height over the water it is falling back toward and `top` how tall the
- * column is there ({@link tornadoColumn}), both m.
+/** THE COLUMN'S LIFT on the hull, N upward. `stands` is how much of the
+ * tornado stands at this plan point ({@link tornadoAt}); `height` is the
+ * hull's height over the water it is falling back toward and `top` how tall
+ * the column is there ({@link tornadoColumn}); `over` is its height over
+ * MEAN sea level, which is what the hazard's own strength is read off
+ * ({@link tornadoHeightGain}, {@link tornadoTilt}); all m.
  *
- * The plate drag of a column rising at {@link updraftFor} × `grip` × `fade`
- * against a hull already rising at `vy`, on the plan area at
- * `tornado.plateCd`, in proportion to how much of the hull is in the air
- * (`airShare`, the same reading `flight.ts` fades its own air terms in with).
+ * THE AIR UNDER THE HULL IS RISING AT TWO THINGS AT ONCE, and which of them
+ * is doing the work is a question about height:
+ *
+ *   THE COLUMN — {@link updraftFor} at this point's share of the tornado,
+ *   scaled by how high the hull is in the inflow layer
+ *   ({@link tornadoHeightGain}) and faded out at the column's top
+ *   ({@link columnFade}) so the throw has a ceiling. It is the big one, and
+ *   a hull down on the water gets almost none of it.
+ *
+ *   THE INFLOW'S TURN — `tornado.tiltLift` hover-speeds of rising air in the
+ *   first couple of metres, at the point's full strength rather than at its
+ *   height-gained one, because this IS what the tornado is down there. It is
+ *   sized off the hull's own {@link hoverSpeed} so all four craft are lifted
+ *   alike, and being over 1 it lifts rather than merely holds.
+ *
+ * THE PLATE is the plan area at `tornado.plateCd`, in proportion to how much
+ * of the hull is in the air (`airShare`, the same reading `flight.ts` fades
+ * its air terms in with) — and never less than the DECK while the turn
+ * reaches it. A hull floating the right way up still shows a rising wind its
+ * topsides, and without that floor the twenty-metre case cannot exist: the
+ * one force that acts at the water would be gated off by the water.
  *
  * SIGNED on the relative speed, which is what keeps the column from being a
  * rocket: a hull climbing faster than the air around it is pushed back DOWN
@@ -251,18 +349,23 @@ export function updraftFor(
  * ever give is one a rider walks away from. */
 export function tornadoLift(
   spec: Pick<CraftSpec, "mass" | "riderMass" | "length" | "beam">,
-  grip: number,
+  stands: number,
   height: number,
+  over: number,
   top: number,
   vy: number,
   airShare: number,
 ): number {
-  if (grip <= 0 || airShare <= 0) return 0;
-  const fade = columnFade(height, top);
-  if (fade <= 0) return 0;
-  const rel = updraftFor(spec) * grip * fade - vy;
+  if (stands <= 0) return 0;
+  const tilt = tornadoTilt(over);
+  const exposed = Math.max(airShare, T.deckPlate * tilt);
+  if (exposed <= 0) return 0;
+  const column = updraftFor(spec) * stands * tornadoHeightGain(over) * columnFade(height, top);
+  const air = column + hoverSpeed(spec) * T.tiltLift * stands * tilt;
+  if (air <= 0) return 0;
+  const rel = air - vy;
   const area = spec.length * spec.beam * T.plateCd;
-  const force = 0.5 * RHO * area * rel * Math.abs(rel) * airShare;
+  const force = 0.5 * RHO * area * rel * Math.abs(rel) * exposed;
   // ...and the ceiling (`tornado.liftCap`). The plate drag goes as the SQUARE
   // of the relative speed, and on a hull FALLING back into a column that is
   // still rising the two speeds add: uncapped, a fast class turns the column

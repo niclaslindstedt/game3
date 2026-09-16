@@ -630,11 +630,21 @@ export const WIND = {
    * dial is a RATIO, shipped value beside it; `docs/water.md` has the board,
    * the class sweep, and which of them read the RUN's own class. */
   tornado: {
-    /** How long past the storm's reach a rider gets, and how long the
-     * tornado takes to come up — both s of riding at the roster's best, so
-     * the same few seconds at any class. 1 800 m, 490 m shipped. */
+    /** How long past the storm's reach a rider gets before THE NET stands
+     * across the sea, s of riding at the roster's best — so the same minute
+     * of rope at any class. 1 800 m shipped. */
     grace: 60,
-    band: 16,
+    /** THE NET'S OWN THICKNESS, the same units — how long the tornado takes
+     * to come up once a rider is in it. 49 m shipped, a second and a half at
+     * the roster's best.
+     *
+     * SHORT, because the net is a thing a rider can SEE and the tornado is
+     * what it does: a ramp wide enough to be gentle takes him hundreds of
+     * metres before the sea turns on him, and then the wall he was looking
+     * at is behind him and nothing in the frame explains what has him. Thin
+     * enough to read as a contact, wide enough that the air freshens over a
+     * second or so rather than in a single step. */
+    band: 1.6,
     /** THE HORIZONTAL WIND at full strength, × the roster's TOP SPEED —
      * 65 m/s shipped, EF3 and the bottom of what throws vehicles. Against
      * the top speed because the one thing it must be true about is that a
@@ -681,6 +691,37 @@ export const WIND = {
      * a trampoline (44 s of air at ×4). Uncapped it is 2.8 weights at the
      * shipped class, so it barely binds where the game is. */
     liftCap: 3,
+    /** HOW MUCH OF THE TORNADO A HULL DOWN ON THE WATER STILL FEELS, 0..1,
+     * and how far it has to climb to feel all of it, m.
+     *
+     * The whole hazard is read off HEIGHT, and that is what makes it a
+     * hazard rather than a wall: a tornado's inflow is choked by friction in
+     * the first few metres over the sea and stands in full over the top of
+     * that layer, so a rider who meets the net down in a trough is shoved
+     * about and a rider who meets it up on a crest is taken. `deck` is what
+     * is left at the water — enough to stop him and carry him twenty-odd
+     * metres back, not enough to throw him — and `reachUp` is the layer's
+     * depth, a wave's height out here rather than an arbitrary span, so the
+     * sea itself is what decides which of the two a rider gets. */
+    deck: 0.2,
+    reachUp: 11,
+    /** THE INFLOW TURNING UP at the foot of the column, where the air that
+     * has converged from every side has nowhere left to go but up. Three
+     * numbers: how high the turn reaches (m — above it the column proper is
+     * all there is), how fast the air rises there (× the hull's OWN hover
+     * speed, so every craft in the roster is lifted alike, and over 1 so it
+     * lifts at all), and how much of a floating hull's plan area a rising
+     * wind still has — its DECK, which is out of the water on any hull that
+     * is the right way up.
+     *
+     * It exists so that meeting the net at the water throws a rider UP and
+     * back rather than straight back into it. Without it the only lift in
+     * the tornado is the column's, the column needs `reachUp` of height to
+     * stand in, and a rider down on the water can never get it: he is pushed
+     * home along the surface and the hazard reads as a current. */
+    tiltUpTo: 2,
+    tiltLift: 1.35,
+    deckPlate: 0.45,
     /** How far the inflow spirals off the straight line home, rad — 34°,
      * mid-range for a tornado's surface inflow, and what makes a throw a
      * ride round rather than a shove down a corridor. Cyclonic: in this

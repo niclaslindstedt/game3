@@ -25,6 +25,7 @@ import {
   placeRun,
   pointAlong,
   topSpeedOf,
+  tornadoEdge,
   type CraftInput,
   type FaunaId,
   type Gate,
@@ -78,11 +79,11 @@ const CAPSIZE_ROLL = 1.75;
 const CAPSIZE_ROLL_RATE = 3;
 const CAPSIZE_SPEED = 4;
 
-/** Straight on along `sea` from (x, z) until the level's rim is astern and
- * the storm stands in full — `TUNING.sea.open.reach` metres of open ocean
- * past the last cell of the grid (`engine/game/ocean.ts`). Nothing is
- * sampled on the way: past the rim there is no field left to read, which is
- * the whole point of the place. */
+/** Straight on along `sea` from (x, z) until the level's rim is astern, then
+ * `past` metres further into the open ocean — the storm's own full reach by
+ * default (`engine/game/ocean.ts`), or as far as the net if a scene wants the
+ * edge of the world. Nothing is sampled on the way: past the rim there is no
+ * field left to read, which is the whole point of the place. */
 function outPastTheRim(
   level: Level,
   x: number,
@@ -97,6 +98,31 @@ function outPastTheRim(
   }
   const past = TUNING.sea.open.reach;
   return { x: at.x + sea.x * past, z: at.z + sea.z * past };
+}
+
+/** Straight on along `sea` from (x, z) until the point is `target` metres
+ * OUT OF THE BOX — `oceanOut`'s own reading, which is the one the tornado and
+ * the net are measured with.
+ *
+ * Distinct from {@link outPastTheRim}, which counts from wherever the walk
+ * happened to cross the rim: a scene that has to be stood a stated distance
+ * SHORT of the net cannot afford that, because the crossing point carries
+ * however far the last step overshot and however far the caller was already
+ * out, and off a diagonal heading the box's own corner adds more again. */
+function outToDistance(
+  level: Level,
+  x: number,
+  z: number,
+  sea: { x: number; z: number },
+  target: number,
+): { x: number; z: number } {
+  const STEP = 20;
+  let at = { x, z };
+  for (let d = 0; d < 40_000; d += STEP) {
+    if (oceanOut(level.bounds, at.x, at.z) >= target) break;
+    at = { x: at.x + sea.x * STEP, z: at.z + sea.z * STEP };
+  }
+  return at;
 }
 
 /** The first air gate, or null for a course without one. */
@@ -609,6 +635,33 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         },
         script: () => input(0, 0.4, 0),
         seconds: 10,
+      };
+    }
+    case "net": {
+      // THE EDGE OF THE WORLD, run at. Stood `RUN_IN` short of the net
+      // (`edge-net.ts`, `engine/game/tornado.ts`) on the heading he left the
+      // coast on, at speed and with the throttle open — so the scene opens
+      // with the lattice ahead and closes with the hull in it, lighting the
+      // strands it touched. Nose-on rather than beam-on, unlike every other
+      // moment out here: what is being looked at is the thing in front.
+      // SHORT. The run-in is ridden through the open ocean's storm, where a
+      // hull holds a fraction of its top speed and spends most of a minute
+      // being carried up one face and dropped down the next — a run-in
+      // measured off flat-water speed simply never arrives.
+      const RUN_IN = 60;
+      const at = outToSea(level, mid.x, mid.z, 600);
+      const sea = seawardAt(level, at.x, at.z);
+      const out = outToDistance(level, at.x, at.z, sea, tornadoEdge(level.pace) - RUN_IN);
+      return {
+        moment: {
+          x: out.x,
+          z: out.z,
+          heading: Math.atan2(sea.x, sea.z),
+          speed: top * 0.8,
+          nextGate: mid.index,
+        },
+        script: () => input(0, 1, 0),
+        seconds: 12,
       };
     }
     case "wildlife": {
