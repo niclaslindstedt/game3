@@ -96,7 +96,7 @@ export {
   sampleFieldGradient,
   type Heightfield,
 } from "../lib/heightfield.ts";
-export { drawRiver, type River } from "./river.ts";
+export { bendRadius, drawRiver, type River } from "./river.ts";
 export { flowAt, layFlow } from "./flow.ts";
 export type {
   BiomeId,

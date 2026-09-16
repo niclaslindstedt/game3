@@ -121,6 +121,7 @@ check, because it will be optimised against.
 | File | Job |
 | --- | --- |
 | `types.ts` | **The level as everyone else sees it.** `Level`, `Gate`, `Ramp`, `Solid`, `Course`, `Wind`, `WaterBody`. Shared with the craft, the collision engine, the renderer and the labs — an exported shape here is changed with the orchestrator told first. |
+| `rules-river.ts` | **R26's and R27's table**, stated next door and folded back into `LEVEL_RULES` as `river` / `flow` — the `defs/sea.ts` pattern, because `rules.ts` is AT the 1000-line cap. No rule is STATED here: the prose stays in `rules.ts`, which is what `docs_rules_test` reads. |
 | `rules.ts` | **The rule book.** Every constraint and vocabulary number as DATA, each an R-rule stated once and mirrored verbatim in `docs/level-generator.md`. Tuning the generator means editing this file. |
 | `biomes.ts` | **The coasts.** One row per `BiomeId`: what the shore is made of, the relief, how much of the waterline is beach, the water's density and temperature band, how big a sea its wind grows and how much swell reaches it, its skies, its sea life. `taiga` and `mangrove` are built; the other ids are reserved so a seed never re-rolls when a coast is added. Nothing else in `mapgen/` names a biome, and nothing anywhere names a place. |
 | `route.ts` | **THE RACING LINE, drawn first (R24), and the OCEAN LEG in it (R25).** A free walk in the plane with bounded curvature that turns, doubles back and steers away from itself. Everything else in a level is built around it. |
@@ -214,7 +215,7 @@ A new level ingredient follows the settled pattern, in order:
 1. Its type in `types.ts` (with the orchestrator told), and its placement
    rules in `rules.ts` — data first; if the constraint can't be expressed
    there, the design isn't ready.
-2. Placement in `generate.ts` / `course.ts` / `shore.ts`, and the validation.
+2. Placement in `generate.ts` / `route.ts` / `basin.ts` / `course.ts`, and the validation. (There is no `shore.ts`: the course-first inversion deleted it — the water is carved round the route.)
 3. Geometry in `compile.ts` — the `Level` carries what physics, bot and
    renderer need, and it is the ONLY channel.
 4. An R-rule stated in prose in `rules.ts`'s header AND
