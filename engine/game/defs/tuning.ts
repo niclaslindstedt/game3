@@ -793,6 +793,41 @@ export const TUNING = {
     /** The hull's plan radius for solid contact, as a fraction of the
      * half-beam (the probes do the shaping; this is the round-off). */
     hullRadius: 0.9,
+    /** HOW MUCH OF A ROCK IS LEFT AT ITS CROWN, as a share of its plan
+     * radius. A rock on this coast is ice-ground stone and a boulder is a
+     * lump: full width where the sea meets it, drawn in toward the top —
+     * which is what the renderer carves (`rock-shapes.ts`'s face profiles
+     * end between 0.29 and 0.4 of the radius, and the lumps are domes). A
+     * cylinder with a lid is an invisible wall standing out past the
+     * visible rock at deck height, and it is also a rock nothing can ever
+     * climb. Below the waterline the collider keeps the full radius: the
+     * flare down there is wider than the plan circle and no hull reaches
+     * under its own waterline. */
+    solidCrown: 0.4,
+    /** ...and the power that share is spread over the height on. NOT
+     * linear: an ice-ground rock stands nearly sheer where the sea has
+     * undercut it and flattens toward its crown, which is what the
+     * renderer's own profiles draw — a skerry keeps 92% of its width
+     * through the first third of its height and 40% at the top, and 1.7 is
+     * the power fitted to that. A linear taper is a different rock
+     * entirely: it leans back 18° right at the waterline, which makes
+     * every low skerry a launch ramp a hull leaves at ten metres a second
+     * rather than a rock it rides over. */
+    solidTaper: 1.7,
+    /** How far below a rock's top a keel may be and still be RIDING it, m.
+     * Within this the shallowest way out of the rock is UP, so the hull is
+     * carried by the crown — a rock awash shoved under the bottom, a hull
+     * that flew onto a skerry, a reef scraped over. Deeper than this the
+     * way out is sideways, which is the flank stopping a hull that ran
+     * square into something standing out of the water. The band is the
+     * rounded shoulder of the stone plus the wedge of a planing bow: the
+     * step a hull at speed genuinely mounts rather than strikes. */
+    solidRideBelow: 0.55,
+    /** ...and the most the crown may then push back on one probe, N —
+     * `rampDeckCap`'s job on the other surface a hull lands on top of. A
+     * hull dropped onto a rock from a jump is a landing, and this is what
+     * holds it to one rather than to a launch. */
+    solidTopCap: 20_000,
     /** The closing speed a `hit` is worth reporting from, m/s, and the
      * cooldown between reports, s. */
     hitSpeed: 1,

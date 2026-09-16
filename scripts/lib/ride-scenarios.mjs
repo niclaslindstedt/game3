@@ -307,6 +307,33 @@ export const SCENARIOS = {
       input: () => NEUTRAL,
     }),
   },
+  rock: {
+    blurb: "straight at the lowest rock standing out of the sea: the probes climbing the stone",
+    plan: true,
+    seconds: 6,
+    stage: (level) => {
+      // The LOWEST rock that still breaks the surface, because that is the
+      // one the question is about: a stack is a wall at any speed, and a
+      // reef is under the keel. Run at it from the shore's side so the
+      // approach is over the level's own water, and at pace, because a
+      // hull at rest climbs nothing.
+      const proud = level.solids.filter((s) => s.top > 0);
+      const rock = (proud.length > 0 ? proud : level.solids).reduce((a, b) =>
+        b.top < a.top ? b : a,
+      );
+      const out = rock.r + 30;
+      const heading = Math.atan2(level.start.x - rock.x, level.start.z - rock.z) + Math.PI;
+      return {
+        moment: {
+          x: rock.x - Math.sin(heading) * out,
+          z: rock.z - Math.cos(heading) * out,
+          heading,
+          speed: 20,
+        },
+        input: () => ({ ...NEUTRAL, throttle: 1 }),
+      };
+    },
+  },
   offshore: {
     blurb: "flat out back along the course from its outermost point, where the sea is biggest",
     seconds: 8,

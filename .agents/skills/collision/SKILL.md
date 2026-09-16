@@ -61,17 +61,24 @@ transition into it.
 - **The engine owns every number and every decision.** The renderer draws a
   plume where the `land` event says, nothing more. New contact behaviour
   starts in `collision.ts`/`tuning.ts`, never in the renderer.
-- **Solids are cylinders, and the hull is its probes.** A contact is a probe
-  inside a solid's radius (plus the hull's margin), resolved by pushing the
-  CoG out along the plan normal and reflecting the normal velocity by the
-  restitution. Never special-case a KIND in `collision.ts`: a reef that the
-  hull may skim over is a `top` below the draft in `types.ts`, and a skerry
-  that stops it dead is a `top` above it — one rule, read off the data.
-- **A reef is a solid the hull can pass OVER.** `Solid.top` is the rock's
-  height above sea level; a probe higher than `top` does not touch it. That
-  is what makes a reef awash a hazard at the trough and nothing at the crest
-  — and it is why the contact reads the probe's WORLD height, never the
-  CoG's.
+- **A solid is a WHALEBACK with two halves, and the hull is its probes.**
+  `solidRadiusAt` / `solidSurfaceAt` are the one statement of the shape:
+  full plan radius at and below the waterline, drawing in toward a crown a
+  share of it wide. Its FLANK is the wall — an impulse at the hull's own
+  keel probes, pushed out along the RADIAL with no lift in it, the normal
+  velocity reflected by the restitution. Its CROWN is the road — a penalty
+  contact on the probes against the stone's own rounded surface, so a probe
+  within `solidRideBelow` of it is carried across and reports through
+  `onGround`. Never special-case a KIND in `collision.ts`: which half a
+  rock gives you is read off `top` and the hull's height, one rule off the
+  data.
+- **A rock the hull can get OVER is a rock whose surface is near its keel.**
+  `Solid.top` is the crown's height above sea level; a probe above the
+  stone's surface at its own plan point does not touch it at all. That is
+  what makes a reef awash a hazard at the trough and nothing at the crest,
+  what lets a planing hull ride over a boulder half a metre proud, and what
+  lets a jump land on a skerry and stay there — and it is why every contact
+  reads the probe's WORLD height, never the CoG's.
 - **Grounding is the sea bed as a solid, met by the probes.** The same probes
   that read the wave read `level.ground` under them; a probe below the bed
   takes a normal force along the bed's gradient (`fieldGradient`) and a
@@ -105,6 +112,24 @@ transition into it.
   re-read next step, not this one.** A push-out that also re-solves
   buoyancy in the same step double-charges the water for a displacement
   that already happened.
+- **ANY UPWARD COMPONENT IN A CONTACT NORMAL IS A LAUNCHER until proved
+  otherwise, and it is the first thing to reach for when riding into
+  something throws the hull tens of metres into the air.** It is never the
+  flight model and never the solver. Two shapes it takes: a one-sided
+  surface met from a direction where it is over the probe's head (a ramp's
+  deck through its end face), and a normal tipped up on a surface whose
+  reach MOVES with the height (a tapered rock), which pumps — the hull
+  lifted by its own push finds less solid under it, drops back into more,
+  and leaves at ten metres a second. A positional push-out cannot damp
+  either; only a velocity-damped penalty can. So: a positional clip pushes
+  along the flat plan normal, and every way UP a solid belongs to a
+  penalty contact on the probes.
+- **A contact change is verified by a SWEEP, not a staged run.** A loop
+  over all 360° of bearing (30° steps) × speed × craft × geometry,
+  printing peak `y` and peak |roll|+|pitch| per cell, run once on the
+  baseline and once after. That table is the whole diagnosis AND the whole
+  verification: it names the bad approach and proves the other columns did
+  not move. A single staged run can do neither.
 - **Synthetic levels must state their solids.** A `flatLevel` with
   `solids: []` collides with nothing; a scenario that wants a rock says so
   (`skerryLevel` in `tests/support/levels.ts`), or the contact test tests
@@ -120,15 +145,20 @@ transition into it.
    `TUNING.course` number with units in the comment — not a model edit.
 3. **Assert the rule you claim** in `tests/collision_test.ts` /
    `course_test.ts`: square into a skerry (pushed out, `hit` once, speed
-   lost), skimming a reef at the crest (no contact) and at the trough
-   (contact), grounding on a slope (pushed up the gradient), a ramp taken
+   lost), a rock awash ridden over with the hull's way still on, a hull
+   landing on a skerry and staying up on it, skimming a reef at the crest
+   (no contact) and at the trough (contact), grounding on a slope (pushed
+   up the gradient), a ramp taken
    square (probes on the plane, `launch` at the lip), a gate crossed
    backwards (no `gate`), a gate crossed outside its opening (one immediate
    `missedGate`), and a gate bypassed before the next is taken (recovery
    `missedGate` then `gate`).
 4. **Measure.** `make sim` before and after — watch `hit`, `ground`, `miss`
    and `fin`; bots must keep finishing at pace with all four at ≈ 0.
-5. **Bench it.** `make ride SCENARIO=launch` (and `landing`, `dive`) — the
+5. **Bench it.** `make ride SCENARIO=rock` for a rock (it aims the hull at
+   the lowest rock on the level that still breaks the surface — the one the
+   question is about, since a stack is a wall at any speed and a reef is
+   under the keel), `SCENARIO=launch` (and `landing`, `dive`) for a ramp — the
    strip shows the probes on the ramp, the lip, the arc and the re-entry
    with the numbers beside each cell, before and after.
 6. **LOOK.** `make build`, then `make screenshots SCENE=launch`,
