@@ -4,8 +4,7 @@
 
      1. Tailwind v4 base + utilities.
      2. The game shell: a full-viewport, non-scrolling canvas with the
-        arcade HUD painted over it, and the prerendered landing copy the
-        crawlers read underneath it.
+        arcade HUD painted over it.
 
    Every surface a player sees, the new-build button included, is the app's
    own and wears the chrome below: there is no third-party component
@@ -101,9 +100,7 @@ body {
   -webkit-touch-callout: none;
 }
 
-/* THE GAME, over everything: the canvas and the HUD fill the viewport, and
-   the landing copy below sits in the document flow underneath — real HTML
-   a crawler reads, never on screen once the app has mounted. */
+/* THE GAME, over everything: the canvas and the HUD fill the viewport. */
 #root {
   position: fixed;
   inset: 0;
@@ -158,33 +155,6 @@ canvas {
   #root {
     height: var(--shell-height);
   }
-}
-
-/* The prerendered copy in index.html (OSS_GAME_SPEC §11.3.1). Laid out as a
-   readable page for the one reader who ever sees it — a browser with scripts
-   off — and otherwise covered by #root. */
-.landing {
-  max-width: 42rem;
-  margin: 0 auto;
-  padding: 2rem 1.25rem 4rem;
-  line-height: 1.5;
-  font-size: 17px;
-}
-.landing h1 {
-  font-size: 2.2rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  margin: 0 0 0.25em;
-}
-.landing h2 {
-  font-size: 1.1rem;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--hud-info);
-  margin: 1.6em 0 0.4em;
-}
-.landing a {
-  color: var(--foam);
 }
 
 /* The boot card: the name over the water while the game loads. */

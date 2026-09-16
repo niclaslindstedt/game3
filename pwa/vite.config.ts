@@ -48,8 +48,10 @@ export default defineConfig({
   base,
   // The lazy renderer carries three.js and the generated rider shapes in a
   // 571 kB chunk by design. Keep Vite's warning just above that measured
-  // envelope; `check-seo` owns the tighter raw and gzip budgets for the
-  // scripts that actually gate first render.
+  // envelope. It is the ONLY thing watching bundle size now: the raw and
+  // gzip budgets over the first-render path went with `check-seo.mjs`, so
+  // what keeps three.js off that path is the dynamic import of
+  // `renderer.ts` in `App.tsx` and nothing else (spec-conformance §23.9).
   build: { chunkSizeWarningLimit: 600 },
   resolve: {
     alias: {

@@ -4,7 +4,7 @@
        over and curls — two parallel lines, the foam along the lip and the
        darker face under it, each two tangent arcs — with a small hull held
        nose-up beside it, on deep teal water. The raster icons (pwa-*.png,
-       apple-touch, favicon, og.png) are generated from this same geometry by
+       apple-touch, favicon) are generated from this same geometry by
        scripts/generate-icons.mjs, and pwa/src/game/app-mark.ts carries the
        two wave paths as data — keep all three in lockstep. -->
   <defs>

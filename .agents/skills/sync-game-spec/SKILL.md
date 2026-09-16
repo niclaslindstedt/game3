@@ -78,7 +78,7 @@ because the game half leans on the baseline half:
 | Chapter | Checks |
 | --- | --- |
 | §23 | Core framework-free and headless; one entry surface (`engine/index.ts`); dependency direction (`tests/imports_test.ts`, §23.7); sequel test (`engine/lib/` and `pwa/src/lib/` carry nothing of THIS game) |
-| §23.9 | The startup-path budget is named and gated (`scripts/check-seo.mjs`), and the gate is not raised to pass |
+| §23.9 | No budget and no gate — a recorded ✗. Check the split that stood in for one is intact: `App.tsx` must still reach `renderer.ts` through `await import(...)`, or three.js is back on the first-render path |
 | §24 | Catalogs authored as data, schema-validated, generated output gitignored, drift guards, one ordered pipeline — the craft catalog is a TypeScript const, a recorded deviation |
 | §25 | Seeded run-owned randomness, fixed step, deterministic iteration, no presentation draw, replay/digest guard (`tests/determinism_test.ts`) |
 | §26–§27 | The scripting seam and the mod surface, where they exist |

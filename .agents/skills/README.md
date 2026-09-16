@@ -25,7 +25,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `maintenance` | The umbrella: the registry of every `update-*` skill and the order they run in |
 | `update-docs` | `docs/*.md` back in step with the water, the craft, the generator, the sim and the tooling |
 | `update-readme` | `README.md`'s twelve sections back in step with the commands, the craft and the controls |
-| `update-website` | The identity-derived shell and the SEO files under `pwa/` back in step with `identity.ts` |
+| `update-website` | The identity-derived shell under `pwa/` back in step with `identity.ts` — and the site still carrying none of the discovery signals it withholds on purpose |
 | `update-prompts` | `prompts/` back in step with its sources (dormant — no prompt shipped yet) |
 | `sync-game-spec` | Walk `OSS_GAME_SPEC.md` chapter by chapter against the tree; re-date `docs/spec-conformance.md` |
 
