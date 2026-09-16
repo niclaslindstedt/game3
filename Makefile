@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze score course waves ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze score course waves ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -34,13 +34,10 @@ clean:
 install:
 	npm install
 
-# Regenerate the PWA install icons, the favicon and the Open Graph image from
-# the app mark (keep pwa/public/icons/icon.svg in lockstep).
+# Regenerate the PWA install icons and the favicon from the app mark (keep
+# pwa/public/icons/icon.svg in lockstep).
 icons:
 	npm run icons
-
-check-seo:
-	npm run build && npm run check:seo
 
 # ---------------------------------------------------------------------------
 # THE STORE APP (native/): an Expo WebView over a copy of the site bundled

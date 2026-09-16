@@ -11,7 +11,15 @@
 // rally game with the same shape, and the surest way for its name to leak
 // in is a copied file nobody re-read. So the other game's name is refused
 // wherever a player or a store could read it.
-import { readFileSync } from "node:fs";
+//
+// AND THE SITE IS NOT INDEXED. The web deploy carries no crawlable
+// description of itself — no meta description, no canonical, no Open Graph
+// or Twitter card, no JSON-LD, no prerendered body copy, no sitemap and no
+// `llms.txt` — and says so in `robots.txt` and in every page's `noindex`.
+// That is a decision, not an omission, so it is held here: a discovery tag
+// or a crawler file added back fails these tests rather than shipping
+// quietly.
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -64,39 +72,59 @@ describe("the manifest itself", () => {
   });
 });
 
-describe("the static head and the prerendered copy (pwa/index.html)", () => {
-  it("names the app and the site", () => {
-    expect(/<title>([^<]*)<\/title>/.exec(html)?.[1]).toContain(APP_NAME);
-    expect(html).toContain(`<link rel="canonical" href="${SITE_URL}/" />`);
-    expect(metas("og:site_name")).toEqual([APP_NAME]);
-    expect(metas("og:url")).toEqual([`${SITE_URL}/`]);
-    for (const key of ["og:image", "twitter:image"]) {
-      for (const v of metas(key)) expect(v, key).toMatch(new RegExp(`^${SITE_URL}/`));
-    }
-    expect(metas("description").length).toBe(1);
-    expect(html).toContain(`<h1>${APP_NAME}</h1>`);
-    expect(html).toContain(`href="${SITE_URL}/"`);
-    expect(html).toContain(`href="${REPO_URL}"`);
+describe("the static head (pwa/index.html)", () => {
+  it("names the app", () => {
+    expect(/<title>([^<]*)<\/title>/.exec(html)?.[1]).toBe(APP_TITLE);
   });
 
   it("carries the brand colour the manifest states", () => {
     for (const v of metas("theme-color")) expect(v).toBe(PALETTE.sea);
   });
 
-  it("says the same thing in JSON-LD", () => {
-    const blocks = [
-      ...html.matchAll(/<script type="application\/ld\+json">([\s\S]*?)<\/script>/g),
-    ].map((m) => JSON.parse(m[1]) as Record<string, unknown>);
-    expect(blocks.length).toBeGreaterThanOrEqual(2);
-    for (const block of blocks) {
-      expect(block.name).toBe(APP_NAME);
-      expect(block.url).toBe(`${SITE_URL}/`);
-      expect(block.sameAs).toEqual([REPO_URL]);
+  it("tells every crawler not to index it", () => {
+    const robots = metas("robots");
+    expect(robots.length).toBe(1);
+    for (const directive of ["noindex", "nofollow"]) expect(robots[0]).toContain(directive);
+  });
+
+  it("gives a crawler nothing to index", () => {
+    // Each of these is a discovery signal the site deliberately does not
+    // emit. `noindex` alone is a request; carrying none of them is the
+    // reason there is nothing to show even where the request is ignored.
+    for (const key of [
+      "description",
+      "keywords",
+      "og:title",
+      "og:description",
+      "og:image",
+      "og:url",
+      "og:site_name",
+      "og:type",
+      "twitter:card",
+      "twitter:title",
+      "twitter:description",
+      "twitter:image",
+    ]) {
+      expect(metas(key), key).toEqual([]);
     }
-    const game = blocks.find((b) => b["@type"] === "VideoGame")!;
-    expect(game).toBeDefined();
-    expect((game.publisher as { name: string }).name).toBe(PUBLISHER);
-    expect(game.image).toBe(`${SITE_URL}/og.png`);
+    expect(html).not.toContain('rel="canonical"');
+    expect(html).not.toContain('rel="sitemap"');
+    expect(html).not.toContain("application/ld+json");
+  });
+
+  it("prerenders no copy describing the game", () => {
+    // The app mounts into #root; the body must not also carry a static
+    // description of the game for a crawler or an unfurler to read. Only
+    // the noscript line survives, and it says what the page NEEDS, not what
+    // the game IS.
+    const body = /<body[^>]*>([\s\S]*)<\/body>/.exec(html)?.[1] ?? "";
+    const prose = body
+      .replace(/<noscript>[\s\S]*?<\/noscript>/g, "")
+      .replace(/<script[\s\S]*?<\/script>/g, "")
+      .replace(/<[^>]+>/g, " ")
+      .trim();
+    expect(prose).toBe("");
+    expect(body).not.toMatch(/<h[1-6][\s>]/);
   });
 });
 
@@ -105,23 +133,27 @@ describe("the discovery files (pwa/public)", () => {
     expect(read("pwa/public/CNAME").trim()).toBe(new URL(SITE_URL).host);
   });
 
-  it("robots.txt points at the site's sitemap", () => {
-    expect(read("pwa/public/robots.txt")).toContain(`Sitemap: ${SITE_URL}/sitemap.xml`);
+  it("robots.txt disallows everything and advertises no sitemap", () => {
+    const robots = read("pwa/public/robots.txt");
+    expect(robots).toMatch(/^Disallow: \/\s*$/m);
+    expect(robots).not.toContain("Sitemap:");
+    expect(robots).not.toMatch(/^Allow: \//m);
   });
 
-  it("every sitemap entry is on the site, and the root is one of them", () => {
-    const locs = [...read("pwa/public/sitemap.xml").matchAll(/<loc>([^<]+)<\/loc>/g)].map(
-      (m) => m[1],
-    );
-    expect(locs).toContain(`${SITE_URL}/`);
-    for (const loc of locs) expect(loc).toMatch(new RegExp(`^${SITE_URL}/`));
+  it("ships no crawler index of the site", () => {
+    for (const rel of ["pwa/public/sitemap.xml", "pwa/public/llms.txt"]) {
+      expect(existsSync(join(ROOT, rel)), rel).toBe(false);
+    }
   });
 
-  it("llms.txt opens with the name and links the site and the source", () => {
-    const llms = read("pwa/public/llms.txt");
-    expect(llms.split("\n")[0]).toBe(`# ${APP_NAME}`);
-    expect(llms).toContain(`${SITE_URL}/`);
-    expect(llms).toContain(REPO_URL);
+  it("the pages a store cites stay reachable but unindexed", () => {
+    // Apple and the Play Console fetch these by URL, so they must keep
+    // working; they must not be a way in from a search result either.
+    for (const rel of ["pwa/public/privacy/index.html", "pwa/public/support/index.html"]) {
+      const page = read(rel);
+      expect(page, rel).toMatch(/<meta name="robots" content="[^"]*noindex/);
+      expect(page, rel).not.toContain('rel="canonical"');
+    }
   });
 });
 
@@ -158,9 +190,7 @@ describe("the restatements that cannot import the manifest", () => {
 describe("the sibling game's name stays in the sibling game", () => {
   const surfaces = [
     "pwa/index.html",
-    "pwa/public/llms.txt",
     "pwa/public/robots.txt",
-    "pwa/public/sitemap.xml",
     "pwa/src/identity.ts",
     "pwa/src/app-pwa.ts",
     "package.json",

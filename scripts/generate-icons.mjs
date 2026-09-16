@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Generates the PWA install icons, the favicon, and the social-preview
-// image from the same geometry as pwa/public/icons/icon.svg — a hull meeting
+// Generates the PWA install icons and the favicon from the same geometry
+// as pwa/public/icons/icon.svg — a hull meeting
 // a wave: a crest that rises from the left, tips over and curls, drawn as
 // the foam along its lip and the darker face under it, with a small orange
 // hull held nose-up beside it, on deep teal water. Pure Node (the shared
@@ -150,48 +150,6 @@ function renderIcon(size, inset = 1) {
   return encodePng(size, size, rgb);
 }
 
-/** The OG image: the mark on the right, swell lines running in from the
- * left — three long low waves in foam, fading up out of the water toward
- * the mark so they read as a sea rather than as a ruled page. */
-function renderOg(width, height) {
-  const rgb = Buffer.alloc(width * height * 3);
-  const markSize = height;
-  const markX = width - markSize;
-  const swells = [
-    { y: 0.3, amp: 14, len: 260, phase: 0.4 },
-    { y: 0.52, amp: 18, len: 320, phase: 2.1 },
-    { y: 0.74, amp: 12, len: 210, phase: 4.6 },
-  ];
-  for (let y = 0; y < height; y++) {
-    for (let x = 0; x < width; x++) {
-      const v = y / height;
-      let c = seaAt(v);
-      if (x < markX) {
-        for (const s of swells) {
-          const cy = s.y * height + s.amp * Math.sin((x / s.len) * Math.PI * 2 + s.phase);
-          if (Math.abs(y - cy) <= 3) {
-            // Fade in over the first stretch, out again as the mark nears.
-            const t = Math.min(1, x / 140, (markX - x) / 140);
-            c = [
-              c[0] + (FOAM[0] - c[0]) * t,
-              c[1] + (FOAM[1] - c[1]) * t,
-              c[2] + (FOAM[2] - c[2]) * t,
-            ];
-          }
-        }
-      } else {
-        const mark = markAt(((x - markX) / markSize) * 512, (y / markSize) * 512);
-        if (mark) c = mark;
-      }
-      const o = (y * width + x) * 3;
-      rgb[o] = c[0];
-      rgb[o + 1] = c[1];
-      rgb[o + 2] = c[2];
-    }
-  }
-  return encodePng(width, height, rgb);
-}
-
 /** Wrap one PNG in an ICO container (valid since Vista). */
 function pngToIco(png, size) {
   const header = Buffer.alloc(6 + 16);
@@ -219,8 +177,5 @@ writeFileSync(join(iconsDir, "pwa-512.png"), renderIcon(512));
 writeFileSync(join(iconsDir, "pwa-512-maskable.png"), renderIcon(512, 0.78));
 writeFileSync(join(iconsDir, "apple-touch-icon-180.png"), renderIcon(180));
 writeFileSync(join(root, "pwa", "public", "favicon.ico"), pngToIco(renderIcon(32), 32));
-writeFileSync(join(root, "pwa", "public", "og.png"), renderOg(1200, 630));
 
-console.log(
-  "icons: icon-1024, pwa-192, pwa-512, pwa-512-maskable, apple-touch-180, favicon.ico, og.png",
-);
+console.log("icons: icon-1024, pwa-192, pwa-512, pwa-512-maskable, apple-touch-180, favicon.ico");

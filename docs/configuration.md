@@ -120,7 +120,23 @@ Each slot's manifest gets a distinct `id`/`scope`/`start_url` and install name, 
 
 ## Identity
 
-Name, copy, palette, and URLs live in `pwa/src/identity.ts` and nowhere else; `pwa/index.html` (SEO head and the prerendered copy), `pwa/public/` (robots/sitemap/llms/CNAME, the privacy and support pages), and the icon generator all follow it. Changing identity means touching those in the same change — AGENTS.md's parity table is the checklist.
+Name, copy, palette, and URLs live in `pwa/src/identity.ts` and nowhere else; `pwa/index.html` (the static head — deliberately carrying no crawlable copy, see _Discoverability_), `pwa/public/` (robots/CNAME, the privacy and support pages), and the icon generator all follow it. Changing identity means touching those in the same change — AGENTS.md's parity table is the checklist.
+
+## Discoverability
+
+**The web deploy is not indexed, on purpose.** The site is the game's free, incomplete cut; it is not meant to be found through a search engine or to unfurl as a card in a chat client, so it emits none of the signals that would make either work:
+
+| Surface                             | What it carries                                                                                                                                                                     |
+| ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `pwa/index.html` head               | `noindex,nofollow,noarchive,nosnippet,noimageindex` and nothing else a crawler reads: no meta description, no canonical, no sitemap link, no Open Graph or Twitter card, no JSON-LD |
+| `pwa/index.html` body               | `#root` and a `<noscript>` line. No prerendered copy describing the game                                                                                                            |
+| `pwa/public/robots.txt`             | `Disallow: /`, advertising no sitemap                                                                                                                                               |
+| `sitemap.xml`, `llms.txt`, `og.png` | not shipped, and not generated                                                                                                                                                      |
+| `privacy/`, `support/`              | still REACHABLE — a store review fetches them by URL — but `noindex,nofollow` and no canonical                                                                                      |
+
+`robots.txt` alone would only ask a crawler not to fetch; a URL it already knows can still be listed. The per-page `noindex` is what covers that, which is why both are there. `tests/identity_test.ts` holds all of it: adding a discovery tag, a crawler file or prerendered body copy back fails the suite.
+
+This is a deliberate deviation from OSS_GAME_SPEC §11.3, recorded as such in [spec-conformance.md](spec-conformance.md).
 
 ## Losing focus
 
