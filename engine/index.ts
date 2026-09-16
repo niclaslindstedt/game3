@@ -156,10 +156,13 @@ export {
   tornadoBlow,
   tornadoColumn,
   tornadoEdge,
+  tornadoHeightGain,
   tornadoHome,
   tornadoInflow,
   tornadoLift,
+  tornadoNetPlan,
   tornadoRamp,
+  tornadoTilt,
   updraftFor,
 } from "./game/tornado.ts";
 // R27 — THE CURRENT (mapgen/flow.ts): how fast the water itself is going

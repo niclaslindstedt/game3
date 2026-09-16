@@ -25,6 +25,7 @@ export const SCENARIO_NAMES = [
   "offshore",
   "storm",
   "ocean",
+  "net",
   "backflip",
   "sidespin",
   "wildlife",

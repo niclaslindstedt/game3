@@ -28,6 +28,9 @@ import {
   tornadoBlow,
   tornadoColumn,
   tornadoEdge,
+  tornadoHeightGain,
+  tornadoNetPlan,
+  tornadoTilt,
   tornadoInflow,
   tornadoLift,
   hoverSpeed,
@@ -46,6 +49,9 @@ const T = TUNING.wind.tornado;
 const PACE = TUNING.pump.speedClass;
 const BAND = tornadoBand(PACE);
 const BLOW = tornadoBlow(PACE);
+/** Clear of the inflow's turn and at the top of the inflow layer: the height
+ * a reading of the COLUMN ALONE, at full strength, is taken at. */
+const UP = T.reachUp;
 
 /** Ride at full throttle for `seconds`, returning every flight the column
  * actually lofted: its air time, s, and its apex over THE WATER UNDER IT, m.
@@ -171,6 +177,92 @@ describe("where the tornado stands", () => {
   });
 });
 
+describe("the net", () => {
+  const level = syntheticLevel({ seaward: 600, depth: 60 });
+  const b = level.bounds;
+
+  it("stands exactly where the tornado starts, corners included", () => {
+    // THE ONE SHAPE BOTH SIDES ANSWER TO. `edge-net.ts` walks this plan to
+    // build the lattice and `tornadoAt` decides who is in it, and neither
+    // restates the other — so the thing a rider can see has to BE the thing
+    // that takes him, at the corners as much as down a side. A net drawn as a
+    // plain rectangle would stand `edge · (√2 − 1)` beyond its own tornado
+    // where two sides meet, and a rider would ride through a lattice into
+    // nothing at all.
+    const { box, radius } = tornadoNetPlan(b, level.pace);
+    expect(box).toBe(b);
+    expect(radius).toBeCloseTo(tornadoEdge(level.pace), 6);
+    for (let i = 0; i < 64; i++) {
+      const a = (i / 64) * Math.PI * 2;
+      // A point on the net: out of the box along each axis by the radius,
+      // shared between them exactly as `oceanOffset` reads it back.
+      const ux = Math.cos(a);
+      const uz = Math.sin(a);
+      const x = (ux > 0 ? box.maxX : box.minX) + ux * radius;
+      const z = (uz > 0 ? box.maxZ : box.minZ) + uz * radius;
+      expect(tornadoRamp(radius, level.pace)).toBe(0);
+      // Just inside it there is no tornado at all, and a net's thickness
+      // outside it there is nothing else.
+      expect(tornadoAt(b, level.pace, x - ux * 20, z - uz * 20)).toBe(0);
+      expect(tornadoAt(b, level.pace, x + ux * BAND, z + uz * BAND)).toBeCloseTo(1, 6);
+    }
+  });
+
+  it("is thin enough that reaching it is what triggers the tornado", () => {
+    // The net is a thing a rider SEES, and the tornado is what it does. A
+    // band wide enough to be gentle would take him hundreds of metres past
+    // the lattice before the air turned on him, and by then the thing he was
+    // looking at is behind him.
+    expect(BAND).toBeLessThan(100);
+    expect(BAND).toBeGreaterThan(20);
+  });
+
+  it("turns a rider back at the water instead of throwing him", () => {
+    // THE TWO MISTAKES. Meeting the net down on the water is a CONTACT: the
+    // inflow stops the hull inside the net's own thickness, the turn at the
+    // foot of the column puts it up a couple of metres rather than straight
+    // back into the sea, and it is carried back the way it came. Meeting it
+    // with height — off a crest, or already flying — is the column, and that
+    // is the throw the rest of this file measures. Read on a flat sea, which
+    // is the only place "at nought" means anything.
+    for (const craft of CRAFT) {
+      const game = createGame({
+        seed: 5,
+        level,
+        craft: craft.id,
+        wind: { from: 0, speed: 0 },
+        sea: { hs: 0.05 },
+      });
+      const c = game.craft;
+      const net = b.maxZ + tornadoEdge(level.pace);
+      standCraft(game, 400, net - 250, 0);
+      let deepest = -Infinity;
+      let back = 0;
+      let apex = 0;
+      for (let i = 0; i < TUNING.physicsHz * 20; i++) {
+        step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
+        const out = c.z - net;
+        apex = Math.max(apex, c.y - surfaceAt(game.sea, level, c.x, c.z, game.t).height);
+        if (out > deepest) {
+          deepest = out;
+          back = 0;
+        } else back = Math.max(back, deepest - out);
+      }
+      // He gets into the net and no further: the whole contact is inside a
+      // couple of the net's own thicknesses.
+      expect(deepest).toBeGreaterThan(0);
+      expect(deepest).toBeLessThan(BAND * 2);
+      // He is put UP, and by metres rather than by tens of them — the column
+      // has no height to stand in down here.
+      expect(apex).toBeGreaterThan(1.5);
+      expect(apex).toBeLessThan(8);
+      // ...and back the way he came, by tens of metres rather than hundreds.
+      expect(back).toBeGreaterThan(10);
+      expect(back).toBeLessThan(120);
+    }
+  });
+});
+
 describe("the inflow", () => {
   const level = syntheticLevel({ seaward: 600, depth: 60 });
   const b = level.bounds;
@@ -266,26 +358,64 @@ describe("the column", () => {
     expect(Math.max(...climbs) - Math.min(...climbs)).toBeLessThan(1e-9);
   });
 
-  it("lifts nothing where there is no tornado and nothing in the water", () => {
-    expect(tornadoLift(spec, 0, 0, 20, 0, 1)).toBe(0);
-    expect(tornadoLift(spec, 1, 0, 20, 0, 0)).toBe(0);
+  it("lifts nothing where there is no tornado and nothing out of the water", () => {
+    expect(tornadoLift(spec, 0, 0, UP, 20, 0, 1)).toBe(0);
+    // Out of the turn at the foot of the column there is no deck floor left,
+    // so a hull with nothing in the air feels nothing.
+    expect(tornadoLift(spec, 1, 0, UP, 20, 0, 0)).toBe(0);
   });
 
   it("pushes a hull climbing faster than the air back down", () => {
     // The whole reason the throw is bounded rather than a rocket: the force
     // is signed on the RELATIVE speed, so past the column's own rise it
-    // reverses.
-    expect(tornadoLift(spec, 1, 0, 20, 0, 1)).toBeGreaterThan(0);
-    expect(tornadoLift(spec, 1, 0, 20, updraftFor(spec) * 2, 1)).toBeLessThan(0);
-    expect(tornadoLift(spec, 1, 0, 20, updraftFor(spec), 1)).toBeCloseTo(0, 6);
+    // reverses. Read clear of the inflow's turn (`UP`), so what is measured
+    // is the column alone.
+    expect(tornadoLift(spec, 1, 0, UP, 20, 0, 1)).toBeGreaterThan(0);
+    expect(tornadoLift(spec, 1, 0, UP, 20, updraftFor(spec) * 2, 1)).toBeLessThan(0);
+    expect(tornadoLift(spec, 1, 0, UP, 20, updraftFor(spec), 1)).toBeCloseTo(0, 6);
   });
 
   it("carries the weight of every craft in the roster near the water", () => {
-    // If it did not, nothing would ever be thrown. The margin is what turns
-    // into the climb.
+    // If it did not, nothing would ever be thrown. Down at the water it is
+    // the INFLOW'S TURN that carries it and not the column, which has no
+    // height to stand in yet — and it has to carry the deck of a hull still
+    // floating, which is what makes meeting the net at nought a throw UP
+    // rather than a shove along the surface.
     for (const craft of CRAFT) {
       const weight = (craft.mass + craft.riderMass) * TUNING.g;
-      expect(tornadoLift(craft, 1, 0, T.column.ocean, 0, 1)).toBeGreaterThan(weight * 2);
+      expect(tornadoLift(craft, 1, 0, 0, T.column.ocean, 0, 1)).toBeGreaterThan(weight * 2);
+      expect(tornadoLift(craft, 1, 0, 0, T.column.ocean, 0, 0)).toBeGreaterThan(weight);
+    }
+  });
+
+  it("gives a hull up in the air far more of the column than one on the water", () => {
+    // R: the hazard is read off HEIGHT. This is the whole of what the net
+    // does differently to a rider it catches on a crest and one it catches in
+    // a trough, and it is a claim about the column and NOT about the wind:
+    // the inflow is full strength at the water, which is what turns a rider
+    // back there.
+    expect(tornadoHeightGain(0)).toBeCloseTo(T.deck, 6);
+    expect(tornadoHeightGain(-20)).toBeCloseTo(T.deck, 6);
+    expect(tornadoHeightGain(T.reachUp)).toBeCloseTo(1, 6);
+    expect(tornadoHeightGain(T.reachUp * 4)).toBeCloseTo(1, 6);
+    for (let over = 0; over < T.reachUp; over += 0.5) {
+      expect(tornadoHeightGain(over + 0.5)).toBeGreaterThan(tornadoHeightGain(over));
+    }
+    // ...and the column a hull on the water gets cannot hold it up, while the
+    // one it gets at the top of the layer throws it.
+    for (const craft of CRAFT) {
+      const weight = (craft.mass + craft.riderMass) * TUNING.g;
+      expect(tornadoLift(craft, 1, 0, T.tiltUpTo, 25, 0, 1)).toBeLessThan(weight);
+      expect(tornadoLift(craft, 1, 0, UP, 25, 0, 1)).toBeGreaterThan(weight * 2);
+    }
+  });
+
+  it("turns the inflow up only in the first couple of metres", () => {
+    expect(tornadoTilt(0)).toBeCloseTo(1, 6);
+    expect(tornadoTilt(T.tiltUpTo)).toBeCloseTo(0, 6);
+    expect(tornadoTilt(T.tiltUpTo * 3)).toBe(0);
+    for (let over = 0; over < T.tiltUpTo; over += 0.1) {
+      expect(tornadoTilt(over + 0.1)).toBeLessThan(tornadoTilt(over) + 1e-12);
     }
   });
 });
@@ -343,14 +473,23 @@ describe("what the tornado does to a rider", () => {
     expect(ocean.length).toBeGreaterThan(20);
     expect(shore.length).toBeGreaterThan(20);
     // THE HEIGHT IS THE BOUND, and it is the one that does not move when the
-    // sea does: twenty-odd metres at the ninetieth percentile and thirty at
-    // the worst, on both columns, whatever the storm under them is shaped
-    // like. A hull that reached a hover in the column would show up HERE,
-    // as an apex in the hundreds.
+    // sea does: twenty-odd metres at the ninetieth percentile, on both
+    // columns, whatever the storm under them is shaped like.
+    //
+    // THE PERCENTILE IS THE TIGHT ONE AND THE MAXIMUM IS A RAIL, and the gap
+    // between them is `tornadoHeightGain`'s doing: the column a hull gets is
+    // read off how high the sea had it, so the best throw of a ride is the
+    // one where a crest handed the hull ten metres of head start AND the full
+    // column at the top of it. That is the hazard working as designed — the
+    // sea decides who is thrown — and it puts the top of the sample above the
+    // column's own ceiling without moving the middle of it at all. What the
+    // rail still rails against is the thing it was written for: a hull that
+    // reached a hover in the column would show up here as an apex in the
+    // hundreds, not in the forties.
     for (const band of [oceanApex, shoreApex]) {
       expect(quantile(band, 0.5)).toBeGreaterThan(8);
       expect(quantile(band, 0.9)).toBeLessThan(30);
-      expect(Math.max(...band)).toBeLessThan(45);
+      expect(Math.max(...band)).toBeLessThan(50);
     }
     // ...and the TIME is the LOOSE one, because it is not the column's to
     // set. A hull falling back through a column that is still rising meets

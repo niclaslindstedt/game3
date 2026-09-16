@@ -596,7 +596,13 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     const grip = tornadoAt(level.bounds, level.pace, c.x, c.z);
     if (grip > 0) {
       const top = tornadoColumn(level, c.x, c.z);
-      fy += tornadoLift(spec, grip, keelOverWater, top, c.vy, airShare);
+      // TWO HEIGHTS, and they are different questions. `keelOverWater` is how
+      // far the hull is off the water it is falling toward, which is what the
+      // column's top is measured against; `c.altitude` is how high it is over
+      // the sea's MEAN level, which is what the tornado's own strength is
+      // read off — a hull carried up on a crest is higher in the inflow layer
+      // even with water still under it.
+      fy += tornadoLift(spec, grip, keelOverWater, c.altitude, top, c.vy, airShare);
       if (c.tornadoCooldown <= 0 && airShare > 0.5) {
         const blow = Math.hypot(wind.vx, wind.vz);
         if (blow >= tornadoBlow(level.pace) * T.wind.tornado.eventShare) {
