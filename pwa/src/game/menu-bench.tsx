@@ -69,10 +69,14 @@ export function benchmarkShore(): string {
  * it that two surfaces here share. */
 function CopyButton({
   label,
+  hint,
   text,
   className,
 }: {
   label: string;
+  /** What it copies, where the label is too short to say — the card's press
+   * is one word and a pointer resting on it wants the sentence. */
+  hint?: string;
   text: () => string;
   className?: string;
 }) {
@@ -81,6 +85,7 @@ function CopyButton({
     <button
       type="button"
       class={className ?? "opt-reset"}
+      title={hint}
       onClick={() => {
         void navigator.clipboard
           ?.writeText(text())
@@ -446,7 +451,8 @@ export function BenchmarkCard({
           action={
             done ? (
               <CopyButton
-                label={STRINGS.benchCopyReport}
+                label={STRINGS.benchCopy}
+                hint={STRINGS.benchCopyReport}
                 text={report}
                 className="opt-reset bench-copy"
               />
