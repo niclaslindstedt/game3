@@ -36,7 +36,8 @@ import {
   TUNING,
 } from "@engine";
 
-import { FLUSH_SECONDS, birdPose, freshBirdPose, planBirds, type Flock } from "./bird-plan.ts";
+import { FLUSH_SECONDS, birdPose, freshBirdPose, type Flock } from "./bird-plan.ts";
+import { planBirds } from "./bird-roost.ts";
 import { outToSea, seawardAt } from "./scenario-water.ts";
 import { clamp } from "../lib/util.ts";
 import { type ScenarioName } from "./scenario-names.ts";

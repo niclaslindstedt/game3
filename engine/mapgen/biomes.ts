@@ -151,11 +151,29 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // hanging the draw on the wind is that both are on the same chart. No
     // haze: that is warm water's sky.
     weathers: ["clear", "high", "overcast", "rain", "squall"],
-    // R20 — a cold brackish sea's own fish and its one small cetacean, and
-    // the two big northern strays a coast like this sees once in a
-    // generation. Listing the strays is what makes them possible at all;
-    // the catalog's `perKm` is what keeps them worth seeing.
-    fauna: ["herring", "roach", "perch", "pike", "salmon", "porpoise", "orca", "minke"],
+    // R20 — a cold brackish sea's own, listed the way it is met: the
+    // shore's fish and the sea trout along it, the grey seal off every
+    // skerry, the porpoise in the sounds — and then the open water past
+    // them, where the salmon run and the cod hold and the white-beaked
+    // dolphins, the basking shark and the three great whales are. The
+    // catalog's `offshore` is what puts each of them at its own distance;
+    // its `perKm` is what keeps the far ones worth riding out for.
+    fauna: [
+      "herring",
+      "roach",
+      "perch",
+      "pike",
+      "seatrout",
+      "seal",
+      "porpoise",
+      "salmon",
+      "cod",
+      "whitebeak",
+      "basking",
+      "orca",
+      "minke",
+      "humpback",
+    ],
   },
   mangrove: {
     id: "mangrove",
@@ -217,23 +235,32 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // front's overcast in the middle, and at the top the rain and the
     // black afternoon storm that is this coast's own squall.
     weathers: ["clear", "haze", "high", "overcast", "rain", "squall"],
-    // R20 — a warm coast's fish and the animals that come in over the
-    // flats: the mullet that leap, the snook and the redfish along the
-    // mangrove edge, the tarpon rolling, the ray on the sand, the turtle
-    // and the manatee coming up to breathe, the dolphins working the
-    // channels, the bull shark in the murk of the passes, and the great
-    // hammerhead that a seed in fifty carries.
+    // R20 — a warm shelf's, listed the way it is met. Over the flats and
+    // along the mangrove edge: the mullet that leap, the snook and the
+    // redfish in the roots, the ray on the sand, the manatee and the
+    // loggerhead coming up to breathe, the tarpon rolling. Out in the
+    // channels: the barracuda, the bottlenose, the bull shark, the green
+    // turtle crossing between flats. And past the last of them, over the
+    // outer shelf: the spotted dolphin schools, the tiger shark and the
+    // hammerhead, the manta, the whale shark and this coast's own rorqual.
     fauna: [
       "mullet",
       "snook",
       "redfish",
-      "tarpon",
       "stingray",
-      "turtle",
       "manatee",
+      "turtle",
+      "tarpon",
+      "barracuda",
       "dolphin",
       "shark",
+      "greenturtle",
+      "spotted",
+      "tiger",
       "hammerhead",
+      "manta",
+      "whaleshark",
+      "brydes",
     ],
   },
 };

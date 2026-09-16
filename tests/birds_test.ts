@@ -34,10 +34,10 @@ import {
   forEachCrossing,
   formationOffset,
   freshBirdPose,
-  planBirds,
   type BirdPlan,
   type Flock,
 } from "../pwa/src/game/bird-plan.ts";
+import { planBirds } from "../pwa/src/game/bird-roost.ts";
 import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
 
 /** The seeds this file flies. Fewer than the corpus, because a plan plants
@@ -126,10 +126,37 @@ describe("the roster", () => {
     expect(birdById("eagle").home).toBe("tree");
     expect(birdById("eagle").flock.max).toBe(1);
     expect(birdById("gull").home).toBe("skerry");
-    // The tern, the pelican and the osprey are the birds that fish from the
-    // air, and the cormorant the one that dries its wings.
-    expect(BIRDS.filter((b) => b.dive > 0).map((b) => b.id)).toEqual(["tern", "pelican", "osprey"]);
+    // The terns, the gannet and its warm-coast twin, the pelican and the
+    // osprey are the birds that fish from the air, and the cormorant the
+    // one that dries its wings.
+    expect(BIRDS.filter((b) => b.dive > 0).map((b) => b.id)).toEqual([
+      "tern",
+      "gannet",
+      "pelican",
+      "osprey",
+      "booby",
+      "noddy",
+    ]);
     expect(BIRDS.filter((b) => b.dries).map((b) => b.id)).toEqual(["cormorant"]);
+  });
+
+  it("gives the open sea a roster of its own, on both coasts", () => {
+    // The whole point of `sea`: a coast with no pelagic row has an empty
+    // sky over its outer half, because every other home is inshore by
+    // construction. Each coast flies at least two, they raft on the water,
+    // and each is banded past where a coastal raft may sit.
+    for (const biome of BIOME_IDS) {
+      const open = birdsOf(biome).filter((b) => b.sea);
+      expect(open.length, biome).toBeGreaterThanOrEqual(2);
+      for (const spec of open) {
+        expect(spec.home, spec.id).toBe("water");
+        // Past the shore's own raft band, and out to the seaward edge.
+        expect(spec.sea?.offshore.min, spec.id).toBeGreaterThan(110 - 1);
+        expect(spec.sea?.offshore.max, spec.id).toBeGreaterThanOrEqual(600);
+        // …and allowed far enough off the racing line to be out there.
+        expect(spec.sea?.reach, spec.id).toBeGreaterThan(400);
+      }
+    }
   });
 
   it("lives on at least one built coast, and names only built coasts", () => {
@@ -213,7 +240,11 @@ describe("the flocks a level carries", () => {
         for (const p of level.course.path) {
           near = Math.min(near, Math.hypot(p.x - flock.home.x, p.z - flock.home.z));
         }
-        expect(near, tag).toBeLessThan(320);
+        // A shore flock lives near the racing line because a raft up a back
+        // bay is a raft nobody meets. A bird of the open water is the
+        // opposite case and carries its own allowance: it is only ever met
+        // by riding OUT, so the line is not where it belongs.
+        expect(near, tag).toBeLessThan(spec.sea ? spec.sea.reach + 80 : 320);
         expect(flock.loop.altitude, tag).toBeGreaterThanOrEqual(spec.altitude.min);
         expect(flock.loop.altitude, tag).toBeLessThanOrEqual(spec.altitude.max);
         expect(flock.loop.period, tag).toBeGreaterThan(0);

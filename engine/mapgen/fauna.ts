@@ -117,8 +117,23 @@ export function layFauna(
     const count = podCount(rng, spec.perKm, km);
     for (let n = 0; n < count; n++) {
       for (let attempt = 0; attempt < R.fauna.tries; attempt++) {
+        // Placed by REJECTION over the level's box, the way R17's rocks
+        // are: the basin's baked field answers the only question a
+        // species' band asks, which is how far from the water's edge its
+        // loop swims.
+        //
+        // THE BAND IS ASKED FIRST, AND ALONE, because it is the gate that
+        // actually rejects: an animal banded out past the shelf edge has
+        // its loop somewhere in a twentieth of the level's box, while the
+        // water out there is deeper than anything in the catalog needs. So
+        // the point is drawn, tested, and only THEN paid for with the nine
+        // further draws a pod costs — otherwise the rarest animals in the
+        // game spend their whole try budget rolling dice they throw away,
+        // which is how the whales were being dropped half the time they
+        // were dealt.
         const x = rng.range(bounds.minX, bounds.maxX);
         const z = rng.range(bounds.minZ, bounds.maxZ);
+        if (!withinBand(offshoreAt(x, z), spec.offshore)) continue;
         const radius = inBand(rng, R.fauna.loop);
         const ovality = inBand(rng, R.fauna.ovality);
         const heading = rng.range(0, TAU);
@@ -127,12 +142,7 @@ export function layFauna(
         const sense: 1 | -1 = rng.chance(0.5) ? 1 : -1;
         const phase = rng.range(0, TAU);
         const scatter = rng.int(1, 0x7fffffff);
-        // Placed by REJECTION over the level's box, the way R17's rocks
-        // are: the basin's baked field answers the only question a
-        // species' band asks, which is how far from the water's edge its
-        // loop swims.
         const loop = { x, z, radius, ovality, heading };
-        if (!withinBand(offshoreAt(x, z), spec.offshore)) continue;
         if (!loopFits(depthAt, solids, bounds, loop, podClearance(spec, depth))) continue;
         // The loop's PERIOD comes from the animal's cruising speed and the
         // loop's own circumference — the pod swims, it is not carried round

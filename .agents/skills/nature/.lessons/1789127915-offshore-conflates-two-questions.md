@@ -31,18 +31,13 @@ Three things worth keeping:
   both keeps the pair consistent with no change to the exported shape — and
   "out in the ocean AND in near the shore" is the rule you actually wanted.
 - Gating cost 25% of the stacks (129 → 97 over 40 seeds, one level in 40
-  with none) and no test noticed. Count per level before and after; the
-  placer gives a rock a bounded number of tries and simply drops it, so a
-  band tightened too far thins the coast silently.
+  with none) and no test noticed — the silent-drop rule now in SKILL.md.
 
-And the thing that nearly went into a PR wrong: **a rejection inside
-`laySolids` shifts every draw after it.** Each attempt draws x, z, r and
-size whether or not it is kept, so one candidate newly refused moves the
-whole rest of the stream — the stacks are laid FIRST, so on seed 1 the
-skerries went 7 → 6, the boulders 25 → 29 and the fauna 14 → 15 pods with a
-different first herring. `make sim`'s sixteen digests were nonetheless
-byte-identical, and the reason is NOT that nothing moved: the route, the
-basin, the ground, the wind and the course are all drawn BEFORE the solids,
-and `hit` is 0 on all four sim seeds, so nothing the bot touches moved.
-Reading identical digests as "no change" would have been wrong. Compare the
-level's own content — `fauna[0]`, the per-kind counts — not just the run.
+Worked example of the stream reshuffle that rule warns about: a rejection
+inside `laySolids` shifts every draw after it, because each attempt draws
+x, z, r and size whether or not it is kept. On seed 1 the skerries went
+7 → 6, the boulders 25 → 29 and the fauna 14 → 15 pods with a different
+first herring — and `make sim`'s sixteen digests were nonetheless
+byte-identical, because the route, the basin, the ground, the wind and the
+course are all drawn BEFORE the solids and `hit` is 0 on all four sim seeds.
+Identical digests were not "no change".

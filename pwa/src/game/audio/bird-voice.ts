@@ -72,6 +72,18 @@ export const BIRD_CALLS: Readonly<Record<BirdId, BirdCall | null>> = {
   ibis: { sound: "ibis_grunt", airborne: 2, perched: 1, ref: 25, reach: 160 },
   spoonbill: null,
   frigatebird: null,
+  // THE OPEN SEA. A seabird is loud at its colony and quiet on the water,
+  // so the two plunge-divers and the fulmar say nothing at all out here —
+  // the silence is what makes a flock of them feel like open ocean. The
+  // three that do call are gulls and terns and borrow those cries: a
+  // kittiwake IS a gull, and a noddy and a sooty tern are terns, the
+  // sooty famously the noisiest thing in any tropical ocean.
+  gannet: null,
+  fulmar: null,
+  kittiwake: { sound: "gull_cry", airborne: 3, perched: 1.5, ref: 26, reach: 220 },
+  booby: null,
+  noddy: { sound: "tern_cry", airborne: 4, perched: 1.5, ref: 22, reach: 170 },
+  sootytern: { sound: "tern_cry", airborne: 9, perched: 3, ref: 28, reach: 240 },
 };
 
 /** The slot the draw is made per, s. A flock cries at most once a slot,

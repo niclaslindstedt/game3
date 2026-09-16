@@ -119,9 +119,18 @@ describe("the catalog", () => {
       // no reason anybody knows and needs no breath to do it.
       if (spec.breach > 0 && spec.kind !== "fish") expect(comesUp, spec.id).toBe(true);
     }
-    // Two animals leave the water: the mullet — the one fish that jumps, and
-    // it needs no breath to do it — and the dolphin, and only its bulls.
-    expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual(["mullet", "dolphin"]);
+    // Six animals leave the water: the three dolphins and the humpback,
+    // and only their bulls — and the two FISH that jump, the mullet and
+    // the manta, which need no breath to do it and which nobody has ever
+    // explained.
+    expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual([
+      "whitebeak",
+      "humpback",
+      "mullet",
+      "dolphin",
+      "spotted",
+      "manta",
+    ]);
   });
 
   it("gives a rarer animal a rarer word, in step with `perKm` and never against it", () => {
@@ -137,7 +146,19 @@ describe("the catalog", () => {
     // the monotonicity above and mean nothing.
     expect(new Set(FAUNA.map((f) => rarityOf(f.perKm))).size).toBeGreaterThanOrEqual(4);
     expect(rarityOf(faunaById("herring").perKm)).toBe("common");
-    expect(rarityOf(faunaById("minke").perKm)).toBe("legendary");
+    expect(rarityOf(faunaById("humpback").perKm)).toBe("legendary");
+    // Every rung is earned by something, and the top one only by the two
+    // great whales — a word nothing earns is a word that means nothing.
+    for (const word of ["common", "uncommon", "scarce", "rare", "legendary"]) {
+      expect(
+        FAUNA.some((f) => rarityOf(f.perKm) === word),
+        word,
+      ).toBe(true);
+    }
+    expect(FAUNA.filter((f) => rarityOf(f.perKm) === "legendary").map((f) => f.id)).toEqual([
+      "humpback",
+      "brydes",
+    ]);
   });
 
   it("is offered by a coast, and no coast offers anything that is not in it", () => {
@@ -247,7 +268,7 @@ describe("the rarity a level actually delivers", () => {
       ).length;
     const rate = (id: FaunaId): number => pods(id) / Math.max(1, inSeason(id));
     // The ladder itself is the catalog's, and it is monotone rung by rung.
-    const ladder: FaunaId[] = ["herring", "pike", "salmon", "porpoise", "minke"];
+    const ladder: FaunaId[] = ["herring", "pike", "porpoise", "minke", "humpback"];
     for (let i = 1; i < ladder.length; i++) {
       expect(faunaById(ladder[i - 1]).perKm).toBeGreaterThan(faunaById(ladder[i]).perKm);
     }
