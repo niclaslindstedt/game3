@@ -64,9 +64,23 @@ jobs:
   # detail. Branch protection requires `tests`; the shard count can then
   # change without anyone editing the protected-branch rules, which would
   # otherwise leave a required `test (4)` pending forever.
+  #
+  # `!cancelled()`, NOT `always()`. The gate has to outlive a FAILING shard —
+  # that is the whole point of it — but `always()` outlives a CANCELLED RUN
+  # too, and the concurrency group above cancels runs by design. Every extra
+  # event on a PR evicts the run in flight, its shards end `cancelled`, and an
+  # `always()` gate then wakes up, reads `needs.test.result == 'cancelled'`
+  # and posts a red `tests` against the head commit. The superseding run
+  # going green never clears it: that is a different check run under the same
+  # name. Every PR opened with more than one event — dependabot's arrive that
+  # way — was born with a red `tests` nobody could act on.
+  #
+  # `cancelled()` asks about the RUN, not about `needs`, so this skips only
+  # the evicted runs. A shard cancelled on its own (a job timeout) leaves the
+  # run alive, the gate still runs, and `!= 'success'` still fails it.
   tests:
     needs: test
-    if: always()
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - name: Verify every shard passed

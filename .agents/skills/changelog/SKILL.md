@@ -100,7 +100,15 @@ skip-list in `check-changeset.mjs`: `tests/`, `.github/`, `.agents/`,
 `.claude/`, `.changes/`, `docs/`, `scripts/`, `Makefile`, **any `*.md`**, the
 dotfile configs (`.nvmrc`, `.editorconfig`, `.prettierrc*`, `.gitignore`,
 `.gitattributes`), `eslint.config.js`, `vite.config.ts`, any
-`tsconfig*.json`, and `package-lock.json`.
+`tsconfig*.json`, and the npm manifests with the lockfile they lock
+(`package.json`, `pwa/package.json`, `package-lock.json`).
+
+**So a dependency bump needs nothing** — it is the one PR shape that is
+entirely skip-listed, which is what lets dependabot land unattended. It has no
+hand to apply a label, so if the manifests ever come off the list every one of
+its PRs goes red again. Judge a bump that a player WOULD notice (a three.js
+major that moves the picture) the way you judge anything else: write the
+fragment by hand.
 
 **THE TRAP: `engine/` and `pwa/` are deliberately NOT skip-listed.** The check
 reads paths, not diffs, so a comment-only or rename-only PR under either still

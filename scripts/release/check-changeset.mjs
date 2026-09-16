@@ -76,6 +76,24 @@ const SKIP_PATTERNS = [
   // pattern is anchored, and these are two different files.
   /^vitest\.config\.ts$/,
   /^tsconfig.*\.json$/,
+  // THE LOCKFILE AND THE MANIFESTS IT LOCKS, together. On its own the
+  // lockfile entry below is nearly dead: a direct-dependency bump moves
+  // `package.json` in the same commit, so every one of them still tripped
+  // the gate — and the bumps are exactly what the entry was added to let
+  // through. Dependabot cannot rescue itself either, because the escape
+  // hatch is a LABEL and it has no hand to apply one; every dependabot PR
+  // this repo has ever opened has sat red on `changeset` alone.
+  //
+  // Skipping them is consistent with how the gate reads everything else:
+  // it matches PATHS, not diffs, and a manifest holds no player-visible
+  // change of its own. A dependency range is a pointer into node_modules,
+  // which is not in this tree; the scripts beside it are the same build
+  // plumbing as the `Makefile` above; and `version` is written by the
+  // release (`scripts/update-versions.sh`), never by a PR. When a bump DOES
+  // change something a player sees — a three.js major moving the picture —
+  // it is a maintainer's fragment, the same judgement call as any other.
+  /^package\.json$/,
+  /^pwa\/package\.json$/,
   /^package-lock\.json$/,
 ];
 
