@@ -26,7 +26,7 @@
 // moored is the shoulder of the collar standing clear of it.
 //
 // AND THE LANTERN IS WHAT SAYS WHICH GATE IS YOURS. Exactly ONE mark pair
-// is lit at a time — the gate the run is riding at — and it lights the
+// is lit AMBER at a time — the gate the run is riding at — and it lights the
 // moment the gate before it is crossed, so the reading a rider takes at a
 // glance is "go there", not "the course runs off that way somewhere". A
 // chain of lit lamps running down the coast was information about the
@@ -36,10 +36,26 @@
 // is a different question entirely and lives in the engine
 // (`buoyLightAt`), because that one is charted.
 //
+// AND A CHECKPOINT LEFT BEHIND IS MARKED IN RED. A gate crossed outside
+// its opening is charged and the run moves on, so the lantern hands over
+// to the gate ahead on that very step — which on its own reads as "that
+// one is done" at the very instant the HUD says it was missed, and the two
+// surfaces then disagree about which checkpoint is still the rider's. So
+// while the warning stands — `progress.activeMissedGate`, the engine's one
+// word on it — that gate's marks are painted and lit in the HUD's own bad
+// red: a second reading on the water, in the colour of the warning and of
+// the arrow over the nose, saying WHICH checkpoint the text is about. It is
+// not a target and does not compete with one, so the amber lamp stays on
+// the gate the run owes; and it goes out on the exact step the warning
+// does, because the two are the same number. (A missed SLALOM gate has no
+// mark of its own here: its can is a charted rounding buoy, whose flash
+// character is the engine's — buoys.ts.)
+//
 // The PAINT still carries the chain: a gate still ahead is the stock amber,
 // the next one is warmer and brighter, a gate behind goes to a dull
-// weathered tone. By day that is what the course is read by, and the lamp
-// is the one thing on top of it that says which gate is being ridden at.
+// weathered tone, and the checkpoint left behind wears the warning's red.
+// By day that is what the course is read by, and the lamp is the one thing
+// on top of it that says which gate is being ridden at.
 
 import * as THREE from "three";
 import { gateBuoys, surfaceAt, type GameState, type Level, type Ramp } from "@engine";
@@ -55,6 +71,10 @@ import { glowTexture } from "./fx-textures.ts";
 const HULL = new THREE.Color(0xf0b323);
 const HULL_NEXT = new THREE.Color(0xffb14d);
 const HULL_DONE = new THREE.Color(0x7a6a4a);
+/** A checkpoint the rider was charged for and is still being sent back to:
+ * the HUD's own bad red, so the marks on the water, the warning's type and
+ * the arrow over the nose are one colour and read as one thing. */
+const HULL_MISSED = new THREE.Color(PALETTE.hudBad);
 /** The lantern's ironmongery: the flange it stands on and the cap over it.
  * Near-black, because the one strong accent on a yellow float is what picks
  * the lantern out of it at gate range and holds the silhouette when the
@@ -65,9 +85,11 @@ const FITTING = new THREE.Color(0x2e3134);
  * colour when lit reads as a painted dot rather than as a light. */
 const GLASS = new THREE.Color(0x6d5426);
 const LENS = new THREE.Color(0xfff2cc);
+const WARN = new THREE.Color(0xffd8d2);
 const RING = new THREE.Color(PALETTE.buoy);
 const RING_NEXT = new THREE.Color(0xffc266);
 const RING_DONE = new THREE.Color(0x6a5a4c);
+const RING_MISSED = new THREE.Color(PALETTE.hudBad);
 const DECK = new THREE.Color(0x5b6b7c);
 const RAIL = new THREE.Color(PALETTE.buoy);
 const LIP = new THREE.Color(0x3a4756);
@@ -87,6 +109,15 @@ const BY_DAY = 0.26;
  * lantern that moves is the one the eye goes to first, and at this depth it
  * reads as a light rather than as a fault. */
 const BREATH = { depth: 0.12, rate: 2.1 };
+
+/** How much of a MISSED checkpoint's mark survives daylight, 0..1, and the
+ * beat under it. Both are louder than the next gate's: that lamp is a
+ * target, which the course, the chart and the guide line are all pointing
+ * at anyway, while this one is the only thing on the water that says which
+ * checkpoint the warning is about — and a rider is told they left one
+ * behind at noon as often as at midnight. */
+const WARN_BY_DAY = 0.7;
+const WARN_BREATH = { depth: 0.45, rate: 5.2 };
 
 /** What a gate mark's lamp is worth on the WATER against what a rounding
  * buoy's is, 0..1. The rounding mark's pool is tuned for a four-metre
@@ -154,6 +185,25 @@ export function markLamp(gate: number, next: number, night: number, t: number): 
   if (gate !== next) return 0;
   const sky = BY_DAY + (1 - BY_DAY) * night;
   return (1 - BREATH.depth + BREATH.depth * Math.sin(t * BREATH.rate)) * sky;
+}
+
+/**
+ * What a MISSED checkpoint's marks are worth at a moment, 0..1 — the other
+ * half of the rule above, and the one place it is stated.
+ *
+ * `missed` is the gate the HUD's warning still stands on
+ * (`progress.activeMissedGate`, −1 for none), and only that one beats. This
+ * is the warning drawn on the water rather than a target: it comes up on
+ * the step the miss is charged, it goes out on the step the rider is back
+ * inside the checkpoint's opening, and it says nothing at all about which
+ * gate the run now owes. Because both surfaces spend the same number, the
+ * red on the water and the type on the HUD can never disagree about how
+ * close to the checkpoint the rider has to get.
+ */
+export function missedLamp(gate: number, missed: number, night: number, t: number): number {
+  if (gate !== missed) return 0;
+  const sky = WARN_BY_DAY + (1 - WARN_BY_DAY) * night;
+  return (1 - WARN_BREATH.depth + WARN_BREATH.depth * Math.sin(t * WARN_BREATH.rate)) * sky;
 }
 
 const m = new THREE.Matrix4();
@@ -399,22 +449,25 @@ export function createGates(level: Level): Gates {
 
   const lamps: BuoyLamp[] = markAt.map((b) => ({ x: b.x, y: LANTERN_Y, z: b.z, lit: 0 }));
   let litFor = -1;
+  let warnFor = -1;
   let night = 0;
   const sample = { height: 0, nx: 0, ny: 1, nz: 0, vx: 0, vy: 0, vz: 0 };
 
-  /** The ring's own light, by how dark it is — and only the NEXT gate's,
-   * for `markLamp`'s reason: one lit thing on the water is a target and
-   * three are a map. Emissive rather than a light in the scene, because the
-   * one thing a mark's light has to do is be SEEN — it lights nothing but
-   * itself. A ring further down the course keeps its paint and is lit by
-   * the sky like anything else. */
+  /** The ring's own light, by how dark it is — the NEXT gate's, for
+   * `markLamp`'s reason (one lit thing on the water is a target and three
+   * are a map), and a MISSED checkpoint's in the warning's own red, which
+   * is a second reading rather than a second target. Emissive rather than a
+   * light in the scene, because the one thing a mark's light has to do is
+   * be SEEN — it lights nothing but itself. A ring further down the course
+   * keeps its paint and is lit by the sky like anything else. */
   const applyNight = (): void => {
     for (const r of rings) {
-      if (r.gate !== litFor) {
+      const glow = r.gate === warnFor ? 0x661a14 : r.gate === litFor ? 0x663300 : 0;
+      if (!glow) {
         r.material.emissive.setHex(0x000000);
         continue;
       }
-      r.material.emissive.setHex(0x663300);
+      r.material.emissive.setHex(glow);
       r.material.emissive.lerp(color.copy(r.material.color).multiplyScalar(0.8), night);
     }
   };
@@ -427,6 +480,13 @@ export function createGates(level: Level): Gates {
     // counting the course owes no gate, so nothing is lit.
     const raw = state.progress.nextGate;
     const next = !courseOn ? -1 : raw >= level.course.gates.length ? lapGates : slotOf(raw);
+    // THE CHECKPOINT LEFT BEHIND, in this lap's slots: the engine's own word
+    // on which gate the HUD's warning is about, null again the moment the
+    // rider is back inside its opening. Reading it here rather than
+    // measuring a distance of our own is what keeps the red on the water and
+    // the type on the HUD saying one thing.
+    const behind = state.progress.activeMissedGate;
+    const warn = !courseOn || behind === null ? -1 : slotOf(behind);
     const { sea, level: lvl, t } = state;
     camera.getWorldPosition(world);
     for (let i = 0; i < n; i++) {
@@ -447,22 +507,26 @@ export function createGates(level: Level): Gates {
       // THE LAMP: what this mark's gate is worth this frame, and the three
       // things that spend it — the glass, the glare, and the pool the water
       // throws under it.
-      const lit = markLamp(b.gate, next, night, t);
-      lenses.setColorAt(i, color.copy(GLASS).lerp(LENS, lit));
+      // The warning takes the mark when both land on it, which a lapped
+      // course can do: a rider told to go back cannot also be told to go on.
+      const warned = missedLamp(b.gate, warn, night, t);
+      const lit = warned > 0 ? 0 : markLamp(b.gate, next, night, t);
+      lenses.setColorAt(i, color.copy(GLASS).lerp(warned > 0 ? WARN : LENS, Math.max(lit, warned)));
       const lamp = lamps[i];
       lamp.y = sample.height + LANTERN_Y;
-      lamp.lit = lit * POOL;
+      lamp.lit = Math.max(lit, warned) * POOL;
       // The glare is the NIGHT's alone: by day a lens is a wink of glass
       // and glare painted over it reads as a lens flare on a sunny sea.
       pos.y = sample.height + LANTERN_Y;
       const range = pos.distanceTo(world);
-      const seen = lit * night * Math.max(0, 1 - range / GLARE.reach);
+      const seen = Math.max(lit, warned) * night * Math.max(0, 1 - range / GLARE.reach);
+      const beam = warned > 0 ? WARN : LENS;
       glarePos[i * 3] = pos.x;
       glarePos[i * 3 + 1] = pos.y;
       glarePos[i * 3 + 2] = pos.z;
-      glareColour[i * 3] = LENS.r * seen;
-      glareColour[i * 3 + 1] = LENS.g * seen;
-      glareColour[i * 3 + 2] = LENS.b * seen;
+      glareColour[i * 3] = beam.r * seen;
+      glareColour[i * 3 + 1] = beam.g * seen;
+      glareColour[i * 3 + 2] = beam.b * seen;
     }
     bodies.instanceMatrix.needsUpdate = true;
     ribs.instanceMatrix.needsUpdate = true;
@@ -471,18 +535,27 @@ export function createGates(level: Level): Gates {
     if (lenses.instanceColor) lenses.instanceColor.needsUpdate = true;
     glareGeometry.attributes.position.needsUpdate = true;
     glareGeometry.attributes.color.needsUpdate = true;
-    if (next !== litFor) {
+    if (next !== litFor || warn !== warnFor) {
       litFor = next;
+      warnFor = warn;
       for (let i = 0; i < n; i++) {
         const g = markAt[i].gate;
-        color.copy(g === next ? HULL_NEXT : g < next ? HULL_DONE : HULL);
+        color.copy(g === warn ? HULL_MISSED : g === next ? HULL_NEXT : g < next ? HULL_DONE : HULL);
         bodies.setColorAt(i, color);
         for (let k = 0; k < RIBS; k++) ribs.setColorAt(i * RIBS + k, color);
       }
       if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
       if (ribs.instanceColor) ribs.instanceColor.needsUpdate = true;
       for (const r of rings) {
-        r.material.color.copy(r.gate === next ? RING_NEXT : r.gate < next ? RING_DONE : RING);
+        r.material.color.copy(
+          r.gate === warn
+            ? RING_MISSED
+            : r.gate === next
+              ? RING_NEXT
+              : r.gate < next
+                ? RING_DONE
+                : RING,
+        );
       }
       applyNight();
     }
@@ -506,6 +579,7 @@ export function createGates(level: Level): Gates {
       for (const r of rings) r.mesh.visible = on;
       // Re-lit on the next update, whichever way it went.
       litFor = -2;
+      warnFor = -2;
     },
   };
 }
