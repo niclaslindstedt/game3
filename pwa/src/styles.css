@@ -852,6 +852,28 @@ canvas {
   stroke-linecap: round;
 }
 
+.hud-minimap-slalom-line {
+  fill: none;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-dasharray: 2.4 1.8;
+}
+
+.hud-minimap-slalom-left {
+  fill: var(--hud-bad);
+  stroke: var(--hud-bad);
+}
+
+.hud-minimap-slalom-right {
+  fill: var(--buoy);
+  stroke: var(--buoy);
+}
+
+.hud-minimap-gate-passed .hud-minimap-slalom-left,
+.hud-minimap-gate-passed .hud-minimap-slalom-right {
+  opacity: 0.34;
+}
+
 .hud-minimap-gate-ring {
   fill: none;
   stroke: var(--gate);

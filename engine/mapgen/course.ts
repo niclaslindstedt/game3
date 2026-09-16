@@ -685,9 +685,15 @@ export function layCircuitCourse(
   // R29's floor is held too: the basin was cut for it, and a chord
   // straightened across a bend (R9) is the one thing that can cut inside
   // it.
-  const legalAt = (x: number, z: number, depth: number): boolean => {
+  const legalAt = (
+    x: number,
+    z: number,
+    depth: number,
+    except?: (typeof route.marks)[number],
+  ): boolean => {
     if (water.offshoreAt(x, z) < C.inshore.min - R.grid.cell) return false;
     for (const mark of route.marks) {
+      if (mark === except) continue;
       const berth = mark.r + solidBerth(mark.r) + S.marginSlack;
       if (Math.hypot(x - mark.x, z - mark.z) < berth) return false;
     }
@@ -745,9 +751,65 @@ export function layCircuitCourse(
   for (const mark of route.marks) {
     const round = roundingAbout(points, mark, C.mark.near);
     if (!withinBand(round.stand, C.mark.stand)) return null;
-    if (round.sweep < C.mark.wrap) return null;
+    if (Math.abs(round.winding) > 0.5) return null;
   }
-
+  // R31 / IJSBA GEN.4.1, GEN.4.4 — EACH ROUNDING BUOY REPLACES ONE
+  // ORDINARY GATE. Its slot preserves the course order; its line moves to
+  // the buoy's own abeam plane, so the checkpoint can only be taken by
+  // riding out to the can and crossing on the colour's prescribed side.
+  // Air and start slots are never replaced. If two marks want one slot,
+  // or moving a slot to its corner would break R4's spacing, this draw is
+  // rejected and another seeded course is tried.
+  const slaloms = new Map<
+    number,
+    { mark: (typeof route.marks)[number]; markIndex: number; at: number; standoff: number }
+  >();
+  const airSlots = new Set(air.chosen.map((draw) => draw.index));
+  for (let markIndex = 0; markIndex < route.marks.length; markIndex++) {
+    const mark = route.marks[markIndex];
+    if (!mark.rounding) return null;
+    const at = distanceAlong(points, lapCum, mark.x, mark.z);
+    const buoyBand = R.solids.buoy.r;
+    const size = (mark.r - buoyBand.min) / (buoyBand.max - buoyBand.min);
+    const standoff = C.mark.ideal.min + (C.mark.ideal.max - C.mark.ideal.min) * size;
+    let chosen = -1;
+    let nearest = Infinity;
+    for (let i = 1; i < lapGates; i++) {
+      if (airSlots.has(i) || slaloms.has(i)) continue;
+      const delta = Math.abs(i * step - at);
+      const around = Math.min(delta, ridden - delta);
+      if (around < nearest) {
+        chosen = i;
+        nearest = around;
+      }
+    }
+    if (chosen < 0) return null;
+    slaloms.set(chosen, { mark, markIndex, at, standoff });
+  }
+  const passPoint = (slot: number): Vec2 => {
+    const slalom = slaloms.get(slot);
+    if (!slalom) {
+      const at = pointAlong(points, lapCum, slot * step);
+      return { x: at.x, z: at.z };
+    }
+    const at = pointAlong(points, lapCum, slalom.at);
+    const side = slalom.mark.rounding === "left" ? 1 : -1;
+    return {
+      x: slalom.mark.x + Math.cos(at.heading) * slalom.standoff * side,
+      z: slalom.mark.z - Math.sin(at.heading) * slalom.standoff * side,
+    };
+  };
+  const stations = Array.from({ length: lapGates }, (_, i) => slaloms.get(i)?.at ?? i * step);
+  for (let i = 0; i < stations.length; i++) {
+    const nextSlot = (i + 1) % lapGates;
+    const naturalNext = i + 1 < stations.length ? stations[i + 1] : stations[0] + ridden;
+    const spacing =
+      slaloms.has(i) || slaloms.has(nextSlot)
+        ? Math.hypot(passPoint(nextSlot).x - passPoint(i).x, passPoint(nextSlot).z - passPoint(i).z)
+        : naturalNext - stations[i];
+    const band = slaloms.has(i) || slaloms.has(nextSlot) ? C.mark.leg : R.gate.spacing;
+    if (!withinBand(spacing, band)) return null;
+  }
   // ── The start stub (R11) ────────────────────────────────────────────
   // Tangent to the loop at the line, so joining it is not a corner.
   const tangent = Math.atan2(
@@ -779,7 +841,25 @@ export function layCircuitCourse(
       if (n === laps && i > 0) break;
       const at = pointAlong(points, lapCum, i * step);
       const draw = air.chosen.find((c) => c.index === i);
+      const slalom = slaloms.get(i);
       const id = gates.length + 1;
+      if (slalom) {
+        const tangent = pointAlong(points, lapCum, slalom.at);
+        gates.push({
+          id: `G${id}`,
+          index: gates.length,
+          kind: "slalom",
+          x: slalom.mark.x,
+          y: 0,
+          z: slalom.mark.z,
+          heading: tangent.heading,
+          width: C.mark.pass * 2,
+          rounding: slalom.mark.rounding,
+          standoff: slalom.standoff,
+          mark: `B${slalom.markIndex + 1}`,
+        });
+        continue;
+      }
       if (!draw) {
         gates.push({
           id: `G${id}`,
@@ -836,10 +916,30 @@ export function courseKeepOut(
 ): (x: number, z: number, r: number) => boolean {
   const buoys = plan.gates.flatMap(gateBuoys);
   const corridors = plan.gates.filter((g) => g.kind === "air").map((g) => airCorridor(g, pace));
+  const lap = plan.gates.slice(0, plan.lapGates);
+  const passPoint = (gate: Gate): Vec2 => {
+    if (gate.kind !== "slalom") return { x: gate.x, z: gate.z };
+    const side = gate.rounding === "left" ? 1 : -1;
+    const stand = gate.standoff ?? gate.width / 4;
+    return {
+      x: gate.x + Math.cos(gate.heading) * stand * side,
+      z: gate.z - Math.sin(gate.heading) * stand * side,
+    };
+  };
+  const detours = lap.flatMap((gate, i) => {
+    if (gate.kind !== "slalom") return [];
+    return [
+      { a: passPoint(lap[(i - 1 + lap.length) % lap.length]), b: passPoint(gate) },
+      { a: passPoint(gate), b: passPoint(lap[(i + 1) % lap.length]) },
+    ];
+  });
   return (x, z, r) => {
     const margin = solidBerth(r) + R.search.marginSlack;
     if (polylineDistance(plan.path, x, z) < r + margin) return false;
     for (const b of buoys) if (Math.hypot(b.x - x, b.z - z) < r + margin) return false;
+    for (const leg of detours) {
+      if (segmentDistance(x, z, leg.a.x, leg.a.z, leg.b.x, leg.b.z) < r + margin) return false;
+    }
     for (const c of corridors) {
       if (segmentDistance(x, z, c.x0, c.z0, c.x1, c.z1) < r + c.halfWidth + R.search.marginSlack) {
         return false;

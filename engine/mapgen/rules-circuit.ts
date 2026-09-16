@@ -46,16 +46,23 @@
 //       air gates are counted over that whole ride, so one ramp a lap is
 //       the whole of a circuit's air.
 //   R31 EVERY LAP IS RIDDEN ROUND LIT BUOYS. `circuit.mark.count` of the
-//       loop's own bends carry a BUOY at the centre of the turn — a moored
+//       loop's own bends carry a BUOY outside the apex — a moored
 //       steel can (`solids.buoy`) riding the swell with a lantern in a cage
 //       over it — and at least one of them stands out past
 //       `circuit.mark.ocean` from the shore, so every lap includes a run
 //       out into the open sea to round something and back. A bend earns one
 //       by turning at least `circuit.mark.wrap` radians about the buoy with
-//       the buoy standing `circuit.mark.stand` off the line: nearer than
-//       the band's floor there is no room for R6's berth, and further out
-//       than its ceiling the rider passes a buoy on the horizon rather than
-//       rounding one. Two buoys may not stand within `circuit.mark.apart`
+//       the buoy standing `circuit.mark.stand` off the NATURAL line. Its
+//       valid side only reaches `circuit.mark.pass` from the can and
+//       therefore stops at least `circuit.mark.detour` short of that line:
+//       the checkpoint cannot be collected by simply following the bend.
+//       The intended crossing is `circuit.mark.ideal` from the can, so the
+//       rider leaves the line, rounds closely and comes back.
+//       The buoy IS A CHECKPOINT rather than scenery beside one: the rider
+//       crosses its abeam line while keeping a LEFT/RED buoy on the left or
+//       a RIGHT/YELLOW one on the right (IJSBA GEN.4.1 and GEN.4.4), no
+//       farther away than `circuit.mark.pass`. Two buoys may not stand within
+//       `circuit.mark.apart`
 //       of each other along the lap, because one bend measured twice is one
 //       buoy.
 //       EVERY ONE OF THEM FLASHES, and no two of them alike. A buoy carries
@@ -159,25 +166,37 @@ export const CIRCUIT_RULES = {
     /** How many of them, and how many a loop must earn before it is a loop
      * worth racing. */
     count: { min: 2, max: 4 },
-    /** How far the line has to swing ABOUT the rock for the bend to be a
-     * rounding, rad. Under R25's own (2.1) because a circuit's bends are
+    /** How far the natural line has to turn before its apex earns an
+     * outside checkpoint, rad. Under R25's own (2.1) because a circuit's bends are
      * the lobes of a closed loop rather than a half circle drawn round a
      * mark on purpose: a quarter turn and a half is a corner a rider takes
      * with the rock on the inside of it the whole way. */
     wrap: 1.5,
-    /** How far off the line the buoy stands, m — the radius of the bend it
-     * is the centre of. Under the floor there is no room for the buoy and
-     * R6's berth inside the turn; over the ceiling the bend is so open that
-     * the buoy is furniture on the infield rather than a thing the line
-     * goes round. The floor is well under R25's rock mark's, because a
-     * moored can is two metres across where a sea stack is thirty. */
-    stand: { min: 34, max: 130 },
+    /** How far off the NATURAL line the buoy's CENTRE stands, m. This is
+     * deliberately beyond the permitted crossing band: the bend cannot
+     * collect the checkpoint without a visible excursion. */
+    stand: { min: 30, max: 44 },
+    /** The intended crossing distance from the buoy centre, m. Close
+     * enough that cutting further in saves time and risks the can. */
+    ideal: { min: 8, max: 12 },
+    /** How far from the buoy centre a correct-side crossing may be, m.
+     * Wider than the ideal standoff so waves and a contested turn have
+     * room, but finite: riding around the far side of the course is not
+     * rounding the checkpoint. The buoy itself is solid, so the inner
+     * bound is physical rather than another invisible line. */
+    pass: 18,
+    /** The least open-water gap between the natural line and the legal
+     * side of the checkpoint, m. This is what makes the buoy a detour. */
+    detour: 10,
+    /** Straight-line distance from an off-course pass point to either
+     * neighbouring checkpoint, m. Wider than ordinary gate spacing because
+     * this leg deliberately leaves the circuit and returns. */
+    leg: { min: 50, max: 280 },
     /** R31 — how far out at least one of them has to stand, m from the
      * water's edge. This is the rule that makes a lap an OUT-AND-BACK: the
      * shore leg is a warm-up, and what it is a warm-up for is the run out
      * to this buoy. Inside `reach`'s floor by a bend's own radius, because
-     * the buoy sits at the CENTRE of the turn that rounds it and the line
-     * goes round outside it. */
+     * the buoy sits outside a bend that already reaches into open water. */
     ocean: 150,
     /** How far apart two marks stand along the lap, m. One bend read as two
      * is one mark, and a lap's gates are 80–150 m apart, so two marks

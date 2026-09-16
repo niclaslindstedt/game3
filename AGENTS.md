@@ -40,6 +40,7 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The catalog, roster balance                             | `sim`                          | `craft-tuning`, `simulate-run`                 |
 | The bot rider                                           | `sim`                          | `bot-improvement`                              |
 | The generator, its rules, the analyzer                  | `level`, `analyze` (`TRACK=circuit` for the other kind) | `mapgen-improvement`         |
+| IJSBA closed-course scoring and its schematic           | `score`, `course`                                       | `mapgen-improvement`, `lab-tooling` |
 | A craft's look                                          | `crafts`, `screenshots SCENE=rest` | `craft-design`                             |
 | The rider: his look, his pose, how he moves             | `crafts`, `screenshots`        | `rider`                                        |
 | The sea life, the water's transparency                  | `level`, `screenshots SCENE=wildlife`, `SCENE=breach` | `nature`, `water-look`  |

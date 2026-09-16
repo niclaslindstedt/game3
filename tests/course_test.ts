@@ -13,6 +13,7 @@ import {
   botInput,
   createGame,
   crossedGate,
+  gatePassPoint,
   placeRun,
   resetPose,
   step,
@@ -57,6 +58,19 @@ describe("crossing a gate", () => {
     heading: Math.PI / 2,
     width: 6,
   };
+  const rightBuoy: Gate = {
+    id: "s",
+    index: 0,
+    kind: "slalom",
+    x: 100,
+    y: 0,
+    z: 40,
+    heading: Math.PI / 2,
+    width: 84,
+    rounding: "right",
+    standoff: 18,
+    mark: "B1",
+  };
 
   it("counts a move through the line in the facing direction", () => {
     expect(crossedGate(water, 99, 0, 41, 101, 0, 41)).not.toBeNull();
@@ -74,6 +88,25 @@ describe("crossing a gate", () => {
     expect(crossedGate(air, 99, 6.5, 40, 101, 6.5, 40)).not.toBeNull();
     expect(crossedGate(air, 99, 0.5, 40, 101, 0.5, 40)).toBeNull();
     expect(crossedGate(air, 99, 4, 44, 101, 4, 44)).toBeNull();
+  });
+
+  it("takes a single-buoy checkpoint only on the side prescribed by its colour", () => {
+    // Heading east: north of the can is rider-left, so the can remains on
+    // the rider's right. That is the legal side of a yellow/right buoy.
+    expect(crossedGate(rightBuoy, 99, 0, 58, 101, 0, 58)?.lateral).toBeCloseTo(-18, 6);
+    expect(crossedGate(rightBuoy, 99, 0, 22, 101, 0, 22)).toBeNull();
+    // The correct half-plane is finite: this went the right way around but
+    // never came close enough to count as rounding the checkpoint.
+    expect(crossedGate(rightBuoy, 99, 0, 83, 101, 0, 83)).toBeNull();
+
+    const leftBuoy = { ...rightBuoy, rounding: "left" as const };
+    expect(crossedGate(leftBuoy, 99, 0, 22, 101, 0, 22)).not.toBeNull();
+    expect(crossedGate(leftBuoy, 99, 0, 58, 101, 0, 58)).toBeNull();
+  });
+
+  it("aims at the ideal pass point beside a single buoy", () => {
+    expect(gatePassPoint(rightBuoy)).toEqual({ x: 100, z: 58 });
+    expect(gatePassPoint({ ...rightBuoy, rounding: "left" })).toEqual({ x: 100, z: 22 });
   });
 });
 
@@ -173,6 +206,28 @@ describe("a run", () => {
     step(state, NEUTRAL_INPUT);
     expect(state.progress.activeMissedGate).toBeNull();
     expect(activeMissedCheckpoint(state)).toBeNull();
+  });
+
+  it("charges a single-buoy checkpoint crossed on the wrong side", () => {
+    const first = LEVEL.course.gates[0];
+    const slalom: Gate = {
+      ...first,
+      kind: "slalom",
+      width: 84,
+      rounding: "right",
+      standoff: 18,
+      mark: "B1",
+    };
+    const level = {
+      ...LEVEL,
+      course: { ...LEVEL.course, gates: [slalom, ...LEVEL.course.gates.slice(1)] },
+    };
+    const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+    placeRun(state, { x: slalom.x - 40, z: slalom.z - 18, heading: Math.PI / 2, speed: 15 });
+    const events = ride(state, 4, () => FULL);
+    expect(state.progress.passed).toEqual([]);
+    expect(state.progress.missed).toEqual([0]);
+    expect(events.filter((event) => event.kind === "missedGate")).toHaveLength(1);
   });
 
   it("still requires the finish to be crossed through its opening", () => {

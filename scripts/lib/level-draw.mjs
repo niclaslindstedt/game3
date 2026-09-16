@@ -8,8 +8,9 @@
 // over the deep, with the contour the course rules care about drawn in),
 // the land is coloured by what `materialAt` says it is made of and shaded
 // by height, every rock is a circle by kind, the course is a line through
-// its gates — a water gate as the bar between its buoys, an air gate as a
-// ring with its ramp drawn as an arrow from the hinge to the lip — and the
+// its gates — a water gate as the bar between its buoys, a single-buoy gate
+// as its legal-side spoke, an air gate as a ring with its ramp drawn as an
+// arrow from the hinge to the lip — and the
 // wind is an arrow with its speed. Down the right is the key. Every id is
 // the one `level-map.mjs` prints in its table, so "the ramp before G6" is
 // a claim about `J6` on both.
@@ -76,6 +77,8 @@ export const MARK = {
   shore: [70, 60, 40],
   river: [60, 130, 190],
   wind: [30, 40, 60],
+  left: [218, 42, 38],
+  right: [246, 190, 28],
 };
 
 function mix(a, b, t) {
@@ -236,7 +239,10 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
 
   // ── The rocks, by kind ────────────────────────────────────────────────
   for (const s of level.solids) {
-    const ink = SOLID[s.kind] ?? SOLID.boulder;
+    const ink =
+      s.kind === "buoy"
+        ? { fill: s.rounding === "left" ? MARK.left : MARK.right, edge: [40, 34, 12] }
+        : (SOLID[s.kind] ?? SOLID.boulder);
     // A reef's fill carries an alpha, so the water shows through it — a
     // rock under the surface reads as a hazard, not an island.
     const r = Math.max(2, s.r * scale);
@@ -279,6 +285,18 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       canvas.disk(c[0], c[1], Math.max(2.5, 1.2 * scale), MARK.buoy);
       // A tick in the direction of passage, so a gate reads which way it faces.
       canvas.line(px(g.x), py(g.z), px(g.x + fx * 4), py(g.z + fz * 4), MARK.buoy, 1);
+    } else if (g.kind === "slalom") {
+      const side = g.rounding === "left" ? 1 : -1;
+      const color = g.rounding === "left" ? MARK.left : MARK.right;
+      const reach = g.width / 2;
+      canvas.line(
+        px(g.x),
+        py(g.z),
+        px(g.x + rx * reach * side),
+        py(g.z + rz * reach * side),
+        color,
+        Math.max(1, scale),
+      );
     } else {
       const r = Math.max(5, (g.width / 2) * scale + 2);
       canvas.circle(px(g.x), py(g.z), r, MARK.ring, 2);
@@ -286,7 +304,7 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       if (g.ramp) drawRamp(canvas, g.ramp, px, py, scale);
     }
     const isFinish = g.index === gates.length - 1;
-    const tag = isFinish ? `${g.id} FIN` : g.id;
+    const tag = isFinish ? `${g.id} FIN` : g.kind === "slalom" ? `${g.id}/${g.mark}` : g.id;
     // The label sits to the gate's RIGHT (seaward, on a coast the sea lies
     // right of): (cos h, −sin h) in the plan, y flipped on the page.
     const off = Math.max(9, g.width * scale * 0.6 + 4);
@@ -295,7 +313,13 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       px(g.x) + rx * off - (rx < 0 ? textWidth(tag, 2) : 0),
       py(g.z) - rz * off - 7,
       tag,
-      g.kind === "air" ? MARK.ring : INK,
+      g.kind === "air"
+        ? MARK.ring
+        : g.kind === "slalom"
+          ? g.rounding === "left"
+            ? MARK.left
+            : MARK.right
+          : INK,
       2,
     );
   }

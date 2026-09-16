@@ -17,7 +17,7 @@
 //     a gate goes, the gate the run still owes rides the rim.
 
 import { describe, expect, it } from "vitest";
-import { createGame, gateBuoys, type GameState } from "@engine";
+import { createGame, gateBuoys, gatePassPoint, type GameState } from "@engine";
 
 import { TREE_LINE } from "../pwa/src/game/flora-defs.ts";
 import {
@@ -291,6 +291,35 @@ describe("minimap marks", () => {
     // ...and the centre is between them, which is the gap to aim at.
     const mid = (gate!.buoys[0][0] + gate!.buoys[1][0]) / 2;
     expect(mid).toBeCloseTo(gate!.x, 4);
+  });
+
+  it("draws one rounding buoy and the side on which it can be passed", () => {
+    const source = LEVEL.course.gates[0];
+    const slalom = {
+      ...source,
+      kind: "slalom" as const,
+      width: 84,
+      rounding: "right" as const,
+      standoff: 18,
+      mark: "B1",
+    };
+    const state = createGame({
+      seed: 7,
+      quiet: true,
+      level: {
+        ...LEVEL,
+        course: { ...LEVEL.course, gates: [slalom, ...LEVEL.course.gates.slice(1)] },
+      },
+    });
+    stand(state, 100, 40);
+    const gate = buildMinimap(state).gates.find((candidate) => candidate.index === 0);
+    expect(gate?.kind).toBe("slalom");
+    expect(gate?.rounding).toBe("right");
+    expect(gate?.buoys).toHaveLength(1);
+    const limit = gatePassPoint({ ...slalom, standoff: slalom.width / 2 });
+    const expected = project(state, limit.x, limit.z, spanFor(SPAN, 0));
+    expect(gate?.pass?.[0]).toBeCloseTo(expected[0], 6);
+    expect(gate?.pass?.[1]).toBeCloseTo(expected[1], 6);
   });
 
   it("marks the gate the run owes, and remembers the one it left behind", () => {

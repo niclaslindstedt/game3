@@ -160,8 +160,8 @@ function place(x: number, y: number, angle = 0): string {
   return `translate(${x.toFixed(2)}px, ${y.toFixed(2)}px)${turn}`;
 }
 
-/** One gate: a pair of buoys with the line to be crossed between them, or —
- * for an air gate — the ring the craft is launched through. The state is a
+/** One gate: a pair of buoys, one coloured rounding buoy and its permitted
+ * side, or the ring the craft is launched through. The state is a
  * class rather than a shape, so a gate does not change what it IS when it is
  * taken. */
 function Gate({ gate }: { gate: GateMark }) {
@@ -169,6 +169,21 @@ function Gate({ gate }: { gate: GateMark }) {
     <g class={`hud-minimap-gate hud-minimap-gate-${gate.state}`}>
       {gate.kind === "air" ? (
         <circle class="hud-minimap-gate-ring" cx={gate.x} cy={gate.y} r={gate.radius} />
+      ) : gate.kind === "slalom" ? (
+        <>
+          {gate.pass && (
+            <path
+              class={`hud-minimap-slalom-line hud-minimap-slalom-${gate.rounding}`}
+              d={`M ${gate.buoys[0][0].toFixed(1)} ${gate.buoys[0][1].toFixed(1)} L ${gate.pass[0].toFixed(1)} ${gate.pass[1].toFixed(1)}`}
+            />
+          )}
+          <circle
+            class={`hud-minimap-buoy hud-minimap-slalom-${gate.rounding}`}
+            cx={gate.buoys[0][0]}
+            cy={gate.buoys[0][1]}
+            r={BUOY_R * 1.35}
+          />
+        </>
       ) : (
         <>
           <path

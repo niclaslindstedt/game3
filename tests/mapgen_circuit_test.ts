@@ -21,6 +21,7 @@ import {
   buoyLightAt,
   buoyLightName,
   generateLevel,
+  gatePassPoint,
   lapTurn,
   polylineDistance,
   roundingAbout,
@@ -189,7 +190,33 @@ describe("R30 — the circuit is lapped", () => {
 });
 
 describe("R31 — every lap is ridden round lit buoys", () => {
-  it("stands buoys in the bends, and the line rounds them", () => {
+  it("makes every rounding buoy a side-prescribed checkpoint", () => {
+    for (const seed of CIRCUIT_SEEDS) {
+      const level = circuitFor(seed);
+      const marks = level.solids.filter((solid) => solid.kind === "buoy");
+      const gates = level.course.gates
+        .slice(0, level.course.lapGates)
+        .filter((gate) => gate.kind === "slalom");
+      expect(gates, `seed ${seed}`).toHaveLength(marks.length);
+      for (const gate of gates) {
+        const mark = marks.find((candidate) => candidate.id === gate.mark);
+        expect(mark, `seed ${seed}: ${gate.id} has no buoy`).toBeDefined();
+        if (!mark) continue;
+        expect(gate.rounding).toBe(mark.rounding);
+        expect(Math.hypot(gate.x - mark.x, gate.z - mark.z)).toBeLessThan(0.01);
+        expect(gate.width / 2).toBe(C.mark.pass);
+        expect(gate.standoff).toBeGreaterThanOrEqual(C.mark.ideal.min);
+        expect(gate.standoff).toBeLessThanOrEqual(C.mark.ideal.max);
+        const target = gatePassPoint(gate);
+        expect(Math.hypot(target.x - mark.x, target.z - mark.z)).toBeCloseTo(gate.standoff!, 6);
+        expect(polylineDistance(level.course.path, target.x, target.z)).toBeGreaterThanOrEqual(
+          C.mark.detour,
+        );
+      }
+    }
+  });
+
+  it("stands buoys outside the natural bends", () => {
     for (const seed of CIRCUIT_SEEDS) {
       const level = circuitFor(seed);
       const marks = level.solids.filter((s) => s.kind === "buoy");
@@ -200,10 +227,10 @@ describe("R31 — every lap is ridden round lit buoys", () => {
           withinBand(round.stand, C.mark.stand, 3),
           `seed ${seed}: ${mark.id} stands ${round.stand.toFixed(0)} m off`,
         ).toBe(true);
-        expect(
-          round.sweep,
-          `seed ${seed}: ${mark.id} is passed, not rounded`,
-        ).toBeGreaterThanOrEqual(C.mark.wrap - 0.15);
+        expect(Math.abs(round.winding), `seed ${seed}: ${mark.id} is inside the lap`).toBeLessThan(
+          0.5,
+        );
+        expect(["left", "right"]).toContain(mark.rounding);
       }
     }
   });
@@ -359,14 +386,12 @@ describe("the analysis judges a circuit", () => {
     expect(errors(broken(seed, { solids: moved }))).toContain("R31.stand");
   });
 
-  it("catches a mark thrown outside the lap (R31)", () => {
+  it("catches a mark thrown inside the natural lap (R31)", () => {
     const level = circuitFor(seed);
     const mark = level.solids.find((s) => s.kind === "buoy");
     if (!mark) return;
-    const away = level.solids.map((s) =>
-      s === mark ? { ...s, x: level.bounds.minX + 8, z: level.bounds.minZ + 8 } : s,
-    );
-    expect(errors(broken(seed, { solids: away }))).toContain("R31.outside");
+    const inside = level.solids.map((s) => (s === mark ? { ...s, ...infield(level) } : s));
+    expect(errors(broken(seed, { solids: inside }))).toContain("R31.inside");
   });
 
   it("catches a circuit with no marks at all (R31)", () => {
@@ -385,5 +410,16 @@ describe("the analysis judges a circuit", () => {
     }));
     const found = errors(broken(seed, { course: { ...level.course, path: inland } }));
     expect(found.length, "a line dragged ashore is reported").toBeGreaterThan(0);
+  });
+
+  it("catches a rounding buoy painted for the wrong side (R31)", () => {
+    const seed = CIRCUIT_SEEDS[0];
+    const level = circuitFor(seed);
+    const changed = level.solids.map((solid) =>
+      solid.kind === "buoy"
+        ? { ...solid, rounding: solid.rounding === "left" ? ("right" as const) : ("left" as const) }
+        : solid,
+    );
+    expect(errors(broken(seed, { solids: changed }))).toContain("R31.side");
   });
 });

@@ -28,10 +28,12 @@
 // a single point of the real loop is built.
 //
 // THE MARKS (R31) are then read off the finished line rather than placed on
-// it: every bend that turns one way for long enough carries a rock at the
-// centre of its turn, and the rounding is verified with `roundingAbout` —
-// the same function the analysis re-checks the finished level with, so the
-// search cannot accept a rounding the scoreboard would refuse.
+// it: every bend that turns one way for long enough carries a buoy just
+// inside its apex, close enough that clipping it is the fast line and
+// touching it is a solid hit. The rounding is verified with
+// `roundingAbout` — the same function the analysis re-checks the finished
+// level with, so the search cannot accept a rounding the scoreboard would
+// refuse.
 
 import { ANALYSIS } from "../analysis/budgets.ts";
 import { angleDiff, TAU } from "../lib/math.ts";
@@ -403,13 +405,13 @@ function circumradius(a: Vec2, b: Vec2, c: Vec2): number {
  *
  * A bend is a maximal run of line turning the same way. Where one turns far
  * enough (`mark.wrap`), the circle through its two ends and its middle says
- * where its centre is, and a rock goes there — so the line is already drawn
- * round it and nothing has to be moved to make the rounding true.
+ * which side is INSIDE. The buoy stands from the apex directly AWAY from
+ * that centre at `mark.stand`: it is an off-course checkpoint that pulls
+ * the rider outside the bend, not infield furniture on the natural line.
  *
  * Every candidate is then put to `roundingAbout`, which is the analysis's
- * own instrument: the rock has to stand inside the band off the line, the
- * lap has to enclose it, and the swing about it has to happen at its own
- * range rather than be the winding a closed loop gives anything inside it.
+ * own instrument: the rock has to stand inside the band off the line and
+ * outside the lap.
  * The strongest bends win, and two marks inside `mark.apart` of each other
  * along the lap are one corner counted twice.
  */
@@ -474,6 +476,24 @@ function layMarks(
     }
     const r = inBand(rng, R.solids.buoy.r);
     const top = inBand(rng, R.solids.buoy.top);
+    const apex = on(mid);
+    const centrewardX = centre.x - apex.x;
+    const centrewardZ = centre.z - apex.z;
+    const centrewardLength = Math.hypot(centrewardX, centrewardZ);
+    if (centrewardLength < 1e-6) continue;
+    // A larger can gets proportionally more room without consuming another
+    // random draw and shifting everything laid after the course.
+    const buoyBand = R.solids.buoy.r;
+    const size = (r - buoyBand.min) / (buoyBand.max - buoyBand.min);
+    const wanted = C.mark.stand.min + (C.mark.stand.max - C.mark.stand.min) * size;
+    const mark = {
+      x: apex.x - (centrewardX / centrewardLength) * wanted,
+      z: apex.z - (centrewardZ / centrewardLength) * wanted,
+    };
+    // The outside of an inshore bend can be land. R31 asks for an
+    // off-course excursion, not a beaching, so only open-water candidates
+    // may become checkpoints.
+    if (offshoreAt(mark) < C.inshore.min + C.mark.ideal.max + R.grid.cell) continue;
     // R31 — the CHARACTER. The flash count walks the chart's own list in
     // placement order, so no two buoys on a lap carry the same one and a
     // rider who has seen a group of three knows which corner is ahead; the
@@ -486,17 +506,23 @@ function layMarks(
       period: inBand(rng, C.mark.light.period),
       phase: rng.range(0, C.mark.light.period.max),
     };
-    const round = roundingAbout(points, centre, C.mark.near);
+    const round = roundingAbout(points, mark, C.mark.near);
     if (!withinBand(round.stand, C.mark.stand)) continue;
     if (round.stand < r + solidBerth(r) + R.search.marginSlack) continue;
-    if (Math.abs(round.winding) < TAU - 0.5) continue;
-    if (round.sweep < C.mark.wrap) continue;
-    if (
-      marks.some((m) => Math.hypot(m.x - centre.x, m.z - centre.z) < m.r + r + R.solids.spacing)
-    ) {
+    if (Math.abs(round.winding) > 0.5) continue;
+    if (marks.some((m) => Math.hypot(m.x - mark.x, m.z - mark.z) < m.r + r + R.solids.spacing)) {
       continue;
     }
-    marks.push({ kind: "buoy", x: centre.x, z: centre.z, r, top, zone: round.stand, light });
+    marks.push({
+      kind: "buoy",
+      x: mark.x,
+      z: mark.z,
+      r,
+      top,
+      zone: round.stand,
+      light,
+      rounding: bend.turn < 0 ? "left" : "right",
+    });
     taken.push(at);
   }
   // R31 — and at least one of them stands OUT AT SEA. This is the rule that

@@ -20,7 +20,14 @@
 // DOM-free, like every HUD payload here: this module decides, `minimap.tsx`
 // draws, and `tests/minimap_test.ts` reads this half without a browser.
 
-import { bearingToNext, gateBuoys, gatesReached, rampsOf, type GameState } from "@engine";
+import {
+  bearingToNext,
+  gateBuoys,
+  gatePassPoint,
+  gatesReached,
+  rampsOf,
+  type GameState,
+} from "@engine";
 
 import {
   SPAN,
@@ -49,7 +56,7 @@ const RIM_SLACK = 4;
  * picture. */
 export type GateMark = {
   index: number;
-  kind: "water" | "air";
+  kind: "water" | "slalom" | "air";
   /** The gate's centre, in view units. */
   x: number;
   y: number;
@@ -58,6 +65,10 @@ export type GateMark = {
    * map is the same line the engine tests a crossing against. Empty for an
    * air gate, which is a ring and has no line. */
   buoys: [number, number][];
+  /** A slalom gate's permitted-side limit in view units; null for the two
+   * other gate kinds. */
+  pass: [number, number] | null;
+  rounding?: "left" | "right";
   /** An air gate's ring radius, view units. Zero for a water gate. */
   radius: number;
   state: "passed" | "missed" | "next" | "ahead";
@@ -192,6 +203,7 @@ function gateMarks(state: GameState, span: number): GateMark[] {
         x: at[0],
         y: at[1],
         buoys: [],
+        pass: null,
         radius: (ramp.width / 2) * k,
         state: "ahead",
       });
@@ -202,12 +214,19 @@ function gateMarks(state: GameState, span: number): GateMark[] {
     const gate = gates[lap * lapGates + slot];
     const at = project(state, gate.x, gate.z, span);
     if (!inView(at)) continue;
+    const passLimit =
+      gate.kind === "slalom" ? gatePassPoint({ ...gate, standoff: gate.width / 2 }) : null;
     out.push({
       index: gate.index,
       kind: gate.kind,
       x: at[0],
       y: at[1],
-      buoys: gateBuoys(gate).map((b) => project(state, b.x, b.z, span)),
+      buoys:
+        gate.kind === "slalom"
+          ? [project(state, gate.x, gate.z, span)]
+          : gateBuoys(gate).map((b) => project(state, b.x, b.z, span)),
+      pass: passLimit ? project(state, passLimit.x, passLimit.z, span) : null,
+      rounding: gate.rounding,
       radius: gate.kind === "air" ? (gate.width / 2) * k : 0,
       state: gateState(state, gate.index),
     });
@@ -222,7 +241,8 @@ function chevronFor(state: GameState, span: number): MinimapChevron | null {
   const gates = state.level.course.gates;
   const n = state.progress.nextGate;
   if (!state.rules.course || n >= gates.length) return null;
-  const at = project(state, gates[n].x, gates[n].z, span);
+  const target = gatePassPoint(gates[n]);
+  const at = project(state, target.x, target.z, span);
   const slack = RIM_SLACK * (VIEW / span);
   const on = at[0] >= -slack && at[0] <= VIEW + slack && at[1] >= -slack && at[1] <= VIEW + slack;
   return on ? null : onRim(at[0], at[1]);

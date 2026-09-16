@@ -187,6 +187,13 @@ const rows = gates.map((g) => {
         }),
       ),
     };
+  } else if (g.kind === "slalom") {
+    row.slalom = {
+      mark: g.mark,
+      rounding: g.rounding,
+      standoff: g.standoff,
+      pass: g.width / 2,
+    };
   }
   return row;
 });
@@ -268,6 +275,7 @@ const markText = (m) =>
   `${m.top.toFixed(0)} m out of the water, ` +
   `${polylineDistance(level.course.path, m.x, m.z).toFixed(0)} m off the line, ` +
   `${offshoreAt(m.x, m.z).toFixed(0)} m offshore` +
+  (m.rounding ? `, keep ${m.id} on the ${m.rounding}` : "") +
   (m.light ? `, ${buoyLightName(m.light)}` : "");
 // R31 — a circuit's marks are the corners of the lap, so all of them are
 // named; a coast level rounds exactly one, at the end of its ocean leg
@@ -337,6 +345,13 @@ for (const r of rows) {
             `${id} ${(rp.launchSpeed[id] * 3.6).toFixed(0)} km/h${id === args.craft ? "*" : ""}`,
         ).join(" · ") +
         `  (run-up ${R.ramp.runUp.toFixed(0)} m, ${spec.name}'s top ${spec.topSpeed.toFixed(0)} km/h)`,
+    );
+  }
+  if (r.slalom) {
+    lines.push(
+      `        ${r.slalom.mark}: keep buoy on the ${r.slalom.rounding}, ` +
+        `${r.slalom.standoff.toFixed(0)} m ideal standoff, ` +
+        `${r.slalom.pass.toFixed(0)} m maximum to pass`,
     );
   }
 }

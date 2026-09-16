@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze waves ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons check-seo sim level analyze score course waves ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -104,6 +104,24 @@ level:
 analyze:
 	npm run analyze -- $(if $(SEED),--seed $(SEED),) $(if $(COUNT),--count $(COUNT),) $(if $(TRACK),--track $(TRACK),) \
 		$(if $(BIOME),--biome $(BIOME),) $(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
+
+# THE CLOSED-COURSE SCORE: IJSBA's race topology and marker semantics,
+# completed by the generator's measurable R-rules for dimensions the Race
+# Director owns. A 0–100 dashboard, with 90 as the project's acceptance
+# floor; `--checks` shows the provenance and target of every point.
+# `make score SEED=38` · `make score COUNT=24 BIOME=mangrove ARGS=--checks`
+score:
+	npm run score -- $(if $(SEED),--seed $(SEED),) $(if $(COUNT),--count $(COUNT),) \
+		$(if $(BIOME),--biome $(BIOME),) $(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
+
+# THE COURSE-SCORING SCHEMATIC: one circuit lap with curvature, ordered
+# checkpoints, red/left and yellow/right rounding buoys, ramps and their
+# clear corridors, nearby hazards, and the real sea bands' travel arrows.
+# Pure Node; writes previews/course-<seed>.png and its score JSON.
+# `make course SEED=38` · `make course SEED=7 BIOME=mangrove`
+course:
+	npm run course -- $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) \
+		$(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
 
 # THE WAVES LAB — the water on its own, with nothing riding it: a transect
 # from the shore out to sea at several moments, the significant height

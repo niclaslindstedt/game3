@@ -116,6 +116,9 @@ export type Solid = {
   readonly top: number;
   /** R31 — the lamp, on a rounding buoy and on nothing else. */
   readonly light?: BuoyLight;
+  /** R31 / IJSBA GEN.4.4 — which side a rider keeps this rounding buoy
+   * on; absent from every solid but a circuit buoy. */
+  readonly rounding?: "left" | "right";
 };
 
 /** A GROUP OF ANIMALS placed in the water (R20): a school of herring, a
@@ -179,18 +182,25 @@ export type Ramp = {
 
 /** One checkpoint on the course, in course order. A WATER gate is a pair of
  * buoys `width` metres apart, centred at (x, z), facing `heading`; passing is
- * crossing the line between them in the facing direction. An AIR gate is a
- * ring of radius `width / 2` whose centre sits `y` metres above the sea, and
- * it always has the ramp that launches the craft through it. */
+ * crossing the line between them in the facing direction. A SLALOM gate is
+ * one coloured rounding buoy at (x, z): the craft crosses its abeam line no
+ * farther than `width / 2` away while keeping the buoy on `rounding`. Its
+ * `standoff` is the ideal line's distance from the can and `mark` names the
+ * solid that renders and collides there. An AIR gate is a ring of radius
+ * `width / 2` whose centre sits `y` metres above the sea, and it always has
+ * the ramp that launches the craft through it. */
 export type Gate = {
   readonly id: string;
   readonly index: number;
-  readonly kind: "water" | "air";
+  readonly kind: "water" | "slalom" | "air";
   readonly x: number;
   readonly y: number;
   readonly z: number;
   readonly heading: number;
   readonly width: number;
+  readonly rounding?: "left" | "right";
+  readonly standoff?: number;
+  readonly mark?: string;
   readonly ramp?: Ramp;
 };
 

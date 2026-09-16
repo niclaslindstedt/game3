@@ -64,6 +64,8 @@ export type Mark = {
   readonly kind: "mark" | "buoy";
   /** R31 — the light character, on a buoy and on nothing else. */
   readonly light?: BuoyLight;
+  /** R31 / IJSBA GEN.4.4 — the side this buoy marks. */
+  readonly rounding?: "left" | "right";
   /** The centre of the rounding — where the rock stands. */
   readonly x: number;
   readonly z: number;
