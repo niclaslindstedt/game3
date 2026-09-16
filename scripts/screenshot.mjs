@@ -126,6 +126,14 @@ const SURFACES = {
   options: { params: { menu: "options" }, wait: ".menu-card-options", settle: 400 },
   keys: { params: { menu: "keys" }, wait: ".menu-card-keys", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
+  // The benchmark's list as a FRESH VISIT finds it — the same bargain the
+  // gallery strikes above. The history lives in this machine's local storage
+  // and a lab's profile has never scored a run, so what this photographs is
+  // the empty state, which is the surface anybody opening the page for the
+  // first time sees. The CARD over a run being timed is not here at all: it
+  // is thirty seconds of measurement and a lab that waited for one would be
+  // timing the software rasterizer.
+  benchHistory: { params: { menu: "benchHistory" }, wait: ".menu-card-bench", settle: 400 },
   // The pause card is the one surface with no meaning without a run behind
   // it, so `?paused=1` rides one and holds it — the HUD and the frozen sea
   // under the card are part of the picture, not a backdrop to crop out.

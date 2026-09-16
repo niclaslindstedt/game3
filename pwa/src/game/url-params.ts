@@ -179,6 +179,7 @@ export function readParams(search: string): Params {
       menu === "options" ||
       menu === "keys" ||
       menu === "developer" ||
+      menu === "benchHistory" ||
       menu === "root"
         ? { page: menu }
         : null,
@@ -223,7 +224,9 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   // hold is a way IN, not a lock, and making the lab hold a button for seven
   // seconds to photograph a page would be the harness re-earning a secret it
   // was handed.
-  if (params.menu?.page === "developer") settings.developer = true;
+  if (params.menu?.page === "developer" || params.menu?.page === "benchHistory") {
+    settings.developer = true;
+  }
   if (params.wind !== undefined) settings.dev.wind = params.wind;
   if (params.hs !== undefined) settings.dev.hs = params.hs;
   return settings;

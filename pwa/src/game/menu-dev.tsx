@@ -17,12 +17,22 @@
 // onto the side of the game. Their sentences go to the ONE caption bar at the
 // foot, which is what lets a page of tools stay a page rather than a booklet.
 //
+// THE BENCHMARK IS THE ONE ROW HERE THAT IS NOT A URL PARAMETER, and it is
+// the exception the rule is worth stating for: it does not stand a frame up,
+// it TIMES one (`benchmark.ts`). Every dial of the race it runs is pinned in
+// `benchmark-plan.ts` precisely so that it cannot be handed round as a link
+// with the conditions changed — a score is only a score against a second
+// score taken on the same race.
+//
 // LOCK is the way back out. It is not a tidy-up — RESTORE DEFAULTS on the
 // options page deliberately leaves the menu unlocked — it is for somebody
 // who opened the door by accident and wants it shut.
 
 import { useState } from "preact/hooks";
+import { MODE_RULES } from "@engine";
 
+import { BENCHMARK, benchmarkSeconds } from "./benchmark-plan.ts";
+import { benchmarkRuns } from "./benchmark-history.ts";
 import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
 import { MenuHead } from "./menu.tsx";
 import {
@@ -87,10 +97,19 @@ export function DeveloperPage({
   settings,
   onSettings,
   onBack,
+  onBenchmark,
+  onBenchmarkHistory,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
   onBack: () => void;
+  /** Take the canvas and time a race on it. */
+  onBenchmark: () => void;
+  /** …and the list of every one this machine has scored, reachable without
+   * running another: the whole use of the tool is the COMPARISON, and a page
+   * you could only reach out of a fresh run would charge thirty seconds for
+   * looking something up. */
+  onBenchmarkHistory: () => void;
 }) {
   const [said, setSaid] = useState<string | null>(null);
   const [hint, setHint] = useState<string | null>(null);
@@ -174,6 +193,22 @@ export function DeveloperPage({
         </div>
       </div>
       <Caption text={hint} fallback={STRINGS.devCaption} />
+      {/* THE STOPWATCH, under the rows rather than among them: it is not a
+          setting, it is a press that takes the canvas for thirty seconds. */}
+      <button type="button" class="menu-item menu-item-dev" onClick={onBenchmark}>
+        {STRINGS.benchTitle}
+        <span class="menu-item-sub">
+          {/* The field the PLAN's mode puts on the water, plus the rider the
+              card stands over — never the race's own number, which would go
+              on saying twelve the day the benchmark was pinned to a time
+              trial. */}
+          {STRINGS.benchRowHint(benchmarkSeconds(), MODE_RULES[BENCHMARK.mode].rivals + 1)}
+        </span>
+      </button>
+      <button type="button" class="menu-item menu-item-dev" onClick={onBenchmarkHistory}>
+        {STRINGS.benchHistoryTitle}
+        <span class="menu-item-sub">{STRINGS.benchHistoryRowHint(benchmarkRuns().length)}</span>
+      </button>
       <button
         type="button"
         class="opt-reset"

@@ -73,6 +73,7 @@ import {
   type VideoSettings,
   type WaterLevel,
 } from "./settings-video.ts";
+import { STEPS } from "./picture-rows.ts";
 import { STRINGS } from "./strings.ts";
 import { useState } from "preact/hooks";
 
@@ -97,15 +98,13 @@ export const CAMERA_STOPS: Stop<CameraMode>[] = CAMERA_MODES.map((id) => ({
   label: CAMERA_LABELS[id],
 }));
 
-/** The four picture ladders. Every one of them is cheapest first, left to
- * right, so a rider who is looking for frames always walks the same way — and
- * the words come off the strings table like every other word on every other
- * card (§39.1), never off the id. */
-const STEPS: Record<"low" | "medium" | "high", string> = {
-  low: STRINGS.optLow,
-  medium: STRINGS.optMedium,
-  high: STRINGS.optHigh,
-};
+/* The four picture ladders are cheapest first, left to right, so a rider who
+   is looking for frames always walks the same way — and their words come off
+   the strings table like every other word on every other card (§39.1), never
+   off the id. `STEPS` is `picture-rows.ts`'s rather than this page's: the
+   benchmark reports what these rows were standing at when it scored a run,
+   and a page and a report wording one setting two ways is one setting nobody
+   can map back onto the other. */
 
 const WATER_STOPS: Stop<WaterLevel>[] = WATER_LEVELS.map((id) => ({ id, label: STEPS[id] }));
 
