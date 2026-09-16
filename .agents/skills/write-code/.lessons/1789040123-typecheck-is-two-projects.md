@@ -30,3 +30,11 @@ LAST good build, and a browser-driven lab run in the same command line
 profiles the previous change. The numbers come back plausible and wrong.
 Always read `make build`'s own last line before trusting a lab that follows
 it.
+
+THE SAME TRAP WITH NO FAILURE IN IT: `pwa/dist/` is ONE directory and a lab
+serves it live, so a second `make build` started while a lab is still running
+swaps the site out from under it. A two-viewport shoot did its desktop pass
+against one tree and its phone pass against the next, and the two pictures
+disagreed in a way that read as a layout bug rather than as two builds. Check
+for an in-flight lab (`pgrep -af "playwright|screenshot|preview"`) before
+rebuilding, or give the second build its own `git worktree`.

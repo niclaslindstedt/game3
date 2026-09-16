@@ -119,8 +119,16 @@ export type Environment = {
 export function createEnvironment(scene: THREE.Scene): Environment {
   const uniforms = createSkyUniforms();
   const dome: SkyDome = createSkyDome(uniforms);
+  // NAMED for the benchmark's scene breakdown (`renderer.ts`'s `sceneTally`),
+  // which buckets by the nearest named ancestor: the dome and the rain hang
+  // straight off the scene, so without a name of their own they report as
+  // "everything else" — and the sky is the steepest per-pixel lever the game
+  // has, which makes it the last row anybody optimising should have to guess
+  // at.
+  dome.mesh.name = "sky";
   scene.add(dome.mesh);
   const rain: Rain = createRain();
+  rain.lines.name = "rain";
   scene.add(rain.lines);
 
   // ── The air ──────────────────────────────────────────────────────────────

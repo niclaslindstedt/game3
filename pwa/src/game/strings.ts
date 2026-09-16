@@ -616,6 +616,9 @@ export const STRINGS = {
   benchStop: "STOP",
   benchClose: "CLOSE",
   benchAgain: "RUN AGAIN",
+  /** One word for one control, wherever it stands: a ROW on the card (which is
+   * 28rem and, on a phone, the whole screen — see the note beside it) and a
+   * head corner on the two surfaces wide enough for one. */
   benchCopyReport: "COPY DEBUG REPORT",
   benchCopySheet: "COPY SCORE SHEET",
   benchEnlarge: "TAP TO ENLARGE",
