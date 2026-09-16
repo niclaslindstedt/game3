@@ -359,4 +359,15 @@ export type Level = {
    * the ocean (`Biome.sea.swell`), and everything past the rim builds on
    * top of what is left (`ocean.ts`). */
   readonly swell: number;
+  /** ...and whether that height was ASKED FOR (`GenerateOptions.swell`,
+   * which a FREE ride's WAVES fader writes) rather than dealt by the seed.
+   *
+   * The two are the same number and a different statement, and one place
+   * cares which: `createSea` reads a wind of ZERO as a flat calm and lays
+   * no sea at all, because that is the water every physics test stages its
+   * hull at rest on. A swell the RUN asked for is not the coast's weather
+   * and is not covered by that — a glassy morning with twenty metres
+   * rolling under it is precisely what R36 offers — so it survives a calm,
+   * and a dealt one does not. */
+  readonly swellAsked: boolean;
 };

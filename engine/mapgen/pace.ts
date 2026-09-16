@@ -86,25 +86,38 @@
 //       GROUNDSWELL as well as a wind: the sea that came in off the open
 //       ocean, grown by weather a thousand kilometres away and standing off
 //       this coast whatever the wind on the coast is doing. Its significant
-//       height OUT THERE is a number in `SWELL_DIAL` — one metre to twenty
-//       — and a
-//       run may be dealt any of it, which makes it the third thing a
-//       difficulty ladder may move in the LEVEL beside R32's class and
-//       R33's deck. Left to the seed it is DRAWN, log-uniformly over the
-//       band and squared toward its floor so that the ordinary day is
-//       ordinary: two metres off the median shore, more than ten off about
-//       one shore in eight, and the top of the band about one in fifty. How
-//       much of it ARRIVES is the coast's own share of the ocean
-//       (`Biome.sea.swell`) — a skerry coast has the islands between it and
-//       the weather, so it rides less of the same sea than a low open one.
-//       The draw is the LAST thing the seeded stream does, so a shore dealt
-//       a big sea is the same shore it would have been under a small one —
-//       the swell changes the water over a level, never the level under it,
-//       and nothing the search judged can move for it. And it is a BASELINE
-//       rather than a ceiling: the open ocean past the rim still builds on
-//       it, adding its own storm in energy the way two seas standing in the
-//       same water do, so riding out grows the sea whatever the coast was
-//       dealt.
+//       height OUT THERE is a number in `SWELL_DIAL` — one metre to twenty —
+//       and a run may be dealt any of it, which makes it the third thing a
+//       difficulty ladder may move in the LEVEL beside R32's class and R33's
+//       deck. Left to the seed it is DRAWN, log-uniformly over the band and
+//       squared toward its floor so that the ordinary day is ordinary: two
+//       metres off the median shore, more than ten off about one shore in
+//       eight, and the top of the band about one in fifty. How much of it
+//       ARRIVES is the coast's own share of the ocean (`Biome.sea.swell`) —
+//       a skerry coast has the islands between it and the weather, so it
+//       rides less of the same sea than a low open one — and then how much
+//       of the open sea the point itself can see STRAIGHT OUT
+//       (`seaExposure`): the same fan the wind sea's fetch is measured over,
+//       aimed dead onshore rather than up the wind, because a sea grown a
+//       thousand kilometres away is cut by the land in front of it and by
+//       nothing today's wind is doing. Turn the wind off the coast and the
+//       sea the wind grew goes flat; this one stands where it stood. The
+//       draw is the LAST thing the seeded stream does, so a shore dealt a
+//       big sea is the same shore it would have been under a small one — the
+//       swell changes the water over a level, never the level under it, and
+//       nothing the search judged can move for it. A height ASKED for rather
+//       than dealt is the run's own statement and is carried as one
+//       (`Level.swellAsked`), because one thing turns on the difference: a
+//       wind of zero is how this engine spells a FLAT CALM — the water every
+//       physics test stands its hull still on — and it takes the swell the
+//       COAST was dealt away with it. The swell a RIDER asked for is the
+//       whole of what the dial is for, so it stands in that calm: a glassy
+//       morning with twenty metres rolling under it is a level asked for
+//       twenty metres, not a wind doing something it cannot. And it is a
+//       BASELINE rather than a ceiling: the open ocean past the rim still
+//       builds on it, adding its own storm in energy the way two seas
+//       standing in the same water do, so riding out grows the sea whatever
+//       the coast was dealt.
 //
 // Split out of `rules.ts` for the §20.5 cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
