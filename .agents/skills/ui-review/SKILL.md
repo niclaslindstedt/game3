@@ -72,7 +72,7 @@ settles (that is the `skill-reflection` promotion path).
    arrangement, not the landscape HUD scaled down — the water fills a tall
    frame differently, and the horizon sits higher.
 7. **Safe areas + reduced motion.** Anything pinned to a screen edge respects
-   `env(safe-area-inset-*)`; decorative animation (the vane's swing, the
+   `env(safe-area-inset-*)`; decorative animation (the wind arrow's turn, the
    lever's spring) has a `prefers-reduced-motion` fallback that keeps the
    information.
 8. **The PWA surfaces count too.** The update toast and install flow are UI —

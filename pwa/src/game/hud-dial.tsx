@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE INSTRUMENTS THAT ARE DRAWN rather than printed, both of them in the
+// THE INSTRUMENTS THAT ARE DRAWN rather than printed, all of them in the
 // corner the speed is read from. Nothing here reads the game: each is handed
 // a share and paints it.
 //
@@ -13,6 +13,11 @@
 // away up the tape on a jump. The figure travels with the marker rather than
 // sitting in a fixed corner, so the reading and how high it is are the one
 // glance — which is the whole reason this is a tape and not a chip.
+//
+// THE WIND METER — an extruded arrow laid over a tilted compass plate. Its
+// bearing is relative to the craft's nose, so the arrow turns as either the
+// local wind or the craft's heading changes. The arrow points where the wind
+// is GOING: straight up is a tailwind.
 
 import { ALT_ZERO } from "./snapshot.ts";
 
@@ -105,6 +110,45 @@ export function AltitudeTape({
       <span class="hud-tape-mark" style={{ bottom: `${(at * 100).toFixed(2)}%` }}>
         <span class="hud-tape-num">{reading}</span>
       </span>
+    </div>
+  );
+}
+
+/** THE WIND METER. `angle` is the screen-space bearing the arrow points
+ * along, radians clockwise from straight up; `reading` and `label` are
+ * already worded (§39.1). The two offset arrow faces make one thick object,
+ * and the small bright facet fixes which end is the point even at phone size. */
+export function WindMeter({
+  angle,
+  reading,
+  label,
+}: {
+  angle: number;
+  reading: string;
+  label: string;
+}) {
+  const deg = (angle * 180) / Math.PI;
+  return (
+    <div class="hud-wind" title={label} role="img" aria-label={`${label}: ${reading}`}>
+      <svg class="hud-wind-dial" viewBox="0 0 86 64" aria-hidden="true">
+        <ellipse class="hud-wind-plate" cx="43" cy="32" rx="36" ry="25" />
+        <path class="hud-wind-cross" d="M 43 9 V 55 M 10 32 H 76" />
+        <ellipse class="hud-wind-ring" cx="43" cy="32" rx="27" ry="18" />
+        <g class="hud-wind-arrow" style={{ transform: `rotate(${deg.toFixed(1)}deg)` }}>
+          <path
+            class="hud-wind-arrow-side"
+            d="M 43 7 L 58 25 L 51 25 L 51 50 L 37 50 L 37 25 L 30 25 Z"
+            transform="translate(3 4)"
+          />
+          <path
+            class="hud-wind-arrow-face"
+            d="M 43 7 L 58 25 L 51 25 L 51 50 L 37 50 L 37 25 L 30 25 Z"
+          />
+          <path class="hud-wind-arrow-facet" d="M 43 7 L 43 47 L 37 50 L 37 25 L 30 25 Z" />
+        </g>
+      </svg>
+      <span class="hud-wind-reading">{reading}</span>
+      <span class="hud-chip-sub">{label}</span>
     </div>
   );
 }

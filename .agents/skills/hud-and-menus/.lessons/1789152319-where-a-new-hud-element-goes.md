@@ -5,12 +5,13 @@ scope: pwa/src/game/hud.tsx, pwa/src/styles.css
 concepts: [layout, portrait, placement, overlays]
 ---
 
-The census: the clock, the gate count, the WIND VANE and the SUN'S CLOCK in
-the top-left column (`.hud-top` — the run's facts, stacked); the minimap,
+The census: the clock, the gate count and the SUN'S CLOCK in the top-left
+column (`.hud-top` — the run's facts, stacked); the minimap,
 the three presses and the diagnostics top-right (`.hud-topright`); the air
-clock top-CENTRE (`.hud-air`, which appears only in flight); the rev bar,
-the speed and the build stamp bottom-left; the news column bottom-right —
-and on a phone the lower three fifths is the two thumb zones.
+clock top-CENTRE (`.hud-air`, which appears only in flight); the altitude
+tape and WIND METER over the rev bar and speed bottom-left; the build stamp
+under that cluster; the news column bottom-right — and on a phone the lower
+three fifths is the two thumb zones.
 
 A new READOUT joins the column whose SUBJECT it shares, and for a fact about
 the RUN that is `.hud-top`: it stacks downward with slack to spare at 390 px

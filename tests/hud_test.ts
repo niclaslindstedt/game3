@@ -411,6 +411,30 @@ describe("the altimeter", () => {
   });
 });
 
+describe("the wind meter", () => {
+  it("reads the local wind at the craft and turns relative to its nose", () => {
+    const level = syntheticLevel({ windSpeed: 9, windFrom: 0, noSolids: true });
+    const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+    placeRun(state, { x: 100, z: 40, heading: 0 });
+    const north = takeSnapshot(state);
+
+    // Moving the craft makes the meter sample the new point rather than
+    // carrying the level's headline wind as a fixed HUD value.
+    placeRun(state, { x: 400, z: 350, heading: 0 });
+    const offshore = takeSnapshot(state);
+    expect(offshore.windMs).toBeGreaterThan(0);
+    expect(offshore.windMs).not.toBe(north.windMs);
+
+    // At the same point the world wind has not turned; only the craft has.
+    // Its screen bearing moves a quarter turn clockwise with the new nose,
+    // which is what the arrow beside the altimeter animates between.
+    placeRun(state, { x: 400, z: 350, heading: Math.PI / 2 });
+    const east = takeSnapshot(state);
+    expect(east.windMs).toBeCloseTo(offshore.windMs, 9);
+    expect(east.windAngle - offshore.windAngle).toBeCloseTo(Math.PI / 2, 6);
+  });
+});
+
 // THE TAPE'S SCALE. The marker's TRAVEL is compressed and the figure beside
 // it is not, so these are claims about what the shape says, never about what
 // the rider reads: the number is `craft.altitude` to a decimal at every

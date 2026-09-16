@@ -32,8 +32,8 @@ here, the keys that walk a card are there.
 | Surface | Where |
 | --- | --- |
 | The readouts: speed (km/h, big), the rpm bar (no gear — a PWC has none), the run clock, gate `n / N`, the last split, the air time while airborne, the build label in the corner | `pwa/src/game/hud.tsx` + `pwa/src/styles.css` |
-| A dial or a bar, as a component | `pwa/src/game/hud-dial.tsx` — the rpm bar is one; a temperature or a fuel gauge, when they come, are others |
-| The WIND VANE — direction as a needle, speed as a figure | in `hud.tsx`, reading `state.wind`; it says where the sea is coming from, and the sea comes from there (`water-feel`) |
+| A moving instrument, dial or bar, as a component | `pwa/src/game/hud-dial.tsx` — the altitude tape, wind meter and rpm bar are here; a temperature or a fuel gauge, when they come, are others |
+| The WIND METER — direction as a faceted arrow, speed as a figure | composed by `hud.tsx` beside the altimeter, reading the craft-local bearing and speed from `snapshot.ts`; it says where the sea is coming from, and the sea comes from there (`water-feel`) |
 | What the speedo READS | `CraftState.speed` — `|v|`, vertical included; stated once in `engine/game/state.ts`, never re-derived in the HUD |
 | The split against the last gate | `Progress.splits` / `lastGatePassedAt` in `engine/game/course.ts` — the HUD shows it, never computes it |
 | The run-news flashes, including `MISSED CHECKPOINT` | `pwa/src/game/run-news.ts` chooses from engine events, `strings.ts` owns the words, and `hud.tsx` draws the resulting snapshot |

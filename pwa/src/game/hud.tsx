@@ -3,21 +3,17 @@
 // (the app refreshes it ~12×/s — the canvas is the 60 fps surface, the HUD
 // is not) and lays out everything drawn over the sea:
 //
-//   top left      the run clock and the gate count, with the WIND VANE
-//                 under them — the vane is a fact about the water rather
-//                 than a press, so it belongs beside the two readouts that
-//                 say how the run is going, not on the row of buttons —
-//                 and the SUN'S CLOCK under that: the hour the run has
+//   top left      the run clock and the gate count, with the SUN'S CLOCK
+//                 under them: the hour the run has
 //                 reached and the word for its light, because a run rides
 //                 an hour a minute into whatever the season has
 //   top right     the MINIMAP — the coast, the gates and the craft on it,
 //                 and the press that holds the run and puts the pause card
 //                 up — with the RESET and CAMERA presses hung under it, and
 //                 the new-build mark over it on the days there is one
-//   bottom left   the ALTITUDE TAPE, the rev bar and the speed — the
-//                 corner's three instruments, the tape on top because a
-//                 climb is a vertical reading and this is the only edge
-//                 with the room for one
+//   bottom left   the ALTITUDE TAPE and WIND METER, then the rev bar and
+//                 speed — the moving instruments share the top row, where
+//                 their changing positions can be read in one glance
 //   top centre    the AIR CLOCK, while the hull is off the water — the one
 //                 number a rider is trying to make go up, so it sits where
 //                 he is already looking to aim the landing — with the COMBO
@@ -43,7 +39,7 @@ import { REPO_URL } from "../identity.ts";
 import { formatTime } from "../lib/util.ts";
 import { hourLabel } from "./daylight.ts";
 import { HudActions } from "./hud-actions.tsx";
-import { AltitudeTape, RevBar } from "./hud-dial.tsx";
+import { AltitudeTape, RevBar, WindMeter } from "./hud-dial.tsx";
 import { BarZone, LeverZone } from "./hud-touch.tsx";
 import type { InputManager } from "./input.ts";
 import { Minimap } from "./minimap.tsx";
@@ -76,23 +72,6 @@ export type HudResult = {
  * laptop with one reports it and gets them; a desktop does not. */
 export function hasTouch(): boolean {
   return typeof navigator !== "undefined" && navigator.maxTouchPoints > 0;
-}
-
-function WindVane({ angle, ms }: { angle: number; ms: number }) {
-  const deg = (angle * 180) / Math.PI;
-  return (
-    <div class="hud-chip hud-wind" title={STRINGS.windLabel}>
-      <span class="hud-wind-row">
-        <svg class="hud-vane" viewBox="0 0 24 24" aria-hidden="true">
-          <g style={{ transform: `rotate(${deg.toFixed(1)}deg)` }}>
-            <path d="M12 2 L17 12 L13 10.5 L13 22 L11 22 L11 10.5 L7 12 Z" fill="currentColor" />
-          </g>
-        </svg>
-        <span>{STRINGS.wind(ms)}</span>
-      </span>
-      <span class="hud-chip-sub">{STRINGS.windLabel}</span>
-    </div>
-  );
 }
 
 export function Hud({
@@ -191,10 +170,6 @@ export function Hud({
             </div>
           ) : null}
         </div>
-        {/* Under the clock rather than across the screen from it: the vane
-            says where the sea is coming from, and it is read together with
-            the time it is costing. */}
-        <WindVane angle={snap.windAngle} ms={snap.windMs} />
         <div class="hud-chip hud-sun" title={STRINGS.sunClockLabel(snap.daylight)}>
           <span>{hourLabel(snap.hour)}</span>
           <span class="hud-chip-sub">{STRINGS.sunClockLabel(snap.daylight)}</span>
@@ -259,21 +234,25 @@ export function Hud({
       )}
 
       <div class="hud-speed">
-        {/* THE ALTITUDE TAPE, standing on top of the speed cluster. It is
-            here rather than up among the run's facts because it is an
-            INSTRUMENT rather than a readout — a thing with a moving part,
-            read the way the rev bar beneath it is read, out of the corner
-            of an eye already on that corner for the speed — and because a
-            vertical reading wants vertical room, which this is the only
-            edge of the screen with. The figure rides the marker, so how
-            high and how high exactly are one glance. */}
-        <div class="hud-alt">
-          <AltitudeTape
-            share={snap.altitudeShare}
-            peak={snap.altitudePeakShare}
-            reading={STRINGS.altitude(snap.altitude)}
+        {/* THE TWO MOVING INSTRUMENTS, together above the rev bar. The
+            altitude tape spends vertical room on height; the wind arrow to
+            its right spends a tilted plane on direction. Both move with the
+            craft, so both belong in the corner read for motion rather than
+            among the run's fixed facts. */}
+        <div class="hud-instruments">
+          <div class="hud-alt">
+            <AltitudeTape
+              share={snap.altitudeShare}
+              peak={snap.altitudePeakShare}
+              reading={STRINGS.altitude(snap.altitude)}
+            />
+            <span class="hud-chip-sub">{STRINGS.altitudeLabel}</span>
+          </div>
+          <WindMeter
+            angle={snap.windAngle}
+            reading={STRINGS.wind(snap.windMs)}
+            label={STRINGS.windLabel}
           />
-          <span class="hud-chip-sub">{STRINGS.altitudeLabel}</span>
         </div>
         <div class="hud-revs-row">
           <RevBar rpm={snap.rpm} idle={snap.idle} braking={snap.braking} />
