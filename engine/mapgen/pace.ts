@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE RULE BOOK'S THIRD CHAPTER: what every number in it becomes at a
-// SPEED CLASS. `rules.ts` says what the rules are and `rules-circuit.ts`
-// replaces half of them for a lap at sea; this one stretches whichever of
-// the two a level was drawn to.
+// SPEED CLASS, and the DIALS a run may be dealt on top of it. `rules.ts`
+// says what the rules are and `rules-circuit.ts` replaces half of them for
+// a lap at sea; this one stretches whichever of the two a level was drawn
+// to, and carries the three numbers a run sets for itself — the class, the
+// deck's width and the sea standing off the coast.
 //
 //   R32 A FASTER CLASS IS GIVEN MORE COURSE, NOT LESS TIME. Every number
 //       in the rule book is metres and a level is laid in metres, so a
@@ -79,6 +81,30 @@
 //       one seed is one field: a tricks score is compared across the roster
 //       (which is why `classFor` pins the run to stock too), and a field
 //       that grew with the hull would make the hull the score.
+//
+//   R36 THE SEA IS A DIAL, AND IT IS NOT THE WIND'S. A level is dealt a
+//       GROUNDSWELL as well as a wind: the sea that came in off the open
+//       ocean, grown by weather a thousand kilometres away and standing off
+//       this coast whatever the wind on the coast is doing. Its significant
+//       height OUT THERE is a number in `SWELL_DIAL` — one metre to twenty
+//       — and a
+//       run may be dealt any of it, which makes it the third thing a
+//       difficulty ladder may move in the LEVEL beside R32's class and
+//       R33's deck. Left to the seed it is DRAWN, log-uniformly over the
+//       band and squared toward its floor so that the ordinary day is
+//       ordinary: two metres off the median shore, more than ten off about
+//       one shore in eight, and the top of the band about one in fifty. How
+//       much of it ARRIVES is the coast's own share of the ocean
+//       (`Biome.sea.swell`) — a skerry coast has the islands between it and
+//       the weather, so it rides less of the same sea than a low open one.
+//       The draw is the LAST thing the seeded stream does, so a shore dealt
+//       a big sea is the same shore it would have been under a small one —
+//       the swell changes the water over a level, never the level under it,
+//       and nothing the search judged can move for it. And it is a BASELINE
+//       rather than a ceiling: the open ocean past the rim still builds on
+//       it, adding its own storm in energy the way two seas standing in the
+//       same water do, so riding out grows the sea whatever the coast was
+//       dealt.
 //
 // Split out of `rules.ts` for the §20.5 cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
@@ -202,6 +228,47 @@ export const RAMP_DIAL = { min: 0.5, max: 2 } as const;
  * the analyzer scores against a book nothing built it to. */
 export function clampDial(rampWidth: number): number {
   return Math.min(Math.max(rampWidth, RAMP_DIAL.min), RAMP_DIAL.max);
+}
+
+/** R36 — THE SEA'S OWN BAND: the significant heights, m, a level's
+ * groundswell may be dealt or asked for. The floor is a metre, which is the
+ * smallest sea that still reads as a swell from a chase camera rather than
+ * as flat water; the ceiling is twenty, which is the WMO's phenomenal sea
+ * and about as much as a hull this size can be ridden over at all. Stated
+ * here rather than in `rules.ts` for R33's and R34's reason: that file is
+ * at the §20.5 cap.
+ *
+ * Its SHAPE — how steep the swell is quoted at, how narrow a band it is
+ * laid over, how far off the wind it comes in — is `TUNING.sea.swell`,
+ * where every other number about a swell is. This is the one thing about it
+ * a LEVEL carries, because it is the one thing that is the coast's rather
+ * than the model's. */
+export const SWELL_DIAL = { min: 1, max: 20 } as const;
+
+/** R36 — a swell height held inside that band. Exported for `clampDial`'s
+ * reason: the generator clamps what it was asked for before it puts the
+ * result on the `Level`, so the height the level carries is the height its
+ * sea was actually built at. */
+export function clampSwell(hs: number): number {
+  return Math.min(Math.max(hs, SWELL_DIAL.min), SWELL_DIAL.max);
+}
+
+/** R36 — THE SWELL A SEED IS DEALT, m, off one uniform draw `u` in 0..1.
+ *
+ * LOG-UNIFORM over the band, because the band spans a factor of twenty and
+ * a straight draw over it would make the median day a ten-metre sea — the
+ * question "how big is it out there today" is answered in doublings, not in
+ * metres. SQUARED toward the floor on top of that, because even a
+ * log-uniform draw puts the median at four and a half metres, which is a
+ * heavy sea every other ride. What comes out is the ordinary day being
+ * ordinary: a two-metre swell off the median shore, a sea over ten metres
+ * off about one shore in eight, and the top of the band about one in fifty
+ * — and how much of any of it ARRIVES is then the coast's own
+ * (`Biome.sea.swell`, applied by `createSea` where every other thing a
+ * coast does to its water is). */
+export function dealSwell(u: number): number {
+  const shape = Math.min(Math.max(u, 0), 1) ** 2;
+  return clampSwell(SWELL_DIAL.min * (SWELL_DIAL.max / SWELL_DIAL.min) ** shape);
 }
 
 /** R35 — the share of its own top speed a rider is to arrive at every lip

@@ -47,6 +47,9 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
     // The developer's own rows win where they are set: they are the exact
     // figure, and the card's is a word standing for one.
     windSpeed: s.dev.wind ?? day?.wind,
+    // R36 — the sea standing off the coast, which the WIND row above does
+    // not imply and cannot ask for. Left alone it is the shore's own.
+    swell: s.ride.swell ?? undefined,
     sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
     hour: params.hour,
     timeOfDay: s.ride.time ?? undefined,

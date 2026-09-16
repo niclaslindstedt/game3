@@ -28,7 +28,13 @@ import {
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import type { MenuPage } from "./menu-main.tsx";
 import { isScenarioName, type ScenarioName } from "./scenarios.ts";
-import { CONDITIONS, TRICK_MINUTES, type Conditions, type Settings } from "./settings.ts";
+import {
+  CONDITIONS,
+  SEA_METRES,
+  TRICK_MINUTES,
+  type Conditions,
+  type Settings,
+} from "./settings.ts";
 import {
   DETAIL_LEVELS,
   DETAIL_PRESETS,
@@ -69,6 +75,9 @@ export type Params = {
   time: TimeOfDay | undefined;
   season: Season | undefined;
   day: Conditions | undefined;
+  /** R36 — how big the swell out past the coast is, m off the WAVES row's
+   * own ladder. A setting like the rows around it. */
+  waves: number | undefined;
   weather: Weather | undefined;
   /** The start card's COAST row: which biome the seed is built on. */
   biome: BiomeId | undefined;
@@ -150,6 +159,7 @@ export function readParams(search: string): Params {
     day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
       ? (p.get("day") as Conditions)
       : undefined,
+    waves: SEA_METRES.find((hs) => String(hs) === p.get("waves")),
     biome: isBiomeId(p.get("biome")) ? (p.get("biome") as BiomeId) : undefined,
     mode: isGameMode(p.get("mode")) ? (p.get("mode") as GameMode) : undefined,
     minutes: TRICK_MINUTES.find((m) => String(m) === p.get("minutes")),
@@ -206,6 +216,7 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.time !== undefined) settings.ride.time = params.time;
   if (params.season !== undefined) settings.ride.season = params.season;
   if (params.day !== undefined) settings.ride.conditions = params.day;
+  if (params.waves !== undefined) settings.ride.swell = params.waves;
   if (params.weather !== undefined) settings.ride.weather = params.weather;
   if (params.scene !== null) settings.dev.scene = params.scene;
   // A URL that names the developer page has, by definition, found it — the

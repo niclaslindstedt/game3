@@ -9,6 +9,7 @@
 import type { GameMode, TrickKind, TrickPart } from "@engine";
 
 import { formatScore, formatTime, ordinal } from "../lib/util.ts";
+import type { SeaStateId } from "./settings.ts";
 
 /** The class ladder's words, by the multiple each rung is. Novice is the
  * detuned ski a rider is handed first; stock is the roster as the catalog
@@ -32,6 +33,20 @@ const CLASS_NAMES: Record<string, string> = {
   "1": "STOCK",
   "1.25": "LIMITED",
   "1.5": "OPEN",
+};
+
+/** R36 — the Douglas sea scale's words for its own states, which is where
+ * the WAVES row's ladder comes from. Typed off the scale rather than as a
+ * loose map, so a rung added there does not compile until it has a word —
+ * the `Record<HeldAction, true>` trick, for the same reason. */
+const SEA_STATE_NAMES: Record<SeaStateId, string> = {
+  slight: "SLIGHT",
+  moderate: "MODERATE",
+  rough: "ROUGH",
+  veryRough: "VERY ROUGH",
+  high: "HIGH",
+  veryHigh: "VERY HIGH",
+  phenomenal: "PHENOMENAL",
 };
 
 /** What a flight's Nth revolution is called. Past a triple the count is
@@ -330,6 +345,11 @@ export const STRINGS = {
    * questions; `menu-start.tsx` owns the two-row control. */
   startWind: "WIND",
   startWindHint: "The wind, and so the sea it builds — the fetch law turns one into the other",
+  /** R36 — the sea that came in off the ocean, which the wind row does not
+   * build and cannot ask for. */
+  startWaves: "WAVES",
+  startWavesHint:
+    "How big the swell out past the coast is — somebody else's weather, days old, so it owes the wind nothing. Ride out to sea and it still grows",
   startWeather: "WEATHER",
   startWeatherHint:
     "The sky over it. Left alone it is the one the wind implies, which is R19's own agreement",
@@ -387,6 +407,11 @@ export const STRINGS = {
   windCalm: "CALM",
   windBrisk: "BRISK",
   windStorm: "STORM",
+  /** The seas, smallest first — the Douglas scale's own words for its own
+   * bands, which is why they are these words and not prettier ones. Each is
+   * shown with the metres it stands for, because a rider who has never met
+   * the scale still knows what nine metres is. */
+  seaState: (id: SeaStateId, metres: number): string => `${SEA_STATE_NAMES[id]} ${metres} M`,
   /** The skies, lightest first — R19's own six, in the engine's order.
    * Plain-weather words for ids that are art direction's: `haze` is a warm
    * coast's white morning, `high` is a thin sheet up there, `overcast` is

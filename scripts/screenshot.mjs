@@ -204,6 +204,10 @@ const args = parseArgs(
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
+    waves: {
+      kind: "number",
+      help: "R36 — the swell standing off the coast, m: 1, 2.5, 4, 6, 9, 14 or 20",
+    },
     hour: { kind: "number", help: "start at this hour on the clock in place of the level's" },
     season: {
       kind: "string",
@@ -235,7 +239,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
-    "[--seed n] [--biome taiga|mangrove] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--hour h] [--season s] [--weather w] " +
+    "[--seed n] [--biome taiga|mangrove] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--waves m] [--hour h] [--season s] [--weather w] " +
     "[--camera c] [--details] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );
@@ -334,6 +338,7 @@ if (args.biome !== undefined) base.biome = String(args.biome);
 if (args.camera !== undefined) base.camera = String(args.camera);
 if (args.wind !== undefined) base.wind = String(args.wind);
 if (args.hs !== undefined) base.hs = String(args.hs);
+if (args.waves !== undefined) base.waves = String(args.waves);
 if (args.hour !== undefined) base.hour = String(args.hour);
 if (args.season !== undefined) base.season = String(args.season);
 if (args.weather !== undefined) base.weather = String(args.weather);

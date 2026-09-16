@@ -89,10 +89,15 @@ describe("the scenario list", () => {
     expect(past).toBeGreaterThanOrEqual(TUNING.sea.open.reach);
     expect(stormAt(LEVEL.bounds, s.moment.x, s.moment.z)).toBe(1);
     // The storm this level was DEALT — somewhere in the top quarter of what
-    // the roster's fastest craft can still jump, drawn once per seed.
+    // the roster's fastest craft can still jump, drawn once per seed, and
+    // standing over the coast's own sea in quadrature (R36), which is what
+    // keeps a shore dealt a big swell from riding out into calmer water.
     const { Hs } = seaSummary(state.sea, s.moment.x, s.moment.z);
-    expect(Hs).toBeGreaterThanOrEqual(STORM_CEILING * TUNING.sea.open.vary - 1e-6);
-    expect(Hs).toBeLessThanOrEqual(STORM_CEILING + 1e-6);
+    const coast = Math.hypot(state.sea.hsRef, state.sea.swellHs);
+    expect(Hs).toBeGreaterThanOrEqual(
+      Math.hypot(STORM_CEILING * TUNING.sea.open.vary, coast) - 1e-6,
+    );
+    expect(Hs).toBeLessThanOrEqual(Math.hypot(STORM_CEILING, coast) + 1e-6);
   });
 });
 

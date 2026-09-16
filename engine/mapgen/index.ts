@@ -15,8 +15,11 @@ export {
 export { inLane, nextAfter, trickBeam, trickDeck, type FieldWater } from "./trick-field.ts";
 export {
   clampDial,
+  clampSwell,
+  dealSwell,
   GATE_CORNER,
   RAMP_DIAL,
+  SWELL_DIAL,
   TRICK_SHARE,
   rulesAtPace,
   trickStride,

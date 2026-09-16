@@ -27,6 +27,7 @@ import {
   CRAFT,
   jumpableHs,
   STORM_CEILING,
+  SWELL_DIAL,
   topSpeedOf,
   stormAt,
   seaShares,
@@ -168,8 +169,8 @@ describe("shoaling and fetch", () => {
   });
 
   it("a stronger wind is a bigger sea", () => {
-    const breeze = createSea(syntheticLevel({ windSpeed: 6 }), 1);
-    const gale = createSea(syntheticLevel({ windSpeed: 14 }), 1);
+    const breeze = createSea(syntheticLevel({ windSpeed: 6, swell: 3 }), 1);
+    const gale = createSea(syntheticLevel({ windSpeed: 14, swell: 3 }), 1);
     // The WIND's own sea more than doubles over R12's band — that is the
     // fetch law, and it is asked of `hsRef` because the swell standing in
     // the same water is the part of the sea the wind did NOT make: it is
@@ -354,7 +355,22 @@ describe("the surface", () => {
     const spread = Math.acos(Math.min(1, Math.hypot(sx, sz) / weight));
     expect(spread).toBeGreaterThan(0.1);
     expect(spread).toBeLessThan(TUNING.sea.spread);
-    expect(widest).toBeGreaterThan(TUNING.sea.spread);
+    expect(widest).toBeLessThanOrEqual(TUNING.sea.spreadMax + 1e-9);
+    // ...and the fan really does reach PAST the nominal half-width: the
+    // strata are drawn, so how far the widest component of one sea stands
+    // is a draw and not a property — seven seas in ten carry one outside
+    // `spread` and the rest do not. Read over a handful of seeds, which is
+    // the claim that is actually true of the model.
+    let furthest = widest;
+    for (let seed = 0; seed < 8; seed++) {
+      for (const c of createSea(level, seed).components) {
+        let d = Math.atan2(c.dirX, c.dirZ) - toward;
+        while (d > Math.PI) d -= 2 * Math.PI;
+        while (d < -Math.PI) d += 2 * Math.PI;
+        furthest = Math.max(furthest, Math.abs(d));
+      }
+    }
+    expect(furthest).toBeGreaterThan(TUNING.sea.spread);
   });
 
   it("runs the energy the wind's own way on average, over the corpus", () => {
@@ -582,7 +598,10 @@ describe("the phase field", () => {
 });
 
 describe("the groundswell", () => {
-  const level = syntheticLevel({ windSpeed: 8 });
+  // Its own swell rather than the bench's: a describe about the swell says
+  // how big the swell is, and the bench's default is deliberately small
+  // (`synthetic.ts`). Three metres is about what a middling shore is dealt.
+  const level = syntheticLevel({ windSpeed: 8, swell: 3 });
   const sea = createSea(level, 1);
 
   it("is long, ordered and the part of the sea the wind did not make", () => {
@@ -624,9 +643,66 @@ describe("the groundswell", () => {
     // state — the hull at rest, the turntable, every buoyancy case — and a
     // three-metre swell under a craft that is meant to be floating still
     // is a broken harness, not a sea. R12 never deals a wind this light.
-    const calm = createSea(syntheticLevel({ windSpeed: 0 }), 1);
+    const calm = createSea(syntheticLevel({ windSpeed: 0, swell: 3 }), 1);
     expect(calm.swellHs).toBe(0);
     expect(calm.components.filter((c) => c.band === "swell").length).toBe(0);
+  });
+
+  it("R36 — is as big as the level says, at the coast's own share of it", () => {
+    // THE WAVE-SIZE KNOB. The height is the LEVEL's (`Level.swell`), quoted
+    // out past the coast, and what arrives is that height times this
+    // coast's share of the ocean — so the row is a dial on the water and
+    // not on the weather over it.
+    const share = biomeOf("taiga").sea.swell;
+    for (const hs of [SWELL_DIAL.min, 6, SWELL_DIAL.max]) {
+      const its = createSea(syntheticLevel({ windSpeed: 8, swell: hs }), 1);
+      expect(its.swellHs, `${hs} m`).toBeCloseTo(hs * share, 6);
+    }
+    // ...and it is LONGER the bigger it is, because a quoted sea takes its
+    // wavelength from its height at a fixed steepness.
+    const small = createSea(syntheticLevel({ windSpeed: 8, swell: SWELL_DIAL.min }), 1);
+    const big = createSea(syntheticLevel({ windSpeed: 8, swell: SWELL_DIAL.max }), 1);
+    expect(big.swellTp).toBeGreaterThan(small.swellTp * 2);
+    // ...but NEVER longer than `swell.maxLength`, which is what keeps the
+    // top of the dial a wave a rider can see rather than a plane that
+    // tilts. Deep-water length, L₀ = g·Tp²/2π.
+    const length = (tp: number): number => (TUNING.g * tp * tp) / (2 * Math.PI);
+    expect(length(big.swellTp)).toBeLessThanOrEqual(TUNING.sea.swell.maxLength + 1e-6);
+    // The cap is a CAP: a sea small enough not to reach it keeps the length
+    // its own quoted steepness gives, so nothing the generator dealt before
+    // the dial existed has moved.
+    expect(length(small.swellTp)).toBeLessThan(TUNING.sea.swell.maxLength * 0.2);
+  });
+
+  it("R36 — is a BASELINE: riding out to sea still grows it, at any height", () => {
+    // The knob sets the sea a rider starts in, and the open ocean past the
+    // rim builds on top of whatever that is. The failure this catches is
+    // the one a dial with a ceiling has: a shore dealt twenty metres riding
+    // out into water calmer than the water it left.
+    const SEAWARD = 400;
+    for (const hs of [SWELL_DIAL.min, 6, SWELL_DIAL.max]) {
+      const lv = syntheticLevel({ windSpeed: 8, swell: hs, seaward: SEAWARD });
+      const its = createSea(lv, 1);
+      const where = `${hs} m`;
+      const reach = TUNING.sea.open.reach;
+      let last = 0;
+      for (let past = 0; past <= reach * 1.5; past += reach / 50) {
+        const { Hs } = seaSummary(its, 400, SEAWARD + past);
+        expect(Hs, `${where}, ${past} m past the rim`).toBeGreaterThanOrEqual(last - 1e-9);
+        last = Hs;
+      }
+      // ...and it really GREW rather than merely holding station.
+      const coast = seaSummary(its, 400, SEAWARD).Hs;
+      expect(last, where).toBeGreaterThan(coast * 1.2);
+      // Every rung of the ladder stands over the water the rider left, and
+      // no two rungs share a height (which the handover divides by).
+      const rungs = its.bands.filter((b) => b.kind === "open");
+      expect(rungs.length).toBeGreaterThan(1);
+      for (let i = 0; i < rungs.length; i++) {
+        expect(rungs[i].hs, where).toBeGreaterThan(coast);
+        if (i > 0) expect(rungs[i].hs, where).toBeGreaterThan(rungs[i - 1].hs);
+      }
+    }
   });
 
   it("stands where the open sea reaches and nowhere else", () => {
@@ -775,11 +851,20 @@ describe("the open ocean past the rim", () => {
     // The ocean is not the same every ride: each seed draws its storm over
     // the top `vary` of the ceiling, so the biggest is rare — and NOTHING
     // anywhere quotes a height, so a speed class moves the whole band.
+    //
+    // R36 — over the COAST'S OWN SEA, in quadrature: the level's wind sea
+    // and its swell are already standing in that water, so the storm out
+    // there is the two of them plus the ocean's own, which is what keeps a
+    // shore dealt twenty metres from riding out into calmer water.
     const heights = new Set<number>();
     for (let seed = 0; seed < 60; seed++) {
       const its = createSea(level, seed);
-      expect(its.openHs, `seed ${seed}`).toBeGreaterThanOrEqual(STORM_CEILING * O.vary - 1e-9);
-      expect(its.openHs, `seed ${seed}`).toBeLessThanOrEqual(STORM_CEILING + 1e-9);
+      const coast = Math.hypot(its.hsRef, its.swellHs);
+      const floor = Math.hypot(STORM_CEILING * O.vary, coast);
+      expect(its.openHs, `seed ${seed}`).toBeGreaterThanOrEqual(floor - 1e-9);
+      expect(its.openHs, `seed ${seed}`).toBeLessThanOrEqual(
+        Math.hypot(STORM_CEILING, coast) + 1e-9,
+      );
       heights.add(Math.round(its.openHs * 100));
     }
     // ...and it really varies rather than landing on one number.

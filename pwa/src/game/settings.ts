@@ -125,6 +125,61 @@ export function conditionsFor(windMs: number): Conditions {
  * ladder (`TRICK_LIMITS`, s) read as the row reads it. */
 export const TRICK_MINUTES: readonly number[] = TRICK_LIMITS.map((s) => s / 60);
 
+/**
+ * THE SEAS A PLAYER MAY ASK FOR — the ladder R36's wave-size dial is read
+ * off, and the one row on the card that is not the wind's.
+ *
+ * The WIND row builds a sea out of the weather standing over this coast
+ * right now; this one is the sea that came from somebody else's weather and
+ * has been piling up outside the coast for days — the GROUNDSWELL (`Level.
+ * swell`), which is why the two need not agree and why a flat blue morning
+ * can have ten metres rolling under it.
+ *
+ * The rungs are the DOUGLAS SEA SCALE's, which is a real scale and so not
+ * ours to invent: each id is the state's own name and each value the top of
+ * its band in metres of significant height. That is where the ladder's two
+ * ends come from rather than from a designer's taste — SLIGHT at a metre is
+ * the smallest sea worth telling a player about, and PHENOMENAL at twenty
+ * is where the scale itself stops counting. It is exactly `SWELL_DIAL`,
+ * because the dial was quoted off the same scale.
+ *
+ * The height is the sea OUT PAST THE COAST, which is where a groundswell is
+ * measured and where this one has accumulated; how much of it reaches the
+ * shore is that coast's own share of the ocean, so the same rung rides
+ * bigger on the open mangrove than on the sheltered taiga.
+ */
+export const SEA_STATES = [
+  { id: "slight", hs: 1 },
+  { id: "moderate", hs: 2.5 },
+  { id: "rough", hs: 4 },
+  { id: "veryRough", hs: 6 },
+  { id: "high", hs: 9 },
+  { id: "veryHigh", hs: 14 },
+  { id: "phenomenal", hs: 20 },
+] as const;
+/** `SeaStateId` rather than `SeaState`: the engine already has a `SeaState`
+ * and it is the whole wave field, not a word for how big it is. */
+export type SeaStateId = (typeof SEA_STATES)[number]["id"];
+
+/** Every rung's height, m — what a row stores and what a link carries, so
+ * the setting and the engine's option are the same number. */
+export const SEA_METRES: readonly number[] = SEA_STATES.map((s) => s.hs);
+
+/**
+ * The rung a swell of this height stands in, m.
+ *
+ * BY BAND rather than by the nearest rung, unlike {@link conditionsFor}:
+ * these rungs ARE bands on a scale somebody else drew, so a 3.2 m sea is a
+ * ROUGH one and there is nothing to decide. A height past the top of the
+ * scale is phenomenal, which is what the scale says too.
+ */
+export function seaStateFor(hs: number): number {
+  for (const rung of SEA_STATES) {
+    if (hs <= rung.hs) return rung.hs;
+  }
+  return SEA_STATES[SEA_STATES.length - 1].hs;
+}
+
 export type RideSettings = {
   /** WHICH WAY ONTO THE WATER (`GAME_MODES`): a race against the field, a
    * timed run for tricks, or the course against the clock alone. The first
@@ -168,6 +223,13 @@ export type RideSettings = {
   /** The wind to ride in, and so the sea it builds — see {@link CONDITIONS}.
    * Null rides the shore as it was generated. */
   conditions: Conditions | null;
+  /** R36 — HOW BIG THE SEA OUTSIDE IS, m of significant height off
+   * {@link SEA_STATES}: the groundswell that has piled up past this coast,
+   * which is not the wind's and does not move with the row above. Null
+   * rides the swell the shore was dealt. It is the BASELINE and not a
+   * ceiling — the open ocean past the level's rim still builds on top of
+   * whatever is asked for here. */
+  swell: number | null;
   /** The SKY to ride under, off the engine's own ladder (R19's five). Null
    * takes the sky the wind implies — the chosen rung's, or, where nothing is
    * chosen, the one the level was dealt — so the row only ever OVERRIDES the
@@ -325,6 +387,9 @@ export const DEFAULT_SETTINGS: Settings = {
     time: null,
     season: null,
     conditions: null,
+    // R36 — and its own sea outside: a shore is dealt a swell as surely as
+    // it is dealt a wind, and the two are separate weather.
+    swell: null,
     weather: null,
     // Behind and above, which is the camera the game is tuned to be read
     // at — the nose view is a thing you go looking for.
@@ -466,6 +531,10 @@ export function mergeSettings(parsed: unknown): Settings {
   if (CONDITIONS.some((id) => id === ride?.conditions)) {
     settings.ride.conditions = ride?.conditions as Conditions;
   }
+  // R36 — checked against the rungs THIS build offers, for the class row's
+  // reason: a height the scale no longer names is one the row could not put
+  // the cursor back on.
+  if (SEA_METRES.some((hs) => hs === ride?.swell)) settings.ride.swell = ride?.swell as number;
   // Checked against the ENGINE's ladder, not a copy of it: a sky R19 stops
   // dealing is a sky this card stops offering, on the same day.
   if (WEATHER_IDS.some((id) => id === ride?.weather)) {

@@ -54,6 +54,11 @@ export type GenerateOptions = {
    * knob that lives in the LEVEL — `createGame`'s `assist` and
    * `rampAssist` are the two that live in the run. */
   rampWidth?: number;
+  /** R36 — THE SEA STANDING OFF THE COAST: the groundswell's significant
+   * height out past the islands, m, inside `SWELL_DIAL`. Defaults to the
+   * one the seed deals (`dealSwell`); how much of it reaches the shore is
+   * the coast's own share (`Biome.sea.swell`). */
+  swell?: number;
   /** R35 — build this level for a TRICKS run: lay the line of ramps
    * (`trick-field.ts`) beside the course as well as on it. Off by default,
    * and off is byte-for-byte the level every seed has always built — the
@@ -333,4 +338,12 @@ export type Level = {
   readonly hour: number;
   /** The sky over it (R19). */
   readonly weather: Weather;
+  /** R36 — THE GROUNDSWELL that has accumulated OUT PAST THIS COAST:
+   * significant height, m, inside `SWELL_DIAL`. The sea the open ocean sent
+   * in rather than the one this level's wind grew, so it does not move with
+   * `wind` — a flat morning can have a ten-metre swell rolling under it.
+   * `createSea` lays the band at this height times the coast's own share of
+   * the ocean (`Biome.sea.swell`), and everything past the rim builds on
+   * top of what is left (`ocean.ts`). */
+  readonly swell: number;
 };

@@ -344,6 +344,14 @@ export function createSea(
   // Drawn BEFORE the storm ladder and after the two wind bands, so every
   // component of those two is the draw it always was.
   //
+  // HOW BIG IT IS IS THE LEVEL'S (R36, `Level.swell`) and not this model's:
+  // the generator deals a height inside `SWELL_DIAL`, or a run asks for one
+  // outright, and what is left here is the SHAPE — how steep, how narrow a
+  // band, how far off the wind — and how much of it this coast gets. That
+  // is what makes the swell the one sea a rider can have without the wind
+  // that would grow it: a flat morning with ten metres rolling under it is
+  // a level dealt ten metres, not a wind doing something it cannot.
+  //
   // A quoted OVERRIDE is the sea the run asked for and nothing else: a
   // `?hs=20` storm is not a coast with a swell on top of it.
   //
@@ -356,15 +364,22 @@ export function createSea(
   // three-metre swell under a craft that is meant to be floating still is
   // not a sea — it is a broken harness. R12 never deals a wind under 6 m/s,
   // so no ridden level takes this branch.
-  const swellDealt = override || u <= 0 ? 0 : W.hs * (W.vary + (1 - W.vary) * rng.next());
+  const swellDealt = override || u <= 0 ? 0 : Math.max(0, level.swell);
   // Its period follows from its HEIGHT and the steepness it is quoted at,
   // exactly as the storm ladder's does (`periodForHeight`) — a swell is a
   // sea quoted rather than grown, and what a rider reads off one is the
   // angle of its face. `TUNING.sea.swell.steepness` says why that angle is
   // the arcade's and not the ocean's. The period is quoted off the swell
-  // as DEALT, before the coast's own share of it is taken: a swell the
-  // islands have broken up arrives lower, not shorter.
-  const swellSteep = W.steepness * (1 + W.steepVary * (2 * rng.next() - 1));
+  // as DEALT, out past the islands, before the coast's own share of it is
+  // taken: a swell the islands have broken up arrives lower, not shorter,
+  // and a swell that lost its length with its height would come ashore as
+  // chop — which is the one thing a groundswell is not.
+  // ...and never LONGER than `swell.maxLength`, which is what stops a
+  // twenty-metre sea coming out as a half-kilometre wave nobody on the
+  // water can see (the dial says the whole of why). The draw moves the
+  // quoted steepness; the cap is taken after it, so it reads as a cap.
+  const quoted = W.steepness * (1 + W.steepVary * (2 * rng.next() - 1));
+  const swellSteep = Math.max(quoted, swellDealt / W.maxLength);
   const swellTp = Math.sqrt((TAU * swellDealt) / (G * swellSteep));
   const swellHs = swellDealt * coast.swell;
   const swellTravel = travel + W.off * (2 * rng.next() - 1);
@@ -416,11 +431,26 @@ export function createSea(
   // every ride, and the biggest is rare — a seed has one chance in ten of
   // landing in the top tenth of the band. Drawn before the rungs because the
   // rungs are shares of it.
-  const storm = u > 0 ? STORM_CEILING * (O.vary + (1 - O.vary) * rng.next()) : 0;
+  //
+  // THE COAST'S OWN SEA IS THE FLOOR UNDER IT (R36). The level's wind sea
+  // and its groundswell stand in the same water, so they add in ENERGY —
+  // which is the arithmetic `fillShares` already hands over on — and the
+  // storm out at sea is that sum with the ocean's own dealt on top of it
+  // the same way. A coast dealt a metre of swell therefore meets the same
+  // storm it always did, and one dealt twenty meets a bigger one: riding
+  // out grows the sea whatever the shore was dealt, and never shrinks it.
+  const coastHs = Math.hypot(hsRef, swellHs);
+  const storm =
+    u > 0 ? Math.hypot(STORM_CEILING * (O.vary + (1 - O.vary) * rng.next()), coastHs) : 0;
   const rungs: { hs: number; tp: number; comps: WaveComponent[] }[] = [];
   if (u > 0) {
     for (const share of O.rungs) {
-      const hs = Math.max(storm * share, hsRef);
+      // The rungs climb from the COAST'S own sea to the storm rather than
+      // from nothing to it, so no rung is ever below the water a rider just
+      // left and no two rungs can come out at the same height — which they
+      // would under a floor, and a ladder with a repeated rung divides by
+      // the gap between them.
+      const hs = coastHs + (storm - coastHs) * share;
       const rungTp = periodForHeight(hs);
       rungs.push({
         hs,
