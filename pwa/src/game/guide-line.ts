@@ -1,9 +1,10 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE GUIDE LINE — a dashed mark lying on the sea along the course's own
 // line, running from the checkpoint behind the rider to the one ahead and on
-// down the line (`guide-plan.ts` owns which stretch that is; `aimPoint` in
-// the engine is where "what is the rider riding at" is answered, and neither
-// module asks it a second way).
+// down the line, or, in a run with no course to count, along the rider's own
+// stretch of that line in the direction they are going (`guide-plan.ts` owns
+// which stretch that is; `aimPoint` in the engine is where "what is the rider
+// riding at" is answered, and neither module asks it a second way).
 //
 // IT IS A THING IN THE WATER, not a layer over it. Everything else that says
 // where to go on this game is drawn on the glass — the minimap in the corner,
@@ -165,11 +166,15 @@ export function createGuideLine(): GuideLine {
   let plan: GuidePath | null = null;
 
   const update: GuideLine["update"] = (state, surface) => {
-    const aim = shown ? aimPoint(state) : null;
-    if (!aim) {
+    if (!shown) {
       ribbon.visible = false;
       return;
     }
+    // The aim may be NOTHING — past the last checkpoint of a course, or at
+    // any moment of a run with no course in it — and that is the plan's
+    // business rather than a reason to stop drawing here. An empty window
+    // lays no dashes and the ribbon goes dark on the same line as always.
+    const aim = aimPoint(state);
     if (state.level !== planLevel || !plan) {
       planLevel = state.level;
       plan = guidePath(state.level);

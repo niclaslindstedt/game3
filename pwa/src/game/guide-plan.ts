@@ -16,8 +16,24 @@
 // loop ridden `laps` times), so a station is monotonic over a whole run and
 // gate `i` and gate `i + lapGates` sit a lap apart on it rather than on top
 // of each other.
+//
+// A RUN WITH NO COURSE TO COUNT IS STILL RIDDEN ALONG THAT LINE. The tricks
+// field (R35) is laid on the racing line itself, out and back, so the same
+// stretch of the same path is the right thing to draw — what changes is that
+// there are no checkpoints to hang the ends off. So the window is measured
+// from the RIDER instead: their own stretch of the line, in the direction
+// they are travelling, never ended by the momentary answer to "what is the
+// rider aiming at". `guideWindow` says why that last part matters.
 
-import { cumulative, distanceAlong, type GameState, type Level, type Vec2 } from "@engine";
+import {
+  cumulative,
+  distanceAlong,
+  pointAlong,
+  type CraftState,
+  type GameState,
+  type Level,
+  type Vec2,
+} from "@engine";
 
 /** How far ahead of the rider the line is drawn, m. A line to a mark a
  * kilometre away is a kilometre of dashes nobody can resolve, drawn every
@@ -65,28 +81,92 @@ export function guidePath(level: Level): GuidePath {
  * `GuidePath`. Empty when there is nothing to draw (`begin >= end`). */
 export type GuideWindow = { begin: number; end: number };
 
+/** HOW MUCH WAY THE NOSE IS WORTH when the hull has none of its own, m/s —
+ * see `wayAlong`. Two metres a second is a hull barely moving, so it decides
+ * only where there is nothing else to read and can never outvote a rider
+ * actually travelling. */
+const NOSE_WAY = 2;
+
+/** WHICH WAY ALONG THE LINE THE RIDER IS GOING: +1 up the path's own
+ * direction, -1 back down it. A tricks field is laid OUT AND BACK along the
+ * one racing line (R35), so half of every run is ridden against the path's
+ * direction and the stretch worth drawing is the one in FRONT of the rider
+ * either way.
+ *
+ * It is read off the hull's VELOCITY rather than off its heading, and that
+ * is the whole of why a flip no longer turns the mark round: `c.heading` is
+ * derived through `toEuler`, which folds the pitch back as the nose passes
+ * vertical and swings the heading a clean 180° to compensate (`craft.ts`
+ * says the same thing where the rider's own way is read), so a hull half way
+ * round a backflip reads as one going the other way. Its velocity does not
+ * care — a rider mid-flip is still travelling the way the lip sent them.
+ *
+ * The nose is worth `NOSE_WAY` of way on top, which is what decides a hull
+ * sitting still: velocity alone at rest is the wave's orbit under the hull,
+ * whose sign turns over with every crest, and a 300 m mark that changes ends
+ * twice a second is worse than no mark at all. */
+function wayAlong(path: GuidePath, here: number, craft: CraftState): 1 | -1 {
+  const { heading } = pointAlong(path.points, path.cum, here);
+  const tx = Math.sin(heading);
+  const tz = Math.cos(heading);
+  const nose = Math.sin(craft.heading) * tx + Math.cos(craft.heading) * tz;
+  return craft.vx * tx + craft.vz * tz + NOSE_WAY * nose >= 0 ? 1 : -1;
+}
+
 /** Which stretch of the line to draw for this moment of this run. `aim` is
  * the engine's own `aimPoint` — the next checkpoint in a run that counts the
  * course, the next lip in one that does not — and is never asked for a second
- * way here. */
-export function guideWindow(path: GuidePath, state: GameState, aim: Vec2): GuideWindow {
-  const gates = state.level.course.gates;
+ * way here.
+ *
+ * IT IS NOT WHAT ENDS THE LINE IN A TRICKS RUN, and that is the whole of what
+ * was wrong with the mark there. `aimPoint` answers for one instant off the
+ * hull's own HEADING, and in a run with no course to count it says "nothing"
+ * routinely mid-ride: over the top of a flip, where `toEuler` swings the
+ * heading 180° as the nose passes vertical and every lip on the shore reads
+ * as being behind the rider; through the turn back onto the field; at either
+ * end of it. A line that ends at the aim is a line that blinks out at exactly
+ * those moments — which is to say, in the air, during the trick. So a run
+ * with no course to count draws the rider's own stretch of the line instead,
+ * and the aim only says whether there is anything left to point at at all. */
+export function guideWindow(path: GuidePath, state: GameState, aim: Vec2 | null): GuideWindow {
+  const counting = state.rules.course;
+  // A course ridden out to its last checkpoint has nothing left to aim at,
+  // and the line goes with the run. A run that never counted one is a
+  // different thing entirely and is drawn below.
+  if (counting && !aim) return { begin: 0, end: 0 };
   const next = state.progress.nextGate;
-  const counts = state.rules.course && next < gates.length;
   // The checkpoint BEHIND the rider — the start line before the first one is
   // taken. It anchors the craft's own station too, so a lapped course reads
   // the leg being ridden rather than the same water one lap back.
-  const from = counts && next > 0 ? path.gates[next - 1] : 0;
+  const from = counting && next > 0 ? path.gates[next - 1] : 0;
   const here = distanceAlong(path.points, path.cum, state.craft.x, state.craft.z, from);
-  // A run that counts the course is drawn to the next mark AT LEAST, and on
-  // past it down the line while the reach allows — which is what keeps a
-  // whole leg in front of the rider as they cross a checkpoint instead of
-  // handing them a stub. A tricks run has no marks, so its line ends at the
-  // lip it is pointing out.
-  const target = counts
-    ? path.gates[next]
-    : distanceAlong(path.points, path.cum, aim.x, aim.z, here);
-  const end = Math.min(path.length, counts ? Math.max(target, here + REACH) : target);
-  const begin = Math.min(Math.max(from, here - BEHIND), end);
-  return { begin, end };
+  if (counting) {
+    // A run that counts the course is drawn to the next mark AT LEAST, and
+    // on past it down the line while the reach allows — which is what keeps
+    // a whole leg in front of the rider as they cross a checkpoint instead
+    // of handing them a stub.
+    const end = Math.min(path.length, Math.max(path.gates[next], here + REACH));
+    return { begin: Math.min(Math.max(from, here - BEHIND), end), end };
+  }
+  // A run with no course to count is the tricks field (R35), and R35 lays it
+  // along this very line — so the line is still the right thing to draw and
+  // what it has lost is only the two marks it used to hang its ends off. It
+  // gets the rider's own stretch instead: `BEHIND` astern and `REACH` in
+  // front of them, in the direction they are actually travelling.
+  //
+  // The lip is INSIDE that reach by construction and needs no special case:
+  // the field's stride is the longest run-up the roster needs (213 m at the
+  // class a tricks run is pinned to, `trickStride`) against a reach half as
+  // long again, so the mark already runs to the next deck and past it. Where
+  // the field skipped a station the line runs out to the reach and says a
+  // direction, which is what the reach is for.
+  const way = wayAlong(path, here, state.craft);
+  const ahead = clampTo(here + way * REACH, path.length);
+  const astern = clampTo(here - way * BEHIND, path.length);
+  return { begin: Math.min(ahead, astern), end: Math.max(ahead, astern) };
+}
+
+/** A station held on the path, m. */
+function clampTo(d: number, length: number): number {
+  return Math.min(length, Math.max(0, d));
 }

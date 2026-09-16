@@ -6,7 +6,18 @@
 // closes on a mark — and that is what these cases hold.
 import { describe, expect, it } from "vitest";
 
-import { botInput, createGame, standCraft, step, type GameState } from "@engine";
+import {
+  aimPoint,
+  angleDiff,
+  botInput,
+  createGame,
+  distanceAlong,
+  placeRun,
+  pointAlong,
+  standCraft,
+  step,
+  type GameState,
+} from "@engine";
 
 import { BEHIND, REACH, guidePath, guideWindow } from "../pwa/src/game/guide-plan.ts";
 
@@ -89,5 +100,114 @@ describe("the guide line's window", () => {
       expect(end).toBeLessThanOrEqual(path.length + 1e-6);
       rideUntil(state, (s) => s.progress.nextGate >= gates, 8);
     }
+  });
+});
+
+/** A run over the same shore with the course switched off — the rules a
+ * TRICKS run is dealt (`MODE_RULES`), where there are no checkpoints to hang
+ * the line's ends off and `aimPoint` answers for a lip or for nothing. */
+function tricksRun(): GameState {
+  return createGame({ seed: SEED, level: levelFor(SEED), mode: "tricks" });
+}
+
+/** Stand the craft on the course's own line at station `d`, travelling
+ * `speed` m/s along it — `way` of -1 rides the line the other way, which is
+ * the half of a tricks field that is laid homebound. */
+function standOnLine(
+  state: GameState,
+  path: ReturnType<typeof guidePath>,
+  d: number,
+  way: 1 | -1,
+  speed: number,
+): void {
+  const at = pointAlong(path.points, path.cum, d);
+  const heading = way > 0 ? at.heading : at.heading + Math.PI;
+  standCraft(state, at.x, at.z, heading);
+  state.craft.vx = Math.sin(heading) * speed;
+  state.craft.vz = Math.cos(heading) * speed;
+  state.craft.speed = speed;
+}
+
+describe("the guide line in a run with no course to count", () => {
+  it("draws the rider's own stretch of the line, ahead of them and astern", () => {
+    const state = tricksRun();
+    const path = guidePath(state.level);
+    const here = path.length / 2;
+    standOnLine(state, path, here, 1, 20);
+    const { begin, end } = guideWindow(path, state, aimPoint(state));
+    expect(begin).toBeCloseTo(here - BEHIND, 6);
+    expect(end).toBeCloseTo(here + REACH, 6);
+  });
+
+  it("turns round with the rider on the field's homebound pass", () => {
+    const state = tricksRun();
+    const path = guidePath(state.level);
+    const here = path.length / 2;
+    standOnLine(state, path, here, -1, 20);
+    const { begin, end } = guideWindow(path, state, aimPoint(state));
+    expect(begin).toBeCloseTo(here - REACH, 6);
+    expect(end).toBeCloseTo(here + BEHIND, 6);
+  });
+
+  it("does not turn round under a rider half way through a backflip", () => {
+    const state = tricksRun();
+    const path = guidePath(state.level);
+    const at = pointAlong(path.points, path.cum, path.length / 2);
+    // A flight along the line with a flip already turning in it. The fold is
+    // the engine's own: `toEuler` folds the pitch back as the nose passes
+    // vertical and swings the heading a clean 180° to compensate, so the hull
+    // READS as one going the other way while it is still travelling the way
+    // the lip sent it.
+    placeRun(state, {
+      x: at.x,
+      z: at.z,
+      heading: at.heading,
+      speed: 20,
+      height: 14,
+      vy: 8,
+    });
+    // The bars hauled back at the top of their axis is the PUMP, and a
+    // tricks run is what reads it (`strokes.ts`): held there, the flip turns.
+    let folded = false;
+    for (let i = 0; i < 600 && !folded && state.craft.airborne; i++) {
+      step(state, { steer: 0, throttle: 1, reverse: 0, lean: 1, crouch: 0, reset: false });
+      folded = Math.abs(angleDiff(state.craft.heading, at.heading)) > Math.PI / 2;
+    }
+    expect(folded).toBe(true);
+    expect(state.craft.airborne).toBe(true);
+    // …and he is still going the way he was sent.
+    const c = state.craft;
+    expect(c.vx * Math.sin(at.heading) + c.vz * Math.cos(at.heading)).toBeGreaterThan(0);
+    const here = distanceAlong(path.points, path.cum, c.x, c.z, 0);
+    const { begin, end } = guideWindow(path, state, aimPoint(state));
+    expect(end - here).toBeCloseTo(REACH, 6);
+    expect(here - begin).toBeCloseTo(BEHIND, 6);
+  });
+
+  it("is never switched off by a moment with no lip to point at", () => {
+    const state = tricksRun();
+    const path = guidePath(state.level);
+    let aimless = 0;
+    let airborne = 0;
+    for (let i = 0; i < 120 * 60; i++) {
+      step(state, botInput(state));
+      if (!aimPoint(state)) aimless++;
+      if (state.craft.airborne) airborne++;
+      const { begin, end } = guideWindow(path, state, aimPoint(state));
+      expect(end - begin).toBeGreaterThan(0);
+      expect(end - begin).toBeLessThanOrEqual(REACH + BEHIND + 1e-6);
+    }
+    // …and the run really did ride through the moments this is about.
+    expect(aimless).toBeGreaterThan(0);
+    expect(airborne).toBeGreaterThan(0);
+  });
+
+  it("goes dark with the run when a COURSE is ridden out to its last gate", () => {
+    const state = run();
+    const path = guidePath(state.level);
+    state.progress.nextGate = state.level.course.gates.length;
+    expect(aimPoint(state)).toBeNull();
+    const { begin, end } = guideWindow(path, state, aimPoint(state));
+    expect(end - begin).toBe(0);
   });
 });
