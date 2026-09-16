@@ -178,6 +178,20 @@ export const STRINGS = {
    * how many are in it. */
   place: (place: number, of: number): string => `${ordinal(place)} / ${of}`,
   placeLabel: "PLACE",
+  /** THE GAP TO THE GHOST (`ghost-run.ts`): how the rider stands against
+   * their own best run on this water, in that run's own currency — points
+   * on a tricks run, seconds down a course. The SIGN is the reading and it
+   * is the same one either way: + is up on the ghost, − is down on it.
+   * That is deliberately not the pit-wall convention, where a quicker lap
+   * reads negative — one screen cannot carry two opposite meanings for one
+   * symbol, and the points gap has only one sensible sign. */
+  ghostGap: (gap: number, seconds: boolean): string => {
+    const size = seconds ? Math.abs(gap).toFixed(2) : formatScore(Math.round(Math.abs(gap)));
+    return `${gap < 0 ? "\u2212" : "+"}${size}`;
+  },
+  ghostLabel: "GHOST",
+  /** ...and the sentence behind it, for a pointer resting on the chip. */
+  ghostTitle: "Your best run on this water, riding it again",
   /** THE CLOCK's caption on a timed run, where it counts DOWN. */
   clockLeftLabel: "LEFT",
   /** THE LIGHTS: each whole second as it begins, then the word. */

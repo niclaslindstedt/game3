@@ -63,6 +63,13 @@ import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
  * list rather than a null and allocates nothing to say "none". */
 const NO_LAMPS: readonly BuoyLamp[] = [];
 
+/** HOW SEE-THROUGH A GHOST IS (`ghost-run.ts`). Enough of the hull is left
+ * to read its shape, its colour and which way the rider is leaning, and
+ * enough of the water shows through it that nobody mistakes it for a craft
+ * that could be leaned on. It writes no depth either, so the sea and the
+ * spray behind it are never punched out by a hull that is not really there. */
+const GHOST_ALPHA = 0.42;
+
 /** Near and far planes, m. The far is past the sky's outermost shell — the
  * weather's ceiling at 2400 m — so nothing in the sky is ever clipped; the
  * near is under the nose camera's own deck. The fog's own range belongs to
@@ -117,6 +124,13 @@ export type GameRenderer = {
   /** Whether the camera-space guide back to a missed checkpoint is drawn.
    * The app gates it with the HUD and the run/pause surfaces. */
   setMissedGuide: (on: boolean) => void;
+  /** THE GHOST, on the water beside the rider (`ghost-run.ts`): its own run
+   * over the same shore, posed off its own state every frame and drawn
+   * see-through so nothing about it can be mistaken for a rival. Null takes
+   * it off. A ghost is NOT torn down by `load`: the app owns its lifetime
+   * and arms or clears one on every run it stands up, which is what lets it
+   * be armed before the world under it is built. */
+  setGhost: (state: GameState | null) => void;
   /** Let the water effects see EVERY engine step — the wake, the spray
    * and the foam read the craft at the step's cadence and are drawn at
    * the frame's — including the steps of a scene pre-rolled for a
@@ -224,6 +238,11 @@ export function createRenderer(
   let field: { run: GameState; group: THREE.Group; rider: Rider }[] = [];
   let fieldFor: GameState["rivals"] | null = null;
   let lamps: CraftLamps | null = null;
+  /** THE GHOST'S HULL AND RIDER, and the see-through finish they are drawn
+   * in — built the first time a run has a ghost on it, so a game that never
+   * keeps one never pays for the material. */
+  let ghost: { state: GameState; group: THREE.Group; rider: Rider } | null = null;
+  let ghostSurface: THREE.MeshPhongMaterial | null = null;
   let craftId: CraftId | null = null;
   /** The cockpit the SEA is cut out of, measured off the hull that was just
    * built (`wellCutOf`) — the water is a grid that knows nothing floats on
@@ -479,6 +498,34 @@ export function createRenderer(
     water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
   };
 
+  const dropGhost = (): void => {
+    if (!ghost) return;
+    scene.remove(ghost.group);
+    ghost.rider.dispose();
+    ghost = null;
+  };
+
+  const setGhost = (next: GameState | null): void => {
+    dropGhost();
+    if (!next) return;
+    if (!ghostSurface) {
+      ghostSurface = craftSurface(sky.uniforms);
+      ghostSurface.transparent = true;
+      ghostSurface.opacity = GHOST_ALPHA;
+      ghostSurface.depthWrite = false;
+    }
+    const spec = next.craft.spec;
+    const style = CRAFT_STYLES[spec.id];
+    const group = buildCraft(spec, style, ghostSurface);
+    const own = createRider(cockpitOf(spec, style), ghostSurface);
+    group.add(own.mesh);
+    // One name for the pair: the benchmark's breakdown wants what the ghost
+    // costs, not a hull and a figure on two rows.
+    group.name = "ghost";
+    scene.add(group);
+    ghost = { state: next, group, rider: own };
+  };
+
   const render = (state: GameState, dt: number): void => {
     const t0 = performance.now();
     if (state.level !== level || state.craft.spec.id !== craftId || state.rivals !== fieldFor)
@@ -494,6 +541,12 @@ export function createRenderer(
       f.group.position.set(rc.x, rc.y, rc.z);
       f.group.quaternion.set(rc.q.x, rc.q.y, rc.q.z, rc.q.w);
       f.rider.update(f.run);
+    }
+    if (ghost) {
+      const gc = ghost.state.craft;
+      ghost.group.position.set(gc.x, gc.y, gc.z);
+      ghost.group.quaternion.set(gc.q.x, gc.q.y, gc.q.z, gc.q.w);
+      ghost.rider.update(ghost.state);
     }
     // THE CAMERA, applied — before the water and the cover, because both
     // submit only what the lens can see and have to be told where it stands.
@@ -588,6 +641,7 @@ export function createRenderer(
     const p = sky.preset();
     water.retone(p, sky.hemi, sky.key, sky.cloudLayers());
     applyCraftSky(surface, sky.cloudLayers());
+    if (ghostSurface) applyCraftSky(ghostSurface, sky.cloudLayers());
     water.setRain(sky.rainfall(), RAIN_LOOK[video.rain].rings);
     spray.light(sky.hemi, sky.key);
     fauna?.retone(p);
@@ -705,11 +759,16 @@ export function createRenderer(
     setVideo,
     setGuide: guide.setShown,
     setMissedGuide: missedGuide.setShown,
+    setGhost,
     observe: (state) => {
       wake.observe(state);
       spray.observe(state);
       rider?.observe(state);
       for (const f of field) f.rider.observe(f.run);
+      // The ghost's body is on springs like everybody else's; its hull is
+      // not given the wake or the spray, because a trail cut by a craft
+      // that is not on the water is a trail the rider would try to read.
+      if (ghost) ghost.rider.observe(ghost.state);
       birds?.observe(state);
     },
     camera: rig,
@@ -734,6 +793,8 @@ export function createRenderer(
       spray.dispose();
       rider?.dispose();
       for (const f of field) f.rider.dispose();
+      dropGhost();
+      ghostSurface?.dispose();
       surface.dispose();
       lamps?.dispose();
       missedGuide.dispose();

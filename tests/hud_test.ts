@@ -556,6 +556,34 @@ describe("what the HUD reads of the mode", () => {
     expect(snap.riders).toBe(1);
   });
 
+  it("reads the gap to the ghost in the run's own currency, and only where there is one", () => {
+    // A TRICKS run: the two totals both exist at every instant, so the gap
+    // is live and it is POINTS — positive where the rider is up on it.
+    const mine = createGame({ seed: 1, level: FLAT, mode: "tricks", quiet: true });
+    const ghost = createGame({ seed: 1, level: FLAT, mode: "tricks", quiet: true });
+    expect(takeSnapshot(mine).ghostGap).toBeNull();
+    expect(takeSnapshot(mine, ghost).ghostGap).toBe(0);
+    mine.tricks.score = 1200;
+    ghost.tricks.score = 700;
+    expect(takeSnapshot(mine, ghost).ghostGap).toBe(500);
+    expect(takeSnapshot(ghost, mine).ghostGap).toBe(-500);
+
+    // A COURSE run: a time is only a fact at a gate, so the gap is null
+    // until both have crossed the same one and is then that split's.
+    const run = createGame({ seed: 1, level: FLAT, mode: "timeTrial", quiet: true });
+    const theirs = createGame({ seed: 1, level: FLAT, mode: "timeTrial", quiet: true });
+    expect(takeSnapshot(run, theirs).ghostGap).toBeNull();
+    run.progress.splits[0] = 12;
+    expect(takeSnapshot(run, theirs).ghostGap).toBeNull();
+    theirs.progress.splits[0] = 13.5;
+    expect(takeSnapshot(run, theirs).ghostGap).toBeCloseTo(1.5, 9);
+    // A gate skipped past is never given a split, and the readout carries on
+    // reading the last gate both DID cross rather than quietly dying on it.
+    run.progress.splits[2] = 30;
+    theirs.progress.splits[2] = 28;
+    expect(takeSnapshot(run, theirs).ghostGap).toBeCloseTo(-2, 9);
+  });
+
   it("reads the place against the field in a race, and the tricks off", () => {
     const state = createGame({
       seed: 2,

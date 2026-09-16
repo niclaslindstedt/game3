@@ -17,6 +17,7 @@
 
 import type { CraftInput } from "@engine";
 
+import { snapInput } from "./ghost.ts";
 import { clamp } from "../lib/util.ts";
 
 export const SCREEN_TO_ENGINE = -1;
@@ -293,7 +294,11 @@ export function sampleInput(
   const lean = touch.bar ? touch.lean : model.lean;
   const reverse = clamp(Math.max(model.reverse, touch.lever ? touch.reverse : 0), 0, 1);
   const throttle = Math.max(model.throttle, touch.lever ? touch.throttle : 0);
-  return {
+  // EVERY AXIS ONTO THE TAPE'S OWN GRID on the way out (`ghost.ts`), so the
+  // figure the engine is ridden on is the figure a recording writes down and
+  // a ghost is the run again rather than nearly it. The grid is finer than a
+  // thumb or a key ramp can resolve, so nothing here is felt.
+  return snapInput({
     // `0 * -1` is -0, and a -0 is a wart every equality downstream trips on.
     steer: steer === 0 ? 0 : clamp(steer, -1, 1) * SCREEN_TO_ENGINE,
     throttle: reverse > 0 ? 0 : clamp(throttle, 0, 1),
@@ -303,5 +308,5 @@ export function sampleInput(
     // merge and a touch rider is always sat up.
     crouch: clamp(model.crouch, 0, 1),
     reset,
-  };
+  });
 }

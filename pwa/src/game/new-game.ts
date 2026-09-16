@@ -13,7 +13,7 @@
 // must never fall back — riding a different shore from the one on the card
 // is a lie — so its refusal is reported to their face (`loading-screen.tsx`).
 
-import { createGame, warn, type GameState } from "@engine";
+import { createGame, warn, type CraftId, type GameState, type Level } from "@engine";
 
 import { DEFAULT_SEED, skyForWind, type Settings } from "./settings.ts";
 import type { Params } from "./url-params.ts";
@@ -48,12 +48,20 @@ function dayFor(
   };
 }
 
+/** THE SAME RUN ON ANOTHER HULL, over a shore somebody has already built.
+ * A GHOST is stood up with both (`ghost-run.ts`): it rides the craft the
+ * figure was set on rather than the one the card is showing, and it is
+ * handed the level object the run beside it is on — building one is the
+ * most expensive thing this engine does, and that shore has been paid for
+ * already. */
+export type RunOver = { level?: Level; craft?: CraftId };
+
 /** Which seed and which sea the settings currently ask for. Called at the
  * moment a run is stood up rather than captured, so a seed changed on the
  * developer page is the seed START rides.
  *
  * THROWS when the generator refuses the seed — see `tryGame`. */
-export function gameFor(s: Settings, params: LevelParams): GameState {
+export function gameFor(s: Settings, params: LevelParams, over?: RunOver): GameState {
   // The WIND row is two things at once: the wind that builds the sea, and
   // the sky that belongs over that wind (R19 keeps the pair honest, and
   // `skyForWind` is where the figure becomes both). Outside a free ride
@@ -64,7 +72,10 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
   return createGame({
     seed: s.ride.seed ?? DEFAULT_SEED,
     biome: s.ride.biome,
-    craft: s.ride.craft,
+    craft: over?.craft ?? s.ride.craft,
+    // The shore, where one is handed in: everything below that describes
+    // how a level is BUILT is then read by nobody.
+    level: over?.level,
     // THE MODE, and the length a tricks run was asked for, seconds.
     mode: s.ride.mode,
     limit: s.ride.tricksMinutes * 60,

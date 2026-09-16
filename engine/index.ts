@@ -39,6 +39,7 @@ export {
 // course a run is.
 export {
   courseProgress,
+  dropField,
   fieldOrder,
   gridPoses,
   playerSlot,

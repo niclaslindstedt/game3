@@ -70,7 +70,7 @@
 // holding is the one surface that has to know the difference.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import { type CraftInput, type GameState, TUNING, botInput, fieldOrder, step } from "@engine";
+import { type CraftInput, type GameState, TUNING, botInput, step } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
 import { onShellCommand } from "./shell-host.ts";
@@ -78,17 +78,10 @@ import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index
 import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
 import { runRumble, setRumble } from "./game/haptics.ts";
 import { Hud, hasTouch, type HudFlash, type HudResult } from "./game/hud.tsx";
-import {
-  campaignResultFor,
-  flashFor,
-  recordKeyFor,
-  resultFor,
-  shotLabel,
-} from "./game/run-news.ts";
+import { flashFor, shotLabel } from "./game/run-news.ts";
 import {
   campaignGame,
   loadProgress,
-  recordRun,
   saveProgress,
   type CampaignLevel,
   type CampaignProgress,
@@ -104,8 +97,10 @@ import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
 import type { FrameCost, GameRenderer } from "./game/renderer.ts";
 import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
-import { bestFor, loadRecords, noteRecord, saveRecords, type RecordBook } from "./game/records.ts";
+import { loadRecords, saveRecords, type RecordBook } from "./game/records.ts";
+import { createGhostRig } from "./game/ghost-run.ts";
 import { createRunClock } from "./game/run-loop.ts";
+import { createSettler } from "./game/run-settle.ts";
 import type { LoadPhase } from "./game/run-loader.ts";
 import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
 import { captureFrame } from "./game/screenshots.ts";
@@ -414,53 +409,42 @@ export function App() {
       // the receipt then says only that the picture was filed.
       wantedShot = { label: shotLabel(state), hud: readHudLayer(), copy: copyWhenReady() };
     };
-    /** THE RUN IS OVER — the finish line or the buzzer. The figure goes to
-     * the record book and the result plate goes up, only with the player's
-     * hands on the craft and only on an honest run: a scene stood by hand,
-     * a developer's wind or sea, or the bot riding under a card is not a
-     * time on this shore. */
-    const settle = (value: number): void => {
-      const s = settingsRef.current;
-      const honest =
-        playerRides(shellRef.current) &&
-        scenario === null &&
-        s.dev.scene === null &&
-        s.dev.wind === null &&
-        s.dev.hs === null;
-      if (!honest) return;
-      // A CAMPAIGN RUN goes in the campaign's book and nowhere else: the
-      // field is placed as it stands at the line (`fieldOrder`), the board
-      // keeps the better afternoon, and the plate says what the finish did
-      // to the ladder.
-      const pinned = ridingRef.current;
-      if (pinned) {
-        const before = progressRef.current;
-        const order = fieldOrder(state);
-        const after = recordRun(before, pinned, { value, craft: state.craft.spec.id, order });
-        progressRef.current = after;
-        setProgress(after);
-        setResult(
-          campaignResultFor(pinned, order.indexOf(null) + 1, order.length, value, before, after),
-        );
-        return;
-      }
-      // A FREE RIDE still gets its plate and never gets a row: its weather is
-      // the rider's own, so there is nothing to have beaten (`keepsRecords`).
-      const key = recordKeyFor(s, params.track);
-      const book = recordsRef.current;
-      const standing = bestFor(book, key);
-      const noted = noteRecord(book, key, { value, craft: state.craft.spec.id, at: Date.now() });
-      if (noted.record) {
-        // Written through the ref as well as the state, so a second finish
-        // inside one render reads the row this one just set.
-        recordsRef.current = noted.book;
-        setRecords(noted.book);
-      }
-      setResult(resultFor(s, state, value, standing?.value ?? null, noted.record));
-    };
+    /** THE GHOST (`ghost-run.ts`): your best run on this water, riding it
+     * again beside you — on a tricks run or a time trial, where there is
+     * nobody else out there to be measured against. It is armed with every
+     * run the player is handed, stepped with every step of the engine, and
+     * sealed by the finish below. */
+    const ghost = createGhostRig({
+      renderer,
+      params,
+      settings: () => settingsRef.current,
+      rides: () => playerRides(shellRef.current) && scenario === null,
+    });
+
+    /** THE RUN IS OVER — the finish line or the buzzer. What a figure does to
+     * the books, the tape and the plate is `run-settle.ts`'s; what this loop
+     * owns is the run it came off and the surface it was ridden on. */
+    const settle = createSettler({
+      current: () => state,
+      settings: () => settingsRef.current,
+      track: params.track,
+      rides: () => playerRides(shellRef.current) && scenario === null,
+      riding: () => ridingRef.current,
+      progress: progressRef,
+      setProgress,
+      records: recordsRef,
+      setRecords,
+      setResult,
+      ghost,
+    });
 
     const stepOnce = (): void => {
-      step(state, inputFor());
+      const driven = inputFor();
+      step(state, driven);
+      // The tape is what the ENGINE was handed, and the ghost's own run walks
+      // forward beside it off its own — both before anything is observed, so
+      // the bodies on both craft are posed off the step just taken.
+      ghost.step(driven);
       renderer.observe(state);
       if (playerRides(shellRef.current)) {
         audio.events(state.events, state.rules.tricks);
@@ -487,6 +471,10 @@ export function App() {
       // world whatever happened, or the page behind the card is empty.
       state = tryNewGame() ?? state;
       scenario = null;
+      // The ghost goes with the run it was armed for — and a new one is
+      // armed here only where the player is about to ride: the sea behind a
+      // card is the bot's, and nobody records a bot.
+      ghost.arm(state, ridingRef.current, playerRides(shellRef.current));
       live.length = 0;
       setResult(null);
       audio.reset();
@@ -520,6 +508,10 @@ export function App() {
         ? "menu"
         : "splash";
     setShellNow(splashSkipped(location.search) && opensOn === "splash" ? "menu" : opensOn);
+    // A link that boots straight onto the water is a run somebody is riding,
+    // so it gets its ghost too — armed here rather than in `stand` above,
+    // which ran before there was a surface to ask about.
+    ghost.arm(state, null, playerRides(shellRef.current));
 
     /* ── STANDING A RUN UP ───────────────────────────────────────────────
        `run-loader.ts` sequences a load; `app-load.ts` owns the steps and the
@@ -563,6 +555,10 @@ export function App() {
           // the HUD is remembered for the finish and for a restart.
           ridingRef.current = campaign ?? null;
           const game = campaign ? campaignGame(campaign, s.ride.craft) : gameFor(s, params);
+          // Armed on the step that BUILT the shore, so the ghost's own run is
+          // stood up on the level object beside it rather than on a second
+          // build of the same seed.
+          ghost.arm(game, campaign ?? null, true);
           if (s.dev.scene) {
             scenario = stageScenario(game, s.dev.scene);
             scriptFrom = game.t;
@@ -631,6 +627,9 @@ export function App() {
         // the bot and stops being the campaign's.
         setMenuPage(ridingRef.current ? { page: "campaign" } : { page: "root" });
         ridingRef.current = null;
+        // …and the ghost off the water with it: the run carries on under the
+        // bot, and a see-through hull riding an attract sea is nobody's best.
+        ghost.clear();
         setShellNow("menu");
       },
       // The way off a load that will not finish. Back to the START card
@@ -836,7 +835,7 @@ export function App() {
       hudClock += dtFrame;
       if (hudClock >= HUD_TICK) {
         hudClock = 0;
-        setSnap(takeSnapshot(state));
+        setSnap(takeSnapshot(state, ghost.state()));
         setFps(rate);
         setCost(settingsRef.current.dev.cost ? { ...renderer.cost() } : null);
         const kept = live.filter((f) => f.until > wall);
