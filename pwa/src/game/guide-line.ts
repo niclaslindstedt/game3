@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE GUIDE LINE — a dashed mark lying on the sea along the course's own
-// line, running from the checkpoint behind the rider to the one ahead and on
+// line, running from astern of the rider to the checkpoint ahead and on
 // down the line, or, in a run with no course to count, along the rider's own
 // stretch of that line in the direction they are going (`guide-plan.ts` owns
 // which stretch that is; `aimPoint` in the engine is where "what is the rider

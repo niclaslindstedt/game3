@@ -23,3 +23,14 @@ of a stub. Gate stations are measured once per level with
 what keeps a circuit's second lap on the second loop of the path (R30)
 rather than snapping back onto the first, and it anchors the craft's own
 station for the same reason.
+
+AND THE TAIL HANGS OFF THE CHECKPOINT BEFORE LAST, not off the one just
+taken. Clamping the window's near end to the last crossed mark looks right
+written down — "the leg being ridden" — and is wrong in motion for one
+frame's worth of the most conspicuous reason there is: at the instant of the
+crossing the rider IS standing on that station, so the clamp cuts the whole
+tail off under the hull and it grows back over the next `BEHIND` metres. One
+mark further back costs nothing drawn, because the tail everywhere else along
+the leg is decided by `here - BEHIND` and the clamp is not in play. The
+general shape: a window clamped to a landmark the rider passes THROUGH
+collapses at the passing, and the passing is the moment it is being read.

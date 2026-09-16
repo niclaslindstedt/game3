@@ -4,10 +4,10 @@
 // and DOM-free, so the tests read the rule rather than a picture of it;
 // `guide-line.ts` is the half that turns it into plates in the water.
 //
-// THE LINE BELONGS TO THE COURSE, NOT TO THE CRAFT. It runs from the
-// checkpoint behind the rider to the one ahead and on down the line, laid on
-// stations of `Course.path` that do not move — so the dashes stand still in
-// the world while the rider passes over them, the way a lane marking does.
+// THE LINE BELONGS TO THE COURSE, NOT TO THE CRAFT. It runs from astern of
+// the rider to the checkpoint ahead and on down the line, laid on stations of
+// `Course.path` that do not move — so the dashes stand still in the world
+// while the rider passes over them, the way a lane marking does.
 // A line drawn from the HULL to the next mark is the other thing entirely:
 // it shrinks to a stub as the rider closes on the mark and vanishes at the
 // moment they most need to know which way the next leg bends.
@@ -46,7 +46,12 @@ export const REACH = 320;
 /** How much line is kept BEHIND the rider, m. The leg they are on started at
  * the last checkpoint and a few boat lengths of it astern is what says so —
  * enough to read as a road being ridden along rather than a leash trailing
- * off the transom, and short enough that the dashes ahead own the budget. */
+ * off the transom, and short enough that the dashes ahead own the budget.
+ *
+ * IT IS KEPT WHOLE ACROSS A CHECKPOINT, which is what the tail's anchor in
+ * `guideWindow` is for: a rider who has just crossed a mark stands ON the
+ * station it sits at, so a tail cut off at the mark just taken is no tail at
+ * all for the next few boat lengths. */
 export const BEHIND = 24;
 
 /** The level's line, measured once: the cumulative distance to each vertex of
@@ -136,8 +141,8 @@ export function guideWindow(path: GuidePath, state: GameState, aim: Vec2 | null)
   if (counting && !aim) return { begin: 0, end: 0 };
   const next = state.progress.nextGate;
   // The checkpoint BEHIND the rider — the start line before the first one is
-  // taken. It anchors the craft's own station too, so a lapped course reads
-  // the leg being ridden rather than the same water one lap back.
+  // taken. It anchors the craft's own station, so a lapped course reads the
+  // leg being ridden rather than the same water one lap back.
   const from = counting && next > 0 ? path.gates[next - 1] : 0;
   const here = distanceAlong(path.points, path.cum, state.craft.x, state.craft.z, from);
   if (counting) {
@@ -146,7 +151,17 @@ export function guideWindow(path: GuidePath, state: GameState, aim: Vec2 | null)
     // a whole leg in front of the rider as they cross a checkpoint instead
     // of handing them a stub.
     const end = Math.min(path.length, Math.max(path.gates[next], here + REACH));
-    return { begin: Math.min(Math.max(from, here - BEHIND), end), end };
+    // THE TAIL HANGS OFF THE CHECKPOINT BEFORE LAST, not off the one just
+    // taken. Held at the last one, the tail is cut exactly where the rider
+    // is standing at the instant they cross it — so the dashes astern blink
+    // out under the hull and grow back over the next `BEHIND` metres, which
+    // reads as the mark faltering at the one moment the rider is looking at
+    // it hardest. One checkpoint further back and the tail simply runs
+    // through the crossing; it costs nothing drawn, because `here - BEHIND`
+    // is what decides the tail everywhere else along the leg and the window
+    // is no longer for it.
+    const tail = next > 1 ? path.gates[next - 2] : 0;
+    return { begin: Math.min(Math.max(tail, here - BEHIND), end), end };
   }
   // A run with no course to count is the tricks field (R35), and R35 lays it
   // along this very line — so the line is still the right thing to draw and
