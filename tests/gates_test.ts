@@ -1,15 +1,17 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE COURSE'S MARKS, held without a GPU. What a gate mark LOOKS like is
 // judged by looking (`make screenshots SCENE=gate`, under two skies); what
-// is asserted here is the pair of rules that decide what its lantern is
+// is asserted here is the three rules that decide what its lantern is
 // doing and which lanterns the water carries — the first because "the lamp
 // goes out when the gate is behind you" is the whole reading a rider takes
-// off a night course, and the second because the sea has four slots and a
-// level puts forty lamps on it.
+// off a night course, the second because the red on a checkpoint left
+// behind and the HUD's own warning must go out on the same step or the two
+// disagree about how close to it a rider has to get, and the third because
+// the sea has four slots and a level puts forty lamps on it.
 import { describe, expect, it } from "vitest";
 
 import { nearestLamps, type BuoyLamp } from "../pwa/src/game/buoys.ts";
-import { markLamp } from "../pwa/src/game/gates.ts";
+import { markLamp, missedLamp } from "../pwa/src/game/gates.ts";
 import { BUOY_LAMPS } from "../pwa/src/game/water-shader.ts";
 
 /** A few seconds spread over the next gate's breath, so nothing here reads
@@ -66,6 +68,47 @@ describe("a gate mark's lantern", () => {
   it("leaves a finished course dark", () => {
     // The run is past the last gate, so every gate of the lap is behind.
     for (let gate = 0; gate < 12; gate++) expect(markLamp(gate, 12, 1, 1.3)).toBe(0);
+  });
+});
+
+describe("a missed checkpoint's marks", () => {
+  it("beat on the checkpoint the warning stands on and on no other", () => {
+    for (const t of MOMENTS) {
+      expect(missedLamp(4, 4, 1, t)).toBeGreaterThan(0);
+      expect(missedLamp(4, 4, 1, t)).toBeLessThanOrEqual(1);
+      for (const gate of [0, 3, 5, 9]) expect(missedLamp(gate, 4, 1, t)).toBe(0);
+    }
+  });
+
+  it("goes dark on every mark once the warning has cleared", () => {
+    // −1 is `activeMissedGate` back to null — the step the rider rode back
+    // inside the checkpoint's opening. The red and the HUD's type are the
+    // same number, so they cannot disagree about how close that is.
+    for (const t of MOMENTS) {
+      for (const night of [0, 0.5, 1]) {
+        for (let gate = 0; gate < 12; gate++) expect(missedLamp(gate, -1, night, t)).toBe(0);
+      }
+    }
+  });
+
+  it("does not take the lamp off the gate the run owes", () => {
+    // A miss advances the run, so the amber target moves on while the red
+    // warning stands on the gate behind: two readings, two gates, one step.
+    expect(markLamp(5, 5, 1, 1.3)).toBeGreaterThan(0);
+    expect(missedLamp(5, 4, 1, 1.3)).toBe(0);
+    expect(missedLamp(4, 4, 1, 1.3)).toBeGreaterThan(0);
+    expect(markLamp(4, 5, 1, 1.3)).toBe(0);
+  });
+
+  it("is louder than a target lamp, by day and by its beat", () => {
+    const warn = MOMENTS.map((t) => missedLamp(4, 4, 1, t));
+    const next = MOMENTS.map((t) => markLamp(4, 4, 1, t));
+    expect(Math.max(...warn) - Math.min(...warn)).toBeGreaterThan(
+      Math.max(...next) - Math.min(...next),
+    );
+    // A rider is told they left a checkpoint behind at noon as often as at
+    // midnight, so daylight takes far less of this one than of a lantern.
+    expect(missedLamp(4, 4, 0, 1.3)).toBeGreaterThan(markLamp(4, 4, 0, 1.3) * 2);
   });
 });
 
