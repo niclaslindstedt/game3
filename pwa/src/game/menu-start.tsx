@@ -2,9 +2,9 @@
 // THE START CARD — the first of the two questions between the front door and
 // the water: WHERE, and WHEN.
 //
-// SIX ROWS, AND NOT ONE MORE. A card standing between a player and a game
+// SEVEN ROWS, AND NOT ONE MORE. A card standing between a player and a game
 // they have already said yes to earns its place only if every row on it
-// changes the ride they are about to have, so it asks the six things that
+// changes the ride they are about to have, so it asks the seven things that
 // do and leaves everything else to OPTIONS:
 //
 //   COAST    which BIOME the seed is built on — the taiga's granite and
@@ -27,8 +27,17 @@
 //            it into the dawn. Night is the one rung a seed can never be
 //            dealt (R13 starts every level in daylight), so it is the one
 //            row value that is always an override and never the mark.
-//   WIND     calm, brisk or storm — the wind, and so the SEA, because the
+//   WIND     calm, brisk or storm — the wind, and so the CHOP, because the
 //            fetch law is what turns one into the other.
+//   WAVES    how big the swell out past the coast is (R36), on the Douglas
+//            scale from a slight metre to a phenomenal twenty. It is the
+//            seventh row and the newest, and it is not a second WIND row:
+//            the wind row asks about the weather standing over this coast
+//            NOW, and this one about somebody else's weather a thousand
+//            kilometres away, whose sea has been piling up outside the coast
+//            for days. They are two different questions and the water knows
+//            it — a flat blue morning with ten metres rolling under it is a
+//            real day and the card can now ask for one.
 //   WEATHER  the sky over it: the skies THIS COAST offers (`Biome.weathers`,
 //            R19), lightest first — a warm coast has a haze on the ladder
 //            where a cold one has none.
@@ -49,6 +58,13 @@
 // water (`menu-craft.tsx`) — which is also where RIDE lives, because the
 // last thing a rider does before the water should be looking at the hull
 // they are about to ride. This card's way on is that card.
+//
+// WAVES DEFERS TO NOBODY, WHICH IS WHY IT IS A ROW AND NOT A RUNG OF WIND.
+// R19's agreement is between the wind and the SKY; the groundswell was never
+// part of it, because no coast's own wind made it. So the row marks the
+// height the shore was dealt and nothing above it moves that mark — where
+// choosing a wind re-marks the sky under it, choosing a wind leaves this row
+// exactly where the seed left it.
 //
 // WIND AND WEATHER ARE TWO ROWS, AND THE SECOND ONE DEFERS TO THE FIRST.
 // They were one row once, for a good reason: R19 deals a level's sky off the
@@ -106,9 +122,11 @@ import {
   CONDITIONS,
   CONDITION_DAY,
   DEFAULT_SEED,
+  SEA_STATES,
   SEED_RANGE,
   TRICK_MINUTES,
   conditionsFor,
+  seaStateFor,
   type Conditions,
   type Settings,
 } from "./settings.ts";
@@ -165,6 +183,14 @@ const CONDITION_LABELS: Record<Conditions, string> = {
 const CONDITION_STOPS: Stop<Conditions>[] = CONDITIONS.map((id) => ({
   id,
   label: CONDITION_LABELS[id],
+}));
+
+/** R36 — the seas, smallest first. The id is the HEIGHT the rung stands
+ * for, spelled, so the row's value and the setting under it are the same
+ * number and neither has to be looked up in a table. */
+const SEA_STOPS: Stop<string>[] = SEA_STATES.map((rung) => ({
+  id: String(rung.hs),
+  label: STRINGS.seaState(rung.id, rung.hs),
 }));
 
 const WEATHER_LABELS: Record<Weather, string> = {
@@ -244,6 +270,10 @@ export function StartPage({
   const dealtWeather =
     ride.conditions === null ? (deal?.weather ?? null) : CONDITION_DAY[ride.conditions].weather;
   const dealtWind = deal === null ? null : conditionsFor(deal.wind);
+  // R36 — and the sea the shore was dealt out past it, as the rung it stands
+  // in. Unlike the sky above, it defers to NOTHING but the shore: the wind
+  // row does not imply a swell, which is the whole reason this row exists.
+  const dealtSwell = deal === null ? null : String(seaStateFor(deal.swell));
   /** What a press means: the marked chip hands the row back to the shore
    * (null), anything else is the override. */
   const pick = <T extends string>(id: T, dealtId: T | null): T | null =>
@@ -380,6 +410,19 @@ export function StartPage({
               dealt={dealtWind}
               pending={!chart.fresh}
               onPick={(c) => setRide({ conditions: pick(c, dealtWind) })}
+              onHint={setHint}
+            />
+            {/* Under the wind, and NOT under it in the way the sky is: this is
+            the sea that came in off the ocean days ago, which the wind here
+            neither grew nor can ask for. */}
+            <StepRow
+              label={STRINGS.startWaves}
+              hint={STRINGS.startWavesHint}
+              stops={SEA_STOPS}
+              value={ride.swell === null ? dealtSwell : String(ride.swell)}
+              dealt={dealtSwell}
+              pending={!chart.fresh}
+              onPick={(hs) => setRide({ swell: pick(hs, dealtSwell) === null ? null : Number(hs) })}
               onHint={setHint}
             />
             {/* Under the wind, because it defers to it: the marked sky here is the

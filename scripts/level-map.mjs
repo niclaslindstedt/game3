@@ -85,10 +85,14 @@ const args = parseArgs(
       kind: "flag",
       help: "R35 — build it for a TRICKS run: the line of ringless ramps down the course",
     },
+    swell: {
+      kind: "number",
+      help: "R36 — the swell standing off the coast, m (1–20); the seed's own when left out",
+    },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--swell m] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -111,6 +115,7 @@ const level = generateLevel(args.seed, {
   pace: args.pace,
   rampWidth: args.ramp,
   tricks: args.tricks,
+  swell: args.swell,
 });
 // The rules the LISTING quotes are the ones this level was built to (R32),
 // and the hulls it quotes launch speeds for are at the same class — a run-up
@@ -240,7 +245,7 @@ const b = level.bounds;
 const pad = (v, n) => String(v).padStart(n);
 const padEnd = (v, n) => String(v).padEnd(n);
 
-const heading = `SEED ${args.seed} — ${level.biome}, ${level.weather} sky, wind ${w.speed.toFixed(1)} m/s from ${deg(w.from).toFixed(0)}°, ${hour}, water ${level.water.temperature.toFixed(1)} °C at ${level.water.density} kg/m³`;
+const heading = `SEED ${args.seed} — ${level.biome}, ${level.weather} sky, wind ${w.speed.toFixed(1)} m/s from ${deg(w.from).toFixed(0)}°, swell ${level.swell.toFixed(1)} m offshore, ${hour}, water ${level.water.temperature.toFixed(1)} °C at ${level.water.density} kg/m³`;
 // R30 — a lapped ride is quoted as what it is: the lap, and how many of
 // them. "2.20 km, 21 gates" of one lap ridden twice is a level nobody can
 // picture from the number.
@@ -384,7 +389,7 @@ writeFileSync(join(outDir, `${name}.txt`), `${text}\n`);
 const canvas = renderLevelMap({
   level,
   scale: args.scale,
-  title: `SEED ${args.seed}  ${level.biome.toUpperCase()}  ${level.weather.toUpperCase()}  WIND ${w.speed.toFixed(1)} M/S FROM ${deg(w.from).toFixed(0)}°  ${hour}`,
+  title: `SEED ${args.seed}  ${level.biome.toUpperCase()}  ${level.weather.toUpperCase()}  WIND ${w.speed.toFixed(1)} M/S FROM ${deg(w.from).toFixed(0)}°  SWELL ${level.swell.toFixed(1)} M  ${hour}`,
   lines: [
     `${(level.course.length / 1000).toFixed(2)} KM, ${gates.length} GATES, ${airCount} IN THE AIR`,
     `RIVER ${(riverInland / 1000).toFixed(2)} KM INLAND`,

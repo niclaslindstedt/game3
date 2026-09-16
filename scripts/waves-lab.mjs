@@ -75,11 +75,15 @@ const args = parseArgs(
       help: "quote the sea by its significant height, m, instead of growing it from the wind",
     },
     tp: { kind: "number", help: "...and its peak period, s (the height's own when left out)" },
+    swell: {
+      kind: "number",
+      help: "R36 — the swell standing off the coast, m (1–20); the seed's own when left out",
+    },
     reach: { kind: "number", default: 600, help: "how far out the transect runs, m" },
     times: { kind: "number", default: 5, help: "moments drawn on the transect, a second apart" },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
   },
-  "usage: npm run waves -- --seed n [--biome taiga|mangrove] [--wind m/s] [--from deg] [--hs m [--tp s]] [--reach m] [--times n] [--out name]",
+  "usage: npm run waves -- --seed n [--biome taiga|mangrove] [--wind m/s] [--from deg] [--hs m [--tp s]] [--swell m] [--reach m] [--times n] [--out name]",
 );
 
 // ── The sea ─────────────────────────────────────────────────────────────
@@ -87,7 +91,7 @@ if (!isBiomeId(args.biome)) {
   console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);
   process.exit(2);
 }
-const level = generateLevel(args.seed, { biome: args.biome });
+const level = generateLevel(args.seed, { biome: args.biome, swell: args.swell });
 const wind = {
   from: args.from !== undefined ? (args.from * Math.PI) / 180 : level.wind.from,
   speed: args.wind ?? level.wind.speed,

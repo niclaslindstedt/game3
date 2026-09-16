@@ -34,6 +34,8 @@ import {
   oceanRun,
   polylineDistance,
   RAMP_DIAL,
+  SWELL_DIAL,
+  dealSwell,
   rampSurface,
   ringPlacement,
   sampleField,
@@ -965,6 +967,71 @@ describe("R33 — the ramp dial", () => {
         const d = segmentDistance(s.x, s.z, c.x0, c.z0, c.x1, c.z1);
         expect(d).toBeGreaterThanOrEqual(s.r + c.halfWidth - 1e-6);
       }
+    }
+  });
+});
+
+describe("R36 — the sea standing off the coast", () => {
+  const SWELL_SEEDS = [11, 102, 38];
+
+  it("deals every shore a swell inside the dial's band", () => {
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      expect(level.swell, `seed ${seed}`).toBeGreaterThanOrEqual(SWELL_DIAL.min);
+      expect(level.swell, `seed ${seed}`).toBeLessThanOrEqual(SWELL_DIAL.max);
+    }
+  });
+
+  it("deals it low, because the ordinary day has to be ordinary", () => {
+    // The draw is log-uniform over a band spanning a factor of twenty and
+    // then squared toward its floor, so what is held here is the SHAPE of
+    // the population and not any one seed: most shores get a sea a rider
+    // can race on, and the big days are the rare ones they are supposed to
+    // be. Read off `dealSwell` rather than off generated levels, so the
+    // claim is about the rule and a hundred samples cost nothing.
+    const drawn: number[] = [];
+    for (let i = 0; i < 1000; i++) drawn.push(dealSwell((i + 0.5) / 1000));
+    const median = drawn[500];
+    expect(median).toBeGreaterThan(1.5);
+    expect(median).toBeLessThan(3);
+    expect(drawn.filter((hs) => hs > 10).length / drawn.length).toBeLessThan(0.2);
+    expect(drawn.filter((hs) => hs > 10).length).toBeGreaterThan(0);
+    // Both ends of the band are reachable, and neither is passed.
+    expect(dealSwell(0)).toBe(SWELL_DIAL.min);
+    expect(dealSwell(1)).toBe(SWELL_DIAL.max);
+    expect(dealSwell(-5)).toBe(SWELL_DIAL.min);
+    expect(dealSwell(9)).toBe(SWELL_DIAL.max);
+  });
+
+  it("rides the height it was asked for, held inside the band", () => {
+    for (const swell of [SWELL_DIAL.min, 6, SWELL_DIAL.max]) {
+      expect(generateLevel(SWELL_SEEDS[0], { swell }).swell).toBe(swell);
+    }
+    expect(generateLevel(SWELL_SEEDS[0], { swell: 500 }).swell).toBe(SWELL_DIAL.max);
+    expect(generateLevel(SWELL_SEEDS[0], { swell: -1 }).swell).toBe(SWELL_DIAL.min);
+  });
+
+  it("changes the water and NOTHING about the shore under it", () => {
+    // The draw is the last thing the seeded stream does, which is the whole
+    // of why a wave-size knob is safe to hand a player: the course they see
+    // on the chart is the course they ride whatever they set it to.
+    for (const seed of SWELL_SEEDS) {
+      const dealt = generateLevel(seed);
+      const asked = generateLevel(seed, { swell: SWELL_DIAL.max });
+      expect(asked.swell).toBe(SWELL_DIAL.max);
+      expect(asked.course.gates).toEqual(dealt.course.gates);
+      expect(asked.course.length).toBe(dealt.course.length);
+      expect(asked.solids).toEqual(dealt.solids);
+      expect(asked.start).toEqual(dealt.start);
+      expect(asked.wind).toEqual(dealt.wind);
+      expect(asked.weather).toBe(dealt.weather);
+      expect(asked.fauna).toEqual(dealt.fauna);
+    }
+  });
+
+  it("is dealt again the same way from the same seed", () => {
+    for (const seed of SWELL_SEEDS) {
+      expect(generateLevel(seed).swell).toBe(generateLevel(seed).swell);
     }
   });
 });

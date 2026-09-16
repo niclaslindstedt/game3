@@ -82,12 +82,14 @@ export type Biome = {
    * grows (`TUNING.sea.heightScale` is the arcade dial under both). `wind`
    * scales the two wind bands — the sea this coast's own wind builds and
    * the chop on water that sea cannot reach — and `swell` scales the
-   * groundswell dealt from past the horizon (`TUNING.sea.swell.hs`). A
+   * groundswell dealt from past the horizon (R36's `dealSwell`). A
    * skerry coast has the islands between it and the ocean, so its swell is
    * mostly gone by the time it arrives and its wind sea is broken up; a
    * low open coast with a warm shallow shelf gets the whole swell, long
-   * and lazy, and a wind sea that never stands very high over it. Read by
-   * `createSea` and nothing else. */
+   * and lazy, and a wind sea that never stands very high over it. `wind` is
+   * read by `createSea` and `swell` by the generator, where the height a
+   * seed is dealt is drawn — never both in one place, because the wind sea
+   * is grown at a run and the swell is part of what the level IS. */
   readonly sea: { readonly wind: number; readonly swell: number };
   /** The skies this coast can be under (R19), lightest first. A coast is
    * partly its weather — a northern shore gets the line squall and never

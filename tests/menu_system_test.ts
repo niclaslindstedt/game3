@@ -8,7 +8,15 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
-import { BIOME_IDS, CLASS_BAND, GAME_MODES, SEASONS, TIMES_OF_DAY, WEATHER_IDS } from "@engine";
+import {
+  BIOME_IDS,
+  CLASS_BAND,
+  GAME_MODES,
+  SEASONS,
+  SWELL_DIAL,
+  TIMES_OF_DAY,
+  WEATHER_IDS,
+} from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
 
@@ -48,6 +56,8 @@ import {
   DEV_HOLD_MS,
   TRICK_MINUTES,
   conditionsFor,
+  seaStateFor,
+  SEA_METRES,
   freshSettings,
   mergeSettings,
 } from "../pwa/src/game/settings.ts";
@@ -488,6 +498,40 @@ describe("the wind a seed deals, as one of the card's three rungs (conditionsFor
   });
 });
 
+describe("R36 — the swell a seed deals, as a rung of the WAVES row (seaStateFor)", () => {
+  it("is exactly the dial the engine offers, end to end", () => {
+    // The row's ladder and R36's band are one thing quoted twice: the row
+    // may not offer a sea the generator would refuse to build, and it may
+    // not stop short of one it would.
+    expect(SEA_METRES[0]).toBe(SWELL_DIAL.min);
+    expect(SEA_METRES[SEA_METRES.length - 1]).toBe(SWELL_DIAL.max);
+    expect([...SEA_METRES]).toEqual([...SEA_METRES].sort((a, b) => a - b));
+    expect(new Set(SEA_METRES).size).toBe(SEA_METRES.length);
+  });
+
+  it("names the rung a swell is standing exactly on", () => {
+    for (const hs of SEA_METRES) expect(seaStateFor(hs)).toBe(hs);
+  });
+
+  it("puts a dealt height in its own BAND, not at the nearest rung", () => {
+    // The rungs ARE the Douglas scale's bands, so a 3.2 m sea is a ROUGH
+    // one and there is nothing to decide — where the WIND row, whose rungs
+    // are three winds somebody picked, has to take the nearest.
+    expect(seaStateFor(1)).toBe(1);
+    expect(seaStateFor(1.01)).toBe(2.5);
+    expect(seaStateFor(3.2)).toBe(4);
+    expect(seaStateFor(8.9)).toBe(9);
+    expect(seaStateFor(9.1)).toBe(14);
+  });
+
+  it("leaves no swell with nothing marked", () => {
+    // The row always has a rung to stand on — including under the dial's
+    // floor and over its ceiling, which the generator cannot deal but a
+    // stored blob or a link could still carry.
+    for (let hs = 0; hs <= 30; hs += 0.25) expect(SEA_METRES).toContain(seaStateFor(hs));
+  });
+});
+
 describe("what survives a stored settings blob (settings.ts)", () => {
   it("gives a first visit the defaults, sharing no reference with them", () => {
     const fresh = freshSettings();
@@ -547,6 +591,9 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       // existed keeps riding the season it was dealt.
       season: null,
       conditions: "storm",
+      // ...and the same for R36's WAVES row: a blob from before it existed
+      // rides the swell its shore was dealt.
+      swell: null,
       weather: "rain",
       // ...and the same for the CLASS: a blob from before it existed rides
       // stock, which is the roster the catalog tunes.

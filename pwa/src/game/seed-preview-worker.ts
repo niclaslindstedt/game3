@@ -51,6 +51,10 @@ export type SeedDeal = {
   wind: number;
   /** The sky R19 dealt over it. */
   weather: Weather;
+  /** R36 — the groundswell it was dealt, m of significant height out past
+   * the coast. A figure rather than a rung, like the wind above it: the
+   * card decides which rung of the scale that figure stands in. */
+  swell: number;
 };
 
 /** What comes back — the schematic, the day the seed deals, and the few
@@ -86,6 +90,7 @@ self.onmessage = (e: MessageEvent<PreviewRequest>) => {
         season: level.season,
         wind: level.wind.speed,
         weather: level.weather,
+        swell: level.swell,
       },
       gates: level.course.gates.length,
       length: level.course.length,

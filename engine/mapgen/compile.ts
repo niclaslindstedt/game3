@@ -63,6 +63,9 @@ export type LevelPlan = {
   readonly season: Season;
   readonly hour: number;
   readonly weather: Weather;
+  /** R36 — the groundswell standing off this coast, m of significant
+   * height, already held inside `SWELL_DIAL`. */
+  readonly swell: number;
 };
 
 export function insideBounds(bounds: Bounds, x: number, z: number): boolean {
@@ -175,5 +178,6 @@ export function compileLevel(plan: LevelPlan): Level {
     season: plan.season,
     hour: plan.hour,
     weather: plan.weather,
+    swell: plan.swell,
   };
 }

@@ -311,19 +311,14 @@ export const SEA = {
    * of a 10 ms frame, and a phase field each is ~20 ms of `createSea`. It
    * is the dearest thing in this file per component and it buys the most. */
   swell: {
-    /** How big the groundswell is, m of significant height, before the
-     * level's own draw. Two metres is a middling ocean swell — the North
-     * open ocean's median is nearer three, a sheltered sea's nearer
-     * nothing, and the coast's own row (`Biome.sea.swell`) says how much of
-     * it arrives. An ARCADE DIAL: it is
-     * the one number that says how much OCEAN a level has in it. */
-    hs: 3.0,
-    /** ...and how much of that a given coast is DEALT, as the bottom of a
-     * uniform draw up to the whole of it. A coast is not the same ocean
-     * every morning: at 0.55 a seed can get anything from a 1.1 m ripple
-     * of old swell to the full two metres, and the draw is the plainest
-     * way to make the big days feel like big days. */
-    vary: 0.55,
+    /** HOW BIG IT IS IS NOT HERE. The significant height a level's swell
+     * stands at is the LEVEL's own (R36, `Level.swell`): the generator
+     * deals it inside `SWELL_DIAL` at the coast's share of the ocean, or a
+     * run asks for a height outright, and `createSea` lays this band at
+     * whatever came back. That is what makes the swell the one sea a rider
+     * can be given without a wind to grow it — everything else in this
+     * block is the SHAPE the height is laid in, and none of it moves with
+     * the sea's size. */
     /** HOW STEEP it is quoted at, Hs/L₀ — and so, through L₀ = g·T²/2π,
      * how LONG it is. An ARCADE DIAL, and the most important one here.
      *
@@ -347,6 +342,24 @@ export const SEA = {
      * share of it: some coasts get a longer, lazier swell and some a
      * shorter, harder one at the same height. */
     steepVary: 0.25,
+    /** THE LONGEST A SWELL MAY BE, m — the cap that keeps `steepness` from
+     * turning a big sea into no sea at all.
+     *
+     * A fixed steepness means the wavelength grows with the height, and R36
+     * lets a level be dealt or asked for twenty metres: quoted at 0.035
+     * that is a 570 m wave, and a wave longer than the water a rider can
+     * SEE is not a wave. The crest ahead and the crest behind are both out
+     * of the picture, so what is left on screen is a plane that slowly
+     * tilts — which is exactly the fault `steepness` was lowered from
+     * nature's 0.008 to cure, arriving again at the other end of the band.
+     *
+     * 220 m is where the two dials meet: it is the wavelength
+     * `sea.steepness` = 0.09 gives at the TOP of `SWELL_DIAL`, so a swell
+     * this big is quoted at the open ocean's own storm shape and a rider
+     * reads the same wall either side of the rim. Nothing under 7.7 m
+     * touches it — the whole sea any level was dealt before R36, and a good
+     * way past it, keeps the length its own steepness gives. */
+    maxLength: 220,
     /** The band it is laid over, as multiples of its own peak — a tenth of
      * an octave either side. This is what makes SETS: components this
      * close beat with each other over hundreds of metres, so the swell

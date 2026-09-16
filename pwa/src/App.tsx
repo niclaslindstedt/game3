@@ -50,6 +50,11 @@
 //                  season has
 //   ?day=storm     ...and its WEATHER row: fine | windy | storm, which is a
 //                  sky AND the wind that builds the sea under it
+//   ?waves=9       ...and its WAVES row (R36): how big the GROUNDSWELL out
+//                  past the coast is, m — 1 | 2.5 | 4 | 6 | 9 | 14 | 20.
+//                  Not the wind's sea and not moved by ?day: it is days old
+//                  and a thousand kilometres away, and it is a BASELINE —
+//                  the ocean past the rim still builds on top of it
 //   ?camera=heli   which rung of the camera ladder the run opens on (bow |
 //                  nose | close | chase | far | heli | drone) — a setting like the
 //                  rows below, so a link lays it over the stored one; the

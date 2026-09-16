@@ -54,6 +54,18 @@ export type SyntheticOptions = {
   rampWidth?: number;
   /** The sky over it (default clear). */
   weather?: Weather;
+  /** R36 — the groundswell standing off the bench out past the islands, m
+   * of significant height (default 1.5, the taiga's own share of which
+   * reaches the hull as about a metre).
+   *
+   * DELIBERATELY AT THE BOTTOM OF THE DIAL, because this is a BENCH: the
+   * staged moments are quoted in metres of run-up and metres of clearance
+   * (`scenarios.ts`'s launch takes a ring 5 m up off a ramp 8 m long), and
+   * a sea that moves the hull a metre either way while it climbs is the
+   * bench measuring the water rather than the hull. A test whose subject
+   * IS the swell passes its own; one that wants the wind's sea alone
+   * passes 0. */
+  swell?: number;
 };
 
 /** The sea bed: −`depth` m out at sea, rising over the last 40 m to the
@@ -184,6 +196,10 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // A clear late morning: nothing a physics test stages should be
     // standing under weather it did not ask for.
     weather: opts.weather ?? "clear",
+    // R36 — a small swell out past it: enough that the bench is not flat
+    // water no level ever offers, little enough that a staged moment is
+    // still about the hull (see the option).
+    swell: opts.swell ?? 1.5,
   };
 }
 

@@ -60,6 +60,13 @@ export type CreateGameOptions = {
   /** A sea quoted outright — a swell of this significant height, m, sent
    * in from beyond the fetch law — in place of the one the wind grows. */
   sea?: SeaOverride;
+  /** R36 — THE GROUNDSWELL the level is built with, m of significant
+   * height inside `SWELL_DIAL`, in place of the one the seed deals. It is
+   * the LEVEL's rather than the run's — the sea that came in off the open
+   * ocean, which is why it is not the wind's — so it is ignored when
+   * `level` is given, exactly as `biome` and `track` are, and a `sea`
+   * quoted outright replaces the whole field including this band. */
+  swell?: number;
   /** The hour on the clock the run starts at, the season and the sky to
    * ride the level under in place of the ones it was dealt (R13, R19) —
    * how a lab photographs a sunset on a seed that came up at noon, or a
@@ -193,6 +200,8 @@ export function createGame(options: CreateGameOptions): GameState {
       // it. The mode is what asks for them: the level is otherwise the very
       // one a race on this seed is ridden on.
       tricks: options.mode === "tricks",
+      // R36 — the sea standing off the coast, when the run asked for one.
+      swell: options.swell,
     });
   // A named time of day is resolved against the coast that was actually
   // dealt, which is why it is read here rather than by the caller: only the

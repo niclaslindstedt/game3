@@ -58,7 +58,7 @@ import { layFauna } from "./fauna.ts";
 import { createGeology, laySolids, type Geology } from "./geology.ts";
 import { TUNING } from "../game/defs/tuning.ts";
 import { LEVEL_RULES as R, inBand, withinBand } from "./rules.ts";
-import { clampDial } from "./pace.ts";
+import { clampDial, clampSwell, dealSwell } from "./pace.ts";
 import { pickWeather, skyCover } from "./weather.ts";
 import type { Bounds, GenerateOptions, Level, Solid, TrackKind, Wind } from "./types.ts";
 
@@ -359,6 +359,13 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       water.temperature,
       drawn.km,
     );
+    // R36 — THE SEA STANDING OFF THIS COAST, drawn LAST of everything the
+    // seeded stream does: no swell moves a gate or a rock, so a shore dealt
+    // a twenty-metre sea is the same shore it would have been under a
+    // metre of it. An asked-for height wins outright and is clamped here,
+    // once, for `rampWidth`'s reason — the level carries the height its sea
+    // was actually built at.
+    const swell = opts.swell === undefined ? dealSwell(rng.range(0, 1)) : clampSwell(opts.swell);
     const level = compileLevel({
       seed,
       biome,
@@ -381,6 +388,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       season,
       hour,
       weather,
+      swell,
     });
     const analysis = analyzeLevel(level);
     if (analysis.ok) return level;
