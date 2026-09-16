@@ -4,9 +4,10 @@
 // is not) and lays out everything drawn over the sea:
 //
 //   top left      the run clock and the gate count, with the SUN'S CLOCK
-//                 under them: the hour the run has
-//                 reached and the word for its light, because a run rides
-//                 an hour a minute into whatever the season has
+//                 under them — the hour the run has reached and the word for
+//                 its light, because a run rides an hour a minute into
+//                 whatever the season has — and how far OFFSHORE the rider
+//                 is beside that hour
 //   top right     the MINIMAP — the coast, the gates and the craft on it,
 //                 and the press that holds the run and puts the pause card
 //                 up — with the RESET and CAMERA presses hung under it, and
@@ -170,9 +171,26 @@ export function Hud({
             </div>
           ) : null}
         </div>
-        <div class="hud-chip hud-sun" title={STRINGS.sunClockLabel(snap.daylight)}>
-          <span>{hourLabel(snap.hour)}</span>
-          <span class="hud-chip-sub">{STRINGS.sunClockLabel(snap.daylight)}</span>
+        <div class="hud-top-row">
+          <div class="hud-chip hud-sun" title={STRINGS.sunClockLabel(snap.daylight)}>
+            <span>{hourLabel(snap.hour)}</span>
+            <span class="hud-chip-sub">{STRINGS.sunClockLabel(snap.daylight)}</span>
+          </div>
+          {/* HOW FAR OUT HE IS — the level's own offshore field read at the
+              craft (`snapshot.ts`), never measured here. It shares the sun
+              clock's line rather than the run clock's because the two are
+              the same kind of fact — WHERE and WHEN this run is, read
+              between moments — and because the line above is full: at 390 px
+              a race already has the clock, the place and the gate count
+              across it, and a fourth readout there goes under the minimap.
+              It is also what the water is about to do: the fetch the wind
+              has had to work on is this distance. Drawn in every mode — a
+              tricks run has no gates to count and the shore is still
+              there. */}
+          <div class="hud-chip">
+            <span>{STRINGS.shore(snap.shoreDistance)}</span>
+            <span class="hud-chip-sub">{STRINGS.shoreLabel}</span>
+          </div>
         </div>
         {/* THE SCORE, at the foot of the column the run's other facts live
             in. It is a TOTAL — banked, settled, nothing riding on it — and a
