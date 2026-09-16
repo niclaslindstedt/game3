@@ -84,7 +84,7 @@ What each contributes:
 - **Speed only feels fast against wave scale.** A craft with a taller top
   speed needs longer gate spacing and a wider offshore band (`rules.ts`), or
   the level reads as twitchy instead of quick.
-- **The wind vane is a promise.** The HUD's vane says where the sea is coming
+- **The wind meter is a promise.** The HUD's arrow says where the sea is coming
   from, and the sea had better come from there.
 
 ## The camera module, and what it decides

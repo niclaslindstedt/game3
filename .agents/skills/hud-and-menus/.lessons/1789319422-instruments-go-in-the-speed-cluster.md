@@ -9,18 +9,19 @@ The placement lesson beside this one sorts a new element by its SUBJECT.
 There is a second cut that matters more once the element has a MOVING PART:
 a readout is a figure and belongs with the run's other facts in `.hud-top`;
 an INSTRUMENT is a thing whose position IS the reading, and it belongs with
-the rev bar in `.hud-speed`. The altimeter was first built as a chip under
-the wind vane and it was legible and dead — a number that told you nothing
-about how the sea was working until you had read two of them in a row. As a
-vertical tape on top of the speed cluster it says the same thing at a
-glance, and it costs `.hud-top` nothing: that column was already five deep
-(clock, gates, vane, sun, score) and the bottom-left corner is the only edge
-of this screen with VERTICAL room, which is the one thing a tape needs.
+the rev bar in `.hud-speed`. The altimeter was first built as a chip and it
+was legible and dead — a number that told you nothing about how the sea was
+working until you had read two of them in a row. As a vertical tape on top
+of the speed cluster it says the same thing at a glance. The wind meter makes
+the same cut: its turning arrow sits to the tape's right, while `.hud-top`
+keeps only the run's fixed facts (clock, gates, sun and score). The bottom-left
+corner is the only edge with the vertical room the tape needs and enough
+horizontal room for the two moving instruments to share a row.
 
-`hud-dial.tsx` is the file for it — the component is handed a share and
-paints it, reading nothing of the game — and the scale that turns metres
-into that share lives in `snapshot.ts` beside `airGrow`, which is the same
-split the air clock already uses.
+`hud-dial.tsx` is the file for them — each component is handed a share or a
+bearing and paints it, reading nothing of the game — while `snapshot.ts`
+turns engine state into the values they draw. That is the same split the air
+clock already uses.
 
 The trap in a floating figure: it is centred on the marker, so half its
 height hangs below the track when the marker is at the foot. A caption

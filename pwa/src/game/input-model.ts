@@ -13,7 +13,7 @@
 // three.js's right-handed y-up frame, whose top-down view MIRRORS the map —
 // so from behind the craft the engine's positive steer is a LEFT turn.
 // `SCREEN_TO_ENGINE` is that flip; `sampleInput` applies it to the steer,
-// the HUD's wind vane applies it to a bearing, and nothing else may.
+// the HUD's wind meter applies it to a bearing, and nothing else may.
 
 import type { CraftInput } from "@engine";
 

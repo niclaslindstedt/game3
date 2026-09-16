@@ -392,36 +392,10 @@ canvas {
   gap: var(--hud-mini-gap);
 }
 
-.hud-wind {
-  align-items: flex-start;
-  text-align: left;
-}
-
-/* The sun's clock, under the vane: the same chip, left-aligned like it. */
+/* The sun's clock, under the run row: the same chip, left-aligned like it. */
 .hud-sun {
   align-items: flex-start;
   text-align: left;
-}
-
-.hud-wind-row {
-  display: flex;
-  align-items: center;
-  gap: 0.3rem;
-}
-
-/* The vane: an arrow turned by the pointer handler's angle; it points
-   where the wind is GOING, relative to the nose, so an arrow up the screen
-   is a tailwind. */
-.hud-vane {
-  width: clamp(1.1rem, 3.2vmin, 1.5rem);
-  height: clamp(1.1rem, 3.2vmin, 1.5rem);
-  color: var(--hud-info);
-  filter: drop-shadow(0 1px 0 var(--hud-shadow));
-}
-
-.hud-vane g {
-  transform-origin: 12px 12px;
-  transition: transform 90ms linear;
 }
 
 .hud-mini {
@@ -977,7 +951,7 @@ canvas {
 
 /* THE CRAFT, in the middle of the window — the one glyph that never moves,
    because the window is centred on it. Only its heading changes, and that is
-   tweened between the HUD's 12 Hz snapshots, like the wind vane, so the icon
+   tweened between the HUD's 12 Hz snapshots, like the wind meter, so the icon
    swings instead of stepping.
 
    It is the one mark on the plate that must be findable over ANY ground —
@@ -1124,7 +1098,17 @@ canvas {
   gap: 0.25rem;
 }
 
-/* THE ALTITUDE TAPE, standing on the speed cluster (hud-dial.tsx). The
+/* THE MOVING INSTRUMENTS, standing side by side on the speed cluster
+   (hud-dial.tsx). The altitude figure rides to the right of its narrow
+   track, so the gap reserves that live space before the wind meter begins. */
+.hud-instruments {
+  display: flex;
+  align-items: flex-start;
+  gap: clamp(3.6rem, 10vmin, 5rem);
+  margin-bottom: 0.15rem;
+}
+
+/* THE ALTITUDE TAPE. The
    track is narrow on purpose: nothing is read OFF it — the figure riding
    the marker says the number — so its whole job is to show the marker's
    TRAVEL, and a wide bar there would be chrome over the water for no
@@ -1142,7 +1126,81 @@ canvas {
      own height hangs below the tape, and a rider deep in an ocean trough is
      exactly when this readout is worth having. */
   gap: 0.7rem;
-  margin-bottom: 0.15rem;
+}
+
+/* THE WIND METER, immediately to the tape's right. The plate is an oblique
+   plane and the arrow has a dark offset face under its lit face: together
+   they read as a thick object laid on a small console rather than as a flat
+   icon. It points where the wind is GOING relative to the craft's nose, so
+   straight up is a tailwind and the whole object turns as the craft turns. */
+.hud-wind {
+  display: flex;
+  width: clamp(4.4rem, 14vmin, 6.4rem);
+  flex-direction: column;
+  align-items: center;
+  line-height: 1;
+  text-align: center;
+}
+
+.hud-wind-dial {
+  display: block;
+  width: 100%;
+  height: clamp(3.3rem, 10vmin, 4.7rem);
+  overflow: visible;
+  filter: drop-shadow(0 2px 2px rgb(0 0 0 / 48%));
+}
+
+.hud-wind-plate {
+  fill: rgb(var(--hud-plate) / 56%);
+  stroke: var(--hud-track);
+  stroke-width: 1.4;
+}
+
+.hud-wind-ring,
+.hud-wind-cross {
+  fill: none;
+  stroke: var(--hud-track);
+  stroke-width: 0.8;
+  opacity: 0.72;
+}
+
+.hud-wind-cross {
+  stroke-dasharray: 2 4;
+}
+
+.hud-wind-arrow {
+  transform-origin: 43px 32px;
+  transition: transform 90ms linear;
+}
+
+.hud-wind-arrow-side {
+  fill: color-mix(in srgb, var(--hud-info) 48%, rgb(var(--hud-plate)));
+}
+
+.hud-wind-arrow-face {
+  fill: var(--hud-info);
+  stroke: var(--hud-ink);
+  stroke-width: 0.8;
+  paint-order: stroke fill;
+}
+
+.hud-wind-arrow-facet {
+  fill: color-mix(in srgb, var(--hud-info) 64%, var(--hud-ink));
+  opacity: 0.62;
+}
+
+.hud-wind-reading {
+  margin-top: -0.12rem;
+  font-size: clamp(0.82rem, 2.35vmin, 1.12rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hud-wind-arrow {
+    transition: none;
+  }
 }
 
 .hud-tape {
