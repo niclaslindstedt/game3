@@ -519,16 +519,50 @@ describe("the engine bed (audio/engine-voice.ts)", () => {
   });
   const mix = { engine: 1, exhaust: 1, pump: 1, tone: 1 };
 
-  it("makes its note from the crank: three cylinders, four strokes, eighteen blade-vane crossings", () => {
+  it("makes its note from the crank: three cylinders, four strokes, three blades", () => {
     expect(noteHz(1500)).toBeCloseTo(37.5, 9);
     expect(noteHz(8000)).toBeCloseTo(200, 9);
-    expect(whineHz(8000)).toBeCloseTo(2400, 9);
+    // The pump's tone is the BLADE PASSING frequency — three blades a
+    // revolution — and not the blade count multiplied by the stator's vanes,
+    // which named a 2.4 kHz sine the pump never made and read as a hair
+    // dryer over the spray.
+    expect(whineHz(8000)).toBeCloseTo(400, 9);
+    expect(whineHz(8000)).toBeLessThan(noteHz(8000) * 3);
     expect(rpmAt(revOf(4200, 1500, 7600), 1500, 7600)).toBeCloseTo(4200, 6);
     const t = engineTargets(voice({}), mix);
     expect(t.hum.hz).toBeCloseTo(noteHz(5000), 9);
     expect(t.octave.hz).toBeCloseTo(noteHz(5000) * 2, 9);
     expect(t.whine.hz).toBeCloseTo(whineHz(5000), 9);
     expect(t.bass.hz).toBeGreaterThanOrEqual(44);
+    // The motor is the firing note as a SQUARE, and its band is parked low
+    // enough that what gets out is the odd harmonics rather than a buzz.
+    expect(t.motor.hz).toBeCloseTo(noteHz(5000), 9);
+    expect(ENGINE_LAYERS.motor.type).toBe("square");
+    expect(t.motor.cutoff!).toBeLessThan(500);
+  });
+
+  it("hums through the hull whatever the pipe is doing — at idle, under and in the air", () => {
+    // THE MACHINE IN THE BACKGROUND. Every other layer here is the engine
+    // heard through a pipe that is under the surface for most of a run, so
+    // without this one an idling craft on a still bay is a gurgle and a
+    // whistle and no motor at all.
+    const idle = engineTargets(
+      voice({ rpm: 1500, rev: 0, throttle: 0, load: 0, slip: 1, clear: 0 }),
+      mix,
+    );
+    const under = engineTargets(voice({ clear: 0 }), mix);
+    const air = engineTargets(voice({ load: 0, wet: 0, slip: 1, clear: 1 }), mix);
+    expect(idle.motor.level).toBeGreaterThan(0.008);
+    // The waterline does not touch it: the block is bolted to the hull, not
+    // plumbed into the pipe.
+    expect(under.motor.level).toBeCloseTo(engineTargets(voice({ clear: 1 }), mix).motor.level, 9);
+    expect(air.motor.level).toBeGreaterThan(0);
+    // ...and at idle it is the biggest thing the engine has.
+    for (const name of ["hum", "octave", "rasp", "bass", "intake", "whine"] as EngineLayer[]) {
+      expect(idle.motor.level, name).toBeGreaterThan(idle[name].level);
+    }
+    // It works harder with the load, like the rest of the machine.
+    expect(under.motor.level).toBeGreaterThan(idle.motor.level);
   });
 
   it("works harder with the load and runs free in the air", () => {

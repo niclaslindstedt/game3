@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// A RUNNING JET SKI, AS EIGHT LAYERS THAT NEVER STOP.
+// A RUNNING JET SKI, AS NINE LAYERS THAT NEVER STOP.
 //
 // The engine is not made of events. It is a handful of oscillators and three
 // noise sources built once for the run and STEERED — pitch, level, cutoff and
@@ -9,6 +9,8 @@
 //
 // WHAT A PERSONAL WATERCRAFT IS MADE OF, in the order the ear finds them:
 //
+//   MOTOR    the BLOCK, heard through the hull — the machine's own hum,
+//            under everything, at idle and at the limiter alike
 //   HUM      the firing note — the one layer whose pitch says the revs, a
 //            detuned triangle pair folded through the saturation curve,
 //            harder the more work the engine is doing
@@ -19,9 +21,9 @@
 //   BASS     a sine an octave under the note: the mass of the machine
 //   INTAKE   the airbox under the seat — pink noise in a mid band that opens
 //            with the throttle; what a rider hears of their own engine
-//   WHINE    the PUMP — the impeller's blades passing the stator's vanes, a
-//            sine far above the note that climbs with the shaft and is the
-//            sound everyone on the beach knows a jet ski by
+//   WHINE    the PUMP — the impeller's blades passing, a thin driven tone
+//            that climbs with the shaft and is the sound everyone on the
+//            beach knows a jet ski by
 //   FROTH    cavitation — the pump chopping air and vapour when it is asked
 //            for more than the water will give: a bright hiss at the
 //            transom on a launch from rest, gone once the hull is running
@@ -73,22 +75,36 @@ import type { LayerSpec, LayerTarget } from "../../lib/voice.ts";
 export const FIRINGS_PER_REV = 1.5;
 
 /**
- * WHAT THE PUMP WHINES AT, per revolution of the shaft.
+ * WHAT THE PUMP WHINES AT, per revolution of the shaft — the BLADE PASSING
+ * frequency, and nothing else.
  *
- * An axial-flow waterjet is three impeller blades turning past a ring of six
- * stator vanes, and every blade-vane crossing is a pressure pulse: eighteen a
- * revolution, so the tone is `rpm / 60 × 18` — 450 Hz at idle, 2.4 kHz at the
- * limiter. That is the whine, and it is why a jet ski is heard as a pitch
- * rising across a bay when a boat of the same power is heard as a drone.
+ * An axial-flow waterjet is three impeller blades on a shaft driven straight
+ * off the crank, and what a pump radiates is a pressure pulse every time a
+ * blade goes by: three a revolution, so the tone is `rpm / 60 × 3` — 75 Hz at
+ * idle, 400 Hz at the limiter. The stator's vane count decides which
+ * circumferential MODES of that tone get out of the tunnel, not what
+ * frequency it is; multiplying the two together (eighteen a revolution, a
+ * 2.4 kHz sine at the limiter) named a frequency the pump has never made, and
+ * a sine up there over a bed of spray is not a jet ski, it is a hair dryer.
+ *
+ * The brightness a real pump is known for is the blade tone's own HARMONIC
+ * STACK, so the layer is a driven sawtooth with a band parked `WHINE_HARMONIC`
+ * up its series: the pitch the ear tracks across a bay is the low one, and the
+ * glitter that carries it over the water comes off the harmonics.
  */
-export const WHINE_PER_REV = 18;
+export const WHINE_PER_REV = 3;
+
+/** Which harmonic of the blade tone the whine's band sits on. High enough
+ * that the layer reads as a whistle rather than as a second hum, low enough
+ * that it stays under the spray instead of on top of it. */
+const WHINE_HARMONIC = 4;
 
 /** The firing note these revs make, Hz. */
 export function noteHz(rpm: number): number {
   return (rpm / 60) * FIRINGS_PER_REV;
 }
 
-/** The pump's blade-vane tone at these revs, Hz. */
+/** The pump's blade-passing tone at these revs, Hz. */
 export function whineHz(rpm: number): number {
   return (rpm / 60) * WHINE_PER_REV;
 }
@@ -119,10 +135,14 @@ export const INTAKE_WETTED = 0.25;
 const CLEAR_POWER = 3;
 
 /** How much of the engine's own voice reaches the air with the pipe fully
- * UNDER it, 0..1 — what is left after the water has had it. Not zero: a
- * hull is a drum, and the block is bolted to it, so the note comes through
- * the structure whatever the pipe is doing. */
-const SUBMERGED = 0.35;
+ * UNDER it, 0..1 — what is left after the water has had it. Not zero, and not
+ * small: a hull is a drum, and the block is bolted to it, so the note comes
+ * through the structure whatever the pipe is doing. What the water mostly
+ * takes is the TOP of that note, and the cutoff crossfade below is already
+ * where that is said — holding the level down here as well was the engine
+ * losing its body underwater while the spray and the intake kept every bit of
+ * theirs, which is the whole mix reading as hiss. */
+const SUBMERGED = 0.6;
 
 /**
  * HOW FAR THE EXHAUST HAS COME OUT OF THE WATER, 0..1 — 0 with the pipe
@@ -150,6 +170,20 @@ function openness(clear: number): number {
  * and a desktop gives you cabinet noise, so the layer holding the whole sound
  * up would stop existing exactly where it is doing the most work — at idle. */
 const BASS_FLOOR_HZ = 44;
+
+/**
+ * THE BAND THE BLOCK HUMS IN, Hz — where the motor layer's lowpass sits at
+ * idle, and how far it opens by the limiter.
+ *
+ * The motor is a SQUARE at the firing note, and that is the whole trick: a
+ * square's odd harmonics land at 3, 5 and 7 times the note, so an idle whose
+ * fundamental is a 38 Hz chug nothing can reproduce still puts energy at 112,
+ * 187 and 262 Hz — where a phone, a laptop and a pair of earbuds all live.
+ * The lowpass then keeps it a HUM: past a few hundred Hertz a square stops
+ * being the machine in the background and starts being a buzz in the front.
+ */
+const MOTOR_BAND_HZ = 190;
+const MOTOR_BAND_OPENS_HZ = 170;
 
 /** Above this share of the band the rasp starts to be heard at all: a craft
  * nosing out of a bay never reaches it. */
@@ -200,10 +234,17 @@ export type EngineMix = {
 };
 
 export type EngineLayer =
-  "hum" | "octave" | "rasp" | "bass" | "intake" | "whine" | "froth" | "gurgle";
+  "motor" | "hum" | "octave" | "rasp" | "bass" | "intake" | "whine" | "froth" | "gurgle";
 
 /** What each layer is BUILT from — decided once. */
 export const ENGINE_LAYERS: Record<EngineLayer, LayerSpec> = {
+  motor: {
+    kind: "tone",
+    type: "square",
+    detuneCents: 7,
+    drive: 1,
+    filter: { type: "lowpass", q: 0.8 },
+  },
   hum: {
     kind: "tone",
     type: "triangle",
@@ -221,7 +262,13 @@ export const ENGINE_LAYERS: Record<EngineLayer, LayerSpec> = {
   },
   bass: { kind: "tone", type: "sine", detuneCents: 5 },
   intake: { kind: "noise", color: "pink", filter: { type: "bandpass", q: 0.9 } },
-  whine: { kind: "tone", type: "sine", filter: { type: "bandpass", q: 3 } },
+  whine: {
+    kind: "tone",
+    type: "sawtooth",
+    detuneCents: 4,
+    drive: 1,
+    filter: { type: "bandpass", q: 3.5 },
+  },
   froth: { kind: "noise", color: "white", filter: { type: "highpass", q: 0.7 } },
   gurgle: { kind: "noise", color: "brown", filter: { type: "lowpass", q: 1 } },
 };
@@ -230,6 +277,7 @@ export const ENGINE_LAYERS: Record<EngineLayer, LayerSpec> = {
  * on. Pitch layers move quickly (a rev that lags the needle reads as a slow
  * engine); the froth and the gurgle take a moment, the way water does. */
 export const ENGINE_GLIDE: Record<EngineLayer, number> = {
+  motor: 0.05,
   hum: 0.03,
   octave: 0.03,
   rasp: 0.04,
@@ -244,10 +292,10 @@ export const ENGINE_GLIDE: Record<EngineLayer, number> = {
  * Where every layer of the engine should be for `voice`, heard from `mix`.
  *
  * The levels are the whole sound's, and they are mixed against the rest of
- * the bank: the hum at full load is an ordinary slap's size, the bass under
- * it a little less, and everything else is texture — the whine most of all,
- * because a sine at two kilohertz is heard at a tenth of the level a rumble
- * needs.
+ * the bank: the motor and the hum at full load are an ordinary slap's size
+ * between them, the bass under them a little less, and everything else is
+ * texture — the whine most of all, because a thin tone with a band up its
+ * harmonics is heard at a fraction of the level a rumble needs.
  */
 export function engineTargets(
   voice: EngineVoice,
@@ -268,6 +316,21 @@ export function engineTargets(
   const open = openness(clear);
   const under = 1 - clear;
   return {
+    // THE MACHINE IN THE BACKGROUND, and the one layer the waterline does not
+    // touch. Everything else here is the engine heard through its PIPE, which
+    // is under the surface for nearly the whole of a run; this is the block
+    // itself, bolted to a fibreglass box that radiates whatever it is given —
+    // so it is as present at idle on a still bay as it is at the limiter in
+    // the air, and it is what a jet ski sounds like when it is not doing
+    // anything in particular. A square, for its odd harmonics: see
+    // `MOTOR_BAND_HZ` — it is the only reason an idle is audible at all on a
+    // speaker that gives you nothing under 100 Hz.
+    motor: {
+      level: (0.016 + 0.012 * load + 0.005 * rev) * mix.engine,
+      hz,
+      cutoff: (MOTOR_BAND_HZ + MOTOR_BAND_OPENS_HZ * rev) * (0.7 + 0.3 * mix.tone),
+      grit: 0.2 + 0.4 * load,
+    },
     // The body of the note, brighter with the revs and darker from a seat
     // with the block in the way, pushed harder into the curve the more work
     // it is doing — which is why the craft sounds like it is WORKING into a
@@ -310,15 +373,18 @@ export function engineTargets(
     // The airbox: a pink roar that opens with the throttle and climbs a
     // little with the crank. Brighter from a seat that can see it.
     intake: {
-      level: (0.003 + 0.014 * throttle) * (0.6 + 0.4 * mix.tone) * mix.engine,
-      cutoff: 350 + 700 * rev,
+      level: (0.003 + 0.01 * throttle) * (0.6 + 0.4 * mix.tone) * mix.engine,
+      cutoff: 260 + 480 * rev,
     },
-    // The blade-vane tone, in a band sat on its own pitch so nothing but the
-    // fundamental gets out. Loud with water to push, a dry whistle without.
+    // The blade tone, with its band up its own harmonic series: the pitch the
+    // ear follows is the low one the pump actually makes, and the glitter is
+    // the harmonics the band lets through. Loud with water to push, a dry
+    // whistle without.
     whine: {
-      level: (0.0025 + 0.008 * throttle * wet) * mix.pump,
+      level: (0.002 + 0.007 * throttle * wet) * mix.pump,
       hz: whine,
-      cutoff: whine,
+      cutoff: whine * WHINE_HARMONIC,
+      grit: 0.2 + 0.3 * throttle,
     },
     // Cavitation: nothing at pace, everything on the throttle from rest.
     froth: {

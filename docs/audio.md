@@ -50,7 +50,7 @@ curve.
 | `pwa/src/game/audio/bubbles.ts`      | The tail every splash gets: Minnaert's bubble, a sine chirping up, in a burst the router sizes.                                                                                                                                     |
 | `pwa/src/game/audio/route.ts`        | Which sound a `GameEvent` makes, how big, which bubbles it leaves, and how it is heard from the seat it is watched from.                                                                                                            |
 | `pwa/src/game/audio/listener.ts`     | What each rung of the camera ladder does to the mix — one row per `CameraMode`.                                                                                                                                                     |
-| `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as eight layers: where each should be for a set of revs, a throttle, a load, a wet intake, the jet's slip and how far the exhaust has cleared the water.                                                   |
+| `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as nine layers: where each should be for a set of revs, a throttle, a load, a wet intake, the jet's slip and how far the exhaust has cleared the water.                                                    |
 | `pwa/src/game/audio/water-voice.ts`  | The hull in the water, the wind and the sea, as seven layers: the wash, the spray, the chop, the wind, the swell, the surf and its foam.                                                                                            |
 | `pwa/src/game/audio/rack.ts`         | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it.                                                                                                                                             |
 | `pwa/src/game/audio/ride-bed.ts`     | The scheduler: the state, once a frame, into every layer's target — and the one cue nothing reports, the slap.                                                                                                                      |
@@ -182,20 +182,43 @@ idle (1500 rpm) is a 38 Hz chug felt more than heard, the limiter (8000) is
 200 Hz of a small engine being asked for everything. The revs are the
 engine's own `craft.rpm` — the same number the dial reads, so the needle and
 the note can never disagree — and the band they are read against is the
-craft's own idle and redline (`revOf`). Eight layers, eight jobs
-(`engine-voice.ts`): a HUM (the firing note, a detuned triangle pair driven
-harder into the curve with the load), its OCTAVE (which carries the note at
-idle where 38 Hz is a thing a phone cannot reproduce), a RASP (the exhaust's
-edge, a driven sawtooth in a band that climbs, the layer heard from BEHIND),
-a BASS (a sine an octave under, floored at 44 Hz), the INTAKE (the airbox
-under the seat, pink noise opening with the throttle), the pump's WHINE (the
-impeller's three blades passing the stator's six vanes, `rpm / 60 × 18` — a
-sine far above the note, 450 Hz at idle and 2.4 kHz at the limiter, the
-sound everyone on a beach knows a jet ski by), the FROTH (cavitation — white
-noise at the transom when the pump is asked for more than the water will
-give, fullest on a launch from rest and gone once the hull is running, read
-off the jet's SLIP against the hull's speed) and the GURGLE (the wet exhaust,
-the blat of a pipe that exits below the waterline).
+craft's own idle and redline (`revOf`). Nine layers, nine jobs
+(`engine-voice.ts`): the MOTOR (the block itself, a driven square at the
+firing note under a lowpass parked around 190–360 Hz), a HUM (the firing
+note, a detuned triangle pair driven harder into the curve with the load),
+its OCTAVE (which carries the note at idle where 38 Hz is a thing a phone
+cannot reproduce), a RASP (the exhaust's edge, a driven sawtooth in a band
+that climbs, the layer heard from BEHIND), a BASS (a sine an octave under,
+floored at 44 Hz), the INTAKE (the airbox under the seat, pink noise opening
+with the throttle), the pump's WHINE (the impeller's three blades passing,
+`rpm / 60 × 3` — 75 Hz at idle and 400 Hz at the limiter, a driven sawtooth
+with its band four harmonics up, the sound everyone on a beach knows a jet
+ski by), the FROTH (cavitation — white noise at the transom when the pump is
+asked for more than the water will give, fullest on a launch from rest and
+gone once the hull is running, read off the jet's SLIP against the hull's
+speed) and the GURGLE (the wet exhaust, the blat of a pipe that exits below
+the waterline).
+
+**The MOTOR is the one layer the waterline does not touch, and it is a SQUARE
+on purpose.** Every other layer here is the engine heard through its pipe,
+which is under the surface for most of a run; this one is the block bolted to
+a fibreglass box that radiates whatever it is given, so it is as present at
+idle on a still bay as it is at the limiter in the air. A square's odd
+harmonics land at 3, 5 and 7 times the note, so a 38 Hz idle nothing can
+reproduce still puts energy at 112, 187 and 262 Hz — where a phone, a laptop
+and a pair of earbuds all live — and the lowpass over it is what keeps that a
+hum rather than a buzz.
+
+**The pump's tone is the BLADE PASSING frequency.** Three blades on a shaft
+driven straight off the crank is three pressure pulses a revolution, and the
+stator's vane count decides which circumferential modes get out of the tunnel
+rather than what frequency the tone is. Multiplying the two (eighteen a
+revolution, a 2.4 kHz sine at the limiter) named a frequency the pump has
+never made, and a sine up there over a bed of spray read as a hair dryer. The
+brightness a real pump is known for is the blade tone's own harmonic stack,
+which is why the layer is a driven sawtooth with its band four harmonics up:
+the pitch the ear follows across a bay is the low one, the glitter that
+carries it over the water comes off the harmonics.
 
 **The load is the throttle with water to push against.** `craft.throttleEff`
 is in the state; the bed multiplies it by how fed the intake is
@@ -215,13 +238,15 @@ at full plane and 1 in the air; capsized is 0, because a hull on its back has
 its bottom in the air and its pipe under the surface.
 
 Everything either side of the waterline hangs off it. With the pipe under,
-the hum and its octave are held to `SUBMERGED` (0.35) of their level and the
+the hum and its octave are held to `SUBMERGED` (0.6) of their level and the
 hum's cutoff to 45% of its brightness, the rasp — the exhaust's own edge, the
 layer the water owns outright — to 15%, and the GURGLE carries the engine
 instead: it is scaled by `1 − clear` rather than by the revs, so a pipe under
 water goes from an idle knock to a hard wet tearing rather than being blown
-clear. The bass is least affected (75% at worst), because the block is bolted
-to a hull and a hull is a drum. Come out of the water and it inverts inside a
+clear. The bass is barely affected (75% at worst) and the motor not at all,
+because the block is bolted to a hull and a hull is a drum: what the water
+mostly takes off a submerged engine is the TOP of its note, which the cutoff
+crossfade already says. Come out of the water and it inverts inside a
 few tenths — the note brightens, the rasp cracks open, the blat stops.
 
 So the engine is not one loudness with the air as an exception. It is **two
