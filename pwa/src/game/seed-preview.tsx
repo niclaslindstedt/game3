@@ -31,6 +31,11 @@
 //   - ONLY THE SEED ON SCREEN IS DRAWN. Replies for a seed that has since
 //     been stepped past are dropped, because a worker that fell behind a
 //     held arrow key would otherwise repaint its way through the backlog.
+//   - THE BOX IS ALREADY THE SIZE IT WILL BE when the first chart lands. The
+//     plate is a square the CARD sizes, not the picture, and the reading
+//     under it keeps its line whether or not there is one — so nothing here
+//     grows when the worker answers, and the card does not move the buttons
+//     out from under a press already aimed at one.
 
 import type { BiomeId } from "@engine";
 import { useEffect, useRef, useState } from "preact/hooks";
@@ -107,14 +112,16 @@ export function useSeedPreview(seed: number, biome: BiomeId): SeedChart {
 
 export function SeedPreview({ chart }: { chart: SeedChart }) {
   const { shown, fresh } = chart;
+  const drawn = shown !== null && shown.ok;
   return (
     <div class={`seed-preview${fresh ? "" : " seed-preview-waiting"}`}>
-      {shown === null || !shown.ok ? (
-        <p class="seed-preview-word">
-          {shown === null ? STRINGS.seedReading : STRINGS.seedRefused}
-        </p>
-      ) : (
-        <>
+      {/* THE PLATE IS THE SAME SQUARE WHATEVER IS IN IT. It is sized by the
+          card, not by its contents, so the box a chart lands in is already
+          the size the chart will be: the card was a good deal shorter before
+          the first reply arrived and grew under the cursor, which moves every
+          button on it out from under the press aimed at it. */}
+      <div class="seed-preview-plate">
+        {drawn ? (
           <svg
             class="seed-preview-map"
             viewBox={`0 0 ${VIEW} ${VIEW}`}
@@ -146,9 +153,15 @@ export function SeedPreview({ chart }: { chart: SeedChart }) {
               r={2.2}
             />
           </svg>
-          <p class="seed-preview-read">{STRINGS.seedRead(shown.gates, shown.length)}</p>
-        </>
-      )}
+        ) : (
+          <p class="seed-preview-word">
+            {shown === null ? STRINGS.seedReading : STRINGS.seedRefused}
+          </p>
+        )}
+      </div>
+      {/* Always rendered, empty until there is a reading: the line holds its
+          own height, so the chart's arrival adds nothing under the plate. */}
+      <p class="seed-preview-read">{drawn ? STRINGS.seedRead(shown.gates, shown.length) : ""}</p>
     </div>
   );
 }

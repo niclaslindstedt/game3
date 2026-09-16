@@ -3457,7 +3457,7 @@ button.knob-read:focus-visible {
   /* Half again as big as the one-column card could afford it. The `vh` term is
      still what gives way first on a short window — a 720-tall desktop keeps
      the whole card on screen with the button under it. */
-  .menu-card-start .seed-preview-map {
+  .menu-card-start .seed-preview-plate {
     max-width: min(19rem, 44vh);
   }
 
@@ -3489,10 +3489,24 @@ button.knob-read:focus-visible {
   border: 2px solid rgb(242 247 248 / 16%);
   border-radius: 0.5rem;
   background: var(--sea-deep, rgb(8 42 56 / 70%));
-  /* The box keeps its height whatever is in it — a chart, a word, or
-     nothing yet — so the rows under it do not jump every time a seed is
-     stepped. */
-  min-height: 9.5rem;
+  justify-content: center;
+}
+
+/* THE ROOM THE CHART WILL NEED, RESERVED BEFORE IT ARRIVES. Building a level
+   takes hundreds of milliseconds, so the card is up and being pressed long
+   before the first reply — and a plate sized by its CONTENTS was a word's
+   height then and a square chart's afterwards, which grew the card by a
+   couple of hundred pixels under a cursor already aimed at a button and put
+   a different one under the press. So the square is the plate's, not the
+   picture's: the word waits inside it and the chart lands in a box that is
+   already its size. Sized here rather than on the svg for exactly that
+   reason — see `.seed-preview-map`. */
+.seed-preview-plate {
+  display: flex;
+  width: 100%;
+  max-width: min(14rem, 22vh);
+  aspect-ratio: 1;
+  align-items: center;
   justify-content: center;
 }
 
@@ -3503,23 +3517,25 @@ button.knob-read:focus-visible {
   opacity: 0.45;
 }
 
-/* THE CHART IS AS BIG AS THE CARD CAN AFFORD. It is square, so its width is
-   a height cost, and it is the only thing on the start card big enough to
-   push RIDE — the one press the card exists for — off the bottom of a short
-   window. `14rem` is the size it wants; the `vh` term is what it gives back
-   on a 720-tall desktop or a phone in portrait, where the rows under it are
-   worth more than the last forty pixels of coastline. */
+/* THE CHART IS AS BIG AS THE CARD CAN AFFORD, which is the PLATE's size and
+   is stated there: the chart is square, so its width is a height cost, and it
+   is the only thing on the start card big enough to push RIDE — the one press
+   the card exists for — off the bottom of a short window. `14rem` is the size
+   it wants; the `vh` term is what it gives back on a 720-tall desktop or a
+   phone in portrait, where the rows under it are worth more than the last
+   forty pixels of coastline. Here the chart only fills what it was given. */
 .seed-preview-map {
   display: block;
   width: 100%;
-  max-width: min(14rem, 22vh);
-  aspect-ratio: 1;
+  height: 100%;
   border-radius: 0.3rem;
 }
 
-/* What the box says when there is no chart to show. */
+/* What the plate says when there is no chart to show — centred in the square
+   the chart will land in rather than standing in place of it. */
 .seed-preview-word {
   margin: 0;
+  text-align: center;
   font-size: 0.66rem;
   letter-spacing: 0.14em;
   color: var(--hud-info);
@@ -3542,9 +3558,17 @@ button.knob-read:focus-visible {
   opacity: 0.7;
 }
 
+/* Rendered whether or not there is a reading, and holding its line when there
+   is not: the words arrive with the chart, and a line that appeared with them
+   would move everything under the box by its own height. The line-height is
+   stated so the reserved `min-height` is the SAME height the words will take
+   — inherit it and the empty line is a few pixels short, which is the whole
+   card still moving, just less. */
 .seed-preview-read {
   margin: 0;
+  min-height: 1.4em;
   font-size: 0.64rem;
+  line-height: 1.4;
   font-weight: 700;
   letter-spacing: 0.14em;
   color: var(--hud-info);
