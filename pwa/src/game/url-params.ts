@@ -1,13 +1,81 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE URL AS SETTINGS. Every parameter the app reads is listed and explained
-// in `App.tsx`'s header (the developer page's REPRO LINK writes exactly that
-// set, and `docs/configuration.md` is the player's copy); this module is
-// the reading of it — what each parameter is checked against, and how the
-// ones that are SETTINGS are laid over the stored ones without deciding
-// that RIDE has already been pressed.
+// here (the developer page's REPRO LINK writes exactly this set, and
+// `docs/configuration.md` is the player's copy); this module is the
+// reading of it — what each parameter is checked against, and how the ones
+// that are SETTINGS are laid over the stored ones without deciding that
+// RIDE has already been pressed.
 //
 // The query string is an argument rather than read off `location`, the way
 // `splash.ts` takes it, so the reading is a pure function of a string.
+//
+// URL PARAMS, the whole set (the developer page's REPRO LINK writes exactly
+// these, so a frame is always handed on as a URL):
+//   ?seed=38       which level (default 38)
+//   ?biome=taiga   which COAST the seed is built on (taiga | mangrove)
+//   ?mode=race     the start card's MODE row: race | tricks | timeTrial
+//   ?minutes=4     ...and its LENGTH row, for a tricks run: 2 | 4 | 6
+//   ?craft=skiff   which craft (skiff | marlin | otter | dart)
+//   ?scene=launch  stand the run in a staged moment (scenarios.ts) and ride
+//                  its script; without it the run starts at `level.start`
+//                  with the clock running
+//   ?t=2.5         seconds of the script to run before the first frame
+//   ?shot=1        FREEZE after that and set `window.__SH_READY__` once the
+//                  frame is drawn — what the screenshot tool waits on
+//   ?wind=12       ride in this wind, m/s, from the level's own quarter
+//   ?hs=20         ...or in a sea quoted by its significant height, m
+//   ?hour=20.5     ride at this hour on the clock in place of the level's
+//   ?weather=rain  ...and under this sky (clear | haze | high | overcast |
+//                  rain | squall) — the sea stays the wind's
+//   ?time=sunset   the start card's TIME row (a FREE ride's; on a measured
+//                  run it is the lab's override of the shore's own day, and
+//                  no row offers it): sunrise | day | sunset, resolved
+//                  against this coast's own daylight (R13) in the season
+//                  being ridden
+//   ?season=autumn ...and its SEASON row: spring | summer | autumn | winter
+//                  — the sun's arc, and so the day's length and the
+//                  night's dark; the clock runs an hour a minute from the
+//                  start, so a sunset start rides into whatever night the
+//                  season has
+//   ?day=storm     ...and its WIND row: fine | windy | storm — a sky AND the
+//                  wind under it — or the wind in m/s (?day=33) on a free ride
+//   ?windfrom=90   FREE's own row, on ?mode=free alone: which QUARTER that
+//                  wind blows from, degrees off dead onshore (±180 offshore)
+//   ?waves=9       ...and its WAVES row (R36): how big the GROUNDSWELL out
+//                  past the coast is, m — 1 | 2.5 | 4 | 6 | 9 | 14 | 20, and
+//                  anywhere between on a free ride. Not the wind's sea, not
+//                  moved by ?day, and a BASELINE the open ocean builds on
+//   ?camera=heli   which rung of the camera ladder the run opens on (bow |
+//                  nose | close | chase | far | heli | drone) — a setting like the
+//                  rows below, so a link lays it over the stored one; the
+//                  camera key still walks the whole ladder from there
+//   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
+//   ?res=low       WATER, RESOLUTION, DETAIL and DISTANCE (low | medium |
+//   ?detail=low    high), SEE-THROUGH (?see=0/1) and the FRAME RATE cap
+//   ?distance=low  (?fps=30/60/max). They are settings like the start
+//   ?see=0         card's, so a link lays them over the stored ones rather
+//   ?fps=30        than reading them into the run — which is what lets the
+//                  screenshot lab photograph one row of the ladder, and a
+//                  bug report about the water name the picture it was seen
+//                  at
+//   ?start=1       skip both cards and ride: a pinned run
+//   ?paused=1      ...and open with the run HELD under the pause card, which
+//                  is how the screenshot lab photographs that surface and how
+//                  a report about it is handed on
+//   ?splash=0/1    force the attract card off, or back on
+//   ?menu=start    open the front door ON that page (root | campaign | start |
+//                  craft | options | keys | developer | benchHistory) — how the lab
+//                  photographs a menu surface, and how a link points at one.
+//                  The last two let the developer menu out with them: a URL
+//                  that names a page has, by definition, found it
+//   ?update=1      show the new-build button as if a build were waiting, so
+//                  the surface can be photographed (read where it is drawn,
+//                  in game/update-button.tsx — it is not part of a repro)
+//   ?probe=0       do not measure the machine on this visit: the first-visit
+//                  probe (game/video-probe.ts) is what may promote an
+//                  untouched picture to HIGH, and a lab photographing a
+//                  surface must not have a row move under its camera
+//
 
 import {
   type CraftId,
@@ -209,6 +277,7 @@ export function readParams(search: string): Params {
     paused,
     menu:
       menu === "start" ||
+      menu === "campaign" ||
       menu === "craft" ||
       menu === "gallery" ||
       menu === "options" ||

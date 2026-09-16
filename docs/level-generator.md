@@ -261,6 +261,21 @@ A ring is not drawn at a height; it is put where a hull will BE. `ringPlacement(
 
 A level is a pure function of its seed and its options. The tests hold that first (`tests/mapgen_test.ts`: two builds of a seed are deep-equal, and the classifier answers the same everywhere), and everything else in the suite depends on it: `tests/support/levels.ts` builds each corpus seed ONCE and hands the same read-only level to every rule's `it`, because a second build could only return the first one's answer and building one is the most expensive thing the engine does.
 
+## Generator versions, and what the campaign stands on
+
+A level is generated fresh from its seed, so the rules ARE the level: move a gate spacing, a rock's berth, a draw in the seeded stream, and seed 38 stops being the shore that was rated, timed and named — silently, everywhere, at once. Everywhere but the campaign that is fine; it is what a generator is for. The campaign's twelve shores were CURATED (`pwa/src/game/campaign-levels.ts`), and a ladder that re-rolls under its own levels is a ladder nobody chose — with every best time and every medal on it now a result on a shore that no longer exists.
+
+So each campaign level names the version of the generator it was curated under (`version` on `CampaignLevel`), and that version keeps building it. `engine/mapgen/versions.ts` is the registry; `CURRENT_GENERATOR_VERSION` is the rules as they stand in this tree, and it is what every other way into the generator gets — the start card, the labs, the sweeps, the suite. The version rides on `GenerateOptions` because that is the one object handed to the generator, but it is not a dial: no menu offers it.
+
+**The contract, in four lines.**
+
+1. A change that moves what a seed builds gets a NEW version — a row in `GENERATOR_VERSIONS` with a note saying what moved. `CURRENT_GENERATOR_VERSION` follows the last row.
+2. The old row keeps the old behaviour, as an optional TRAIT on `GeneratorTraits`, read through `generatorTraits(opts.version)` at the one place the behaviour differs — absent on the current row, so "build it the way the rules say" is the branch a reader meets first.
+3. A campaign level moves onto the new version when somebody decides to, level by level. The shore changes, so it is a curation and not an edit: re-rate (`make rate CAMPAIGN=1`), re-draw (`make difficulty CAMPAIGN=1`), re-time (`npm run sim`), re-name if the shore no longer earns its name, and write the new digest down.
+4. **Delete a version no campaign level names any more** — the row, and every trait branch that only existed for it. Backward compatibility is owed to the committed shores and to nothing else.
+
+Two cases hold the scheme up. `tests/generator_version_test.ts` refuses a level pointing at a version that is gone and refuses a version nobody points at — and it REBUILDS every campaign level and compares its `levelDigest` (`engine/mapgen/digest.ts`: every gate, ramp and rock, the start, the wind, the sea, the ground under each gate, as one word) with the one the level pins, so the rules moving under a level is a red suite rather than a silent re-roll. When it goes red, the question is which of the two it was: a level deliberately moved (write the new digest), or the rules moving out from under one (add a version, keep the old behaviour on the old row, and leave the digest alone).
+
 ## Looking at the output
 
 - `make level SEED=38` draws one level: depth shading, the shore, every solid by id, the gates numbered, the ramps, the river from its mouth to its head, the wind arrow, and a listing of every gate with its offshore distance and depth.

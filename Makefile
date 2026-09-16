@@ -102,6 +102,28 @@ analyze:
 	npm run analyze -- $(if $(SEED),--seed $(SEED),) $(if $(COUNT),--count $(COUNT),) $(if $(TRACK),--track $(TRACK),) \
 		$(if $(BIOME),--biome $(BIOME),) $(if $(PACE),--pace $(PACE),) $(if $(RAMP),--ramp $(RAMP),) $(ARGS)
 
+# RATE generated levels: how HARD each one is and what KIND of hard — the
+# sea met along the line, the corners, the ramps, the rocks, the distance,
+# the wind, the dark and the sky, each an axis in 0..1, folded into one
+# difficulty index (engine/rating/). The question a CAMPAIGN is curated
+# on; `make analyze` only says whether a level is broken. Pure Node.
+# `make rate SEEDS=7,38` · `make rate COUNT=48 BIOME=mangrove ARGS=--tricks`
+# `make rate COUNT=96 ARGS=--stats` · `make rate CAMPAIGN=1` (the committed ladder, audited)
+rate:
+	npm run rate -- $(if $(SEED),--seed $(SEED),) $(if $(SEEDS),--seeds $(SEEDS),) $(if $(COUNT),--count $(COUNT),) \
+		$(if $(BIOME),--biome $(BIOME),) $(if $(TRACK),--track $(TRACK),) $(if $(CAMPAIGN),--campaign,) $(ARGS)
+
+# THE DIFFICULTY SCHEMATIC: one level from above with what makes it HARD
+# drawn over it — the line coloured by how tight each corner is, the sea
+# met along it as a bar at every sample with the swell's and the wind's
+# travel arrows, every ramp, every rock within reach of the line, and the
+# eight rating axes as a panel down the side. Pure Node; writes
+# previews/difficulty-<seed>.png. `CAMPAIGN=1` draws every committed level.
+# `make difficulty SEED=38` · `make difficulty SEED=7 BIOME=mangrove ARGS=--tricks` · `make difficulty CAMPAIGN=1`
+difficulty:
+	npm run difficulty -- $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) $(if $(TRACK),--track $(TRACK),) \
+		$(if $(CAMPAIGN),--campaign,) $(ARGS)
+
 # THE CLOSED-COURSE SCORE: IJSBA's race topology and marker semantics,
 # completed by the generator's measurable R-rules for dimensions the Race
 # Director owns. A 0–100 dashboard, with 90 as the project's acceptance

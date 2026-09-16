@@ -29,6 +29,7 @@ import type { JSX } from "preact";
  * them (`make glyphs`). One list, so a mark added here is a mark the sheet
  * shows without being told twice. */
 export const GLYPH_NAMES = [
+  "trophy",
   "flag",
   "air",
   "stopwatch",
@@ -36,6 +37,7 @@ export const GLYPH_NAMES = [
   "camera",
   "sliders",
   "terminal",
+  "lock",
 ] as const;
 
 export type GlyphName = (typeof GLYPH_NAMES)[number];
@@ -43,6 +45,17 @@ export type GlyphName = (typeof GLYPH_NAMES)[number];
 /** The 24x24 body of each mark. Stroke geometry only — the wrapper below
  * sets the paint, so a glyph inherits the colour of whatever it sits in. */
 const GLYPHS: Record<GlyphName, JSX.Element> = {
+  // A CUP: the campaign, which is the one way onto the water that is
+  // played FOR something — a shore's table, and the shore behind it. The
+  // bowl is wide and the stem short so the silhouette survives a phone's
+  // tile; two handles are what tell a cup from a bell at that size.
+  trophy: (
+    <>
+      <path d="M7 4h10v5.5a5 5 0 0 1-10 0Z" />
+      <path d="M7 6H4.2a2.8 2.8 0 0 0 2.8 3.6M17 6h2.8A2.8 2.8 0 0 1 17 9.6" />
+      <path d="M12 14.5V18M8.5 20.5h7" />
+    </>
+  ),
   // THE CHEQUERED FLAG: the race, and the only one of the three ways onto
   // the water where somebody else is on it. Two hulls seen from above were
   // the first draft and read as a pair of pills at the size a tile is
@@ -123,6 +136,16 @@ const GLYPHS: Record<GlyphName, JSX.Element> = {
     <>
       <rect x="2.8" y="4.5" width="18.4" height="15" rx="2.4" />
       <path d="M7 9.5l3 2.5-3 2.5M12.5 14.5H17" />
+    </>
+  ),
+  // A PADLOCK: a level or a shore the campaign has not opened yet. The
+  // shackle is drawn open at the top of its travel on nothing — a closed
+  // box with a keyhole reads as a chest at tile size.
+  lock: (
+    <>
+      <rect x="5" y="10.5" width="14" height="10" rx="2" />
+      <path d="M8.2 10.5V7.6a3.8 3.8 0 0 1 7.6 0v2.9" />
+      <path d="M12 14.6v2.6" />
     </>
   ),
 };

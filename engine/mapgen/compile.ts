@@ -23,6 +23,7 @@ import { traceCoast } from "./basin.ts";
 import { type CoursePlan } from "./course.ts";
 import { layTrickField } from "./trick-field.ts";
 import type { Geology } from "./geology.ts";
+import type { GeneratorVersion } from "./versions.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { River } from "./river.ts";
 import { layFlow } from "./flow.ts";
@@ -49,6 +50,8 @@ export type LevelPlan = {
   readonly rampWidth: number;
   /** R35 — lay the TRICK FIELD down the line as well as the course. */
   readonly tricks: boolean;
+  /** The generator version the plan was drawn under (`versions.ts`). */
+  readonly version: GeneratorVersion;
   readonly bounds: Bounds;
   /** The two grids, already baked (`layBasin`, `bakeGround`), and the
    * river's bank share beside them (`Basin.bank`). */
@@ -170,6 +173,7 @@ export function compileLevel(plan: LevelPlan): Level {
     track: plan.track,
     pace: plan.pace,
     rampWidth: plan.rampWidth,
+    version: plan.version,
     bounds,
     ground,
     offshore,

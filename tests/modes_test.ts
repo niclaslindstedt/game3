@@ -17,6 +17,7 @@ import {
   botInput,
   craftById,
   createGame,
+  fieldOrder,
   gridPoses,
   placeRun,
   playerSlot,
@@ -54,7 +55,14 @@ function ride(
 describe("the rules a run is dealt", () => {
   it("are the OPEN rules when nothing asks for a mode — every system on, nothing else", () => {
     expect(rulesFor({})).toEqual(OPEN_RULES);
-    expect(OPEN_RULES).toEqual({ course: true, tricks: true, rivals: 0, countdown: 0, limit: 0 });
+    expect(OPEN_RULES).toEqual({
+      course: true,
+      tricks: true,
+      rivals: 0,
+      contact: true,
+      countdown: 0,
+      limit: 0,
+    });
     const state = createGame({ seed: 1, level: FLAT, quiet: true });
     expect(state.rules).toEqual(OPEN_RULES);
     expect(state.phase).toBe("running");
@@ -427,6 +435,65 @@ describe("a race", () => {
     expect(
       Math.hypot(other.craft.x - state.craft.x, other.craft.z - state.craft.z),
     ).toBeGreaterThan((state.craft.spec.beam + other.craft.spec.beam) / 2);
+  });
+
+  it("lets every hull pass through every other with the contact rule off", () => {
+    // The campaign's field: on the water, never leaned on. The same shove
+    // as above, and nothing is felt, nothing moves, nothing is reported.
+    const state = createGame({
+      seed: 2,
+      level: FLAT,
+      mode: "race",
+      rules: { countdown: 0, contact: false },
+      quiet: true,
+    });
+    expect(state.rules.contact).toBe(false);
+    expect(state.rivals.length).toBe(RACE.rivals);
+    state.rivals.forEach((r, i) => standCraft(r.run, 400 + i * 20, 300, 0));
+    const other = state.rivals[0].run;
+    standCraft(other, 104, 200, Math.PI / 2);
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 10 });
+    const events = ride(state, 0.3);
+    expect(events.some((e) => e.kind === "bump")).toBe(false);
+    // The other hull has only its own idling jet under it (a metre a
+    // second, not the shove's several), and the player's speed is the
+    // water's toll and nothing else.
+    expect(other.craft.vx).toBeLessThan(1);
+    expect(state.craft.vx).toBeGreaterThan(5);
+  });
+
+  it("orders a field with the course switched off by the SCORE, and files the whole field", () => {
+    // A tricks run with a grid on it (the campaign's second discipline): the
+    // buzzer ends it for everybody at once, so the standings are what each
+    // rider banked. `fieldOrder` is the whole sheet; `racePlace` is the
+    // player's row of it.
+    const state = createGame({
+      seed: 3,
+      level: FLAT,
+      mode: "tricks",
+      rules: { countdown: 0, rivals: 3, contact: false },
+      quiet: true,
+    });
+    expect(state.rules.course).toBe(false);
+    state.tricks.score = 500;
+    state.rivals[0].run.tricks.score = 900;
+    state.rivals[1].run.tricks.score = 100;
+    state.rivals[2].run.tricks.score = 700;
+    expect(racePlace(state)).toBe(3);
+    expect(fieldOrder(state)).toEqual([0, 2, null, 1]);
+    // ...and on a race the same reading is by the course, with the player
+    // at the back of a field that is all a gate ahead of him.
+    const race = createGame({
+      seed: 2,
+      level: FLAT,
+      mode: "race",
+      rules: { countdown: 0, rivals: 2 },
+      quiet: true,
+    });
+    for (const r of race.rivals)
+      placeRun(r.run, { x: 350, z: 40, heading: Math.PI / 2, nextGate: 3 });
+    placeRun(race, { x: 150, z: 40, heading: Math.PI / 2, speed: 10, nextGate: 1 });
+    expect(fieldOrder(race).indexOf(null)).toBe(2);
   });
 
   it("does not count a hull flying over another as a contact", () => {

@@ -292,13 +292,33 @@ export function courseProgress(run: GameState): number {
 }
 
 /** Whether run `a` stands AHEAD of run `b`: home first, by the clock; then
- * further down the course. */
+ * further down the course. On a run where the course does NOT count (a
+ * tricks run with a field on it), the standings are the SCORE'S: the
+ * higher banked total is ahead, and the buzzer that ends it ends it for
+ * everybody at once, so there is no "home first" to read. */
 function ahead(a: GameState, b: GameState): boolean {
+  if (!a.rules.course) return a.tricks.score > b.tricks.score;
   if (a.progress.finished || b.progress.finished) {
     if (a.progress.finished && b.progress.finished) return a.progress.time < b.progress.time;
     return a.progress.finished;
   }
   return courseProgress(a) > courseProgress(b);
+}
+
+/** THE WHOLE FIELD IN ORDER, best first: every rival's id, and `null`
+ * where the player stands among them. The same ordering `racePlace` reads
+ * one row of, for a results sheet that has to file everybody — the field
+ * behind a rider who has just finished is filed where it STANDS, by the
+ * course it has covered or the score it has banked, since a buzzer ends a
+ * tricks run for everyone at once and a race's stragglers are not waited
+ * for. */
+export function fieldOrder(state: GameState): (number | null)[] {
+  const runs: { id: number | null; run: GameState }[] = [
+    { id: null, run: state },
+    ...state.rivals.map((r) => ({ id: r.id, run: r.run })),
+  ];
+  runs.sort((a, b) => (ahead(a.run, b.run) ? -1 : ahead(b.run, a.run) ? 1 : 0));
+  return runs.map((r) => r.id);
 }
 
 /** THE PLAYER'S PLACE in the field, 1-based: one more than the rivals ahead

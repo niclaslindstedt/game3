@@ -57,7 +57,7 @@ export const WEATHER_IDS: readonly Weather[] = [
  * the step up to a squall is the biggest on the scale, because a squall is
  * a different kind of day rather than a wetter one.
  */
-const HEAVINESS: Record<Weather, number> = {
+export const HEAVINESS: Record<Weather, number> = {
   clear: 0,
   // A haze is a still, warm morning — the lightest weather there is after
   // bare blue, and close enough to it that a coast offering both deals

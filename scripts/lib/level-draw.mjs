@@ -20,7 +20,7 @@ import { createDrawing, textWidth } from "./draw.mjs";
 
 export const TITLE_H = 48;
 export const LEGEND_W = 230;
-const MARGIN = 12;
+export const MARGIN = 12;
 
 const PAPER = [246, 244, 238];
 const INK = [24, 24, 28];
@@ -135,7 +135,7 @@ function drawRamp(canvas, rp, px, py, scale) {
   label(canvas, px(rp.x) - hx * 14 - 8, py(rp.z) + hz * 14 - 4, rp.id, MARK.ramp, 1);
 }
 
-function arrow(canvas, x, y, dx, dy, ink, stroke = 2) {
+export function arrow(canvas, x, y, dx, dy, ink, stroke = 2) {
   const len = Math.hypot(dx, dy);
   if (len < 2) return;
   const ux = dx / len;

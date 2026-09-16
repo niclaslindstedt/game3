@@ -66,6 +66,13 @@ export type RunRules = {
   tricks: boolean;
   /** How many OTHER riders start beside the player (`rivals.ts`). */
   rivals: number;
+  /** Whether one hull may LEAN ON another (`rivals.ts`'s `clipRiders`).
+   * Off, the field is stepped and placed exactly as before and every hull
+   * passes through every other — what a run wants when the riders are
+   * there to make the water feel lived on rather than to be raced through
+   * a gap. Meaningless with no rivals, and kept on there so the open rules
+   * say what a race says. */
+  contact: boolean;
   /** How long the lights hold the field before the clock starts, s. Zero is
    * no lights at all: the run is `running` from its first step. */
   countdown: number;
@@ -80,6 +87,7 @@ export const OPEN_RULES: RunRules = {
   course: true,
   tricks: true,
   rivals: 0,
+  contact: true,
   countdown: 0,
   limit: 0,
 };
@@ -163,15 +171,30 @@ export const TRICK_RESET_BACK = 60;
 /** The rules a MODE is played by. The tricks run's `limit` is the rider's
  * choice and is filled in by `createGame` off `TRICK_LIMITS`. */
 export const MODE_RULES: Record<GameMode, RunRules> = {
-  race: { course: true, tricks: false, rivals: RACE.rivals, countdown: RACE.countdown, limit: 0 },
+  race: {
+    course: true,
+    tricks: false,
+    rivals: RACE.rivals,
+    contact: true,
+    countdown: RACE.countdown,
+    limit: 0,
+  },
   tricks: {
     course: false,
     tricks: true,
     rivals: 0,
+    contact: true,
     countdown: RACE.countdown,
     limit: TRICK_LIMITS[0],
   },
-  timeTrial: { course: true, tricks: false, rivals: 0, countdown: RACE.countdown, limit: 0 },
+  timeTrial: {
+    course: true,
+    tricks: false,
+    rivals: 0,
+    contact: true,
+    countdown: RACE.countdown,
+    limit: 0,
+  },
   // The open rules, named — see the header. Stated as the object itself
   // rather than copied out, so the two can never come to disagree.
   free: OPEN_RULES,

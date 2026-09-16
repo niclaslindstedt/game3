@@ -11,6 +11,7 @@
 import { afterAll, beforeAll } from "vitest";
 
 import {
+  CURRENT_GENERATOR_VERSION,
   createHeightfield,
   fillField,
   LEVEL_RULES,
@@ -160,6 +161,7 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // METRES above; this field is the MULTIPLE the generator dealt, and
     // nothing scores a hand-built level against it.
     rampWidth: 1,
+    version: CURRENT_GENERATOR_VERSION,
     bounds,
     ground,
     offshore,

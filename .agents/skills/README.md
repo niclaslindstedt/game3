@@ -56,6 +56,8 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `debug-game` | Deterministic repros, classifying by layer, the failing test first |
 | `simulate-run` | `make sim`: the `RunReport` table, its columns, which movements are regressions |
 | `bot-improvement` | The gate-aiming bot in `engine/sim/bot.ts`, kept minimal, measured with `make sim` |
+| `level-rating` | Whether a generated level is any GOOD and how HARD: `engine/rating/`'s eight axes and index, the scales calibrated off a sweep, the ladder scorer; `make rate`, `make difficulty` |
+| `campaign` | The twelve pinned levels and the ladder they make (`campaign-levels.ts`, `campaign.ts`, `menu-campaign.tsx`): curating a rung, the generator-version contract, the points and the locks |
 | `sound-effects` | Every sound synthesized from parameters — the engine and the pump, the spray, the wind, the sea and the surf as steered layers, every splash as a def — under `pwa/src/game/audio/`; the audition page and its meter |
 
 ## Reserved
@@ -74,8 +76,6 @@ row and the `.lessons/` directory land where the next session expects them.
 | `craft-creation` | A craft remade after photographs of a real one — the ruled crop, the overlay — the sibling game's `car-creation` |
 | `built-shore` | What people put on the shore: harbours, jetties, a lighthouse, moored boats, the crowd — the sibling game's `built-world` |
 | `fauna` | The sea life is BUILT (R20: `engine/game/defs/fauna.ts`, `mapgen/fauna.ts`, `game/fauna.ts`, `pwa/src/game/fauna.ts`) and routed to `nature` for now. This skill is still reserved for what is not there yet — the animals REACTING to the craft, birds over the headlands, seals hauled out on the skerries, and every coast but the taiga's roster |
-| `level-rating` | `engine/rating/`: whether a generated level is any GOOD as a race, the trait bands, the campaign ladder; `make rate` |
-| `campaign` | `pwa/src/game/campaign.ts`: which seeds become the campaign's levels and the modes (Time Trial, Heads Up, Roam) — the rows they hang off the front door are `menu-system`'s |
 | `replay` | `pwa/src/game/replay.ts` + `engine/sim/tape.ts`: a run recorded and watched again |
 | `debug-tools` | The in-game developer overlay, the REPRO line, `make debug-shot` — when a bug arrives as a picture |
 | `store-listing`, `store-shots` | The storefront's words (gitignored copy) and its screenshot set |

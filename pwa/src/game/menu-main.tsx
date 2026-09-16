@@ -61,6 +61,8 @@ import {
   tickHold,
   type HoldState,
 } from "./menu-hold.ts";
+import { findLevel, type CampaignLevel, type CampaignProgress } from "./campaign.ts";
+import { CampaignPage } from "./menu-campaign.tsx";
 import { CraftPage } from "./menu-craft.tsx";
 import { BenchmarkHistoryPage } from "./menu-bench.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
@@ -74,8 +76,14 @@ import { STRINGS } from "./strings.ts";
 
 export type MenuPage =
   | { page: "root" }
+  /** The campaign's ladder (`menu-campaign.tsx`). */
+  | { page: "campaign" }
   | { page: "start" }
-  | { page: "craft" }
+  /** The craft card — the last card before the water on every way on. It
+   * carries the campaign level it is choosing a hull FOR when it was
+   * reached from the ladder, so BACK returns there and RIDE stands THAT
+   * level up rather than the start card's shore. */
+  | { page: "craft"; campaign?: string }
   | { page: "gallery" }
   | { page: "options" }
   | { page: "keys" }
@@ -302,6 +310,19 @@ function RootPage({
           bottom row rather than sitting beside a hole (`.menu-tiles`'s odd
           rule), which is the same rule that used to catch OPTIONS. */}
       <div class="menu-tiles">
+        {/* THE CAMPAIGN FIRST: the one way on with something to ride FOR,
+            and the one a new player is meant to press. It wears the lit
+            tile's orange; RACE keeps the hold. */}
+        <button
+          type="button"
+          class="menu-tile menu-tile-start"
+          data-menu="campaign"
+          data-nav-next
+          onClick={() => onNavigate({ page: "campaign" })}
+        >
+          <Glyph name="trophy" />
+          <span class="menu-tile-name">{STRINGS.campaign}</span>
+        </button>
         <HoldTile
           glyph={MODE_GLYPHS.race}
           label={STRINGS.modeName("race")}
@@ -375,21 +396,27 @@ export function MainMenu({
   page,
   settings,
   records,
+  progress,
   track,
   onSettings,
   onNavigate,
   onStart,
+  onCampaign,
   onBenchmark,
 }: {
   page: MenuPage;
   settings: Settings;
   /** The record book, for the start card's line under the chart. */
   records: RecordBook;
+  /** The campaign's board (`campaign.ts`), for the ladder's boxes. */
+  progress: CampaignProgress;
   /** R29 — the URL's track kind, part of what names a record. */
   track: TrackKind | undefined;
   onSettings: (settings: Settings) => void;
   onNavigate: (page: MenuPage) => void;
   onStart: () => void;
+  /** Stand a CAMPAIGN level up, once the craft card has chosen the hull. */
+  onCampaign: (level: CampaignLevel) => void;
   /** Hand the canvas to the benchmark and time a race on it — the developer
    * page's one press that is not a setting (`benchmark.ts`). */
   onBenchmark: () => void;
@@ -402,6 +429,13 @@ export function MainMenu({
           onNavigate={onNavigate}
           onMode={(mode) => onSettings({ ...settings, ride: { ...settings.ride, mode } })}
           onUnlock={() => onSettings({ ...settings, developer: true })}
+        />
+      )}
+      {page.page === "campaign" && (
+        <CampaignPage
+          progress={progress}
+          onBack={() => onNavigate({ page: "root" })}
+          onRide={(level) => onNavigate({ page: "craft", campaign: level.id })}
         />
       )}
       {page.page === "start" && (
@@ -421,8 +455,15 @@ export function MainMenu({
         <CraftPage
           settings={settings}
           onSettings={onSettings}
-          onBack={() => onNavigate({ page: "start" })}
-          onRide={onStart}
+          backLabel={page.campaign === undefined ? undefined : STRINGS.campaign}
+          onBack={() =>
+            onNavigate(page.campaign === undefined ? { page: "start" } : { page: "campaign" })
+          }
+          onRide={() => {
+            const pinned = page.campaign === undefined ? null : findLevel(page.campaign);
+            if (pinned) onCampaign(pinned.level);
+            else onStart();
+          }}
         />
       )}
       {page.page === "gallery" && <GalleryPage onBack={() => onNavigate({ page: "root" })} />}

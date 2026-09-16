@@ -337,6 +337,6 @@ export function step(state: GameState, input: CraftInput): GameState {
   // (`rivals.ts`).
   stepRun(state, input, events);
   stepRivals(state);
-  clipRiders(state, events);
+  if (state.rules.contact) clipRiders(state, events);
   return state;
 }
