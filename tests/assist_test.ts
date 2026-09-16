@@ -145,12 +145,16 @@ describe("the ballistic clock", () => {
 
 describe("the arcade's hand", () => {
   it("keeps a following wave from swallowing the hull", () => {
-    // Seed 29's following swell catches the touring hull twice in twenty
-    // seconds. Bare, the whole-hull measure reaches 0.32 for 1.39 s and the
-    // speed falls to 8 km/h; the hand keeps the deck at the surface and the
-    // ride above planing-entry pace.
-    const level = levelFor(29);
-    const state = createGame({ seed: 29, craft: "otter", level, quiet: true });
+    // Seed 2's following swell, run with the sea on the touring hull: the
+    // hand keeps the deck at the surface (the whole-hull measure stays at
+    // 0, the deepest probe under 0.6 m) and the ride above planing-entry
+    // pace (never under 12 m/s) — and the pair below shows the same sea
+    // burying the hull the moment the rider asks it to. A generated seed
+    // rather than the synthetic level because the swallow is the sea's
+    // own shape; MEASURED on this seed, and re-measured whenever the
+    // generator re-rolls it.
+    const level = levelFor(2);
+    const state = createGame({ seed: 2, craft: "otter", level, quiet: true });
     const scenario = stageScenario(state, "following");
     let deepest = 0;
     let mostUnder = 0;
@@ -167,8 +171,10 @@ describe("the arcade's hand", () => {
   });
 
   it("still lets the rider dive into a following wave deliberately", () => {
-    const level = levelFor(29);
-    const state = createGame({ seed: 29, craft: "otter", level, quiet: true });
+    // The lean held forward on seed 2's swell: the whole-hull measure
+    // reaches 0.24 and stays over 0.1 for 1.35 s.
+    const level = levelFor(2);
+    const state = createGame({ seed: 2, craft: "otter", level, quiet: true });
     const scenario = stageScenario(state, "following");
     let mostUnder = 0;
     let underFor = 0;
