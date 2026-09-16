@@ -156,6 +156,12 @@ export const STRINGS = {
   /** The wind chip: metres per second, one decimal. */
   wind: (ms: number): string => `${ms.toFixed(1)} m/s`,
   windLabel: "WIND",
+  /** HOW FAR OUT: whole metres from the water's edge, beside the clock. No
+   * decimal — the figure runs through tens of metres a second on the plane,
+   * and a tenth on the end of it would be a digit nobody can read spinning
+   * under one they can. */
+  shore: (metres: number): string => `${Math.round(metres)} m`,
+  shoreLabel: "FROM SHORE",
   /** THE ALTIMETER's figure, riding beside the tape's marker (hud-dial.tsx):
    * metres above still water, to one decimal — the tape's travel is
    * compressed and this is not, so the shape says how big and the figure

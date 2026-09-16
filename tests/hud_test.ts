@@ -24,6 +24,7 @@ import {
   biomeOf,
   createGame,
   placeRun,
+  sampleField,
   step,
   type CraftInput,
   type GameState,
@@ -484,6 +485,35 @@ describe("course feedback", () => {
     placeRun(state, { x: gate.x + 30, z: gate.z + 40, heading: gate.heading });
     expect(takeSnapshot(state).missedDistance).toBeCloseTo(50, 6);
     expect(STRINGS.missedBack(49.6)).toBe("50 M BACK");
+  });
+});
+
+describe("how far out he is", () => {
+  /** The synthetic level's `offshore` field is simply z (support/synthetic.ts),
+   * so a craft standing at a known z has a known distance from the shore and
+   * the reading can be checked against the metre rather than against itself. */
+  it("reads the level's own offshore field at the craft, in metres", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    for (const z of [40, 175, 320]) {
+      placeRun(state, { x: 100, z, heading: Math.PI / 2 });
+      expect(takeSnapshot(state).shoreDistance).toBeCloseTo(z, 3);
+    }
+  });
+
+  it("never goes negative: a hull up on the sand is AT the shore, not behind it", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    // The field is signed and runs negative inland; the readout is a
+    // distance FROM the shore, and there is no such thing as −20 m of it.
+    placeRun(state, { x: 100, z: 20, heading: Math.PI / 2 });
+    state.craft.z = -20;
+    expect(sampleField(FLAT.offshore, state.craft.x, state.craft.z)).toBeLessThan(0);
+    expect(takeSnapshot(state).shoreDistance).toBe(0);
+  });
+
+  it("is written in whole metres, because the figure runs at riding speed", () => {
+    expect(STRINGS.shore(1231.6)).toBe("1232 m");
+    expect(STRINGS.shore(0)).toBe("0 m");
+    expect(STRINGS.shoreLabel).toBe("FROM SHORE");
   });
 });
 

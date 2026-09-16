@@ -17,6 +17,7 @@ import {
   gatesReached,
   maxRpm,
   racePlace,
+  sampleField,
   sunHourAt,
   windAt,
   type CraftId,
@@ -193,6 +194,21 @@ export type HudSnapshot = {
   /** Metres back to the most recent missed checkpoint, or null once the
    * craft has returned to its opening. */
   missedDistance: number | null;
+  /** HOW FAR OUT THE RIDER IS, m from the water's edge — the level's own
+   * `offshore` field read at the craft, which is the ONE answer to that
+   * question in this tree (the wave model reads it as fetch, the course
+   * rules bound it, the tornado's column is sized off it). Nothing is
+   * measured here.
+   *
+   * Clamped at zero, because the field is signed — it runs negative inland
+   * — and a hull beached on the sand is AT the shore rather than a
+   * negative distance from it. The far end is the field's own: every baked
+   * field holds its rim's reading past the bound, so a rider who turns his
+   * back on the level and rides out into the open ocean sees the figure
+   * stop climbing rather than carry on. That is the same reading the
+   * tornado's column takes out there, deliberately, and a second opinion
+   * worked out from the coastlines would be this HUD keeping a formula. */
+  shoreDistance: number;
   /** R30 — which lap is being ridden and how many there are. Both 1 on a
    * coast sprint, which is what the HUD reads to leave the chip out. */
   lap: number;
@@ -373,6 +389,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     passed: gatesReached(p),
     gates: state.level.course.gates.length,
     missedDistance: missed?.distance ?? null,
+    shoreDistance: Math.max(0, sampleField(state.level.offshore, c.x, c.z)),
     // The final crossing of the start line belongs to the last lap rather
     // than to a lap after it: the race is over on it, not begun.
     lap: Math.min(
