@@ -8,6 +8,7 @@ import { describe, expect, it } from "vitest";
 import {
   NEUTRAL_INPUT,
   TUNING,
+  activeMissedCheckpoint,
   bearingToNext,
   botInput,
   createGame,
@@ -156,6 +157,22 @@ describe("a run", () => {
     expect(state.progress.missed).toEqual([0]);
     expect(state.progress.nextGate).toBe(1);
     expect(events.filter((e) => e.kind === "missedGate")).toHaveLength(1);
+    const active = activeMissedCheckpoint(state);
+    expect(active?.gate.index).toBe(0);
+    expect(active?.distance).toBeGreaterThan(g.width / 2);
+  });
+
+  it("keeps the missed checkpoint active until the craft returns to its opening", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g = LEVEL.course.gates[0];
+    placeRun(state, { x: g.x - 40, z: g.z + 5 * g.width, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.progress.activeMissedGate).toBe(0);
+
+    placeRun(state, { x: g.x, z: g.z, heading: -Math.PI / 2 });
+    step(state, NEUTRAL_INPUT);
+    expect(state.progress.activeMissedGate).toBeNull();
+    expect(activeMissedCheckpoint(state)).toBeNull();
   });
 
   it("still requires the finish to be crossed through its opening", () => {

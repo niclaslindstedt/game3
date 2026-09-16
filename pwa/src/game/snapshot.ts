@@ -12,6 +12,7 @@
 
 import {
   TUNING,
+  activeMissedCheckpoint,
   biomeOf,
   gatesReached,
   maxRpm,
@@ -189,6 +190,9 @@ export type HudSnapshot = {
   /** Gates passed (missed ones count as reached) and gates in the course. */
   passed: number;
   gates: number;
+  /** Metres back to the most recent missed checkpoint, or null once the
+   * craft has returned to its opening. */
+  missedDistance: number | null;
   /** R30 — which lap is being ridden and how many there are. Both 1 on a
    * coast sprint, which is what the HUD reads to leave the chip out. */
   lap: number;
@@ -337,6 +341,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
   const hour = sunHourAt(state.level, state.t);
   const sun = sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season);
   const air = airClock(state);
+  const missed = activeMissedCheckpoint(state);
   return {
     ...comboTile(state),
     score: state.tricks.score,
@@ -367,6 +372,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     riders: state.rivals.length + 1,
     passed: gatesReached(p),
     gates: state.level.course.gates.length,
+    missedDistance: missed?.distance ?? null,
     // The final crossing of the start line belongs to the last lap rather
     // than to a lap after it: the race is over on it, not begun.
     lap: Math.min(

@@ -452,8 +452,14 @@ describe("where the altimeter's marker sits", () => {
 });
 
 describe("course feedback", () => {
-  it("uses the whole checkpoint warning as the missed-gate flash", () => {
+  it("uses the whole checkpoint warning and reads the distance back to it", () => {
     expect(STRINGS.missed).toBe("MISSED CHECKPOINT");
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, quiet: true });
+    const gate = FLAT.course.gates[0];
+    state.progress.activeMissedGate = gate.index;
+    placeRun(state, { x: gate.x + 30, z: gate.z + 40, heading: gate.heading });
+    expect(takeSnapshot(state).missedDistance).toBeCloseTo(50, 6);
+    expect(STRINGS.missedBack(49.6)).toBe("50 M BACK");
   });
 });
 

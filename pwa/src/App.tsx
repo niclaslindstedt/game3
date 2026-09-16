@@ -276,6 +276,14 @@ export function App() {
     rendererRef.current?.setGuide(settings.hud.on);
   }, [settings.hud.on]);
 
+  // The missed-checkpoint arrow is geometry rather than DOM, but it is one
+  // half of a HUD instrument. Keep it off under cards that do not draw that
+  // instrument, and leave it standing under the pause card with the rest of
+  // the frozen run.
+  useEffect(() => {
+    rendererRef.current?.setMissedGuide(settings.hud.on && hudOver(shell));
+  }, [settings.hud.on, shell]);
+
   // ...AND SO DOES THE CAMERA ROW, for the same reason and one more: the
   // pause card opens that page over a FROZEN run, and a row worded CAMERA
   // that only took effect on the next one would be a row the app ignores
@@ -310,8 +318,8 @@ export function App() {
 
   // THE RENDER STACK, FETCHED RATHER THAN BUNDLED. `renderer.ts` is the ONE
   // static import in this file that reaches three.js, and three.js is 509 KB
-  // raw / 127 KB gzip — 41 % of everything the first paint used to wait for,
-  // on a critical path that had run out of room to grow. Fetched here it
+  // raw / 127 KB gzip — 41 % of the old first-paint payload, on a critical
+  // path that has no room to grow. Fetched here it
   // leaves the entry chunk entirely, alongside the splash the app already
   // shows, so nothing a player sees arrives later: the attract card waits on
   // `drawn`, which cannot go true before a renderer exists either way.
@@ -337,6 +345,7 @@ export function App() {
     );
     inputRef.current = input;
     const renderer = renderKit.createRenderer(canvas, settingsRef.current.video);
+    renderer.setMissedGuide(settingsRef.current.hud.on && hudOver(shellRef.current));
     rendererRef.current = renderer;
     const audio = createRunAudio();
     const clock = createRunClock(TUNING.physicsHz);

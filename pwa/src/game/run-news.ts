@@ -30,7 +30,9 @@ export function flashFor(
     case "airGate":
       return { text: STRINGS.airGate(e.gate + 1, e.split), tone: "good" };
     case "missedGate":
-      return { text: STRINGS.missed, tone: "bad" };
+      // The HUD's standing missed-checkpoint guide owns this event. A second
+      // copy in the news column would fade while the actual warning stayed.
+      return null;
     case "finish":
       return state.rivals.length > 0
         ? { text: STRINGS.finishPlace(e.place, state.rivals.length + 1, e.time), tone: "good" }
