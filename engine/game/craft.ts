@@ -197,6 +197,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.speed = Math.hypot(c.vx, c.vy, c.vz);
     c.altitude = c.y - restY(spec, density);
     c.way = 0;
+    c.waterVy = 0;
     c.airborne = false;
     c.airTime = 0;
     c.capsizedFor = 0;
@@ -793,6 +794,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // and memoized as one, so this is a subtraction.
   c.altitude = c.y - restY(spec, density);
   c.wetted = hull.wetted;
+  c.waterVy = hull.waterVy;
   c.slam = hull.slam;
   c.submergedDepth = Math.max(0, hull.submerged);
   c.submerged = under;

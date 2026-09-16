@@ -760,7 +760,7 @@ export function createWake(): Wake {
       else bobStationR.fill(0);
       for (let k = 0; k < BOB_STATIONS; k++) {
         const r = bobStationR[k];
-        if (alive) bobAt(r, bobR[p], age, bobS[p], splash.crater, section);
+        if (alive) bobAt(r, bobR[p], age, bobS[p], section);
         else section.cover = 0;
         const count = k === 0 ? 1 : STAMP_SEGMENTS;
         const first = k === 0 ? base : base + 1 + (k - 1) * STAMP_SEGMENTS;

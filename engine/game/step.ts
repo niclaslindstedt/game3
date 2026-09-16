@@ -27,6 +27,7 @@ import { createShelter } from "./fetch.ts";
 import { clipRiders, createRivals, stepRivals } from "./rivals.ts";
 import { stepRun } from "./run.ts";
 import { freshTricks } from "./tricks.ts";
+import { freshWash } from "./wash.ts";
 import { createSea, seaSummary, type SeaOverride } from "./water.ts";
 import { createWind, stepWind, windFromQuarter } from "./wind.ts";
 
@@ -162,6 +163,7 @@ export function freshCraft(spec: CraftSpec): CraftState {
     stand: 0,
     standHold: 0,
     wetted: 0,
+    waterVy: 0,
     airborne: false,
     airTime: 0,
     planing: 0,
@@ -271,11 +273,14 @@ export function createGame(options: CreateGameOptions): GameState {
     assistWindow: Math.max(0, options.assistWindow ?? TUNING.assist.air.window),
     rules,
     rivals: [],
+    wash: freshWash(),
     countdown: rules.countdown,
     phase: rules.countdown > 0 ? "countdown" : "running",
     events: [],
   };
   standCraft(state, level.start.x, level.start.z, level.start.heading);
+  // The sea holds every rider's wash, and the player's is the first on it.
+  sea.washes.push(state.wash);
   // THE FIELD, on the roster at the player's own class, each hull the next
   // in the catalog after the last — so a race is against every kind of
   // craft the game has, and the grid deals itself from the run's stream

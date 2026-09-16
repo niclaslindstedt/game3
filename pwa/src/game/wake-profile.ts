@@ -34,12 +34,22 @@
 // surface is — it bends the reflection, lightens the body and animates the
 // foam), and a hollow and a crest (the surface displaced down or up, m —
 // and SIDEWAYS along the slope between them, so the transom's trough
-// shoves the surface outward and the bow wave piles it on its crest).
+// shoves the surface outward and the mound piles it on its crest).
 // Foam is gated to pace and the pump the way a real road is; the churn and
 // the displacement start from a crawl, because a hull pushed through water
 // disturbs it long before it whitens it.
+//
+// THE RELIEF HERE IS ONLY WHAT STANDS UNDER THE HULL. The waves the craft
+// leaves — the diverging arms of the V, a landing's ring, the rings a
+// bobbing hull radiates — are the ENGINE's (`engine/game/wash.ts`): real
+// water the hull's probes read and the water grid is displaced by, so a
+// rider crossing them is lifted. The wash is born outside the hull's own
+// footprint by construction, and this map keeps the relief that lives
+// inside it — the hollow behind the transom, the mound where it closes,
+// the crater a hull knocks — plus every mark that is white or churned,
+// which is presentation and not water.
 
-import { TUNING } from "@engine";
+import { TUNING, WASH_GROUP } from "@engine";
 
 import { clamp } from "../lib/util.ts";
 
@@ -436,22 +446,13 @@ const MOUND_HANDS_OVER = 7;
 /** …and how much of the hollow the mound has CLOSED where it stands. */
 const MOUND_CLOSES = 0.6;
 
-/** THE ARMS — the diverging crests, and the whole reason the wake reads as
- * a TRIANGLE rather than as a stripe. They leave the transom's corners and
- * ride outward at Kelvin's angle forever, so the raised water is further
- * off the axis the further astern it is read, and the shape a rider looks
- * back at is a V that never stops opening. How high a crest stands at full
- * wash, m, how far astern its height has halved by spreading along an
- * ever-longer crest, m, and its width as a share of the section. */
-const ARM = 0.2;
-const ARM_SPREAD = 14;
-const ARM_WIDE = 0.3;
-/** …and the water INSIDE the V, which is drawn down: the arms took it. It
- * is shallow and wide where the crests are sharp and narrow, which is what
- * makes the triangle read as relief rather than as two unexplained lines. */
-const INSIDE = 0.07;
-
-/** How far off the axis the diverging crest stands at `run` m astern, m:
+/** THE ARMS — the diverging crests that make the wake a TRIANGLE rather
+ * than a stripe — are the engine's wash and not this map's: they are the
+ * rings of the hull's passage adding up (`engine/game/wash.ts`), and they
+ * are water. What is kept of them here is their GEOMETRY, which the fan's
+ * white and this section's cover are cut to follow.
+ *
+ * How far off the axis the diverging crest stands at `run` m astern, m:
  * the transom's corner, plus Kelvin's angle every metre after it. */
 export function armAt(beam: number, run: number): number {
   return beam / 2 + KELVIN_TAN * run;
@@ -478,7 +479,8 @@ export function sternHalf(beam: number, run: number): number {
 
 /** THE STERN WAVE'S SECTION at `s` across it (−1..1 of `sternHalf`), `run` m
  * astern of the transom, on water the hull passed `age` seconds ago at
- * `speed` m/s with the pump churning `strength`. Relief only. */
+ * `speed` m/s with the pump churning `strength`. Relief only, and only the
+ * relief under the hull's own footprint: the hollow and the mound. */
 export function sternAt(
   s: number,
   run: number,
@@ -489,32 +491,25 @@ export function sternAt(
   out: WakeSection,
 ): void {
   const a = Math.abs(s);
-  const half = sternHalf(beam, run);
   const wash = washOf(speed);
   const live =
     transomClear(speed) *
     (1 - Math.exp(-age / STERN_RISE)) *
     Math.exp(-Math.pow(run / STERN_FADE, STERN_FADE_POWER));
-  // THE ARMS: a crest either side, standing where the diverging train has
-  // got to by here and thinning as that crest lengthens. In SHARES of the
-  // section, because the section is cut to follow them.
-  const arm = armAt(beam, run) / half;
-  const ridge = Math.exp(-Math.pow((a - arm) / ARM_WIDE, 2)) / Math.sqrt(1 + run / ARM_SPREAD);
   // THE APEX MOUND: on the axis where the sides close, handing its water
-  // over to the arms as they draw apart.
+  // over to the arms — the engine's — as they draw apart.
   const past = run - moundAt(beam, strength);
   const lead = past < 0 ? Math.exp(-Math.pow(past / MOUND_RUN, 2)) : 1;
   const handover = Math.max(0, 1 - Math.max(0, past) / MOUND_HANDS_OVER);
   const mound = lead * handover * (1 - smoothstep(0, MOUND_HALF, a));
-  // THE HOLLOW behind the transom, and the shallower drawdown inside the V
-  // that outlives it — already closed where the apex mound stands out of
-  // it, since the mound IS that hollow filling in and overshooting.
+  // THE HOLLOW behind the transom — already closed where the apex mound
+  // stands out of it, since the mound IS that hollow filling in and
+  // overshooting.
   const fill = Math.exp(-run / (HOLLOW_RUN + (HOLLOW_RUN_SPEED * speed * speed) / TUNING.g));
-  const dip = (1 - smoothstep(arm * 0.7, arm, a)) * (1 - MOUND_CLOSES * mound);
   out.foam = 0;
   out.churn = 0;
-  out.up = (ARM * ridge + MOUND * (1 + MOUND_PUMP * clamp(strength, 0, 1)) * mound) * wash * live;
-  out.down = (HOLLOW * fill * (1 - a * a) + INSIDE * dip) * wash * live;
+  out.up = MOUND * (1 + MOUND_PUMP * clamp(strength, 0, 1)) * mound * wash * live;
+  out.down = HOLLOW * fill * (1 - a * a) * (1 - MOUND_CLOSES * mound) * wash * live;
   out.cover = 1 - smoothstep(0.88, 1, a);
 }
 
@@ -531,10 +526,13 @@ export function sternAt(
 //   THE CRATER  the water the hull displaced: a hollow under it, forming
 //               over the relief's rise and filling back in under a second.
 //   THE RING    where the displaced water went — a ring wave rolling out
-//               from the crater's rim with a trough drawn in behind its
-//               crest, thinning as its circumference grows and lacing the
-//               crest white. The wave is what the eye reads as the sea
-//               taking the blow: a splash with no ring is paint.
+//               from the crater's rim, thinning as its circumference grows.
+//               THE WAVE ITSELF IS THE ENGINE'S: the landing lays a source
+//               in the wash (`engine/game/wash.ts`) and the water grid
+//               carries its ring the way it carries the swell. What this
+//               map lays on it is the LACE — the white and the churn the
+//               crest carries, riding out at the wash's own group speed so
+//               the white sits on the water that is actually moving.
 
 /** How long the patch's foam lives, s, and how fast it spreads, m/s. */
 export const SPLASH_LIFE = 2.6;
@@ -542,22 +540,14 @@ export const SPLASH_SPREAD = 0.9;
 /** How long the crater takes to fill, s — the hollow's decay after the
  * relief's rise. */
 export const CRATER_LIFE = 0.6;
-/** THE RING WAVE: how fast it travels, m/s — a wave a few metres long at
- * deep-water celerity (√(gλ/2π) for λ ≈ 3 m) — its width crest to foot,
- * m, how long it lives, s, and its crest's height at the crater's rim as
- * a share of the crater's depth. The width is the wave's own scale AND the
- * grid's: the water shader reads the relief blurred to about two metres
- * (`WAKE_RELIEF_LOD`) and the near grid's cell is a metre and a half, so a
- * ring narrower than this is smoothed into nothing before a vertex ever
- * stands on it. */
-export const RING_SPEED = 2.2;
+/** THE RING'S LACE: how fast it travels, m/s — the wash's group speed,
+ * which is where the engine's ring packet stands — its width crest to
+ * foot, m, and how long the white lives, s. */
+export const RING_SPEED = WASH_GROUP;
 export const RING_WIDTH = 3.2;
 export const RING_LIFE = 2.4;
-export const RING_SHARE = 1.2;
-/** Where the ring's trough sits, in half-widths inside its crest, and how
- * deep it runs as a share of the crest. */
+/** Where the lace's inner station sits, in half-widths inside its crest. */
 const RING_TROUGH_AT = 1.2;
-const RING_TROUGH = 0.6;
 /** How much white the crest carries at full strength, and how much churn. */
 const RING_FOAM = 0.7;
 const RING_CHURN = 1;
@@ -625,31 +615,20 @@ export function splashAt(
   let churn = strength * fade * (1 - life) * inPatch;
   // The crater: a bowl over the radius, rising in and filling.
   const rim = Math.min(1, r / radius);
-  let down = depth * relief(age, CRATER_LIFE) * (1 - rim * rim);
-  let up = 0;
-  // The ring: a crest at the wave's front and a trough inside it, its
-  // height spread thinner round a growing circumference.
+  const down = depth * relief(age, CRATER_LIFE) * (1 - rim * rim);
+  // The ring's lace: white and churn on the crest the wash is rolling out,
+  // thinning as its circumference grows.
   if (ring > 0 && age < RING_LIFE) {
     const rc = radius + RING_SPEED * age;
-    const amp =
-      depth *
-      RING_SHARE *
-      ring *
-      Math.sqrt(radius / rc) *
-      Math.exp(-age / RING_LIFE) *
-      (1 - Math.exp(-age / RELIEF_RISE));
     const d = (r - rc) / (RING_WIDTH / 2);
     const crest = Math.exp(-d * d * 2);
-    const trough = Math.exp(-(d + RING_TROUGH_AT) * (d + RING_TROUGH_AT) * 2);
-    up += amp * crest;
-    down += amp * RING_TROUGH * trough;
     const lace = strength * ring * crest * Math.exp(-age / RING_LIFE);
     foam += RING_FOAM * lace;
     churn += RING_CHURN * lace;
   }
   out.foam = Math.min(1, foam);
   out.churn = Math.min(1, churn);
-  out.up = up;
+  out.up = 0;
   out.down = down;
   out.cover = 1 - smoothstep(0.85, 1, r / splashReach(radius, age, ring));
 }

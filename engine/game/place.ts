@@ -21,6 +21,7 @@ import { TUNING } from "./defs/tuning.ts";
 import { maxRpm } from "./limits.ts";
 import type { GameState } from "./state.ts";
 import { heightAt } from "./water.ts";
+import { clearWash } from "./wash.ts";
 
 export type RunMoment = {
   /** Where, in the plan, m. */
@@ -84,6 +85,9 @@ export function placeRun(state: GameState, moment: RunMoment): void {
     state.phase = "running";
     state.countdown = 0;
   }
+  // ...and on water nothing has been ridden through: whatever wash the
+  // run had laid before it was stood here is not part of the moment.
+  clearWash(state.wash);
   const c = state.craft;
   standCraft(state, moment.x, moment.z, moment.heading);
   const speed = moment.speed ?? 0;

@@ -425,7 +425,7 @@ describe("what the tornado does to a rider", () => {
   const b = level.bounds;
   const far = TORNADO_EDGE + BAND + 1_200;
 
-  it("throws him twenty metres and more, off every craft in the roster", () => {
+  it("throws him twenty metres and more, and every craft in the roster fifteen", () => {
     // WHY THE RIDE IS LONGER HERE THAN ANYWHERE ELSE IN THE FILE. This is the
     // one claim in the file read off the TOP of the sample rather than its
     // middle, and a maximum converges far more slowly than a median does: how
@@ -433,15 +433,22 @@ describe("what the tornado does to a rider", () => {
     // wave the column caught the hull on, so a short ride answers it with
     // whatever the sea happened to deal. Two minutes lands a hull about ten
     // flights, and ten flights put the roster's weakest within a metre or two
-    // of the bar in either direction — which makes the assertion a coin toss
-    // that any change to the sea re-flips. Six minutes is where the estimate
-    // stops moving (the weakest hull's best throw climbs to the mid-twenties
-    // and stays), so the margin below is the tornado's and not the sample's.
+    // of its bar in either direction — which makes a tight assertion a coin
+    // toss that any change to the sea re-flips: the wash the hull lays in
+    // the water (`wash.ts`) moved the dart's best throw on this seed from
+    // twenty metres to eighteen, with twelve minutes of riding leaving it
+    // there, while the otter's went up by a third. Six minutes is where the
+    // estimate stops moving, so the bar the WEAKEST hull is held to sits
+    // clear of the sample's spread, and the twenty-metre claim is the
+    // roster's — the tornado throws SOMEBODY that high, every time.
+    let best = 0;
     for (const craft of CRAFT) {
       const { apex } = throws(level, craft.id, 400, b.maxZ + far, 360);
       expect(apex.length).toBeGreaterThan(0);
-      expect(Math.max(...apex)).toBeGreaterThan(20);
+      expect(Math.max(...apex), craft.id).toBeGreaterThan(15);
+      best = Math.max(best, ...apex);
     }
+    expect(best).toBeGreaterThan(20);
   });
 
   it("throws him to a bounded height, and holds him up for seconds and not a minute", () => {
@@ -455,13 +462,16 @@ describe("what the tornado does to a rider", () => {
     const shore: number[] = [];
     const oceanApex: number[] = [];
     const shoreApex: number[] = [];
-    // Three minutes a hull rather than two. What is read below are
+    // Five minutes a hull rather than two. What is read below are
     // PERCENTILES, and a percentile is only as good as the sample under it:
     // at two minutes the shore column landed the roster right on the
     // twenty-flight bar, so any change to the wind that cost it one flight
-    // failed the case without saying anything about the tornado. The extra
-    // minute a hull puts both columns comfortably clear of it.
-    const SECONDS = 180;
+    // failed the case without saying anything about the tornado; three
+    // minutes cleared it until the wash the hull lays in the water
+    // (`wash.ts`) re-dealt the shore column fifteen flights. The extra
+    // minutes put both columns clear of the bar again, which is a claim
+    // about the sample and not about the tornado.
+    const SECONDS = 300;
     for (const craft of CRAFT) {
       const out = throws(level, craft.id, 400, b.maxZ + far, SECONDS);
       const along = throws(level, craft.id, b.maxX + far, 60, SECONDS);

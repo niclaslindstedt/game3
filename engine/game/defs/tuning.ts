@@ -18,6 +18,7 @@
 import { ASSIST } from "./assist.ts";
 import { FLIGHT, TUCK } from "./flight.ts";
 import { SEA, WIND } from "./sea.ts";
+import { WASH } from "./wash.ts";
 
 /** The clock the whole engine runs on — see `TUNING.physicsHz`. Named out
  * here so the timestep can be derived from it rather than restated. */
@@ -55,6 +56,9 @@ export const TUNING = {
    * THE WIND over it (`wind.ts`), both stated next door. */
   sea: SEA,
   wind: WIND,
+  /** THE WASH — the waves a hull leaves in the water (`wash.ts`), stated
+   * next door in `defs/wash.ts` and folded in here. */
+  wash: WASH,
 
   /** THE HULL IN THE WATER (`hull.ts`): buoyancy and the drags. */
   hull: {
