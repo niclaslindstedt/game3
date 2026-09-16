@@ -3259,19 +3259,33 @@ button.knob-read:focus-visible {
   color: var(--hud-info);
 }
 
-/* The page's one sentence. A floor of two lines so the card does not change
+/* The page's one sentence. A floor of TWO ROWS so the card does not change
    height as the pointer crosses it, and the accent down its edge comes on with
-   the text, so an empty bar reads as a rest and not a hole. */
+   the text, so an empty bar reads as a rest and not a hole.
+
+   THE PADDING IS PART OF THE RESERVATION, because the box is `border-box`.
+   `2.7em` is two lines of TEXT and not two rows of CAPTION: the 0.7rem of
+   padding comes out of it and what is left holds one line. So the numbers the
+   reservation is made of are each stated once and summed — change the padding
+   or the leading and the floor follows. Every sentence on every one of these
+   cards fits two rows at the widths this rule covers.
+
+   A floor set short is invisible in a picture: the lab shoots the SETTLED
+   card, and a caption only changes height while the pointer is moving. Measure
+   it instead — raise each row's hint and read `.menu-card`'s own height, which
+   must not move. */
 .knob-caption {
-  min-height: 2.7em;
+  --caption-line: 1.35;
+  --caption-pad: 0.35rem;
+  min-height: calc(2 * var(--caption-line) * 1em + 2 * var(--caption-pad));
   font-size: 0.64rem;
   font-weight: 500;
   letter-spacing: 0.02em;
-  line-height: 1.35;
+  line-height: var(--caption-line);
   text-transform: none;
   color: var(--hud-info);
   opacity: 0.6;
-  padding: 0.35rem 0.6rem;
+  padding: var(--caption-pad) 0.6rem;
   border-left: 3px solid rgb(242 247 248 / 25%);
   transition: opacity 120ms ease;
 }
@@ -3408,6 +3422,11 @@ button.knob-read:focus-visible {
     padding-left: 0.5rem;
   }
 
+  /* No reservation on a phone, where it buys nothing: a card this narrow wraps
+     the longest sentences to three and four rows, so the caption moves under
+     any floor short enough to be worth having — and the height is wanted by
+     the rows above, on a start card already standing 803 px tall in an 844 px
+     window. */
   .knob-caption {
     min-height: 0;
     padding: 0.3rem 0.5rem;
