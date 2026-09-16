@@ -13,11 +13,19 @@ import {
   stepWind,
   tornadoBand,
   tornadoBlow,
+  createGame,
   windAt,
+  windFromQuarter,
+  windQuarter,
   windSpeedAt,
+  LEVEL_RULES,
 } from "@engine";
 
+import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
+
+/** A right angle, which is the quarter "along the shore" stands at. */
+const HALF_PI = Math.PI / 2;
 
 /** Within `share` of what was asked for. The wind carries an eddy field
  * over the whole plan (`TUNING.wind.eddyScale`), so the MEAN wind is what
@@ -242,5 +250,61 @@ describe("the gusts", () => {
     }
     expect(maxVeer).toBeLessThanOrEqual(3 * TUNING.wind.veer);
     expect(maxVeer).toBeGreaterThan(0.02);
+  });
+});
+
+describe("the wind's quarter, against the coast rather than the compass", () => {
+  // The two halves of one relation (`windQuarter` / `windFromQuarter`): an
+  // absolute heading read against the way the open sea lies, and back again.
+  // FREE's own row is written in this angle, and so is the mark under it, so
+  // a drift between the two would put a card's reading and the water it
+  // describes on different quarters.
+  const level = syntheticLevel({ windSpeed: 8 });
+
+  it("reads dead onshore as zero, and comes back to the heading it started at", () => {
+    // The bench's shore is the line z = 0 with the water in +z, so the sea
+    // lies along heading 0 and a wind blowing straight in off it is 0.
+    expect(level.seaHeading).toBe(0);
+    expect(windQuarter(level, level.seaHeading)).toBeCloseTo(0, 12);
+    for (const quarter of [0, 0.4, HALF_PI, 2.6, -0.4, -HALF_PI, -2.6]) {
+      expect(windQuarter(level, windFromQuarter(level, quarter))).toBeCloseTo(quarter, 12);
+    }
+  });
+
+  it("wraps the absolute heading and keeps the quarter inside half a turn", () => {
+    // `windFromQuarter` feeds a `Wind.from`, which every other reader takes
+    // as an ordinary heading, so it is wrapped to 0..2π rather than handed on
+    // negative; the quarter that comes back is signed, so a rider can tell
+    // one side of the shore from the other.
+    const behind = windFromQuarter(level, -Math.PI / 2);
+    expect(behind).toBeGreaterThan(0);
+    expect(behind).toBeLessThan(Math.PI * 2);
+    expect(windQuarter(level, behind)).toBeCloseTo(-Math.PI / 2, 12);
+    expect(Math.abs(windQuarter(level, 3.9))).toBeLessThanOrEqual(Math.PI);
+  });
+
+  it("is what a run asks for when it asks for a quarter", () => {
+    // `createGame`'s own option, which is the whole point of the pair: the
+    // app cannot add the coast's bearing itself, because the level it would
+    // add it to is built inside the call.
+    const out = createGame({ seed: 1, level, windQuarter: Math.PI, windSpeed: 11, quiet: true });
+    expect(windQuarter(out.level, out.wind.meanFrom)).toBeCloseTo(Math.PI, 6);
+    expect(out.wind.meanSpeed).toBe(11);
+    // A speed with no quarter beside it leaves the level's own quarter alone,
+    // which is the behaviour the developer's WIND row has always had.
+    const same = createGame({ seed: 1, level, windSpeed: 11, quiet: true });
+    expect(same.wind.meanFrom).toBe(level.wind.from);
+  });
+
+  it("is dealt within R12's own band on a generated shore", () => {
+    // The rule the published heading exists to be read against: the wind
+    // always has the open water at its back, so every seed's quarter is
+    // inside `R.wind.seaward` of dead onshore.
+    for (const seed of LEVEL_SEEDS) {
+      const dealt = levelFor(seed);
+      expect(Math.abs(windQuarter(dealt, dealt.wind.from))).toBeLessThanOrEqual(
+        LEVEL_RULES.wind.seaward + 1e-9,
+      );
+    }
   });
 });

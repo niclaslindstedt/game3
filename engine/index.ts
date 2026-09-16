@@ -22,7 +22,7 @@ export {
 
 // The simulation.
 export { createGame, freshCraft, rulesFor, step, type CreateGameOptions } from "./game/step.ts";
-// THE THREE MODES (game/defs/modes.ts): what each switches on, the open
+// THE FOUR MODES (game/defs/modes.ts): what each switches on, the open
 // rules a measurement rides, and the race's own numbers.
 export {
   GAME_MODES,
@@ -171,7 +171,15 @@ export {
 export { flowAt } from "./mapgen/flow.ts";
 export { buoyLightAt, buoyLightName } from "./game/buoy.ts";
 // THE WIND (wind.ts).
-export { createWind, stepWind, windAt, windSpeedAt, type WindState } from "./game/wind.ts";
+export {
+  createWind,
+  stepWind,
+  windAt,
+  windFromQuarter,
+  windQuarter,
+  windSpeedAt,
+  type WindState,
+} from "./game/wind.ts";
 // THE HULL (hull.ts): the probes and the rest draft.
 export {
   frictionCoefficient,

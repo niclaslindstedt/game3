@@ -21,11 +21,12 @@ const COAST_NAMES: Record<string, string> = {
   mangrove: "MANGROVE",
 };
 
-/** THE THREE MODES' words, by the engine's id. */
+/** THE FOUR MODES' words, by the engine's id. */
 const MODE_NAMES: Record<GameMode, string> = {
   race: "RACE",
   tricks: "TRICKS",
   timeTrial: "TIME TRIAL",
+  free: "FREE RIDE",
 };
 
 const CLASS_NAMES: Record<string, string> = {
@@ -34,6 +35,26 @@ const CLASS_NAMES: Record<string, string> = {
   "1.25": "LIMITED",
   "1.5": "OPEN",
 };
+
+/** WHERE A QUARTER STANDS against the coast, in words — the compass rose's
+ * own eighths measured off dead onshore: inside 22.5° of it the wind is
+ * straight in, past 157.5° it is straight off the land, a right angle either
+ * way is along the shore, and the two quadrants between are quartering onto
+ * it or off it. */
+function quarterWord(deg: number): string {
+  const away = Math.abs(deg);
+  if (away <= 22.5) return "Straight in off the sea";
+  if (away < 67.5) return "Quartering onto the shore";
+  if (away <= 112.5) return "Straight along the shore";
+  if (away < 157.5) return "Quartering off the shore";
+  return "Straight off the land";
+}
+
+/** The tail every free row's caption ends with: what this shore was dealt,
+ * or nothing at all while the chart is still being built. */
+function dealtIs(dealt: number | null, read: (value: number) => string): string {
+  return dealt === null ? "" : ` This shore was dealt ${read(dealt)}.`;
+}
 
 /** R36 — the Douglas sea scale's words for its own states, which is where
  * the WAVES row's ladder comes from. Typed off the scale rather than as a
@@ -161,6 +182,10 @@ export const STRINGS = {
   resultNewBest: "NEW BEST",
   resultBest: (best: string): string => `BEST ${best}`,
   resultFirst: "FIRST RUN ON THIS SHORE",
+  /** ...and what stands there on a mode that keeps no book at all: the free
+   * ride, whose weather is the rider's own, so no two runs down the same
+   * shore are the same run (`records.ts`). */
+  resultFree: "FREE RIDE · NOT KEPT",
   /** ...and the way on, for a keyboard. */
   resultNote: "B rides again · ESC for the menu",
   /** R30 — which lap of how many, on a circuit. Nothing to read on a coast
@@ -316,11 +341,6 @@ export const STRINGS = {
   /** THE GAME, as the front door's tiles name it and as the start card's
    * head is titled with it. */
   modeName: (id: GameMode): string => MODE_NAMES[id],
-  /** The start card's one line of billing, by the game it is setting up:
-   * the head says WHICH, and this says what that one is. */
-  modeRaceLine: "Eleven others on the grid, off on the same GO — the clock decides",
-  modeTricksLine: "The course taken off the shore, the ramps left standing — stock craft only",
-  modeTimeTrialLine: "The course against the clock, with nobody else on the water",
   /** How long a tricks run is. */
   startMinutes: "LENGTH",
   startMinutesHint: "How long the clock gives you before the buzzer",
@@ -333,6 +353,11 @@ export const STRINGS = {
   startBestScore: (points: number, craft: string): string =>
     `BEST ${formatScore(points)} PTS · ${craft.toUpperCase()}`,
   startBestNone: "NO BEST YET ON THIS SHORE",
+  /** ...and the line that stands there on a FREE ride, which keeps no book
+   * at all (`records.ts`). It says WHY rather than saying nothing: a blank
+   * where every other card has a figure reads as a card that has not
+   * loaded. */
+  startBestFree: "NOTHING IS TIMED ON A FREE RIDE",
   startShore: "SHORE",
   startShoreHint: "The seed the whole coast is built from — type one in to ride somebody else's",
   startTime: "TIME",
@@ -350,6 +375,39 @@ export const STRINGS = {
   startWaves: "WAVES",
   startWavesHint:
     "How big the swell out past the coast is — somebody else's weather, days old, so it owes the wind nothing. Ride out to sea and it still grows",
+  /* ── FREE'S OWN ROWS (menu-start.tsx, in the free ride alone) ──────── */
+  /** The same three questions the rows above ask in words, asked as
+   * FIGURES — and one the other cards never ask at all. */
+  freeWindHint: (dealt: number | null): string =>
+    `The wind itself, m/s — the worded card's rungs are 4, 12 and 20, and this runs to twice that. Past about 25 you are riding weather nothing was built for.${dealtIs(dealt, (ms) => `${Math.round(ms)} m/s`)}`,
+  freeWindValue: (ms: number): string => `${Math.round(ms)} M/S`,
+  freeWavesHint: (dealt: number | null): string =>
+    `How big the swell out past the coast is, in metres — anywhere on the scale rather than the nearest rung of it.${dealtIs(dealt, (m) => `${m.toFixed(1)} m`)}`,
+  freeWavesValue: (metres: number): string => `${metres.toFixed(1)} M`,
+  /** QUARTER rather than "WIND FROM": the knob's name column is the width
+   * of WEATHER and a longer word is truncated with an ellipsis on the card
+   * and harder on a phone. It is also the right word — a wind's quarter is
+   * where it blows out of — and the caption under the rows says what it is
+   * being measured against. */
+  freeQuarter: "QUARTER",
+  /** WHERE THE WIND IS COMING FROM, said in full — the row itself has only
+   * room for the degrees (`.knob-fade` is a fixed width shared by every
+   * fader in the game), so the word for what those degrees MEAN is the
+   * caption's job, and it names where the row stands right now. */
+  freeQuarterHint: (deg: number | null, dealt: number | null): string =>
+    `Which quarter the wind blows out of, measured off the open water — straight in builds the sea, along the shore rakes it, off the land flattens it however hard you set it.${
+      deg === null ? "" : ` ${quarterWord(deg)}.`
+    }${dealtIs(dealt, (d) => `${Math.round(d)}°, ${quarterWord(d).toLowerCase()}`)}`,
+  /** The quarter as the row reads it: signed degrees off dead onshore, so a
+   * rider can tell one side of the shore from the other. The WORD for what
+   * they mean is the caption's, for the reason above it. */
+  freeQuarterValue: (deg: number): string => `${deg > 0 ? "+" : ""}${Math.round(deg)}°`,
+  /** The card's caption on a free ride: the mark's sentence would be a lie
+   * here, because three of the rows are faders with no rung to land back on
+   * — each opens on the shore's own answer and is dragged off it. */
+  freeCaption:
+    "Set what you like — nothing here is timed, and the faders open on whatever this shore was dealt",
+
   startWeather: "WEATHER",
   startWeatherHint:
     "The sky over it. Left alone it is the one the wind implies, which is R19's own agreement",
@@ -380,7 +438,7 @@ export const STRINGS = {
   classRow: "CLASS",
   className: (id: string): string => CLASS_NAMES[id] ?? id,
   /** ...and why the row has one chip on it in a tricks run. */
-  classLocked: "STOCK ONLY IN TRICKS",
+  classLocked: "STOCK OUTSIDE A FREE RIDE",
   /** The arrows either side of the hull, for a reader who cannot see it. */
   craftPrev: "Previous craft",
   craftNext: "Next craft",

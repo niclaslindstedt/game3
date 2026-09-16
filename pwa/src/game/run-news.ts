@@ -12,7 +12,7 @@ import { TUNING, craftById, type GameEvent, type GameState } from "@engine";
 import { formatTime } from "../lib/util.ts";
 import type { HudFlash, HudResult } from "./hud.tsx";
 import { classFor } from "./new-game.ts";
-import { scoresHigher, type RecordKey } from "./records.ts";
+import { keepsRecords, scoresHigher, type RecordKey } from "./records.ts";
 import { DEFAULT_SEED, type Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
@@ -115,8 +115,13 @@ export function resultFor(
   record: boolean,
 ): HudResult {
   const mode = s.ride.mode;
-  const standing =
-    best === null
+  // WHAT THIS RUN WAS MEASURED AGAINST — the row it beat or did not, or, on
+  // a mode that keeps no book, the line saying there was never one to beat.
+  // "FIRST TIME ON THIS SHORE" on a free ride would be a claim about a
+  // record book that will never hold the run (`records.ts`).
+  const standing = !keepsRecords(mode)
+    ? STRINGS.resultFree
+    : best === null
       ? STRINGS.resultFirst
       : STRINGS.resultBest(scoresHigher(mode) ? STRINGS.resultScore(best) : formatTime(best));
   if (state.rivals.length > 0) {

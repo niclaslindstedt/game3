@@ -102,9 +102,9 @@
 import {
   BIOME_IDS,
   SEASONS,
+  SWELL_DIAL,
   TIMES_OF_DAY,
   type BiomeId,
-  type GameMode,
   type Season,
   type TimeOfDay,
   type TrackKind,
@@ -114,33 +114,27 @@ import {
 import { useState } from "preact/hooks";
 
 import { MenuHead } from "./menu.tsx";
-import { Caption, NumberRow, StepRow, type Stop } from "./menu-knobs.tsx";
-import { classFor } from "./new-game.ts";
-import { bestFor, scoresHigher, type RecordBook } from "./records.ts";
+import { Caption, FadeRow, NumberRow, StepRow, type Stop } from "./menu-knobs.tsx";
+import { classFor, freeRides } from "./new-game.ts";
+import { bestFor, keepsRecords, scoresHigher, type RecordBook } from "./records.ts";
 import { SeedPreview, useSeedPreview } from "./seed-preview.tsx";
 import {
   CONDITIONS,
   CONDITION_DAY,
   DEFAULT_SEED,
+  FREE_WIND_RANGE,
+  QUARTER_RANGE,
+  QUARTER_STEP,
   SEA_STATES,
   SEED_RANGE,
   TRICK_MINUTES,
   conditionsFor,
   seaStateFor,
-  type Conditions,
+  skyForWind,
+  windAsRung,
   type Settings,
 } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
-
-/** The card's billing, one line per game: the head says WHICH game is being
- * set up, and this says what that game is. It is the mode's whole
- * explanation now that the row it used to caption is a tile on the front
- * door. */
-const MODE_LINES: Record<GameMode, string> = {
-  race: STRINGS.modeRaceLine,
-  tricks: STRINGS.modeTricksLine,
-  timeTrial: STRINGS.modeTimeTrialLine,
-};
 
 /** How long a tricks run is, as the row spells it — the ids are the minutes
  * themselves, so the row and the setting are the same number. */
@@ -174,14 +168,19 @@ const SEASON_LABELS: Record<Season, string> = {
 /** The seasons in the year's order, which is the engine's. */
 const SEASON_STOPS: Stop<Season>[] = SEASONS.map((id) => ({ id, label: SEASON_LABELS[id] }));
 
-const CONDITION_LABELS: Record<Conditions, string> = {
+const CONDITION_LABELS = {
   fine: STRINGS.windCalm,
   windy: STRINGS.windBrisk,
   storm: STRINGS.windStorm,
 };
 
-const CONDITION_STOPS: Stop<Conditions>[] = CONDITIONS.map((id) => ({
-  id,
+/** The winds, calmest first. The id is the wind the rung STANDS FOR, m/s,
+ * spelled — the same shape as the seas below, and for the same reason: the
+ * row's value and the setting under it are one number, so the ladder here
+ * and FREE's fader write the same field and nothing has to decide which of
+ * two winds a run is ridden in. */
+const CONDITION_STOPS: Stop<string>[] = CONDITIONS.map((id) => ({
+  id: String(CONDITION_DAY[id].wind),
   label: CONDITION_LABELS[id],
 }));
 
@@ -236,6 +235,12 @@ export function StartPage({
 }) {
   const [hint, setHint] = useState<string | null>(null);
   const ride = settings.ride;
+  // A FREE RIDE asks the same seven questions, but it asks three of them as
+  // FIGURES: the wind, the quarter it blows from and the sea outside stop
+  // being ladders of words the generator would deal and become faders that
+  // run past anything it ever would. Nothing else on the card changes —
+  // which is the point of doing it here rather than on a card of its own.
+  const free = freeRides(settings);
   const setRide = (patch: Partial<Settings["ride"]>): void =>
     onSettings({ ...settings, ride: { ...ride, ...patch } });
   const seed = ride.seed ?? DEFAULT_SEED;
@@ -267,9 +272,11 @@ export function StartPage({
   // the LEVEL was dealt: a wind chosen on the row above carries its own sky
   // (R19's agreement, kept by `CONDITION_DAY`), and that is the one this row
   // is overriding. So the mark follows the wind while a wind is chosen.
-  const dealtWeather =
-    ride.conditions === null ? (deal?.weather ?? null) : CONDITION_DAY[ride.conditions].weather;
-  const dealtWind = deal === null ? null : conditionsFor(deal.wind);
+  const dealtWeather = ride.wind === null ? (deal?.weather ?? null) : skyForWind(ride.wind);
+  // The wind the shore came with, as the WORDED row marks it: the figure
+  // rounded to the rung it stands nearest. FREE's fader marks nothing and
+  // reads the figure itself.
+  const dealtWind = deal === null ? null : String(CONDITION_DAY[conditionsFor(deal.wind)].wind);
   // R36 — and the sea the shore was dealt out past it, as the rung it stands
   // in. Unlike the sky above, it defers to NOTHING but the shore: the wind
   // row does not imply a swell, which is the whole reason this row exists.
@@ -291,8 +298,9 @@ export function StartPage({
     speedClass: classFor(settings),
     minutes: ride.tricksMinutes,
   });
-  const bestLine =
-    best === null
+  const bestLine = !keepsRecords(ride.mode)
+    ? STRINGS.startBestFree
+    : best === null
       ? STRINGS.startBestNone
       : scoresHigher(ride.mode)
         ? STRINGS.startBestScore(best.value, best.craft)
@@ -306,9 +314,12 @@ export function StartPage({
         /* THE HEAD IS WHERE THE MODE IS NOW — the game is chosen on the
            front door, and a card that never named it would leave a rider who
            pressed TRICKS setting up a shore with no way to tell which of the
-           three they are about to ride. */
+           four they are about to ride. THE NAME IS ALL OF IT: the card used
+           to carry a line of billing under the title saying what that game
+           was, and a sentence explaining a word the player pressed thirty
+           seconds ago is a card talking to itself. It cost two rows of head
+           on a phone and told nobody anything. */
         title={STRINGS.modeName(ride.mode)}
-        sub={MODE_LINES[ride.mode]}
         /* THE WAY ON STANDS IN THE HEAD, opposite the way back. It used to be
            a full-width press under the caption, which put the card's tallest
            row below the one square element on it — and `.menu-card` scrolls
@@ -402,29 +413,100 @@ export function StartPage({
               onPick={(time) => setRide({ time: pick(time, deal?.time ?? null) })}
               onHint={setHint}
             />
-            <StepRow
-              label={STRINGS.startWind}
-              hint={STRINGS.startWindHint}
-              stops={CONDITION_STOPS}
-              value={ride.conditions ?? dealtWind}
-              dealt={dealtWind}
-              pending={!chart.fresh}
-              onPick={(c) => setRide({ conditions: pick(c, dealtWind) })}
-              onHint={setHint}
-            />
+            {/* THE WIND, asked twice over: as the three rungs that bracket
+                R12's own band, or — on a free ride — as the figure itself,
+                anywhere from a flat calm to twice the top of that ladder.
+                One SETTING under both, which is why the ladder's ids are the
+                winds they stand for.
+
+                A FREE ROW IS A PLAIN FADER AND HAS NO "AS DEALT". The worded
+                rows defer to the shore and MARK the answer it came with;
+                these are figures, so they simply STAND on it — the fader
+                opens at the shore's own wind and moving it pins one. That is
+                the same promise the mark makes, with no state to explain and
+                nothing on the row but a thumb and a reading. Until the chart
+                lands there is no dealt figure to stand on, so the fader sits
+                at the foot of its travel for the fraction of a second the
+                level takes to build. */}
+            {free ? (
+              <FadeRow
+                label={STRINGS.startWind}
+                hint={STRINGS.freeWindHint(deal?.wind ?? null)}
+                value={ride.wind ?? deal?.wind ?? FREE_WIND_RANGE.min}
+                min={FREE_WIND_RANGE.min}
+                max={FREE_WIND_RANGE.max}
+                step={1}
+                read={STRINGS.freeWindValue}
+                onChange={(wind) => setRide({ wind })}
+                onHint={setHint}
+              />
+            ) : (
+              <StepRow
+                label={STRINGS.startWind}
+                hint={STRINGS.startWindHint}
+                stops={CONDITION_STOPS}
+                /* The rung the stored figure stands on — which is also the
+                   wind a measured run is given (`new-game.ts`), so the row
+                   says exactly what the water will do even when the figure
+                   under it came off a free ride's fader. */
+                value={ride.wind === null ? dealtWind : String(windAsRung(ride.wind))}
+                dealt={dealtWind}
+                pending={!chart.fresh}
+                onPick={(ms) => setRide({ wind: pick(ms, dealtWind) === null ? null : Number(ms) })}
+                onHint={setHint}
+              />
+            )}
+            {/* ...AND WHICH WAY IT BLOWS, which no other card asks at all.
+                R12 always deals the wind off the water because that is what
+                gives the fetch its run; turned past a right angle it is
+                blowing out to sea, measured over the land behind, and the
+                water goes flat however hard the row above is pushed. That
+                is a real day and the only mode that may ask for one is the
+                mode where nothing is being measured. */}
+            {free && (
+              <FadeRow
+                label={STRINGS.freeQuarter}
+                hint={STRINGS.freeQuarterHint(ride.windQuarter, deal?.windFrom ?? null)}
+                value={ride.windQuarter ?? deal?.windFrom ?? 0}
+                min={QUARTER_RANGE.min}
+                max={QUARTER_RANGE.max}
+                step={QUARTER_STEP}
+                read={STRINGS.freeQuarterValue}
+                onChange={(windQuarter) => setRide({ windQuarter })}
+                onHint={setHint}
+              />
+            )}
             {/* Under the wind, and NOT under it in the way the sky is: this is
             the sea that came in off the ocean days ago, which the wind here
-            neither grew nor can ask for. */}
-            <StepRow
-              label={STRINGS.startWaves}
-              hint={STRINGS.startWavesHint}
-              stops={SEA_STOPS}
-              value={ride.swell === null ? dealtSwell : String(ride.swell)}
-              dealt={dealtSwell}
-              pending={!chart.fresh}
-              onPick={(hs) => setRide({ swell: pick(hs, dealtSwell) === null ? null : Number(hs) })}
-              onHint={setHint}
-            />
+            neither grew nor can ask for. The scale's own rungs, or, free,
+            anywhere between them — and the ends are the ENGINE's
+            (`SWELL_DIAL`), never a copy of them. */}
+            {free ? (
+              <FadeRow
+                label={STRINGS.startWaves}
+                hint={STRINGS.freeWavesHint(deal?.swell ?? null)}
+                value={ride.swell ?? deal?.swell ?? SWELL_DIAL.min}
+                min={SWELL_DIAL.min}
+                max={SWELL_DIAL.max}
+                step={0.5}
+                read={STRINGS.freeWavesValue}
+                onChange={(swell) => setRide({ swell })}
+                onHint={setHint}
+              />
+            ) : (
+              <StepRow
+                label={STRINGS.startWaves}
+                hint={STRINGS.startWavesHint}
+                stops={SEA_STOPS}
+                value={ride.swell === null ? dealtSwell : String(seaStateFor(ride.swell))}
+                dealt={dealtSwell}
+                pending={!chart.fresh}
+                onPick={(hs) =>
+                  setRide({ swell: pick(hs, dealtSwell) === null ? null : Number(hs) })
+                }
+                onHint={setHint}
+              />
+            )}
             {/* Under the wind, because it defers to it: the marked sky here is the
             one the row above implies, not a sky of its own. */}
             <StepRow
@@ -435,7 +517,7 @@ export function StartPage({
               dealt={dealtWeather}
               // A wind CHOSEN implies its sky with no level to wait for; only a
               // row still deferring to the shore is provisional.
-              pending={ride.conditions === null && !chart.fresh}
+              pending={ride.wind === null && !chart.fresh}
               onPick={(w) => setRide({ weather: pick(w, dealtWeather) })}
               onHint={setHint}
             />
@@ -444,7 +526,7 @@ export function StartPage({
       </div>
       {/* The mark is explained ONCE, at the foot of the whole card rather than
           as a tooltip on three rows nobody hovers. */}
-      <Caption text={hint} fallback={STRINGS.startCaption} />
+      <Caption text={hint} fallback={free ? STRINGS.freeCaption : STRINGS.startCaption} />
     </div>
   );
 }

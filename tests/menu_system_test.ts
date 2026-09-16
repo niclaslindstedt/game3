@@ -598,7 +598,7 @@ describe("what survives a stored settings blob (settings.ts)", () => {
         camera: "nose",
         seed: 12,
         time: "sunset",
-        conditions: "storm",
+        wind: 20,
         weather: "rain",
       },
       hud: { on: false },
@@ -616,7 +616,10 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       // Not in the blob, so the shore's own — a blob from before the row
       // existed keeps riding the season it was dealt.
       season: null,
-      conditions: "storm",
+      wind: 20,
+      // ...and FREE's own row, which no other card writes: a blob that has
+      // never been on a free ride rides the quarter R12 dealt.
+      windQuarter: null,
       // ...and the same for R36's WAVES row: a blob from before it existed
       // rides the swell its shore was dealt.
       swell: null,
@@ -672,12 +675,39 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     // They were one row once. The split is only worth having if a stored
     // blob can carry a sky that does NOT belong over its wind — a downpour
     // over a calm morning is the ride the bundle could not ask for.
-    const stored = mergeSettings({ ride: { conditions: "fine", weather: "rain" } });
-    expect(stored.ride.conditions).toBe("fine");
+    const stored = mergeSettings({ ride: { wind: 4, weather: "rain" } });
+    expect(stored.ride.wind).toBe(4);
     expect(stored.ride.weather).toBe("rain");
     // …and a wind with no sky beside it still leaves the sky to the wind:
-    // null here is what `App.tsx` reads as "the one CONDITION_DAY implies".
-    expect(mergeSettings({ ride: { conditions: "storm" } }).ride.weather).toBeNull();
+    // null here is what `new-game.ts` reads as "the one `skyForWind` implies".
+    expect(mergeSettings({ ride: { wind: 20 } }).ride.weather).toBeNull();
+  });
+
+  it("carries a WIND, a QUARTER and a SEA anywhere on the travel a free ride offers", () => {
+    // The three rows a FREE ride turns into faders write the same fields the
+    // worded card's ladders do, so the merge checks a RANGE rather than a
+    // list: a figure between two rungs is a free ride's answer, not a corrupt
+    // blob. The measured modes put it back on their own ladder when the run
+    // is stood up (`new-game.ts`), which is why the stored figure may stand
+    // anywhere.
+    const stored = mergeSettings({ ride: { wind: 33, windQuarter: -135, swell: 7.5 } });
+    expect(stored.ride.wind).toBe(33);
+    expect(stored.ride.windQuarter).toBe(-135);
+    expect(stored.ride.swell).toBe(7.5);
+  });
+
+  it("DROPS a wind, a quarter or a sea off the end of its own travel", () => {
+    // A figure past the fader's end is one no row could put the thumb back
+    // on — the same rule every ladder row is merged by.
+    expect(mergeSettings({ ride: { wind: 400 } }).ride.wind).toBeNull();
+    expect(mergeSettings({ ride: { wind: -1 } }).ride.wind).toBeNull();
+    expect(mergeSettings({ ride: { windQuarter: 270 } }).ride.windQuarter).toBeNull();
+    // The sea's ends are the ENGINE's, so a height the generator would clamp
+    // is one this card never offers.
+    expect(mergeSettings({ ride: { swell: SWELL_DIAL.max + 1 } }).ride.swell).toBeNull();
+    expect(mergeSettings({ ride: { swell: SWELL_DIAL.min - 0.5 } }).ride.swell).toBeNull();
+    // ...and a blob from the build before the fold, whose wind was a WORD.
+    expect(mergeSettings({ ride: { wind: "storm" } }).ride.wind).toBeNull();
   });
 
   it("keeps the START CARD's rows for a player who never found the developer menu", () => {
@@ -685,9 +715,9 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     // asking for it. A blob that still carried it under `dev` must not
     // resurrect it there, and the ride's own rows must survive without the
     // developer flag — they are a player's choices, not a tool.
-    const stored = mergeSettings({ ride: { seed: 7, conditions: "fine" }, dev: { seed: 999 } });
+    const stored = mergeSettings({ ride: { seed: 7, wind: 4 }, dev: { seed: 999 } });
     expect(stored.ride.seed).toBe(7);
-    expect(stored.ride.conditions).toBe("fine");
+    expect(stored.ride.wind).toBe(4);
     expect(stored.developer).toBe(false);
     expect(stored.dev).toEqual(DEFAULT_SETTINGS.dev);
   });

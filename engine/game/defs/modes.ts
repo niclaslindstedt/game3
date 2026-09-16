@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE THREE WAYS ONTO THE WATER, and what each one switches on.
+// THE FOUR WAYS ONTO THE WATER, and what each one switches on.
 //
 // A run is one engine over one sea, and a MODE is a bundle of rules laid
 // over it rather than a second engine: whether the COURSE is counted (the
@@ -22,14 +22,32 @@
 //               (`TRICK_LIMITS`). The score is the run.
 //   TIME TRIAL  the race with the field taken off: the course, the clock,
 //               the lights, nobody else on the water.
+//   FREE        the water with nothing asked of the rider: the course still
+//               stands and the tricks still count, but there are no lights,
+//               no buzzer and nobody else out there. It is the OPEN rules
+//               with a door on them — which is the point of it, and why it
+//               is the one mode whose rules row is `OPEN_RULES` itself
+//               rather than a bundle of its own.
 //
-// OPEN is the fourth thing and not a mode: every system on, nothing timed,
-// nobody else on the water — the rules a run is dealt when nothing asks for
-// a mode, which is what the sim, the labs and the tests ride, because a
-// measurement wants the whole engine under it and no lights in front of it.
+// OPEN is those same rules with no mode named at all — what a run is dealt
+// when nothing asks for one, which is what the sim, the labs and the tests
+// ride, because a measurement wants the whole engine under it and no lights
+// in front of it. FREE is not a second copy of them: a rider chose them, and
+// a mode is how the app says so.
+//
+// WHAT FREE IS FOR IS THE WATER, NOT THE RULES. Every other mode asks the
+// rider to be measured, so the day it is measured on has to be a day the
+// generator would deal: a wind inside R12's band, blowing off the sea, over
+// a sea R36 drew. Free asks for nothing, so the app may hand it a wind, a
+// quarter and a swell of the rider's own choosing — twenty metres rolling
+// into a flat calm, or a gale straight off the land — and nothing about that
+// is dishonest, because there is no time to compare it with. That is a rule
+// the APP keeps (`new-game.ts`, `records.ts`): the engine has always taken
+// whatever wind and sea it was handed, and still does.
 
-/** The modes a rider may choose, in the order the start card offers them. */
-export const GAME_MODES = ["race", "tricks", "timeTrial"] as const;
+/** The modes a rider may choose, in the order the front door offers them:
+ * the three that measure something, then the one that does not. */
+export const GAME_MODES = ["race", "tricks", "timeTrial", "free"] as const;
 export type GameMode = (typeof GAME_MODES)[number];
 
 export function isGameMode(value: unknown): value is GameMode {
@@ -154,4 +172,7 @@ export const MODE_RULES: Record<GameMode, RunRules> = {
     limit: TRICK_LIMITS[0],
   },
   timeTrial: { course: true, tricks: false, rivals: 0, countdown: RACE.countdown, limit: 0 },
+  // The open rules, named — see the header. Stated as the object itself
+  // rather than copied out, so the two can never come to disagree.
+  free: OPEN_RULES,
 };

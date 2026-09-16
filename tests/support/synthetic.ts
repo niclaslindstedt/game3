@@ -190,6 +190,10 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     tricks: false,
     start: { x: 20, z: 40, heading: east },
     wind: { from: opts.windFrom ?? 0, speed: opts.windSpeed ?? 4 },
+    // The bench's shore is the line z = 0 with the water in +z, which is
+    // heading 0 — so the default wind above is dead onshore, exactly as a
+    // generated level's is in the middle of R12's band.
+    seaHeading: 0,
     water: { density: opts.density ?? 1005, temperature: 14 },
     season: "summer",
     hour: 11,

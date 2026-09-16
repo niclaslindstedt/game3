@@ -26,6 +26,7 @@ import {
   type GameMode,
   isBiomeId,
   isGameMode,
+  SWELL_DIAL,
   TRICK_LIMITS,
   SEASONS,
   type Season,
@@ -96,6 +97,12 @@ export const CONDITION_DAY: Record<Conditions, { weather: Weather; wind: number 
   storm: { weather: "squall", wind: 20 },
 };
 
+/** Every rung's wind, m/s — what the start card's row stores and what a
+ * link carries, so the setting and the engine's option are the same number.
+ * The same shape as {@link SEA_METRES} below it, and for the same reason:
+ * the row picks among figures, and FREE's fader picks between them. */
+export const CONDITION_WINDS: readonly number[] = CONDITIONS.map((c) => CONDITION_DAY[c].wind);
+
 /**
  * The rung a wind of this speed stands nearest to, m/s.
  *
@@ -119,6 +126,30 @@ export function conditionsFor(windMs: number): Conditions {
     }
   }
   return nearest;
+}
+
+/** A WIND AS THE WORDED CARD CAN SAY IT, m/s: the figure of the rung it
+ * stands nearest. {@link seaStateFor} is the same question about the sea.
+ *
+ * It exists because one field now carries two kinds of answer — a rung the
+ * start card pressed, or wherever a FREE ride's fader was left — and a
+ * measured run may only ride what its own row can state. So the figure is
+ * put back on the ladder for every mode but that one (`new-game.ts`), and
+ * the row shows the same rung it will ride. Without it, a 33 m/s gale set on
+ * a free ride would follow the rider into a time trial under a WIND row
+ * standing on nothing. */
+export function windAsRung(ms: number): number {
+  return CONDITION_DAY[conditionsFor(ms)].wind;
+}
+
+/** THE SKY THAT BELONGS OVER A WIND, off R19's own agreement — the nearest
+ * rung's, because the agreement is between a sea and a ceiling and neither
+ * of them is quoted to a tenth of a metre per second. It is what the WEATHER
+ * row marks and what it overrides, and it is stated here rather than in the
+ * card so that a wind arriving off a link and a wind pressed on the row
+ * imply the same sky. */
+export function skyForWind(windMs: number): Weather {
+  return CONDITION_DAY[conditionsFor(windMs)].weather;
 }
 
 /** THE LENGTHS A TRICKS RUN MAY BE, in whole minutes — the engine's own
@@ -220,11 +251,35 @@ export type RideSettings = {
    * dealt. A season asked for here moves the sun and nothing else: the
    * water and what swims in it stay the level's own. */
   season: Season | null;
-  /** The wind to ride in, and so the sea it builds — see {@link CONDITIONS}.
-   * Null rides the shore as it was generated. */
-  conditions: Conditions | null;
-  /** R36 — HOW BIG THE SEA OUTSIDE IS, m of significant height off
-   * {@link SEA_STATES}: the groundswell that has piled up past this coast,
+  /** THE WIND to ride in, m/s at 10 m, and so the sea it builds — see
+   * {@link CONDITIONS}. Null rides the shore as it was generated.
+   *
+   * A FIGURE rather than one of the three rungs' names, because two rows
+   * write it: the start card's WIND ladder, which presses one of
+   * {@link CONDITION_WINDS}, and FREE's fader, which may stand anywhere on
+   * {@link FREE_WIND_RANGE}. One field, so nothing has to decide which of
+   * two winds a run is ridden in — and the sky the row implies is read off
+   * the figure either way (`skyForWind`). */
+  wind: number | null;
+  /** WHICH QUARTER that wind blows from, DEGREES off dead onshore: 0 is
+   * straight in off the open water, ±90 along the shore, ±180 off the land
+   * behind (the engine's `windQuarter`, which is the same angle in rad).
+   * Null rides the quarter the level was dealt, which R12 always deals
+   * within 60° of onshore.
+   *
+   * Only FREE's row writes it, and that is the point: a quarter past a
+   * right angle turns the fetch round onto the land and flattens the sea
+   * however hard the wind is set, which is a real day and not a day any
+   * mode that measures a rider should be able to deal itself.
+   *
+   * Degrees rather than radians because it is a stored blob and a link: a
+   * row worth reading back off a URL is a row somebody can read. */
+  windQuarter: number | null;
+  /** R36 — HOW BIG THE SEA OUTSIDE IS, m of significant height inside the
+   * engine's own `SWELL_DIAL` — the start card's ladder presses one of
+   * {@link SEA_METRES} and FREE's fader stands anywhere between them, the
+   * way the wind above it works: the groundswell that has piled up past
+   * this coast,
    * which is not the wind's and does not move with the row above. Null
    * rides the swell the shore was dealt. It is the BASELINE and not a
    * ceiling — the open ocean past the level's rim still builds on top of
@@ -386,7 +441,10 @@ export const DEFAULT_SETTINGS: Settings = {
     seed: null,
     time: null,
     season: null,
-    conditions: null,
+    wind: null,
+    // FREE's own row, and the only one that does not also appear on the
+    // other three cards: the quarter is a knob a measured run does not get.
+    windQuarter: null,
     // R36 — and its own sea outside: a shore is dealt a swell as surely as
     // it is dealt a wind, and the two are separate weather.
     swell: null,
@@ -418,6 +476,34 @@ export const SEED_RANGE = { min: 1, max: 999999 } as const;
  * over a shore this shallow is breaking before it arrives. */
 export const DEV_WIND_RANGE = { min: 0, max: 30 } as const;
 export const DEV_HS_RANGE = { min: 0, max: 8 } as const;
+
+/**
+ * FREE'S OWN TRAVEL — how far its three faders go, and the one place in the
+ * app where a row is deliberately allowed past what the generator deals.
+ *
+ * THE WIND runs from a flat calm to forty metres a second. R12 deals between
+ * six and fourteen and the start card's three rungs bracket that (4, 12, 20);
+ * forty is roughly twice the top of the ladder and well past hurricane force,
+ * which is the point — the model will extrapolate and the sea it builds is
+ * not a sea anybody has ridden, and a mode called FREE is where you go to
+ * find out what that looks like. Nothing is measured on it (`records.ts`), so
+ * nothing is being cheated.
+ *
+ * THE QUARTER is the whole circle, in degrees off dead onshore: past a right
+ * angle the wind is blowing out to sea and the fetch is measured over the
+ * land, so the water goes flat however hard the row is pushed. That is the
+ * honest answer and it is worth being able to see.
+ *
+ * THE SWELL is not stated here at all — it is the ENGINE's `SWELL_DIAL`, and
+ * restating its ends in the app is how a card comes to offer a sea the
+ * generator would clamp.
+ */
+export const FREE_WIND_RANGE = { min: 0, max: 40 } as const;
+export const QUARTER_RANGE = { min: -180, max: 180 } as const;
+/** What one press of the quarter row's arrow is worth, degrees. Fifteen is
+ * a point of the compass rose's own eighth, so the ladder passes through
+ * dead onshore, the corners and along the shore exactly. */
+export const QUARTER_STEP = 15;
 
 const SETTINGS_KEY = "sea-haven-settings";
 
@@ -528,13 +614,14 @@ export function mergeSettings(parsed: unknown): Settings {
   }
   if (TIMES_OF_DAY.some((id) => id === ride?.time)) settings.ride.time = ride?.time as TimeOfDay;
   if (SEASONS.some((id) => id === ride?.season)) settings.ride.season = ride?.season as Season;
-  if (CONDITIONS.some((id) => id === ride?.conditions)) {
-    settings.ride.conditions = ride?.conditions as Conditions;
-  }
-  // R36 — checked against the rungs THIS build offers, for the class row's
-  // reason: a height the scale no longer names is one the row could not put
-  // the cursor back on.
-  if (SEA_METRES.some((hs) => hs === ride?.swell)) settings.ride.swell = ride?.swell as number;
+  // The wind, the quarter and the sea are RANGES rather than ladders now
+  // that FREE's faders write them: a stored figure between two of the start
+  // card's rungs is a free run's answer, not a corrupt blob. Each is still
+  // checked — a figure off the travel is one no row could put the thumb back
+  // on — and the sea's range is the ENGINE's, never a copy of it.
+  settings.ride.wind = inRange(ride?.wind, FREE_WIND_RANGE);
+  settings.ride.windQuarter = inRange(ride?.windQuarter, QUARTER_RANGE);
+  settings.ride.swell = inRange(ride?.swell, SWELL_DIAL);
   // Checked against the ENGINE's ladder, not a copy of it: a sky R19 stops
   // dealing is a sky this card stops offering, on the same day.
   if (WEATHER_IDS.some((id) => id === ride?.weather)) {
