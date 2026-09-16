@@ -69,6 +69,7 @@ describe("the rules a run is dealt", () => {
     expect(MODE_RULES.tricks.course).toBe(false);
     expect(MODE_RULES.tricks.tricks).toBe(true);
     expect(MODE_RULES.tricks.rivals).toBe(0);
+    expect(MODE_RULES.tricks.countdown).toBe(RACE.countdown);
     expect(MODE_RULES.tricks.limit).toBe(TRICK_LIMITS[0]);
   });
 
@@ -170,7 +171,8 @@ describe("a tricks run", () => {
       rules: { limit: 6 },
       quiet: true,
     });
-    expect(state.phase).toBe("running");
+    expect(state.phase).toBe("countdown");
+    expect(state.countdown).toBe(RACE.countdown);
     // Straight down the row of buoys at speed: on the open rules that is
     // gate after gate; here it is water.
     placeRun(state, { x: 60, z: 40, heading: Math.PI / 2, speed: 20 });
@@ -267,8 +269,9 @@ describe("the grid", () => {
     // current in it (R27) and every wave has its orbit, so a hull pinned to
     // the GROUND in either has a flow past it — a moored buoy rather than a
     // rider sat on his machine — and a flow past a hull is a couple about
-    // its ride plate. Every slot stands in the same current, so that couple
-    // used to swing the whole grid the same way at the same rate.
+    // its ride plate. Every slot stands in the same current, so holding the
+    // field against the ground swings the whole grid the same way at the same
+    // rate.
     const state = createGame({ seed: 38, mode: "race", quiet: true });
     ride(state, RACE.countdown - 0.2, () => COAST);
     expect(state.phase).toBe("countdown");

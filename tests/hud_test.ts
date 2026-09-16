@@ -490,9 +490,13 @@ describe("what the HUD reads of the mode", () => {
       rules: { limit: 30 },
       quiet: true,
     });
+    expect(takeSnapshot(state).countdown).toBe(RACE.countdown);
+    expect(takeSnapshot(state).left).toBe(30);
+    while (state.phase === "countdown") step(state, COAST);
+    const before = takeSnapshot(state).left!;
     for (let i = 0; i < 5 * TUNING.physicsHz; i++) step(state, COAST);
     const snap = takeSnapshot(state);
-    expect(snap.left).toBeCloseTo(25, 2);
+    expect(snap.left).toBeCloseTo(before - 5, 6);
     expect(snap.courseOn).toBe(false);
     expect(snap.tricksOn).toBe(true);
     expect(snap.riders).toBe(1);

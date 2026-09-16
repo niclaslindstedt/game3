@@ -17,9 +17,9 @@
 //               race; the tricks are switched off, because a rider going
 //               for a flip in a race is a rider who has stopped racing.
 //   TRICKS      the same shore with the course taken off it: no gates, no
-//               finish, the ramps left standing, and a clock that runs DOWN
-//               from a length the rider chose (`TRICK_LIMITS`). The score is
-//               the run.
+//               finish, the ramps left standing, the same three lights
+//               before the clock runs DOWN from a length the rider chose
+//               (`TRICK_LIMITS`). The score is the run.
 //   TIME TRIAL  the race with the field taken off: the course, the clock,
 //               the lights, nobody else on the water.
 //
@@ -146,6 +146,12 @@ export const TRICK_RESET_BACK = 60;
  * choice and is filled in by `createGame` off `TRICK_LIMITS`. */
 export const MODE_RULES: Record<GameMode, RunRules> = {
   race: { course: true, tricks: false, rivals: RACE.rivals, countdown: RACE.countdown, limit: 0 },
-  tricks: { course: false, tricks: true, rivals: 0, countdown: 0, limit: TRICK_LIMITS[0] },
+  tricks: {
+    course: false,
+    tricks: true,
+    rivals: 0,
+    countdown: RACE.countdown,
+    limit: TRICK_LIMITS[0],
+  },
   timeTrial: { course: true, tricks: false, rivals: 0, countdown: RACE.countdown, limit: 0 },
 };
