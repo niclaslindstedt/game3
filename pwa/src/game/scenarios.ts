@@ -859,13 +859,19 @@ export function scenarioFor(state: GameState, name: ScenarioName): Scenario {
         if (back <= 0) break;
       }
       const from = pointAlong(path, cum, Math.max(0, back));
+      // ...and the run is RIDING AT this mark. A rounding buoy's lantern
+      // burns only on the checkpoint the run owes (`buoys.ts`), so a shot
+      // staged at some other gate photographs a dark can and answers none
+      // of the questions above. `Gate.mark` names the solid, so the gate to
+      // stand the run on is the first one that names this one.
+      const owed = level.course.gates.find((g) => g.mark === rock.id);
       return {
         moment: {
           x: from.x,
           z: from.z,
           heading: Math.atan2(rock.x - from.x, rock.z - from.z),
           speed: top * 0.55,
-          nextGate: mid.index,
+          nextGate: (owed ?? mid).index,
         },
         script: () => input(0, 0.7, 0),
         seconds: 4,

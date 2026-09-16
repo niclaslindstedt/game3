@@ -5,14 +5,16 @@
 // its prescribed side; an AIR gate is a ring whose centre stands `y`
 // metres up, passed by a move through its disc.
 //
-// A GATE IS REACHED BY GOING THROUGH IT AND BY NOTHING ELSE. Between the
-// buoys, or inside the ring: crossing the owed gate's plane outside its
-// opening misses it there and then, charges the clock, and moves the run on
-// so the HUD can answer while the checkpoint is still beside the rider.
-// The LOOK-AHEAD is the recovery for a rider already past the line — taking
-// any of the next `course.lookAhead` gates counts, and charges every gate
-// skipped on the way. The last gate is the finish and must still be crossed
-// through its opening: there is no wide crossing of a finish line.
+// A GATE IS REACHED BY GOING THROUGH IT AND BY NOTHING ELSE, AND ONLY IN
+// ITS TURN. Between the buoys, or inside the ring, and only while it is the
+// gate the run OWES: a checkpoint threaded out of order counts for nothing,
+// so a rider who has left one behind cannot pick the course back up at the
+// next one. Crossing the owed gate's plane outside its opening misses it
+// there and then, charges the clock, and moves the run on so the HUD can
+// answer while the checkpoint is still beside the rider — that, and the
+// reset, is the whole of the way back. The last gate is the finish and must
+// still be crossed through its opening: there is no wide crossing of a
+// finish line.
 //
 // `reset` stands the craft a few metres behind the last gate it took (or
 // the start), facing the next one, at rest — the way home from a rock.
@@ -140,10 +142,10 @@ function take(state: GameState, index: number, height: number, events: GameEvent
   }
 }
 
-/** Check the move the craft just made against the next gate (and the one
- * after it), and finish the run at the last gate. The clock is not advanced
- * here — `step.ts` runs it, because a run with no course to count
- * (`rules.course` off) still has a clock to run down. */
+/** Check the move the craft just made against the gate the run owes, and
+ * finish the run at the last gate. The clock is not advanced here —
+ * `step.ts` runs it, because a run with no course to count (`rules.course`
+ * off) still has a clock to run down. */
 export function stepCourse(
   state: GameState,
   x0: number,
@@ -168,24 +170,21 @@ export function stepCourse(
   }
   const n = p.nextGate;
   if (n >= gates.length) return;
-  // The gate the run owes, and the few after it: the FIRST of them the move
-  // actually went through is the one taken, and everything before it is
-  // charged as skipped. If none was taken, crossing the OWED gate's plane
-  // outside its opening is the miss itself. The finish is excluded: it is
-  // the one line the run cannot pay to ride around.
-  const last = Math.min(gates.length - 1, n + K.lookAhead);
-  for (let g = n; g <= last; g++) {
-    if (!crossedGate(gates[g], x0, y0, z0, c.x, c.y, c.z)) continue;
-    for (let skipped = n; skipped < g; skipped++) miss(state, skipped, events);
-    take(state, g, c.y, events);
-    p.nextGate = g + 1;
-    break;
-  }
-  if (
-    p.nextGate === n &&
-    n < gates.length - 1 &&
-    crossedLine(gates[n], x0, y0, z0, c.x, c.y, c.z)
-  ) {
+  // ONE GATE IS LIVE AT A TIME: the one the run owes. A move through any
+  // other checkpoint is not a checkpoint reached — it is a rider riding
+  // past furniture that is not theirs yet — so nothing is credited and the
+  // run still owes the gate it owed. What DOES move the run on is the miss:
+  // crossing the owed gate's plane outside its opening charges it there and
+  // then and makes the next one live, which is how a rider who went wide
+  // carries on down the course without having to turn back. The finish is
+  // excluded from that: it is the one line the run cannot pay to ride
+  // around. A rider who is somehow past the owed gate without ever crossing
+  // its plane rides back to it, or takes the reset, which stands them
+  // behind it facing the right way.
+  if (crossedGate(gates[n], x0, y0, z0, c.x, c.y, c.z)) {
+    take(state, n, c.y, events);
+    p.nextGate = n + 1;
+  } else if (n < gates.length - 1 && crossedLine(gates[n], x0, y0, z0, c.x, c.y, c.z)) {
     miss(state, n, events);
     p.nextGate = n + 1;
   }

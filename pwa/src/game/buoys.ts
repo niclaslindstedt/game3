@@ -11,21 +11,36 @@
 // it and the lantern at the top of that, four metres up so a sea does not
 // hide it.
 //
-// THE LIGHT IS THE POINT. `buoyLightAt` (engine/game/buoy.ts) is the
-// character the generator drew — one flash, or a group of two, three or
-// four, every few seconds — as a pure function of the level's clock, and
-// this reads it once per buoy per frame and does nothing else with it. Two
-// things are drawn from it: the LENS, which is what the light looks like
-// from close in, and a BLOOM, which is what it looks like from half a
-// kilometre out, where the lens is a fraction of a pixel and the only
-// honest way to draw a light is as glare. The bloom grows with range for
-// exactly that reason — a lamp at the horizon does not shrink out of sight,
-// it stays a point and gets dimmer — and both are scaled by the sky's own
-// lamp switch (`Preset.lamps`), so a buoy winks in daylight and blazes at
-// dusk, through the night, and into the dawn.
+// THE LIGHT IS THE POINT, AND IT IS ONE LIGHT. `buoyLightAt`
+// (engine/game/buoy.ts) is the character the generator drew — one flash, or
+// a group of two, three or four, every few seconds — as a pure function of
+// the level's clock, and this reads it once per buoy per frame and does
+// nothing else with it. Two things are drawn from it: the LENS, which is
+// what the light looks like from close in, and a BLOOM, which is what it
+// looks like from half a kilometre out, where the lens is a fraction of a
+// pixel and the only honest way to draw a light is as glare. The bloom
+// grows with range for exactly that reason — a lamp at the horizon does not
+// shrink out of sight, it stays a point and gets dimmer.
+//
+// WHICH buoy is burning is the gate marks' rule (`markLamp`, gates.ts) and
+// it is the same rule for the same reason: a rounding buoy IS a checkpoint
+// (a slalom gate, whose `mark` names the can that stands there), so the one
+// that lights is the one the run is riding at — with the checkpoint a rider
+// was charged for left lit too, while the warning about it stands, because
+// that is where they are being sent back to. Every buoy of the lap alight
+// at once is a MAP of the course, and the rider on the water already has
+// one on the HUD; what the saddle needs out of the dark is the next corner
+// and nothing beside it.
+//
+// AND IT IS THE DARK'S ALONE. Both readings are scaled by the sky's own
+// lamp switch (`Preset.lamps`): the lamps come up at dusk, blaze through
+// the night and into the dawn, and in daylight there is nothing — a lit can
+// in sunshine is not a light, it is a white dot painted on a float, and a
+// buoy in daylight is found by its paint (IJSBA GEN.4.4: red to the left,
+// yellow to the right), which is what the paint is for.
 
 import * as THREE from "three";
-import { buoyLightAt, surfaceAt, type GameState, type Level, type Solid } from "@engine";
+import { buoyLightAt, surfaceAt, type Gate, type GameState, type Level, type Solid } from "@engine";
 
 import { glowTexture } from "./fx-textures.ts";
 import { BUOY_LAMPS } from "./water-shader.ts";
@@ -63,12 +78,6 @@ const LENS = 0xfff0c4;
  * the rider can steer at rather than a pixel that flickers in and out. */
 const BLOOM = { grow: 0.03, min: 3.4, max: 18 };
 
-/** How much of the lamp survives DAYLIGHT, 0..1. A lit buoy in sunshine is
- * a wink of glass, not a beacon — but it is not nothing, and a rounding
- * mark that only exists after dark is a mark that reads as unlit furniture
- * on every day run. */
-const BY_DAY = 0.22;
-
 /** What the lamp is worth BETWEEN its flashes, 0..1 of full.
  *
  * A flash character is mostly darkness — one flash of half a second in five
@@ -92,8 +101,9 @@ export type Buoys = {
   /** The lanterns, in the order the water reads them — refreshed by
    * `update`, so the caller hands them straight on. */
   lamps: readonly BuoyLamp[];
-  /** Bob them on this frame's sea and flash their lamps. The camera is
-   * wanted for the bloom alone, which is sized by how far off it is. */
+  /** Bob them on this frame's sea and flash the one lamp the run is riding
+   * at. The camera is wanted for the bloom alone, which is sized by how far
+   * off it is. */
   update: (state: GameState, camera: THREE.Object3D) => void;
   /** How lit the lamps are by the sky's say (`Preset.lamps`) — the same
    * switch the craft's own headlamp and the gate buoys' caps answer to. */
@@ -280,6 +290,35 @@ export function nearestLamps(
   return picked;
 }
 
+/** WHICH CAN A GATE STANDS ON — the solid id it names, or undefined for a
+ * gate that is not a rounding one (or none at all). A slalom gate's `mark`
+ * is the published id of the buoy standing in its water, so this is the
+ * whole of the join between the course and the furniture on it: nothing
+ * here measures a distance or matches a position of its own. */
+export function markOf(gates: readonly Gate[], gate: number | null): string | undefined {
+  if (gate === null || gate < 0 || gate >= gates.length) return undefined;
+  return gates[gate].mark;
+}
+
+/**
+ * R31 — what a rounding buoy's lantern is worth at a moment, 0..1: the gate
+ * marks' `markLamp` (gates.ts) for a can, and the one place the rule is
+ * stated.
+ *
+ * `mine` is whether this can is the checkpoint the run is riding at — or
+ * the one a charged rider is being sent back to — and only those burn: a
+ * corner already rounded is dark and so is every corner further round the
+ * lap, so the lamp is a target rather than a map of the course. `flash` is
+ * the charted character at this instant (`buoyLightAt`) and `night` the
+ * sky's own lamp switch (`Preset.lamps`), which scales the whole thing, so
+ * in daylight there is nothing: a can is found by its paint then, which is
+ * what IJSBA GEN.4.4 gives it a side's colour for. The standing glow under
+ * the flash is `BETWEEN`.
+ */
+export function buoyLamp(mine: boolean, flash: number, night: number): number {
+  return mine ? (BETWEEN + (1 - BETWEEN) * flash) * night : 0;
+}
+
 export function createBuoys(level: Level): Buoys {
   const group = new THREE.Group();
   const buoys = level.solids.filter((s) => s.kind === "buoy").map(build);
@@ -288,6 +327,14 @@ export function createBuoys(level: Level): Buoys {
 
   const update = (state: GameState, camera: THREE.Object3D): void => {
     camera.getWorldPosition(world);
+    // The checkpoint the run owes and the one it was charged for, as the
+    // ids of the cans they stand on. A run not counting the course owes no
+    // gate, so no can is lit — the buoys are scenery it happens to be
+    // riding past.
+    const counting = state.rules.course;
+    const gates = level.course.gates;
+    const nextMark = counting ? markOf(gates, state.progress.nextGate) : undefined;
+    const warnMark = counting ? markOf(gates, state.progress.activeMissedGate) : undefined;
     for (const b of buoys) {
       const { x, z } = b.solid;
       surfaceAt(state.sea, state.level, x, z, state.t, sample);
@@ -298,12 +345,13 @@ export function createBuoys(level: Level): Buoys {
       up.set(sample.nx, sample.ny, sample.nz);
       b.group.quaternion.setFromUnitVectors(Y, up.lerp(Y, 0.5).normalize());
 
-      // R31 — the character, and what the sky leaves of it. The lens
-      // carries the standing glow and the flash together; the bloom is the
-      // flash alone.
-      const flash = buoyLightAt(b.solid.light, state.t);
-      const sky = BY_DAY + (1 - BY_DAY) * night;
-      const lit = (BETWEEN + (1 - BETWEEN) * flash) * sky;
+      // R31 — the character, whose can it is, and what the sky leaves of
+      // it. The lens carries the standing glow and the flash together; the
+      // bloom is the flash alone. A can that is not the one being ridden at
+      // is dark, and so is every can in daylight.
+      const mine = b.solid.id === nextMark || b.solid.id === warnMark;
+      const flash = mine ? buoyLightAt(b.solid.light, state.t) : 0;
+      const lit = buoyLamp(mine, flash, night);
       const glare = flash * night;
       b.lens.color.copy(lensColour.copy(dark).lerp(bright, lit));
       // The can under the lantern, lit by it: a lamp that throws a pool on
