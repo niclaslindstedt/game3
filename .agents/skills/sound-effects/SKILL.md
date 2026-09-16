@@ -43,7 +43,7 @@ job; load it at both ends of the session. Load **`write-code`** too, and
 | `pwa/src/game/audio/bank.ts` | **THE RUN'S SOUND DESIGN.** Every discrete sound, as data: a description and a list of voices. This is where most one-shot work happens. |
 | `pwa/src/game/audio/route.ts` | **WHICH sound an event makes**, how big (`PlayShape`), and which bubbles it leaves — pure functions from `GameEvent`. |
 | `pwa/src/game/audio/bubbles.ts` | The one liquid sound with a physics: Minnaert's bubble, a sine chirping up. The tail every splash gets. |
-| `pwa/src/game/audio/engine-voice.ts` | The engine and the PUMP, as eight LAYERS: `engineTargets` is a pure function from revs, throttle, load, how wet the intake is and the jet's slip to where each should be. The one sound whose pitch is arithmetic rather than taste. |
+| `pwa/src/game/audio/engine-voice.ts` | The engine and the PUMP, as nine LAYERS: `engineTargets` is a pure function from revs, throttle, load, how wet the intake is and the jet's slip to where each should be. The one sound whose pitch is arithmetic rather than taste. |
 | `pwa/src/game/audio/water-voice.ts` | The hull in the water, the wind and the sea — seven layers — as a pure function of how the craft is going and where the shore is. |
 | `pwa/src/game/audio/listener.ts` | **WHERE THE EAR IS.** One row per rung of the camera ladder: what each seat does to the engine, the exhaust, the pump, the hull, the wind, the sea, the one-shots. The beds and the router both read it. |
 | `pwa/src/game/audio/ride-bed.ts` | The scheduler: reads `GameState` once a frame, turns it into every layer's target, and raises the one cue the engine never reports — the SLAP, off the hull's own `slam`. |
