@@ -30,7 +30,8 @@
 // so the figure is the whole of the feedback that it is on. Everything
 // involuntary is the body as a mass on springs (`createRiderDynamics`):
 // the torso swings back when the pump opens and forward when a rock is
-// hit, lags the hull's pitching and rolling by a share, compresses when
+// hit, lags the hull's pitching and rolling by a share, holds a share of
+// the WORLD's vertical as the hull heels away under it, compresses when
 // the hull slams up under it and rises off the seat when the hull falls
 // away in the air — each a damped spring at a human's own postural
 // frequency, driven by the hull's accelerations, stepped once per engine
@@ -236,15 +237,42 @@ export const DYNAMICS = {
    * fails to follow — the lag that makes a wave taken at speed read in
    * the body. */
   followShare: 0.5,
+  /** THE TORSO TENDS UPRIGHT: what share of the hull's heel the rider
+   * takes back toward the WORLD's vertical, and the most he ever takes,
+   * rad.
+   *
+   * A hull rolling under a man does not take him with it one for one. He
+   * keeps his head and shoulders toward the sky and lets the machine heel
+   * away under his hips, and that — the body holding a vertical the deck
+   * has left — is most of what tells a rider from a figure bolted to the
+   * saddle. So the roll spring's REST is not the deck's up but a share of
+   * the way back to the world's.
+   *
+   * A SHARE, because the other failure is worse: a torso pinned exactly
+   * vertical is a spike that never moves, and a body that answers nothing
+   * the hull does reads as a rig fault rather than as a rider. Just under
+   * half is what a man on a saddle with his hands on fixed bars can
+   * actually hold — his hips are on the deck and his arms are on the
+   * grips, so the hull owns most of him whatever his back is doing.
+   *
+   * The ceiling is reached smoothly rather than clipped (`tanh`), so the
+   * share is the share over the heels the ride is actually made of — half
+   * the run is inside 10° — and it flattens out where a rider stops being
+   * able to argue with the hull. Past about 30° he is committed and goes
+   * over with it, which is also what keeps this clear of the haul. */
+  uprightShare: 0.45,
+  uprightMax: 0.26,
   /** A solid hit: the lurch forward, rad/s per m/s of closing speed, and
    * its ceiling; the ground is gentler. */
   hitLurch: 0.15,
   hitLurchMax: 2.5,
   groundLurch: 0.08,
   groundLurchMax: 1.2,
-  /** The clamps: where the body bottoms out. */
+  /** The clamps: where the body bottoms out. `swayMax` carries the upright
+   * rest as well as the lag that swings about it, so it stands clear of
+   * `uprightMax` by enough for a wave taken on a heel. */
   bobMax: 0.5,
-  swayMax: 0.4,
+  swayMax: 0.5,
   crushMin: -0.1,
   crushMax: 0.16,
 } as const;
@@ -311,7 +339,10 @@ export type RiderRead = {
    * same body. Only read while hauling. */
   haulPull: number;
   /** The springs: the torso's pitch forward and roll right relative to the
-   * stance, rad, and the body's compression, m. */
+   * stance, rad, and the body's compression, m. `sway` carries two things
+   * at once, because they are one spring — the lag behind the hull's
+   * rolling, and the rest it settles on, which is a share of the way back
+   * to the world's vertical rather than the deck's (`uprightShare`). */
   bob: number;
   sway: number;
   crush: number;
@@ -425,9 +456,6 @@ export function poseRider(cockpit: Cockpit, read: RiderRead): RiderPose {
   // the tell that it is on.
   const onFeet = standUp ? 1 : clamp(read.stand, 0, 1);
   const footed = onFeet > 0.5;
-  // THE HAUL: how much of him is in the water at the hull's flank, which
-  // side of it he is on, and the counter-roll that keeps him upright in
-  // the world while the hull turns under his hands.
   // THE HAUL: how hard he is working at getting the hull back over, and
   // which way that is — away from the roll it went over on, rocked at
   // rather than held.
@@ -711,7 +739,8 @@ export function createRiderDynamics(): RiderDynamics {
 
   const observe = (state: GameState): void => {
     const c = state.craft;
-    if (riderHaul(state) > 0) {
+    const haul = riderHaul(state);
+    if (haul > 0) {
       if (!hauling) haulSide = c.roll >= 0 ? 1 : -1;
       hauling = true;
     } else hauling = false;
@@ -767,7 +796,29 @@ export function createRiderDynamics(): RiderDynamics {
       DYNAMICS.pitchHz,
       -DYNAMICS.bobPerSurge * wp * wp * surge - DYNAMICS.followShare * pitchAcc,
     );
-    swayV = spring(sway, swayV, DYNAMICS.rollHz, DYNAMICS.followShare * rollAcc);
+    // WHERE THE TORSO WANTS TO BE, relative to the deck: a share of the way
+    // back to the world's vertical, so a hull heeled on a wave face rolls
+    // under a man who is still roughly upright rather than carrying him
+    // over with it. It is the roll spring's REST rather than a term added
+    // to the pose, which is what makes it a TENDENCY and not a correction:
+    // the same spring that lags the hull's rolling swings about it, so the
+    // body arrives at the new posture over its own third of a second and
+    // nothing anywhere snaps.
+    //
+    // NOTHING OF IT IN THE AIR. Gravity has the man and the machine
+    // equally, so there is no vertical to hold — and a side spin turns the
+    // hull's roll through a whole revolution, which a torso chasing the
+    // world's up would follow round and round. Nothing of it under the
+    // haul either: that is a far bigger lean the same way (`HAUL.lean`),
+    // aimed at getting the hull back over rather than at sitting straight,
+    // and it owns the body while the hull is down.
+    const upright =
+      c.airborne || haul >= 1
+        ? 0
+        : -(1 - haul) *
+          DYNAMICS.uprightMax *
+          Math.tanh((DYNAMICS.uprightShare * c.roll) / DYNAMICS.uprightMax);
+    swayV = spring(sway - upright, swayV, DYNAMICS.rollHz, DYNAMICS.followShare * rollAcc);
     crushV = spring(crush, crushV, DYNAMICS.crushHz, DYNAMICS.crushPerAccel * wc * wc * ay);
     bob += bobV * dt;
     sway += swayV * dt;
