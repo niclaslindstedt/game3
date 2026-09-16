@@ -24,8 +24,10 @@ import type { Season } from "../lib/solar.ts";
  * names a country, a sea or a shore that exists. */
 export type BiomeId = "taiga" | "mangrove" | "archipelago" | "fjord" | "atoll" | "delta" | "arctic";
 
-/** What the ground is made of where a point of shore stands. */
-export type Surface = "bedrock" | "rock" | "sand" | "water";
+/** What the ground is made of where a point of shore stands (R16). The
+ * BANK is the river's own shore (R26): soil and grass down to the water,
+ * whatever the coast either side of the mouth is made of. */
+export type Surface = "bedrock" | "rock" | "sand" | "bank" | "water";
 
 /** WHICH KIND OF TRACK a level carries, and so which chapter of the rule
  * book it was built to. A `coast` level is a sprint along a stretch of

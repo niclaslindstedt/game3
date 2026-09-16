@@ -38,6 +38,47 @@ import type { Season } from "../lib/solar.ts";
 import type { Band } from "./rules.ts";
 import type { BiomeId, Weather } from "./types.ts";
 
+/** THE COAST'S RIVER (R26, R27): what this kind of coast does to the water
+ * that runs out of it. Every number is a multiple of the rule book's own,
+ * so the taiga's row — the coast the rules were written against — is all
+ * ones, and no taiga seed re-rolls for the row existing. */
+export type RiverShape = {
+  /** The MOUTH: how wide the river's water is where it leaves the race, as
+   * a multiple of the corridor's own half-width there. Over 1 the mouth
+   * opens out wider than the channel the race runs through — an estuary —
+   * and it is held under R1's ceiling whatever the row asks, because the
+   * race is still laid through it. */
+  readonly mouth: number;
+  /** Multiplier on `river.head`, the half-width the creek ends at. */
+  readonly head: number;
+  /** Multiplier on `river.taper`, the power the width closes by. Under 1
+   * the river holds its width further up the country — a lowland river
+   * losing its tributaries slowly — and over 1 it closes at once past the
+   * mouth, the way a rock channel does. */
+  readonly taper: number;
+  /** Multiplier on `river.radius` AND `river.swingScale`: the meander drawn
+   * bigger or smaller as one shape. Over 1 the loops are wider and longer,
+   * a flat coast's; under 1 a river bending tight between rock. The
+   * SINUOSITY that comes out is what R26 holds it to, on every coast. */
+  readonly bend: number;
+  /** Multiplier on `river.discharge`'s band (R27): what comes out of the
+   * mouth. A northern coast's rivers are torrents and a flat warm coast's
+   * are lazy, and with the width above this is the whole of the current. */
+  readonly discharge: number;
+  /** THE BARS: low islands standing in the mouth's own reach — a delta.
+   * `count` of them, each `r` metres across (mean plan radius, warped like
+   * any island), `reach` metres up the river from the mouth in walked
+   * length, keeping `channel` metres of water between their edge and the
+   * river's centreline so the river still runs. Null on a coast whose
+   * rivers leave through a single channel. */
+  readonly bars: {
+    readonly count: Band;
+    readonly r: Band;
+    readonly reach: Band;
+    readonly channel: number;
+  } | null;
+};
+
 export type Biome = {
   readonly id: BiomeId;
   /** The name a menu shows. */
@@ -54,6 +95,18 @@ export type Biome = {
    * stands against the rule book's band (1 is the taiga's). Held under
    * `land.maxHeight` whatever it is. */
   readonly relief: number;
+  /** HOW STEEPLY THE LAND COMES DOWN TO THE WATER: the share of
+   * `LEVEL_RULES.land.reach` over which the shore climbs to its hill
+   * (R2). 1 is the taiga's low rise over the whole reach; under it the same
+   * hill is met sooner — a coast of steep banks and headlands falling
+   * straight into the sea — and the ground is flat from there. Never over
+   * 1: the offshore field stops measuring at `land.measured`, and R2's
+   * check reads the profile against the full reach. With `relief` this is
+   * the landscape: low and gentle, low and steep, high and gentle, high and
+   * steep are four different coasts. */
+  readonly climb: number;
+  /** What this coast's RIVER is like (R26, R27). */
+  readonly river: RiverShape;
   /** Multipliers on `LEVEL_RULES.solids.<kind>.perKm`. */
   readonly rocks: {
     readonly skerry: number;
@@ -134,6 +187,15 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // the water at noon.
     latitude: 62,
     relief: 1,
+    climb: 1,
+    // A skerry coast's river is a ROCK CHANNEL: it leaves through the one
+    // gap the ice left in the granite, no wider than the race's own water,
+    // closes fast to a creek between slabs, bends tight, and carries a
+    // northern catchment's worth of water out — the torrent of the two
+    // coasts. No delta: there is no sediment to build one from, and the
+    // mouth is a sound, not a fan. The rule book's own numbers, which is
+    // what the ones mean.
+    river: { mouth: 1, head: 1, taper: 1, bend: 1, discharge: 1, bars: null },
     rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },
     boulderField: 1,
     beaches: true,
@@ -202,6 +264,32 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // Nothing stands higher than a dune. A third of the taiga's plateau
     // puts the tallest ground on the coast a few metres over the water.
     relief: 0.3,
+    // …and it rises to that over the whole reach: a beach, a dune, the
+    // flat behind it. Nothing on this coast stands up out of the water.
+    climb: 1,
+    // A flat coast's river is an ESTUARY. It comes out through a mouth
+    // opened wider than the channel behind it, holds its width a long way
+    // up the country before it closes — a lowland river loses its
+    // tributaries slowly — bends in loops half as wide again as the rock
+    // channel's, and carries a fraction of the water: a warm shelf's
+    // rivers are short and the current in them is a drift. And it comes
+    // out through BARS — two to four low islands standing in the mouth's
+    // own reach, the sand and mud the river dropped where it met the sea,
+    // which is what turns a mouth into a delta from the saddle: a rider
+    // leaving the race up the river threads between them.
+    river: {
+      mouth: 1.35,
+      head: 1.6,
+      taper: 0.65,
+      bend: 1.5,
+      discharge: 0.35,
+      bars: {
+        count: { min: 2, max: 4 },
+        r: { min: 7, max: 16 },
+        reach: { min: 40, max: 260 },
+        channel: 8,
+      },
+    },
     // No standing rock to speak of: the odd low limestone islet where the
     // taiga has a skerry, sandbars and coral heads awash where it has
     // reefs, and none of the ice's leavings at all — no boulders, no

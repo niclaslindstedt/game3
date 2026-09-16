@@ -68,6 +68,15 @@ export type OceanShore = {
 export type Basin = {
   /** Metres from the water's edge, positive in the water. */
   readonly offshore: Heightfield;
+  /** R16, R26 — HOW MUCH OF A CELL IS THE RIVER'S BANK, 0..1: 1 where the
+   * nearest water is the river's own past its mouth's run, 0 where it is
+   * the race's or the sea's, and climbing from one to the other down the
+   * mouth's run. Baked beside `offshore` by the same stamp, because the
+   * only thing that knows which line a cell is nearest is the stamp that
+   * found it; the classifier reads it to call the ground BANK, and the
+   * ground's own shape never does. */
+  readonly bank: Heightfield;
+  /** R15's islands, and the river's bars after them (`River.bars`). */
   readonly islands: readonly Island[];
   /** The OPEN SEA's straight edge: the heading the open water lies in from
    * anywhere in the level, and how far along that heading the edge is cut.
@@ -264,13 +273,16 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
   const cols = Math.round((bounds.maxX - bounds.minX) / cell) + 1;
   const rows = Math.round((bounds.maxZ - bounds.minZ) / cell) + 1;
   const offshore = createHeightfield(bounds.minX, bounds.minZ, cell, cols, rows);
+  const bank = createHeightfield(bounds.minX, bounds.minZ, cell, cols, rows);
 
   // ── The corridor ──────────────────────────────────────────────────────
   // `near` is the least distance to the line found so far, `owed` the
-  // half-width the winning sample was owed.
+  // half-width the winning sample was owed, and `bankOf` how much of a
+  // river bank the winning sample's shore is (0 for the route's).
   const near = new Float64Array(cols * rows).fill(Infinity);
   const owed = new Float64Array(cols * rows);
-  const stamp = (x: number, z: number, width: number, reach: number): void => {
+  const bankOf = new Float64Array(cols * rows);
+  const stamp = (x: number, z: number, width: number, reach: number, riverBank = 0): void => {
     const reach2 = reach * reach;
     const r0 = Math.max(0, Math.ceil((z - reach - bounds.minZ) / cell));
     const r1 = Math.min(rows - 1, Math.floor((z + reach - bounds.minZ) / cell));
@@ -291,6 +303,7 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
         if (d2 < near[i]) {
           near[i] = d2;
           owed[i] = width;
+          bankOf[i] = riverBank;
         }
       }
     }
@@ -306,7 +319,11 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
   // R26 — and the river, stamped into the SAME field by the same rule. The
   // basin does not know a sample of the racing line from a sample of a
   // watercourse; it knows how far a cell is from the nearest of them and
-  // what that one was owed, which is all a signed offshore field is.
+  // what that one was owed, which is all a signed offshore field is. The
+  // one thing it keeps beside that is WHOSE shore the cell is: a river
+  // sample stamps its bank share, climbing from nothing at the mouth to
+  // all of it by the end of the mouth's run — down there the water is the
+  // race's and the banks are the coast's (R16).
   const stampRiver = (step: number, reachOf: (width: number) => number): void => {
     // Walked by ARC LENGTH rather than per segment, so the samples are
     // evenly spaced across the joins: a river's steps are 12 m and the
@@ -320,14 +337,15 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
       while (next < at + span) {
         const t = (next - at) / span;
         const width = river.widths[i] + (river.widths[i + 1] - river.widths[i]) * t;
-        stamp(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, width, reachOf(width));
+        const riverBank = clamp(next / R.river.mouthRun, 0, 1);
+        stamp(a.x + (b.x - a.x) * t, a.z + (b.z - a.z) * t, width, reachOf(width), riverBank);
         next += step;
       }
       at += span;
     }
     const last = river.points.length - 1;
     const width = river.widths[last];
-    stamp(river.points[last].x, river.points[last].z, width, reachOf(width));
+    stamp(river.points[last].x, river.points[last].z, width, reachOf(width), 1);
   };
   stampRiver(STAMP_STEP, (w) => w + FINE_REACH);
   stampRiver(COARSE_STEP, stampReach);
@@ -401,6 +419,10 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
       break;
     }
   }
+  // R26 — and the river's own bars, cut out of the water the same way. The
+  // river placed them (against its own line, which the islands above never
+  // see) and the basin only has to cut them.
+  islands.push(...river.bars);
 
   // ── One field out of the three ────────────────────────────────────────
   for (let r = 0; r < rows; r++) {
@@ -413,9 +435,12 @@ export function layBasin(rng: Rng, route: CoastRoute, river: River, bounds: Boun
       let water = Math.max(corridor, sea);
       for (const island of islands) water = Math.min(water, -islandAt(island, x, z));
       offshore.data[i] = water;
+      // A bank is the river's shore: where the sea's own edge won the cell,
+      // or nothing measured it, the shore is the coast's.
+      bank.data[i] = sea >= corridor || near[i] === Infinity ? 0 : bankOf[i];
     }
   }
-  return { offshore, islands, seaHeading, seaOffset };
+  return { offshore, bank, islands, seaHeading, seaOffset };
 }
 
 /**
@@ -456,7 +481,15 @@ export function layOceanBasin(route: Route, bounds: Bounds, shore: OceanShore): 
       offshore.data[r * cols + c] = Math.max(FAR_INLAND, x * sx + z * sz - seaOffset - wander);
     }
   }
-  return { offshore, islands: [], seaHeading, seaOffset };
+  // No river, so no bank anywhere: one cell of it, which is what every
+  // sample outside a field's box reads.
+  return {
+    offshore,
+    bank: createHeightfield(0, 0, cell, 1, 1),
+    islands: [],
+    seaHeading,
+    seaOffset,
+  };
 }
 
 /** Where a station of the route stands, the half-width owed there, and the

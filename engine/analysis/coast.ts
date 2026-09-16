@@ -214,6 +214,15 @@ export function analyzeCharacter(level: Level, rep: Report): number {
         const z = on.z - (g.gz / glen) * A.shore.probe;
         const kind = level.materialAt(x, z);
         if (kind === "water") continue;
+        // R26 — a river's bank is not a stretch of the coast's quilt: it is
+        // one material by nature, and it BREAKS the coast where the river
+        // comes out. So it neither counts toward a run nor joins the coast
+        // either side of the mouth into one.
+        if (kind === "bank") {
+          current = "";
+          run = 0;
+          continue;
+        }
         walked += A.shore.walk;
         if (kind === "sand") sand += A.shore.walk;
         runs.set(kind, (runs.get(kind) ?? 0) + A.shore.walk);

@@ -123,6 +123,7 @@ const NO_RIVER: River = {
   inland: 0,
   length: 0,
   discharge: 0,
+  bars: [],
 };
 
 /** R25, R31 — the marks the LINE placed, as the solids they are published
@@ -162,8 +163,8 @@ function drawCoast(
   // because the basin needs the river to bake the field it would answer
   // from. It is the same line the basin cuts (`sea.line.edge` short of the
   // route's most seaward station outside the ocean leg) — and this is the
-  // ONE place the two have to agree.
-  const river = drawRiver(rng, route, seaEdge(route));
+  // ONE place the two have to agree. What KIND of river is the coast's.
+  const river = drawRiver(rng, route, seaEdge(route), biome.river);
   if (!river) return "no river will run inland from this route";
   // R15 — then the water round them both, and the land it is cut out of.
   const bounds = levelBounds(route, river);
@@ -386,6 +387,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       tricks: opts.tricks === true,
       bounds,
       offshore: basin.offshore,
+      bank: basin.bank,
       ground,
       geology,
       course,

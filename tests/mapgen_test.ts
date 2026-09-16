@@ -609,7 +609,48 @@ describe("level generator", () => {
       expect(wrongSide).toBe(0);
       expect(highSand).toBe(0);
     }
-    expect([...seen].sort()).toEqual(["bedrock", "rock", "sand", "water"]);
+    expect([...seen].sort()).toEqual(["bank", "bedrock", "rock", "sand", "water"]);
+  });
+
+  it("R16, R26 — the river's banks are BANK past the mouth's run, and the coast's inside it", () => {
+    const probe = ANALYSIS.river.bank;
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      const river = level.river;
+      const cum = cumulative(river);
+      let banks = 0;
+      let bank = 0;
+      let mouthProbes = 0;
+      let mouthBank = 0;
+      for (let i = 1; i + 1 < river.length; i++) {
+        const off = sampleField(level.offshore, river[i].x, river[i].z);
+        const a = river[i - 1];
+        const b = river[i + 1];
+        const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+        const nx = -(b.z - a.z) / len;
+        const nz = (b.x - a.x) / len;
+        for (const side of [1, -1]) {
+          const kind = level.materialAt(
+            river[i].x + nx * side * (off + probe),
+            river[i].z + nz * side * (off + probe),
+          );
+          if (kind === "water") continue;
+          // The first half of the mouth's run is the race's own water and
+          // its banks are the coast's quilt — all but the odd probe that a
+          // bend of the river brings back beside its own upper reach.
+          if (cum[i] < R.river.mouthRun / 2 - R.river.step) {
+            mouthProbes++;
+            if (kind === "bank") mouthBank++;
+          }
+          if (cum[i] <= R.river.mouthRun) continue;
+          banks++;
+          if (kind === "bank") bank++;
+        }
+      }
+      expect(banks).toBeGreaterThan(20);
+      expect(bank / banks).toBeGreaterThanOrEqual(ANALYSIS.river.bankShare);
+      expect(mouthBank).toBeLessThanOrEqual(Math.ceil(mouthProbes * 0.2));
+    }
   });
 
   it("R17 — every rock is its kind, stands in its band, proud of the bed, apart from the rest", () => {

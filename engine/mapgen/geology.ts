@@ -93,9 +93,11 @@ export function shelfFactor(rugged: number, offshore: number): number {
 }
 
 /** R2 — the land's step: height at `inland` m from the waterline, climbing
- * to `hill` and stopping there. */
-export function landHeight(inland: number, hill: number): number {
-  return hill * smooth(clamp(inland / R.land.reach, 0, 1));
+ * to `hill` over `reach` m and stopping there. The reach is the rule
+ * book's times the coast's `climb`: a coast of steep banks meets its hill
+ * sooner and is flat from there. */
+export function landHeight(inland: number, hill: number, reach: number = R.land.reach): number {
+  return hill * smooth(clamp(inland / reach, 0, 1));
 }
 
 export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
@@ -140,6 +142,11 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
   // costs two noise lookups, is never asked for out here. Most of a
   // level's cells are open sea, and this is the bake's inner loop.
   const shelfEnd = R.sea.shelf.reach + R.sea.shelf.blend;
+  // R2 — how far inland this coast's land takes to climb, m: the rule's
+  // reach on the taiga, shorter on a coast that comes down steep. Never
+  // longer, because the offshore field stops measuring past `land.measured`
+  // and R2's own check reads the profile against the full reach.
+  const reach = R.land.reach * Math.min(1, biome.climb);
   const groundAt = (x: number, z: number, offshore: number): number => {
     if (offshore >= shelfEnd) {
       const grain = (valueNoise(x, z, R.sea.detail.scale, bedSeed) - 0.5) * 2;
@@ -153,12 +160,12 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
       return bed + grain * R.sea.detail.amplitude * fade;
     }
     const inland = -offshore;
-    const step = landHeight(inland, hillAt(rugged));
+    const step = landHeight(inland, hillAt(rugged), reach);
     // The slabs fade in from the waterline and out at the reach: the
     // window is what keeps the hilltop flat and the shoreline where the
     // polyline put it.
     const window =
-      Math.min(1, inland / R.land.slab.fade) * (1 - smooth(clamp(inland / R.land.reach, 0, 1)));
+      Math.min(1, inland / R.land.slab.fade) * (1 - smooth(clamp(inland / reach, 0, 1)));
     const slab = (valueNoise(x, z, R.land.slab.scale, slabSeed) - 0.5) * 2;
     const relief = lerp(R.land.slab.relief.low, R.land.slab.relief.high, rugged);
     return step + slab * R.land.slab.amplitude * relief * window;
