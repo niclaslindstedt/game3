@@ -479,34 +479,18 @@ export function BenchmarkCard({
             that kept running through it would be timing the machine's
             screensaver. */}
         {!done && <div class="bench-note">{STRINGS.benchKeepInFront}</div>}
-        {/* THE COPY PRESS IS A ROW HERE AND A CORNER EVERYWHERE ELSE. A head
-            corner is not a banner — but this card is `min(28rem, 100%)`, which
-            on a phone is the whole 390 px, and `MenuHead`'s three columns
-            (back, billing, action) do not fit in it: BENCHMARK is one word and
-            cannot wrap, so it ran under the action's border however short the
-            action's own word was made. The card's other two presses are
-            full-width rows, so this is the shape it already has room for — and
-            a row can carry the whole sentence, which a corner could not. The
-            full-screen graph (64rem) and the history page (44rem) keep theirs
-            in the head, where they fit. */}
+        {/* THE ORDER IS WHAT A RIDER REACHES FOR, TOP FIRST — and the card is
+            taller than a 720-high window, so the order decides what falls
+            below the fold rather than merely what reads first. RUN AGAIN is
+            the loop the whole tool exists for (move one row of OPTIONS ▸
+            VIDEO, run it again, read the difference), so it stands directly
+            under the picture it is asking you to change. HISTORY and the
+            report are tools you reach for after a score, and they are the two
+            that may scroll. */}
         {done && (
-          <CopyButton
-            label={STRINGS.benchCopyReport}
-            text={report}
-            className="menu-item menu-item-dev bench-copy-row"
-          />
-        )}
-        {done && (
-          <button type="button" class="menu-item menu-item-dev" onClick={onHistory}>
-            {STRINGS.benchHistory}
-            <span class="menu-item-sub">{STRINGS.benchHistorySub(kept)}</span>
-          </button>
-        )}
-        {done && (
-          // The cursor's landing, and the card's way ON. Without the mark
-          // `landing()` takes the first control that is not the way back —
-          // which on a finished card is HISTORY, so a controller would open
-          // a list instead of offering the second run the whole tool is for.
+          // The cursor's landing as well. Without the mark `landing()` takes
+          // the first control that is not the way back, which would hand a
+          // controller whichever tool happened to be first in the DOM.
           <button
             type="button"
             class="menu-item menu-item-start"
@@ -517,6 +501,29 @@ export function BenchmarkCard({
             {STRINGS.benchAgain}
           </button>
         )}
+        {done && (
+          <button type="button" class="menu-item menu-item-dev" onClick={onHistory}>
+            {STRINGS.benchHistory}
+            <span class="menu-item-sub">{STRINGS.benchHistorySub(kept)}</span>
+          </button>
+        )}
+        {/* THE COPY PRESS IS A ROW HERE AND A CORNER EVERYWHERE ELSE. A head
+            corner is not a banner — but this card is `min(28rem, 100%)`, which
+            on a phone is the whole 390 px, and `MenuHead`'s three columns
+            (back, billing, action) do not fit in it: BENCHMARK is one word and
+            cannot wrap, so it ran under the action's border however short the
+            action's own word was made. The card's other presses are full-width
+            rows, so this is the shape it already has room for — and a row can
+            carry the whole sentence, which a corner could not. The full-screen
+            graph (64rem) and the history page (44rem) keep theirs in the head,
+            where they fit. */}
+        {done && (
+          <CopyButton
+            label={STRINGS.benchCopyReport}
+            text={report}
+            className="menu-item menu-item-dev bench-copy-row"
+          />
+        )}{" "}
       </div>
     </div>
   );
