@@ -1,6 +1,6 @@
 ---
 type: Changed
-title: The brake bites the moment you press it
+title: The brake bites twice as fast, and lets go twice as fast again
 ---
 
-Grab the brake and the gate's first half — the thrust spoiled, the plate in the water, the bow down — is there on the frame you press instead of a third of a second later, so a jab of reverse with the bars over now places the craft where it used to be worth almost nothing, and the throttle comes back with the gate rather than behind it.
+Grab the brake and the gate is across the half that spoils the thrust, hangs the plate in the water and puts the bow down twice as fast as it used to be — and let go and the jet blows the whole gate open twice as fast again, with the throttle handed straight back on the frame you ask for it, so a jab of reverse with the bars over now places the craft where it used to be worth almost nothing and costs about half the speed it did.

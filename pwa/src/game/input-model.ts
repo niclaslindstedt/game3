@@ -268,13 +268,17 @@ export function sampleInput(
     KEY_THROTTLE_ATTACK,
     KEY_THROTTLE_RELEASE,
   );
-  model.reverse = rampToward(
-    model.reverse,
-    keys.reverse ? 1 : 0,
-    dt,
-    KEY_REVERSE_ATTACK,
-    KEY_REVERSE_RELEASE,
-  );
+  // LETTING GO OF THE BRAKE IS LETTING GO, and on this axis alone that is
+  // literal: the key drops the lever to 0 on the step it comes up, with no
+  // ramp under it at all. The brake is the ONE control whose release is
+  // also a REQUEST — `reverse > 0` is what holds the throttle shut below,
+  // so a tail decaying over a tenth of a second is a tenth of a second of
+  // a rider asking for the gas and being handed neither the gas nor the
+  // brake. A thumb on the glass stays analogue: `touch.reverse` is merged
+  // in after this and carries its own throw.
+  model.reverse = keys.reverse
+    ? rampToward(model.reverse, 1, dt, KEY_REVERSE_ATTACK, KEY_REVERSE_RELEASE)
+    : 0;
   const leanTarget = (keys.leanBack ? 1 : 0) - (keys.leanForward ? 1 : 0);
   model.lean = rampToward(model.lean, leanTarget, dt, KEY_LEAN_ATTACK, KEY_LEAN_RELEASE);
   model.crouch = rampToward(

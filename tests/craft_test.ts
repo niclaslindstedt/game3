@@ -487,7 +487,18 @@ describe("the reverse bucket", () => {
     expect(r.along).toBeLessThan(r.v0);
   });
 
-  it("throws the throttling half on a committed ask and servos the reversing half", () => {
+  /** Step `state` on `input` until `done`, and say how many steps it took.
+   * Bounded, so a rule that never fires fails the assertion rather than
+   * hanging the suite. */
+  function countSteps(state: GameState, input: CraftInput, done: () => boolean): number {
+    for (let i = 1; i <= 4 * TUNING.physicsHz; i++) {
+      step(state, input);
+      if (done()) return i;
+    }
+    return Infinity;
+  }
+
+  it("drives the throttling half on a committed ask and gears down the reversing half", () => {
     const state = createGame({ seed: 1, craft: "otter", level: STRIP, quiet: true });
     const spec = state.craft.spec;
     const deploy = spec.bucket.deploy;
@@ -501,25 +512,26 @@ describe("the reverse bucket", () => {
       crouch: 0,
       reset: false,
     });
-    // THE JAB: everything down to the gate's own neutral is there on the
-    // first step, because that half only spoils thrust and a rider placing
-    // the craft between two buoys cannot wait for it.
+    // THE JAB: the gate is across its own neutral inside a tenth of a
+    // second, because that half only spoils thrust and a rider placing the
+    // craft between two buoys cannot wait for it. It is a RATE and not a
+    // jump — one step is never the whole of it, or the rider's body moves
+    // in a step (`tests/rider_test.ts`).
     step(state, lever(1));
-    expect(state.craft.bucket).toBeCloseTo(neutral, 6);
-    // ...and no further: the half that actually turns the flow is the
-    // servo's, so the stop is still a gate's travel away.
-    expect(state.craft.bucket).toBeLessThan(0.9);
-    for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) step(state, lever(1));
-    expect(state.craft.bucket).toBeCloseTo(1, 3);
-    // Shut in full, the reversing half swings back up and the rest is given
-    // back whole — the throttle arrives with the gate, not behind it.
-    let steps = 0;
-    while (state.craft.bucket > 0 && steps < deploy * TUNING.physicsHz + 2) {
-      step(state, lever(0));
-      steps++;
-    }
+    expect(state.craft.bucket).toBeGreaterThan(0);
+    expect(state.craft.bucket).toBeLessThan(neutral);
+    const toNeutral = countSteps(state, lever(1), () => state.craft.bucket >= neutral);
+    expect(toNeutral).toBeLessThan(0.1 * TUNING.physicsHz);
+    // ...and then it gears down: the half that actually turns the flow
+    // takes its own share of the gate's travel.
+    const toStop = countSteps(state, lever(1), () => state.craft.bucket >= 0.999);
+    expect(toStop).toBeGreaterThan(0.5 * (1 - neutral) * deploy * TUNING.physicsHz);
+    // Shut in full, the reversing half comes back up at that same geared
+    // rate and the throttling half is given back as fast as it was taken,
+    // so the thrust arrives with the gate rather than behind it.
+    const toShut = countSteps(state, lever(0), () => state.craft.bucket <= 0);
     expect(state.craft.bucket).toBe(0);
-    expect(steps).toBeLessThan((1 - neutral) * deploy * TUNING.physicsHz + 2);
+    expect(toShut).toBeLessThan((deploy + 0.1) * TUNING.physicsHz);
   });
 
   it("swings the whole travel at the servo's rate for a lever held between the gates", () => {
@@ -547,8 +559,8 @@ describe("the reverse bucket", () => {
     expect(state.craft.bucket).toBeLessThan(0.2);
     for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) step(state, lever);
     expect(state.craft.bucket).toBeCloseTo(feathered, 3);
-    // And given back at the same rate: a gate that was never thrown down is
-    // never thrown up either.
+    // And given back at the same rate: a gate that was never driven down is
+    // never driven up either.
     step(state, { ...lever, reverse: 0 });
     expect(state.craft.bucket).toBeGreaterThan(0);
   });
