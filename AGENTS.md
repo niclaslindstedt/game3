@@ -209,6 +209,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | THE FOAM ALREADY IN THE WATER: what a crest left behind it, and how long it lives | `pwa/src/game/foam-field.ts` (three-free, so the tests read it) | `water-look`         |
 | THE SEA CUT OUT OF THE HULL: the cockpit the water may not stand in | `pwa/src/game/water-cut.ts`, `craft-body.ts`'s `wellCutOf` | `water-look`, `craft-design` |
 | The spray, the wake, the foam a landing leaves        | `pwa/src/game/spray.ts`, `wake.ts`, `wake-profile.ts` (the trail's shape, three-free), `fx-textures.ts` | `visual-effects` |
+| THE BOB: the rings a hull radiates while it lies in a seaway doing nothing | `pwa/src/game/wake-bob.ts` (three-free; `wake.ts` stamps them into the same map) | `visual-effects`, `water-look` |
 | Footprints on the sand                                | `pwa/src/game/footprints.ts`                                  | `visual-effects`     |
 | The biomes (the taiga, the mangrove), the shore's materials, how much of a waterline is beach, how big a coast's sea is | `engine/mapgen/biomes.ts`, `geology.ts`, `compile.ts`'s classifier | `nature`             |
 | What swims here: the catalog, its rarity (R20), its DISTANCE OFFSHORE | `engine/game/defs/fauna.ts` (the type, the rarity ladder, the cold coast) + `defs/fauna-warm.ts` (the warm coast, folded in — the `defs/sea.ts` pattern), `mapgen/fauna.ts`, `biomes.ts`'s `fauna` | `nature`     |

@@ -59,7 +59,7 @@ const args = parseArgs(
     drive: {
       kind: "string",
       default: "start",
-      help: "what the rider does: start (throttle from rest), carve, brake",
+      help: "what the rider does: start (throttle from rest), carve, brake, drift",
     },
     times: { kind: "string", default: "", help: "seconds into the run to draw (e.g. 0.2,1,4)" },
     channels: { kind: "flag", help: "a row per channel under the composite" },
@@ -74,7 +74,7 @@ const args = parseArgs(
   "usage: node scripts/wake-preview.mjs [--seed=n] [--craft=id] [--drive=…] [--times=…] [--channels]",
 );
 
-const DRIVES = ["start", "carve", "brake"];
+const DRIVES = ["start", "carve", "brake", "drift"];
 if (!DRIVES.includes(args.drive)) {
   console.error(`unknown --drive ${args.drive} — one of ${DRIVES.join(", ")}`);
   process.exit(1);

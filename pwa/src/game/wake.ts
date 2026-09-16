@@ -25,6 +25,14 @@
 // of the hull, the rider climbing on — which is a mark under the craft laid
 // off its state every frame rather than a stamp.
 //
+// A hull that is going NOWHERE is the case none of those cover. The road,
+// the boil and the fan are all things the craft's passage left, so a craft
+// lying to with its engine off leaves a sea the map says nothing about —
+// and a floating hull is never still: it heaves against the water under it
+// and radiates. Those rings are `wake-bob.ts`, stamped into this map where
+// the hull was when each plunge turned, and they carry churn and relief and
+// no white at all, because a bob does not aerate water.
+//
 // A hull under its BUCKET is the other mark laid off its state: the pool
 // the reversed jet boils up round it, wider than the hull and thrown
 // forward past the bow at pace (`brakeMark`) — the one thing on the water
@@ -50,9 +58,21 @@
 // that starts at the press.
 
 import * as THREE from "three";
-import { type GameState } from "@engine";
+import { heightAt, type GameState } from "@engine";
 
 import { type SplashLook } from "./settings-video.ts";
+import {
+  BOB_LIFE,
+  BOB_SETTLE,
+  BOB_STATIONS,
+  type Bob,
+  bobAt,
+  bobBirth,
+  bobReading,
+  bobStations,
+  bobStep,
+  resetBob,
+} from "./wake-bob.ts";
 import { type WakeMap } from "./water-shader.ts";
 import {
   BRAKE_ROAD_WIDEN,
@@ -109,6 +129,10 @@ const JET_ACROSS = 5;
  * round each of their rings. */
 const STAMPS = 6;
 const STAMP_SEGMENTS = 20;
+/** THE BOB'S RINGS: how many ride the water at once. A ring lives
+ * `BOB_LIFE` and no two are born inside `BOB_GAP` of each other, so this
+ * is the train a hull heaving in a short chop can have behind it. */
+const BOBS = 6;
 /** THE BOIL under a hull on its back: how long after it goes over the water
  * round it is boiling at full, s — the air coming out of the hull — and how
  * far past the hull's own plan it reaches, as a share of the beam. Its
@@ -343,10 +367,51 @@ export function createWake(): Wake {
   const boil = new THREE.Mesh(boilGeometry, material);
   boil.frustumCulled = false;
 
+  // THE BOB'S RINGS — what a hull lying in a seaway radiates: a fan per
+  // ring, a centre and a station ring at each of the wave's features, laid
+  // in the world where the hull was when the plunge turned rather than
+  // under the craft, so the train stays on the water the craft drifts away
+  // from. Same topology as a splash's stamp, its own pool because a hull
+  // bobbing at a mooring must not evict the landing the rider just made.
+  const bobX = new Float32Array(BOBS);
+  const bobZ = new Float32Array(BOBS);
+  const bobT = new Float32Array(BOBS).fill(-1e9);
+  const bobR = new Float32Array(BOBS);
+  const bobS = new Float32Array(BOBS);
+  let bobCursor = 0;
+  const bobVerts = 1 + (BOB_STATIONS - 1) * STAMP_SEGMENTS;
+  const bobPositions = new Float32Array(BOBS * bobVerts * 3);
+  const bobColors = new Float32Array(BOBS * bobVerts * 4);
+  const bobIndex: number[] = [];
+  for (let p = 0; p < BOBS; p++) {
+    const base = p * bobVerts;
+    for (let s = 0; s < STAMP_SEGMENTS; s++) {
+      bobIndex.push(base, base + 1 + ((s + 1) % STAMP_SEGMENTS), base + 1 + s);
+    }
+    for (let k = 1; k + 1 < BOB_STATIONS; k++) {
+      for (let s = 0; s < STAMP_SEGMENTS; s++) {
+        const n = (s + 1) % STAMP_SEGMENTS;
+        const inner = base + 1 + (k - 1) * STAMP_SEGMENTS;
+        const outer = inner + STAMP_SEGMENTS;
+        bobIndex.push(inner + s, outer + n, outer + s, inner + s, inner + n, outer + n);
+      }
+    }
+  }
+  const bobGeometry = new THREE.BufferGeometry();
+  const bobPos = new THREE.BufferAttribute(bobPositions, 3).setUsage(THREE.DynamicDrawUsage);
+  const bobCol = new THREE.BufferAttribute(bobColors, 4).setUsage(THREE.DynamicDrawUsage);
+  bobGeometry.setAttribute("position", bobPos);
+  bobGeometry.setAttribute("color", bobCol);
+  bobGeometry.setIndex(bobIndex);
+  const bobs = new THREE.Mesh(bobGeometry, material);
+  bobs.frustumCulled = false;
+  const bobStationR = new Float32Array(BOB_STATIONS);
+  const bob: Bob = bobReading();
+
   // The map's own scene and lens. The lens is never read — the material
   // places every vertex off the box — but three wants one to draw with.
   const marks = new THREE.Scene();
-  marks.add(road.mesh, stern.mesh, fan.mesh, jet.mesh, stamps, boil);
+  marks.add(road.mesh, stern.mesh, fan.mesh, jet.mesh, stamps, boil, bobs);
   const lens = new THREE.OrthographicCamera(-1, 1, 1, -1, 0, 1);
   const clearColor = new THREE.Color();
   const section = wakeSection();
@@ -430,6 +495,29 @@ export function createWake(): Wake {
   const observe = (state: GameState): void => {
     const c = state.craft;
     const now = readTransom(state);
+    // THE BOB, read every step because a plunge turns in a handful of them
+    // and a scene pre-rolled for a screenshot renders only once. How deep
+    // the hull is sitting UNDER the water over it is the whole reading —
+    // the craft's own height carries the swell it is riding, and a hull
+    // going up and down WITH a wave has displaced nothing new.
+    const strength = bobStep(
+      bob,
+      heightAt(state.sea, state.level, c.x, c.z, state.t) - c.y,
+      state.t,
+      Math.hypot(c.vx, c.vz),
+      // Not merely afloat: a hull still arriving from the air is the
+      // splash's water, not the bob's.
+      now.afloat && c.landing > BOB_SETTLE,
+    );
+    if (strength > 0) {
+      const b = bobCursor;
+      bobCursor = (bobCursor + 1) % BOBS;
+      bobX[b] = c.x;
+      bobZ[b] = c.z;
+      bobT[b] = state.t;
+      bobR[b] = bobBirth(c.spec.length, c.spec.beam);
+      bobS[b] = strength;
+    }
     const last = filled > 0 ? (head - 1 + SAMPLES) % SAMPLES : -1;
     const end = last < 0 ? "none" : gap[last] ? "gap" : "sample";
     const moved = last < 0 || Math.hypot(now.x - sx[last], now.z - sz[last]) >= SPACING;
@@ -659,6 +747,39 @@ export function createWake(): Wake {
     stampPos.needsUpdate = true;
     stampCol.needsUpdate = true;
 
+    // The bob's rings: each ring's section at every station, round every
+    // segment, anchored where it was born. A dead ring is folded to its
+    // centre with no cover. The relief rides the DETAIL row's crater share
+    // — it is the same displaced water — while the churn does not: the
+    // ring IS the churn on a calm sea, and dimming it leaves nothing.
+    for (let p = 0; p < BOBS; p++) {
+      const base = p * bobVerts;
+      const age = t - bobT[p];
+      const alive = splash.boil && age >= 0 && age < BOB_LIFE;
+      if (alive) bobStations(bobR[p], age, bobStationR);
+      else bobStationR.fill(0);
+      for (let k = 0; k < BOB_STATIONS; k++) {
+        const r = bobStationR[k];
+        if (alive) bobAt(r, bobR[p], age, bobS[p], splash.crater, section);
+        else section.cover = 0;
+        const count = k === 0 ? 1 : STAMP_SEGMENTS;
+        const first = k === 0 ? base : base + 1 + (k - 1) * STAMP_SEGMENTS;
+        for (let s = 0; s < count; s++) {
+          const ang = (s / STAMP_SEGMENTS) * Math.PI * 2;
+          write(
+            bobPositions,
+            bobColors,
+            first + s,
+            bobX[p] + Math.cos(ang) * r,
+            bobZ[p] + Math.sin(ang) * r,
+            section,
+          );
+        }
+      }
+    }
+    bobPos.needsUpdate = true;
+    bobCol.needsUpdate = true;
+
     // The mark under the hull. Under a craft on its back or being righted:
     // its plan, churned harder the longer it has lain there, whitened by the
     // air out of it, growing out of nothing as it goes over. Under a craft
@@ -757,6 +878,8 @@ export function createWake(): Wake {
       filled = 0;
       run = 0;
       stampT.fill(-1e9);
+      bobT.fill(-1e9);
+      resetBob(bob);
     },
     dispose: () => {
       road.geometry.dispose();
@@ -765,6 +888,7 @@ export function createWake(): Wake {
       jet.geometry.dispose();
       stampGeometry.dispose();
       boilGeometry.dispose();
+      bobGeometry.dispose();
       material.dispose();
       target.dispose();
     },

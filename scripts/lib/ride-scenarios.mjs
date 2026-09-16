@@ -126,6 +126,17 @@ export const SCENARIOS = {
       input: () => NEUTRAL,
     }),
   },
+  drift: {
+    blurb: "lying to well out, engine off: the rings the hull's own heave radiates",
+    seconds: 12,
+    stage: (level) => {
+      const p = outerPoint(level);
+      return {
+        moment: { x: p.x, z: p.z, heading: level.wind.from + Math.PI / 2 },
+        input: () => NEUTRAL,
+      };
+    },
+  },
   jet: {
     blurb: "the throttle opened from a dead stop: the jet before the trail",
     seconds: 4,
