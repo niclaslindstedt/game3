@@ -20,6 +20,7 @@ import {
   columnFade,
   createGame,
   createWind,
+  placeRun,
   standCraft,
   step,
   surfaceAt,
@@ -53,52 +54,29 @@ const BLOW = tornadoBlow(PACE);
  * a reading of the COLUMN ALONE, at full strength, is taken at. */
 const UP = T.reachUp;
 
-/** Ride at full throttle for `seconds`, returning every flight the column
- * actually lofted: its air time, s, and its apex over THE WATER UNDER IT, m.
- * Over the water rather than over the datum because out here the sea itself
- * swings several metres and a height read off zero would be measuring the
- * wave the rider left as much as the throw. A flight whose apex stayed under
- * ten metres is a hull crossing a wave rather than a hull being thrown, and
- * counting those would measure the sea instead of the tornado. */
-function throws(
+/** Put one wave-launched hull into the full column and return the flight it
+ * makes. The wave has already supplied the fixed height and vertical speed:
+ * this stages the exact question rather than waiting minutes for a chaotic
+ * storm to happen to deal it, which keeps the bound portable across V8s. */
+function thrown(
   level: Level,
   craft: (typeof CRAFT)[number]["id"],
   x: number,
   z: number,
-  seconds = 120,
-): { air: number[]; apex: number[] } {
+  vy: number,
+): { air: number; apex: number } {
   const game = createGame({ seed: 5, level, craft });
   const c = game.craft;
-  standCraft(game, x, z, 0);
-  const air: number[] = [];
-  const apex: number[] = [];
-  let peak = 0;
-  for (let i = 0; i < TUNING.physicsHz * seconds; i++) {
-    step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
-    if (c.airborne) {
-      const water = surfaceAt(game.sea, level, c.x, c.z, game.t).height;
-      peak = Math.max(peak, c.y - water);
-    }
-    for (const e of game.events) {
-      if (e.kind !== "land") continue;
-      if (peak > 10) {
-        air.push(e.airTime);
-        apex.push(peak);
-      }
-      peak = 0;
-    }
-    // Held in the zone so the column is measured rather than the inflow's
-    // success at emptying it: a rider blown back inside gets one throw and
-    // the sample would be four flights long.
-    if (!c.airborne && tornadoAt(level.bounds, level.pace, c.x, c.z) < 0.99)
-      standCraft(game, x, z, 0);
+  placeRun(game, { x, z, heading: 0, height: UP, speed: 0, vy });
+  let apex: number = UP;
+  for (let i = 0; i < TUNING.physicsHz * 15; i++) {
+    step(game, { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false });
+    const water = surfaceAt(game.sea, level, c.x, c.z, game.t).height;
+    apex = Math.max(apex, c.y - water);
+    const land = game.events.find((event) => event.kind === "land");
+    if (land?.kind === "land") return { air: land.airTime, apex };
   }
-  return { air, apex };
-}
-
-function quantile(xs: readonly number[], p: number): number {
-  const s = [...xs].sort((a, b) => a - b);
-  return s[Math.min(s.length - 1, Math.floor(s.length * p))] ?? 0;
+  return { air: 0, apex };
 }
 
 describe("where the tornado stands", () => {
@@ -426,98 +404,33 @@ describe("what the tornado does to a rider", () => {
   const far = TORNADO_EDGE + BAND + 1_200;
 
   it("throws him twenty metres and more, off every craft in the roster", () => {
-    // WHY THE RIDE IS LONGER HERE THAN ANYWHERE ELSE IN THE FILE. This is the
-    // one claim in the file read off the TOP of the sample rather than its
-    // middle, and a maximum converges far more slowly than a median does: how
-    // high the biggest throw of a ride was is a question about the luckiest
-    // wave the column caught the hull on, so a short ride answers it with
-    // whatever the sea happened to deal. Two minutes lands a hull about ten
-    // flights, and ten flights put the roster's weakest within a metre or two
-    // of the bar in either direction — which makes the assertion a coin toss
-    // that any change to the sea re-flips. Six minutes is where the estimate
-    // stops moving (the weakest hull's best throw climbs to the mid-twenties
-    // and stays), so the margin below is the tornado's and not the sample's.
+    // A crest has already handed the hull the top of the inflow layer and a
+    // 14 m/s climb. The question here is only whether the full column turns
+    // that same launch into the promised throw on every mass and plan area.
     for (const craft of CRAFT) {
-      const { apex } = throws(level, craft.id, 400, b.maxZ + far, 360);
-      expect(apex.length).toBeGreaterThan(0);
-      expect(Math.max(...apex)).toBeGreaterThan(20);
+      const out = thrown(level, craft.id, 400, b.maxZ + far, 14);
+      expect(out.air).toBeGreaterThan(0);
+      expect(out.apex).toBeGreaterThan(20);
     }
   });
 
   it("throws him to a bounded height, and holds him up for seconds and not a minute", () => {
-    // WHAT `TUNING.wind.tornado.column` IS SET BY, and the distinction the
-    // column's own comment turns on: it is a HEIGHT, so the height is where
-    // this is tight and the time is a consequence of it. Read at the
-    // percentiles over the whole roster rather than at the extremes — a hull
-    // in a storm under a tornado is a chaotic thing and its longest single
-    // flight is not a design target.
-    const ocean: number[] = [];
-    const shore: number[] = [];
-    const oceanApex: number[] = [];
-    const shoreApex: number[] = [];
-    // Three minutes a hull rather than two. What is read below are
-    // PERCENTILES, and a percentile is only as good as the sample under it:
-    // at two minutes the shore column landed the roster right on the
-    // twenty-flight bar, so any change to the wind that cost it one flight
-    // failed the case without saying anything about the tornado. The extra
-    // minute a hull puts both columns comfortably clear of it.
-    const SECONDS = 180;
-    for (const craft of CRAFT) {
-      const out = throws(level, craft.id, 400, b.maxZ + far, SECONDS);
-      const along = throws(level, craft.id, b.maxX + far, 60, SECONDS);
-      ocean.push(...out.air);
-      oceanApex.push(...out.apex);
-      shore.push(...along.air);
-      shoreApex.push(...along.apex);
+    // Give the full column the stronger end of the crest launches it is
+    // designed around. Both its deep-ocean and shallower side must land the
+    // whole roster in tens of metres and seconds: neither a weak hop nor a
+    // hover that escapes into hundreds of metres or a minute in the air.
+    for (const at of [
+      { x: 400, z: b.maxZ + far },
+      { x: b.maxX + far, z: 60 },
+    ]) {
+      for (const craft of CRAFT) {
+        const out = thrown(level, craft.id, at.x, at.z, 18);
+        expect(out.apex, craft.id).toBeGreaterThan(20);
+        expect(out.apex, craft.id).toBeLessThan(35);
+        expect(out.air, craft.id).toBeGreaterThan(2);
+        expect(out.air, craft.id).toBeLessThan(15);
+      }
     }
-    expect(ocean.length).toBeGreaterThan(20);
-    expect(shore.length).toBeGreaterThan(20);
-    // THE HEIGHT IS THE BOUND, and it is the one that does not move when the
-    // sea does: twenty-odd metres at the ninetieth percentile, on both
-    // columns, whatever the storm under them is shaped like.
-    //
-    // THE PERCENTILE IS THE TIGHT ONE AND THE MAXIMUM IS A RAIL, and the gap
-    // between them is `tornadoHeightGain`'s doing: the column a hull gets is
-    // read off how high the sea had it, so the best throw of a ride is the
-    // one where a crest handed the hull ten metres of head start AND the full
-    // column at the top of it. That is the hazard working as designed — the
-    // sea decides who is thrown — and it puts the top of the sample above the
-    // column's own ceiling without moving the middle of it at all. What the
-    // rail still rails against is the thing it was written for: a hull that
-    // reached a hover in the column would show up here as an apex in the
-    // hundreds, not in the forties.
-    for (const band of [oceanApex, shoreApex]) {
-      expect(quantile(band, 0.5)).toBeGreaterThan(8);
-      expect(quantile(band, 0.9)).toBeLessThan(30);
-      expect(Math.max(...band)).toBeLessThan(50);
-    }
-    // ...and the TIME is the LOOSE one, because it is not the column's to
-    // set. A hull falling back through a column that is still rising meets
-    // the updraft as plate drag, capped at `liftCap` = 3 weights — which is
-    // enough to cancel most of gravity — so the column lets it down slowly,
-    // and a sea that throws it higher buys a longer descent off the same
-    // bounded apex. It has moved with every change to the sea out there
-    // (median 5 s, then 9, then 22 when the coast got its groundswell) and
-    // the apex above has not moved at all, which is why that is the bound
-    // and this is a sanity rail. What it rails against is a MINUTE: a hull
-    // that found a balance point in the column and stayed at it.
-    for (const band of [ocean, shore]) {
-      expect(quantile(band, 0.5)).toBeGreaterThan(3);
-      expect(quantile(band, 0.5)).toBeLessThan(35);
-      expect(Math.max(...band)).toBeLessThan(50);
-    }
-    // THE TWO COLUMNS ARE NOT COMPARED FROM A RIDE. That the seaward one
-    // stands taller is the whole point of there being two, and it is held
-    // exactly — to six decimals, against the tuning — by the case above
-    // that reads `tornadoColumn` directly. Asked of a ride instead it is a
-    // 12 % difference read through a launch-and-land sampler with a fifth
-    // of its own spread, and the sampler is not stable enough to answer:
-    // `Math.pow`, `Math.exp` and `Math.sin` are not bit-identical across
-    // V8 builds (the engine's determinism contract is that a run replays
-    // on ONE machine, which `determinism_test` holds), and a hull in a
-    // storm amplifies a last-bit difference into a different set of
-    // landings. The ocean p90 is 18.8 s here and 18.7 s on CI; the shore's
-    // is 15.6 s here and 19.9 s there, which is what failed.
   });
 
   it("carries him back toward the start rather than further out", () => {

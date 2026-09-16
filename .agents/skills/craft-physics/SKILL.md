@@ -24,10 +24,12 @@ Three modules answer it, and the split matters:
   pitch moment, the rotational damping. Knobs in `TUNING.flight`
   (`TUNING.air` is the air's density and nothing else).
 - **`engine/game/assist.ts`** — THE ARCADE'S HAND, which models nothing:
-  the landing caught at the end of a flight (`landingAssist`) and the
-  slide taken out of a run up a ramp's deck (`rampAssist`). Knobs in
-  `TUNING.assist.air` / `.ramp`, dials in `GameState.assist` /
-  `.rampAssist`. Judged on its NULL case first — see the lessons.
+  the landing caught at the end of a flight (`landingAssist`), the slide
+  taken out of a run up a ramp's deck (`rampAssist`), and the bow kept above
+  a following sea (`followingSeaAssist`). Knobs in `TUNING.assist`; the first
+  two are dials in `GameState.assist` / `.rampAssist`, while the following-sea
+  hand is part of the core ride. Judged on its NULL case first — see the
+  lessons.
 - **`engine/game/limits.ts`** — what a craft CAN do (max rpm, max nozzle
   angle, max lean), stated once, read by `craft.ts` AND `sim/bot.ts`.
 
