@@ -77,9 +77,8 @@ describe("the bot on the synthetic shore", () => {
     // The rocks and the ring are what this case is about. A buoy is not:
     // under this shore's 0.8 m beam sea the bot weaves several metres
     // either side of the line at 80 km/h, and on some seeds that puts it
-    // a metre outside a buoy, which the engine charges and the rider
-    // charges at the gate after it (`course.lookAhead`) rather than
-    // looping back for.
+    // a metre outside a buoy, which the engine charges on the crossing and
+    // rides on from rather than looping back for.
     //
     // OVER A HANDFUL OF SEEDS, and not one: the sea a seed deals is a draw,
     // and whether the run up to the ramp is clean enough to leave the deck

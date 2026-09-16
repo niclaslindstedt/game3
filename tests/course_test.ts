@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // The course: gates are taken in order by crossing their line the right
-// way, a gate skipped is charged and then counted, the splits are the
-// clock at each gate, the last gate finishes the run, and a reset stands
-// the craft back behind the last gate it took.
+// way and ONLY in their turn, a gate crossed outside its opening is charged
+// and the run moves on, the splits are the clock at each gate, the last
+// gate finishes the run, and a reset stands the craft back behind the last
+// gate it took.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -135,47 +136,69 @@ describe("a run", () => {
     expect(p.time).toBe(t);
   });
 
-  it("a gate skipped is charged and counted when the next one is taken", () => {
+  it("does not count a checkpoint threaded out of turn", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
-    // Stand between G1 (x = 100) and G2 (x = 200), aimed at G2.
+    // Stand between G1 (x = 100) and G2 (x = 200), aimed at G2 — cleanly
+    // through its opening, and with G1 still owed. A checkpoint is only
+    // valid in its turn, so the crossing buys nothing at all: the run has
+    // reached no gate, been charged for none, and still owes G1.
     placeRun(state, { x: 150, z: 40, heading: Math.PI / 2, speed: 15 });
     const events = ride(state, 3.5, () => FULL);
-    const missed = events.find((e) => e.kind === "missedGate");
-    expect(missed).toBeDefined();
-    if (missed?.kind === "missedGate") {
-      expect(missed.gate).toBe(0);
-      expect(missed.penalty).toBe(TUNING.course.missedPenalty);
-    }
+    expect(state.craft.x).toBeGreaterThan(LEVEL.course.gates[1].x);
     const p = state.progress;
+    expect(p.passed).toEqual([]);
+    expect(p.missed).toEqual([]);
+    expect(p.nextGate).toBe(0);
+    expect(p.penalty).toBe(0);
+    expect(events.filter((e) => e.kind === "gate" || e.kind === "missedGate")).toHaveLength(0);
+  });
+
+  it("counts none of a whole string of checkpoints ridden out of turn", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    // Stand between G2 (x = 200) and G3 (x = 300) with G1 and G2 untaken,
+    // and ride through G3 and G4. Riding the rest of the course is not a
+    // way of paying for the start of it.
+    placeRun(state, { x: 250, z: 40, heading: Math.PI / 2, speed: 15 });
+    ride(state, 8, () => FULL);
+    expect(state.craft.x).toBeGreaterThan(LEVEL.course.gates[3].x);
+    const p = state.progress;
+    expect(p.passed).toEqual([]);
+    expect(p.missed).toEqual([]);
+    expect(p.nextGate).toBe(0);
+  });
+
+  it("takes the owed gate when the rider comes back for it", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    placeRun(state, { x: 150, z: 40, heading: Math.PI / 2, speed: 15 });
+    ride(state, 3.5, () => FULL);
+    expect(state.progress.nextGate).toBe(0);
+    // Back behind G1 and through it: the gate the run owed all along is
+    // taken on its own crossing, in its own turn, at no penalty.
+    placeRun(state, { x: 60, z: 40, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    const p = state.progress;
+    expect(p.passed[0]).toBe(0);
+    expect(p.missed).toEqual([]);
+    expect(p.penalty).toBe(0);
+  });
+
+  it("charges the owed gate and moves on when its line is crossed wide", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g = LEVEL.course.gates[0];
+    // The one way past a checkpoint that is not a way back: crossing its
+    // own plane outside its opening pays for it there and then, and the
+    // gate after it is live from that step — so the next one IS taken.
+    placeRun(state, { x: g.x - 40, z: g.z + 5 * g.width, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.progress.missed).toEqual([0]);
+    expect(state.progress.nextGate).toBe(1);
+    placeRun(state, { x: 150, z: 40, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    const p = state.progress;
+    expect(p.passed).toEqual([1]);
     expect(p.missed).toEqual([0]);
-    expect(p.passed[0]).toBe(1);
-    expect(p.nextGate).toBe(2);
     expect(p.penalty).toBe(TUNING.course.missedPenalty);
     expect(p.time).toBeGreaterThan(TUNING.course.missedPenalty);
-  });
-
-  it("two gates skipped are both charged when the third is threaded", () => {
-    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
-    // Stand between G2 (x = 200) and G3 (x = 300) with G1 and G2 untaken.
-    placeRun(state, { x: 250, z: 40, heading: Math.PI / 2, speed: 15 });
-    ride(state, 5, () => FULL);
-    const p = state.progress;
-    expect(p.missed).toEqual([0, 1]);
-    expect(p.passed).toEqual([2]);
-    expect(p.nextGate).toBe(3);
-    expect(p.penalty).toBe(2 * TUNING.course.missedPenalty);
-  });
-
-  it("a gate past the look-ahead does not count", () => {
-    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
-    // Stand just short of the gate `lookAhead` + 1 along, with every gate
-    // before it untaken: threading it is cutting the course, not recovering
-    // from a miss, and the run still owes G1.
-    const far = LEVEL.course.gates[TUNING.course.lookAhead + 1];
-    placeRun(state, { x: far.x - 50, z: 40, heading: Math.PI / 2, speed: 15 });
-    ride(state, 5, () => FULL);
-    expect(state.progress.passed).toEqual([]);
-    expect(state.progress.nextGate).toBe(0);
   });
 
   it("misses the owed gate as soon as its line is crossed outside the buoys", () => {

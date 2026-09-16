@@ -25,16 +25,19 @@
 // the surface reads as a cone stuck in the sea, and what says something is
 // moored is the shoulder of the collar standing clear of it.
 //
-// AND THE LANTERN IS WHAT SAYS WHICH GATE IS YOURS. Exactly ONE mark pair
-// is lit AMBER at a time — the gate the run is riding at — and it lights the
-// moment the gate before it is crossed, so the reading a rider takes at a
-// glance is "go there", not "the course runs off that way somewhere". A
-// chain of lit lamps running down the coast was information about the
-// COURSE; what a rider needs from the saddle at 80 km/h, in the dark, is
-// the next buoy pair and nothing competing with it. `markLamp` is the whole
-// rule and the only place it is stated; the rounding buoys' flash CHARACTER
-// is a different question entirely and lives in the engine
-// (`buoyLightAt`), because that one is charted.
+// AND THE LANTERN IS WHAT SAYS WHICH GATE IS YOURS, AFTER DARK. Exactly ONE
+// mark pair is lit AMBER at a time — the gate the run is riding at — and it
+// lights the moment the gate before it is crossed, so the reading a rider
+// takes at a glance is "go there", not "the course runs off that way
+// somewhere". A chain of lit lamps running down the coast was information
+// about the COURSE; what a rider needs from the saddle at 80 km/h, in the
+// dark, is the next buoy pair and nothing competing with it. And in
+// DAYLIGHT it is nothing at all: a lantern exists so a mark can be found
+// when it cannot be seen, and by day it can be — the paint is the reading
+// then, and a lamp over the top of it is a white dot on a float. `markLamp`
+// is the whole rule and the only place it is stated; the rounding buoys
+// answer the same two questions in `buoys.ts`, off the flash CHARACTER the
+// engine draws (`buoyLightAt`), because that one is charted.
 //
 // AND A CHECKPOINT LEFT BEHIND IS MARKED IN RED. A gate crossed outside
 // its opening is charged and the run moves on, so the lantern hands over
@@ -51,11 +54,11 @@
 // mark of its own here: its can is a charted rounding buoy, whose flash
 // character is the engine's — buoys.ts.)
 //
-// The PAINT still carries the chain: a gate still ahead is the stock amber,
-// the next one is warmer and brighter, a gate behind goes to a dull
-// weathered tone, and the checkpoint left behind wears the warning's red.
-// By day that is what the course is read by, and the lamp is the one thing
-// on top of it that says which gate is being ridden at.
+// The PAINT carries the chain and is never switched off: a gate still ahead
+// is the stock amber, the next one is warmer and brighter, a gate behind
+// goes to a dull weathered tone, and the checkpoint left behind wears the
+// warning's red. By day that is the WHOLE reading; after dark the lamp
+// comes up on top of it and says which gate is being ridden at.
 
 import * as THREE from "three";
 import { gateBuoys, surfaceAt, type GameState, type Level, type Ramp } from "@engine";
@@ -100,21 +103,16 @@ const FLOAT = new THREE.Color(0xd9dde0);
  * pool on the sea is thrown from. */
 const LANTERN_Y = 1.735;
 
-/** How much of the lamp survives DAYLIGHT, 0..1. A lit mark in sunshine is
- * a wink of glass rather than a beacon — but it is not nothing, or the one
- * reading that says "this gate is still yours" would exist only after
- * dark. */
-const BY_DAY = 0.26;
 /** The next gate's slow breath: how deep it dips and how fast, rad/s. A
  * lantern that moves is the one the eye goes to first, and at this depth it
  * reads as a light rather than as a fault. */
 const BREATH = { depth: 0.12, rate: 2.1 };
 
 /** How much of a MISSED checkpoint's mark survives daylight, 0..1, and the
- * beat under it. Both are louder than the next gate's: that lamp is a
- * target, which the course, the chart and the guide line are all pointing
- * at anyway, while this one is the only thing on the water that says which
- * checkpoint the warning is about — and a rider is told they left one
+ * beat under it. This is the ONE lamp the daylight rule below does not
+ * silence, and the reason is that it is not a lamp: it is the HUD's warning
+ * drawn on the water, the only thing out there that says which checkpoint
+ * the type over the nose is about — and a rider is told they left one
  * behind at noon as often as at midnight. */
 const WARN_BY_DAY = 0.7;
 const WARN_BREATH = { depth: 0.45, rate: 5.2 };
@@ -180,11 +178,19 @@ export type Gates = {
  * which is the instant the gate before it was crossed — that hand-over IS
  * the signal, and a finished course (every gate behind) is a dark one. The
  * lit gate burns full with a slow breath under it.
+ *
+ * AND IT IS THE DARK'S ALONE. A lantern is lit because the mark cannot be
+ * found without it, which is a thing that stops being true at sunrise:
+ * `night` is the sky's own lamp switch (`Preset.lamps`) and it scales the
+ * whole lamp, so in daylight this returns nothing at all and the course is
+ * read off the PAINT — the chain of amber floats with a warmer, brighter
+ * one at the gate being ridden at. A lamp painted over a sunlit sea is not
+ * a light: it reads as a white dot stuck on a buoy, and the one reading it
+ * competes with is the reading it was added to reinforce.
  */
 export function markLamp(gate: number, next: number, night: number, t: number): number {
   if (gate !== next) return 0;
-  const sky = BY_DAY + (1 - BY_DAY) * night;
-  return (1 - BREATH.depth + BREATH.depth * Math.sin(t * BREATH.rate)) * sky;
+  return (1 - BREATH.depth + BREATH.depth * Math.sin(t * BREATH.rate)) * night;
 }
 
 /**
@@ -515,8 +521,10 @@ export function createGates(level: Level): Gates {
       const lamp = lamps[i];
       lamp.y = sample.height + LANTERN_Y;
       lamp.lit = Math.max(lit, warned) * POOL;
-      // The glare is the NIGHT's alone: by day a lens is a wink of glass
-      // and glare painted over it reads as a lens flare on a sunny sea.
+      // The glare is the night's — as `markLamp` already is, and as the
+      // WARNING deliberately is not: the red beats on the water at noon,
+      // but a red glare over a sunlit sea reads as a lens flare rather
+      // than as a lamp, so only the daylight PAINT carries it.
       pos.y = sample.height + LANTERN_Y;
       const range = pos.distanceTo(world);
       const seen = Math.max(lit, warned) * night * Math.max(0, 1 - range / GLARE.reach);

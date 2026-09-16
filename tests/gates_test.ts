@@ -2,15 +2,17 @@
 // THE COURSE'S MARKS, held without a GPU. What a gate mark LOOKS like is
 // judged by looking (`make screenshots SCENE=gate`, under two skies); what
 // is asserted here is the three rules that decide what its lantern is
-// doing and which lanterns the water carries — the first because "the lamp
-// goes out when the gate is behind you" is the whole reading a rider takes
-// off a night course, the second because the red on a checkpoint left
-// behind and the HUD's own warning must go out on the same step or the two
-// disagree about how close to it a rider has to get, and the third because
-// the sea has four slots and a level puts forty lamps on it.
+// doing and which lanterns the water carries — the first because "one lamp
+// at a time, and only after dark" is the whole reading a rider takes off a
+// night course, the second because the red on a checkpoint left behind and
+// the HUD's own warning must go out on the same step or the two disagree
+// about how close to it a rider has to get, and the third because the sea
+// has four slots and a level puts forty lamps on it.
 import { describe, expect, it } from "vitest";
 
-import { nearestLamps, type BuoyLamp } from "../pwa/src/game/buoys.ts";
+import type { Gate } from "@engine";
+
+import { buoyLamp, markOf, nearestLamps, type BuoyLamp } from "../pwa/src/game/buoys.ts";
 import { markLamp, missedLamp } from "../pwa/src/game/gates.ts";
 import { BUOY_LAMPS } from "../pwa/src/game/water-shader.ts";
 
@@ -55,12 +57,16 @@ describe("a gate mark's lantern", () => {
     expect(Math.max(...next) - Math.min(...next)).toBeGreaterThan(0.05);
   });
 
-  it("is a wink of glass by day and a beacon after dark", () => {
+  it("is out in daylight and a beacon after dark", () => {
+    // A lantern exists so a mark can be found when it cannot be seen. By
+    // day it can be, and the course is read off the paint instead — so the
+    // lamp is the sky's own switch and nothing of its own.
     for (const t of MOMENTS) {
-      const day = markLamp(4, 4, 0, t);
+      expect(markLamp(4, 4, 0, t)).toBe(0);
+      const dusk = markLamp(4, 4, 0.5, t);
       const dark = markLamp(4, 4, 1, t);
-      expect(day).toBeGreaterThan(0);
-      expect(dark).toBeGreaterThan(day * 2);
+      expect(dusk).toBeGreaterThan(0);
+      expect(dark).toBeGreaterThan(dusk);
       expect(dark).toBeLessThanOrEqual(1);
     }
   });
@@ -100,15 +106,63 @@ describe("a missed checkpoint's marks", () => {
     expect(markLamp(4, 5, 1, 1.3)).toBe(0);
   });
 
-  it("is louder than a target lamp, by day and by its beat", () => {
+  it("is louder than a target lamp, and survives the daylight that puts one out", () => {
     const warn = MOMENTS.map((t) => missedLamp(4, 4, 1, t));
     const next = MOMENTS.map((t) => markLamp(4, 4, 1, t));
     expect(Math.max(...warn) - Math.min(...warn)).toBeGreaterThan(
       Math.max(...next) - Math.min(...next),
     );
     // A rider is told they left a checkpoint behind at noon as often as at
-    // midnight, so daylight takes far less of this one than of a lantern.
-    expect(missedLamp(4, 4, 0, 1.3)).toBeGreaterThan(markLamp(4, 4, 0, 1.3) * 2);
+    // midnight. The lantern is the dark's alone; this is not a lantern, it
+    // is the HUD's warning drawn on the water, so it is there at noon.
+    const day = MOMENTS.map((t) => missedLamp(4, 4, 0, t));
+    for (const t of MOMENTS) expect(markLamp(4, 4, 0, t)).toBe(0);
+    for (const worth of day) expect(worth).toBeGreaterThan(0);
+    expect(Math.max(...day)).toBeGreaterThan(0.5);
+  });
+});
+
+describe("a rounding buoy's lantern", () => {
+  /** A lap: a water gate, then the two cans B1 and B2, then a water gate —
+   * the shape `course.ts` publishes for a circuit, where a slalom gate's
+   * `mark` names the solid standing in its water. */
+  const LAP: Gate[] = [
+    { id: "G1", index: 0, kind: "water", x: 0, y: 0, z: 0, heading: 0, width: 12 },
+    { id: "G2", index: 1, kind: "slalom", x: 0, y: 0, z: 0, heading: 0, width: 40, mark: "B1" },
+    { id: "G3", index: 2, kind: "slalom", x: 0, y: 0, z: 0, heading: 0, width: 40, mark: "B2" },
+    { id: "G4", index: 3, kind: "water", x: 0, y: 0, z: 0, heading: 0, width: 12 },
+  ];
+
+  it("names the can a checkpoint stands on, and nothing for one that has none", () => {
+    expect(markOf(LAP, 1)).toBe("B1");
+    expect(markOf(LAP, 2)).toBe("B2");
+    expect(markOf(LAP, 0)).toBeUndefined();
+    expect(markOf(LAP, null)).toBeUndefined();
+    // Past the last gate: a finished course names no can, so nothing burns.
+    expect(markOf(LAP, LAP.length)).toBeUndefined();
+  });
+
+  it("burns on the corner being ridden at and on no other", () => {
+    for (const flash of [0, 0.5, 1]) {
+      expect(buoyLamp(true, flash, 1)).toBeGreaterThan(0);
+      expect(buoyLamp(false, flash, 1)).toBe(0);
+    }
+  });
+
+  it("is out in daylight, whosever corner it is", () => {
+    for (const flash of [0, 0.5, 1]) {
+      expect(buoyLamp(true, flash, 0)).toBe(0);
+      expect(buoyLamp(false, flash, 0)).toBe(0);
+    }
+  });
+
+  it("holds a standing glow between the flashes rather than going out", () => {
+    // A character is mostly darkness, and a corner that is not there nine
+    // frames in ten is a corner met at speed in the dark.
+    const between = buoyLamp(true, 0, 1);
+    expect(between).toBeGreaterThan(0);
+    expect(buoyLamp(true, 1, 1)).toBeGreaterThan(between * 2);
+    expect(buoyLamp(true, 1, 1)).toBeLessThanOrEqual(1);
   });
 });
 
