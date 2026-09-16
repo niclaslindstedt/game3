@@ -27,6 +27,21 @@
 // the mouth's own run keeps `river.clear` off the line, and a walk that
 // cannot is redrawn.
 //
+// NOR MAY IT FIND ITSELF. The basin stamps water wherever a sample of the
+// line stands, so two reaches that come within their own half-widths of
+// each other do not draw as two reaches: they merge, and what the rider
+// gets is a lake with a knot in it — or, where they cross outright, a
+// river laid over itself like a road with an underpass, which is the one
+// thing a watercourse cannot be. A loop that closes on its own water is a
+// loop a river has ALREADY stopped making: the neck breaks, the water
+// takes the short way, and the loop is left beside the channel as an
+// oxbow rather than in it as a crossing. So the walk is refused when two
+// of its reaches stand closer than the water they carry plus
+// `river.selfBank` of neck — the same shape as R24's rule for the racing
+// line, measured against the WIDTH rather than against a fixed clearance,
+// because this line's water goes from the corridor's own half-width at
+// the mouth to a three-metre creek at the head.
+//
 // WHAT KIND OF RIVER IT IS IS THE COAST'S (`Biome.river`). The rule book's
 // numbers draw the taiga's — a rock channel that closes fast and runs hard
 // — and every other coast draws its own as multiples of them: how wide the
@@ -69,6 +84,26 @@ export type River = {
  * shape is the same shape drawn bigger. */
 function meanderOf(shape: RiverShape): { radius: number; scale: number } {
   return { radius: R.river.radius * shape.bend, scale: R.river.swingScale * shape.bend };
+}
+
+/**
+ * THE TIGHTEST CIRCLE THE WATER ITSELF CAN TURN AT, m.
+ *
+ * A river bends at a radius its own channel allows: a creek wriggles round
+ * a boulder and a river a hundred metres across does not, and the reason
+ * is not taste — a bend tighter than the water is wide has the channel
+ * running into itself on the inside of the turn. Real meanders come in at
+ * a couple of channel widths of curvature and up; this takes
+ * `river.bendWidths` of the HALF-width and never less than the coast's own
+ * `radius`, which is what the creek at the head ends up turning at.
+ *
+ * Stating it against the width rather than as one number is what makes
+ * R26's self-clearance findable: the walk's tightest loop then opens out
+ * with the water in it, instead of the widest reach of every river folding
+ * onto itself and the whole route being thrown away for want of one.
+ */
+export function bendRadius(width: number, floor: number): number {
+  return Math.max(floor, width * R.river.bendWidths);
 }
 
 /**
@@ -121,10 +156,12 @@ function mouthOf(route: Route): { at: Vec2; width: number; heading: number; u: n
  * this route has no inland end to run one from.
  *
  * The walk is the route's own (a smooth noise turning inside a bounded
- * curvature) with one thing added and one taken away: it is pulled toward
- * the way INLAND lies, because a river that meanders back out to sea is a
- * bay, and it has no reason to avoid itself — a watercourse that runs close
- * to its own next bend is an oxbow, which is a thing rivers do.
+ * curvature) with one thing added: it is pulled toward the way INLAND
+ * lies, because a river that meanders back out to sea is a bay. What it
+ * keeps is the route's self-clearance (R24), sized off the water each
+ * reach carries rather than off one number — a river that runs into its
+ * own water is a lake where the reaches merge and an impossibility where
+ * they cross.
  */
 export function drawRiver(
   rng: Rng,
@@ -140,20 +177,47 @@ export function drawRiver(
   const inland = route.seaHeading + Math.PI;
   const step = R.river.step;
   const meander = meanderOf(shape);
-  const maxTurn = step / meander.radius;
+  // THE TAPER: the mouth's half-width down to the head's, and the power is
+  // what makes it read as a river rather than as a wedge — over 1, most of
+  // the narrowing happens in the first third, the way a watercourse loses
+  // its tributaries. All three are the coast's: the mouth is the
+  // corridor's own half-width times what the coast opens it to, held under
+  // R1's ceiling less the search's slack because the race is laid through
+  // it, and never narrower than the head.
+  const head = R.river.head * shape.head;
+  const ceiling = R.course.offshore.max - R.search.offshoreSlack;
+  const mouthWidth = Math.max(Math.min(mouth.width * shape.mouth, ceiling), head);
+  const taper = R.river.taper * shape.taper;
+  // …and it is read off how far INLAND the walk has got rather than off how
+  // far it has WALKED, which is both the truer model and the thing that
+  // makes the walk able to answer for itself. A river thins because its
+  // catchment shrinks going up, not because it wandered: a reach that
+  // spends three hundred metres on one loop comes out of it the width it
+  // went in. And because the target is drawn before the first step, the
+  // width at the point being walked is known AT that step — which is what
+  // the turning circle and the self-clearance below are both stated
+  // against.
+  const widthAt = (reached: number, want: number): number =>
+    head + (mouthWidth - head) * Math.pow(1 - clamp(reached / want, 0, 1), taper);
 
   for (let attempt = 0; attempt < R.river.tries; attempt++) {
     const turnSeed = rng.int(1, 0x7fffffff);
     const swing = inBand(rng, R.river.swing);
     const want = inBand(rng, R.river.inland);
     const points: Vec2[] = [mouth.at];
+    const widths: number[] = [widthAt(0, want)];
     let x = mouth.at.x;
     let z = mouth.at.z;
     let heading = mouth.heading;
     let s = 0;
+    // The taper follows the FURTHEST the walk has been from the mouth, not
+    // where it is now: a loop that turns back for a step is still the same
+    // way up its own catchment, and a river that widened again on the way
+    // inland would be two rivers.
     let reached = 0;
     let clean = true;
     while (s < R.river.length.max) {
+      const maxTurn = step / bendRadius(widths[widths.length - 1], meander.radius);
       const turn = (valueNoise(s, 0, meander.scale, turnSeed) - 0.5) * 2 * swing * maxTurn;
       // The pull inland. It is what makes the walk a river running out of
       // the country rather than a channel wandering along the coast, and
@@ -164,7 +228,8 @@ export function drawRiver(
       z += Math.cos(heading) * step;
       s += step;
       points.push({ x, z });
-      reached = Math.hypot(x - mouth.at.x, z - mouth.at.z);
+      reached = Math.max(reached, Math.hypot(x - mouth.at.x, z - mouth.at.z));
+      widths.push(widthAt(reached, want));
       // Past the mouth's own run it is a different watercourse from the
       // race, and it stays one.
       if (s > R.river.mouthRun) {
@@ -179,25 +244,11 @@ export function drawRiver(
       if (reached >= want && s >= R.river.length.min) break;
     }
     if (!clean || reached < want) continue;
-    // THE TAPER: the mouth's half-width down to the head's, and the power
-    // is what makes it read as a river rather than as a wedge — over 1,
-    // most of the narrowing happens in the first third, the way a
-    // watercourse loses its tributaries. All three are the coast's: the
-    // mouth is the corridor's own half-width times what the coast opens it
-    // to, held under R1's ceiling less the search's slack because the race
-    // is laid through it, and never narrower than the head.
-    const widths = new Float64Array(points.length);
-    const head = R.river.head * shape.head;
-    const ceiling = R.course.offshore.max - R.search.offshoreSlack;
-    const mouthWidth = Math.max(Math.min(mouth.width * shape.mouth, ceiling), head);
-    const taper = R.river.taper * shape.taper;
-    for (let i = 0; i < points.length; i++) {
-      const t = i / (points.length - 1);
-      widths[i] = head + (mouthWidth - head) * Math.pow(1 - t, taper);
-    }
+    // …and where the walk ran back into its own water, it is redrawn.
+    if (!clearOfItself(points, widths, meander.radius)) continue;
     const river = {
       points,
-      widths,
+      widths: Float64Array.from(widths),
       inland: reached,
       length: s,
       discharge: inBand(rng, R.river.discharge) * shape.discharge,
@@ -208,6 +259,43 @@ export function drawRiver(
     return { ...river, bars: shape.bars ? drawBars(rng, route, river, shape.bars) : [] };
   }
   return null;
+}
+
+/** R26 — the walk along the water past which two reaches standing close
+ * means they closed a loop rather than that one is coming out of a bend,
+ * m: `river.selfSpan` of the hairpin a channel this wide could have turned
+ * (π·its own bend radius). A multiple rather than a distance, because the
+ * same river turns at a hundred metres of radius at its mouth and at the
+ * coast's own floor at its head. */
+function selfSpanAt(width: number, floor: number): number {
+  return Math.PI * bendRadius(width, floor) * R.river.selfSpan;
+}
+
+/**
+ * R26 — does the walk keep clear of its OWN water?
+ *
+ * Two reaches have to stand further apart than the half-widths they each
+ * carry, with `river.selfBank` of neck between them — compared only
+ * between reaches far enough apart ALONG the water for the closeness to
+ * mean anything (`selfSpanAt`), because a line coming out of its own
+ * hairpin stands beside itself by construction and that is a bend.
+ *
+ * The walk's steps are all `river.step` long, so the span along the water
+ * is a count of them and no cumulative length is needed.
+ */
+function clearOfItself(points: readonly Vec2[], widths: readonly number[], floor: number): boolean {
+  for (let i = 0; i < points.length; i++) {
+    // The water only ever narrows going up, so the wider of any pair is
+    // the one nearer the mouth and its own hairpin is the longer walk.
+    const skip = Math.ceil(selfSpanAt(widths[i], floor) / R.river.step);
+    for (let j = i + skip; j < points.length; j++) {
+      const need = widths[i] + widths[j] + R.river.selfBank;
+      const dx = points[j].x - points[i].x;
+      const dz = points[j].z - points[i].z;
+      if (dx * dx + dz * dz < need * need) return false;
+    }
+  }
+  return true;
 }
 
 /** Where the river stands `s` metres of walking up from its mouth: the

@@ -20,6 +20,7 @@ import {
   angleDiff,
   airCorridor,
   arcHeight,
+  bendRadius,
   biomeOf,
   clampDial,
   cumulative,
@@ -752,6 +753,40 @@ describe("level generator", () => {
         ANALYSIS.river.mouth,
       );
     }
+  });
+
+  it("R26 — the river never meets itself, and the check says so when it does", () => {
+    for (const seed of LEVEL_SEEDS) {
+      const level = levelFor(seed);
+      const river = level.river;
+      const cum = cumulative(river);
+      const floor = R.river.radius * biomeOf(level.biome).river.bend;
+      // On the centreline the offshore distance IS the half-width there, so
+      // two reaches whose own water overlaps are two reaches the basin has
+      // stamped into one piece of water — a lake where they merge, and a
+      // river laid over its own channel where they cross. Judged only past
+      // the hairpin a channel that wide could have turned, because a line
+      // coming out of its own bend stands beside itself by construction.
+      const water = river.map((p) => sampleField(level.offshore, p.x, p.z));
+      for (let i = 0; i < river.length; i++) {
+        const span = Math.PI * bendRadius(water[i], floor) * R.river.selfSpan;
+        for (let j = i + 1; j < river.length; j++) {
+          if (cum[j] - cum[i] < span) continue;
+          const gap = Math.hypot(river[j].x - river[i].x, river[j].z - river[i].z);
+          expect(gap).toBeGreaterThan(water[i] + water[j]);
+        }
+      }
+    }
+    // …and the analyzer catches one that does. The corpus is shared and
+    // read-only, so the level is copied before its river is folded: the
+    // head is brought back over the mouth's own reach, which is the knot
+    // the rule is about.
+    const level = levelFor(LEVEL_SEEDS[0]);
+    const folded = level.river.map((p, i) =>
+      i < level.river.length / 2 ? p : { x: level.river[0].x, z: level.river[0].z },
+    );
+    const findings = analyzeLevel({ ...level, river: folded }).findings;
+    expect(findings.map((f) => f.code)).toContain("R26.self");
   });
 
   it("R23, R34 — every corner is one the roster can be steered round", () => {

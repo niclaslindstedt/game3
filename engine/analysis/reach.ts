@@ -16,6 +16,7 @@
 import { sampleField } from "../lib/heightfield.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
 import { cumulative, polylineDistance, walkPolyline } from "../mapgen/course.ts";
+import { bendRadius } from "../mapgen/river.ts";
 import { LEVEL_RULES as R, withinBand } from "../mapgen/rules.ts";
 import type { Level, Vec2 } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
@@ -149,6 +150,42 @@ export function analyzeOceanLeg(level: Level, run: OceanRun | null, rep: Report)
 }
 
 /**
+ * R26 — does the river meet itself?
+ *
+ * A river is not a road: two reaches cannot pass over and under each
+ * other, and two that come within the water they each carry are not two
+ * reaches at all by the time the basin has stamped them — they are one
+ * piece of water with a knot in it. So the half-width is read off the
+ * BAKED field at each point of the centreline (on the line, the offshore
+ * distance IS the half-width there, and where two reaches have merged it
+ * is the merged water's, which is the tell) and compared with how far
+ * apart they stand.
+ *
+ * Measured only between reaches far enough apart ALONG the water for the
+ * closeness to mean anything — the generator's own span, which is a share
+ * of the hairpin a channel that wide could have turned — because closer
+ * than that a bend is beside itself by construction.
+ */
+function meetsItself(
+  level: Level,
+  river: readonly Vec2[],
+): { at: Vec2; gap: number; along: number } | undefined {
+  const cum = cumulative(river);
+  const floor = R.river.radius * biomeOf(level.biome).river.bend;
+  const width = river.map((p) => Math.max(sampleField(level.offshore, p.x, p.z), 0));
+  for (let i = 0; i < river.length; i++) {
+    const span = Math.PI * bendRadius(width[i], floor) * R.river.selfSpan;
+    for (let j = i + 1; j < river.length; j++) {
+      if (cum[j] - cum[i] < span) continue;
+      const gap = Math.hypot(river[j].x - river[i].x, river[j].z - river[i].z);
+      if (gap >= width[i] + width[j] + A.river.neck) continue;
+      return { at: river[i], gap, along: cum[j] - cum[i] };
+    }
+  }
+  return undefined;
+}
+
+/**
  * R26 — THE RIVER, walked from its mouth to its head.
  *
  * What has to be true of it is what a rider finds riding up it: it IS
@@ -267,6 +304,15 @@ export function analyzeRiver(level: Level, rep: Report): void {
         R.river.sinuosity,
       )})`,
       { at: head, value: sinuosity },
+    );
+  }
+  const meet = meetsItself(level, river);
+  if (meet) {
+    rep.fail(
+      "R26",
+      "self",
+      `the river runs into its own water ${fmt(meet.gap)} m from a reach ${fmt(meet.along)} m away along it`,
+      { at: meet.at, value: meet.gap },
     );
   }
   const reach = polylineDistance(level.course.path, mouth.x, mouth.z);

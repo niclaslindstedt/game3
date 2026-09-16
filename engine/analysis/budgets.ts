@@ -238,6 +238,15 @@ export const ANALYSIS = {
      * quilt and nothing the slabs do. */
     bank: 6,
     bankShare: 0.8,
+    /** R26 — how much land has to survive between two reaches of the river
+     * for them to still be two reaches, m. The generator builds
+     * `river.selfBank` of neck, so this is not that rule read back: it is
+     * the point at which the neck is GONE and the basin has stamped the
+     * two reaches into one piece of water — which is a lake where they
+     * merge and an impossibility where they cross. Two cells of the 4 m
+     * field, because the half-width is read off a bilinear sample and the
+     * stamp's own edge wanders a cell either way. */
+    neck: 8,
   },
   /** How many cells across the grid the classifier is sampled at for
    * R16 — enough to see every kind of ground, cheap enough to run on every
