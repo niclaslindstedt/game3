@@ -208,9 +208,14 @@ export function soundForEvent(event: GameEvent): { id: string; shape?: PlayShape
  * carrying a second copy of every landing, one of them wearing a chime.
  *
  * `record` is the ENGINE's word (`step.ts`), decided where the run is
- * orchestrated, so nothing here compares clocks. */
-export function recordForEvent(event: GameEvent): { id: string; shape?: PlayShape } | null {
-  return event.kind === "land" && event.record ? { id: "air_record" } : null;
+ * orchestrated, so nothing here compares clocks. The chime belongs to the
+ * trick score: race and time-trial runs still measure a flight for physics,
+ * but do not announce it as trick news. */
+export function recordForEvent(
+  event: GameEvent,
+  tricks: boolean,
+): { id: string; shape?: PlayShape } | null {
+  return tricks && event.kind === "land" && event.record ? { id: "air_record" } : null;
 }
 
 /** The bubbles an event leaves in the water after its own sound: how many,

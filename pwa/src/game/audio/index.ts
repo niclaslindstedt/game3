@@ -34,8 +34,8 @@ export { RUN_BANK } from "./bank.ts";
 export { bubblesForEvent, recordForEvent, soundForEvent } from "./route.ts";
 
 export type RunAudio = {
-  /** Translate one step's events into sound. */
-  events: (list: readonly GameEvent[]) => void;
+  /** Translate one step's events into sound under the run's trick rule. */
+  events: (list: readonly GameEvent[], tricks: boolean) => void;
   /** Advance the continuous beds; call once per rendered frame. `duck`
    * scales the whole bed — 1 with the player's hands on the craft, less
    * under a card the sea is scenery behind. */
@@ -62,7 +62,7 @@ export function createRunAudio(): RunAudio {
   let ear: Listener = listenerFor("chase");
 
   return {
-    events(list) {
+    events(list, tricks) {
       // TWO EVENTS THAT MAKE THE SAME SOUND IN ONE STEP PLAY ONCE. Everything
       // in a step is simultaneous, so a hull that touched two skerries
       // between two steps would start two sample-aligned copies of one
@@ -79,7 +79,7 @@ export function createRunAudio(): RunAudio {
         // ...and the news over the top of it: a landing that took the run's
         // longest flight is two sounds, the water and the word for it. The
         // dedupe above is the landing's; a record happens once a step.
-        const best = recordForEvent(event);
+        const best = recordForEvent(event, tricks);
         if (best) playSound(sfx, RUN_BANK, best.id, heardFrom(best.shape, ear));
       }
     },

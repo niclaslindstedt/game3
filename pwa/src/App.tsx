@@ -457,7 +457,7 @@ export function App() {
       step(state, inputFor());
       renderer.observe(state);
       if (playerRides(shellRef.current)) {
-        audio.events(state.events);
+        audio.events(state.events, state.rules.tricks);
         runRumble.events(state.events);
         // The hull, every STEP: the slam is a spike a couple of steps wide
         // at 120 Hz, so a frame that sampled it would feel a random fifth of

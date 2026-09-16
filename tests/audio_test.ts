@@ -22,7 +22,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { TUNING, createGame, placeRun, totalMass, type GameEvent } from "@engine";
+import { MODE_RULES, TUNING, createGame, placeRun, totalMass, type GameEvent } from "@engine";
 
 import { RUN_BANK } from "../pwa/src/game/audio/bank.ts";
 import { createBirdBed } from "../pwa/src/game/audio/bird-bed.ts";
@@ -422,7 +422,7 @@ describe("the route (audio/route.ts)", () => {
     expect(bubblesForEvent({ kind: "hit", t: 0, solid: "skerry", speed: 9 })).toBeNull();
   });
 
-  it("lays the record's own chime over the landing that took it, and nothing else", () => {
+  it("lays the record chime over a tricks landing, and keeps races and time trials quiet", () => {
     const landing = {
       kind: "land",
       t: 1,
@@ -431,7 +431,7 @@ describe("the route (audio/route.ts)", () => {
       pitch: 0.1,
       speed: 18,
     } as const;
-    const best = recordForEvent({ ...landing, record: true })!;
+    const best = recordForEvent({ ...landing, record: true }, MODE_RULES.tricks.tricks)!;
     expect(best.id).toBe("air_record");
     expect(RUN_BANK[best.id]).toBeDefined();
     // The landing is still a landing: the news is a SECOND voice over it,
@@ -439,9 +439,11 @@ describe("the route (audio/route.ts)", () => {
     expect(soundForEvent({ ...landing, record: true })!.id).toBe(
       soundForEvent({ ...landing, record: false })!.id,
     );
-    expect(recordForEvent({ ...landing, record: false })).toBeNull();
+    expect(recordForEvent({ ...landing, record: true }, MODE_RULES.race.tricks)).toBeNull();
+    expect(recordForEvent({ ...landing, record: true }, MODE_RULES.timeTrial.tricks)).toBeNull();
+    expect(recordForEvent({ ...landing, record: false }, MODE_RULES.tricks.tricks)).toBeNull();
     for (const event of EVERY_EVENT)
-      if (event.kind !== "land") expect(recordForEvent(event)).toBeNull();
+      if (event.kind !== "land") expect(recordForEvent(event, MODE_RULES.tricks.tricks)).toBeNull();
   });
 
   it("hears a play from the seat: the listener's gain and its muffle", () => {
