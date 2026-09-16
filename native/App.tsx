@@ -175,6 +175,21 @@ export default function App() {
           showsVerticalScrollIndicator={false}
           showsHorizontalScrollIndicator={false}
           allowsBackForwardNavigationGestures={false}
+          // NO TEXT TOOL OVER THE WATER. The website already says this in CSS
+          // — `user-select: none` and `-webkit-touch-callout: none` on every
+          // element (pwa/src/styles.css), restated in VIEWPORT_HARDENING for
+          // a WKWebView that loads before that stylesheet does — and iOS
+          // still answers a double tap, or a press and hold, with the caret
+          // loupe: the magnifying lens for placing a text cursor, swum over
+          // the sea because a thumb bounced on the screen. The gesture is the
+          // WebView's own, recognized in UIKit before the page is consulted,
+          // so no stylesheet can reach it; `WKPreferences.textInteractionEnabled`
+          // is the switch that can, and this is the only place in the tree
+          // that has one. The cost is the seed field on the start card: it
+          // still takes focus, raises the keyboard and types, but a caret
+          // cannot be placed mid-number, so a correction is retyped rather
+          // than edited. A loupe over the game everywhere is the worse trade.
+          textInteractionEnabled={false}
           // Kill WKWebView's input accessory bar (the ▲▼/done strip above the
           // keyboard) — on a landscape phone it eats a third of the little
           // space the keyboard leaves, and a typed seed has nothing to

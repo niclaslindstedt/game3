@@ -18,16 +18,17 @@ See [`docs/platforms.md`](../docs/platforms.md) for where this sits.
 
 ## What the shell actually does
 
-Everything else is the website. The shell is five things a browser tab cannot
+Everything else is the website. The shell is six things a browser tab cannot
 give a phone:
 
-| The thing                | Where it lives                                         | Why the website cannot do it                                                                                                                               |
-| ------------------------ | ------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| The game, on-device      | `src/local-server.ts`                                  | `assets/webroot.zip` unzipped once per bundle and served from a fixed loopback port, so the origin — and the stored settings on it — survives every launch |
-| Sound through the ringer | `App.tsx` (`setAudioModeAsync`)                        | iOS silences a WebView's WebAudio on the ringer switch; a game should sound like a game                                                                    |
-| The sea in the hands     | `src/injected.ts` → `src/rumble.ts` → `src/haptics.ts` | a WKWebView has no Vibration API at all, and the phone under it has the best haptics the game will ever run on                                             |
-| Off-site links           | `src/navigation.ts`                                    | there is no address bar and no back button, so a link out would replace the game with a page the rider cannot leave                                        |
-| The phone's own shutter  | `src/screen-capture.ts` → `src/injected.ts`            | a screenshot taken with the hardware buttons is invisible to the page, so only the shell can press the game's shutter and file the picture in the gallery  |
+| The thing                | Where it lives                                         | Why the website cannot do it                                                                                                                                                                                                                                          |
+| ------------------------ | ------------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| The game, on-device      | `src/local-server.ts`                                  | `assets/webroot.zip` unzipped once per bundle and served from a fixed loopback port, so the origin — and the stored settings on it — survives every launch                                                                                                            |
+| Sound through the ringer | `App.tsx` (`setAudioModeAsync`)                        | iOS silences a WebView's WebAudio on the ringer switch; a game should sound like a game                                                                                                                                                                               |
+| The sea in the hands     | `src/injected.ts` → `src/rumble.ts` → `src/haptics.ts` | a WKWebView has no Vibration API at all, and the phone under it has the best haptics the game will ever run on                                                                                                                                                        |
+| Off-site links           | `src/navigation.ts`                                    | there is no address bar and no back button, so a link out would replace the game with a page the rider cannot leave                                                                                                                                                   |
+| The phone's own shutter  | `src/screen-capture.ts` → `src/injected.ts`            | a screenshot taken with the hardware buttons is invisible to the page, so only the shell can press the game's shutter and file the picture in the gallery                                                                                                             |
+| No caret loupe           | `App.tsx` (`textInteractionEnabled={false}`)           | the magnifier a double tap or a press-and-hold puts over the water is a UIKit gesture recognized before the page is consulted, so the website's `user-select: none` cannot reach it — the cost is that the seed field types but cannot have a caret placed mid-number |
 
 ### The haptics bridge, end to end
 
