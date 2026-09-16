@@ -23,29 +23,25 @@
 // forward a row at a time until every slot floats — a run-up ten metres
 // shorter is a run-up; a rival stood on the beach is a race with ten in it.
 //
-// HULL AGAINST HULL is a contact like a skerry's (`collision.ts`'s
-// `clipSolids`) with two hulls in it: each is three points along its keel
-// with a half-beam round every one, the closest pair of points is pushed
-// apart mass-weighted and given an impulse along the line between them, and
-// the offset of that point from each centre of gravity turns some of the
-// impulse into yaw — a shoulder taken off-centre swings the nose, which is
-// what makes leaning on a rival at a buoy worth doing and being leaned on
-// worth avoiding. Semi-realistic and no more: the restitution is a shell's
-// rather than a rock's, and a hull FLYING over another is not touching it.
+// HULL AGAINST HULL is `hull-contact.ts`'s: two oriented shells, resolved
+// through whichever face is the shallowest way out of the other, by a
+// sequential-impulse solver over the contacts that come back. Which END of
+// a rival you meet is the whole of it — a flank stops you and lines the two
+// of you up, a transom met with the bow down drives her nose under, two
+// bows shoulder each other outward — and this file only says which pairs
+// are asked and whose contact earns an event.
 //
 // Nothing here draws, nothing here is random past the one deal at the grid,
 // and a rival's own events stay on its own run — the player's list carries
 // only the contacts that were his (`bump`).
 
-import { rotate, unrotate } from "../lib/quat.ts";
 import { sampleField } from "../lib/heightfield.ts";
 import { botInput } from "../sim/bot.ts";
 import type { Level } from "../mapgen/types.ts";
 import { solidNear } from "./collision.ts";
 import { freshProgress, standCraft } from "./course.ts";
 import { RACE } from "./defs/modes.ts";
-import { TUNING } from "./defs/tuning.ts";
-import { inertia } from "./hull.ts";
+import { clipHulls } from "./hull-contact.ts";
 import { stepRun } from "./run.ts";
 import { NEUTRAL_INPUT, type CraftState, type GameEvent, type GameState } from "./state.ts";
 import { freshTricks } from "./tricks.ts";
@@ -170,88 +166,6 @@ export function stepRivals(state: GameState): void {
   }
 }
 
-/** The three keel points a hull is resolved at, world frame: stern, middle,
- * bow, at the keel's height. Written into `out`, allocated once. */
-const KEEL = [-0.8, 0, 0.8] as const;
-const pa = { x: 0, y: 0, z: 0 };
-const pb = { x: 0, y: 0, z: 0 };
-
-function keelPoint(c: CraftState, k: number, out: { x: number; y: number; z: number }): void {
-  const fwd = rotate(c.q, { x: 0, y: 0, z: 1 });
-  const along = (c.spec.length / 2) * KEEL[k];
-  out.x = c.x + fwd.x * along;
-  out.y = c.y - c.spec.cog.y;
-  out.z = c.z + fwd.z * along;
-}
-
-/** Resolve one pair of hulls, and say whether they met hard enough to be
- * an event: the closing speed, m/s, or 0. */
-function clipPair(a: CraftState, b: CraftState): number {
-  const ra = (a.spec.beam / 2) * TUNING.contact.hullRadius;
-  const rb = (b.spec.beam / 2) * TUNING.contact.hullRadius;
-  const reach = ra + rb;
-  // A quick reject on the centres: two hulls further apart than a length
-  // and a half cannot touch at any point along either keel.
-  if (Math.hypot(a.x - b.x, a.z - b.z) > reach + (a.spec.length + b.spec.length) / 2) return 0;
-  if (Math.abs(a.y - b.y) > RACE.bumpClearance) return 0;
-  let best = Infinity;
-  let bi = -1;
-  let bj = -1;
-  for (let i = 0; i < KEEL.length; i++) {
-    keelPoint(a, i, pa);
-    for (let j = 0; j < KEEL.length; j++) {
-      keelPoint(b, j, pb);
-      const d = Math.hypot(pb.x - pa.x, pb.z - pa.z);
-      if (d < best) {
-        best = d;
-        bi = i;
-        bj = j;
-      }
-    }
-  }
-  if (best >= reach) return 0;
-  keelPoint(a, bi, pa);
-  keelPoint(b, bj, pb);
-  const nx = best > 1e-6 ? (pb.x - pa.x) / best : Math.cos(a.heading);
-  const nz = best > 1e-6 ? (pb.z - pa.z) / best : -Math.sin(a.heading);
-  const ma = a.spec.mass + a.spec.riderMass;
-  const mb = b.spec.mass + b.spec.riderMass;
-  // Apart, each by the other's share of the overlap.
-  const overlap = reach - best;
-  a.x -= (nx * overlap * mb) / (ma + mb);
-  a.z -= (nz * overlap * mb) / (ma + mb);
-  b.x += (nx * overlap * ma) / (ma + mb);
-  b.z += (nz * overlap * ma) / (ma + mb);
-  // The impulse along the normal, on the closing speed alone; the sliding
-  // speed is kept less the barge's toll.
-  const closing = (a.vx - b.vx) * nx + (a.vz - b.vz) * nz;
-  if (closing <= 0) return 0;
-  const j = ((1 + B.restitution) * closing) / (1 / ma + 1 / mb);
-  const scrub = (c: CraftState): void => {
-    const vn = c.vx * nx + c.vz * nz;
-    const tx = c.vx - vn * nx;
-    const tz = c.vz - vn * nz;
-    c.vx = vn * nx + tx * B.tangentKeep;
-    c.vz = vn * nz + tz * B.tangentKeep;
-  };
-  a.vx -= (nx * j) / ma;
-  a.vz -= (nz * j) / ma;
-  b.vx += (nx * j) / mb;
-  b.vz += (nz * j) / mb;
-  scrub(a);
-  scrub(b);
-  // ...and the yaw each takes off the contact's offset from its centre of
-  // gravity, exactly as a skerry turns a hull (`clipSolids`).
-  const spin = (c: CraftState, px: number, pz: number, jx: number, jz: number): void => {
-    const rbv = unrotate(c.q, { x: px - c.x, y: 0, z: pz - c.z });
-    const jb = unrotate(c.q, { x: jx, y: 0, z: jz });
-    c.wy += (rbv.z * jb.x - rbv.x * jb.z) / inertia(c.spec).y;
-  };
-  spin(a, pa.x, pa.z, -nx * j, -nz * j);
-  spin(b, pb.x, pb.z, nx * j, nz * j);
-  return closing;
-}
-
 /** Every hull against every other, once a step, after all of them have
  * moved. The player's contacts are reported on `events` (`bump`), at most
  * once per `bump.cooldown` per hull. */
@@ -261,12 +175,12 @@ export function clipRiders(state: GameState, events: GameEvent[]): void {
   const me = state.craft;
   for (let i = 0; i < n; i++) {
     const r = state.rivals[i];
-    const closing = clipPair(me, r.run.craft);
+    const closing = clipHulls(me, r.run.craft);
     if (closing >= B.speed && me.bumpCooldown <= 0) {
       me.bumpCooldown = B.cooldown;
       events.push({ kind: "bump", t: state.t, rival: r.id, speed: closing });
     }
-    for (let k = i + 1; k < n; k++) clipPair(r.run.craft, state.rivals[k].run.craft);
+    for (let k = i + 1; k < n; k++) clipHulls(r.run.craft, state.rivals[k].run.craft);
   }
 }
 
