@@ -116,7 +116,16 @@ export {
   type FaunaPose,
 } from "./game/fauna.ts";
 export { freshDamage, type CraftDamage } from "./game/damage.ts";
-export { airPointsPerSecond, closeCombo, freshTricks, stepTricks } from "./game/tricks.ts";
+export {
+  airPointsPerSecond,
+  closeCombo,
+  freshTricks,
+  stepTricks,
+  wavePointsPerSecond,
+} from "./game/tricks.ts";
+// THE WAVE UNDER THE HULL (wave-ride.ts): how big the one he is on is, how
+// far up it he is sitting, and whether that is a ride.
+export { ridingCrest, underWay, waveUnder, type WaveUnder } from "./game/wave-ride.ts";
 
 // THE SEA (water.ts): the field, the surface at a point, and the numbers
 // that describe it.

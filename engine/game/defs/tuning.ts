@@ -665,10 +665,12 @@ export const TUNING = {
    *   a 2 s jump                       172 × 1  =     172
    *   a 2 s jump with a backflip       472 × 3  =   1 417
    *   a 2 s jump with a barrel roll    472 × 3  =   1 417
-   *   a 2 s jump with both             772 × 4  =   3 089
+   *   a 2 s jump with both           1 072 × 5  =   5 360
    *   a 4 s double backflip          1 469 × 5  =   7 347
    *   a 4 s flip and a double roll   1 769 × 6  =  10 617
    *   20 s taken by the tornado      6 325 × 1  =   6 325
+   *   3 s held on the top of a wave    220 × 2  =     440
+   *   a laydown and a laydown          300 × 3  =     900
    *
    * — which is the shape the whole thing is for: a rider who goes for the
    * hard one off the same wave is paid several times over, the two axes are
@@ -676,7 +678,10 @@ export const TUNING = {
    * sea's own biggest moment still stands with the tricks rather than over
    * them. Note what the jump with no trick in it is worth: 172, and not
    * twice that — the air's own rung is only ever sold beside a trick, so
-   * the multiplier keeps meaning "he turned something". */
+   * the multiplier keeps meaning "he turned something". The two moments
+   * that never leave the water sit at the bottom of the ladder on purpose:
+   * they are what a rider strings the flights TOGETHER with, and a crest
+   * hold worth as much as a flip would be a rider who never jumps. */
   tricks: {
     /** What a second of air is worth one `airKnee` into a flight, points/s.
      * The rate rises as `log2(1 + t/airKnee)` from there, so the purse over
@@ -733,6 +738,82 @@ export const TUNING = {
      * a bow that went under a wave and popped straight back out is a
      * wave, and a hull held under for a second was held there. */
     diveElement: 1,
+    /** THE CORKSCREW — a flip and a side spin turned in the SAME flight,
+     * credited as a third element beside the two revolutions themselves
+     * (`tricks.ts`): this much base and one step of multiplier.
+     *
+     * The two axes are already paid apart, so what this prices is the
+     * COMBINATION. A rider who takes his flip off one wave and his roll off
+     * the next has done two tricks; a rider who takes them out of one wave
+     * has done the thing neither of them is. A first revolution's own
+     * figure, which puts a 2 s corked flight at about 5 400 against the
+     * 3 100 the same two turns pay apart — and under the 7 300 of a 4 s
+     * double backflip, which is the order the two belong in. */
+    corkscrewPoints: 300,
+    /** THE CREST RIDE — the hull held at the top of a wave and run ALONG
+     * it, the one thing worth points that never leaves the water. Paid by
+     * the second on the air's own curve off a lower rate
+     * (`wavePointsPerSecond`), because riding a crest is a longer moment
+     * than a flight and a quieter one: a 3 s hold is worth about 220 where
+     * three seconds of air pays 350. */
+    waveRate: 60,
+    /** The hold, s, that rate is quoted at — the air's knee, for the air's
+     * reason: it is the unit the curve above it is drawn in. */
+    waveKnee: 1,
+    /** THE SMALLEST WAVE WORTH RIDING, m crest to trough (`waveUnder`). A
+     * metre: under it the hull is crossing chop rather than standing on
+     * anything, and a rate that paid for chop would tick all the way
+     * through a head sea. */
+    waveHeight: 1,
+    /** ...and HOW FAR UP IT the hull has to be — the share of the wave's
+     * own height, 0 at the trough and 1 at the crest. Nine tenths is the
+     * top of it and nothing else: a hull crossing a sea at random sits
+     * there about a fifth of the time and cannot HOLD it, which is the
+     * whole difference between being carried over a crest and riding one.
+     *
+     * Once it IS held the share may fall back to `waveHold` before the ride
+     * is over. The band needs some depth in it or a hull hunting either
+     * side of one line would win a fresh ride every other step. */
+    waveCrest: 0.9,
+    waveHold: 0.8,
+    /** How long the crest has to be held, s, before it is an ELEMENT of the
+     * combo and buys a step of multiplier. A second, measured from both
+     * ends: what a rider who is NOT trying gets handed (the bot holds a
+     * fifth of a second at a time and tops out near 1.1 s on a four-metre
+     * sea), and what running along a crest on purpose buys (three to five
+     * seconds). Earned by riding, and never by luck. */
+    waveElement: 1,
+    /** How many samples the wave under the hull is read with, across one
+     * peak period (`waveUnder`). Nine: the crest-to-trough it returns is
+     * within a couple of centimetres of what thirty-three give, and it is
+     * asked once a step for every rider on the water. */
+    waveSamples: 9,
+    /** THE LAYDOWN — the hull laid over on its side and brought back up,
+     * the one trick a rider can turn without leaving the water or finding a
+     * wave to do it on. Worth less than a revolution because it is: the
+     * hull never passes its own beam ends and the rider never leaves the
+     * deck. */
+    laydownPoints: 150,
+    /** How far over, rad, the hull has to go for it to be one — and how
+     * level it has to come back before it is finished. Forty-five degrees
+     * is past anything a carve on flat water reaches (a hull at full lock
+     * at 20 m/s settles around twenty-two), so it is a lean thrown against
+     * a wave face or against the hull's own roll, and it stands close
+     * enough to going over that the ones which do not come back are
+     * capsizes. */
+    laydownAngle: Math.PI / 4,
+    laydownLevel: 0.26,
+    /** ...and how far over is TOO far: past this the hull is on its beam
+     * ends, and what comes back from there is a capsize saved rather than a
+     * trick turned. */
+    laydownOver: 1.4,
+    /** HOW MUCH WAY A TRICK ON THE WATER NEEDS, m/s — the crest ride's and
+     * the laydown's alike, stated once because it is one idea. A hull
+     * bobbing in a swell sits at the top of one for a second and a half and
+     * rolls forty-five degrees doing it; what separates riding from
+     * floating is that the rider is going somewhere. Six metres a second is
+     * a rider under way and nothing more than that. */
+    riding: 6,
   },
 
   /** THE HULL UNDER THE WATER — the rider's authority down there, the

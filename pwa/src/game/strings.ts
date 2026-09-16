@@ -99,23 +99,22 @@ const SPINS: Record<number, string> = { 1: "", 2: "DOUBLE ", 3: "TRIPLE ", 4: "Q
  * were turned in is AIR. The side a roll went is deliberately not in the
  * name — a rider rolling left and one rolling right have done the same
  * trick — where the direction of a flip is the whole difference between the
- * one he asked for and the one the lip gave him. */
+ * one he asked for and the one the lip gave him.
+ *
+ * The three that are not turned in the air are named for what the water did
+ * or did not do: the flight with a revolution on both axes in it is a
+ * CORKSCREW, the top of a wave held and run along is a WAVE RIDE, and the
+ * hull heeled over on its side and brought back up is a LAYDOWN. */
 const TRICK_WORDS: Record<TrickKind, string> = {
   backflip: "BACKFLIP",
   frontflip: "FRONTFLIP",
   roll: "BARREL ROLL",
   air: "AIR",
   submarine: "SUBMARINE",
+  corkscrew: "CORKSCREW",
+  wave: "WAVE RIDE",
+  laydown: "LAYDOWN",
 };
-
-/** ...and the one name that is not a name for a single element: a flight
- * with a revolution on BOTH axes in it. A flip with a roll through it is a
- * CORKSCREW, and calling it that is worth more than calling it two things —
- * it is the trick a rider goes looking for once he has both of the others,
- * and a combo line that said "BACKFLIP + BARREL ROLL" would never tell him
- * he had found it. The points and the multiplier are unchanged: the engine
- * scored two first revolutions (`tricks.ts`) and this only reads them. */
-const CORKSCREW = "CORKSCREW";
 
 /** How many revolutions of it, spelled: nothing for a single, the word for
  * a double or a triple, a figure past that. */
@@ -126,38 +125,32 @@ function turns(spins: number): string {
 /** THE COMBO AS WORDS — one name per element, in the order they were won,
  * and the one place the vocabulary is applied rather than merely listed.
  *
- * The only compound is the CORKSCREW: a flight that turned exactly one flip
- * and exactly one roll is named once, in place of both. Narrow on purpose —
- * a flight with a double in it is two harder things and reads better as
- * two, and a flip off one wave with a roll off the next is not a corkscrew
- * at all, which is what `TrickPart.flight` is carried for. Everything else
- * falls through to its own word. */
+ * One element is a compound rather than a name: the CORKSCREW stands in
+ * place of the flip and the roll it was made of, because calling it that is
+ * worth more than calling it two things — it is the trick a rider goes
+ * looking for once he has both of the others, and a line reading "BACKFLIP
+ * + BARREL ROLL + CORKSCREW" would say the same thing three times. The
+ * engine scored all three (`tricks.ts`: the two revolutions at their own
+ * index, then the combination); the line names one, carrying the deeper of
+ * the two axes' revolution counts so a double flip with a roll through it
+ * still reads as a DOUBLE CORKSCREW. Everything else falls through to its
+ * own word. */
 function namesOf(parts: readonly TrickPart[]): string[] {
   const corked = new Set<number>();
-  for (const p of parts) {
-    if (p.kind !== "roll" || p.spins !== 1) continue;
-    let flips = 0;
-    let rolls = 0;
-    let singles = 0;
-    for (const q of parts) {
-      if (q.flight !== p.flight) continue;
-      if (q.kind === "roll") rolls += 1;
-      else if (q.kind === "backflip" || q.kind === "frontflip") {
-        flips += 1;
-        if (q.spins === 1) singles += 1;
-      }
-    }
-    if (rolls === 1 && flips === 1 && singles === 1) corked.add(p.flight);
-  }
+  for (const p of parts) if (p.kind === "corkscrew") corked.add(p.flight);
   const out: string[] = [];
-  const named = new Set<number>();
   for (const p of parts) {
-    if (p.kind !== "air" && corked.has(p.flight)) {
-      if (named.has(p.flight)) continue;
-      named.add(p.flight);
-      out.push(CORKSCREW);
+    if (p.kind === "corkscrew") {
+      let deepest = 1;
+      for (const q of parts) {
+        if (q.flight === p.flight && (q.kind === "roll" || q.kind.endsWith("flip"))) {
+          deepest = Math.max(deepest, q.spins);
+        }
+      }
+      out.push(`${turns(deepest)}${TRICK_WORDS.corkscrew}`);
       continue;
     }
+    if (corked.has(p.flight) && (p.kind === "roll" || p.kind.endsWith("flip"))) continue;
     out.push(`${turns(p.spins)}${TRICK_WORDS[p.kind]}`);
   }
   return out;
