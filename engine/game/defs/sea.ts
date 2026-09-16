@@ -77,21 +77,50 @@ export const SEA = {
    * third of breaking. */
   sliceMix: 0.7,
   /** The frequency band the components are laid over, as multiples of the
-   * spectrum's peak: JONSWAP's energy sits between ~0.7 and ~2 f_p, and
-   * the tail past 2.5 f_p is too short to feel through a hull. */
+   * spectrum's peak: JONSWAP's energy sits between ~0.7 and ~2 f_p, and the
+   * tail above that is too short to feel through a hull.
+   *
+   * THE TAIL IS WHERE THE EXTRA CRESTS COME FROM, and that is why the top of
+   * the band is well under where the spectrum's energy runs out. What a rider
+   * counts is CRESTS, not energy: a component at 2.4 f_p carries a few per
+   * cent of the sea and is a sixth of the peak's length, so it puts five more
+   * crests between every pair of the peak's — and the number the ride
+   * actually answers to is the zero-crossing period Tz = √(m0/m2), whose m2
+   * is almost entirely that tail.
+   *
+   * Cutting at 2.0 leaves the PEAK and its face exactly where they were and
+   * takes the chatter out from between them. MEASURED (`make sim`): the
+   * roster's launches fall from 274 over the corpus to 194 while the air per
+   * launch RISES an eighth — what is lost is the hull being thrown off chop
+   * it never aimed at, not jumps.
+   *
+   * 2.0 AND NOT LOWER, and the floor is a feel one rather than a spectral
+   * one. The short waves are also what stuffs the bow in a following sea, and
+   * they stop doing it abruptly: over the twelve-seed corpus with the bars
+   * held fully forward, ELEVEN seeds put the hull under at 2.4, eleven at 2.0,
+   * eight at 1.85 and five at 1.7. So this sits at the last value that costs
+   * the dive nothing at all, and the extra room 1.7 would buy is two metres of
+   * crest spacing on the tightest seed — nothing, against a core sensation.
+   * `periodScale` is the dial that would buy real room, and it is dearer
+   * still; its own comment says what it costs. */
   bandLow: 0.7,
-  bandHigh: 2.4,
+  bandHigh: 2.0,
   /** ...but `bandHigh` is a multiple of the PEAK, and a big sea's peak
-   * is slow: at a twelve-second peak, 2.4 f_p is still a five-second,
-   * forty-metre wave, so a storm swell comes out with no wind chop on
+   * is slow: at a twelve-second peak, 2.0 f_p is still a six-second,
+   * fifty-metre wave, so a storm swell comes out with no wind chop on
    * it at all — a mirror the size of a hill, which is the one thing a
    * storm does not look like. The band's short end is therefore also
    * held to an ABSOLUTE shortest period, s, and the wider of the two
-   * wins: a four-second wind sea is untouched (2.4 f_p is already
+   * wins: a six-second wind sea is untouched (2.0 f_p is already
    * shorter than this), and a swell gets the chop that rides on it.
-   * The floor is what the water mesh can still draw — 2.5 s is a ten-
-   * metre wave, some six cells at the craft. */
-  minPeriod: 2.5,
+   *
+   * It moved up with `bandHigh` and for the same reason — a floor that lets
+   * a ten-metre wave in is a floor that undoes the cut on every sea whose
+   * peak is slow, which is every sea worth riding. 3.0 s is a fourteen-metre
+   * wave: still the shortest thing in the field by a good margin, still
+   * several cells of the water mesh at the craft, and no longer a crest
+   * between every pair of the real ones. */
+  minPeriod: 3.0,
   /** Directional spread half-width AT THE PEAK, radians (~26°) — a cos²
    * spread (Longuet-Higgins 1963) truncated there, DRAWN through rather
    * than weighted against (`spreadQuantile`). How CONFUSED the sea is
@@ -170,7 +199,20 @@ export const SEA = {
    * unrepeating sea (`components`) took that tenth away with it, and the
    * ride felt it: rms surface slope 4.35 % → 3.97 %, and a quarter off
    * the air a bot run turns in. The dial puts it back where the accident
-   * had it, which is where it belongs — a number somebody chose. */
+   * had it, which is where it belongs — a number somebody chose.
+   *
+   * IT IS THE BIG LEVER ON HOW FAR APART THE WAVES STAND, and it is not free.
+   * Raising it to 1.15 spread the crests on the tightest seed in the corpus
+   * from 45 m to 60 and took the encounter period from 1.4 s to 1.8 —
+   * exactly the room a flight wants to land in — and it also took away THE
+   * BOW GOING UNDER. A longer wave travels faster (c = √(gλ/2π)), so a
+   * following sea overtakes the hull more slowly and stops burying it:
+   * measured over the twelve-seed corpus with the rider holding the bars
+   * fully forward through the `following` scenario, ELEVEN seeds put the hull
+   * under at 0.95 and ONE did at 1.15. That is a core sensation for a few
+   * metres of wavelength, so the room between the waves is bought from
+   * `bandHigh` instead, which costs nothing. Do not raise this without
+   * running that probe. */
   periodScale: 0.95,
   /** THE FETCH the level's shore is stood in front of. A level is a
    * kilometre of coast, but the fetch-limited growth laws work in tens of

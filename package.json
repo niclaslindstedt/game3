@@ -2,7 +2,7 @@
   "name": "game3",
   "version": "0.1.0",
   "private": true,
-  "description": "Sea Haven — a personal-watercraft racing game for the browser: generated shores, physically grounded water, playable on phone and desktop as an installable PWA.",
+  "description": "Sea Haven \u2014 a personal-watercraft racing game for the browser: generated shores, physically grounded water, playable on phone and desktop as an installable PWA.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Niclas Lindstedt <niclas@agilator.se>",
   "type": "module",
@@ -45,7 +45,8 @@
     "native:typecheck": "npm --prefix native run typecheck",
     "native:ios": "npm --prefix native run ios",
     "native:ios:device": "npm --prefix native run ios:device",
-    "native:android": "npm --prefix native run android"
+    "native:android": "npm --prefix native run android",
+    "surf": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/surf-lab.mjs"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

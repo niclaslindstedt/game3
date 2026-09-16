@@ -30,6 +30,7 @@ at both ends of the session and **`write-code`** beside this one.
 | --- | --- |
 | `pwa/src/game/water-grid.ts` | THE LATTICE: a fine core round the craft and nested square rings each of twice the cell, every ring dividing the coarsest, so snapping the grid's origin to the coarsest cell keeps every vertex on the world point it sampled last frame. `tests/water_grid_test.ts` holds the seams, the winding and the snap |
 | `pwa/src/game/water-mesh.ts` | THE WATER, DRAWN: the near grid displaced by `surfaceAt` at the frame's `t`, only inside the lens's frustum; the FAR grid summing only the longest components, with a hole under the near one and sunk under it; the fade between them; the colour per vertex by depth off the coast's optics; the FOAM SHARE in the colour's alpha where a crest breaks or the shallows shoal, and WHITECAPS past `WHITECAP_WIND`; `seeThrough()` — how far a rider can see into the water, 0 when the window is closed |
+| `pwa/src/game/water-break.ts` | WHERE THE SEA GOES WHITE, three-free: the SURF the bed trips (read off the depth load `Hs / (breakingHs·d)`, never a depth in metres), the CREST that spills in deep water, and the CAPS the wind blows off — kept apart, because they are not the same thing and the wind band is the only one that tells a coast from a gale. The mesh sows it, `make surf` draws it, `tests/water_break_test.ts` holds it |
 | `pwa/src/game/water-shader.ts` | HOW THE WATER IS LIT, per pixel: the body under the two lights and the light through a crest, Schlick's Fresnel on the WAVE's normal against `skyAlong`, the shore's mirror laid over it, the rain's rings, ONE Beckmann glint lobe over Cox and Munk's slope variance, the ripple tile scrolled downwind and faded with distance, the lamp's pool, the foam's lace, the wake's map read per vertex and per pixel. `tests/water_shader_test.ts` holds the uniform contract |
 | `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF: three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are written against. The app half of a biome row; `tests/water_optics_test.ts` holds the two lists to each other |
 | `pwa/src/game/reflection.ts` | WHAT THE WATER MIRRORS BESIDES THE SKY: the scene drawn once a frame from the lens's mirror image in the water plane, Lengyel's oblique near plane so nothing under the surface is drawn, into a small texture the shader lays over the analytic sky wherever it has a picture. The WATER row's; OFF is no pass |
@@ -47,6 +48,7 @@ make build
 CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=cruise      # the body and the mirror
 make screenshots SCENE=swell                                                # the faces and the crests
 make screenshots SCENE=storm ARGS="--hs 20"                                 # the foam and the whitecaps
+make surf SEED=38 ARGS="--reach 3500"                                       # …and WHERE the white is, as numbers
 make screenshots SCENE=cruise HOUR=20.5 WEATHER=clear                       # the glint's road, the lamp
 make screenshots SCENE=cruise WEATHER=squall                                # the mirror under a lid
 make screenshots SCENE=cruise ARGS="--see 0"  # beside --see 1: the window closed and open
@@ -119,11 +121,27 @@ the dearest fill.
   animals haze over the same scale (`fauna.ts`), and the window merely
   thickens over the same reach — one sea, not three settings.
 - **Foam is lace, not paint, and prove the white is foam first.** The
-  breaking term is gated to the CREST; the whitecap gate sits at a quarter to
-  a half of Hs (Hs is four sigma, so a gate at 0.75·Hs caps nothing); judge
-  the height against the sea HERE (`seaShares`), not the level's headline.
-  The tile is read in wind space, stretched downwind, and the darkest holes
-  stay open on the water at full share.
+  breaking term is gated to the CREST; judge the height against the sea HERE
+  (`seaShares`), not the level's headline. The tile is read in wind space,
+  stretched downwind, and the darkest holes stay open on the water at full
+  share.
+- **THE WHITE BELONGS WHERE THE BED IS, and `make surf` is what says whether
+  it is there.** Three terms put white on a sea and only one of them is the
+  big one: the SURF, where the bed has come up under the wave and it falls
+  over. Whitecaps are a scatter at any wind a level is dealt (Monahan &
+  O'Muircheartaigh: about 1 % of the surface at 10 m/s) and the surf off a
+  beach is continuous. Getting the two the wrong way round is not subtle and
+  it is not visible from one screenshot either: it shipped for months as a
+  five-per-cent-white open sea with a clean beach in front of it, which reads
+  as "the water is a bit busy" rather than as a rule being backwards.
+  Panel D of `make surf` draws the three apart; measure before you tune, and
+  measure `ARGS="--reach 3500"` too, because a rule tuned only on the coast is
+  a rule nobody checked in the storm.
+- **A depth in metres is a bug in a foam rule.** A sea's own height decides
+  where it trips, and the engine already states the ceiling a depth can hold
+  (`TUNING.sea.breakingHs`·d). Read the load against that and the surf line
+  follows every sea and every bed for free; write `smoothstep(2.2, 0.3,
+  depth)` and it fires on the beach and nowhere a rider goes.
 - **A TILE IS BUILT FROM A SPECTRUM, NOT FROM A LIST OF WAVES, and it must
   wrap.** A handful of directional sines is a handful of directional sines:
   the two with the most amplitude cross into a regular lattice, and a lattice

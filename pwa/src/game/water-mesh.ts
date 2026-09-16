@@ -57,12 +57,11 @@
 // and WHICH colours, and how see-through the surface is over them, is the
 // COAST's (`water-optics.ts`, keyed off `level.biome`): the shallows teal,
 // the deep dark blue, a crest lifted and a trough sunk;
-// and a FOAM SHARE in the colour's alpha where the surface is steep or the
-// water is shallow enough to break — the breaking itself is the engine's
-// clip (`TUNING.sea.breakingRatio`), and the tint reads its symptoms rather
-// than restating the rule — and WHITECAPS on the crests once the wind THIS
-// WATER FEELS is fresh enough to blow them: the top of a wave standing
-// higher than most, on its steep face, in a wind past `WHITECAP_WIND`.
+// and a FOAM SHARE in the colour's alpha, which is `water-break.ts`'s rule
+// asked per vertex: the SURF where the bed has come up under the sea, the top
+// of a steep wave spilling in deep water, and the WHITECAPS the wind blows
+// off the tops. The rule lives in its own three-free module so this loop, the
+// surf lab and the tests all read one statement of it.
 //
 // THAT SHARE IS WHAT IS BREAKING NOW, AND IT IS NOT THE FOAM. Every term
 // above is read off the surface at this instant, and a world point stands
@@ -104,6 +103,7 @@ import {
 } from "./settings-video.ts";
 import { type SkyUniforms } from "./sky-glsl.ts";
 import { seaMirror, type Preset } from "./sky.ts";
+import { breakBands, breakingParts, type BreakBands, type BreakParts } from "./water-break.ts";
 import { applyWell } from "./water-cut.ts";
 import { layWaterGrid, snapOrigin, waterReach } from "./water-grid.ts";
 import { seaTone, seaTones, seaWindow, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
@@ -233,52 +233,6 @@ const MIRROR = c(PALETTE.skyHigh);
 const CREST_SHARE = 0.55;
 const CREST_MIN = 0.25;
 const CREST_TINT = 0.18;
-/** THE TILT BANDS ARE RELATIVE TO THE SEA THEY ARE READ IN. A tilt
- * (1 − n_y) of 0.09 is the surface standing at Michell's breaking
- * steepness, so as an ABSOLUTE threshold it is the right place to foam a
- * wind sea — whose crests only just reach it. But a big quoted swell is
- * steep over its whole face by construction, and an absolute band paints
- * every one of its vertices white: a twenty-metre sea comes out a
- * snowfield with a jet ski on it. So each band below is held against the
- * SEA'S OWN characteristic tilt as well — the tilt of a sinusoid of its
- * significant height at its peak wavelength — and the wider of the two
- * wins. A gentle sea is unchanged (its own tilt puts the relative band
- * back at the absolute one); a monster sea foams only where it is steep
- * FOR ITSELF. */
-const FOAM_REL_FROM = 3.5;
-const FOAM_REL_TO = 8;
-/** A STEEP FACE ALONE DOES NOT FOAM. A swell is steep over its whole face
- * and rolls in green; what goes white is the TOP going over. So the breaking
- * foam is gated to the crest — how high a vertex stands, as a share of the
- * sea's significant height, before its steepness counts — and a twenty-metre
- * sea comes out white along its crests and dark down its faces rather than
- * as a snowfield. The shallows keep their own rule: there the bed trips the
- * wave, and the whole face goes. */
-const BREAK_CREST_FROM = 0.1;
-const BREAK_CREST_TO = 0.45;
-/** WHITECAPS: the wind, m/s, they start blowing at and the wind at which
- * every crest carries one; how high a crest stands, as a share of the
- * significant height, before it caps (from a quarter — the ordinary crest,
- * one standard deviation of a sea whose Hs is four — to a half, the crest
- * of a significant wave; anything higher is a rare event and a rule keyed
- * to it caps nothing); and the tilt band (1 − n_y) that says the cap is on
- * the steep face.
- *
- * THE WIND IS THE ONE THIS WATER FEELS, not the level's headline: the mean
- * under the point's own `shelter` (`fetch.ts`), freshening toward the open
- * ocean's storm as the coast falls astern — `oceanWind`, the same reading
- * the sea itself is grown from. A bay in the lee of a headland is glassy
- * for exactly the reason its water is flat, and judged by the level's mean
- * it caps as readily as the open sea two kilometres out: seed 28's mean is
- * 8.6 m/s and its course is ridden in 7.4, which is a quarter of the caps
- * rather than the whole of them. */
-const WHITECAP_WIND = 7;
-const WHITECAP_WIND_FULL = 14;
-const WHITECAP_CREST = 0.25;
-const WHITECAP_CREST_FULL = 0.55;
-const WHITECAP_TILT = 0.012;
-const WHITECAP_TILT_FULL = 0.035;
-
 /** Whether a vertex at the plan point, within `margin` m of the still water
  * in every direction, can be inside the frustum at all. A sphere test, which
  * is six plane dots — against the microsecond `surfaceAt` costs, close to
@@ -557,18 +511,20 @@ export function createWaterMesh(
    * the sea would end in a lip rather than in the far swell. */
   const fadeReach = grid.reach - grid.snap / 2;
 
-  /** THE BANDS THIS SEA BREAKS AT, worked out once a frame and read by every
-   * vertex: the two tilt bands (the breaking one and the whitecaps'), and
-   * how much of the open ocean's storm stands over the craft. */
-  let foamFrom = 0.04;
-  let foamTo = 0.09;
-  let capTiltFrom = WHITECAP_TILT;
-  let capTiltTo = WHITECAP_TILT_FULL;
+  /** THE BANDS THIS SEA BREAKS AT (`water-break.ts`), worked out once a frame
+   * and read by every vertex, and how much of the open ocean's storm stands
+   * over the craft. */
+  let bands: BreakBands = breakBands(0, 1, 0, 1);
   let stormHere = 0;
+  /** ...and where `breakingParts` writes which of the three put the white
+   * there. One object for the whole grid: the read is per vertex and the
+   * parts are only ever consumed before the next call. */
+  const parts: BreakParts = { crest: 0, shoal: 0, cap: 0 };
 
-  /** WHAT IS BREAKING at a plan point, off a surface already sampled there:
-   * the steep crests, the shallows the bed trips, and the whitecaps the
-   * wind blows off the tops. This is what is sown into the foam field — the
+  /** WHAT IS BREAKING at a plan point, off a surface already sampled there.
+   * The RULE is `water-break.ts`'s — the steep crests, the shallows the bed
+   * trips, the whitecaps the wind blows off the tops; what is here is the
+   * SAMPLING it needs. This is what is sown into the foam field — the
    * INSTANT, never the foam, which is the field's answer.
    *
    * It is a reading and not a loop of its own so the priming pass below can
@@ -580,7 +536,6 @@ export function createWaterMesh(
     depth: number,
     s: SurfaceSample,
   ): number => {
-    const tilt = 1 - s.ny;
     // How high a crest stands HERE is judged against the sea that runs
     // here — the two bands' heights by their shares at this point
     // (`seaShares`, inlined so nothing is allocated) plus the storm over
@@ -589,28 +544,12 @@ export function createWaterMesh(
     // the open sea's height its crests would never cap at all.
     const ocean = clamp(sampleField(sea.shelter.exposure, wx, wz), 0, 1);
     const local = (1 - ocean) * Math.max(0, sampleField(sea.shelter.chop, wx, wz));
-    const hsHere = Math.max(0.05, Math.hypot(sea.hsRef * ocean, sea.localHs * local, storm.Hs));
+    const hsHere = Math.hypot(sea.hsRef * ocean, sea.localHs * local, storm.Hs);
     // The whitecaps' wind is the one THIS WATER FEELS: the mean under its
     // own shelter, freshening to the storm's out past the rim.
     const lee = clamp(sampleField(sea.shelter.shelter, wx, wz), 0, 1);
-    const whitecaps = clamp(
-      (oceanWind(sea.windSpeed, lee, stormHere) - WHITECAP_WIND) /
-        (WHITECAP_WIND_FULL - WHITECAP_WIND),
-      0,
-      1,
-    );
-    const cap =
-      whitecaps *
-      smoothstep(WHITECAP_CREST * hsHere, WHITECAP_CREST_FULL * hsHere, s.height) *
-      smoothstep(capTiltFrom, capTiltTo, tilt);
-    const crestGate = smoothstep(BREAK_CREST_FROM * hsHere, BREAK_CREST_TO * hsHere, s.height);
-    return clamp(
-      smoothstep(foamFrom, foamTo, tilt) * crestGate +
-        smoothstep(2.2, 0.3, depth) * smoothstep(0.012, 0.05, tilt) +
-        cap * 0.8,
-      0,
-      1,
-    );
+    const wind = oceanWind(sea.windSpeed, lee, stormHere);
+    return breakingParts(bands, 1 - s.ny, s.height, hsHere, depth, wind, parts);
   };
 
   /** FILLING THE FIELD BEFORE THE FIRST FRAME. Foam is the last few seconds
@@ -712,20 +651,10 @@ export function createWaterMesh(
     }
     farPosAttr.needsUpdate = true;
     farNormAttr.needsUpdate = true;
-    // The sea's own characteristic tilt: a sinusoid of its significant
-    // height at its deep-water peak wavelength, at its steepest point —
-    // again the steeper of the coast's sea and the storm over it, since out
-    // past the rim it is the storm's face every band below is judging.
-    const slopeOf = (hs: number, tp: number): number => {
-      const lambda = (9.81 * tp * tp) / (2 * Math.PI);
-      return lambda > 0 ? (Math.PI * hs) / lambda : 0;
-    };
-    const seaSlope = Math.max(slopeOf(sea.hsRef, sea.tp), slopeOf(storm.Hs, storm.Tp));
-    const seaTilt = 1 - 1 / Math.hypot(1, seaSlope);
-    foamFrom = Math.max(0.04, FOAM_REL_FROM * seaTilt);
-    foamTo = Math.max(0.09, FOAM_REL_TO * seaTilt);
-    capTiltFrom = Math.max(WHITECAP_TILT, FOAM_REL_FROM * seaTilt * 0.3);
-    capTiltTo = Math.max(WHITECAP_TILT_FULL, FOAM_REL_TO * seaTilt * 0.4);
+    // The bands this sea breaks at, against the steeper of the coast's own
+    // sea and the storm over it — out past the rim it is the storm's face
+    // every one of them is judging (`water-break.ts`).
+    bands = breakBands(sea.hsRef, sea.tp, storm.Hs, storm.Tp);
     // How much of the open ocean's storm stands here — once a frame, like
     // the storm's own height above, and for the same reason.
     stormHere = stormRamp(oceanOut(sea.bounds, cx, cz));
