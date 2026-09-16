@@ -44,10 +44,10 @@ const CAGE = { waist: 0.42, leg: 0.11 };
 /** The lantern at the top, m. */
 const LAMP = { radius: 0.26, height: 0.44 };
 
-/** The paint: a buoy is YELLOW because a yellow buoy is the one thing on a
- * grey sea a rider finds without looking for it, and the band and the
- * tower are what make it read as steel rather than as a float. */
-const HULL = 0xf0b323;
+/** IJSBA GEN.4.4: red marks a left-hand rounding, yellow a right-hand one.
+ * The generator carries the side because paint is course information, not
+ * a decorative choice the renderer may improvise. */
+const HULL = { left: 0xd52b2b, right: 0xf0b323 };
 const STRIPE = 0x1c1a17;
 const TOWER = 0x9aa2a6;
 /** The lens, unlit and lit. A lamp's glass is dark amber with nothing
@@ -108,6 +108,7 @@ type Lit = {
    * fires, which is what stops a flash reading as a light floating free of
    * anything. */
   readonly paint: THREE.MeshLambertMaterial;
+  readonly paintGlow: THREE.Color;
   readonly lens: THREE.MeshBasicMaterial;
   readonly glow: THREE.SpriteMaterial;
   readonly bloom: THREE.Sprite;
@@ -128,7 +129,7 @@ const lensColour = new THREE.Color();
 const dark = new THREE.Color(GLASS);
 const bright = new THREE.Color(LENS);
 /** What the flash puts back into the can's own paint. */
-const GLOW = new THREE.Color(0x4a3410);
+const GLOW = { left: new THREE.Color(0x4a1111), right: new THREE.Color(0x4a3410) };
 
 function flat(colour: number): THREE.MeshLambertMaterial {
   return new THREE.MeshLambertMaterial({ color: colour, flatShading: true });
@@ -141,7 +142,8 @@ function build(solid: Solid): Lit {
   group.position.set(solid.x, 0, solid.z);
   const r = solid.r;
 
-  const paint = flat(HULL);
+  const side = solid.rounding ?? "right";
+  const paint = flat(HULL[side]);
   const can = new THREE.Mesh(
     new THREE.CylinderGeometry(r * 0.94, r, CAN.over + CAN.under, 12, 1),
     paint,
@@ -225,6 +227,7 @@ function build(solid: Solid): Lit {
     solid,
     group,
     paint,
+    paintGlow: GLOW[side],
     lens,
     glow,
     bloom,
@@ -306,7 +309,7 @@ export function createBuoys(level: Level): Buoys {
       // The can under the lantern, lit by it: a lamp that throws a pool on
       // the sea and leaves the steel it stands on black reads as a light
       // painted on the night rather than as a buoy.
-      b.paint.emissive.setRGB(GLOW.r * glare, GLOW.g * glare, GLOW.b * glare);
+      b.paint.emissive.setRGB(b.paintGlow.r * glare, b.paintGlow.g * glare, b.paintGlow.b * glare);
       b.glow.opacity = glare * 0.95;
       // What the SEA gets: the lantern where it is riding this wave, and
       // the flash it is throwing, with the standing glow under it so the

@@ -70,6 +70,29 @@ describe("solids", () => {
     expect(hits.length).toBeLessThan(6);
   });
 
+  it("clipping a rounding buoy costs speed", () => {
+    const level = {
+      ...LEVEL,
+      solids: [
+        {
+          id: "B1",
+          kind: "buoy" as const,
+          x: 250,
+          z: 75,
+          r: 1.5,
+          top: 4,
+          rounding: "left" as const,
+          light: { flashes: 1, period: 5, phase: 0 },
+        },
+      ],
+    };
+    const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+    placeRun(state, { x: 230, z: 75, heading: Math.PI / 2, speed: 12 });
+    const events = ride(state, 2, COAST);
+    expect(events.some((event) => event.kind === "hit" && event.solid === "B1")).toBe(true);
+    expect(state.craft.speed).toBeLessThan(6);
+  });
+
   it("a reef the keel clears is passed over", () => {
     const reef = syntheticLevel({ windSpeed: 0 });
     const level = {

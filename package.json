@@ -25,6 +25,8 @@
     "sim": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/simulate-run.mjs",
     "level": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/level-map.mjs",
     "analyze": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/analyze-level.mjs",
+    "score": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/score-course.mjs",
+    "course": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/course-map.mjs",
     "waves": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/waves-lab.mjs",
     "ride": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/ride-lab.mjs",
     "crafts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/craft-preview.mjs",

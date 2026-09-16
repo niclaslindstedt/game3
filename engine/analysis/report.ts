@@ -11,7 +11,7 @@ import type { Band } from "../mapgen/rules.ts";
 export type Severity = "error" | "warn";
 
 export type Finding = {
-  /** The rule it is about, `R1`…`R17`. */
+  /** The rule it is about, `R1`… or the external rule family it names. */
   rule: string;
   /** `<rule>.<check>` — stable, so a fix can be pointed at one string. */
   code: string;

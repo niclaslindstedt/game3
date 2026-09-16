@@ -34,6 +34,31 @@ import type { Level } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";
 import { bandText, fmt, type Report } from "./report.ts";
 
+/** Which side of the ridden line a mark stands on at its nearest segment.
+ * Heading 0 is +z, so a positive plan cross-product is rider-left. */
+function roundingSide(path: readonly { x: number; z: number }[], mark: { x: number; z: number }) {
+  let best = Infinity;
+  let side: "left" | "right" = "right";
+  for (let i = 0; i + 1 < path.length; i++) {
+    const a = path[i];
+    const b = path[i + 1];
+    const dx = b.x - a.x;
+    const dz = b.z - a.z;
+    const length2 = dx * dx + dz * dz;
+    const t =
+      length2 > 0
+        ? Math.max(0, Math.min(1, ((mark.x - a.x) * dx + (mark.z - a.z) * dz) / length2))
+        : 0;
+    const qx = a.x + dx * t;
+    const qz = a.z + dz * t;
+    const distance2 = (mark.x - qx) ** 2 + (mark.z - qz) ** 2;
+    if (distance2 >= best) continue;
+    best = distance2;
+    side = dx * (mark.z - qz) - dz * (mark.x - qx) >= 0 ? "left" : "right";
+  }
+  return side;
+}
+
 /** R29, R30, R31 — every check a circuit owes, and nothing a coast level
  * would recognise. Returns how far out the lap's furthest station stands,
  * which is a circuit's headline number the way the ocean leg's reach is a
@@ -130,7 +155,7 @@ export function analyzeCircuit(level: Level, rep: Report): number {
       const a = course.gates[i];
       const b = course.gates[i + lapGates];
       const off = Math.hypot(a.x - b.x, a.z - b.z);
-      if (off > A.distance || a.kind !== b.kind) {
+      if (off > A.distance || a.kind !== b.kind || a.rounding !== b.rounding || a.mark !== b.mark) {
         rep.fail("R30", "lap", `${b.id} is ${fmt(off)} m from ${a.id}, a lap earlier`, {
           at: b,
           value: off,
@@ -161,10 +186,19 @@ export function analyzeCircuit(level: Level, rep: Report): number {
 
   // ── R31 — the lap is ridden round lit buoys ─────────────────────────
   const marks = level.solids.filter((s) => s.kind === "buoy");
+  const lapSlaloms = course.gates.slice(0, lapGates).filter((gate) => gate.kind === "slalom");
   if (!withinBand(marks.length, C.mark.count)) {
     rep.fail("R31", "count", `${marks.length} buoys (band ${bandText(C.mark.count)})`, {
       value: marks.length,
     });
+  }
+  if (lapSlaloms.length !== marks.length) {
+    rep.fail(
+      "R31",
+      "checkpoints",
+      `${marks.length} rounding buoys but ${lapSlaloms.length} single-buoy checkpoints in one lap`,
+      { value: lapSlaloms.length },
+    );
   }
   // …and one of them is OUT THERE. This is the half of R31 that makes the
   // lap an out-and-back: a lap whose every buoy stands in the shallows is a
@@ -225,7 +259,46 @@ export function analyzeCircuit(level: Level, rep: Report): number {
     return true;
   });
   for (const mark of marks) {
+    const checkpoint = lapSlaloms.find((gate) => gate.mark === mark.id);
+    if (
+      !checkpoint ||
+      Math.hypot(checkpoint.x - mark.x, checkpoint.z - mark.z) > A.distance ||
+      checkpoint.rounding !== mark.rounding
+    ) {
+      rep.fail(
+        "R31",
+        "checkpoint",
+        `${mark.id} is not the matching ${mark.rounding ?? "unsided"} single-buoy checkpoint`,
+        { at: mark },
+      );
+    }
     const round = roundingAbout(oneLap, mark, C.mark.near);
+    if (!withinBand(checkpoint?.standoff ?? 0, C.mark.ideal, A.circuit.stand)) {
+      rep.fail(
+        "R31",
+        "standoff",
+        `${checkpoint?.id ?? mark.id} aims ${fmt(checkpoint?.standoff ?? 0)} m from ${mark.id} (band ${bandText(C.mark.ideal)} m)`,
+        { at: checkpoint ?? mark, value: checkpoint?.standoff ?? 0 },
+      );
+    }
+    if (round.stand - C.mark.pass < C.mark.detour - A.circuit.stand) {
+      rep.fail(
+        "R31",
+        "detour",
+        `${mark.id}'s legal side stops ${fmt(round.stand - C.mark.pass)} m short of the natural line (rule ${C.mark.detour} m)`,
+        { at: mark, value: round.stand - C.mark.pass },
+      );
+    }
+    const naturalSide = roundingSide(oneLap, mark);
+    const expectedSide = naturalSide === "left" ? "right" : "left";
+    if (mark.rounding !== expectedSide) {
+      rep.fail(
+        "R31",
+        "side",
+        `${mark.id} stands ${naturalSide} of the natural line but is marked ${mark.rounding ?? "with no side"}; an outside buoy must be kept on the opposite side`,
+        { at: mark },
+      );
+    }
     if (!withinBand(round.stand, C.mark.stand, A.circuit.stand)) {
       rep.fail(
         "R31",
@@ -235,22 +308,15 @@ export function analyzeCircuit(level: Level, rep: Report): number {
       );
     }
     // A closed lap winds a full turn about everything INSIDE it and nothing
-    // about anything outside, so this is where a mark parked on the wrong
-    // side of the line is caught.
-    if (Math.abs(round.winding) < Math.PI * 2 - A.circuit.winding) {
+    // about anything outside. The mark must be outside so its checkpoint
+    // pulls the rider away from the natural bend instead of rewarding the
+    // line they were already riding.
+    if (Math.abs(round.winding) > A.circuit.winding) {
       rep.fail(
         "R31",
-        "outside",
-        `the lap does not enclose ${mark.id} (it winds ${fmt((Math.abs(round.winding) * 180) / Math.PI)}° about it)`,
+        "inside",
+        `the natural lap encloses ${mark.id} (it winds ${fmt((Math.abs(round.winding) * 180) / Math.PI)}° about it)`,
         { at: mark, value: Math.abs(round.winding) },
-      );
-    }
-    if (round.sweep < C.mark.wrap - A.circuit.wrap) {
-      rep.fail(
-        "R31",
-        "round",
-        `the line swings ${fmt((round.sweep * 180) / Math.PI)}° about ${mark.id} at its own range (rule ${fmt((C.mark.wrap * 180) / Math.PI)}°)`,
-        { at: mark, value: round.sweep },
       );
     }
   }

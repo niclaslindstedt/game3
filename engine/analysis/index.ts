@@ -31,6 +31,7 @@ import { angleDiff } from "../lib/math.ts";
 import { DECLINATION, daylightWindow } from "../lib/solar.ts";
 import { faunaById } from "../game/defs/fauna.ts";
 import { createShelter } from "../game/fetch.ts";
+import { gatePassPoint } from "../game/course.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
 import { podClearance, walkPod } from "../mapgen/fauna.ts";
 import {
@@ -47,6 +48,7 @@ import type { Level, Pod, Vec2, Weather } from "../mapgen/types.ts";
 import { analyzeAirGate, analyzeRunUp, analyzeTrickField } from "./air.ts";
 import { analyzeCircuit, analyzeCircuitTurn } from "./circuit.ts";
 import { ANALYSIS as A } from "./budgets.ts";
+import { CLOSED_COURSE_FLOOR, scoreClosedCourse, type ClosedCourseScore } from "./closed-course.ts";
 import {
   analyzeCharacter,
   analyzeShore,
@@ -58,13 +60,17 @@ import { analyzeOceanLeg, analyzeRiver, oceanRun } from "./reach.ts";
 import { createReport, bandText, fmt, type Finding, type Report } from "./report.ts";
 
 export { ANALYSIS } from "./budgets.ts";
+export { CLOSED_COURSE_FLOOR } from "./closed-course.ts";
 export { oceanRun, type OceanRun } from "./reach.ts";
+export type { ClosedCourseScore, CourseCheck, CourseMetric } from "./closed-course.ts";
 export type { Finding, Severity } from "./report.ts";
 
 export type LevelAnalysis = {
   seed: number;
   ok: boolean;
   findings: Finding[];
+  /** IJSBA-grounded course-quality score, only for a closed circuit. */
+  closedCourse?: ClosedCourseScore;
   /** Numbers worth reading even when nothing is wrong. */
   stats: {
     gates: number;
@@ -298,12 +304,22 @@ export function analyzeLevel(level: Level): LevelAnalysis {
     gateD.push(distanceAlong(path, cum, gate.x, gate.z, gateD[gateD.length - 1] ?? 0));
   }
   for (let i = 1; i < gates.length; i++) {
-    const spacing = gateD[i] - gateD[i - 1];
-    if (!withinBand(spacing, R.gate.spacing, A.distance)) {
+    const previous = gates[i - 1];
+    const current = gates[i];
+    const spacing =
+      previous.kind === "slalom" || current.kind === "slalom"
+        ? Math.hypot(
+            gatePassPoint(current).x - gatePassPoint(previous).x,
+            gatePassPoint(current).z - gatePassPoint(previous).z,
+          )
+        : gateD[i] - gateD[i - 1];
+    const spacingBand =
+      previous.kind === "slalom" || current.kind === "slalom" ? R.circuit.mark.leg : R.gate.spacing;
+    if (!withinBand(spacing, spacingBand, A.distance)) {
       rep.fail(
         "R4",
         "spacing",
-        `${gates[i - 1].id}→${gates[i].id} are ${fmt(spacing)} m apart (band ${bandText(R.gate.spacing)} m)`,
+        `${gates[i - 1].id}→${gates[i].id} are ${fmt(spacing)} m apart (band ${bandText(spacingBand)} m)`,
         {
           at: gates[i],
           value: spacing,
@@ -316,6 +332,14 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       rep.fail("R4", "width", `${gate.id} is ${fmt(gate.width)} m wide (rule ${R.gate.width} m)`, {
         at: gate,
       });
+    }
+    if (gate.kind === "slalom" && Math.abs(gate.width / 2 - R.circuit.mark.pass) > A.distance) {
+      rep.fail(
+        "R31",
+        "pass",
+        `${gate.id} permits ${fmt(gate.width / 2)} m from its buoy (rule ${R.circuit.mark.pass} m)`,
+        { at: gate },
+      );
     }
   }
   // R10, R30 — a sprint's band, or a circuit's whole ride.
@@ -408,10 +432,10 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // course, which has no `ramps` at all.
   analyzeTrickField(level, rep);
   for (const gate of gates) {
-    if (gate.kind === "water" && gate.ramp)
-      rep.fail("R8", "stray", `${gate.id} is a water gate with a ramp`);
-    if (gate.kind === "water" && gate.y !== 0)
-      rep.fail("R4", "afloat", `${gate.id} is a water gate at ${fmt(gate.y)} m`);
+    if (gate.kind !== "air" && gate.ramp)
+      rep.fail("R8", "stray", `${gate.id} is a ${gate.kind} gate with a ramp`);
+    if (gate.kind !== "air" && gate.y !== 0)
+      rep.fail("R4", "afloat", `${gate.id} is a ${gate.kind} gate at ${fmt(gate.y)} m`);
   }
 
   // ── R12, R13 — the conditions ───────────────────────────────────────
@@ -551,13 +575,35 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // ── R17 — the rocks themselves ──────────────────────────────────────
   for (const s of level.solids) analyzeSolid(level, s, offshoreAt, depthAt, rep);
 
-  const findings = [...rep.findings].sort((a, b) =>
+  let findings = [...rep.findings].sort((a, b) =>
     a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1,
   );
+  const closedCourse = circuit
+    ? scoreClosedCourse(level, {
+        findings,
+        minDepth,
+        minClearance,
+        radius: winding.radius,
+        corner: winding.corner,
+        turn: winding.turn,
+      })
+    : undefined;
+  if (closedCourse && closedCourse.score < CLOSED_COURSE_FLOOR) {
+    rep.fail(
+      "IJSBA",
+      "score",
+      `the closed course scores ${fmt(closedCourse.score)}% (floor ${CLOSED_COURSE_FLOOR}%)`,
+      { value: closedCourse.score },
+    );
+    findings = [...rep.findings].sort((a, b) =>
+      a.severity === b.severity ? 0 : a.severity === "error" ? -1 : 1,
+    );
+  }
   return {
     seed: level.seed,
     ok: !findings.some((f) => f.severity === "error"),
     findings,
+    closedCourse,
     stats: {
       gates: gates.length,
       airGates: air.length,
@@ -766,19 +812,24 @@ function analyzeCorners(level: Level, circuit: boolean, rep: Report): number {
   const n = circuit ? level.course.lapGates : gates.length;
   if (n < 3) return 0;
   const offshore = (i: number): number => sampleField(level.offshore, gates[i].x, gates[i].z);
+  const points = gates.slice(0, n).map(gatePassPoint);
   let worst = 0;
   let at: { x: number; z: number } | undefined;
   for (let i = 0; i < n; i++) {
     const before = circuit ? (i - 1 + n) % n : i - 1;
     const after = circuit ? (i + 1) % n : i + 1;
     if (before < 0 || after >= n) continue;
+    // A single-buoy checkpoint is an intentional close rounding. R34
+    // prevents accidental kinks between ordinary gates; applying it at the
+    // can would reject the time-saving turn the checkpoint exists to make.
+    if (gates[i].kind === "slalom") continue;
     if (!circuit && [before, i, after].some((k) => offshore(k) > R.course.offshore.max)) continue;
-    const h0 = Math.atan2(gates[i].x - gates[before].x, gates[i].z - gates[before].z);
-    const h1 = Math.atan2(gates[after].x - gates[i].x, gates[after].z - gates[i].z);
+    const h0 = Math.atan2(points[i].x - points[before].x, points[i].z - points[before].z);
+    const h1 = Math.atan2(points[after].x - points[i].x, points[after].z - points[i].z);
     const turn = Math.abs(angleDiff(h0, h1));
     if (turn > worst) {
       worst = turn;
-      at = { x: gates[i].x, z: gates[i].z };
+      at = points[i];
     }
   }
   if (worst > GATE_CORNER) {

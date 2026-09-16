@@ -1,8 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE COURSE — the gates in order, and what crossing one means. A WATER
 // gate is a line between two buoys, crossed by a move through it in the
-// facing direction; an AIR gate is a ring whose centre stands `y` metres
-// up, passed by a move through its disc.
+// facing direction; a SLALOM gate is one coloured buoy crossed abeam on
+// its prescribed side; an AIR gate is a ring whose centre stands `y`
+// metres up, passed by a move through its disc.
 //
 // A GATE IS REACHED BY GOING THROUGH IT AND BY NOTHING ELSE. Between the
 // buoys, or inside the ring: crossing the owed gate's plane outside its
@@ -71,14 +72,14 @@ export function crossedLine(
   const cy = y0 + (y1 - y0) * f;
   const cz = z0 + (z1 - z0) * f;
   const lateral = (cx - gate.x) * rx + (cz - gate.z) * rz;
-  return gate.kind === "water" ? { lateral, vertical: cy } : { lateral, vertical: cy - gate.y };
+  return gate.kind === "air" ? { lateral, vertical: cy - gate.y } : { lateral, vertical: cy };
 }
 
 /** How far off the gate's centre a crossing was, in the terms the gate is
  * judged by: across the line for a water gate, and out from the ring's own
  * centre for an air gate. */
 function offCentre(gate: Gate, at: { lateral: number; vertical: number }): number {
-  return gate.kind === "water" ? Math.abs(at.lateral) : Math.hypot(at.lateral, at.vertical);
+  return gate.kind === "air" ? Math.hypot(at.lateral, at.vertical) : Math.abs(at.lateral);
 }
 
 /** Whether a move from p0 to p1 went THROUGH the gate. Returns the offset
@@ -93,7 +94,26 @@ export function crossedGate(
   z1: number,
 ): { lateral: number; vertical: number } | null {
   const at = crossedLine(gate, x0, y0, z0, x1, y1, z1);
-  return at && offCentre(gate, at) <= gate.width / 2 ? at : null;
+  if (!at || offCentre(gate, at) > gate.width / 2) return null;
+  if (gate.kind !== "slalom") return at;
+  // Lateral is positive to rider-right. A buoy the rider KEEPS on the
+  // left is therefore crossed to its right, and vice versa. Zero is the
+  // can itself: neither side, and a collision in the contact model.
+  if (!gate.rounding) return null;
+  const correctSide = gate.rounding === "left" ? at.lateral > 0 : at.lateral < 0;
+  return correctSide ? at : null;
+}
+
+/** The point a rider aims through. Paired and air gates use their centre;
+ * a single-buoy checkpoint uses the ideal standoff on its legal side. */
+export function gatePassPoint(gate: Gate): { x: number; z: number } {
+  if (gate.kind !== "slalom") return { x: gate.x, z: gate.z };
+  const side = gate.rounding === "left" ? 1 : -1;
+  const standoff = gate.standoff ?? gate.width / 4;
+  return {
+    x: gate.x + Math.cos(gate.heading) * standoff * side,
+    z: gate.z - Math.sin(gate.heading) * standoff * side,
+  };
 }
 
 /** Charge a gate the rider went past. */
@@ -230,12 +250,16 @@ export function resetPose(state: GameState): {
     return { x: s.x, z: s.z, heading: s.heading, gate: -1 };
   }
   const gate = gates[last];
+  const gatePoint = gatePassPoint(gate);
+  const nextPoint = gatePassPoint(next);
   const heading =
-    p.nextGate < gates.length ? Math.atan2(next.x - gate.x, next.z - gate.z) : gate.heading;
+    p.nextGate < gates.length
+      ? Math.atan2(nextPoint.x - gatePoint.x, nextPoint.z - gatePoint.z)
+      : gate.heading;
   // Stand a little behind the line, along the gate's own facing, so the
   // line is crossed by a MOVE the next time and not by the reset itself.
-  const x = gate.x - Math.sin(gate.heading) * K.resetBack;
-  const z = gate.z - Math.cos(gate.heading) * K.resetBack;
+  const x = gatePoint.x - Math.sin(gate.heading) * K.resetBack;
+  const z = gatePoint.z - Math.cos(gate.heading) * K.resetBack;
   return { x, z, heading, gate: last };
 }
 
@@ -330,7 +354,7 @@ export function aimPoint(state: GameState): { x: number; z: number } | null {
   if (state.rules.course) {
     const gates = state.level.course.gates;
     const n = state.progress.nextGate;
-    return n >= gates.length ? null : { x: gates[n].x, z: gates[n].z };
+    return n >= gates.length ? null : gatePassPoint(gates[n]);
   }
   const fx = Math.sin(c.heading);
   const fz = Math.cos(c.heading);
@@ -357,7 +381,7 @@ export function aimPoint(state: GameState): { x: number; z: number } | null {
  * mark drops out every time the rider trims. */
 const AIM_CONE = Math.PI / 2;
 
-/** The heading from the craft to the next gate's centre, and how far off
+/** The heading from the craft to the next gate's pass point, and how far off
  * the craft's own heading that is, for the HUD's arrow and the bot. */
 export function bearingToNext(
   state: GameState,
@@ -366,11 +390,12 @@ export function bearingToNext(
   const n = state.progress.nextGate;
   if (n >= gates.length) return null;
   const g = gates[n];
+  const target = gatePassPoint(g);
   const c = state.craft;
-  const bearing = Math.atan2(g.x - c.x, g.z - c.z);
+  const bearing = Math.atan2(target.x - c.x, target.z - c.z);
   return {
     bearing,
     error: angleDiff(c.heading, bearing),
-    distance: Math.hypot(g.x - c.x, g.z - c.z),
+    distance: Math.hypot(target.x - c.x, target.z - c.z),
   };
 }

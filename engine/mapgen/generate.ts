@@ -137,6 +137,7 @@ function markSolids(route: Route): Solid[] {
     r: mark.r,
     top: mark.top,
     ...(mark.light ? { light: { ...mark.light } } : {}),
+    ...(mark.rounding ? { rounding: mark.rounding } : {}),
   }));
 }
 

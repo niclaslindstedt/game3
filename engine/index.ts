@@ -216,6 +216,7 @@ export {
   bearingToNext,
   crossedGate,
   crossedLine,
+  gatePassPoint,
   gatesReached,
   resetPose,
   standCraft,

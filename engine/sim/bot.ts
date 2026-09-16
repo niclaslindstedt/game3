@@ -10,6 +10,7 @@
 import { angleDiff, clamp } from "../lib/math.ts";
 import { rotate } from "../lib/quat.ts";
 import { onRampDeck, solidNear } from "../game/collision.ts";
+import { gatePassPoint } from "../game/course.ts";
 import { fieldGradient, sampleField } from "../lib/heightfield.ts";
 import { TUNING } from "../game/defs/tuning.ts";
 import { topSpeedOf } from "../game/limits.ts";
@@ -157,7 +158,8 @@ export function launchSpeedFor(gate: Gate, cogY: number, topSpeed: number): numb
 }
 
 /** The point the bot aims at for the next gate: the gate's centre for a
- * water gate; for an air gate, the ramp's approach point until the craft
+ * water gate, the prescribed side of a single rounding buoy; for an air
+ * gate, the ramp's approach point until the craft
  * is nearly on it, then a point on the ramp's AXIS a little ahead of the
  * craft's own projection onto it — a pure pursuit that pulls the hull onto
  * the line, where aiming at the far end of the axis would only ever
@@ -173,8 +175,10 @@ function aimFor(
   topSpeed: number,
   profile: BotProfile,
 ): { ax: number; az: number; along: boolean; speed: number | null } {
-  if (gate.kind !== "air" || !gate.ramp)
-    return { ax: gate.x, az: gate.z, along: false, speed: null };
+  if (gate.kind !== "air" || !gate.ramp) {
+    const target = gatePassPoint(gate);
+    return { ax: target.x, az: target.z, along: false, speed: null };
+  }
   const r = gate.ramp;
   const sh = Math.sin(r.heading);
   const ch = Math.cos(r.heading);
