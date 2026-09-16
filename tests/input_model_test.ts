@@ -270,14 +270,47 @@ describe("the brake against the throttle", () => {
     expect(input.throttle).toBeGreaterThan(0);
   });
 
-  it("ramps on the key and lets go faster than it takes", () => {
+  it("ramps on the key rather than arriving whole", () => {
     const model = createInputModel();
-    const held = sampleInput(model, { ...NO_KEYS, reverse: true }, neutralTouch(), 0.05, false);
+    const held = sampleInput(model, { ...NO_KEYS, reverse: true }, neutralTouch(), DT, false);
     expect(held.reverse).toBeGreaterThan(0);
     expect(held.reverse).toBeLessThan(1);
     const rising = held.reverse;
-    const released = sampleInput(model, NO_KEYS, neutralTouch(), 0.05, false);
+    const released = sampleInput(model, NO_KEYS, neutralTouch(), DT, false);
     expect(released.reverse).toBeLessThan(rising);
+  });
+
+  it("reaches the engine's jab gate in a few steps, and falls back under it as quickly", () => {
+    // THE PAIR THE ENGINE CANNOT HOLD ON ITS OWN. `stepBucket` throws the
+    // gate's throttling half on a lever asked for past `pump.jabGate` and
+    // gives it back on one shut past `pump.jabShut` — but a key only climbs
+    // its axis at `KEY_REVERSE_ATTACK`, which lives here, so a gate the ramp
+    // cannot reach in a jab's worth of steps is a throw no keyboard rider
+    // ever earns. Neither number may move without the other.
+    const climb = (): number => {
+      const model = createInputModel();
+      for (let i = 1; i <= 240; i++) {
+        const input = sampleInput(model, { ...NO_KEYS, reverse: true }, neutralTouch(), DT, false);
+        if (input.reverse >= TUNING.pump.jabGate) return i;
+      }
+      return Infinity;
+    };
+    const fall = (): number => {
+      const model = createInputModel();
+      for (let i = 0; i < 240; i++)
+        sampleInput(model, { ...NO_KEYS, reverse: true }, neutralTouch(), DT, false);
+      for (let i = 1; i <= 240; i++) {
+        const input = sampleInput(model, NO_KEYS, neutralTouch(), DT, false);
+        if (input.reverse <= TUNING.pump.jabShut) return i;
+      }
+      return Infinity;
+    };
+    // A twelfth of a second either way: shorter than the shortest jab a
+    // rider flicks in to swing the bow off a buoy he has just missed.
+    expect(climb()).toBeLessThanOrEqual(TUNING.physicsHz / 12);
+    expect(fall()).toBeLessThanOrEqual(TUNING.physicsHz / 12);
+    // Still a ramp and not a switch — one step may never throw the gate.
+    expect(climb()).toBeGreaterThan(1);
   });
 
   it("is 0 in a neutral sample", () => {

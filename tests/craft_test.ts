@@ -11,6 +11,7 @@ import {
   TUNING,
   boostFactor,
   bucketDrag,
+  bucketNeutral,
   craftAtClass,
   craftById,
   angleDiff,
@@ -486,29 +487,82 @@ describe("the reverse bucket", () => {
     expect(r.along).toBeLessThan(r.v0);
   });
 
-  it("swings at the gate's own rate, and stows again when let go", () => {
+  /** Step `state` on `input` until `done`, and say how many steps it took.
+   * Bounded, so a rule that never fires fails the assertion rather than
+   * hanging the suite. */
+  function countSteps(state: GameState, input: CraftInput, done: () => boolean): number {
+    for (let i = 1; i <= 4 * TUNING.physicsHz; i++) {
+      step(state, input);
+      if (done()) return i;
+    }
+    return Infinity;
+  }
+
+  it("drives the throttling half on a committed ask and gears down the reversing half", () => {
     const state = createGame({ seed: 1, craft: "otter", level: STRIP, quiet: true });
-    const deploy = state.craft.spec.bucket.deploy;
+    const spec = state.craft.spec;
+    const deploy = spec.bucket.deploy;
+    const neutral = bucketNeutral(spec);
     placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 15 });
-    const BRAKE: CraftInput = {
+    const lever = (reverse: number): CraftInput => ({
       steer: 0,
       throttle: 0,
-      reverse: 1,
+      reverse,
+      lean: 0,
+      crouch: 0,
+      reset: false,
+    });
+    // THE JAB: the gate is across its own neutral inside a tenth of a
+    // second, because that half only spoils thrust and a rider placing the
+    // craft between two buoys cannot wait for it. It is a RATE and not a
+    // jump — one step is never the whole of it, or the rider's body moves
+    // in a step (`tests/rider_test.ts`).
+    step(state, lever(1));
+    expect(state.craft.bucket).toBeGreaterThan(0);
+    expect(state.craft.bucket).toBeLessThan(neutral);
+    const toNeutral = countSteps(state, lever(1), () => state.craft.bucket >= neutral);
+    expect(toNeutral).toBeLessThan(0.1 * TUNING.physicsHz);
+    // ...and then it gears down: the half that actually turns the flow
+    // takes its own share of the gate's travel.
+    const toStop = countSteps(state, lever(1), () => state.craft.bucket >= 0.999);
+    expect(toStop).toBeGreaterThan(0.5 * (1 - neutral) * deploy * TUNING.physicsHz);
+    // Shut in full, the reversing half comes back up at that same geared
+    // rate and the throttling half is given back as fast as it was taken,
+    // so the thrust arrives with the gate rather than behind it.
+    const toShut = countSteps(state, lever(0), () => state.craft.bucket <= 0);
+    expect(state.craft.bucket).toBe(0);
+    expect(toShut).toBeLessThan((deploy + 0.1) * TUNING.physicsHz);
+  });
+
+  it("swings the whole travel at the servo's rate for a lever held between the gates", () => {
+    const state = createGame({ seed: 1, craft: "otter", level: STRIP, quiet: true });
+    const spec = state.craft.spec;
+    const deploy = spec.bucket.deploy;
+    const neutral = bucketNeutral(spec);
+    placeRun(state, { x: 100, z: 400, heading: Math.PI / 2, speed: 15 });
+    // Feathered: past `jabShut`, short of `jabGate`, and deliberately asking
+    // for MORE than the neutral the throw would have handed over — so the
+    // only thing under test is whether an uncommitted hand is paid.
+    const feathered = (TUNING.pump.jabGate + neutral) / 2;
+    expect(feathered).toBeGreaterThan(neutral);
+    expect(feathered).toBeLessThan(TUNING.pump.jabGate);
+    const lever: CraftInput = {
+      steer: 0,
+      throttle: 0,
+      reverse: feathered,
       lean: 0,
       crouch: 0,
       reset: false,
     };
-    step(state, BRAKE);
-    // Not there on the first step — a gate that snapped down would be a
-    // brake with no travel in it.
+    step(state, lever);
     expect(state.craft.bucket).toBeGreaterThan(0);
     expect(state.craft.bucket).toBeLessThan(0.2);
-    for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) step(state, BRAKE);
-    expect(state.craft.bucket).toBeCloseTo(1, 3);
-    for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) {
-      step(state, { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false });
-    }
-    expect(state.craft.bucket).toBe(0);
+    for (let i = 0; i < deploy * TUNING.physicsHz + 2; i++) step(state, lever);
+    expect(state.craft.bucket).toBeCloseTo(feathered, 3);
+    // And given back at the same rate: a gate that was never driven down is
+    // never driven up either.
+    step(state, { ...lever, reverse: 0 });
+    expect(state.craft.bucket).toBeGreaterThan(0);
   });
 });
 

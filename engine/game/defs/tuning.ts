@@ -400,6 +400,49 @@ export const TUNING = {
      * what an electronic brake does and why a watercraft brakes with the
      * engine revving. */
     bucketThrottle: 0.65,
+    /** THE JAB — how much of the brake lever counts as an ask made IN
+     * FULL, 0..1, and how little counts as one shut in full. Between them
+     * the gate is being feathered and swings at its servo's rate; outside
+     * them the throttling half of its travel (shut to `bucketNeutral`) is
+     * thrown rather than swung, in whichever direction the lever went.
+     * `stepBucket` owns what that buys and why.
+     *
+     * The pair is a HYSTERESIS and not one threshold: a single gate would
+     * leave a lever parked on it arguing with the throw every step. High
+     * and low on purpose, because this is the `flight.pumpGate` bargain —
+     * only a committed hand is paid, and a rider placing the craft with
+     * half a lever still gets the servo he asked for. Sized against the
+     * touch lever's own throw (`LEVER_REVERSE_PX`, 60 px past the shut
+     * mark): 0.7 is 42 px of thumb, which is a grab, and 0.15 is 9 px,
+     * which is a hand off the glass.
+     *
+     * AND THE KEYBOARD'S RAMP HAS TO BE ABLE TO REACH THIS. A key climbs
+     * its axis at `KEY_REVERSE_ATTACK` (the app's, which the engine cannot
+     * import), so a gate raised here without quickening that ramp is a
+     * throw no keyboard rider ever earns; `tests/input_model_test.ts`
+     * reads both and holds the pair together. */
+    jabGate: 0.7,
+    jabShut: 0.15,
+    /** ...and HOW MUCH QUICKER that half then travels, as a multiple of
+     * the gate's own `deploy` rate. 2 halves the skiff's throttling half —
+     * the slowest gate on the roster — from 0.300 s to 0.150 s, which is
+     * the difference between a jab that works and one that spends itself
+     * arriving.
+     *
+     * A RATE RATHER THAN A JUMP, and THE RIDER is what bounds it rather
+     * than the pump. Every force the gate carries reaches his body, which
+     * is on springs and may not move in steps: `tests/rider_test.ts` holds
+     * the torso to a degree per 120 Hz tick while the craft gathers way
+     * astern, and that reading is LINEAR in this number — 0.52° at 1 (the
+     * bare servo, which is what the bar was sized against), 0.75° at 2,
+     * 0.98° at 3, 1.21° at 4, and 12.6° for a gate that jumped the half in
+     * one step. So 3 passes by two percent and 4 does not, and the honest
+     * ceiling is 2: the headroom above it belongs to the SNAP that test is
+     * there to catch (a torso flipping through the vertical as the hull
+     * changed ends, once worth nine degrees a tick), not to this. Asking
+     * for a quicker gate than this means sizing the rider's springs in the
+     * same change. */
+    jabRate: 2,
     /** Intake depth below the keel probe at the transom, m: the intake is
      * fed while the transom station is wet to this. */
     intakeDepth: 0.05,

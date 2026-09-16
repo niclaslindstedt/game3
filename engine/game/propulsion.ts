@@ -39,7 +39,8 @@
 // - THE REVERSE BUCKET: the gate catches its own deployment's share of the
 //   jet and turns it forward and down, so the AXIAL force is what is left
 //   going aft less what the gate sends back — `(1 − d) − d·reverse` of the
-//   thrust — and it passes through zero at a neutral part way down. The
+//   thrust — and it passes through zero at a neutral part way down
+//   (`bucketNeutral`, which is also where the gate's throw stops). The
 //   deflected share leaves DOWNWARD under the hull, so its reaction lifts
 //   the stern — and a stern lifted behind the centre of gravity puts the
 //   BOW DOWN, which is what a watercraft does under braking. The reverse
@@ -284,12 +285,75 @@ export function stepTrim(spec: CraftSpec, trim: number, lean: number, dt: number
   return approach(trim, clamp(lean, -1, 1) * range, PUMP.trimRate * range * dt);
 }
 
+/** THE GATE'S NEUTRAL — how far down the bucket is when the jet has
+ * stopped pushing the hull either way: the share at which what is left
+ * going aft and what the gate turns forward cancel, `(1 − d) − d·reverse =
+ * 0`. It is the hinge the whole gate reads around. Everything ABOVE it
+ * only spoils thrust — the flow is split, the plate is in the stream and
+ * the stern is squatting, but nothing is being driven backwards — and
+ * everything BELOW it is sternway. `bucketVector`'s axial share changes
+ * sign here and `stepBucket`'s throw is taken to here, so the two cannot
+ * disagree about where the brake stops being a throttle. 1 on a craft
+ * with no gate fitted: it never stops pushing. */
+export function bucketNeutral(spec: CraftSpec): number {
+  const authority = spec.bucket.reverse;
+  return authority > 0 ? 1 / (1 + authority) : 1;
+}
+
 /** Swing the bucket toward what the brake lever is asking for, 0..1 down.
- * A craft with no bucket fitted never leaves 0. */
+ * A craft with no bucket fitted never leaves 0.
+ *
+ * THE THROTTLING HALF OF THE TRAVEL IS DRIVEN AND THE REVERSING HALF IS
+ * GEARED DOWN. Everything from shut to `bucketNeutral` spoils thrust,
+ * hangs the gate in the stream as a plate and squats the stern, and
+ * reverses nothing — and that half is the whole of the brake a rider
+ * reaches for BETWEEN two gates: drop it, swing the bow, pick the throttle
+ * back up. A gate that crosses it at `spec.bucket.deploy` spends a short
+ * jab arriving instead of working: at 0.45 s the skiff reached its own
+ * neutral 0.300 s after the ask, so a third of a second on the lever
+ * bought nothing at all, and the brake read as mush exactly where it is
+ * used for placing the craft. So on an ask made IN FULL (`pump.jabGate`)
+ * that half runs at `pump.jabRate` times the servo's rate, and only
+ * neutral to the stop — the part that has to turn the flow rather than
+ * merely split it — keeps `deploy`.
+ *
+ * COMING BACK UP, `pump.jabShut` drives the WHOLE travel. The asymmetry is
+ * the stream's: a clamshell full of jet is BLOWN open where it had to be
+ * levered shut, and it is also the direction a rider cannot afford to wait
+ * on — he is off the brake because he wants the throttle back, and every
+ * metre with the gate still down is speed shed for nothing.
+ *
+ * IT IS A RATE AND NOT A JUMP, and that is load-bearing rather than
+ * fastidious. The gate is an actuator: it can be quick without teleporting,
+ * and every force it carries (`bucketDrag`, the axial share, the bow-down
+ * reaction, `pump.brakeSteer`) is read by the RIDER, whose body is on
+ * springs and may not move in steps. A gate that JUMPED the throttling
+ * half moved the torso 12.6° in a single 120 Hz tick where
+ * `tests/rider_test.ts` allows one, which reads as the rider snapping
+ * about rather than as a brake biting; `pump.jabRate` carries what that
+ * costs and why it is where it is.
+ *
+ * A LEVER HELD BETWEEN THE TWO GATES IS NEVER DRIVEN: it swings the whole
+ * travel at the servo's rate, both ways. Feathering the gate is still
+ * feathering it, and the quick half is what a committed hand is paid —
+ * which is the same bargain `strokes.ts` strikes at the top of the lean
+ * axis, and the same reason it is stated as a gate rather than as a rate. */
 export function stepBucket(spec: CraftSpec, bucket: number, reverse: number, dt: number): number {
   const { reverse: authority, deploy } = spec.bucket;
   if (authority <= 0 || deploy <= 0) return 0;
-  return approach(bucket, clamp(reverse, 0, 1), dt / deploy);
+  const want = clamp(reverse, 0, 1);
+  // Going DOWN, only the throttling half is driven: past its own neutral
+  // the gate is turning the flow rather than splitting it, and that is the
+  // half an actuator is pushing into the stream to reach.
+  const asked = want >= PUMP.jabGate && bucket < bucketNeutral(spec);
+  // Coming UP it is the WHOLE travel, because the stream is on the
+  // actuator's side — a clamshell full of jet is being blown open rather
+  // than levered open. It is also the direction a rider cannot afford to
+  // wait on: he is off the brake because he wants the throttle back, and
+  // every metre spent with the gate still down is speed he is shedding for
+  // nothing.
+  const shut = want <= PUMP.jabShut && bucket > 0;
+  return approach(bucket, want, ((asked || shut ? PUMP.jabRate : 1) * dt) / deploy);
 }
 
 /** What the gate does to the jet, given how far down it is: the share

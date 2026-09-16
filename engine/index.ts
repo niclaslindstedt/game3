@@ -196,6 +196,7 @@ export { planingLift, pressureCentre, wettedLength, type PlaningResult } from ".
 export {
   boostFactor,
   bucketDrag,
+  bucketNeutral,
   bucketVector,
   curveTorque,
   engineTorque,
