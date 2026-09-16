@@ -33,6 +33,7 @@ export function freshProgress(level: Level): Progress {
     nextGate: 0,
     passed: [],
     missed: [],
+    activeMissedGate: null,
     splits: level.course.gates.map(() => NaN),
     time: 0,
     penalty: 0,
@@ -100,6 +101,7 @@ export function crossedGate(
 function miss(state: GameState, index: number, events: GameEvent[]): void {
   const p = state.progress;
   p.missed.push(index);
+  p.activeMissedGate = index;
   p.penalty += K.missedPenalty;
   p.time += K.missedPenalty;
   events.push({ kind: "missedGate", t: state.t, gate: index, penalty: K.missedPenalty });
@@ -133,6 +135,17 @@ export function stepCourse(
   if (p.finished) return;
   const gates = state.level.course.gates;
   const c = state.craft;
+  // THE WAY BACK FROM A MISS. The miss has already advanced the run; this
+  // target is guidance, not another checkpoint to take. It stays until the
+  // hull comes within half the gate's width of its centre: the visible
+  // opening's plan footprint for both a buoy pair and a ring.
+  if (p.activeMissedGate !== null) {
+    const missed = gates[p.activeMissedGate];
+    const dx = missed.x - c.x;
+    const dz = missed.z - c.z;
+    const radius = missed.width / 2;
+    if (dx * dx + dz * dz <= radius * radius) p.activeMissedGate = null;
+  }
   const n = p.nextGate;
   if (n >= gates.length) return;
   // The gate the run owes, and the few after it: the FIRST of them the move
@@ -157,6 +170,7 @@ export function stepCourse(
     p.nextGate = n + 1;
   }
   if (p.nextGate >= gates.length) {
+    p.activeMissedGate = null;
     p.finished = true;
     state.phase = "finished";
     events.push({ kind: "finish", t: state.t, time: p.time, place: placeOf(state) });
@@ -310,6 +324,25 @@ export function resetCraft(state: GameState, events: GameEvent[]): void {
  * forms, and this is the one place the sum is written. */
 export function gatesReached(progress: Progress): number {
   return progress.passed.length + progress.missed.length;
+}
+
+export type ActiveMissedCheckpoint = {
+  gate: Gate;
+  /** Plan distance from the craft to the gate's centre, m. */
+  distance: number;
+};
+
+/** The checkpoint whose miss warning is still active, and how far back it
+ * is. Null once the rider has returned to its opening or the run has ended. */
+export function activeMissedCheckpoint(state: GameState): ActiveMissedCheckpoint | null {
+  const index = state.progress.activeMissedGate;
+  if (index === null) return null;
+  const gate = state.level.course.gates[index];
+  if (!gate) return null;
+  return {
+    gate,
+    distance: Math.hypot(gate.x - state.craft.x, gate.z - state.craft.z),
+  };
 }
 
 /** WHAT THE RIDER IS AIMING AT — stated once, because three surfaces ask it

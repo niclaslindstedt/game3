@@ -23,7 +23,9 @@
 //                 he is already looking to aim the landing — with the COMBO
 //                 under it: what the flight and the flips over it are worth
 //                 so far, and the multiplier they will be paid at
-//   bottom right  the news column — a split, a missed gate, a dive
+//   upper centre  a MISSED CHECKPOINT warning, its camera-space arrow and
+//                 the metres back, until the rider returns to the gate
+//   bottom right  the news column — a split, a dive, a hit
 //
 // …and under the minimap, when they have been asked for, the DIAGNOSTICS:
 // the frame rate (OPTIONS ▸ FPS) and what the frame cost (the developer
@@ -241,6 +243,20 @@ export function Hud({
           </div>
         )}
       </div>
+
+      {/* THE MISSED CHECKPOINT, centred in the upper quarter where the eye
+          can read it without leaving the water. The arrow itself is three.js
+          geometry in `checkpoint-arrow.ts`; this transparent slot reserves
+          its exact place between the warning and the distance so the canvas
+          and DOM read as one instrument. The engine keeps the target alive,
+          so pause, reset and a slow return cannot age it out. */}
+      {snap.missedDistance !== null && (
+        <div class="hud-missed" role="status">
+          <span class="hud-missed-title">{STRINGS.missed}</span>
+          <span class="hud-missed-arrow-slot" aria-hidden="true" />
+          <span class="hud-missed-distance">{STRINGS.missedBack(snap.missedDistance)}</span>
+        </div>
+      )}
 
       <div class="hud-speed">
         {/* THE ALTITUDE TAPE, standing on top of the speed cluster. It is

@@ -212,6 +212,7 @@ export {
 // Contacts (collision.ts) and the course (course.ts).
 export { boundsPush, onRampDeck, rampDeckY, rampsOf, solidNear } from "./game/collision.ts";
 export {
+  activeMissedCheckpoint,
   aimPoint,
   bearingToNext,
   crossedGate,
@@ -219,6 +220,7 @@ export {
   gatesReached,
   resetPose,
   standCraft,
+  type ActiveMissedCheckpoint,
 } from "./game/course.ts";
 
 // The level generator and its analyzer.

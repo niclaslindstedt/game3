@@ -225,10 +225,12 @@ export const STRINGS = {
   fps: (rate: number): string => `${Math.round(rate)} FPS`,
   frameCost: (waterMs: number, calls: number, triangles: number): string =>
     `${waterMs.toFixed(1)} ms · ${calls} draws · ${(triangles / 1000).toFixed(0)}k tris`,
-  /** The split flash after a gate, and the warning after a missed one. */
+  /** The split flash after a gate, and the standing warning after a missed
+   * one: its second line is the plan distance back to that checkpoint. */
   split: (gate: number, seconds: number): string => `GATE ${gate}  ${formatTime(seconds)}`,
   airGate: (gate: number, seconds: number): string => `RING ${gate}  ${formatTime(seconds)}`,
   missed: "MISSED CHECKPOINT",
+  missedBack: (metres: number): string => `${Math.round(metres)} M BACK`,
   finish: (seconds: number): string => `FINISH  ${formatTime(seconds)}`,
   finishPlace: (place: number, of: number, seconds: number): string =>
     `${ordinal(place)} OF ${of}  ${formatTime(seconds)}`,
@@ -318,8 +320,8 @@ export const STRINGS = {
   startSeason: "SEASON",
   startSeasonHint:
     "The sun's arc: how long the day is, and how dark the night gets — a summer night here never gets past twilight",
-  /** The wind, which is the sea; then the sky over it. Two rows because they
-   * are two questions — see `menu-start.tsx` for why they used to be one. */
+  /** The wind, which is the sea; then the sky over it. They are separate
+   * questions; `menu-start.tsx` owns the two-row control. */
   startWind: "WIND",
   startWindHint: "The wind, and so the sea it builds — the fetch law turns one into the other",
   startWeather: "WEATHER",

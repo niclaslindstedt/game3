@@ -18,6 +18,7 @@ import { heightAt, surfaceAt, type CraftId, type GameState, type Level } from "@
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { isEyeCamera } from "./camera-rigs.ts";
+import { createCheckpointArrow } from "./checkpoint-arrow.ts";
 import { buildCraft, cockpitOf, deckOf, wellCutOf, type WellCut } from "./craft-body.ts";
 import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
@@ -101,6 +102,9 @@ export type GameRenderer = {
    * readout that happens to be drawn in the water, and a rider who turned
    * the HUD off turned off being told where to go. */
   setGuide: (on: boolean) => void;
+  /** Whether the camera-space guide back to a missed checkpoint is drawn.
+   * The app gates it with the HUD and the run/pause surfaces. */
+  setMissedGuide: (on: boolean) => void;
   /** Let the water effects see EVERY engine step — the wake, the spray
    * and the foam read the craft at the step's cadence and are drawn at
    * the frame's — including the steps of a scene pre-rolled for a
@@ -137,6 +141,11 @@ export function createRenderer(
 
   const camera = new THREE.PerspectiveCamera(60, 16 / 9, NEAR, FAR);
   const rig = createCameraRig();
+  const missedGuide = createCheckpointArrow(canvas);
+  // Camera-space geometry is still part of the scene graph: a camera only
+  // draws its children when the camera itself is in that graph.
+  scene.add(camera);
+  camera.add(missedGuide.group);
 
   // THE SKY, and with it the fog and both lights (environment.ts).
   const sky: Environment = createEnvironment(scene);
@@ -453,6 +462,7 @@ export function createRenderer(
       gates?.setLens(bufferSize.y);
     }
     camera.updateMatrixWorld();
+    missedGuide.update(state, camera, dt);
     viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(viewProjection);
     // The mirrored lens is posed with the real one, so the cover can cull
@@ -550,6 +560,7 @@ export function createRenderer(
       water.mesh,
       water.far,
       spray.group,
+      missedGuide.group,
       ...sky.unmirrored,
     ]);
     water.setMirror(mirror.live());
@@ -584,6 +595,7 @@ export function createRenderer(
     resize,
     setVideo,
     setGuide: guide.setShown,
+    setMissedGuide: missedGuide.setShown,
     observe: (state) => {
       wake.observe(state);
       spray.observe(state);
@@ -613,6 +625,7 @@ export function createRenderer(
       for (const f of field) f.rider.dispose();
       surface.dispose();
       lamps?.dispose();
+      missedGuide.dispose();
       if (terrain) disposeTerrain(terrain);
       renderer.dispose();
     },

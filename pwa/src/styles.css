@@ -1056,11 +1056,9 @@ canvas {
 }
 
 /* THE FOOT: the rule's word on the left, the run's next gate on the right.
-   The readout used to be set across the middle of the bottom edge, where it
-   crossed whatever water was under it; on a plate this size a centred figure
-   is a figure standing ON the map rather than under it. Split to the two
-   corners, both halves are read at a glance and the coast between them is
-   still coast. */
+   A centred figure stands ON a plate this size rather than under it and
+   crosses whatever water lies beneath. Split to the two corners, both halves
+   are read at a glance and the coast between them is still coast. */
 .hud-minimap-foot {
   position: absolute;
   left: 0;
@@ -1270,6 +1268,49 @@ canvas {
 .hud-speed-unit {
   font-size: clamp(0.8rem, 2.6vmin, 1.2rem);
   letter-spacing: 0.06em;
+}
+
+/* THE MISSED CHECKPOINT GUIDE. One quarter of the way down the frame, centred:
+   below the two top clusters, above the craft and the water the rider is
+   turning back across. The transparent slot
+   is filled by camera-space geometry (`checkpoint-arrow.ts`), with the live
+   distance directly below it so the three parts read top to bottom as one
+   answer: what happened, where it is, how far. */
+.hud-missed {
+  position: absolute;
+  z-index: 1;
+  top: 25%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  color: var(--hud-bad);
+  line-height: 1;
+  text-align: center;
+  pointer-events: none;
+  transform: translate(-50%, -50%);
+  animation: hud-air-in 260ms ease-out;
+}
+
+.hud-missed-title {
+  font-size: clamp(1.05rem, 4vmin, 1.9rem);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+}
+
+.hud-missed-arrow-slot {
+  display: block;
+  width: clamp(4rem, 12vmin, 6rem);
+  height: clamp(4rem, 12vmin, 6rem);
+}
+
+.hud-missed-distance {
+  color: var(--hud-ink);
+  font-size: clamp(0.78rem, 2.5vmin, 1.15rem);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: 0.12em;
 }
 
 /* THE AIR CLOCK, top centre — over the nose where the rider is aiming, and

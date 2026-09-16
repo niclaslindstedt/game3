@@ -248,6 +248,10 @@ export type Progress = {
   passed: number[];
   /** Gate indices skipped past and charged for. */
   missed: number[];
+  /** The most recent missed gate the rider has not yet returned to, or null.
+   * Informational only: a miss remains forward progress and `nextGate`
+   * continues on, while the presentation keeps this checkpoint in view. */
+  activeMissedGate: number | null;
   /** Run clock at each gate, s, by gate index (NaN for a gate not yet
    * reached). */
   splits: number[];

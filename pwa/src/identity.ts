@@ -46,4 +46,5 @@ export const PALETTE = {
   buoy: "#f28c28",
   hudInk: "#ffffff",
   hudShadow: "#082a38",
+  hudBad: "#ff5a4e",
 } as const;
