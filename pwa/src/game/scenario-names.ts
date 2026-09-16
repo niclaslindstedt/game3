@@ -6,6 +6,7 @@
 
 export const SCENARIO_NAMES = [
   "rest",
+  "drift",
   "jet",
   "cruise",
   "coast",

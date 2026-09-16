@@ -61,6 +61,7 @@ const outDir = join(root, "previews");
  * own error in the console lines below the capture. */
 const SCENES = [
   "rest",
+  "drift",
   "jet",
   "cruise",
   "coast",
@@ -95,7 +96,7 @@ const SCENES = [
 /** Scenes whose subject is reached by their script rather than the pose they
  * are stood in. The shutter pre-rolls to that beat by default so an event or
  * a wake needing trail history is present when the scene is photographed. */
-const SCENE_AT = { coast: 2, missed: 2.5, net: 4 };
+const SCENE_AT = { coast: 2, drift: 8, missed: 2.5, net: 4 };
 
 /** THE MENU SURFACES, and how to photograph each one.
  *

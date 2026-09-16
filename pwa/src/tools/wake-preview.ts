@@ -67,7 +67,7 @@ const ACROSS_REACH = 22;
 const CUTS = [2, 8, 22, 44];
 const CUT_INK = ["#ffd166", "#ff8a3d", "#6fd1e8", "#9aa7b0"];
 
-type Drive = "start" | "carve" | "brake";
+type Drive = "start" | "carve" | "brake" | "drift";
 
 /** What the page was asked for, off its own query string. */
 function asked() {
@@ -99,6 +99,9 @@ function inputAt(drive: Drive, t: number): CraftInput {
   // Off the engine's own neutral, never a literal: a field this lab forgets
   // arrives as `undefined` and comes out the far end of the physics as NaN,
   // which reads on the sheet as a craft that simply never moved.
+  // Lying to: nothing touched at all. The trail carries no road, no fan and
+  // no jet, so whatever is on the sheet is the hull's own heave (the bob).
+  if (drive === "drift") return NEUTRAL_INPUT;
   if (drive === "start") return { ...NEUTRAL_INPUT, throttle: 1 };
   if (drive === "carve") return { ...NEUTRAL_INPUT, throttle: 1, steer: t > 2.5 ? 1 : 0 };
   // The brake: up to pace, then the bucket down and the throttle shut.

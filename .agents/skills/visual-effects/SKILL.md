@@ -132,6 +132,15 @@ Never tune an effect blind:
    plunge). An effect you are ADDING gets its scene in the same change — it
    is how a human reviews it without playing for it. The ride lab's list
    (`scripts/lib/ride-scenarios.mjs`) is named separately; add to both.
+   **A scene whose subject needs TIME also goes in `SCENE_AT`**
+   (`scripts/screenshot.mjs`), which is the only thing that puts `&t=` on
+   the URL — `App.tsx` pre-rolls `params.t` seconds and NOT the scenario's
+   own `seconds`, so a scene missing from it is photographed exactly where
+   `placeRun` stood it with no script ridden. The failure is silent: the
+   shot is a real frame, and an A/B of the effect on and off comes back
+   BYTE-IDENTICAL, which reads as a wiring bug that is not there. The tells
+   are in the corner of the picture — a run clock at `0'00"00`, and `GO!`
+   still over the frame.
 2. `make build`, then `CHROMIUM_PATH=/opt/pw-browsers/chromium make
    screenshots SCENE=<name> ARGS=--details`. Read the two 3× stern crops:
    `stern-overhead` for the plan seam and `stern-chase` for the 45-degree
