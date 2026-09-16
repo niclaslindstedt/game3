@@ -31,3 +31,11 @@ is filed as a new rule. The test still passes (the doc was generated from the
 same parse) while the doc carries half a rule. Re-wrap so no continuation
 starts with `Rn `; `R10's` is safe, because the regex wants whitespace after
 the number.
+
+**Amending an EXISTING rule's prose** (a material added to R16, a coast's
+say added to R26) has to happen in `rules.ts` itself, and the file is at the
+cap: make the room by pruning the history in its number comments first —
+`courseTries`, `runUp`, `width` and `round` each carried a paragraph of
+"the old figure was" that the `write-code` table says to rewrite — and only
+then write the amendment. Count lines (`wc -l`) before `make lint`, because
+`file_size_test` is the first thing that refuses the PR.

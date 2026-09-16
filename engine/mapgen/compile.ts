@@ -50,8 +50,10 @@ export type LevelPlan = {
   /** R35 — lay the TRICK FIELD down the line as well as the course. */
   readonly tricks: boolean;
   readonly bounds: Bounds;
-  /** The two grids, already baked (`layBasin`, `bakeGround`). */
+  /** The two grids, already baked (`layBasin`, `bakeGround`), and the
+   * river's bank share beside them (`Basin.bank`). */
   readonly offshore: Heightfield;
+  readonly bank: Heightfield;
   readonly ground: Heightfield;
   readonly geology: Geology;
   readonly course: CoursePlan;
@@ -90,7 +92,7 @@ export function bakeGround(offshore: Heightfield, geology: Geology): Heightfield
 }
 
 export function compileLevel(plan: LevelPlan): Level {
-  const { bounds, offshore, ground, biome, geology } = plan;
+  const { bounds, offshore, bank, ground, biome, geology } = plan;
   const { boulder, sand } = R.surface;
   // R16, R21 — the classifier, in the rule's order. Everything but the
   // slope is a question about the STRETCH of coast a point belongs to, so
@@ -101,6 +103,16 @@ export function compileLevel(plan: LevelPlan): Level {
     const { gx, gz } = fieldGradient(ground, x, z);
     const slope = Math.hypot(gx, gz);
     if (slope >= R.surface.bedrockSlope) return "bedrock";
+    // R26 — THE RIVER'S BANK, before the coast's own quilt has its say: the
+    // ground beside a river is soil and grass to the water's edge whatever
+    // the character of the coast either side of the mouth. Read off the
+    // basin's bank share rather than off the river's line, because the
+    // share already knows whose water a cell is nearest and a polyline
+    // walk per sample is what this classifier is called too often for.
+    const inland = -sampleField(offshore, x, z);
+    if (inland <= R.surface.bank.reach && sampleField(bank, x, z) >= R.surface.bank.share) {
+      return "bank";
+    }
     const rugged = geology.ruggedAt(x, z);
     // THE BEACH, before the boulder field rather than after it: a beach is
     // a CONTINUOUS run of sand at the waterline, and a field allowed to
@@ -113,7 +125,6 @@ export function compileLevel(plan: LevelPlan): Level {
     const sandRugged = sand.rugged * biome.shore.sand;
     if (biome.beaches && rugged <= sandRugged && slope < sand.slope) {
       const soft = 1 - rugged / sandRugged;
-      const inland = -sampleField(offshore, x, z);
       if (inland <= sand.reach * (sand.floor + (1 - sand.floor) * soft)) return "sand";
     }
     // The field thickens with the coast: a moraine headland is mostly

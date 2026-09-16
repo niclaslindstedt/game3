@@ -21,13 +21,19 @@ import {
   BIOME_IDS,
   BIOMES,
   FAUNA,
+  LEVEL_RULES as R,
   WEATHER_IDS,
   biomeOf,
+  flowAt,
   generateLevel,
   isBiomeId,
   isFaunaId,
+  landHeight,
+  sampleField,
+  type Level,
 } from "@engine";
 
+import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
 import { BIRDS, birdsOf } from "../pwa/src/game/bird-defs.ts";
 import { FLORA, floraOf } from "../pwa/src/game/flora-defs.ts";
 import { SHORE_PAINT, shorePaintOf } from "../pwa/src/game/shore-paint.ts";
@@ -150,6 +156,87 @@ describe("what makes the two coasts two", () => {
     // Neither is off: the waves are the game on both.
     expect(taiga.sea.wind).toBeGreaterThan(0.6);
     expect(mangrove.sea.wind).toBeGreaterThan(0.6);
+  });
+
+  it("is the land: how steeply a coast comes down is a knob, and never past the reach", () => {
+    for (const id of BIOME_IDS) {
+      expect(biomeOf(id).climb).toBeGreaterThan(0);
+      expect(biomeOf(id).climb).toBeLessThanOrEqual(1);
+    }
+    // The taiga's row is the rule book's: the hill met over the whole reach.
+    expect(taiga.climb).toBe(1);
+    // …and a coast that climbs over half of it meets the same hill sooner,
+    // at the same height, and is flat from there.
+    const hill = 10;
+    expect(landHeight(R.land.reach / 2, hill, R.land.reach / 2)).toBeCloseTo(hill, 6);
+    expect(landHeight(R.land.reach / 2, hill)).toBeLessThan(hill);
+    expect(landHeight(R.land.reach, hill, R.land.reach / 2)).toBeCloseTo(hill, 6);
+  });
+
+  it("is the river: a rock channel that runs hard against a lazy estuary with bars in it", () => {
+    // The taiga's row is the rule book's own, so no taiga seed re-rolls for
+    // the row existing; the mangrove's opens the mouth, holds the width,
+    // loops wider, carries less water, and drops bars in the mouth.
+    expect(taiga.river).toEqual({ mouth: 1, head: 1, taper: 1, bend: 1, discharge: 1, bars: null });
+    expect(mangrove.river.mouth).toBeGreaterThan(1);
+    expect(mangrove.river.taper).toBeLessThan(1);
+    expect(mangrove.river.bend).toBeGreaterThan(1);
+    expect(mangrove.river.discharge).toBeLessThan(1);
+    expect(mangrove.river.bars?.count.min).toBeGreaterThanOrEqual(1);
+    // A bar keeps the river's own centreline in water: its channel is wider
+    // than the cell the walk reads the water off.
+    expect(mangrove.river.bars?.channel).toBeGreaterThan(R.grid.cell);
+  });
+
+  it("builds two different rivers out of the two rows", () => {
+    /** How much of the mouth's width the river still carries halfway up,
+     * and how fast the water leaves the mouth. */
+    const shape = (level: Level): { holds: number; current: number } => {
+      const river = level.river;
+      const mid = river[Math.round((river.length - 1) / 2)];
+      const width = (p: { x: number; z: number }): number => sampleField(level.offshore, p.x, p.z);
+      const v = { x: 0, z: 0 };
+      flowAt(level.flow, river[0].x, river[0].z, v);
+      return { holds: width(mid) / width(river[0]), current: Math.hypot(v.x, v.z) };
+    };
+    const median = (xs: number[]): number => [...xs].sort((a, b) => a - b)[xs.length >> 1];
+    const cold = LEVEL_SEEDS.map((s) => shape(levelFor(s)));
+    const warm = MANGROVE_SEEDS.map((s) => shape(mangroveFor(s)));
+    // The estuary holds its width where the rock channel has closed…
+    expect(median(warm.map((r) => r.holds))).toBeGreaterThan(
+      1.5 * median(cold.map((r) => r.holds)),
+    );
+    // …and the torrent runs at least twice the drift.
+    expect(median(cold.map((r) => r.current))).toBeGreaterThan(
+      2 * median(warm.map((r) => r.current)),
+    );
+    // The bars: coastlines standing whole inside the mouth's reach, on most
+    // of the warm coast's seeds. Read off the published level — the bars
+    // are islands like any other once cut — so a delta the basin lost is a
+    // red test rather than a row nobody reads.
+    const bars = mangrove.river.bars!;
+    let deltas = 0;
+    for (const seed of MANGROVE_SEEDS) {
+      const level = mangroveFor(seed);
+      const river = level.river;
+      const reach: { x: number; z: number }[] = [];
+      let d = 0;
+      for (let i = 0; i < river.length && d <= bars.reach.max; i++) {
+        if (i > 0) d += Math.hypot(river[i].x - river[i - 1].x, river[i].z - river[i - 1].z);
+        reach.push(river[i]);
+      }
+      const near = (p: { x: number; z: number }): number =>
+        Math.min(...reach.map((q) => Math.hypot(q.x - p.x, q.z - p.z)));
+      const mouth = sampleField(level.offshore, river[0].x, river[0].z);
+      const inMouth = level.shore
+        .slice(1)
+        .filter((line) => line.every((p) => near(p) < mouth + 2 * bars.r.max)).length;
+      if (inMouth > 0) deltas++;
+      // …and the river still runs past them: R26's own walk is the check,
+      // and the corpus passed it to be built at all.
+      for (const p of river) expect(sampleField(level.offshore, p.x, p.z)).toBeGreaterThan(0);
+    }
+    expect(deltas).toBeGreaterThanOrEqual(Math.ceil(MANGROVE_SEEDS.length / 2));
   });
 
   it("is the sky: the haze is warm water's and the cold coast never deals it", () => {

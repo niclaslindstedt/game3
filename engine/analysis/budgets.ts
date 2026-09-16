@@ -226,6 +226,18 @@ export const ANALYSIS = {
      * the straightening (R9) and for the finish falling short of it — not
      * a licence for a river somewhere else in the level. */
     mouth: 260,
+    /** R16, R26 — how far past the water's edge the bank is probed, m, and
+     * how much of the river's two banks past the mouth's run has to read
+     * BANK. Six metres is inside `surface.bank.reach` with the zero
+     * contour's wander to spare, and what keeps the share short of all of
+     * it is the ground steeper than `surface.bedrockSlope` — a slab at the
+     * water is bedrock whichever water it stands in, and a rugged coast's
+     * slabs ride up to a river's edge. MEASURED over twelve seeds on each
+     * coast: never under 0.93 on the taiga, never under 0.97 on the
+     * mangrove, so the floor refuses a river whose banks are the coast's
+     * quilt and nothing the slabs do. */
+    bank: 6,
+    bankShare: 0.8,
   },
   /** How many cells across the grid the classifier is sampled at for
    * R16 — enough to see every kind of ground, cheap enough to run on every

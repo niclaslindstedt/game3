@@ -32,6 +32,13 @@ export type ShorePaint = {
   readonly bedReach: number;
   /** The wet band at the waterline on rock. */
   readonly wet: string;
+  /** THE RIVER'S BANK (R16, R26): the soil and grass that run down to the
+   * water past the mouth — and the strip at the very edge, `bankStoneUp`
+   * metres over the water, where the river has washed the soil off and
+   * left what is under it: stone on a rock coast, mud on a mangrove one. */
+  readonly bank: string;
+  readonly bankStone: string;
+  readonly bankStoneUp: number;
   /** The ground under the wood, and where the wood starts: metres inland
    * of the waterline, and the height band over sea level it fades in over.
    * A northern shore keeps its slabs bare for twenty metres before the
@@ -62,6 +69,13 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     bed: "#3a4a34",
     bedReach: 45,
     wet: "#646a70",
+    // The bank: the alder's floor, a grass-and-litter green darker than the
+    // slab and warmer than the wood behind it; and the river's edge is the
+    // granite again for the last metre, where the spring floods have taken
+    // the turf off.
+    bank: "#5f7040",
+    bankStone: "#7d7f78",
+    bankStoneUp: 1,
     floor: PALETTE.pineDark,
     floorFrom: 22,
     floorAbove: [1.2, 3],
@@ -92,6 +106,12 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     bed: "#8c9a7c",
     bedReach: 110,
     wet: "#9a927e",
+    // The bank is mangrove mud under a mat of cordgrass, and at the water
+    // it is the mud alone, dark and wet, only half a metre of it because
+    // nothing on this coast stands higher.
+    bank: "#6b6f45",
+    bankStone: "#4a4638",
+    bankStoneUp: 0.5,
     // Mangrove mud, and the palm litter under the trees: dark, and right
     // down at the water's edge.
     floor: "#4a4633",

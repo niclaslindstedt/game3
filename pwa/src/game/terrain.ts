@@ -61,6 +61,8 @@ type Paint = {
   sandBed: THREE.Color;
   bed: THREE.Color;
   wet: THREE.Color;
+  bank: THREE.Color;
+  bankStone: THREE.Color;
   floor: THREE.Color;
   row: ShorePaint;
 };
@@ -79,6 +81,8 @@ function paintOf(row: ShorePaint): Paint {
       sandBed: c(row.sandBed),
       bed: c(row.bed),
       wet: c(row.wet),
+      bank: c(row.bank),
+      bankStone: c(row.bankStone),
       floor: c(row.floor),
       row,
     };
@@ -124,6 +128,12 @@ function paint(
     }
   } else if (kind === "sand") {
     out.copy(p.sand).lerp(p.sandWet, clamp(1 - h / 0.7, 0, 0.85));
+  } else if (kind === "bank") {
+    // The river's bank: grass and soil to the water, the wood's floor
+    // taking it over inland, and the last metre down to the water stripped
+    // to what is under the turf — the coast's own stone or mud.
+    out.copy(p.bank).lerp(p.floor, clamp((-offshore - 12) / 30, 0, 0.5));
+    out.lerp(p.bankStone, clamp(1 - h / p.row.bankStoneUp, 0, 0.9));
   } else {
     out.copy(kind === "rock" ? p.boulder : p.bedrock);
     // Bedrock lightens as it climbs, boulders sit darker in the cracks.
@@ -148,7 +158,7 @@ function paint(
   // gravel.
   const n = hash2(Math.round(x * 0.25), Math.round(z * 0.25), level.seed) - 0.5;
   const { gx, gz } = fieldGradient(level.ground, x, z);
-  const grain = kind === "sand" ? 0.03 : 0.09;
+  const grain = kind === "sand" ? 0.03 : kind === "bank" ? 0.06 : 0.09;
   out.offsetHSL(0, 0, n * grain - clamp(Math.hypot(gx, gz) * 0.25, 0, 0.14));
   // …and then the water takes it, over the depth it stands under, into the
   // coast's one flat unlit bottom tone. The speckle and the slope shading go

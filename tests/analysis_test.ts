@@ -275,6 +275,19 @@ describe("level analysis", () => {
     );
   });
 
+  it("R26 — flags a river whose banks are the coast's quilt rather than bank", () => {
+    const seed = LEVEL_SEEDS[0];
+    const level = levelFor(seed);
+    const quilted = broken(seed, {
+      materialAt: (x, z) => {
+        const kind = level.materialAt(x, z);
+        return kind === "bank" ? "bedrock" : kind;
+      },
+    });
+    expect(errors(quilted)).toContain("R26.bank");
+    expect(errors(level)).not.toContain("R26.bank");
+  });
+
   it("R34 — flags a gate swung round until its two legs make a kink", () => {
     // Two neighbouring gates SWAPPED, so the chain doubles back on itself
     // twice. Nothing moves off the racing line — every gate is where the

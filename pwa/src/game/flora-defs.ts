@@ -405,7 +405,7 @@ export const FLORA: readonly FloraSpec[] = [
     habitat: {
       ground: { min: 0.6, max: TREE_LINE },
       inland: { min: 3, max: 260 },
-      surfaces: ["sand", "bedrock", "rock"],
+      surfaces: ["sand", "bedrock", "rock", "bank"],
       slope: 0.6,
       share: 2.5,
       riverside: { within: 120, share: 3.4 },
@@ -428,7 +428,7 @@ export const FLORA: readonly FloraSpec[] = [
     habitat: {
       ground: { min: 1.5, max: TREE_LINE },
       inland: { min: 14, max: 260 },
-      surfaces: ["bedrock", "rock"],
+      surfaces: ["bedrock", "rock", "bank"],
       slope: 0.55,
       share: 0.9,
       patch: { scale: 88, over: 0.34 },
@@ -451,7 +451,7 @@ export const FLORA: readonly FloraSpec[] = [
     habitat: {
       ground: { min: 1, max: TREE_LINE },
       inland: { min: 6, max: 260 },
-      surfaces: ["bedrock", "rock"],
+      surfaces: ["bedrock", "rock", "bank"],
       slope: 0.72,
       share: 0.7,
     },
@@ -503,7 +503,7 @@ export const FLORA: readonly FloraSpec[] = [
       // stand on the skyline where the rider actually looks.
       ground: { min: 1.8, max: TREE_LINE },
       inland: { min: 32, max: 260 },
-      surfaces: ["bedrock", "rock"],
+      surfaces: ["bedrock", "rock", "bank"],
       slope: 0.6,
       share: 1.9,
       patch: { scale: 96, over: 0.3 },
@@ -607,10 +607,11 @@ export const FLORA: readonly FloraSpec[] = [
       leafDark: 0x2f5232,
     },
     habitat: {
-      // On the marl behind the red mangrove, never on the open beach.
+      // On the marl behind the red mangrove and up the river's mud, never
+      // on the open beach.
       ground: { min: 0.1, max: 2.5 },
       inland: { min: 2, max: 40 },
-      surfaces: ["bedrock"],
+      surfaces: ["bedrock", "bank"],
       slope: 0.45,
       share: 1.2,
       riverside: { within: 110, share: 3 },
@@ -753,7 +754,7 @@ export const FLORA: readonly FloraSpec[] = [
     habitat: {
       ground: { min: 1.2, max: TREE_LINE },
       inland: { min: 12, max: 260 },
-      surfaces: ["bedrock"],
+      surfaces: ["bedrock", "bank"],
       slope: 0.55,
       share: 1.4,
       patch: { scale: 90, over: 0.32 },

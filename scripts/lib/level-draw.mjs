@@ -37,11 +37,13 @@ const BATHY = [
 ];
 
 /** Land by material (R16) — granite grey, the darker boulder field, ochre
- * sand — and a fallback for a material this file has never heard of. */
+ * sand, the river's green bank — and a fallback for a material this file
+ * has never heard of. */
 const LAND = {
   bedrock: [158, 156, 150],
   rock: [108, 104, 98],
   sand: [216, 194, 136],
+  bank: [128, 150, 96],
   water: [178, 222, 222],
   unknown: [200, 120, 200],
 };

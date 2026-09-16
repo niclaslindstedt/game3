@@ -14,6 +14,7 @@
 // R25 exists to tell apart.
 
 import { sampleField } from "../lib/heightfield.ts";
+import { biomeOf } from "../mapgen/biomes.ts";
 import { cumulative, polylineDistance, walkPolyline } from "../mapgen/course.ts";
 import { LEVEL_RULES as R, withinBand } from "../mapgen/rules.ts";
 import type { Level, Vec2 } from "../mapgen/types.ts";
@@ -157,6 +158,12 @@ export function analyzeOceanLeg(level: Level, run: OceanRun | null, rep: Report)
  * ends in something nothing can ride past. The last is measured as the
  * water a hull needs (R5's own depth): the head is under it, so a rider
  * who keeps going grounds, and the level does not have to grow a fence.
+ * And its BANKS are banks (R16): past the mouth's run, the ground beside
+ * the water reads as the river's own on nearly every probe — a river with
+ * a coast's quilt along it is a channel, not a river.
+ *
+ * The head's width is the COAST's (`Biome.river.head`), because the level
+ * was built to it; everything else here is the rule book's on every coast.
  */
 export function analyzeRiver(level: Level, rep: Report): void {
   const river = level.river;
@@ -166,6 +173,7 @@ export function analyzeRiver(level: Level, rep: Report): void {
   }
   const mouth = river[0];
   const head = river[river.length - 1];
+  const headWidth = R.river.head * biomeOf(level.biome).river.head;
   const offshoreAt = (x: number, z: number): number => sampleField(level.offshore, x, z);
   const depthAt = (x: number, z: number): number => -sampleField(level.ground, x, z);
   const inland = Math.hypot(head.x - mouth.x, head.z - mouth.z);
@@ -181,19 +189,50 @@ export function analyzeRiver(level: Level, rep: Report): void {
   const length = cum[cum.length - 1];
   let dry: Vec2 | undefined;
   let widest = 0;
+  let banks = 0;
+  let bank = 0;
+  let notBank: Vec2 | undefined;
+  let seg = 0;
   walkPolyline(river, A.river.walk, (x, z, d) => {
     const off = offshoreAt(x, z);
     // The mouth's own run is the race's water and is as wide as the
     // corridor there; past it the river is its own.
     if (d <= R.river.mouthRun) widest = Math.max(widest, off);
     if (off <= 0 && !dry) dry = { x, z };
+    // …and past it the banks are the river's: probe each side, a bank's
+    // width past the water's edge along the segment's own normal.
+    if (d > R.river.mouthRun && off > 0) {
+      while (seg + 2 < river.length && cum[seg + 1] <= d) seg++;
+      const a = river[seg];
+      const b = river[seg + 1];
+      const len = Math.hypot(b.x - a.x, b.z - a.z) || 1;
+      const nx = -(b.z - a.z) / len;
+      const nz = (b.x - a.x) / len;
+      for (const side of [1, -1]) {
+        const px = x + nx * side * (off + A.river.bank);
+        const pz = z + nz * side * (off + A.river.bank);
+        const kind = level.materialAt(px, pz);
+        if (kind === "water") continue;
+        banks++;
+        if (kind === "bank") bank++;
+        else notBank ??= { x: px, z: pz };
+      }
+    }
     return true;
   });
   if (dry) {
     rep.fail("R26", "water", `the river runs out of water ${fmt(inland)} m up`, { at: dry });
   }
+  if (banks > 0 && bank / banks < A.river.bankShare) {
+    rep.fail(
+      "R26",
+      "bank",
+      `${fmt((100 * bank) / banks)}% of the river's banks are bank (rule ${fmt(100 * A.river.bankShare)}%)`,
+      { at: notBank, value: bank / banks },
+    );
+  }
   const tip = offshoreAt(head.x, head.z);
-  if (tip > R.river.head + A.river.head) {
+  if (tip > headWidth + A.river.head) {
     rep.fail("R26", "head", `the river's head is still ${fmt(tip)} m of water wide`, {
       at: head,
       value: tip,

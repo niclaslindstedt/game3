@@ -126,7 +126,10 @@
 //       other.
 //   R16 WHAT THE SHORE IS MADE OF, by rule and in this order: below sea
 //       level it is WATER; ground steeper than `surface.bedrockSlope` is
-//       BEDROCK; low ground at the waterline of a stretch softer than
+//       BEDROCK; ground within `surface.bank.reach` of a water's edge that
+//       is the RIVER'S own past its mouth's run (R26) is BANK — soil and
+//       grass to the water, whatever the coast either side of the mouth;
+//       low ground at the waterline of a stretch softer than
 //       `surface.sand.rugged` × the biome's `shore.sand` (R21) is SAND — a
 //       BEACH, reaching
 //       `surface.sand.reach` up the shore where the stretch is softest and
@@ -237,9 +240,17 @@
 //       creek too thin and too shallow to ride, which is where a rider
 //       roaming upstream stops. Past its mouth's own run it keeps
 //       `river.clear` off the racing line, so the water a rider can leave
-//       the course by is one mouth and not three.
+//       the course by is one mouth and not three. WHAT KIND OF RIVER IT IS
+//       IS THE COAST'S (`Biome.river`), as multiples of those numbers: how
+//       far the mouth opens past the corridor (never past R1's ceiling),
+//       how wide the head is, how slowly the width closes, how big the
+//       loops are — and whether the mouth carries BARS, the delta's low
+//       islands standing in the mouth's own reach, off the centreline so
+//       the river still runs, clear of the racing line like any island.
 //   R27 THE RIVER RUNS, AND WHAT IS CONSERVED IS THE VOLUME. It carries
-//       `river.discharge` cubic metres a second out of its mouth, and the
+//       `river.discharge` cubic metres a second out of its mouth, times the
+//       coast's own share of it (`Biome.river.discharge`: a northern coast's
+//       rivers are torrents and a flat warm coast's a drift), and the
 //       SPEED is what is left when that volume has to fit through the
 //       channel: v = Q/A over the cross-section the half-width and the
 //       level's own bed make there — slow across the wide, deep reach at
@@ -373,8 +384,9 @@ export const LEVEL_RULES = {
     /** The radius every turn in the leg is drawn at, m: the quarter turns
      * off the coast and back, and the half circle round the mark. Over
      * R23's floor with room, because this is the one corner of a course
-     * ridden at whatever speed the run out built. Under that floor at
-     * 58–76 m it was the course's tightest corner on 79 of eighty (R34). */
+     * ridden at whatever speed the run out built, and a rounding drawn
+     * under the floor is the course's tightest corner on nearly every seed
+     * (R34). */
     round: { min: 84, max: 100 },
     /** How far out the leg's furthest point stands from the shore, m.
      * DERIVED — `sea.line.edge` + 2·round + out — so this is the band that
@@ -530,10 +542,9 @@ export const LEVEL_RULES = {
       /** R21's quilt: the longest one material may run unbroken along the
        * waterline, m. MEASURED: over forty seeds the longest such run is
        * about 660 m and the mean 300, so a level's coast changes every few
-       * gates on its own. A basin's coastlines run to three or four
-       * kilometres between them — a channel has two banks and every island
-       * has a rim — so the bound is longer than the old single coast's
-       * needed, and it still refuses the fault it is here for: a level
+       * gates on its own; a basin's coastlines run to three or four
+       * kilometres between them (a channel has two banks, every island a
+       * rim), and the bound still refuses the fault it is here for: a level
        * whose whole waterline is one material. */
       run: 1100,
     },
@@ -644,6 +655,13 @@ export const LEVEL_RULES = {
      * the beach narrows away rather than ending at a line — and the slope
      * (m per m) sand will lie at, because sand does not stand on a slab. */
     sand: { rugged: 0.34, reach: 45, floor: 0.35, slope: 0.14 },
+    /** R26 — THE RIVER'S BANK: how far up from the water's edge the
+     * riparian ground reaches, m — the alder and the grass, before the
+     * country's own quilt takes over — and how much of a cell's shore has
+     * to be the river's (`Basin.bank`, 0..1) before the ground is called
+     * bank at all: half, so the mouth's run turns from coast to bank at the
+     * middle of the run rather than at either end of it. */
+    bank: { reach: 30, share: 0.5 },
   },
 
   /** R15 — what the basin has to come out as. The share of the level that
@@ -823,23 +841,18 @@ export const LEVEL_RULES = {
      * `length · tan(angle)` up. */
     length: { min: 8, max: 10 },
     /** Deck width across the water, m — the STOCK deck R33's dial is a
-     * multiple OF. Twice the four metres it was drawn at: four is three
-     * hull beams (0.90–1.32 m in the catalog), a deck a rider AIMS at, and
-     * covering for that is most of what `TUNING.assist.ramp` does. */
+     * multiple OF. Six hull beams (0.90–1.32 m in the catalog): a deck half
+     * this is one a rider AIMS at, and covering for that is most of what
+     * `TUNING.assist.ramp` does. */
     width: 8,
     /** Rise from the water, rad. */
     angle: { min: 15 * DEG, max: 22 * DEG },
-    /** Straight, clear, deep water before the hinge, m.
-     *
-     * MEASURED, and measured twice. On flat water the slowest hull is at
-     * R18's design lip speed inside 40 m of a corner exit, which is what
-     * the old 60 m was drawn against. In the sea a level actually carries
-     * it takes three times that: a hull leaves a corner at 7–9 m/s and
-     * climbs to 12 over the first eighty metres before the water lets it
-     * go. Halving the run-up halves nothing but the resets — 23 over a
-     * 24-run sweep at 60 m against 11 at this figure — because a rider who
-     * arrives at a lip too slow lands in front of the ring and spends the
-     * next leg getting back on terms. */
+    /** Straight, clear, deep water before the hinge, m. MEASURED in the sea
+     * a level actually carries, not on flat water: a hull leaves a corner
+     * at 7–9 m/s and climbs to 12 over the first eighty metres before the
+     * water lets it go, and a rider who arrives at a lip too slow lands in
+     * front of the ring and spends the next leg getting back on terms — 23
+     * resets over a 24-run sweep at half this, 11 at this figure. */
     runUp: 160,
     /** Water under the run-up and the ramp, m. */
     runUpDepth: 2,
@@ -931,27 +944,15 @@ export const LEVEL_RULES = {
      * (on the rules before this too), at 32 one in 600, at 48 none. */
     attempts: 48,
     /** How many COURSES are laid in one basin before the basin itself is
-     * thrown away.
-     *
-     * A basin is the expensive artefact — a route, a coast, the geology and
-     * two baked heightfields — and the course laid in it is a few hundred
-     * microseconds of arithmetic on top. The draws that fail are mostly the
-     * air gates: R9 now asks a jump for a beam-on run-up 160 m long, and
-     * whether two of those fit is decided by where the SHUFFLE happened to
-     * put the candidate gates, not by anything about the water. Re-shuffling
-     * costs nothing; re-cutting the basin costs a build. MEASURED over
-     * thirty seeds: rejected basins fall from 92 to 34 and the mean build
-     * from 267 ms to under 200.
-     *
-     * FORTY, not four. The old figure was measured when a course could put
-     * a jump anywhere on the line; R25's ocean leg takes a third of the
-     * course out of the running for one, and R9's beam is now read on the
-     * chord the window actually becomes rather than on the curve it
-     * replaces — so a shuffle has fewer places to succeed and fails more
-     * honestly. RE-MEASURED over twenty-four seeds: eight tries built 21 of
-     * them at 770 ms, forty built 24 at 630, and a hundred is inside the
-     * noise of forty. The curve is flat past it, which is the tell that the
-     * basins still refusing have no beam-on straight in them at all. */
+     * thrown away. A basin is the expensive artefact — a route, a coast,
+     * the geology and two baked heightfields — and a course is a few
+     * hundred microseconds on top; the draws that fail are mostly the air
+     * gates, decided by where the SHUFFLE put the candidates rather than by
+     * the water, and R25's leg and R9's chord leave a shuffle few places to
+     * succeed. MEASURED over twenty-four seeds: eight tries built 21 of them
+     * at 770 ms, forty built 24 at 630, and a hundred is inside the noise
+     * of forty — the basins still refusing have no beam-on straight at
+     * all. */
     courseTries: 40,
     /** Extra depth the search demands under the path, m. */
     depthSlack: 0.4,
@@ -993,8 +994,7 @@ export function solidRule(kind: Solid["kind"], track: TrackKind = "coast"): Soli
 /** R6 — the open water a rock of radius `r` keeps between its edge and the
  * course's line and buoys, m. Stated here, once, because the placer builds
  * to it, the analysis holds the finished level to it and the tests assert
- * against it — and because "six metres" was true only while every rock was
- * the size of a hull. */
+ * against it — and a flat "six metres" is only true of rocks a hull's size. */
 export function solidBerth(r: number): number {
   return LEVEL_RULES.course.solidMargin + r * LEVEL_RULES.course.solidBerth;
 }
