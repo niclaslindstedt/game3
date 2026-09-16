@@ -12,6 +12,8 @@ import {
   onRampDeck,
   placeRun,
   rampDeckY,
+  solidRadiusAt,
+  solidSurfaceAt,
   step,
   type CraftInput,
   type GameEvent,
@@ -91,6 +93,74 @@ describe("solids", () => {
     const events = ride(state, 2, COAST);
     expect(events.some((event) => event.kind === "hit" && event.solid === "B1")).toBe(true);
     expect(state.craft.speed).toBeLessThan(6);
+  });
+
+  it("shapes a rock like a rock: sheer at the water, drawn in at the crown", () => {
+    const rock = { id: "R", kind: "skerry" as const, x: 0, z: 0, r: 6, top: 3 };
+    // The radius and the surface are the same shape read two ways.
+    expect(solidRadiusAt(rock, -1)).toBe(6);
+    expect(solidRadiusAt(rock, 0)).toBe(6);
+    expect(solidRadiusAt(rock, 3)).toBeCloseTo(6 * TUNING.contact.solidCrown, 6);
+    expect(solidSurfaceAt(rock, 6.01, 0)).toBe(-Infinity);
+    expect(solidSurfaceAt(rock, 0, 0)).toBe(3);
+    for (const y of [0.3, 1, 2, 2.9]) {
+      expect(solidSurfaceAt(rock, solidRadiusAt(rock, y), 0)).toBeCloseTo(y, 5);
+    }
+    // ...and it stands nearly sheer at the rim: a tenth of the radius in
+    // buys more than a third of the height.
+    expect(solidSurfaceAt(rock, 5.4, 0)).toBeGreaterThan(1);
+    // A reef, whose crown never reaches the air, is the flat ledge it is.
+    const reef = { id: "F", kind: "reef" as const, x: 0, z: 0, r: 5, top: -1 };
+    expect(solidSurfaceAt(reef, 0, 0)).toBe(-1);
+    expect(solidSurfaceAt(reef, 4.9, 0)).toBe(-1);
+  });
+
+  it("rides over a rock awash instead of stopping dead on it", () => {
+    const level = {
+      ...LEVEL,
+      solids: [{ id: "awash", kind: "boulder" as const, x: 250, z: 200, r: 3, top: 0.2 }],
+    };
+    const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+    placeRun(state, { x: 205, z: 200, heading: Math.PI / 2, speed: 22 });
+    const events = ride(state, 4, FULL);
+    // Past it, with its way on: the crown shoved the bottom up and let go.
+    expect(state.craft.x).toBeGreaterThan(280);
+    expect(state.craft.speed).toBeGreaterThan(15);
+    expect(events.some((e) => e.kind === "hit")).toBe(false);
+  });
+
+  it("a hull that lands on a skerry stays up on it", () => {
+    const level = {
+      ...LEVEL,
+      solids: [{ id: "perch", kind: "skerry" as const, x: 250, z: 200, r: 9, top: 2.5 }],
+    };
+    const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+    placeRun(state, { x: 246, z: 200, heading: Math.PI / 2, speed: 6 });
+    state.craft.y = 6;
+    state.craft.vy = 0;
+    const events = ride(state, 6, COAST);
+    const c = state.craft;
+    // Sitting on the crown rather than spat back into the sea beside it.
+    expect(Math.hypot(c.x - 250, c.z - 200)).toBeLessThan(9);
+    expect(c.y).toBeGreaterThan(2.5);
+    expect(c.onGround).toBe(true);
+    expect(c.airborne).toBe(false);
+    // ...and the rock it came down on is ground under the hull, not a hit.
+    expect(events.some((e) => e.kind === "ground")).toBe(true);
+  });
+
+  it("a rock standing well out of the water is still a wall", () => {
+    const level = {
+      ...LEVEL,
+      solids: [{ id: "wall", kind: "skerry" as const, x: 250, z: 200, r: 6, top: 2.2 }],
+    };
+    const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+    placeRun(state, { x: 210, z: 200, heading: Math.PI / 2, speed: 22 });
+    const events = ride(state, 4, FULL);
+    expect(events.some((e) => e.kind === "hit")).toBe(true);
+    // Stopped short of it and never up on top.
+    expect(state.craft.x).toBeLessThan(250);
+    expect(state.craft.y).toBeLessThan(2.2);
   });
 
   it("a reef the keel clears is passed over", () => {

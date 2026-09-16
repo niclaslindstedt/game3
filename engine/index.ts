@@ -222,7 +222,15 @@ export {
   topSpeedOf,
 } from "./game/limits.ts";
 // Contacts (collision.ts) and the course (course.ts).
-export { boundsPush, onRampDeck, rampDeckY, rampsOf, solidNear } from "./game/collision.ts";
+export {
+  boundsPush,
+  onRampDeck,
+  rampDeckY,
+  rampsOf,
+  solidNear,
+  solidRadiusAt,
+  solidSurfaceAt,
+} from "./game/collision.ts";
 export {
   activeMissedCheckpoint,
   aimPoint,

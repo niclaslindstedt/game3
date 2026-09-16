@@ -184,43 +184,63 @@ export const RUN_BANK: SoundBank = {
 
   hit_rock: {
     description:
-      "A hull on a skerry: the crack of fibreglass — a resonant band of white " +
-      "noise — over the body of the hit, a driven square bending down, with " +
-      "the rock's own answer on the echo bus, and a sheet of water thrown up " +
-      "by the stop. The one sound in the bank with a real transient, because " +
+      "A hull on stone. The CRACK: broadband white gone inside a fiftieth of " +
+      "a second, because two hard things meeting put energy everywhere at " +
+      "once and granite gives nothing back. Under it the hull's own body — a " +
+      "hollow fibreglass shell thumping, a driven sine barely moving off its " +
+      "note, because a pitch that slides down a fifth is a cartoon and not a " +
+      "collision. Then the GRIND: glass fibre dragged over rock, white grit " +
+      "through a bandpass falling away as the hull comes off it. The rock " +
+      "face answers the crack and not the boom. A short dark sheet of water " +
+      "thrown up by the stop " +
+      "closes it. The one sound in the bank with a real transient, because " +
       "the thing being hit is not water.",
     voices: [
+      // The crack. BROADBAND, and shorter than a blink: a highpass alone
+      // leaves a hiss where the blow should be, and the low half of the
+      // spectrum is what says the two things were heavy.
       {
         call: "noise",
-        durationMs: 34,
-        volume: 0.06,
-        filter: { type: "highpass", frequency: 2400 },
+        durationMs: 16,
+        volume: 0.062,
+        filter: { type: "highpass", frequency: 260 },
+        echo: 0.2,
       },
-      {
-        call: "noise",
-        durationMs: 90,
-        volume: 0.045,
-        filter: { type: "bandpass", frequency: 1400, q: 4 },
-      },
+      // The shell the crack is in. A hull is a hollow box and it BOOMS at
+      // its own note; what it does not do is glide. Driven for the body,
+      // lowpassed so the grind above it is the only bright thing.
       {
         call: "tone",
-        type: "square",
-        from: 190,
-        to: 85,
-        durationMs: 230,
-        volume: 0.05,
-        drive: 0.6,
-        filter: { type: "lowpass", frequency: 1600, to: 500 },
-        echo: 0.25,
+        type: "sine",
+        from: 146,
+        to: 122,
+        durationMs: 200,
+        volume: 0.055,
+        drive: 0.5,
+        filter: { type: "lowpass", frequency: 850 },
       },
+      // The grind: the hull dragged along the stone, the cutoff falling as
+      // it comes off. A tenth of a second behind the crack, because the
+      // scrape is what happens next rather than what happens at once.
       {
         call: "noise",
-        durationMs: 380,
-        volume: 0.03,
+        durationMs: 260,
+        volume: 0.036,
+        attackMs: 4,
+        delayMs: 14,
+        filter: { type: "bandpass", frequency: 2900, to: 620, q: 1.1 },
+      },
+      // ...and the water the stop threw up — pink, opening over an attack
+      // like every other sheet in the bank, and dark, because this one is
+      // heard under a rock rather than over a landing.
+      {
+        call: "noise",
+        durationMs: 300,
+        volume: 0.026,
         color: "pink",
-        attackMs: 15,
-        delayMs: 30,
-        filter: { type: "bandpass", frequency: 900, to: 2800, q: 0.8 },
+        attackMs: 18,
+        delayMs: 36,
+        filter: { type: "bandpass", frequency: 760, to: 2100, q: 0.8 },
       },
     ],
   },
