@@ -1,0 +1,6 @@
+---
+type: Changed
+title: The craft has a motor in it now, and the pump stopped screaming
+---
+
+The engine's voice had one frequency badly wrong and one layer missing, and between them they made a jet ski sound like a hair dryer. The pump's whine was pitched at the impeller's blades multiplied by the stator's vanes — eighteen a revolution, a 2.4 kHz sine at the limiter — which is a frequency a pump has never made: what a waterjet radiates is the BLADE PASSING tone, three a revolution, so the whine now runs 75 Hz at idle to 400 Hz at the limiter, as a driven sawtooth with its band four harmonics up rather than a sine on top of the spray. And there is a MOTOR under all of it now: the block itself, a driven square at the firing note through a lowpass parked in the hull's own band, the one layer the waterline does not touch — so a craft idling on a still bay is a machine humming rather than a gurgle and a whistle, and the hum stays under the run wherever the pipe is. The engine also keeps its body underwater instead of losing two thirds of it: what water takes off a submerged exhaust is the top of the note, which the brightness crossfade already said, and holding the level down as well left the spray and the airbox carrying the whole mix.

@@ -152,6 +152,8 @@ function compileRuntime() {
 }
 
 const { RUN_BANK } = await import(join(root, "pwa/src/game/audio/bank.ts"));
+const { ENGINE_LAYERS } = await import(join(root, "pwa/src/game/audio/engine-voice.ts"));
+const { WATER_LAYERS } = await import(join(root, "pwa/src/game/audio/water-voice.ts"));
 const { CRAFT, craftById } = await import(join(root, "engine/index.ts"));
 const spec = craftById(args.craft);
 
@@ -279,7 +281,7 @@ const page = `<!doctype html>
 
   <h2>The craft</h2>
   <p class="sub">
-    The engine and the pump: eight layers built once and STEERED by the numbers below. <b>Revs</b>
+    The engine and the pump: every layer built once and STEERED by the numbers below. <b>Revs</b>
     is the crank, <b>throttle</b> what the rider is asking for, <b>slip</b> how far the jet is
     outrunning the hull (1 at a standstill, a third at pace — the cavitation's signal).
     <b>Wetted</b> is the share of the bottom still in the water, and it is the one to sweep:
@@ -576,7 +578,8 @@ writeFileSync(out, page);
 console.log(
   `wrote ${out} — ${Object.keys(RUN_BANK).length} sounds, ` +
     `${Object.keys(RUN_BANK).length + 2} buttons, the ${spec.name}'s rev band ` +
-    `(${spec.idleRpm}–${spec.maxRpm} rpm), the engine's 8 layers and the water's 7 under sliders`,
+    `(${spec.idleRpm}–${spec.maxRpm} rpm), the engine's ${Object.keys(ENGINE_LAYERS).length} ` +
+    `layers and the water's ${Object.keys(WATER_LAYERS).length} under sliders`,
 );
 
 // ── THE METER ───────────────────────────────────────────────────────────────
