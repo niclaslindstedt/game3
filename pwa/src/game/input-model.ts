@@ -35,13 +35,25 @@ export const KEY_AXIS_SNAP = 0.02;
  * because letting go of a throttle is letting go. */
 export const KEY_THROTTLE_ATTACK = 4;
 export const KEY_THROTTLE_RELEASE = 12;
-/** The brake-and-reverse key's ramp, 1/s. Quicker to ask for than the
- * throttle — a brake is grabbed, not squeezed — and quicker still to let
- * go of. The BUCKET's own travel is what actually delays it (the engine's
- * `spec.bucket.deploy`), so a soft ramp here would only be a second, made
- * up lag on top of the real one. */
-export const KEY_REVERSE_ATTACK = 10;
-export const KEY_REVERSE_RELEASE = 14;
+/** The brake-and-reverse key's ramp, 1/s — the quickest of the lot, both
+ * ways, and the only axis whose two halves are the same number. A brake is
+ * GRABBED, not squeezed, and the BUCKET's own travel is what is meant to
+ * delay it (the engine's `spec.bucket.deploy`), so a soft ramp here is only
+ * a second, made-up lag on top of the real one.
+ *
+ * THE ENGINE NOW THROWS THE GATE'S FIRST HALF ON A COMMITTED ASK
+ * (`TUNING.pump.jabGate` / `.jabShut` — `propulsion.ts`'s `stepBucket`),
+ * which makes this ramp the ONLY thing left standing in front of an
+ * immediate brake: at the old 10 /s a key took 0.12 s merely to climb to
+ * the gate, which is a third of the jab a rider flicks in to swing the bow
+ * off a missed buoy. At 30 /s — the axis is sampled once a PHYSICS step
+ * (`App.tsx` hands `sample` `TUNING.dt`), so this is a quarter of the
+ * remaining travel each time — the gate is crossed five steps in, 0.04 s,
+ * and the lever is back under `jabShut` seven steps after the key comes
+ * up, which hands the throttle back with the gate rather than behind it.
+ * Still a ramp and not a switch: no single step throws the gate. */
+export const KEY_REVERSE_ATTACK = 30;
+export const KEY_REVERSE_RELEASE = 30;
 /** The lean keys' ramp, 1/s — the quickest of the lot, and quickened on
  * purpose. THE TRICK LIVES AT THE TOP OF THIS AXIS (`flight.pumpGate`: only
  * a lean carried to the end of its travel is a haul on the bars, and

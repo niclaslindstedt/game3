@@ -400,6 +400,29 @@ export const TUNING = {
      * what an electronic brake does and why a watercraft brakes with the
      * engine revving. */
     bucketThrottle: 0.65,
+    /** THE JAB — how much of the brake lever counts as an ask made IN
+     * FULL, 0..1, and how little counts as one shut in full. Between them
+     * the gate is being feathered and swings at its servo's rate; outside
+     * them the throttling half of its travel (shut to `bucketNeutral`) is
+     * thrown rather than swung, in whichever direction the lever went.
+     * `stepBucket` owns what that buys and why.
+     *
+     * The pair is a HYSTERESIS and not one threshold: a single gate would
+     * leave a lever parked on it arguing with the throw every step. High
+     * and low on purpose, because this is the `flight.pumpGate` bargain —
+     * only a committed hand is paid, and a rider placing the craft with
+     * half a lever still gets the servo he asked for. Sized against the
+     * touch lever's own throw (`LEVER_REVERSE_PX`, 60 px past the shut
+     * mark): 0.7 is 42 px of thumb, which is a grab, and 0.15 is 9 px,
+     * which is a hand off the glass.
+     *
+     * AND THE KEYBOARD'S RAMP HAS TO BE ABLE TO REACH THIS. A key climbs
+     * its axis at `KEY_REVERSE_ATTACK` (the app's, which the engine cannot
+     * import), so a gate raised here without quickening that ramp is a
+     * throw no keyboard rider ever earns; `tests/input_model_test.ts`
+     * reads both and holds the pair together. */
+    jabGate: 0.7,
+    jabShut: 0.15,
     /** Intake depth below the keel probe at the transom, m: the intake is
      * fed while the transom station is wet to this. */
     intakeDepth: 0.05,
