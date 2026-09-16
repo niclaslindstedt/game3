@@ -913,10 +913,10 @@ export const LEVEL_RULES = {
      * more samples is a stricter placement and a slower generator; eight is
      * a sample every 45°, which no loop in the band can hide a rock in. */
     samples: 8,
-    /** Placement tries per pod before the placer gives up on it, as R17's
-     * rocks are given up on: a coast a little emptier is what a coast is
-     * allowed to be. */
-    tries: 10,
+    /** Placement tries per pod, read against the NARROWEST band in the
+     * catalog: a humpback's is a twentieth of a level's box, so ten tries
+     * placed one whale in two and thinned the rarest by the placer. */
+    tries: 60,
   },
 
   /** The search's own dials: how many sub-seeds to try before giving up,

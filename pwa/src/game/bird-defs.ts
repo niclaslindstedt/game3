@@ -48,6 +48,9 @@ export type BirdId =
   | "tern"
   | "cormorant"
   | "eider"
+  | "gannet"
+  | "fulmar"
+  | "kittiwake"
   | "eagle"
   | "goose"
   | "swan"
@@ -57,6 +60,9 @@ export type BirdId =
   | "egret"
   | "ibis"
   | "spoonbill"
+  | "booby"
+  | "noddy"
+  | "sootytern"
   | "frigatebird";
 
 export type Band = { readonly min: number; readonly max: number };
@@ -135,6 +141,20 @@ export type BirdSpec = {
    * a raft of eider is a broad thing, an eagle is one bird on one branch.
    * Absent for a bird that only ever crosses. */
   readonly home?: Home;
+  /** A BIRD OF THE OPEN WATER rather than of the shore, and the one thing
+   * that lets a roster reach past the buoys. Four of the five homes are
+   * coastal by construction — a rock, a tree, a beach, a raft in
+   * somebody's lee — so a roster without this block leaves the sky over
+   * the outer half of every level as empty as the water under it.
+   *
+   * `offshore` is the band its raft and its beat stand in, m from the
+   * water's edge, and `reach` is how far off the RACING LINE it may live.
+   * The two are different questions and a pelagic bird needs both moved: a
+   * shore flock is held near the line because a raft up a back bay is a
+   * raft nobody meets, but a gannet is only ever met by riding OUT, and a
+   * gannet held near the line is a gannet in the wrong place. Its raft is
+   * asked for no lee either — nothing out there shelters anything. */
+  readonly sea?: { readonly offshore: Band; readonly reach: number };
   readonly roost: number;
   /** ONE CYCLE of rest and flight, s, and how much of it is flight at the
    * height of the day. A gull is up half the time; an eider is a thing on
@@ -279,6 +299,103 @@ export const BIRDS: readonly BirdSpec[] = [
     dive: 0,
     dries: false,
     perKm: 0.9,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "gannet",
+    name: "Northern gannet",
+    biomes: ["taiga"],
+    // The biggest seabird on a northern coast, and unmistakable: white,
+    // black-tipped, and shaped like a thrown dart at both ends.
+    span: 1.75,
+    length: 0.94,
+    neck: 0.44,
+    wing: { chord: 0.11, taper: 0.28, sweep: 0.3, wrist: 0.4 },
+    beatHz: 2.6,
+    stroke: 0.7,
+    glide: 0.6,
+    dihedral: 0.03,
+    speed: 15,
+    flock: { min: 3, max: 10 },
+    formation: "line",
+    // High enough for the plunge to be a plunge: a gannet goes in from
+    // thirty metres and hits the water at a hundred kilometres an hour.
+    altitude: { min: 20, max: 55 },
+    beat: { min: 60, max: 160 },
+    home: "water",
+    roost: 9,
+    cycle: { min: 90, max: 180 },
+    airShare: 0.8,
+    // The one thing everybody knows about a gannet.
+    dive: 22,
+    dries: false,
+    perKm: 0.9,
+    // Out where the water has depth under it, and a long way off the line
+    // — a gannet is the reward for riding out rather than along.
+    sea: { offshore: { min: 140, max: 800 }, reach: 900 },
+    seasons: ["spring", "summer", "autumn"],
+    passes: [],
+  },
+  {
+    id: "fulmar",
+    name: "Northern fulmar",
+    biomes: ["taiga"],
+    // STIFF WINGS AND NO BEAT: a fulmar shears along the troughs on
+    // wings it barely moves, which is the one flight in the roster that
+    // reads as the SEA rather than as a bird.
+    span: 1.12,
+    length: 0.47,
+    neck: 0.34,
+    wing: { chord: 0.14, taper: 0.42, sweep: 0.18, wrist: 0.46 },
+    beatHz: 3.4,
+    stroke: 0.5,
+    glide: 0.9,
+    dihedral: 0.0,
+    speed: 13,
+    flock: { min: 2, max: 7 },
+    formation: "loose",
+    // Low: it uses the lift off the face of a wave and never leaves it.
+    altitude: { min: 2, max: 12 },
+    beat: { min: 70, max: 180 },
+    home: "water",
+    roost: 8,
+    cycle: { min: 120, max: 260 },
+    airShare: 0.85,
+    dive: 0,
+    dries: false,
+    perKm: 1.0,
+    sea: { offshore: { min: 120, max: 800 }, reach: 900 },
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "kittiwake",
+    name: "Black-legged kittiwake",
+    biomes: ["taiga"],
+    // The gull that is actually a bird of the open sea: smaller and
+    // cleaner than the herring gull, and it comes in flocks over bait.
+    span: 1.05,
+    length: 0.39,
+    neck: 0.36,
+    wing: { chord: 0.14, taper: 0.34, sweep: 0.26, wrist: 0.42 },
+    beatHz: 3.6,
+    stroke: 0.85,
+    glide: 0.4,
+    dihedral: 0.04,
+    speed: 12,
+    flock: { min: 6, max: 20 },
+    formation: "loose",
+    altitude: { min: 8, max: 30 },
+    beat: { min: 40, max: 120 },
+    home: "water",
+    roost: 10,
+    cycle: { min: 80, max: 160 },
+    airShare: 0.7,
+    dive: 0,
+    dries: false,
+    perKm: 1.2,
+    sea: { offshore: { min: 110, max: 800 }, reach: 900 },
     seasons: ["spring", "summer", "autumn", "winter"],
     passes: [],
   },
@@ -573,6 +690,100 @@ export const BIRDS: readonly BirdSpec[] = [
     // A flock on a flat, and not every flat: the one PINK thing in the
     // game, and the sighting a rider tells somebody about.
     perKm: 0.35,
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "booby",
+    name: "Brown booby",
+    biomes: ["mangrove"],
+    // The warm coast's gannet, and it does the same thing: a fold and a
+    // plunge, off a wing chocolate above and white below.
+    span: 1.45,
+    length: 0.75,
+    neck: 0.42,
+    wing: { chord: 0.12, taper: 0.28, sweep: 0.32, wrist: 0.42 },
+    beatHz: 2.8,
+    stroke: 0.75,
+    glide: 0.55,
+    dihedral: 0.03,
+    speed: 13,
+    flock: { min: 2, max: 8 },
+    formation: "line",
+    altitude: { min: 12, max: 40 },
+    beat: { min: 60, max: 150 },
+    home: "water",
+    roost: 8,
+    cycle: { min: 90, max: 190 },
+    airShare: 0.8,
+    dive: 26,
+    dries: false,
+    perKm: 0.85,
+    sea: { offshore: { min: 130, max: 800 }, reach: 900 },
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "noddy",
+    name: "Brown noddy",
+    biomes: ["mangrove"],
+    // A dark tern of the open ocean that works over whatever the fish
+    // below have pushed up — so a raft of them out on the shelf is a sign
+    // there is something under it, which on this coast there now is.
+    span: 0.83,
+    length: 0.4,
+    neck: 0.35,
+    wing: { chord: 0.12, taper: 0.28, sweep: 0.3, wrist: 0.38 },
+    beatHz: 3.8,
+    stroke: 0.9,
+    glide: 0.25,
+    dihedral: 0.03,
+    speed: 10,
+    flock: { min: 5, max: 16 },
+    formation: "loose",
+    altitude: { min: 4, max: 18 },
+    beat: { min: 35, max: 110 },
+    home: "water",
+    roost: 9,
+    cycle: { min: 70, max: 150 },
+    airShare: 0.75,
+    dive: 18,
+    dries: false,
+    perKm: 1.1,
+    sea: { offshore: { min: 110, max: 800 }, reach: 900 },
+    seasons: ["spring", "summer", "autumn", "winter"],
+    passes: [],
+  },
+  {
+    id: "sootytern",
+    name: "Sooty tern",
+    biomes: ["mangrove"],
+    // Black above and white below, and it stays at sea for years at a
+    // time: the most PELAGIC thing in either roster, and the flock that
+    // says a rider has gone properly offshore.
+    span: 0.9,
+    length: 0.44,
+    neck: 0.36,
+    wing: { chord: 0.1, taper: 0.24, sweep: 0.34, wrist: 0.36 },
+    beatHz: 3.6,
+    stroke: 0.95,
+    glide: 0.45,
+    dihedral: 0.03,
+    speed: 12,
+    flock: { min: 8, max: 22 },
+    formation: "loose",
+    altitude: { min: 10, max: 35 },
+    beat: { min: 50, max: 140 },
+    home: "water",
+    roost: 12,
+    cycle: { min: 90, max: 200 },
+    airShare: 0.85,
+    dive: 0,
+    dries: false,
+    perKm: 1.0,
+    // The furthest out of any row in the game: nothing brings a sooty
+    // tern inshore.
+    sea: { offshore: { min: 220, max: 800 }, reach: 900 },
     seasons: ["spring", "summer", "autumn", "winter"],
     passes: [],
   },

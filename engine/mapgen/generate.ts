@@ -345,12 +345,21 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       density: biome.water.density,
       temperature: band.min + waterAt * (band.max - band.min),
     };
-    // R20 — the sea life, drawn after all of it: no animal moves a gate, so
-    // nothing the search judged may depend on how many there turned out to
-    // be. The rocks are already placed, because a pod is kept clear of
-    // them.
+    // R20 — the sea life, laid off a STREAM OF ITS OWN rather than off the
+    // level's. No animal moves a gate, a rock or a wave, so nothing the
+    // search judged may depend on how many there turned out to be — and a
+    // shared stream only delivers that while the fauna is drawn dead last,
+    // which is a property of the file's line order and nothing else. It
+    // does not survive: the placer's draw COUNT moves whenever the catalog,
+    // a band or the try budget does, so anything drawn after it is dealt a
+    // different value every time an animal is retuned. R36's swell landed
+    // below this line and a fauna change took seed 1's sea from Hs 2.0 m to
+    // 7.4 m — a different level to ride, from adding a whale. A derived
+    // seed costs the level stream nothing and makes the guarantee
+    // structural, so the order here stops mattering. The rocks are already
+    // placed, because a pod is kept clear of them.
     const fauna = layFauna(
-      rng,
+      createRng(subSeed(seed, attempt) ^ 0xfa07),
       biome,
       drawn.strewn,
       offshoreAt,

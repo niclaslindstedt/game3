@@ -81,6 +81,16 @@ export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
     bill: 0x9c9a8a,
     legs: 0x2a2d30,
   },
+  // ── The open sea ──────────────────────────────────────────────────────
+  // White with BLACK OUTER HANDS and a buff head: at range a gannet is a
+  // white cross with the tips dipped in ink, and nothing else is.
+  gannet: { back: 0xf4f5f2, belly: 0xf6f7f5, tip: 0x17191c, head: 0xe3d5a8, bill: 0x9aa4a8 },
+  // Grey above, white below, and a plain dark eye-patch — the plainest
+  // bird in either roster, which is what a fulmar is.
+  fulmar: { back: 0x9aa1a6, belly: 0xf0f2f2, tip: 0x8a9196, head: 0xeceeee, bill: 0xb0a88c },
+  // A cleaner, softer gull: grey mantle, white below, and wingtips dipped
+  // black with no white in them at all.
+  kittiwake: { back: 0x9ca7ae, belly: 0xf5f6f7, tip: 0x1d2024, head: 0xf5f6f7, bill: 0xd8c24a },
   // ── The mangrove coast ────────────────────────────────────────────────
   // Grey-brown all over and dark beneath, with the pale head and the long
   // horn-coloured bill: the one big bird here that is not white.
@@ -121,6 +131,15 @@ export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
   // is what shows from below, and what keeps it from being a silhouette
   // with nothing to read.
   frigatebird: { back: 0x141416, belly: 0xe0e0dc, tip: 0x101012, head: 0x141416, bill: 0x8a8a84 },
+  // Chocolate above and sharply WHITE below, cut off at the chest: the
+  // cleanest two-tone in the game, and it is the underside that shows.
+  booby: { back: 0x5a4a3c, belly: 0xf2f2ec, tip: 0x3a3028, head: 0x5a4a3c, bill: 0xd8c88a },
+  // Sooty brown with a pale cap — dark against the sea and dark against
+  // the sky, which is why a raft of them reads as a shadow on the water.
+  noddy: { back: 0x40382f, belly: 0x4a423a, tip: 0x2a241e, head: 0xd6d2c4, bill: 0x1f1c18 },
+  // BLACK ABOVE, WHITE BELOW, and the water only ever sees the white: a
+  // flock of them overhead is a field of white crosses.
+  sootytern: { back: 0x1b1d20, belly: 0xf4f5f4, tip: 0x141618, head: 0x1b1d20, bill: 0x141618 },
 };
 
 /** How far back the ARM sweeps at the shoulder and the HAND at the wrist

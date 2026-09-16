@@ -69,7 +69,7 @@ import {
   type WaterVoice,
 } from "../pwa/src/game/audio/water-voice.ts";
 import { BIRD_IDS } from "../pwa/src/game/bird-defs.ts";
-import { planBirds } from "../pwa/src/game/bird-plan.ts";
+import { planBirds } from "../pwa/src/game/bird-roost.ts";
 import { SCREEN_TO_ENGINE } from "../pwa/src/game/input-model.ts";
 import { SFX_STEP, mergeSettings } from "../pwa/src/game/settings.ts";
 import {
@@ -1007,9 +1007,12 @@ describe("the birds' voices (audio/bird-voice.ts)", () => {
 });
 
 describe("the bird bed (audio/bird-bed.ts)", () => {
-  // The strip carries one flock: a few geese on the water. Where they are
-  // is the plan's business; the bed lays the same plan off the same level.
-  const raft = planBirds(STRIP).flocks[0];
+  // The strip carries rafts on the water. Where they are is the plan's
+  // business; the bed lays the same plan off the same level. The first one
+  // WITH A VOICE is what this describes — the open sea's rows raft here
+  // too and the gannet, the fulmar and the booby are silent at sea, and a
+  // bed test needs something that cries.
+  const raft = planBirds(STRIP).flocks.find((f) => BIRD_CALLS[f.species] !== null)!;
   const goose = BIRD_CALLS[raft.species]!;
 
   const runAt = (x: number, z: number) => {

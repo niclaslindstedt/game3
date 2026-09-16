@@ -161,6 +161,18 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.05,
     waves: 2.2,
   },
+  seatrout: {
+    // Olive-backed and spotted rather than the salmon's clean blue-grey:
+    // the pair are told apart by tone, which is all a back ever shows.
+    back: 0x50553f,
+    belly: 0xd2cec0,
+    height: 0.22,
+    dorsal: 0.07,
+    pectoral: 0.09,
+    tail: 0.22,
+    bend: 0.09,
+    waves: 3,
+  },
   salmon: {
     back: 0x4a5560,
     belly: 0xd7d4cd,
@@ -171,8 +183,34 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.09,
     waves: 3,
   },
+  cod: {
+    // Mottled olive-brown over a pale belly, and the three dorsals a cod
+    // carries make one long ridge from above rather than a fin.
+    back: 0x6a6244,
+    belly: 0xdcd5bc,
+    fin: 0x7a7050,
+    height: 0.26,
+    dorsal: 0.08,
+    pectoral: 0.1,
+    tail: 0.2,
+    bend: 0.08,
+    waves: 2.8,
+  },
   // The cetaceans: rounder than they are deep, and every one of them shows
   // its back rather than its flank.
+  seal: {
+    // Dark wet grey blotched paler, a broad round back and NO DORSAL AT
+    // ALL — which is the whole field mark: a fin means porpoise, a bare
+    // back at the same range means seal.
+    back: 0x555b58,
+    belly: 0xc2c0b4,
+    height: 0.34,
+    dorsal: 0,
+    pectoral: 0.13,
+    tail: 0.16,
+    bend: 0.05,
+    waves: 1.8,
+  },
   porpoise: {
     back: 0x2e3338,
     belly: 0xcdd1d4,
@@ -209,6 +247,45 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     flipperBand: true,
     bend: 0.05,
     waves: 1.8,
+  },
+  whitebeak: {
+    // Dark over a pale grey saddle behind the fin — the marking that names
+    // it, and it is on the one surface a rider ever sees.
+    back: 0x2e3640,
+    belly: 0xe2e6e6,
+    height: 0.21,
+    dorsal: 0.15,
+    pectoral: 0.13,
+    tail: 0.26,
+    saddle: true,
+    bend: 0.08,
+    waves: 2.6,
+  },
+  basking: {
+    // Slate grey-brown, and the two things that carry the sighting are the
+    // long soft dorsal and a tail span wider than anything else afloat.
+    back: 0x4a4e4a,
+    belly: 0xa8aca4,
+    height: 0.2,
+    dorsal: 0.15,
+    pectoral: 0.2,
+    tail: 0.3,
+    bend: 0.05,
+    waves: 1.8,
+  },
+  humpback: {
+    // Near-black with a white underside, the LONGEST PECTORALS IN THE SEA
+    // — a third of the animal, and pale enough to show through the water
+    // before the back does — over a fin so small it is a knuckle.
+    back: 0x21262b,
+    belly: 0xeef0ec,
+    fin: 0xdfe4e0,
+    height: 0.24,
+    dorsal: 0.05,
+    pectoral: 0.32,
+    tail: 0.3,
+    bend: 0.05,
+    waves: 1.6,
   },
   // ── The mangrove coast ────────────────────────────────────────────────
   // Warm-water fish: silver over olive, and the ray a flat grey disc.
@@ -257,6 +334,18 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.08,
     waves: 2.8,
   },
+  barracuda: {
+    // A bar of polished steel with a black-blotched flank and a forked
+    // tail; the narrowest thing in the catalog from above.
+    back: 0x646e70,
+    belly: 0xe6eaea,
+    height: 0.16,
+    dorsal: 0.09,
+    pectoral: 0.06,
+    tail: 0.26,
+    bend: 0.07,
+    waves: 2.6,
+  },
   stingray: {
     // A disc lying on the sand: nearly flat, no fin to speak of, a whip of
     // a tail. Its whole shape is the beam the catalog gives it.
@@ -284,6 +373,19 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0,
     waves: 0,
   },
+  greenturtle: {
+    // Olive over cream, and a smoother, rounder shell than the
+    // loggerhead's: the two are told apart by tone and by size.
+    back: 0x556044,
+    belly: 0xdfd9b2,
+    fin: 0x47502f,
+    height: 0.36,
+    dorsal: 0,
+    pectoral: 0.52,
+    tail: 0.05,
+    bend: 0,
+    waves: 0,
+  },
   manatee: {
     // Grey all over, round as a log, no fin, and the paddle of a tail.
     back: 0x6a6a64,
@@ -306,6 +408,19 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.08,
     waves: 2.6,
   },
+  spotted: {
+    // Dark cape over a pale speckled flank, and a saddle behind the fin: a
+    // school of them reads as a field of small dark crescents.
+    back: 0x3d4650,
+    belly: 0xdfe3e4,
+    height: 0.2,
+    dorsal: 0.15,
+    pectoral: 0.13,
+    tail: 0.26,
+    saddle: true,
+    bend: 0.08,
+    waves: 2.8,
+  },
   shark: {
     // Stout and pale: a bull shark is grey-brown and thicker through the
     // shoulder than any other shark its length.
@@ -320,6 +435,19 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.07,
     waves: 2.4,
   },
+  tiger: {
+    // Grey-green with the dark BARS down the back that name it — the one
+    // shark here with a marking, and it is on the surface that shows.
+    back: 0x5e6650,
+    belly: 0xdedfd4,
+    height: 0.22,
+    dorsal: 0.14,
+    pectoral: 0.17,
+    tail: 0.3,
+    bars: 7,
+    bend: 0.07,
+    waves: 2.4,
+  },
   hammerhead: {
     // The head is in profile and this game has no profile; what it has is
     // the FIN, and a great hammerhead's is the tallest sickle in the sea.
@@ -331,6 +459,45 @@ const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     tail: 0.3,
     bend: 0.07,
     waves: 2.4,
+  },
+  manta: {
+    // A WING. Black above, white below, and effectively no dorsal, no
+    // pectoral and no tail worth drawing: the catalog's beam does all of
+    // the work here, and the shape is unmistakable because of it.
+    back: 0x23262b,
+    belly: 0xf0f2ef,
+    height: 0.05,
+    dorsal: 0,
+    pectoral: 0.02,
+    tail: 0.03,
+    bend: 0.05,
+    waves: 1.4,
+  },
+  whaleshark: {
+    // The one animal in the sea that is SPOTTED white on blue-grey, in
+    // rows — the bars are the closest the builder gets to them, and at
+    // this size they read from further off than the fin does.
+    back: 0x3f4a58,
+    belly: 0xd6dad8,
+    height: 0.22,
+    dorsal: 0.12,
+    pectoral: 0.2,
+    tail: 0.28,
+    bars: 9,
+    bend: 0.05,
+    waves: 1.6,
+  },
+  brydes: {
+    // Dark grey, a small hooked fin two thirds of the way back, and the
+    // flat low roll of a rorqual.
+    back: 0x2b3138,
+    belly: 0xc6ccc9,
+    height: 0.2,
+    dorsal: 0.06,
+    pectoral: 0.13,
+    tail: 0.26,
+    bend: 0.05,
+    waves: 1.7,
   },
 };
 
