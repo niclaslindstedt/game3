@@ -85,6 +85,7 @@ export { aeroForces, type AeroResult } from "./game/flight.ts";
 // still commands in it, and what the deck's float does once it is under.
 export {
   floatUpPose,
+  floatUpStep,
   floodedDeck,
   riderDrag,
   stepUnder,

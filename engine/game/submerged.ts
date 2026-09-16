@@ -234,6 +234,24 @@ export function underwaterForces(
   out.tz += scratch.tz;
 }
 
+/** ONE STEP OF THE FLOAT-UP'S HAND on the craft, at the integration: the
+ * rates held at zero, the orientation turned by `floatUpPose`, and the
+ * height eased up toward `rest` — where the hull would float on the water
+ * over it — over the same lag, never down. The righting's own road to the
+ * surface, without the wait on its back: left to its buoyancy alone a hull
+ * turned upright five metres down under a storm sea climbed toward a
+ * surface that was moving away from it, and a rider given back a hull he
+ * could not see the sky from was not given back much. The way along is
+ * the physics' and the drag scrubs it. */
+export function floatUpStep(c: CraftState, rest: number, dt: number): void {
+  c.wx = c.wy = c.wz = 0;
+  c.q = floatUpPose(c.q, dt);
+  if (c.y < rest) {
+    c.y += (rest - c.y) * (1 - Math.exp(-dt / S.riseLag));
+    c.vy = Math.max(c.vy, 0);
+  }
+}
+
 /** ONE STEP OF THE SPELL, run after the craft has been placed and `share`
  * is this step's `submergedShare`. The latch, the clock, the gas clock,
  * the float-up's timer and the two events at the spell's ends are all

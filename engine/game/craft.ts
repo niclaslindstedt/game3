@@ -27,7 +27,7 @@ import { followingSeaAssist, landingAssist, rampAssist } from "./assist.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { aeroForces, type AeroResult } from "./flight.ts";
-import { floatUpPose, stepUnder, underwaterForces, submergedShare } from "./submerged.ts";
+import { floatUpStep, stepUnder, submergedShare, underwaterForces } from "./submerged.ts";
 import {
   hullForces,
   hullProbes,
@@ -813,26 +813,10 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.y += c.vy * dt;
   c.z += c.vz * dt;
   // THE FLOAT-UP has the orientation AND the height while it holds
-  // (`submerged.ts`): the hull is turned to upright and nose-up the way
-  // the capsize's righting turns it, with the rates held at zero, and
-  // eased up to where it would float on the water over it over the same
-  // lag — the righting's own road to the surface, without the wait on
-  // its back. Left to its buoyancy alone a hull turned upright five
-  // metres down under a storm sea climbed toward a surface that was
-  // moving away from it, and a rider given back a hull he could not see
-  // the sky from was not given back much. The way along is the physics'
-  // and the drag scrubs it.
-  if (c.floatUp) {
-    c.wx = c.wy = c.wz = 0;
-    c.q = floatUpPose(c.q, dt);
-    const rest = restY(spec, density) + waterY;
-    if (c.y < rest) {
-      c.y += (rest - c.y) * (1 - Math.exp(-dt / T.submerged.riseLag));
-      c.vy = Math.max(c.vy, 0);
-    }
-  } else {
-    c.q = integrate(c.q, c.wx, c.wy, c.wz, dt);
-  }
+  // (`submerged.ts`, `floatUpStep`): the capsize's righting on the other
+  // side of the surface, with the way along left to the physics.
+  if (c.floatUp) floatUpStep(c, restY(spec, density) + waterY, dt);
+  else c.q = integrate(c.q, c.wx, c.wy, c.wz, dt);
 
   // THE ROCKS, as an impulse on the new pose.
   clipSolids(level, spec, c, state.t, events);
