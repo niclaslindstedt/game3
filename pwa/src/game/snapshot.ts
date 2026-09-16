@@ -237,8 +237,15 @@ export type HudSnapshot = {
    * that counted it would flicker through a whole head sea, so
    * the clock starts at the line rather than at the water. `airborne` is
    * the hull's own truth and stays honest: the spray and the sound read
-   * the state, this is what is READ OUT. */
+   * the state, this is what is READ OUT.
+   *
+   * ...AND THE UNDER CLOCK, on the same tile: while the hull is under the
+   * water (`CraftState.under`, past `submerged.counts`) the figure is the
+   * seconds it has been under and `under` is true, so the caption changes
+   * and nothing else does — they are one reading, how long the hull has
+   * been off the surface, and a rider watches both the same way. */
   airTime: number;
+  under: boolean;
   /** How far the clock has grown, 0..1 from the line (`flight.airCounts`) to
    * a flight worth the whole size — the one readout that says how big the
    * moment is by how big it IS. */
@@ -316,17 +323,26 @@ function airGrow(time: number, line: number): number {
   return KNEE_SHARE + (1 - KNEE_SHARE) * past;
 }
 
-function airClock(state: GameState): { time: number; grow: number; record: boolean } {
+function airClock(state: GameState): {
+  time: number;
+  under: boolean;
+  grow: number;
+  record: boolean;
+} {
   const c = state.craft;
   const p = state.progress;
   const line = TUNING.flight.airCounts;
   const live = c.airTime > line ? c.airTime : 0;
+  const under = c.under && c.underTime > TUNING.submerged.counts ? c.underTime : 0;
   const held = p.bestAir > 0 && state.t - p.bestAirAt < AIR_HOLD;
-  const time = live > 0 ? live : held ? p.bestAir : 0;
+  const time = live > 0 ? live : under > 0 ? under : held ? p.bestAir : 0;
   return {
     time,
+    under: under > 0 && live === 0,
     grow: airGrow(time, line),
-    record: live > 0 ? p.bestAir > 0 && live > p.bestAir : held,
+    // The record is the AIR's: a spell under the water takes no record and
+    // never reads as one.
+    record: under > 0 && live === 0 ? false : live > 0 ? p.bestAir > 0 && live > p.bestAir : held,
   };
 }
 
@@ -436,6 +452,7 @@ export function takeSnapshot(state: GameState, ghost: GameState | null = null): 
     altitudePeakShare: p.peakAltitude >= ALT_PEAK_SHOWN ? altitudeShare(p.peakAltitude) : -1,
     airborne: c.airborne,
     airTime: air.time,
+    under: air.under,
     airGrow: air.grow,
     airRecord: air.record,
     ghostGap: ghostGap(state, ghost),

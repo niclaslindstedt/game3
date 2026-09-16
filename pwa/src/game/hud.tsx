@@ -346,7 +346,7 @@ export function Hud({
           {snap.airTime > 0 && (
             <div class="hud-air-tile">
               <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
-              <span class="hud-chip-sub">{STRINGS.airLabel}</span>
+              <span class="hud-chip-sub">{snap.under ? STRINGS.underLabel : STRINGS.airLabel}</span>
               {/* UNDER the unit label, at the foot of the same column: the
                   clock keeps the centreline whether the word is there or
                   not, and the tile grows DOWNWARD to make room for it. */}

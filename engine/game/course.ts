@@ -304,6 +304,13 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.standHold = 0;
   c.airborne = false;
   c.airTime = 0;
+  // ...and nothing UNDER it either: a craft stood afloat is out of any
+  // spell it was lifted out of, with no float-up owed on it.
+  c.under = false;
+  c.underTime = 0;
+  c.gasOff = 0;
+  c.floatUp = false;
+  c.floatUpFor = 0;
   c.planing = 0;
   c.speed = 0;
   c.onRamp = false;

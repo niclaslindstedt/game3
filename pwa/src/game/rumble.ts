@@ -157,6 +157,13 @@ export function rumbleForEvent(event: GameEvent): Rumble | null {
     case "capsize":
       return { ms: RUMBLE.longest, strength: 1 };
 
+    // THE HULL BROUGHT UP for him: the water turning the craft over under
+    // the rider, which is most of a capsize in the hands and none of the
+    // wait. Going under is the bow's own shove (`dive`, above) and
+    // surfacing is a landing from below — neither is a pulse of its own.
+    case "floatUp":
+      return { ms: 220, strength: 0.75 };
+
     // THE TORNADO TAKING HIM, out past the far edge of the open ocean. Read
     // off the event's `grip` — how much of the tornado stands where he is —
     // rather than off the wind in m/s, because the wind out there is quoted

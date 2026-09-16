@@ -469,6 +469,14 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
     lean = 1;
   } else if (gate.kind === "air" && gate.ramp && onRampDeck(gate.ramp, c.x, c.z)) {
     lean = 1;
+  } else if (c.under) {
+    // UNDER THE WATER the bars are still his (`submerged.ts`), and what a
+    // rider does with them there is haul the nose up and keep the gas on:
+    // the jet drives the hull out. A bot that sat there would be brought
+    // up by the float-up ten seconds later with the combo gone, which is
+    // not a rider, and would spend ten seconds of every dive in the sweep
+    // measuring nothing.
+    lean = 1;
   }
 
   // Stuck — on the ground with no way on, or wedged against a rock it

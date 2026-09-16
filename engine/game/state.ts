@@ -135,6 +135,27 @@ export type CraftState = {
    * a hull carried up a swell in step with it shoves nothing aside, and
    * `vy − waterVy` is the heave that does. 0 on a dry hull. */
   waterVy: number;
+  /** THE SPELL UNDER THE WATER (`submerged.ts`, `TUNING.submerged`): the
+   * air's `airborne` / `airTime` on the other side of the surface. `under`
+   * is a LATCH on `submerged` — set once the share passes `enter`, cleared
+   * only once it falls under `leave` — so a hull surfacing through a
+   * seaway is not twenty spells; `underTime` is the seconds since it went,
+   * 0 when it is not. The clock, the score and the readout all read it
+   * from `counts` on. */
+  under: boolean;
+  underTime: number;
+  /** Seconds the throttle has been SHUT this spell, 0 while it is open —
+   * what `holdIdle` is measured against: let go of the gas under the
+   * water and this much later the hull is brought up (`floatUp`). */
+  gasOff: number;
+  /** THE FLOAT-UP IS IN HAND: the rider's time ran out (`hold`, or
+   * `holdIdle` off the gas), or the hull came out on its back, and it is
+   * being steered to the surface the right way up. Set by the timer or
+   * the surfacing, cleared once the hull is out and upright — or after
+   * `holdUp` seconds of trying (`floatUpFor`), when the capsize has it.
+   * The surfacing it produces is never a clean one. */
+  floatUp: boolean;
+  floatUpFor: number;
   /** The slam the hull took this step, N — the wedge impact of the probes
    * ENTERING the water (`hull.ts`), capped as the physics caps it. Zero on a
    * hull that is riding rather than landing. Read by the app's audio for the
@@ -311,8 +332,13 @@ export type Progress = {
  * - `air` — the flight the others were turned in, once it has lasted
  *   `tricks.airElement`. It is already PAID by the second, so what it adds
  *   as an element is the rung and nothing else, and it only ever counts
- *   beside a trick (`tricks.ts` states the rule). */
-export type TrickKind = "backflip" | "frontflip" | "roll" | "air";
+ *   beside a trick (`tricks.ts` states the rule).
+ * - `submarine` — the hull driven UNDER and ridden back out the right way
+ *   up under its rider (`submerged.ts`), once the spell lasted
+ *   `tricks.diveElement`. Paid by the second like the air and worth a rung
+ *   on its own, because a hull that came up clean was RIDDEN up; one the
+ *   float-up brought up is a bail. */
+export type TrickKind = "backflip" | "frontflip" | "roll" | "air" | "submarine";
 
 /** One element of a combo as it stands in the state: what it was, how many
  * revolutions of it (1 for the air, and for the first turn of a flight; 2
@@ -419,6 +445,20 @@ export type GameEvent =
     }
   /** A landing that buried the bow: the nose went in `depth` metres. */
   | { kind: "dive"; t: number; depth: number; speed: number }
+  /** THE HULL HAS GONE UNDER: the spell has lasted `submerged.counts`,
+   * `depth` is the deepest probe, m, and `speed` the craft's. The start of
+   * the under clock a readout shows, and the beat the water closes over
+   * the rider on. */
+  | { kind: "submerge"; t: number; depth: number; speed: number }
+  /** ...AND IT IS BACK OUT, after `underTime` seconds of it. `clean` is
+   * whether the RIDER brought it up — the right way up, and not by the
+   * float-up — which is the whole of what the score reads (`tricks.ts`).
+   * Reported for every spell that reached `submerged.counts`. */
+  | { kind: "surface"; t: number; underTime: number; clean: boolean }
+  /** THE RIDER'S TIME RAN OUT under the water — `submerged.hold` on the
+   * gas, or `holdIdle` after letting it go — and the hull is being brought
+   * up for him. The combo goes with it, as it goes with a capsize. */
+  | { kind: "floatUp"; t: number; underTime: number }
   /** A solid met at `speed` m/s closing. */
   | { kind: "hit"; t: number; solid: string; speed: number }
   /** The keel on the ground — a beach, a reef. */

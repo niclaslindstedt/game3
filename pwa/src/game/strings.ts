@@ -105,6 +105,7 @@ const TRICK_WORDS: Record<TrickKind, string> = {
   frontflip: "FRONTFLIP",
   roll: "BARREL ROLL",
   air: "AIR",
+  submarine: "SUBMARINE",
 };
 
 /** ...and the one name that is not a name for a single element: a flight
@@ -240,6 +241,10 @@ export const STRINGS = {
   /** The air-time readout, tenths. */
   air: (seconds: number): string => `${seconds.toFixed(1)}s`,
   airLabel: "AIR",
+  /** ...and the same clock's caption while the hull is UNDER the water
+   * rather than over it (`CraftState.under`): one tile, two words, because
+   * they are one reading — how long the hull has been off the surface. */
+  underLabel: "UNDER",
   /** The word under the air clock while the flight on it is the run's
    * longest. Under rather than beside: the clock keeps the centreline and
    * the news is read as a second line of the same readout. */
@@ -309,6 +314,12 @@ export const STRINGS = {
   finishPlace: (place: number, of: number, seconds: number): string =>
     `${ordinal(place)} OF ${of}  ${formatTime(seconds)}`,
   dive: "DIVE",
+  /** THE HULL BACK OUT under its rider, after that long under — the
+   * column's reading of a spell the way `landed` is of a flight. */
+  surfaced: (seconds: number): string => `UNDER ${seconds.toFixed(1)}s`,
+  /** ...and the hull brought up FOR him: his time under ran out, or it
+   * came out on its back, and the water turned it over (`floatUp`). */
+  floatUp: "FLOATED UP",
   hit: "HIT",
   grounded: "AGROUND",
   landed: (airSeconds: number): string => `AIR ${airSeconds.toFixed(1)}s`,

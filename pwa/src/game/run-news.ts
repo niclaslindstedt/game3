@@ -56,6 +56,14 @@ export function flashFor(
       return { text: STRINGS.timeUp, tone: "good" };
     case "dive":
       return { text: STRINGS.dive, tone: "bad" };
+    // THE SPELL UNDER THE WATER, read back the way a flight is: the clean
+    // surfacing gets the plain reading with its seconds, the float-up gets
+    // the bad news, and going under gets nothing — the tile over the nose
+    // is already counting it, and a dirty surfacing is the float-up's line.
+    case "surface":
+      return e.clean ? { text: STRINGS.surfaced(e.underTime), tone: "info" } : null;
+    case "floatUp":
+      return { text: STRINGS.floatUp, tone: "bad" };
     case "hit":
       return { text: STRINGS.hit, tone: "bad" };
     case "ground":
