@@ -23,6 +23,7 @@ import {
   isCraftId,
   type BiomeId,
   isBiomeId,
+  SWELL_DIAL,
 } from "@engine";
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
@@ -30,9 +31,10 @@ import type { MenuPage } from "./menu-main.tsx";
 import { isScenarioName, type ScenarioName } from "./scenarios.ts";
 import {
   CONDITIONS,
-  SEA_METRES,
+  CONDITION_DAY,
+  FREE_WIND_RANGE,
+  QUARTER_RANGE,
   TRICK_MINUTES,
-  type Conditions,
   type Settings,
 } from "./settings.ts";
 import {
@@ -74,9 +76,21 @@ export type Params = {
    * straight into the run. */
   time: TimeOfDay | undefined;
   season: Season | undefined;
-  day: Conditions | undefined;
-  /** R36 — how big the swell out past the coast is, m off the WAVES row's
-   * own ladder. A setting like the rows around it. */
+  /** The WIND row, m/s — written either way it is worded on a card: one of
+   * the three rungs by NAME (`?day=storm`, which is what the start card
+   * presses) or the figure itself (`?day=33`, which is what FREE's fader
+   * stands on). Both end up as the same setting, because the setting IS the
+   * figure. */
+  day: number | undefined;
+  /** FREE's own row: which QUARTER that wind blows from, degrees off dead
+   * onshore. Only a free ride reads it (`new-game.ts`), so a link that
+   * carries one and does not say `?mode=free` is a link that set a row
+   * nothing is looking at. */
+  windFrom: number | undefined;
+  /** R36 — how big the swell out past the coast is, m of significant height
+   * anywhere inside the engine's `SWELL_DIAL`: one of the WAVES row's own
+   * rungs, or, on a free ride, whatever its fader was left on. A setting
+   * like the rows around it. */
   waves: number | undefined;
   weather: Weather | undefined;
   /** The start card's COAST row: which biome the seed is built on. */
@@ -110,6 +124,28 @@ export type Params = {
    * `probe=0`, which is the labs' word for "hold the picture still". */
   probe: boolean;
 };
+
+/** A figure off a link, held inside the travel the row that stores it has —
+ * the same check `mergeSettings` makes of a stored blob, for the same
+ * reason: a value no row could put the thumb back on is a setting the player
+ * can never leave. */
+function within(value: string | null, range: { min: number; max: number }): number | undefined {
+  if (value === null) return undefined;
+  const n = Number(value);
+  if (!Number.isFinite(n) || n < range.min || n > range.max) return undefined;
+  return n;
+}
+
+/** THE WIND A LINK ASKS FOR, m/s — a rung's NAME, which is the word the start
+ * card's row presses, or the figure itself, which is where FREE's fader
+ * stands. Two spellings of one setting rather than two settings: the stored
+ * row is a figure either way (`RideSettings.wind`). */
+function windParam(value: string | null): number | undefined {
+  if (value === null) return undefined;
+  const rung = CONDITIONS.find((id) => id === value);
+  if (rung !== undefined) return CONDITION_DAY[rung].wind;
+  return within(value, FREE_WIND_RANGE);
+}
 
 export function readParams(search: string): Params {
   const p = new URLSearchParams(search);
@@ -156,10 +192,9 @@ export function readParams(search: string): Params {
     season: (SEASONS as readonly string[]).includes(p.get("season") ?? "")
       ? (p.get("season") as Season)
       : undefined,
-    day: (CONDITIONS as readonly string[]).includes(p.get("day") ?? "")
-      ? (p.get("day") as Conditions)
-      : undefined,
-    waves: SEA_METRES.find((hs) => String(hs) === p.get("waves")),
+    day: windParam(p.get("day")),
+    windFrom: within(p.get("windfrom"), QUARTER_RANGE),
+    waves: within(p.get("waves"), SWELL_DIAL),
     biome: isBiomeId(p.get("biome")) ? (p.get("biome") as BiomeId) : undefined,
     mode: isGameMode(p.get("mode")) ? (p.get("mode") as GameMode) : undefined,
     minutes: TRICK_MINUTES.find((m) => String(m) === p.get("minutes")),
@@ -216,7 +251,8 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.minutes !== undefined) settings.ride.tricksMinutes = params.minutes;
   if (params.time !== undefined) settings.ride.time = params.time;
   if (params.season !== undefined) settings.ride.season = params.season;
-  if (params.day !== undefined) settings.ride.conditions = params.day;
+  if (params.day !== undefined) settings.ride.wind = params.day;
+  if (params.windFrom !== undefined) settings.ride.windQuarter = params.windFrom;
   if (params.waves !== undefined) settings.ride.swell = params.waves;
   if (params.weather !== undefined) settings.ride.weather = params.weather;
   if (params.scene !== null) settings.dev.scene = params.scene;

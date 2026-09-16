@@ -17,7 +17,8 @@
 // The vocabulary is the sibling rally game's, retyped in ours: the shutter,
 // the mixing desk, the prompt, the flag and the stopwatch mean the same
 // thing in both. The RAMP AND ITS ARC is ours alone — a rally game has no
-// mark for a shore with its course taken off it.
+// mark for a shore with its course taken off it — and the COMPASS is the
+// mark for the one way on with no task behind it at all.
 //
 // A mark is judged SIDE BY SIDE and SMALL, never in the card it ends up on:
 // `make glyphs` draws the whole set at the three sizes they are read at.
@@ -27,7 +28,15 @@ import type { JSX } from "preact";
 /** Every mark the menus can ask for, in the order the contact sheet walks
  * them (`make glyphs`). One list, so a mark added here is a mark the sheet
  * shows without being told twice. */
-export const GLYPH_NAMES = ["flag", "air", "stopwatch", "camera", "sliders", "terminal"] as const;
+export const GLYPH_NAMES = [
+  "flag",
+  "air",
+  "stopwatch",
+  "compass",
+  "camera",
+  "sliders",
+  "terminal",
+] as const;
 
 export type GlyphName = (typeof GLYPH_NAMES)[number];
 
@@ -71,6 +80,22 @@ const GLYPHS: Record<GlyphName, JSX.Element> = {
       <circle cx="12" cy="14" r="7.2" />
       <path d="M12 10.5V14l2.6 2" />
       <path d="M9.6 3h4.8M12 3v2.4" />
+    </>
+  ),
+  // A COMPASS NEEDLE: the free ride, which is the one way onto the water
+  // with nothing to reach and nowhere it has to be reached by. The other
+  // three marks are the TASK — a flag to cross, a lip to leave, a clock to
+  // beat — so this one is deliberately not a task at all: it is the
+  // instrument you carry when nobody has told you where to go.
+  //
+  // The needle is the rose's own two kites rather than one arrow, with the
+  // pointing half filled and the tail stroked. An arrow in a circle is a
+  // PLAY button at tile size, and the tile beside it already opens a game.
+  compass: (
+    <>
+      <circle cx="12" cy="12" r="8.8" />
+      <path d="M16.4 7.6 13.1 13.1 10.9 10.9Z" fill="currentColor" stroke="none" />
+      <path d="M7.6 16.4 10.9 10.9 13.1 13.1Z" />
     </>
   ),
   // The shutter: the pictures a rider took, and the press that takes one.

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE THREE MODES (`engine/game/defs/modes.ts`, `run.ts`, `rivals.ts`): what
+// THE FOUR MODES (`engine/game/defs/modes.ts`, `run.ts`, `rivals.ts`): what
 // a mode switches on, and that the engine underneath is the same engine —
 // the open rules a measurement rides are unchanged, the lights hold the
 // clock and the throttle, a timed run ends on the buzzer with its combo
@@ -71,6 +71,21 @@ describe("the rules a run is dealt", () => {
     expect(MODE_RULES.tricks.rivals).toBe(0);
     expect(MODE_RULES.tricks.countdown).toBe(RACE.countdown);
     expect(MODE_RULES.tricks.limit).toBe(TRICK_LIMITS[0]);
+  });
+
+  it("deal a FREE ride the open rules — the same water, with a door on it", () => {
+    // Free is not a fourth bundle of rules: it IS `OPEN_RULES`, which is what
+    // keeps the mode a rider chooses and the rules a measurement rides from
+    // ever drifting apart. The course still counts (there are gates to take
+    // and a finish to cross), the tricks still score, and nothing holds the
+    // rider at the start or ends the run on a buzzer.
+    expect(MODE_RULES.free).toBe(OPEN_RULES);
+    expect(rulesFor({ mode: "free" })).toEqual(OPEN_RULES);
+    const state = createGame({ seed: 1, level: FLAT, mode: "free", quiet: true });
+    expect(state.phase).toBe("running");
+    expect(state.rivals).toEqual([]);
+    expect(state.rules.course).toBe(true);
+    expect(state.rules.tricks).toBe(true);
   });
 
   it("take a tricks run's length off the ladder, and nothing off it", () => {

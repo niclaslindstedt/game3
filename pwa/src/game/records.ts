@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE RECORD BOOK — the best this machine has seen on each shore, in each
-// mode: a time for a race or a time trial, a score for a tricks run.
+// mode that measures one: a time for a race or a time trial, a score for a
+// tricks run, and nothing at all for a free ride (`keepsRecords`).
 //
 // ONE ROW PER SHORE PER MODE, and a shore is what the LEVEL is: the coast,
 // the seed, the kind of track and the class the course was paced for (R32
@@ -52,6 +53,17 @@ export function recordId(key: RecordKey): string {
   return key.mode === "tricks" ? `tricks/${level}/${key.minutes}` : `${key.mode}/${level}`;
 }
 
+/** WHETHER A MODE KEEPS A BOOK AT ALL. Three of the four do; FREE does not,
+ * and cannot: it is the one mode that may be ridden in a wind, off a quarter
+ * and under a sea of the rider's own choosing, so two runs down the same
+ * shore are not two runs down the same shore. A row set on a flat calm and
+ * beaten in a following gale would be a stopwatch measuring the weather. The
+ * start card says so where the best line would otherwise stand, rather than
+ * quietly writing rows nobody can compare. */
+export function keepsRecords(mode: GameMode): boolean {
+  return mode !== "free";
+}
+
 /** Whether a mode's figure is better HIGHER: points are, seconds are not. */
 export function scoresHigher(mode: GameMode): boolean {
   return mode === "tricks";
@@ -60,6 +72,7 @@ export function scoresHigher(mode: GameMode): boolean {
 /** Whether `value` beats the row standing — outright, never on a tie — or
  * stands where there is none. A figure that is not a figure beats nothing. */
 export function beats(mode: GameMode, value: number, standing: RunRecord | null): boolean {
+  if (!keepsRecords(mode)) return false;
   if (!Number.isFinite(value) || value <= 0) return false;
   if (standing === null) return true;
   return scoresHigher(mode) ? value > standing.value : value < standing.value;

@@ -46,7 +46,7 @@
 //   is a pure function of place, the clock and the level's seed.
 
 import { sampleField } from "../lib/heightfield.ts";
-import { clamp, TAU } from "../lib/math.ts";
+import { angleDiff, clamp, TAU } from "../lib/math.ts";
 import { valueNoise } from "../lib/noise.ts";
 import type { Rng } from "../lib/prng.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
@@ -90,6 +90,34 @@ export type WindState = {
   driftX: number;
   driftZ: number;
 };
+
+/**
+ * THE WIND'S QUARTER — which way the wind blows FROM, quoted against the
+ * coast instead of against the compass.
+ *
+ * A level's bearing is whatever the seed drew, so an absolute heading is a
+ * number nobody can picture: "from 2.4 rad" says nothing about whether the
+ * sea is driving at the beach or being blown flat off it. Measured off
+ * `Level.seaHeading` it says exactly that. ZERO is dead onshore — straight
+ * in off the open water, which is the middle of the band R12 deals from —
+ * a right angle either way is along the shore, and half a turn is offshore,
+ * blowing off the land behind the rider.
+ *
+ * It is not dressing on a menu: the quarter is what the fetch is measured
+ * along (`fetch.ts`), so a wind turned off the sea has no water at its back
+ * and grows no waves however hard it blows. That is the whole reason R12
+ * keeps its own draw inside `R.wind.seaward` — and the reason a run allowed
+ * to set its own quarter can ask for a sea the generator never would.
+ */
+export function windQuarter(level: Level, from: number): number {
+  return angleDiff(level.seaHeading, from);
+}
+
+/** The same relation the other way: a quarter off dead onshore as the
+ * absolute heading a `Wind` carries, wrapped into 0..2π. */
+export function windFromQuarter(level: Level, quarter: number): number {
+  return (((level.seaHeading + quarter) % TAU) + TAU) % TAU;
+}
 
 export function createWind(
   level: Level,

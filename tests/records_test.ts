@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import {
   beats,
   bestFor,
+  keepsRecords,
   mergeRecords,
   noteRecord,
   recordId,
@@ -67,6 +68,32 @@ describe("what beats a row", () => {
   it("stands where there is none", () => {
     expect(beats("timeTrial", 500, null)).toBe(true);
     expect(beats("tricks", 1, null)).toBe(true);
+  });
+
+  it("is NOTHING on a free ride, whatever the figure", () => {
+    // The mode that keeps no book (`keepsRecords`): its weather is the
+    // rider's own — a wind, a quarter and a sea off its own faders — so two
+    // runs down the same shore are not two runs down the same shore, and a
+    // row set on a flat calm and beaten in a following gale would be a
+    // stopwatch measuring the weather. Held at `beats` rather than only at
+    // the caller, so a surface that forgets cannot write one.
+    expect(keepsRecords("free")).toBe(false);
+    for (const mode of ["race", "tricks", "timeTrial"] as const) {
+      expect(keepsRecords(mode)).toBe(true);
+    }
+    expect(beats("free", 10, null)).toBe(false);
+    expect(beats("free", 10, { value: 100, craft: "skiff", at: 0 })).toBe(false);
+    const { book, record } = noteRecord(
+      {},
+      { ...SHORE, mode: "free" },
+      {
+        value: 42,
+        craft: "skiff",
+        at: 0,
+      },
+    );
+    expect(record).toBe(false);
+    expect(book).toEqual({});
   });
 });
 

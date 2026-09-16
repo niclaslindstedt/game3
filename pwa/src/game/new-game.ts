@@ -15,7 +15,7 @@
 
 import { createGame, warn, type GameState } from "@engine";
 
-import { CONDITION_DAY, DEFAULT_SEED, type Settings } from "./settings.ts";
+import { DEFAULT_SEED, seaStateFor, skyForWind, windAsRung, type Settings } from "./settings.ts";
 import type { Params } from "./url-params.ts";
 
 /** What the URL alone decides about the level. Both are the LEVEL's own —
@@ -29,10 +29,19 @@ export type LevelParams = Pick<Params, "hour" | "track">;
  *
  * THROWS when the generator refuses the seed — see `tryGame`. */
 export function gameFor(s: Settings, params: LevelParams): GameState {
-  // The start card's WIND row is two of these at once: the wind that builds
+  // The start card's WIND row is two things at once: the wind that builds
   // the sea, and the sky that belongs over that wind (R19 keeps the pair
-  // honest, and `CONDITION_DAY` is where the rung becomes both).
-  const day = s.ride.conditions === null ? null : CONDITION_DAY[s.ride.conditions];
+  // honest, and `skyForWind` is where the figure becomes both).
+  //
+  // A MEASURED RUN ONLY EVER RIDES WHAT ITS OWN ROW CAN SAY. One field
+  // carries both kinds of answer — a rung the worded card pressed and
+  // whatever a free ride's fader was left on — so outside a free ride the
+  // figure is put back on the ladder it came from. A 33 m/s gale set for fun
+  // must not follow the rider into a time trial under a row standing on
+  // nothing; on the free ride itself, the figure is the answer.
+  const free = freeRides(s);
+  const wind = s.ride.wind === null ? null : free ? s.ride.wind : windAsRung(s.ride.wind);
+  const swell = s.ride.swell === null ? undefined : free ? s.ride.swell : seaStateFor(s.ride.swell);
   return createGame({
     seed: s.ride.seed ?? DEFAULT_SEED,
     biome: s.ride.biome,
@@ -46,10 +55,14 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
     track: params.track,
     // The developer's own rows win where they are set: they are the exact
     // figure, and the card's is a word standing for one.
-    windSpeed: s.dev.wind ?? day?.wind,
+    windSpeed: s.dev.wind ?? wind ?? undefined,
+    // ...and WHICH WAY it blows, FREE's row alone (`freeRides`): rad off
+    // dead onshore, which the row keeps in degrees because that is what a
+    // person reads. Left alone it is the quarter R12 dealt.
+    windQuarter: quarterOf(s),
     // R36 — the sea standing off the coast, which the WIND row above does
     // not imply and cannot ask for. Left alone it is the shore's own.
-    swell: s.ride.swell ?? undefined,
+    swell,
     sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
     hour: params.hour,
     timeOfDay: s.ride.time ?? undefined,
@@ -57,16 +70,42 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
     // The WEATHER row wins over the sky its wind implies — that is the whole
     // of what it is for. Left alone (null) it defers, and the pair stays the
     // one R19 would have dealt.
-    weather: s.ride.weather ?? day?.weather,
+    weather: s.ride.weather ?? (wind === null ? undefined : skyForWind(wind)),
   });
 }
 
-/** THE CLASS A RUN IS RIDDEN AT: the rider's own, except in a TRICKS run,
- * which is stock only — a score is compared across riders, and a class that
- * throws the hull higher off every lip would make the row the score. The
- * craft card reads this too, so the sheet says what the water does. */
+/** WHETHER THIS RUN IS A FREE ONE — the mode with nothing asked of the
+ * rider, and so the only one allowed the knobs the generator would not deal
+ * itself: a speed class, a wind off any quarter, a sea of any size. Asked
+ * here rather than compared to a string in four surfaces, so the day a
+ * second such mode exists there is one line to change. */
+export function freeRides(s: Settings): boolean {
+  return s.ride.mode === "free";
+}
+
+/** The quarter the wind is asked to blow from, rad off dead onshore, or
+ * nothing where the level's own is being ridden. Degrees on the row and in
+ * the stored blob; radians is what the engine speaks. */
+function quarterOf(s: Settings): number | undefined {
+  if (!freeRides(s) || s.ride.windQuarter === null) return undefined;
+  return (s.ride.windQuarter * Math.PI) / 180;
+}
+
+/** THE CLASS A RUN IS RIDDEN AT: STOCK, unless the run is a FREE one.
+ *
+ * Every other mode is measured — a time on a shore, a score off its ramps —
+ * and a class is not a difficulty setting: it derives a faster hull AND
+ * paces the course for it (R32), so two riders at two classes are not riding
+ * the same race and their figures are not the same figure. The record book
+ * keys on the class for exactly that reason, which kept the rows honest but
+ * left the front door offering four ladders of the same race with no reason
+ * to choose between them. So the ladder lives where nothing is compared:
+ * FREE. It comes back to the measured modes the day the game has somebody to
+ * measure a rider AGAINST — a field of human riders who agreed on a class.
+ *
+ * The craft card reads this too, so the sheet says what the water does. */
 export function classFor(s: Settings): number {
-  return s.ride.mode === "tricks" ? 1 : s.ride.speedClass;
+  return freeRides(s) ? s.ride.speedClass : 1;
 }
 
 /** The same level, or null where the generator REFUSED the seed.

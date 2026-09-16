@@ -126,6 +126,7 @@ const MODE_GLYPHS: Record<GameMode, GlyphName> = {
   race: "flag",
   tricks: "air",
   timeTrial: "stopwatch",
+  free: "compass",
 };
 
 /**
@@ -295,11 +296,11 @@ function RootPage({
         </div>
         <span class="menu-brand-tag">{STRINGS.menuTag}</span>
       </div>
-      {/* THE THREE WAYS ONTO THE WATER FIRST, then the two things that are
-          not riding. Five is odd, so OPTIONS takes the whole bottom row
-          rather than sitting beside a hole (`.menu-tiles`'s odd rule);
-          unlocking the developer tile makes it a block of six and nothing
-          else moves. */}
+      {/* THE FOUR WAYS ONTO THE WATER FIRST, then the two things that are
+          not riding. Six is even, so the block is square; unlocking the
+          developer tile makes it seven and the odd one out takes the whole
+          bottom row rather than sitting beside a hole (`.menu-tiles`'s odd
+          rule), which is the same rule that used to catch OPTIONS. */}
       <div class="menu-tiles">
         <HoldTile
           glyph={MODE_GLYPHS.race}
@@ -314,8 +315,8 @@ function RootPage({
             onUnlock();
           }}
         />
-        {/* RACE is the held one and is spelled out above; the other two are
-            the same press with no secret behind it. */}
+        {/* RACE is the held one and is spelled out above; the other three
+            are the same press with no secret behind it. */}
         {GAME_MODES.filter((mode) => mode !== "race").map((mode) => (
           <button
             key={mode}

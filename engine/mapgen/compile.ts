@@ -61,6 +61,9 @@ export type LevelPlan = {
   readonly solids: readonly Solid[];
   readonly fauna: readonly Pod[];
   readonly wind: Wind;
+  /** Which way the open sea lies from the shore, rad — the route's own
+   * (`Route.seaHeading`), which is what R12 dealt the wind off. */
+  readonly seaHeading: number;
   readonly water: WaterBody;
   readonly season: Season;
   readonly hour: number;
@@ -185,6 +188,7 @@ export function compileLevel(plan: LevelPlan): Level {
     tricks: plan.tricks,
     start: { ...plan.course.start },
     wind: { ...plan.wind },
+    seaHeading: plan.seaHeading,
     water: { ...plan.water },
     season: plan.season,
     hour: plan.hour,

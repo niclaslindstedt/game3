@@ -192,7 +192,10 @@ const args = parseArgs(
     seed: { kind: "number", default: 38, help: "level seed" },
     biome: { kind: "string", help: "which coast the seed is built on (taiga, mangrove)" },
     track: { kind: "string", help: "circuit — a lap out at sea (R29) instead of a coast sprint" },
-    mode: { kind: "string", help: "the start card's MODE row: race, tricks or timeTrial" },
+    mode: {
+      kind: "string",
+      help: "the front door's tile: race, tricks, timeTrial or free",
+    },
     minutes: { kind: "number", help: "...and its LENGTH row, for a tricks run: 2, 4 or 6" },
     craft: { kind: "string", default: "skiff", help: "craft id" },
     t: {
@@ -211,11 +214,22 @@ const args = parseArgs(
       kind: "flag",
       help: "also capture 3× tight stern views from overhead and 45 degrees behind (scenes only)",
     },
-    wind: { kind: "number", help: "override the wind speed, m/s" },
+    wind: {
+      kind: "number",
+      help: "override the wind speed, m/s (the DEVELOPER row, which wins over --day)",
+    },
+    day: {
+      kind: "number",
+      help: "the start card's WIND row, m/s: 4, 12 or 20, and anything in 0..40 on --mode free",
+    },
     hs: { kind: "number", help: "quote the sea by its significant height, m" },
     waves: {
       kind: "number",
-      help: "R36 — the swell standing off the coast, m: 1, 2.5, 4, 6, 9, 14 or 20",
+      help: "R36 — the swell standing off the coast, m: 1, 2.5, 4, 6, 9, 14 or 20 (anything in 1..20 on --mode free)",
+    },
+    windfrom: {
+      kind: "number",
+      help: "--mode free only — which quarter the wind blows from, degrees off dead onshore (0 straight in, ±90 along the shore, ±180 off the land)",
     },
     hour: { kind: "number", help: "start at this hour on the clock in place of the level's" },
     season: {
@@ -248,7 +262,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
-    "[--seed n] [--biome taiga|mangrove] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--hs m] [--waves m] [--hour h] [--season s] [--weather w] " +
+    "[--seed n] [--biome taiga|mangrove] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--day m/s] [--hs m] [--waves m] [--windfrom deg] [--hour h] [--season s] [--weather w] " +
     "[--camera c] [--details] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );
@@ -346,8 +360,10 @@ if (args.minutes !== undefined) base.minutes = String(args.minutes);
 if (args.biome !== undefined) base.biome = String(args.biome);
 if (args.camera !== undefined) base.camera = String(args.camera);
 if (args.wind !== undefined) base.wind = String(args.wind);
+if (args.day !== undefined) base.day = String(args.day);
 if (args.hs !== undefined) base.hs = String(args.hs);
 if (args.waves !== undefined) base.waves = String(args.waves);
+if (args.windfrom !== undefined) base.windfrom = String(args.windfrom);
 if (args.hour !== undefined) base.hour = String(args.hour);
 if (args.season !== undefined) base.season = String(args.season);
 if (args.weather !== undefined) base.weather = String(args.weather);

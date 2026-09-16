@@ -35,7 +35,7 @@ import { COUNT_SECONDS, countAt } from "../lib/count.ts";
 import { CraftPicker } from "./craft-picker.tsx";
 import { craftBars, craftFacts, type CraftFact } from "./craft-stats.ts";
 import { MenuHead } from "./menu.tsx";
-import { classFor } from "./new-game.ts";
+import { classFor, freeRides } from "./new-game.ts";
 import type { Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
@@ -134,11 +134,12 @@ export function CraftPage({
 }) {
   const craft = settings.ride.craft;
   const spec = craftById(craft);
-  // The class the run WILL be ridden at — the rider's own, or stock in a
-  // tricks run, which is stock only (`new-game.ts` says why). The sheet
-  // beside the hull reads the same answer, so it says what the water does.
+  // The class the run WILL be ridden at — the rider's own on a free ride,
+  // stock in every mode that measures one (`new-game.ts` says why). The
+  // sheet beside the hull reads the same answer, so it says what the water
+  // does.
   const speedClass = classFor(settings);
-  const classLocked = settings.ride.mode === "tricks";
+  const classLocked = !freeRides(settings);
   return (
     <div class="menu-card menu-card-craft">
       {/* BACK is the start card, and the start card is now titled with the
@@ -179,11 +180,12 @@ export function CraftPage({
           different race and not only a faster ski. */}
       <div class="craft-class" role="radiogroup" aria-label={STRINGS.classRow}>
         <span class="craft-class-label">{STRINGS.classRow}</span>
-        {/* STOCK ONLY in a tricks run: a score is compared across riders,
-            and a class that throws the hull higher off every lip would make
-            this row the score. The row stays, with one chip on it and a
-            word saying why, rather than vanishing — a row that comes and
-            goes with the mode reads as a bug. */}
+        {/* STOCK in every mode that MEASURES the rider: a time and a score
+            are compared across riders, and a class that paces the course
+            and derives a faster hull would make this row the figure. The
+            row stays, with one chip on it and a word saying why, rather
+            than vanishing — a row that comes and goes with the mode reads
+            as a bug. */}
         {classLocked ? (
           <>
             <span class="craft-class-chip is-on" aria-disabled="true">

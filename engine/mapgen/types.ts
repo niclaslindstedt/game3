@@ -330,6 +330,17 @@ export type Level = {
   /** Where the run starts: behind the first gate, pointing at it. */
   readonly start: { readonly x: number; readonly z: number; readonly heading: number };
   readonly wind: Wind;
+  /** WHICH WAY THE OPEN SEA LIES from this shore: the engine heading, rad,
+   * pointing from the land out to the water. It is what R12 deals the wind
+   * off — the mean blows from inside a band either side of it, so that the
+   * fetch has open water at its back — and it is published because a wind
+   * ASKED for has to be quoted against something a rider can picture. A
+   * quarter is meaningless as an absolute heading on a coast whose own
+   * bearing is whatever the seed drew; against this it is dead onshore,
+   * along the shore, or off the land (`windFromQuarter` in `game/wind.ts`).
+   * On a circuit (R29) the coast is a long way off on one side and this is
+   * still the way to it. */
+  readonly seaHeading: number;
   readonly water: WaterBody;
   /** The season (R13): with the coast's latitude, what the sun's arc is —
    * how long the day is, and how dark the night gets. */

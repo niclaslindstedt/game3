@@ -395,6 +395,9 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       solids,
       fauna,
       wind,
+      // R12 — the quarter the wind was dealt off, published with the level
+      // so a run that asks for its own wind can quote one against it.
+      seaHeading: drawn.route.seaHeading,
       water,
       season,
       hour,

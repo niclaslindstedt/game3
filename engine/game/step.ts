@@ -28,7 +28,7 @@ import { clipRiders, createRivals, stepRivals } from "./rivals.ts";
 import { stepRun } from "./run.ts";
 import { freshTricks } from "./tricks.ts";
 import { createSea, seaSummary, type SeaOverride } from "./water.ts";
-import { createWind, stepWind } from "./wind.ts";
+import { createWind, stepWind, windFromQuarter } from "./wind.ts";
 
 export type CreateGameOptions = {
   seed: number;
@@ -57,6 +57,19 @@ export type CreateGameOptions = {
   wind?: Wind;
   /** ...or only its SPEED, m/s, blowing from the level's own quarter. */
   windSpeed?: number;
+  /** ...and/or the QUARTER it blows from, rad off dead onshore: 0 is
+   * straight in off the open water, a right angle either way is along the
+   * shore, half a turn is off the land behind (`windQuarter`). Relative
+   * rather than absolute because the level is built inside this call — a
+   * caller cannot know the coast's own bearing to add it to — and because
+   * a quarter is the only form of the answer a rider can picture.
+   *
+   * It is the one wind option that can ask for a sea the generator never
+   * would: R12 always deals the wind off the water, so a quarter past a
+   * right angle is a wind blowing out to sea, with the fetch measured over
+   * the land behind it (`fetch.ts`) and next to no wave grown however hard
+   * it is set. That is the honest answer and not a special case. */
+  windQuarter?: number;
   /** A sea quoted outright — a swell of this significant height, m, sent
    * in from beyond the fetch law — in place of the one the wind grows. */
   sea?: SeaOverride;
@@ -221,11 +234,20 @@ export function createGame(options: CreateGameOptions): GameState {
           hour: asked === undefined ? dealt.hour : ((asked % 24) + 24) % 24,
           weather: options.weather ?? dealt.weather,
         };
+  // The wind the RUN is ridden in: the level's own, or as much of it as was
+  // asked for — a speed, a quarter, or both — laid over it.
   const wind =
     options.wind ??
-    (options.windSpeed !== undefined
-      ? { from: level.wind.from, speed: Math.max(0, options.windSpeed) }
-      : level.wind);
+    (options.windSpeed === undefined && options.windQuarter === undefined
+      ? level.wind
+      : {
+          from:
+            options.windQuarter === undefined
+              ? level.wind.from
+              : windFromQuarter(level, options.windQuarter),
+          speed:
+            options.windSpeed === undefined ? level.wind.speed : Math.max(0, options.windSpeed),
+        });
   // What the coast does to that wind — the exposure the sea is dealt out
   // of and the shelter the rider feels — measured ONCE and handed to both
   // models, since they are two readings of the same coast.
