@@ -37,6 +37,14 @@ function aimOf(state: GameState): { x: number; z: number } {
   return { x: g.x, z: g.z };
 }
 
+/** Where the craft stands on the course's line, m — measured off the
+ * checkpoint behind it, the way the plan measures it. */
+function stationOf(state: GameState, path: ReturnType<typeof guidePath>): number {
+  const next = state.progress.nextGate;
+  const from = next > 0 ? path.gates[next - 1] : 0;
+  return distanceAlong(path.points, path.cum, state.craft.x, state.craft.z, from);
+}
+
 /** Ride the bot until the predicate holds or the clock runs out. */
 function rideUntil(state: GameState, done: (s: GameState) => boolean, seconds: number): void {
   const until = state.t + seconds;
@@ -57,16 +65,36 @@ describe("the guide line's path", () => {
 });
 
 describe("the guide line's window", () => {
-  it("runs from the checkpoint behind the rider to the one ahead", () => {
+  it("runs from astern of the rider to the checkpoint ahead", () => {
     const state = run();
     const path = guidePath(state.level);
-    // Two gates taken, so the leg being ridden has a mark at both ends.
+    // Two gates taken, so the leg being ridden has a mark at both ends and a
+    // mark before that for the tail to hang off.
     rideUntil(state, (s) => s.progress.nextGate >= 2, 180);
     expect(state.progress.nextGate).toBeGreaterThanOrEqual(2);
     const next = state.progress.nextGate;
     const { begin, end } = guideWindow(path, state, aimOf(state));
-    expect(begin).toBeGreaterThanOrEqual(path.gates[next - 1] - 1e-6);
     expect(end).toBeGreaterThanOrEqual(path.gates[next] - 1e-6);
+    // The tail is the rider's own `BEHIND` metres, held no further back than
+    // the checkpoint before last.
+    expect(begin).toBeGreaterThanOrEqual(path.gates[next - 2] - 1e-6);
+    expect(stationOf(state, path)).toBeLessThanOrEqual(begin + BEHIND + 1e-6);
+  });
+
+  it("keeps its tail whole as the rider crosses a checkpoint", () => {
+    const state = run();
+    const path = guidePath(state.level);
+    // The first mark is taken before this is worth asking: the tail hangs off
+    // the start line until there is a checkpoint before last to hang it off.
+    rideUntil(state, (s) => s.progress.nextGate >= 1, 180);
+    const was = state.progress.nextGate;
+    rideUntil(state, (s) => s.progress.nextGate > was, 180);
+    const crossed = state.progress.nextGate - 1;
+    expect(crossed).toBe(was);
+    // The rider is standing ON the mark they have just taken, which is the
+    // frame a tail cut off at that mark has nothing left in it.
+    const { begin } = guideWindow(path, state, aimOf(state));
+    expect(path.gates[crossed] - begin).toBeGreaterThan(BEHIND / 2);
   });
 
   it("keeps a leg in front of the rider right up to the checkpoint", () => {
