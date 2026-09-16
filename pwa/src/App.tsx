@@ -1,10 +1,10 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE APP: the shell the game lives inside, and the §37 clock underneath it.
 //
-// FIVE SURFACES, ONE CANVAS, AND THE SEA NEVER STOPS — except under the one
-// card that is standing over the PLAYER's own run. `game/shell.ts` names the
-// surfaces and owns that distinction; this file decides when one gives way to
-// the next.
+// SIX SURFACES, ONE CANVAS, AND THE SEA NEVER STOPS — except under the card
+// standing over the PLAYER's own run, and while the benchmark is turning the
+// water itself. `game/shell.ts` names the surfaces and owns both
+// distinctions; this file decides when one gives way to the next.
 //
 //   splash   the attract card (`splash-screen.tsx`) — the house's name while
 //            the first shore is built, then the title and an invitation.
@@ -16,6 +16,8 @@
 //   pause    the run HELD (`menu-pause.tsx`), reached by pressing the minimap
 //            or Escape: RESUME, OPTIONS, or out to the front door.
 //   run      the player's hands on it, with the HUD over the top.
+//   bench    a race being TIMED behind the developer page's card
+//            (`game/benchmark.ts`), which pumps its own frames.
 //
 // ONE ENGINE STATE THROUGHOUT, and the mode decides who rides it: `botInput`
 // under a menu, the input manager under a run. Leaving a run for the front
@@ -74,10 +76,10 @@
 //                  a report about it is handed on
 //   ?splash=0/1    force the attract card off, or back on
 //   ?menu=start    open the front door ON that page (root | start | craft |
-//                  options | keys | developer) — how the screenshot lab
-//                  photographs a menu surface, and how a link points at
-//                  one. `developer` lets the developer menu out with it: a
-//                  URL that names the page has, by definition, found it
+//                  options | keys | developer | benchHistory) — how the lab
+//                  photographs a menu surface, and how a link points at one.
+//                  The last two let the developer menu out with them: a URL
+//                  that names a page has, by definition, found it
 //   ?update=1      show the new-build button as if a build were waiting, so
 //                  the surface can be photographed (read where it is drawn,
 //                  in game/update-button.tsx — it is not part of a repro)
@@ -128,7 +130,7 @@
 // holding is the one surface that has to know the difference.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import { type CraftInput, type GameState, TUNING, botInput, error, step } from "@engine";
+import { type CraftInput, type GameState, TUNING, botInput, step } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
 import { onShellCommand } from "./shell-host.ts";
@@ -139,6 +141,9 @@ import { Hud, hasTouch, type HudFlash, type HudResult } from "./game/hud.tsx";
 import { flashFor, recordKeyFor, resultFor, shotLabel } from "./game/run-news.ts";
 import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager, type InputAction } from "./game/input.ts";
+import { createBenchmark, createLoader } from "./game/app-load.ts";
+import type { BenchmarkStatus } from "./game/benchmark.ts";
+import { BenchmarkCard } from "./game/menu-bench.tsx";
 import { LoadingScreen } from "./game/loading-screen.tsx";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
@@ -147,15 +152,14 @@ import type { FrameCost, GameRenderer } from "./game/renderer.ts";
 import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
 import { bestFor, loadRecords, noteRecord, saveRecords, type RecordBook } from "./game/records.ts";
 import { createRunClock } from "./game/run-loop.ts";
-import { advanceLoad, createLoad, loadBudgetMs, loadPhase, loadTimes } from "./game/run-loader.ts";
-import type { LoadJob, LoadPhase, LoadStep } from "./game/run-loader.ts";
+import type { LoadPhase } from "./game/run-loader.ts";
 import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
 import { captureFrame } from "./game/screenshots.ts";
 import { copyWhenReady, type PendingCopy } from "./lib/share-image.ts";
 import { readHudLayer, type HudLayer } from "./game/shot-hud.ts";
 import { loadSettings, saveSettings, type Settings } from "./game/settings.ts";
 import { FRAME_RATE_CAP } from "./game/settings-video.ts";
-import { canPause, hudOver, playerRides, simulates, type Shell } from "./game/shell.ts";
+import { appDraws, canPause, hudOver, playerRides, simulates, type Shell } from "./game/shell.ts";
 import { readParams, settingsFor } from "./game/url-params.ts";
 import { createVideoProbe, promoteVideo } from "./game/video-probe.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
@@ -226,6 +230,10 @@ export function App() {
    * COPY, because the renderer's own record is one object rewritten in place
    * every frame and a state holding it would never look changed. */
   const [cost, setCost] = useState<FrameCost | null>(null);
+  /** THE BENCHMARK IN PROGRESS, or null when the canvas is the game's own
+   * (`game/benchmark.ts`). Non-null IS the `bench` surface: the card is the
+   * status and the status is the card. */
+  const [bench, setBench] = useState<BenchmarkStatus | null>(null);
   /** The two flags the loop raises at most once a frame and React re-renders
    * on. Refs beside the state so the loop can ask "have I already said this?"
    * without waiting for a render to answer. */
@@ -260,6 +268,13 @@ export function App() {
     resume: () => {},
     toMenu: () => {},
     abandonLoad: () => {},
+  });
+  /** ...and the presses that hand the canvas to the stopwatch and take it
+   * back, boxed for the same reason: the loop owns the run, the renderer and
+   * the engine state a benchmark needs. */
+  const benchRef = useRef<{ start: () => void; leave: (page?: MenuPage) => void }>({
+    start: () => {},
+    leave: () => {},
   });
   // Every change is written through, so a visit's choices survive the tab
   // being closed. Cheap: a settings change is a press, not a frame.
@@ -521,76 +536,78 @@ export function App() {
     setShellNow(splashSkipped(location.search) && opensOn === "splash" ? "menu" : opensOn);
 
     /* ── STANDING A RUN UP ───────────────────────────────────────────────
-       The steps are closures over this loop's own state; `run-loader.ts`
-       sequences them and never learns what any of them does. Two of the
-       three are single indivisible calls that will overrun their budget —
-       that is the honest cost of work that cannot be cut up, and the reason
-       the card's mark and bars are compositor transforms. */
-    let job: LoadJob | null = null;
-    /** What each step cost last time on this machine, ms — the next card's
-     * `expectedMs`. Kept in memory rather than stored: it is a fact about
-     * this session's device under this session's load, and a figure carried
-     * over from a visit when the tab was in the background would tell the
-     * card the work takes half as long as it does. */
-    let expected: Record<string, number> = {};
+       `run-loader.ts` sequences a load; `app-load.ts` owns the steps and the
+       bookkeeping. What is left here is what only this loop can give them —
+       the engine state a load adopts, and the surfaces a finished one lifts
+       onto. */
+    const world = {
+      renderer,
+      adopt: (next: GameState): void => {
+        state = next;
+        live.length = 0;
+        setResult(null);
+        audio.reset();
+        runRumble.reset();
+      },
+      current: (): GameState => state,
+    };
 
-    const loadSteps = (): LoadStep[] => {
-      const s = settingsRef.current;
-      let built: GameState | null = null;
-      return [
-        {
-          id: "level",
-          label: STRINGS.loadLevel,
-          run: () => {
-            // THE THROWING build on purpose: a run the player asked for must
-            // never quietly fall back to another shore, so a refused seed ends
-            // the load (`advanceLoad`) and the card says so.
-            built = gameFor(settingsRef.current, params);
-            if (s.dev.scene) {
-              scenario = stageScenario(built, s.dev.scene);
-              scriptFrom = built.t;
-            } else {
-              scenario = null;
-            }
-            return false;
-          },
-        },
-        {
-          id: "scene",
-          label: STRINGS.loadScene,
-          run: () => {
-            if (built) state = built;
-            live.length = 0;
-            setResult(null);
-            audio.reset();
-            runRumble.reset();
-            renderer.load(state);
-            renderer.camera.setMode(s.ride.camera);
-            renderer.camera.restand();
-            return false;
-          },
-        },
-        {
-          id: "warm",
-          label: STRINGS.loadWarm,
-          // The first draw is where the driver compiles every shader in the
-          // scene, and it is the one that would otherwise be paid for out of
-          // the player's first second on the water.
-          run: () => {
-            renderer.render(state, 0);
-            return false;
-          },
-        },
-      ];
+    const loader = createLoader(world, {
+      phase: setLoadingPhase,
+      start: () => {
+        setLoadLeaving(false);
+        setShellNow("loading");
+      },
+      failed: setLoadFailed,
+    });
+
+    /** The card lifting, whichever surface is under it. */
+    const lift = (next: Shell): void => {
+      setLoadLeaving(true);
+      setShellNow(next);
+      window.setTimeout(() => setLoadLeaving(false), LOAD_FADE_MS);
     };
 
     startRunRef.current = () => {
-      if (shellRef.current === "loading") return;
-      job = createLoad(loadSteps(), expected);
-      setLoadingPhase(loadPhase(job));
-      setLoadLeaving(false);
-      setShellNow("loading");
+      loader.begin({
+        build: () => {
+          const s = settingsRef.current;
+          const game = gameFor(s, params);
+          if (s.dev.scene) {
+            scenario = stageScenario(game, s.dev.scene);
+            scriptFrom = game.t;
+          } else {
+            scenario = null;
+          }
+          return game;
+        },
+        camera: settingsRef.current.ride.camera,
+        done: () => {
+          lift("run");
+          hudClock = HUD_TICK;
+        },
+      });
     };
+
+    /* ── THE BENCHMARK ───────────────────────────────────────────────────
+       The developer page's stopwatch, in `app-load.ts` beside the steps that
+       stand its race up. Everything it needs from this loop is handed to it
+       below; it reaches for nothing on its own. */
+    const benchmark = createBenchmark({
+      renderer,
+      current: () => state,
+      begin: loader.begin,
+      lift,
+      silence: () => audio.silence(),
+      restand: () => stand(settingsRef.current.dev.scene, 0),
+      setStatus: setBench,
+      toMenu: (page) => {
+        setMenuPage(page);
+        setShellNow("menu");
+      },
+      video: () => settingsRef.current.video,
+    });
+    benchRef.current = benchmark;
 
     // Walking a card on the keys is `menu-nav.ts`'s — it owns the cursor,
     // and the keyboard is one of the two things that moves it.
@@ -627,8 +644,7 @@ export function App() {
       // the generator refused is on it — the player is one press from the
       // next seed along rather than three.
       abandonLoad: () => {
-        job = null;
-        setLoadFailed(null);
+        loader.abandon();
         setMenuPage({ page: "start" });
         setShellNow("menu");
       },
@@ -636,6 +652,13 @@ export function App() {
 
     /** One of the game's own buttons, wherever the press came from. */
     const act = (action: InputAction): void => {
+      // A BENCHMARK IS NOT A RUN: none of the run's own keys mean what they
+      // usually mean over one, and every one of them is somebody reaching for
+      // the way out.
+      if (shellRef.current === "bench") {
+        benchRef.current.leave();
+        return;
+      }
       // Escape over a run. Over the CARD it never reaches here at all:
       // `walkCardsOnKeys` takes it in the capture phase and presses the
       // surface's own way back — RESUME on the card, and the head's way out
@@ -725,31 +748,19 @@ export function App() {
       // sea under the card keeps running, so the card lifts onto water that
       // has been moving the whole time rather than onto a frozen frame that
       // jerks into life.
-      if (job) {
-        const until = performance.now() + loadBudgetMs(frameMs);
-        const more = advanceLoad(
-          job,
-          () => performance.now() < until,
-          () => performance.now(),
-        );
-        setLoadingPhase(loadPhase(job));
-        if (job.failed !== null) {
-          // The card stays up and says so; the shell does not move until the
-          // player presses out of it (`abandonLoad`). `state` is untouched —
-          // the sea the menu was over is still standing and still being
-          // ridden by the bot, so there is a game to go back to.
-          error(`the run could not be stood up: ${job.failed}`);
-          setLoadFailed(job.failed);
-          job = null;
-        } else if (!more) {
-          expected = { ...expected, ...loadTimes(job) };
-          job = null;
-          setLoadLeaving(true);
-          setShellNow("run");
-          hudClock = HUD_TICK;
-          window.setTimeout(() => setLoadLeaving(false), LOAD_FADE_MS);
-        }
-      }
+      loader.frame(frameMs);
+
+      // The cursor follows whichever card is up and lets go when the last one
+      // goes — and only once somebody has actually walked a card with the
+      // keys, since a ring appearing under a mouse would be a second cursor
+      // moving on its own. ABOVE the handover below: the benchmark's card is
+      // a card and is walked like one.
+      if (walk.walked()) nav.sync();
+
+      // THE BENCHMARK OWNS THE CANVAS while one is up (`game/shell.ts`):
+      // every frame drawn here between two of its own is time it is charged
+      // for and did not spend. Below the load, which stands its race up.
+      if (!appDraws(shellRef.current)) return;
 
       // THE PAUSE CARD IS THE ONE SURFACE THE ENGINE DOES NOT STEP UNDER
       // (`shell.ts`), and a held run is a FROZEN one: drawn with no time
@@ -804,7 +815,7 @@ export function App() {
         audio.silence();
       }
       window.__SH_COST__ = renderer.cost();
-      if (probe && !playerRides(shellRef.current) && !job && !clock.paused() && !frozen) {
+      if (probe && !playerRides(shellRef.current) && !loader.busy() && !clock.paused() && !frozen) {
         const verdict = probe.frame(frameMs, renderer.cost().frameMs + renderer.drain());
         if (verdict !== null) {
           probe = null;
@@ -828,12 +839,6 @@ export function App() {
           window.__SH_READY__ = true;
         });
       }
-      // The cursor follows whichever card is up, and lets go when the last
-      // one goes. It does nothing at all until the surface CHANGES — and
-      // nothing at all until somebody has actually walked a card with the
-      // keys: a ring that appeared under a mouse would be a second cursor
-      // moving on its own.
-      if (walk.walked()) nav.sync();
       hudClock += dtFrame;
       if (hudClock >= HUD_TICK) {
         hudClock = 0;
@@ -883,6 +888,7 @@ export function App() {
 
     return () => {
       cancelAnimationFrame(raf);
+      benchmark.stop();
       audio.silence();
       document.removeEventListener("visibilitychange", onVisibility);
       document.removeEventListener("pointerdown", unlockAudio, unlockOpts);
@@ -961,6 +967,7 @@ export function App() {
           onSettings={setSettings}
           onNavigate={setMenuPage}
           onStart={() => startRunRef.current()}
+          onBenchmark={() => benchRef.current.start()}
         />
       )}
       {(shell === "loading" || loadLeaving) && (
@@ -969,6 +976,19 @@ export function App() {
           phase={loadingPhase}
           failed={loadFailed}
           onBack={() => runRef.current.abandonLoad()}
+        />
+      )}
+      {/* THE STOPWATCH'S CARD, over the race it is timing. It is not a menu
+          page: the thing being measured is on the canvas underneath it, and
+          the card is the only thing on screen that is not part of the
+          measurement. */}
+      {shell === "bench" && bench !== null && (
+        <BenchmarkCard
+          status={bench}
+          video={settings.video}
+          onAgain={() => benchRef.current.start()}
+          onHistory={() => benchRef.current.leave({ page: "benchHistory" })}
+          onLeave={() => benchRef.current.leave()}
         />
       )}
       {shell === "splash" && <SplashScreen warm={warm} onDone={() => setShell("menu")} />}

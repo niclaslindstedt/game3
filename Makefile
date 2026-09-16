@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze score course waves ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze score course waves surf ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -130,6 +130,19 @@ course:
 # `make waves SEED=38` · `make waves SEED=38 BIOME=mangrove` · `make waves SEED=38 ARGS="--wind 12"`
 waves:
 	npm run waves -- $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) $(ARGS)
+
+# THE SURF LAB — how the sea BUILDS coming ashore, as a schematic: the wave
+# train along one line out to sea with every crest ticked and the gaps
+# measured, a LADDER of stations each showing the water at that one point, the
+# height and the crest spacing against metres out, and the three things that
+# put white on a sea drawn apart (surf, spilling crests, whitecaps). Waves are
+# counted by zero-up-crossing, so what it reports is the waves the field MAKES
+# rather than the components it was laid from. Pure Node. `make waves` is the
+# machinery; this is what a rider meets. Required before/after any change to
+# how far apart the waves stand or to where the sea goes white.
+# `make surf SEED=38` · `make surf SEED=38 BIOME=mangrove` · `make surf SEED=38 ARGS="--reach 3500"`
+surf:
+	npm run surf -- $(if $(SEED),--seed $(SEED),) $(if $(BIOME),--biome $(BIOME),) $(ARGS)
 
 # THE RIDE LAB — the craft on the water, drawn in profile every sixth of a
 # second over the water it crossed, with the numbers that decide the next

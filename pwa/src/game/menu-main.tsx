@@ -62,6 +62,7 @@ import {
   type HoldState,
 } from "./menu-hold.ts";
 import { CraftPage } from "./menu-craft.tsx";
+import { BenchmarkHistoryPage } from "./menu-bench.tsx";
 import { DeveloperPage } from "./menu-dev.tsx";
 import { GalleryPage } from "./menu-gallery.tsx";
 import { Glyph, type GlyphName } from "./menu-glyphs.tsx";
@@ -78,7 +79,11 @@ export type MenuPage =
   | { page: "gallery" }
   | { page: "options" }
   | { page: "keys" }
-  | { page: "developer" };
+  | { page: "developer" }
+  /** Behind the developer page: every benchmark this machine has scored
+   * (`menu-bench.tsx`). A page rather than a card over the run, because it is
+   * read without one — the comparison is between runs, not inside one. */
+  | { page: "benchHistory" };
 
 /** How often the held tile redraws its fill, ms. Ten a second is a fill that
  * reads as continuous and a hundredth of the work a frame loop would do —
@@ -373,6 +378,7 @@ export function MainMenu({
   onSettings,
   onNavigate,
   onStart,
+  onBenchmark,
 }: {
   page: MenuPage;
   settings: Settings;
@@ -383,6 +389,9 @@ export function MainMenu({
   onSettings: (settings: Settings) => void;
   onNavigate: (page: MenuPage) => void;
   onStart: () => void;
+  /** Hand the canvas to the benchmark and time a race on it — the developer
+   * page's one press that is not a setting (`benchmark.ts`). */
+  onBenchmark: () => void;
 }) {
   return (
     <div class="menu">
@@ -438,7 +447,12 @@ export function MainMenu({
           settings={settings}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
+          onBenchmark={onBenchmark}
+          onBenchmarkHistory={() => onNavigate({ page: "benchHistory" })}
         />
+      )}
+      {page.page === "benchHistory" && (
+        <BenchmarkHistoryPage onBack={() => onNavigate({ page: "developer" })} />
       )}
     </div>
   );

@@ -90,6 +90,32 @@ steepest component's `Q·k·A`, and the max and min height over the transect.
 **Run it BEFORE the first edit and AFTER the last**, and put both tables in
 the PR. It drives the engine directly — no build, no browser, a second or two.
 
+### …and `make surf`
+
+`make waves` draws the sea's MACHINERY — the spectrum, the transect a dozen
+moments deep, the fetch law. `make surf` draws the same sea the way a RIDER
+meets it, and the two answer different questions:
+
+```sh
+make surf SEED=38                      # previews/surf-38.png
+make surf SEED=38 ARGS="--reach 3500"  # …carried out into the storm past the rim
+make surf SEED=38 ARGS="--ride 40"     # the encounter period at the dart's pace
+```
+
+Waves are counted by ZERO-UP-CROSSING over a four-minute record, so what comes
+back is the waves the field MAKES rather than the components it was laid from:
+H1/3, the zero-crossing period, and — the number this lab exists for — HOW FAR
+APART THE CRESTS STAND and how often one meets the bow. Panel B is a LADDER,
+one row per station from the shore out, all at one scale, which is how "the sea
+builds coming in" is read at all. Panel D draws the three things that put white
+on a sea APART from each other (`water-break.ts`), which is the only way to
+tell surf from spume.
+
+**A sea change is judged on its headline line**: `crests N m apart … a wave
+meets the bow every N s`. A spectrum can keep its Hs to three figures across a
+change that halves the room between the waves, and that room is what a flight
+lands in.
+
 ## The rules
 
 - **THE SURFACE IS ONE FUNCTION, AND EVERYBODY CALLS IT.** The hull's probes,
@@ -186,8 +212,9 @@ the PR. It drives the engine directly — no build, no browser, a second or two.
 
 ## Workflow
 
-1. **Take the baseline first.** `make waves` at two or three seeds (a calm
-   one, the windiest) before the first edit — it is seconds.
+1. **Take the baseline first.** `make waves` AND `make surf` at two or three
+   seeds (a calm one, the windiest) before the first edit — both are seconds.
+   The second is the one whose headline a spacing change is argued from.
 2. **State the sea you want in the lab's terms** — "Hs at the seaward bound
    should be about 0.8 m at 8 m/s, breaking on the bar at 1 m depth" — so the
    after-table has something to be checked against.

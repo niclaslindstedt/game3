@@ -1,5 +1,5 @@
 ---
-title: Driving a card with playwright, wait on `waitForFunction(() => document.querySelector(...))`, never `waitForSelector` — a Preact card re-rendered every frame never settles
+title: Driving a card with playwright, wait on `waitForFunction(() => document.querySelector(...))` and press it with `evaluate` — a Preact card re-rendered every frame never settles, so neither `waitForSelector` nor `.click()` ever returns
 date: 2026-09-10
 scope: pwa/src/game
 concepts: [screenshots, surfaces, menu-nav]
@@ -15,8 +15,18 @@ handle it resolved is stale before the check finishes.
 
 `await page.waitForFunction(() => document.querySelector(".menu-card-craft")
 !== null)` asks the only question that matters — is the surface up — and
-returns immediately. Clicks and `keyboard.press` are unaffected; it is the
-wait that breaks.
+returns immediately.
+
+**And `.click()` breaks the same way, which this lesson used to deny.**
+`getByRole("button", …).click()` and `page.click(sel)` both wait for the
+element to be "visible, enabled and stable" before they press, and stable is
+exactly what a card re-rendered every frame is not: the log reads `locator
+resolved to <button …>`, then `attempting click action`, then a 30 s timeout
+on a button that is plainly there and plainly clickable. Press it inside the
+page instead — `page.evaluate(() => document.querySelector(sel).click())`, or
+a small helper that finds a button by its text and calls `.click()` on the
+element. `keyboard.press` genuinely is unaffected: it goes to the page, not to
+an element.
 
 Same script, the checks worth making in one pass: the button's right edge
 against the head's (a corner is a measurement, not a look), `.nav-cursor`'s

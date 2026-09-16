@@ -4471,3 +4471,516 @@ button.knob-read:focus-visible {
       0 0 0.45em var(--hud-good);
   }
 }
+
+/* ── THE BENCHMARK (menu-bench.tsx) ────────────────────────────────────────
+   Three surfaces in one look: the card over the race being timed, the same
+   graph given the whole screen, and the list of every run this machine has
+   scored. They wear the front door's chrome — a card, a head, rows — because
+   they are the same program asking a different kind of question, and the one
+   thing they add is a GRAPH, which is the only thing here that cannot be said
+   in a row.
+
+   THE TWO LINES ARE THE PALETTE'S OWN and are never anything else: the score
+   is the buoy's orange, which is the colour this game marks the thing worth
+   looking at with, and the rate is the shallows' blue. They share one box and
+   one ceiling because they are one quantity in two units
+   (benchmark-index.ts). */
+
+.bench-layer {
+  /* The race underneath is the thing being measured and is worth seeing: less
+     wash than a menu over an attract sea, because nobody is reading a page
+     here, they are watching a number settle over a race. */
+  background: rgb(8 42 56 / 24%);
+  align-items: flex-start;
+}
+
+.bench {
+  width: min(28rem, 100%);
+}
+
+/* The copy press, standing in a head rather than under a card. `.opt-reset`
+   is a full-width dashed row; this gives back everything that made it one and
+   keeps only its colour and its dashes — this is a corner, not a banner. */
+.bench-copy {
+  align-self: start;
+  width: auto;
+  margin-top: 0;
+  padding: 0.3rem 0.55rem;
+  font-size: 0.62rem;
+  white-space: nowrap;
+}
+
+/* THE SCORE, once there is one. Bigger than anything else on the card by a
+   long way, because it is the whole answer and the graph under it is only the
+   working. */
+.bench-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  font-size: clamp(2.6rem, 11vmin, 3.8rem);
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: 0.04em;
+  color: var(--buoy);
+}
+
+.bench-score-label {
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--hud-info);
+}
+
+/* The same measurement in the unit anybody has a feel for. Quiet, because it
+   is a translation of the figure above it and not a second reading. */
+.bench-score-rate {
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: var(--hud-info);
+}
+
+/* The card's one sentence: what it needs from the person watching, or what
+   the empty history needs from them. */
+.bench-note {
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  line-height: 1.5;
+  text-transform: none;
+  text-align: center;
+  color: var(--hud-info);
+}
+
+.bench-plot {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* The graph as a PRESS, once the run is over: a hundred and twenty readings
+   on a card are two millimetres apart, and the kink worth seeing is smaller
+   than that. It carries no chrome of its own — the panel inside the SVG is
+   the button's face. */
+.bench-plot-open {
+  display: block;
+  width: 100%;
+  padding: 0;
+  border: none;
+  background: transparent;
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+}
+
+.bench-plot-more {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.6rem;
+  letter-spacing: 0.18em;
+  color: var(--hud-info);
+}
+
+.bench-plot-open:hover .bench-plot-more,
+.bench-plot-open:focus-visible .bench-plot-more,
+.bench-plot-open.nav-cursor .bench-plot-more {
+  color: var(--buoy);
+  outline: none;
+}
+
+/* THE GRAPH, GIVEN THE SCREEN. It REPLACES the card rather than sitting over
+   it: a graph that is the whole point of the view has no business fighting
+   for room with the card it came from. */
+.bench-full {
+  display: flex;
+  flex-direction: column;
+  gap: 0.8rem;
+  width: min(64rem, 100%);
+  padding: clamp(1rem, 3.5vmin, 1.6rem);
+  border-radius: 0.9rem;
+  background: rgb(11 61 79 / 92%);
+  border: 2px solid rgb(242 247 248 / 22%);
+  box-shadow: 0 10px 0 rgb(8 42 56 / 45%);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Inside the history page the graph is already in a card, so it gives its own
+   chrome back rather than drawing a second frame inside the first. */
+.menu-card-bench .bench-full {
+  width: 100%;
+  padding: 0;
+  border: none;
+  border-radius: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.bench-plot-full {
+  /* The lines are the page here, so the box takes what the viewport will give
+     it and keeps its own aspect. */
+  max-height: 70vh;
+}
+
+/* Bigger box, same viewBox — so every stroke would be drawn four times as
+   thick as it was authored. Each is given back what the scale takes. */
+.bench-plot-full .bench-plot-panel {
+  stroke-width: 0.4;
+}
+
+.bench-plot-full .bench-plot-line {
+  stroke-width: 1.1;
+}
+
+.bench-plot-full .bench-plot-rate {
+  stroke-width: 0.5;
+}
+
+.bench-plot-full .bench-plot-head {
+  r: 2.2;
+}
+
+/* ITS OWN GROUND. The card is see-through and what is behind it is a race at
+   speed — a line drawn straight onto that is a line read against moving
+   scenery. */
+.bench-plot-panel {
+  fill: rgb(8 42 56 / 62%);
+  stroke: rgb(242 247 248 / 14%);
+  stroke-width: 1;
+}
+
+.bench-plot-axis,
+.bench-plot-grid {
+  stroke: rgb(242 247 248 / 26%);
+  stroke-width: 0.6;
+}
+
+.bench-plot-grid {
+  stroke-dasharray: 2 3;
+  opacity: 0.6;
+}
+
+/* Real time: the one gradation on this scale that means something without a
+   second machine to compare against. A mark on BOTH axes, so it wears
+   neither line's colour. */
+.bench-plot-real {
+  stroke: rgb(242 247 248 / 45%);
+  stroke-width: 0.6;
+  stroke-dasharray: 4 3;
+}
+
+.bench-plot-tick {
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  fill: var(--hud-info);
+}
+
+/* The unit under the number at the top of each axis — the whole legend the
+   card needs, because each is tinted like the line read against it. */
+.bench-plot-unit {
+  font-size: 5.5px;
+  font-weight: 700;
+  letter-spacing: 0.16em;
+}
+
+.bench-plot-tick-index {
+  fill: var(--buoy);
+}
+
+.bench-plot-tick-rate {
+  fill: var(--sea-shallow);
+}
+
+.bench-plot-tick-real {
+  fill: rgb(242 247 248 / 72%);
+}
+
+.bench-plot-wash-top {
+  stop-color: var(--buoy);
+  stop-opacity: 0.34;
+}
+
+.bench-plot-wash-foot {
+  stop-color: var(--buoy);
+  stop-opacity: 0;
+}
+
+.bench-plot-area {
+  fill: url("#bench-plot-wash");
+}
+
+.bench-plot-line {
+  fill: none;
+  stroke: var(--buoy);
+  stroke-width: 1.8;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+}
+
+/* The busier of the two by far, and a hairline for it: a run is read as a
+   score with a rate around it rather than the other way round. */
+.bench-plot-rate {
+  fill: none;
+  stroke: var(--sea-shallow);
+  stroke-width: 0.8;
+  stroke-linejoin: round;
+  opacity: 0.85;
+}
+
+.bench-plot-head {
+  fill: var(--buoy);
+  stroke: rgb(8 42 56 / 70%);
+  stroke-width: 1;
+}
+
+.bench-plot-score {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  fill: var(--hud-ink);
+  paint-order: stroke;
+  stroke: rgb(8 42 56 / 80%);
+  stroke-width: 2.5;
+  stroke-linejoin: round;
+}
+
+/* WHAT THE PICTURE WAS SET TO, under the score: the six rows the run
+   deliberately did not pin, which are the whole reason a second run exists. */
+.bench-video {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr));
+  gap: 0.35rem;
+}
+
+.bench-video-cell {
+  display: flex;
+  flex-direction: column;
+  gap: 0.05rem;
+  padding: 0.3rem 0.4rem;
+  border-radius: 0.35rem;
+  background: rgb(8 42 56 / 45%);
+}
+
+.bench-video-label {
+  font-size: 0.56rem;
+  letter-spacing: 0.14em;
+  color: var(--hud-info);
+}
+
+.bench-video-value {
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+/* ── THE HISTORY (menu-bench.tsx) ──────────────────────────────────────────
+   Every run this machine has scored, one row each. The SETTINGS ARE ON THE
+   ROW, as a glyph a row, because that is the comparison: a list of scores
+   with the conditions somewhere else is a list nobody can read. */
+
+.menu-card-bench {
+  width: min(44rem, 100%);
+}
+
+.bench-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+}
+
+.bench-run {
+  display: grid;
+  grid-template-columns: auto auto 1fr auto;
+  align-items: center;
+  gap: 0.6rem;
+  width: 100%;
+  padding: 0.45rem 0.6rem;
+  border: 2px solid rgb(242 247 248 / 18%);
+  border-radius: 0.5rem;
+  background: rgb(8 42 56 / 45%);
+  color: var(--hud-ink);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bench-run:hover,
+.bench-run:focus-visible,
+.bench-run.nav-cursor {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+.bench-run-score {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  min-width: 3.6rem;
+}
+
+.bench-run-index {
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+  color: var(--buoy);
+}
+
+.bench-run-fps {
+  font-size: 0.56rem;
+  letter-spacing: 0.1em;
+  color: var(--hud-info);
+}
+
+/* THE CODE. Monospaced, because six bars only read as a shape when they are
+   six equal columns — the same six characters the pasted sheet carries, so
+   the screen and the paste are one artefact. */
+.bench-run-code,
+.bench-legend .bench-rung {
+  font-family: ui-monospace, "SF Mono", "Cascadia Mono", Menlo, Consolas, monospace;
+}
+
+.bench-run-code {
+  display: flex;
+  font-size: 1.05rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+/* THE TINT IS A SECOND READING AND NEVER A FIRST: every rung is already a
+   different height, so the row survives a colour-blind reader, a greyscale
+   screenshot and the trip through a text field. What the colour adds is the
+   direction — cheap is the sea's own blue, dear is the buoy's orange. */
+.bench-rung {
+  display: inline-block;
+}
+
+.bench-rung-0,
+.bench-rung-1,
+.bench-rung-2 {
+  color: var(--sea-shallow);
+}
+
+.bench-rung-3,
+.bench-rung-4,
+.bench-rung-5 {
+  color: var(--sky);
+}
+
+.bench-rung-6,
+.bench-rung-7 {
+  color: var(--buoy);
+}
+
+/* A stop no ladder in this build has — a renamed setting, or a store somebody
+   edited. Marked as a question rather than coloured as a height. */
+.bench-rung-x {
+  color: var(--hud-bad);
+}
+
+.bench-run-cost {
+  font-size: 0.62rem;
+  letter-spacing: 0.1em;
+  color: var(--hud-info);
+}
+
+.bench-run-when {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  font-size: 0.58rem;
+  letter-spacing: 0.06em;
+  text-transform: none;
+  color: var(--hud-info);
+}
+
+.bench-run-buffer {
+  opacity: 0.75;
+}
+
+/* WHAT THE GLYPHS MEAN — the same legend the copied sheet prints at its
+   bottom, off the same tables, tinted because a screen can afford it. */
+.bench-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding-top: 0.5rem;
+  border-top: 2px solid rgb(242 247 248 / 14%);
+  font-size: 0.56rem;
+  letter-spacing: 0.08em;
+  color: var(--hud-info);
+}
+
+.bench-legend-head {
+  margin-bottom: 0.15rem;
+  opacity: 0.8;
+}
+
+.bench-legend-row {
+  display: grid;
+  grid-template-columns: 8rem 1fr;
+  gap: 0.4rem;
+  align-items: baseline;
+}
+
+.bench-legend-label {
+  opacity: 0.85;
+}
+
+.bench-legend-stops {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.7rem;
+}
+
+.bench-legend-stop {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.2rem;
+}
+
+/* A ROW ON A CARD THAT LEADS SOMEWHERE, with a sentence under its name. The
+   front door's rows are one word each; these two carry a line of billing,
+   because HISTORY and RUN AGAIN mean nothing until somebody has been told
+   what they cost. */
+.menu-item-sub {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.6rem;
+  font-weight: 400;
+  line-height: 1.45;
+  letter-spacing: 0.04em;
+  text-indent: 0;
+  text-transform: none;
+  color: var(--hud-info);
+}
+
+/* A row that is a TOOL rather than part of the game — the developer tile's
+   own chrome, on a full-width row. */
+.menu-item-dev {
+  background: rgb(8 42 56 / 70%);
+  border-style: dashed;
+  font-size: 0.88rem;
+}
+
+/* A phone in portrait: the run rows stop being four columns and become two,
+   with the code and the date sitting under the score rather than beside it. */
+@media (width <= 30rem) {
+  .bench-run {
+    grid-template-columns: auto 1fr;
+    gap: 0.35rem 0.6rem;
+  }
+
+  .bench-run-when {
+    grid-column: 2;
+    align-items: flex-start;
+  }
+
+  .bench-run-cost {
+    grid-column: 1 / -1;
+  }
+
+  .bench-legend-row {
+    grid-template-columns: 1fr;
+  }
+}
