@@ -418,6 +418,80 @@ describe("the body on its springs", () => {
     expect(dyn.read(state).pace).toBe(0);
   });
 
+  describe("the torso tends toward the world's vertical", () => {
+    /** The roll spring settled on a hull held at `roll`, rad: the torso's
+     * own roll relative to the deck. Nothing is stepped, so the lag has
+     * nothing to answer to and what comes back is the REST it holds. */
+    function settle(roll: number, over: { airborne?: boolean; righting?: number } = {}): number {
+      const state = fresh();
+      const dyn = createRiderDynamics();
+      for (let i = 0; i < 2 * TUNING.physicsHz; i++) {
+        state.craft.roll = roll;
+        state.craft.airborne = over.airborne ?? false;
+        state.craft.righting = over.righting ?? 0;
+        dyn.observe(state);
+      }
+      return dyn.read(state).sway;
+    }
+
+    it("takes back a share of the heel — not none of it, and not all of it", () => {
+      // A torso that follows the deck one for one is a figure bolted to the
+      // saddle; one pinned exactly vertical is a spike that never moves.
+      // The rule is that it is neither, at every heel the ride is made of.
+      const heel = 0.35;
+      const sway = settle(heel);
+      expect(sway).toBeLessThan(-0.25 * heel);
+      expect(sway).toBeGreaterThan(-0.75 * heel);
+      expect(settle(-heel)).toBeCloseTo(-sway, 6);
+      expect(settle(0)).toBeCloseTo(0, 6);
+      // ...and it saturates rather than growing for ever: a hull far enough
+      // over is taking him with it whatever his back wants. Still going the
+      // right way, never twice as far for twice the heel.
+      const far = settle(2 * heel);
+      expect(far).toBeLessThan(sway);
+      expect(far).toBeGreaterThan(2 * sway);
+      expect(Math.abs(far)).toBeLessThanOrEqual(DYNAMICS.uprightMax + 1e-9);
+      // The spring's stop is clear of it, so a wave taken on a heel still
+      // has somewhere to swing.
+      expect(DYNAMICS.swayMax).toBeGreaterThan(DYNAMICS.uprightMax + 0.15);
+    });
+
+    it("holds no vertical in the air, nor under the haul", () => {
+      // Gravity has the man and the machine equally, and a side spin turns
+      // the hull's roll through a whole revolution a torso must not chase.
+      expect(settle(0.35, { airborne: true })).toBeCloseTo(0, 6);
+      // The haul is a far bigger lean the same way, aimed at getting the
+      // hull back over rather than at sitting straight, and it owns the
+      // body while the hull is down.
+      expect(settle(HAUL.toRoll + 0.5)).toBeCloseTo(0, 6);
+      expect(settle(0.35, { righting: TUNING.capsize.righting })).toBeCloseTo(0, 6);
+    });
+
+    it("is a tendency and not a correction: no step snaps the body across", () => {
+      // The whole of it lives in the roll spring's REST, so the body arrives
+      // at a new posture over the spring's own time rather than being put
+      // there. A run through a real seaway is the test: nothing the torso
+      // does may be a step.
+      const state = fresh();
+      placeRun(state, { x: 100, z: 200, heading: 0, speed: 14 });
+      const dyn = createRiderDynamics();
+      const CARVE = { steer: 1, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false };
+      let was = dyn.read(state).sway;
+      let worst = 0;
+      let heeled = 0;
+      for (let i = 0; i < 10 * TUNING.physicsHz; i++) {
+        step(state, CARVE);
+        dyn.observe(state);
+        const now = dyn.read(state).sway;
+        worst = Math.max(worst, Math.abs(now - was));
+        heeled = Math.max(heeled, Math.abs(state.craft.roll));
+        was = now;
+      }
+      expect(heeled).toBeGreaterThan(0.2);
+      expect(worst).toBeLessThan(1 * (Math.PI / 180));
+    });
+  });
+
   it("comes off the machine as the hull goes over, and back on as it is righted", () => {
     const state = fresh();
     expect(riderHaul(state)).toBe(0);
