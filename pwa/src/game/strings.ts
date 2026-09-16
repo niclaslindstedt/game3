@@ -29,6 +29,20 @@ const MODE_NAMES: Record<GameMode, string> = {
   free: "FREE RIDE",
 };
 
+/** The three medals' words, by id (`campaign-levels.ts`). */
+const MEDAL_NAMES: Record<string, string> = {
+  bronze: "BRONZE",
+  silver: "SILVER",
+  gold: "GOLD",
+};
+
+/** An hour on the clock as a card writes one: `07:00`, `18:30`. */
+function formatHour(hour: number): string {
+  const h = Math.floor(hour) % 24;
+  const m = Math.round((hour - Math.floor(hour)) * 60);
+  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
+}
+
 const CLASS_NAMES: Record<string, string> = {
   "0.75": "NOVICE",
   "1": "STOCK",
@@ -331,6 +345,54 @@ export const STRINGS = {
   menuHolding: "KEEP HOLDING…",
   menuUnlocked: "DEVELOPER MENU UNLOCKED",
 
+  /* ── THE CAMPAIGN (menu-campaign.tsx, app-campaign.ts) ─────────────── */
+  /** The tile, and the card's own title. */
+  campaign: "CAMPAIGN",
+  /** The second line of a shore's banner: how far the table has got. */
+  campaignShoreLine: (ridden: number, of: number, place: number): string =>
+    `${ridden} OF ${of} RIDDEN · ${ordinal(place)} ON THE TABLE`,
+  campaignShoreWon: "WON",
+  /** What a shut shore or level asks for — a padlock with no reason on it
+   * is just a wall. */
+  campaignShoreLocked: "Win the shore before it: ride all six and finish top of its table",
+  /** ...and the short form on the banner itself; the sentence is its title. */
+  campaignShoreShut: "WIN THE SHORE BEFORE IT",
+  campaignLevelLocked: (mode: string): string =>
+    mode === "tricks"
+      ? "Earn a medal on the level before it"
+      : "Finish on the podium on the level before it",
+  /** The box's billing: how long the level is, in its own currency. */
+  campaignLaps: (laps: number): string => `${laps} LAPS`,
+  campaignKm: (km: number): string => `${km.toFixed(1)} KM`,
+  /** THE DAY a level pins, on one line under its name. */
+  campaignDay: (hour: number, season: string, sky: string, wind: number, swell: number): string =>
+    `${formatHour(hour)} · ${season} · ${sky} · ${wind.toFixed(0)} M/S · ${swell.toFixed(1)} M SWELL`,
+  /** What a medal costs, on a tricks box. */
+  medalName: (medal: string): string => MEDAL_NAMES[medal] ?? medal.toUpperCase(),
+  campaignMedalCost: (medal: string, points: number): string =>
+    `${MEDAL_NAMES[medal] ?? medal} ${formatScore(points)}`,
+  /** The marks on a ridden box: the best place, the best figure. */
+  campaignPlace: (place: number, of: number): string => `${ordinal(place)} OF ${of}`,
+  campaignPoints: (points: number): string => `${points} ${points === 1 ? "PT" : "PTS"}`,
+  /** The table's rows. */
+  campaignTable: "TABLE",
+  campaignYou: "YOU",
+  campaignRider: (slot: number): string => `RIDER ${slot + 1}`,
+  campaignWins: (wins: number): string => `${wins} ${wins === 1 ? "WIN" : "WINS"}`,
+  /** The way on, in the head: rides the level the campaign would pick
+   * next — the ringed box. One short word, because a head button is a
+   * corner and CONTINUE lands across the title on a phone. */
+  campaignRide: "RIDE",
+  /** THE RESULT PLATE's second line on a campaign run: what the finish
+   * did to the ladder. */
+  resultMedal: (medal: string): string => `${MEDAL_NAMES[medal] ?? medal} MEDAL`,
+  resultNoMedal: "NO MEDAL · BRONZE OPENS THE NEXT LEVEL",
+  resultNotCleared: "NOT CLEARED · A PODIUM OPENS THE NEXT LEVEL",
+  resultNextOpen: (name: string): string => `NEXT · ${name.toUpperCase()}`,
+  resultShoreLocked: "TOP THE SHORE'S TABLE TO OPEN THE NEXT",
+  resultShoreWon: (shore: string): string => `${shore.toUpperCase()} WON`,
+  resultCampaignEnd: "THE CAMPAIGN IS YOURS",
+
   /* ── THE START CARD (menu-start.tsx, seed-preview.tsx) ─────────────── */
   /** Which coast the shore is built on — the biome. One word a rung, off
    * the engine's own id, because the row is a ladder like the others. */
@@ -417,7 +479,8 @@ export const STRINGS = {
   /** The card's own line under the rows, which is where the mark is
    * explained: a dot on three of four rows needs saying once, not four
    * times. */
-  startCaption: "Marked · the answer this shore was dealt. Land back on it to ride the shore's own",
+  startCaption:
+    "A race, a time trial and a tricks run ride the day this shore was dealt — the same water for everybody",
   /** The way on from the start card — the craft, and RIDE with it. One word,
    * because it stands in the head's corner rather than across the card's
    * foot, and the card it opens is titled CRAFT. */

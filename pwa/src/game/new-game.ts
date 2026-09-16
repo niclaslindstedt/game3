@@ -15,13 +15,38 @@
 
 import { createGame, warn, type GameState } from "@engine";
 
-import { DEFAULT_SEED, seaStateFor, skyForWind, windAsRung, type Settings } from "./settings.ts";
+import { DEFAULT_SEED, skyForWind, type Settings } from "./settings.ts";
 import type { Params } from "./url-params.ts";
 
-/** What the URL alone decides about the level. Both are the LEVEL's own —
- * exact figures that say what it IS, the way the seed does — which is why
- * neither is a setting and nothing on a menu writes one. */
-export type LevelParams = Pick<Params, "hour" | "track">;
+/** What the URL alone decides about the level. The hour and the track are
+ * the LEVEL's own — exact figures that say what it IS, the way the seed
+ * does — which is why neither is a setting and nothing on a menu writes
+ * one. The rest are THE DAY, which on a measured run no row offers
+ * (`dayFor`): a link may still name one, because that is how the labs
+ * photograph a shore under a chosen sky. */
+export type LevelParams = Pick<
+  Params,
+  "hour" | "track" | "time" | "season" | "day" | "waves" | "weather"
+>;
+
+/** THE DAY A RUN IS RIDDEN IN — the sky, the season, the hour's name, the
+ * wind and the sea outside. On a FREE ride they are the card's rows, in
+ * the rider's own figures. On every other mode they are the SHORE'S OWN:
+ * a time on a level is a time on the day that level deals, so the rows
+ * came off the card, and what is left is the URL's word for the labs. */
+function dayFor(
+  s: Settings,
+  params: LevelParams,
+): Pick<Settings["ride"], "time" | "season" | "wind" | "swell" | "weather"> {
+  if (freeRides(s)) return s.ride;
+  return {
+    time: params.time ?? null,
+    season: params.season ?? null,
+    wind: params.day ?? null,
+    swell: params.waves ?? null,
+    weather: params.weather ?? null,
+  };
+}
 
 /** Which seed and which sea the settings currently ask for. Called at the
  * moment a run is stood up rather than captured, so a seed changed on the
@@ -29,19 +54,13 @@ export type LevelParams = Pick<Params, "hour" | "track">;
  *
  * THROWS when the generator refuses the seed — see `tryGame`. */
 export function gameFor(s: Settings, params: LevelParams): GameState {
-  // The start card's WIND row is two things at once: the wind that builds
-  // the sea, and the sky that belongs over that wind (R19 keeps the pair
-  // honest, and `skyForWind` is where the figure becomes both).
-  //
-  // A MEASURED RUN ONLY EVER RIDES WHAT ITS OWN ROW CAN SAY. One field
-  // carries both kinds of answer — a rung the worded card pressed and
-  // whatever a free ride's fader was left on — so outside a free ride the
-  // figure is put back on the ladder it came from. A 33 m/s gale set for fun
-  // must not follow the rider into a time trial under a row standing on
-  // nothing; on the free ride itself, the figure is the answer.
-  const free = freeRides(s);
-  const wind = s.ride.wind === null ? null : free ? s.ride.wind : windAsRung(s.ride.wind);
-  const swell = s.ride.swell === null ? undefined : free ? s.ride.swell : seaStateFor(s.ride.swell);
+  // The WIND row is two things at once: the wind that builds the sea, and
+  // the sky that belongs over that wind (R19 keeps the pair honest, and
+  // `skyForWind` is where the figure becomes both). Outside a free ride
+  // the day is the shore's own and a link's (`dayFor`), so a 33 m/s gale
+  // set for fun never follows the rider into a time trial.
+  const day = dayFor(s, params);
+  const wind = day.wind;
   return createGame({
     seed: s.ride.seed ?? DEFAULT_SEED,
     biome: s.ride.biome,
@@ -62,15 +81,15 @@ export function gameFor(s: Settings, params: LevelParams): GameState {
     windQuarter: quarterOf(s),
     // R36 — the sea standing off the coast, which the WIND row above does
     // not imply and cannot ask for. Left alone it is the shore's own.
-    swell,
+    swell: day.swell ?? undefined,
     sea: s.dev.hs !== null ? { hs: s.dev.hs } : undefined,
     hour: params.hour,
-    timeOfDay: s.ride.time ?? undefined,
-    season: s.ride.season ?? undefined,
+    timeOfDay: day.time ?? undefined,
+    season: day.season ?? undefined,
     // The WEATHER row wins over the sky its wind implies — that is the whole
     // of what it is for. Left alone (null) it defers, and the pair stays the
     // one R19 would have dealt.
-    weather: s.ride.weather ?? (wind === null ? undefined : skyForWind(wind)),
+    weather: day.weather ?? (wind === null ? undefined : skyForWind(wind)),
   });
 }
 

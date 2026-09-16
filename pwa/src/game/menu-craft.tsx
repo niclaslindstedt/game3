@@ -122,11 +122,15 @@ function CraftReadings({ craft, speedClass }: { craft: CraftId; speedClass: numb
 export function CraftPage({
   settings,
   onSettings,
+  backLabel,
   onBack,
   onRide,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
+  /** What the way back is called when it is not the start card — the
+   * campaign's ladder, which names its own level rather than a mode. */
+  backLabel?: string;
   /** Back to the start card, which is the way in. */
   onBack: () => void;
   /** The press that stands the run up — this card is the end of the flow. */
@@ -148,7 +152,7 @@ export function CraftPage({
           water. */}
       <MenuHead
         back={onBack}
-        backLabel={STRINGS.modeName(settings.ride.mode)}
+        backLabel={backLabel ?? STRINGS.modeName(settings.ride.mode)}
         title={STRINGS.craftTitle}
       />
       <div class="craft-pick-body">

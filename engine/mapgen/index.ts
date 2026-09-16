@@ -30,6 +30,16 @@ export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
 export { TIMES_OF_DAY, dealtTimeOfDay, hourOfDay, type TimeOfDay } from "./daytime.ts";
 export { generateLevel, subSeed } from "./generate.ts";
+export { levelDigest } from "./digest.ts";
+export {
+  CURRENT_GENERATOR_VERSION,
+  GENERATOR_VERSIONS,
+  GENERATOR_VERSION_IDS,
+  generatorTraits,
+  isGeneratorVersion,
+  type GeneratorTraits,
+  type GeneratorVersion,
+} from "./versions.ts";
 export { compileLevel, insideBounds, type LevelPlan } from "./compile.ts";
 export { drawRoute, type CoastRoute, type Mark, type OceanLeg, type Route } from "./route.ts";
 export { drawCircuit, lapTurn, roundingAbout } from "./circuit.ts";

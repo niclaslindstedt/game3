@@ -33,6 +33,7 @@ import { DECLINATION, SEASONS, daylightWindow } from "../lib/solar.ts";
 import { analyzeLevel } from "../analysis/index.ts";
 import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
+import { generatorTraits } from "./versions.ts";
 import { sampleField, type Heightfield } from "../lib/heightfield.ts";
 import { bakeGround, compileLevel } from "./compile.ts";
 import {
@@ -251,6 +252,12 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   // against this, and a dial narrowed later would score a level against a
   // book nothing built it to.
   const rampWidth = clampDial(opts.rampWidth ?? 1);
+  // WHICH GENERATOR — resolved once, here, so the level carries a version
+  // this build can actually build (`versions.ts`: an unknown one is the
+  // current rules). Nothing below reads a trait off it yet, because there
+  // is one version; the day a rule moves under a campaign shore, the old
+  // behaviour is read off `traits` at the one place it differs.
+  const traits = generatorTraits(opts.version);
   const attempts = opts.attempts ?? R.search.attempts;
   // R13 — the hours this coast is in daylight in each season, off its own
   // latitude. A fact about the place rather than about the attempt, so it
@@ -382,6 +389,7 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
       track,
       pace,
       rampWidth,
+      version: traits.version,
       // R35 — a TRICKS run's line of ramps. Read off the option rather than
       // drawn, so nothing in the seeded stream above moves for it.
       tricks: opts.tricks === true,

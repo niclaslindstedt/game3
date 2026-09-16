@@ -112,6 +112,11 @@ const SCENE_AT = { coast: 2, drift: 8, missed: 2.5, net: 4 };
 const SURFACES = {
   splash: { params: { splash: "1" }, wait: ".splash-title", settle: 900 },
   menu: { params: { menu: "root" }, wait: ".menu-card-root", settle: 1000 },
+  // The campaign's ladder as a FRESH VISIT finds it: the first shore open,
+  // its first box ringed, the rest shut and the table all level. What a
+  // cleared box looks like is one run away and not something a lab can
+  // stand in.
+  campaign: { params: { menu: "campaign" }, wait: ".menu-card-campaign", settle: 500 },
   // The start card settles slowly on purpose: its chart is a whole level
   // generated in a worker, and the row waits for the arrows to be still
   // before it asks. A short settle photographs "READING THE CHART…".

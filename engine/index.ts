@@ -37,7 +37,14 @@ export {
 } from "./game/defs/modes.ts";
 // THE FIELD (game/rivals.ts): the grid, the standings, how far down the
 // course a run is.
-export { courseProgress, gridPoses, playerSlot, racePlace, rivalSlot } from "./game/rivals.ts";
+export {
+  courseProgress,
+  fieldOrder,
+  gridPoses,
+  playerSlot,
+  racePlace,
+  rivalSlot,
+} from "./game/rivals.ts";
 // A run stood at a moment instead of ridden to it (place.ts).
 export { placeRun, type RunMoment } from "./game/place.ts";
 export {
@@ -248,6 +255,21 @@ export {
 export * from "./mapgen/index.ts";
 
 // The headless simulator and its bot rider.
+export {
+  LADDER,
+  RATING,
+  RATING_AXES,
+  characterDistance,
+  cornerRadius,
+  leadingAxis,
+  levelConditions,
+  rateLadder,
+  rateLevel,
+  type LadderReport,
+  type LevelRating,
+  type RatingAxes,
+  type RunConditions,
+} from "./rating/index.ts";
 export { simulateStage, SIM_SECONDS, type RunReport, type SimOptions } from "./sim/simulate.ts";
 export { botInput, launchSpeedFor, RIDER_BOT, type BotProfile } from "./sim/bot.ts";
 export { type RunTape, type TapeSample } from "./sim/tape.ts";

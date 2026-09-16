@@ -3454,6 +3454,17 @@ button.knob-read:focus-visible {
     gap: 0.4rem 1.1rem;
   }
 
+  /* A MEASURED run's card has no day column — the shore rides the day it was
+     dealt — so it stays the one column it is on a phone, at the width that
+     column needs, rather than a wide card with an empty right half. */
+  .menu-card-start-shore {
+    width: min(30rem, 100%);
+  }
+
+  .menu-card-start-shore .start-cols {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
   /* Half again as big as the one-column card could afford it. The `vh` term is
      still what gives way first on a short window — a 720-tall desktop keeps
      the whole card on screen with the button under it. */
@@ -5029,4 +5040,239 @@ button.knob-read:focus-visible {
 .bench-copy-row {
   font-size: 0.74rem;
   letter-spacing: 0.14em;
+}
+
+/* ── THE CAMPAIGN CARD (menu-campaign.tsx) ────────────────────────────────
+   Two shore banners across the top, six level boxes in a grid under the one
+   being looked at, and the shore's table under those. The BOX'S BORDER
+   carries its state — lit and open, grey and shut, ringed where the campaign
+   would pick next — because at a glance across six boxes the frame is what
+   the eye counts; what is inside is only what is specific to the level. */
+.menu-card-campaign {
+  width: min(40rem, 100%);
+  text-align: left;
+}
+
+.menu-shores {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.menu-shore {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem 0.8rem;
+  border: 2px solid rgb(242 247 248 / 22%);
+  border-radius: 0.55rem;
+  background: rgb(8 42 56 / 55%);
+  color: var(--hud-ink);
+  font: inherit;
+  text-align: left;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.menu-shore-shown {
+  border-color: var(--buoy);
+  background: rgb(27 111 138 / 70%);
+}
+
+.menu-shore:hover,
+.menu-shore:focus-visible,
+.menu-shore.nav-cursor {
+  border-color: var(--buoy);
+  outline: none;
+}
+
+.menu-shore-locked {
+  color: rgb(242 247 248 / 55%);
+}
+
+.menu-shore-name {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+}
+
+.menu-shore-line {
+  font-size: 0.66rem;
+  letter-spacing: 0.1em;
+  opacity: 0.85;
+  text-wrap: balance;
+}
+
+.menu-shore-blurb {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+  opacity: 0.75;
+}
+
+.menu-levels {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+@media (max-width: 40rem) {
+  .menu-levels {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+.menu-level {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.3rem;
+  min-height: 5.5rem;
+  padding: 0.6rem 0.65rem;
+  border: 2px solid rgb(242 247 248 / 26%);
+  border-radius: 0.55rem;
+  background: rgb(27 111 138 / 55%);
+  color: var(--hud-ink);
+  font: inherit;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.menu-level-open {
+  cursor: pointer;
+  touch-action: manipulation;
+}
+
+.menu-level-open:hover,
+.menu-level-open:focus-visible,
+.menu-level-open.nav-cursor {
+  border-color: var(--buoy);
+  background: rgb(27 111 138 / 78%);
+  outline: none;
+}
+
+/* The box the campaign would pick next: ringed in the way-on's orange. */
+.menu-level-next {
+  border-color: rgb(242 140 40 / 90%);
+  box-shadow: 0 0 0 2px rgb(242 140 40 / 40%);
+}
+
+.menu-level-locked {
+  align-items: center;
+  justify-content: center;
+  border-style: dashed;
+  background: rgb(8 42 56 / 45%);
+  color: rgb(242 247 248 / 45%);
+}
+
+.menu-level-lock {
+  width: 1.6em;
+  height: 1.6em;
+}
+
+.menu-level-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  width: 100%;
+  font-size: 0.66rem;
+  opacity: 0.85;
+}
+
+.menu-level-no {
+  font-size: 1rem;
+  font-weight: 700;
+}
+
+.menu-level-mode {
+  width: 1.2em;
+  height: 1.2em;
+}
+
+.menu-level-name {
+  font-size: 0.92rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-wrap: balance;
+}
+
+.menu-level-day {
+  font-size: 0.6rem;
+  letter-spacing: 0.08em;
+  opacity: 0.7;
+}
+
+.menu-level-medals,
+.menu-level-marks {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 0.5rem;
+  font-size: 0.62rem;
+}
+
+.menu-level-medal {
+  opacity: 0.55;
+}
+
+.menu-level-medal-won {
+  opacity: 1;
+  font-weight: 700;
+}
+
+.menu-level-medal-won.menu-level-medal-bronze {
+  color: #d9915a;
+}
+
+.menu-level-medal-won.menu-level-medal-silver {
+  color: #d6dde2;
+}
+
+.menu-level-medal-won.menu-level-medal-gold {
+  color: var(--buoy);
+}
+
+.menu-level-mark-lit {
+  color: var(--buoy);
+  font-weight: 700;
+}
+
+/* THE TABLE: one row a rider, the player's lit. Twelve rows is a phone's
+   height, so the card scrolls past it rather than the rows shrinking. */
+.menu-table {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  font-size: 0.7rem;
+  letter-spacing: 0.1em;
+}
+
+.menu-table-row {
+  display: grid;
+  grid-template-columns: 2rem 1fr auto auto;
+  gap: 0.6rem;
+  padding: 0.25rem 0.6rem;
+  border-radius: 0.35rem;
+  background: rgb(8 42 56 / 40%);
+}
+
+.menu-table-you {
+  background: rgb(27 111 138 / 78%);
+  color: var(--buoy);
+  font-weight: 700;
+}
+
+.menu-table-place {
+  font-weight: 700;
+}
+
+.menu-table-wins,
+.menu-table-points {
+  text-align: right;
 }

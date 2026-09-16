@@ -24,70 +24,9 @@
 // door hands the same craft back to the bot rather than tearing anything
 // down, which is why the menu comes up over the shore the player was just on.
 //
-// URL PARAMS, the whole set (the developer page's REPRO LINK writes exactly
-// these, so a frame is always handed on as a URL):
-//   ?seed=38       which level (default 38)
-//   ?biome=taiga   which COAST the seed is built on (taiga | mangrove)
-//   ?mode=race     the start card's MODE row: race | tricks | timeTrial
-//   ?minutes=4     ...and its LENGTH row, for a tricks run: 2 | 4 | 6
-//   ?craft=skiff   which craft (skiff | marlin | otter | dart)
-//   ?scene=launch  stand the run in a staged moment (scenarios.ts) and ride
-//                  its script; without it the run starts at `level.start`
-//                  with the clock running
-//   ?t=2.5         seconds of the script to run before the first frame
-//   ?shot=1        FREEZE after that and set `window.__SH_READY__` once the
-//                  frame is drawn — what the screenshot tool waits on
-//   ?wind=12       ride in this wind, m/s, from the level's own quarter
-//   ?hs=20         ...or in a sea quoted by its significant height, m
-//   ?hour=20.5     ride at this hour on the clock in place of the level's
-//   ?weather=rain  ...and under this sky (clear | haze | high | overcast |
-//                  rain | squall) — the sea stays the wind's
-//   ?time=sunset   the start card's TIME row: sunrise | day | sunset,
-//                  resolved against this coast's own daylight (R13) in the
-//                  season being ridden
-//   ?season=autumn ...and its SEASON row: spring | summer | autumn | winter
-//                  — the sun's arc, and so the day's length and the
-//                  night's dark; the clock runs an hour a minute from the
-//                  start, so a sunset start rides into whatever night the
-//                  season has
-//   ?day=storm     ...and its WIND row: fine | windy | storm — a sky AND the
-//                  wind under it — or the wind in m/s (?day=33) on a free ride
-//   ?windfrom=90   FREE's own row, on ?mode=free alone: which QUARTER that
-//                  wind blows from, degrees off dead onshore (±180 offshore)
-//   ?waves=9       ...and its WAVES row (R36): how big the GROUNDSWELL out
-//                  past the coast is, m — 1 | 2.5 | 4 | 6 | 9 | 14 | 20, and
-//                  anywhere between on a free ride. Not the wind's sea, not
-//                  moved by ?day, and a BASELINE the open ocean builds on
-//   ?camera=heli   which rung of the camera ladder the run opens on (bow |
-//                  nose | close | chase | far | heli | drone) — a setting like the
-//                  rows below, so a link lays it over the stored one; the
-//                  camera key still walks the whole ladder from there
-//   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
-//   ?res=low       WATER, RESOLUTION, DETAIL and DISTANCE (low | medium |
-//   ?detail=low    high), SEE-THROUGH (?see=0/1) and the FRAME RATE cap
-//   ?distance=low  (?fps=30/60/max). They are settings like the start
-//   ?see=0         card's, so a link lays them over the stored ones rather
-//   ?fps=30        than reading them into the run — which is what lets the
-//                  screenshot lab photograph one row of the ladder, and a
-//                  bug report about the water name the picture it was seen
-//                  at
-//   ?start=1       skip both cards and ride: a pinned run
-//   ?paused=1      ...and open with the run HELD under the pause card, which
-//                  is how the screenshot lab photographs that surface and how
-//                  a report about it is handed on
-//   ?splash=0/1    force the attract card off, or back on
-//   ?menu=start    open the front door ON that page (root | start | craft |
-//                  options | keys | developer | benchHistory) — how the lab
-//                  photographs a menu surface, and how a link points at one.
-//                  The last two let the developer menu out with them: a URL
-//                  that names a page has, by definition, found it
-//   ?update=1      show the new-build button as if a build were waiting, so
-//                  the surface can be photographed (read where it is drawn,
-//                  in game/update-button.tsx — it is not part of a repro)
-//   ?probe=0       do not measure the machine on this visit: the first-visit
-//                  probe (game/video-probe.ts) is what may promote an
-//                  untouched picture to HIGH, and a lab photographing a
-//                  surface must not have a row move under its camera
+// THE URL: every parameter the app reads is listed and explained in
+// `game/url-params.ts`'s header, which is the reading of it; `readParams`
+// and `settingsFor` below are that module's.
 //
 // A URL that NAMES A RUN (`start`, `scene`, `shot`, `paused`) boots into one. Anything
 // else opens the front door, and the URL's seed, craft, time and day become
@@ -131,7 +70,7 @@
 // holding is the one surface that has to know the difference.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import { type CraftInput, type GameState, TUNING, botInput, step } from "@engine";
+import { type CraftInput, type GameState, TUNING, botInput, fieldOrder, step } from "@engine";
 
 import { connectOutput } from "./output-bridge.ts";
 import { onShellCommand } from "./shell-host.ts";
@@ -139,7 +78,21 @@ import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index
 import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
 import { runRumble, setRumble } from "./game/haptics.ts";
 import { Hud, hasTouch, type HudFlash, type HudResult } from "./game/hud.tsx";
-import { flashFor, recordKeyFor, resultFor, shotLabel } from "./game/run-news.ts";
+import {
+  campaignResultFor,
+  flashFor,
+  recordKeyFor,
+  resultFor,
+  shotLabel,
+} from "./game/run-news.ts";
+import {
+  campaignGame,
+  loadProgress,
+  recordRun,
+  saveProgress,
+  type CampaignLevel,
+  type CampaignProgress,
+} from "./game/campaign.ts";
 import { UpdateButton } from "./game/update-button.tsx";
 import { createInputManager, type InputAction } from "./game/input.ts";
 import { createBenchmark, createLoader } from "./game/app-load.ts";
@@ -219,6 +172,15 @@ export function App() {
   const recordsRef = useRef(records);
   recordsRef.current = records;
   useEffect(() => saveRecords(records), [records]);
+  /** THE CAMPAIGN'S BOARD (`game/campaign.ts`), and the level the player is
+   * on when the run under the HUD is one of its rungs — null on every other
+   * run, which is what tells `settle` which book a finish goes in and
+   * `stand` which shore a restart rebuilds. */
+  const [progress, setProgress] = useState<CampaignProgress>(loadProgress);
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+  useEffect(() => saveProgress(progress), [progress]);
+  const ridingRef = useRef<CampaignLevel | null>(null);
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
   const rendererRef = useRef<GameRenderer | null>(null);
   const [touch] = useState(hasTouch);
@@ -254,7 +216,7 @@ export function App() {
   settingsRef.current = settings;
   /** Set by the loop, called by the menu. Boxed rather than passed down so
    * the button that starts a run is not a reason to rebuild the loop. */
-  const startRunRef = useRef<() => void>(() => {});
+  const startRunRef = useRef<(campaign?: CampaignLevel) => void>(() => {});
   /** ...and the same for the presses that move a RUN between surfaces: the
    * minimap and Escape put the pause card up, and the card takes it down
    * again — back to the water, or out to the front door. The loop owns the
@@ -375,7 +337,12 @@ export function App() {
     /** The level the settings ask for, and the refusal made an answer —
      * both in `new-game.ts`, closed over this loop's own refs so the seed a
      * run is stood up on is the one the settings hold at that moment. */
-    const tryNewGame = (): GameState | null => tryGame(settingsRef.current, params);
+    /** The run the settings ask for — or, with a campaign level under the
+     * HUD, that level again: a restart rides the same pinned shore. */
+    const tryNewGame = (): GameState | null =>
+      ridingRef.current
+        ? campaignGame(ridingRef.current, settingsRef.current.ride.craft)
+        : tryGame(settingsRef.current, params);
 
     // THE PAGE HAS TO MOUNT. This is the sea every card stands over, and a
     // seed the generator refuses would take the whole app down with it
@@ -461,6 +428,22 @@ export function App() {
         s.dev.wind === null &&
         s.dev.hs === null;
       if (!honest) return;
+      // A CAMPAIGN RUN goes in the campaign's book and nowhere else: the
+      // field is placed as it stands at the line (`fieldOrder`), the board
+      // keeps the better afternoon, and the plate says what the finish did
+      // to the ladder.
+      const pinned = ridingRef.current;
+      if (pinned) {
+        const before = progressRef.current;
+        const order = fieldOrder(state);
+        const after = recordRun(before, pinned, { value, craft: state.craft.spec.id, order });
+        progressRef.current = after;
+        setProgress(after);
+        setResult(
+          campaignResultFor(pinned, order.indexOf(null) + 1, order.length, value, before, after),
+        );
+        return;
+      }
       // A FREE RIDE still gets its plate and never gets a row: its weather is
       // the rider's own, so there is nothing to have beaten (`keepsRecords`).
       const key = recordKeyFor(s, params.track);
@@ -571,11 +554,15 @@ export function App() {
       window.setTimeout(() => setLoadLeaving(false), LOAD_FADE_MS);
     };
 
-    startRunRef.current = () => {
+    startRunRef.current = (campaign) => {
       loader.begin({
         build: () => {
           const s = settingsRef.current;
-          const game = gameFor(s, params);
+          // A campaign level is the pinned shore on the hull the craft card
+          // chose; anything else is the start card's. Which one is under
+          // the HUD is remembered for the finish and for a restart.
+          ridingRef.current = campaign ?? null;
+          const game = campaign ? campaignGame(campaign, s.ride.craft) : gameFor(s, params);
           if (s.dev.scene) {
             scenario = stageScenario(game, s.dev.scene);
             scriptFrom = game.t;
@@ -639,7 +626,11 @@ export function App() {
         frozen = false;
         clock.resume();
         setResult(null);
-        setMenuPage({ page: "root" });
+        // Out of a campaign run the door opens on the ladder, where the box
+        // just ridden shows what it paid; the run itself carries on under
+        // the bot and stops being the campaign's.
+        setMenuPage(ridingRef.current ? { page: "campaign" } : { page: "root" });
+        ridingRef.current = null;
         setShellNow("menu");
       },
       // The way off a load that will not finish. Back to the START card
@@ -966,10 +957,12 @@ export function App() {
           page={menuPage}
           settings={settings}
           records={records}
+          progress={progress}
           track={params.track}
           onSettings={setSettings}
           onNavigate={setMenuPage}
           onStart={() => startRunRef.current()}
+          onCampaign={(level) => startRunRef.current(level)}
           onBenchmark={() => benchRef.current.start()}
         />
       )}

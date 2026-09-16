@@ -16,6 +16,7 @@
 import type { FaunaId } from "../game/defs/fauna.ts";
 import type { Heightfield } from "../lib/heightfield.ts";
 import type { Season } from "../lib/solar.ts";
+import type { GeneratorVersion } from "./versions.ts";
 
 /** The BIOMES a shore can belong to. Two are built — the taiga, the coast
  * every rule was written against, and the mangrove, the warm one — and the
@@ -67,6 +68,11 @@ export type GenerateOptions = {
    * field is laid after everything the seeded stream draws, so asking for
    * one moves nothing else about the shore. */
   tricks?: boolean;
+  /** WHICH GENERATOR builds it (`versions.ts`). Defaults to the current
+   * rules, which is what everything but a campaign level wants; a campaign
+   * level names the version it was curated under and keeps it. A version
+   * this build no longer carries is the current one. */
+  version?: GeneratorVersion;
   /** Bounded sub-seed attempts before the generator throws; defaults to
    * `LEVEL_RULES.search.attempts`. */
   attempts?: number;
@@ -288,6 +294,10 @@ export type Level = {
    * the analyzer is handed a `Level` and nothing else, and has to score
    * the decks it finds against the width they were asked for. */
   readonly rampWidth: number;
+  /** WHICH GENERATOR built it (`versions.ts`): the version whose rules the
+   * shore was drawn under, carried so a campaign level can say which one
+   * it was curated on and a digest can be read back against it. */
+  readonly version: GeneratorVersion;
   readonly bounds: Bounds;
   /** Ground height against sea level: the sea bed under the water, the land
    * above it. Land is only meaningful within ~100 m of the shore. */
