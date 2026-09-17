@@ -39,7 +39,7 @@
 // that cannot be kept is simply not kept — the record it was set on still
 // stands, and a ghost is never load-bearing.
 
-import { NEUTRAL_INPUT, isCraftId, type CraftId, type CraftInput } from "@engine";
+import { NEUTRAL_INPUT, isCraftId, type CraftId, type CraftInput, type GameMode } from "@engine";
 
 import { clamp } from "../lib/util.ts";
 
@@ -125,6 +125,40 @@ export type GhostStage = {
   /** A timed run's length, s; 0 on a run that ends at a finish line. */
   limit: number;
 };
+
+/** THE MODES A TAPE IS EVER KEPT FOR: the two ridden ALONE. A RACE has a
+ * field to be measured against instead, and a FREE ride measures nothing at
+ * all (`records.ts`'s `keepsRecords`) — and the rig refuses any run with
+ * rivals on it besides, which is the same rule read off the state
+ * (`ghost-run.ts`). Stated once, and read from both sides. */
+export const GHOST_MODES = ["tricks", "timeTrial"] as const;
+
+/** WHICH PIECE OF WATER A RUN IS ON — null on a run that keeps no tape.
+ *
+ * `level` is the PINNED shore the run is on (`new-game.ts`'s `pinnedFor`),
+ * taken as the two fields a tape needs off it rather than as the whole
+ * campaign row: a name for the water and a fingerprint for the shore under
+ * it. Everything a tape has to agree on is in what comes back — the level
+ * names the water and the day it is ridden under, the mode names what the
+ * run is for, and `limit` is the LENGTH a tricks run was given, so two
+ * lengths down one field are two scores and two tapes.
+ *
+ * The digest is READ off the level rather than hashed off the built shore:
+ * a campaign row's is rewritten exactly when the shore under it is
+ * deliberately moved, and `tests/generator_version_test.ts` rebuilds every
+ * level and holds the two together — so the row IS the fingerprint, and a
+ * rung that moves under a stored tape takes the tape's stage with it.
+ *
+ * WHICH MODES KEEP ONE is `GHOST_MODES` above, and this is the only place
+ * it is asked. */
+export function ghostStage(
+  level: { id: string; digest: string } | null,
+  mode: GameMode,
+  limit: number,
+): GhostStage | null {
+  if (!level || !GHOST_MODES.some((kept) => kept === mode)) return null;
+  return { id: `${mode}/${level.id}`, digest: level.digest, limit };
+}
 
 export type GhostRun = GhostStage &
   ControlTape & {
@@ -333,6 +367,32 @@ export function loadGhost(stage: GhostStage): GhostRun | null {
   } catch {
     /* storage unavailable, or not JSON — there is simply no ghost */
     return null;
+  }
+}
+
+/** DROP EVERY TAPE THIS BUILD CANNOT NAME. `live` is every stage a run
+ * could still be keyed to; any other `sea-haven-ghost:` key is a tape for
+ * water the game no longer has — a level off the ladder, or a key an older
+ * build wrote under a scheme this one does not read. Left alone it is never
+ * read and never overwritten, so it would sit for good in a store the
+ * record book and the campaign's board share.
+ *
+ * Swept once, where the rig is built. A store that will not open is nothing
+ * to handle: a stray tape is kilobytes, not a bug. */
+export function forgetStrayGhosts(live: ReadonlySet<string>): void {
+  try {
+    const stray: string[] = [];
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i);
+      if (key?.startsWith(GHOST_PREFIX) && !live.has(key.slice(GHOST_PREFIX.length))) {
+        stray.push(key);
+      }
+    }
+    // Collected before anything is removed: removing inside the walk moves
+    // every key after it down an index, and the walk would skip one.
+    for (const key of stray) localStorage.removeItem(key);
+  } catch {
+    /* storage unavailable — there is nothing to sweep */
   }
 }
 
