@@ -549,10 +549,12 @@ describe("the water", () => {
     expect(bail).toBeGreaterThan(up);
     expect(coast.events.some((e) => e.kind === "combo")).toBe(false);
     // The same bow buried, ridden out with the lean back: no bail, and the
-    // flight that went in banks as a combo.
+    // flight that went in banks as a combo. Seven seconds, not six: the
+    // marlin is out at about five, and the combo closes a link window
+    // after that.
     const ridden = submarine(
       "marlin",
-      6,
+      7,
       (s) => ({ ...GAS, lean: s.craft.under || s.craft.pitch < -0.3 ? 1 : 0 }),
       -0.9,
       4,
