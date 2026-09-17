@@ -554,6 +554,24 @@ describe("what the HUD reads of the mode", () => {
     expect(takeSnapshot(open).go).toBe(false);
   });
 
+  it("says nothing at all over a run STAGED at a moment — the lights never ran", () => {
+    // The regression this pins, and it was a real one: `placeRun` takes the
+    // lights off a staged moment, but the RULES still said the run had
+    // three of them — and a clock at zero is where a countdown ends as well
+    // as where it never began. So every staged run came up reading GO, over
+    // a rider who had been counted in by nobody. A scene stored by an old
+    // build re-staged every ride a browser started, which is how a game
+    // with a working countdown came to have none anywhere.
+    const race = createGame({ seed: 1, level: FLAT, mode: "race", quiet: true });
+    expect(takeSnapshot(race).countdown).toBe(COUNTDOWN);
+    placeRun(race, { x: FLAT.start.x, z: FLAT.start.z + 120, heading: 0, speed: 18 });
+    expect(race.phase).toBe("running");
+    expect(race.rules.countdown).toBe(0);
+    const snap = takeSnapshot(race);
+    expect(snap.countdown).toBe(0);
+    expect(snap.go).toBe(false);
+  });
+
   it("counts a timed run DOWN, and leaves the course off it", () => {
     const state = createGame({
       seed: 1,

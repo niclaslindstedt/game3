@@ -81,9 +81,19 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   // A moment stood has no lights in front of it: a run placed at speed
   // under a countdown would be held at the grid with its way pinned
   // (`run.ts`) for as long as the lights ran, which is a scene of nothing.
-  if (state.phase === "countdown") {
+  //
+  // THE RULES ARE TOLD TOO, and that is the half that is easy to miss. A
+  // clock reading zero is where a countdown ENDS as well as where it never
+  // began, so the two are the same state everywhere but here — and anything
+  // reading "this run has lights" off the rules while the clock says they
+  // are done will announce that they have just gone out (the HUD's GO,
+  // `snapshot.ts`). A staged moment is a run with no lights, so the rules
+  // say so; `state.rules` is this run's own record (`rulesFor` spreads a
+  // fresh one), never the shared `MODE_RULES` row.
+  if (state.phase === "countdown" || state.rules.countdown > 0) {
     state.phase = "running";
     state.countdown = 0;
+    state.rules = { ...state.rules, countdown: 0 };
   }
   // ...and on water nothing has been ridden through: whatever wash the
   // run had laid before it was stood here is not part of the moment.

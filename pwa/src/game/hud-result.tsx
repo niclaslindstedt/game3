@@ -21,6 +21,7 @@
 // rather than there, so the one rule that decides whether it is up is written
 // where the card is.
 
+import type { HudResult } from "./run-news.ts";
 import type { RunSurfaces } from "./run-surfaces.ts";
 import { STRINGS } from "./strings.ts";
 
@@ -29,11 +30,7 @@ import { STRINGS } from "./strings.ts";
  * place, the standing best behind a figure), and whether the run is the best
  * this shore has seen. Composed by the app, which is the one thing that knows
  * the record book (`records.ts`); this file draws it. */
-export type HudResult = {
-  headline: string;
-  detail: string | null;
-  record: boolean;
-};
+export type { HudResult };
 
 export function ResultPlate({
   result,

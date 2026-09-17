@@ -10,8 +10,6 @@
 import { TUNING, craftById, type GameEvent, type GameState } from "@engine";
 
 import { formatTime } from "../lib/util.ts";
-import type { HudFlash } from "./hud.tsx";
-import type { HudResult } from "./hud-result.tsx";
 import {
   PODIUM,
   findLevel,
@@ -112,6 +110,29 @@ export function flashFor(
 export function shotLabel(state: GameState): string {
   return STRINGS.shotLabel(state.seed, craftById(state.craft.spec.id).name);
 }
+
+/** ONE LINE IN THE NEWS COLUMN, as DATA — made here and drawn by `hud.tsx`.
+ * `id` is what the column keys on, so a line leaving does not restart the
+ * animation of the one under it. Beside `HudResult` below and for the same
+ * reason: what a run SAYS is decided here, and a data type kept in the
+ * component that draws it drags a `.tsx` into every module that reasons
+ * about one. */
+export type HudFlash = {
+  id: number;
+  text: string;
+  tone: "good" | "bad" | "info";
+};
+
+/** THE PLATE a finish puts up, as DATA — made here and drawn by
+ * `hud-result.tsx`. It lives with the module that produces it rather than
+ * with the one that renders it, so everything that decides what a finish
+ * SAYS stays three-free and readable by the root suite; the component
+ * imports the type back from here. */
+export type HudResult = {
+  headline: string;
+  detail: string | null;
+  record: boolean;
+};
 
 /** THE RESULT, composed: the run's figure in the mode's own currency, and
  * the standing best it was measured against. `best` is the row BEFORE this
