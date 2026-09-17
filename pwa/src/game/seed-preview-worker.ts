@@ -22,7 +22,6 @@ import {
   type Season,
   type TimeOfDay,
   type Weather,
-  windQuarter,
 } from "@engine";
 
 import { levelSchematic } from "./minimap-scene.ts";
@@ -51,11 +50,6 @@ export type SeedDeal = {
    * figure, which `conditionsFor` turns into one of the card's three rungs
    * and FREE's fader stands on as it is. */
   wind: number;
-  /** ...and the QUARTER it was dealt off, DEGREES off dead onshore — R12
-   * always deals it within 60° of straight in off the sea. In degrees
-   * because that is what the row that reads it is in; the engine's own
-   * `windQuarter` is the same angle in rad. */
-  windFrom: number;
   /** The sky R19 dealt over it. */
   weather: Weather;
   /** R36 — the groundswell it was dealt, m of significant height out past
@@ -96,7 +90,6 @@ self.onmessage = (e: MessageEvent<PreviewRequest>) => {
         time: dealtTimeOfDay(level),
         season: level.season,
         wind: level.wind.speed,
-        windFrom: (windQuarter(level, level.wind.from) * 180) / Math.PI,
         weather: level.weather,
         swell: level.swell,
       },

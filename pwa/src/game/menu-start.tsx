@@ -7,7 +7,7 @@
 // on is water somebody else can ride — so those three pick one of the
 // campaign's twelve pinned shores (`menu-levels.tsx`) and take its day with
 // it. What is left here is the mode where nothing is compared, which is
-// exactly where a seed of your own, a wind off any quarter and a sea of any
+// exactly where a seed of your own, a wind of any strength and a sea of any
 // size belong. FREE is the only tile that opens this card, so the head's
 // title is FREE every time a player reaches it; a LINK may still open it in
 // another mode (`?menu=start`), and then it is what it says it is — the
@@ -76,11 +76,24 @@
 // choosing a wind re-marks the sky under it, choosing a wind leaves this row
 // exactly where the seed left it.
 //
-// THREE OF THE ROWS ARE FADERS RATHER THAN LADDERS. The wind, the quarter
-// it blows from and the sea outside stop being rungs the generator would
-// deal and become figures that run past anything it ever would. They can be,
-// because nothing here is measured — the row above the fader would be a
-// promise about comparable water, and there is nobody to compare with.
+// TWO OF THE ROWS ARE FADERS RATHER THAN LADDERS. The wind and the sea
+// outside stop being rungs the generator would deal and become figures that
+// run past anything it ever would. They can be, because nothing here is
+// measured — the row above the fader would be a promise about comparable
+// water, and there is nobody to compare with.
+//
+// WHICH QUARTER THE WIND BLOWS FROM IS NOT A ROW, AND WAS ONE. It is always
+// dead onshore now — square on to the average line of the shore, which is
+// what `Level.seaHeading` is and what the engine measures a quarter against
+// (`new-game.ts`'s `quarterOf` is where the run is given it). The row had to
+// go because it was the only one on the card that could silently undo the
+// two above it: the quarter is what the FETCH is measured along, so a wind
+// turned off the sea has no water at its back and grows nothing, and a rider
+// who set forty metres a second and a twenty-metre swell and then dragged
+// the quarter round got flat water with no row on the card saying which
+// answer had cancelled which. A fader whose own travel can make its
+// neighbours mean nothing is not a choice, it is a trap; the sea a free ride
+// asks for is now the sea it gets.
 //
 // WIND AND WEATHER ARE TWO ROWS, AND THE SECOND ONE DEFERS TO THE FIRST.
 // They were one row once, for a good reason: R19 deals a level's sky off the
@@ -134,8 +147,6 @@ import { SeedPreview, useSeedPreview } from "./seed-preview.tsx";
 import {
   DEFAULT_SEED,
   FREE_WIND_RANGE,
-  QUARTER_RANGE,
-  QUARTER_STEP,
   SEED_RANGE,
   skyForWind,
   type Settings,
@@ -358,24 +369,6 @@ export function StartPage({
               step={1}
               read={STRINGS.freeWindValue}
               onChange={(wind) => setRide({ wind })}
-              onHint={setHint}
-            />
-            {/* ...AND WHICH WAY IT BLOWS, which no other card asks at all.
-                R12 always deals the wind off the water because that is what
-                gives the fetch its run; turned past a right angle it is
-                blowing out to sea, measured over the land behind, and the
-                water goes flat however hard the row above is pushed. That
-                is a real day and the only mode that may ask for one is the
-                mode where nothing is being measured. */}
-            <FadeRow
-              label={STRINGS.freeQuarter}
-              hint={STRINGS.freeQuarterHint(ride.windQuarter, deal?.windFrom ?? null)}
-              value={ride.windQuarter ?? deal?.windFrom ?? 0}
-              min={QUARTER_RANGE.min}
-              max={QUARTER_RANGE.max}
-              step={QUARTER_STEP}
-              read={STRINGS.freeQuarterValue}
-              onChange={(windQuarter) => setRide({ windQuarter })}
               onHint={setHint}
             />
             {/* Under the wind, and NOT under it in the way the sky is: this is

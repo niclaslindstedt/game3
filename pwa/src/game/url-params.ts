@@ -39,8 +39,6 @@
 //                  season has
 //   ?day=storm     ...and its WIND row: fine | windy | storm — a sky AND the
 //                  wind under it — or the wind in m/s (?day=33) on a free ride
-//   ?windfrom=90   FREE's own row, on ?mode=free alone: which QUARTER that
-//                  wind blows from, degrees off dead onshore (±180 offshore)
 //   ?waves=9       ...and its WAVES row (R36): how big the GROUNDSWELL out
 //                  past the coast is, m — 1 | 2.5 | 4 | 6 | 9 | 14 | 20, and
 //                  anywhere between on a free ride. Not the wind's sea, not
@@ -102,7 +100,6 @@ import {
   CONDITIONS,
   CONDITION_DAY,
   FREE_WIND_RANGE,
-  QUARTER_RANGE,
   TRICK_MINUTES,
   type Settings,
 } from "./settings.ts";
@@ -151,11 +148,6 @@ export type Params = {
    * stands on). Both end up as the same setting, because the setting IS the
    * figure. */
   day: number | undefined;
-  /** FREE's own row: which QUARTER that wind blows from, degrees off dead
-   * onshore. Only a free ride reads it (`new-game.ts`), so a link that
-   * carries one and does not say `?mode=free` is a link that set a row
-   * nothing is looking at. */
-  windFrom: number | undefined;
   /** R36 — how big the swell out past the coast is, m of significant height
    * anywhere inside the engine's `SWELL_DIAL`: one of the WAVES row's own
    * rungs, or, on a free ride, whatever its fader was left on. A setting
@@ -262,7 +254,6 @@ export function readParams(search: string): Params {
       ? (p.get("season") as Season)
       : undefined,
     day: windParam(p.get("day")),
-    windFrom: within(p.get("windfrom"), QUARTER_RANGE),
     waves: within(p.get("waves"), SWELL_DIAL),
     biome: isBiomeId(p.get("biome")) ? (p.get("biome") as BiomeId) : undefined,
     mode: isGameMode(p.get("mode")) ? (p.get("mode") as GameMode) : undefined,
@@ -331,7 +322,6 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.time !== undefined) settings.ride.time = params.time;
   if (params.season !== undefined) settings.ride.season = params.season;
   if (params.day !== undefined) settings.ride.wind = params.day;
-  if (params.windFrom !== undefined) settings.ride.windQuarter = params.windFrom;
   if (params.waves !== undefined) settings.ride.swell = params.waves;
   if (params.weather !== undefined) settings.ride.weather = params.weather;
   if (params.scene !== null) settings.dev.scene = params.scene;

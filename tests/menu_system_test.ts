@@ -22,6 +22,7 @@ import {
   SWELL_DIAL,
   TIMES_OF_DAY,
   WEATHER_IDS,
+  windQuarter,
 } from "@engine";
 import { describe, expect, it } from "vitest";
 import { CRAFT, craftById } from "@engine";
@@ -650,9 +651,6 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       // existed keeps riding the season it was dealt.
       season: null,
       wind: 20,
-      // ...and FREE's own row, which no other card writes: a blob that has
-      // never been on a free ride rides the quarter R12 dealt.
-      windQuarter: null,
       // ...and the same for R36's WAVES row: a blob from before it existed
       // rides the swell its shore was dealt.
       swell: null,
@@ -716,25 +714,32 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings({ ride: { wind: 20 } }).ride.weather).toBeNull();
   });
 
-  it("carries a WIND, a QUARTER and a SEA anywhere on the travel a free ride offers", () => {
-    // The three rows a FREE ride turns into faders write the same fields the
+  it("carries a WIND and a SEA anywhere on the travel a free ride offers", () => {
+    // The two rows a FREE ride turns into faders write the same fields the
     // worded card's ladders do, so the merge checks a RANGE rather than a
     // list: a figure between two rungs is a free ride's answer, not a corrupt
     // blob. The measured modes put it back on their own ladder when the run
     // is stood up (`new-game.ts`), which is why the stored figure may stand
     // anywhere.
-    const stored = mergeSettings({ ride: { wind: 33, windQuarter: -135, swell: 7.5 } });
+    const stored = mergeSettings({ ride: { wind: 33, swell: 7.5 } });
     expect(stored.ride.wind).toBe(33);
-    expect(stored.ride.windQuarter).toBe(-135);
     expect(stored.ride.swell).toBe(7.5);
   });
 
-  it("DROPS a wind, a quarter or a sea off the end of its own travel", () => {
+  it("KEEPS NO QUARTER AT ALL — a blob from the build that had one drops it", () => {
+    // The row is gone and so is the field: a free ride's wind is always dead
+    // onshore (`new-game.ts`'s `quarterOf`), so a stored angle is an answer
+    // to a question the card no longer asks and must not survive the merge
+    // as a stray key on the blob.
+    const stored = mergeSettings({ ride: { wind: 33, windQuarter: -135 } });
+    expect("windQuarter" in stored.ride).toBe(false);
+  });
+
+  it("DROPS a wind or a sea off the end of its own travel", () => {
     // A figure past the fader's end is one no row could put the thumb back
     // on — the same rule every ladder row is merged by.
     expect(mergeSettings({ ride: { wind: 400 } }).ride.wind).toBeNull();
     expect(mergeSettings({ ride: { wind: -1 } }).ride.wind).toBeNull();
-    expect(mergeSettings({ ride: { windQuarter: 270 } }).ride.windQuarter).toBeNull();
     // The sea's ends are the ENGINE's, so a height the generator would clamp
     // is one this card never offers.
     expect(mergeSettings({ ride: { swell: SWELL_DIAL.max + 1 } }).ride.swell).toBeNull();
@@ -1139,6 +1144,29 @@ describe("a measured run rides a PINNED shore rather than a seed (new-game.ts)",
     // trial is the course against the clock alone.
     expect(state.rivals).toHaveLength(0);
     expect(state.rules.course).toBe(true);
+  });
+
+  it("blows a FREE ride's wind dead onshore, whatever the shore was dealt", () => {
+    // The card no longer asks which quarter, because the quarter is what the
+    // fetch is measured along: a wind turned off the sea grows nothing, so a
+    // row that could turn it made the WIND and WAVES rows above it mean
+    // whatever the thumb next to them happened to say. A free ride is given
+    // the wind square on to the average line of the shore
+    // (`Level.seaHeading`), so the sea it asks for is the sea it gets.
+    const state = gameFor(rides({ mode: "free", seed: 4, biome: "taiga", wind: 20 }), NO_LINK);
+    expect(windQuarter(state.level, state.wind.meanFrom)).toBeCloseTo(0, 9);
+    // ...and it is a CHOICE rather than the seed's own luck: R12 deals the
+    // quarter inside 60° of onshore and almost never exactly on it, so the
+    // level this run was built from carries a different one.
+    expect(Math.abs(windQuarter(state.level, state.level.wind.from))).toBeGreaterThan(0);
+  });
+
+  it("leaves a MEASURED run on the quarter its pinned shore was dealt", () => {
+    // The override is FREE's alone: a race is ridden on the level's own day,
+    // and a wind straightened by the app would be a second opinion about
+    // water two riders' figures are supposed to share.
+    const state = gameFor(rides({ mode: "race", level: RACE_LEVEL.id }), NO_LINK);
+    expect(state.wind.meanFrom).toBeCloseTo(state.level.wind.from, 9);
   });
 
   it("stands a RACE up on the same shore with the grid on it", () => {
