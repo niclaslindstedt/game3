@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze score course waves surf ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -252,6 +252,20 @@ sky:
 # `make wake ARGS=--skip-build`
 wake:
 	node scripts/wake-preview.mjs $(ARGS)
+
+# THE WASH LAB — the waves the CRAFT leaves in the water, from straight
+# above, with the sea's own taken out: one column a ride on the synthetic
+# shore (a hull lying to in a chop, the hump, cruise, flat out, a landing),
+# each the plan as height, the section along the axis astern and the section
+# across the trail ten metres back — `previews/wash.png` — and a table of the
+# crest, the trough, how far off the track the wash still stands, how many
+# sources are live and what one sample of it costs. Pure Node. The wash is
+# real water (`engine/game/wash.ts`) and every camera in the game is a chase
+# camera, so this is the only view of its plan shape. Required before/after
+# any change to the wash.
+# `make wash` · `make wash CRAFT=marlin` · `make wash ARGS="--half 40"`
+wash:
+	npm run wash -- $(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
 
 # EVERY SPECIES ON THE SHORE SIDE BY SIDE: one contact sheet, one cell per
 # row of the flora roster, each drawn at both ends of its own height band

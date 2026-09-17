@@ -127,6 +127,21 @@ export {
   type WaveBand,
   type WaveComponent,
 } from "./game/water.ts";
+// THE WASH (wash.ts): the waves a hull leaves in the water — each rider's
+// trail of ring sources, summed into `surfaceAt` for everyone on the sea.
+export {
+  clearWash,
+  freshWash,
+  passageCrest,
+  stepWash,
+  washAt,
+  WASH_CELERITY,
+  WASH_GROUP,
+  WASH_REACH,
+  WASH_WAVELENGTH,
+  type Wash,
+  type WashSample,
+} from "./game/wash.ts";
 // WHAT THE BED DOES TO A WAVE (wave-bed.ts): dispersion, shoaling, and the
 // eikonal phase field that turns a crest toward the shallows.
 export { shoaling, wavenumber } from "./game/wave-bed.ts";

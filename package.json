@@ -47,6 +47,7 @@
     "native:ios:device": "npm --prefix native run ios:device",
     "native:android": "npm --prefix native run android",
     "surf": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/surf-lab.mjs",
+    "wash": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/wash-lab.mjs",
     "rate": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/rate-level.mjs",
     "difficulty": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/difficulty-preview.mjs"
   },

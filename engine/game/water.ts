@@ -121,6 +121,7 @@ import {
   type Shelter,
 } from "./fetch.ts";
 import { oceanDepth, oceanOffset, oceanOut, STORM_CEILING, stormRamp } from "./ocean.ts";
+import { type Wash, washAt, type WashSample } from "./wash.ts";
 import { layBand } from "./wave-band.ts";
 import { tableAt } from "./wave-bed.ts";
 
@@ -230,6 +231,13 @@ export type SeaState = {
    * is asking for the swell, and the storm's swell is the longest thing in
    * the field. Each one says which band it belongs to. */
   readonly components: readonly WaveComponent[];
+  /** THE WASH — every rider's trail of the waves his hull has left in
+   * this water (`wash.ts`), the player's first and then the field's, each
+   * pushed here when its run is stood up. The one part of the sea that is
+   * not a pure function of (x, z, t): it is a function of the RIDE, laid
+   * step by step and replayed exactly, and `surfaceAt` sums it into every
+   * sample so the hull and the renderer both meet the wave the craft made. */
+  readonly washes: Wash[];
 };
 
 /** ONE BAND of the field: the sea it was quoted at, and where its
@@ -543,6 +551,7 @@ export function createSea(
       ...rungs.map((r, i) => bandOf(OPEN0 + i, "open", r.hs, r.tp)),
     ],
     components,
+    washes: [],
   };
 }
 
@@ -743,6 +752,8 @@ const shares = new Float64Array(OPEN0 + O.rungs.length);
 const drift = { x: 0, z: 0 };
 /** How far out of the level's bounds the sample lies, per axis (`ocean.ts`). */
 const beyond = new Float64Array(2);
+/** What the hulls' wash adds at the sample (`wash.ts`). */
+const wash: WashSample = { height: 0, sx: 0, sz: 0, vx: 0, vy: 0, vz: 0 };
 
 /** The surface at a plan point and time. Writes into `out` when given so
  * a mesh of forty thousand vertices allocates nothing per frame. `count`
@@ -922,6 +933,20 @@ export function surfaceAt(
       vx += stokes * kx;
       vz += stokes * kz;
     }
+  }
+  // THE WASH — the waves the hulls on this water have made (`wash.ts`),
+  // on top of the sea's own. Only for a sample that carries the whole
+  // field: a far grid summing the longest components is asking for the
+  // swell its cells can hold, and a six-metre ring is not that. Fades out
+  // in the shallows, where the hull is on the beach.
+  if (sea.washes.length > 0 && n === total) {
+    washAt(sea.washes, x, z, t, Math.min(1, depth / TUNING.wash.shoal), wash);
+    height += wash.height;
+    sx += wash.sx;
+    sz += wash.sz;
+    vx += wash.vx;
+    vy += wash.vy;
+    vz += wash.vz;
   }
   // R27 — and the water it is all riding on may itself be going somewhere.
   flowAt(level.flow, x, z, drift);

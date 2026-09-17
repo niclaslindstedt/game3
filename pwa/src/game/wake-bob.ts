@@ -1,8 +1,17 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE BOB — the rings a hull radiates while it lies in a seaway doing
-// nothing. Three-free and DOM-free so `tests/wake_bob_test.ts` can hold
-// the claims below; `wake.ts` stamps the rings and rasterises them into
-// the same map the road and the fan are drawn from.
+// THE BOB — the SHEEN on the rings a hull radiates while it lies in a
+// seaway doing nothing. Three-free and DOM-free so `tests/wake_bob_test.ts`
+// can hold the claims below; `wake.ts` stamps the rings and rasterises
+// them into the same map the road and the fan are drawn from.
+//
+// THE RINGS THEMSELVES ARE THE ENGINE'S: a floating hull's plunge lays a
+// source in the wash (`engine/game/wash.ts`) and the water grid carries
+// the ring the way it carries the swell, so a rival drifting alongside is
+// rocked by it. What this map lays on that ring is the CHURN — the
+// reflection breaking along the crest, which is the whole of what the eye
+// reads of a ripple on calm water and which a height of centimetres on a
+// grid of metres could never carry. It rides out at the wash's own group
+// speed so the sheen sits on the water that is actually moving.
 //
 // Everything else the wake carries is something the hull's PASSAGE left,
 // so a craft with no way on leaves water the map says nothing about — and
@@ -24,11 +33,11 @@
 //               circumference grows.
 //   THE SHEEN   churn, and no white at all. A bob does not aerate water:
 //               what the eye actually reads on calm water is the
-//               reflection breaking along the ring. The relief alone
-//               cannot carry it — a ripple is centimetres where the water
-//               grid's cell is metres — so the churn is the ring, and the
-//               relief is what it rides on when the bob is big enough to
-//               move a vertex.
+//               reflection breaking along the ring. The relief under it
+//               is the engine's, and moves a vertex only when the bob is
+//               big enough to.
+
+import { WASH_GROUP } from "@engine";
 
 import { clamp } from "../lib/util.ts";
 
@@ -56,41 +65,20 @@ export const BOB_FULL = 0.06;
  * top of one another and the map carries one smear instead of a train. */
 export const BOB_GAP = 0.35;
 
-/** How fast the ring travels, m/s — a wave a couple of metres long at deep
- * water celerity, √(gλ/2π) — how wide it runs crest to foot, m, and how
- * long it lives, s.
- *
- * The WIDTH is not the ripple's own scale: the water shader reads the
- * relief channels blurred to about two metres (`WAKE_RELIEF_LOD`) and the
- * near grid's cell is a metre and a half, so anything narrower than this
- * is smoothed away before a vertex ever stands on it. A bob's ring is a
- * broad gentle swell of a thing by construction, which is also what it
- * looks like beside a hull that is barely moving. */
-export const BOB_SPEED = 1.7;
+/** How fast the sheen travels, m/s — the wash's group speed, where the
+ * engine's ring packet stands — how wide it runs crest to foot, m, and how
+ * long it lives, s. The WIDTH is the packet's, a broad gentle swell of a
+ * thing, which is also what a ripple looks like beside a hull that is
+ * barely moving. */
+export const BOB_SPEED = WASH_GROUP;
 export const BOB_WIDTH = 4;
 export const BOB_LIFE = 4.5;
 
-/** Where the ring's trough sits, in half-widths inside its crest, and how
- * deep it runs as a share of the crest. The same shape the splash's ring
- * carries, because it is the same wave. */
+/** Where the sheen's inner foot sits, in half-widths inside its crest. */
 const BOB_TROUGH_AT = 1.6;
-const BOB_TROUGH = 0.65;
 
-/** The crest a plunge at full strength raises at the ring's birth, m.
- *
- * ARCADE, and sized off the SLOPE rather than the height. Spread honestly
- * round this ring's circumference the water a hull displaces is about a
- * centimetre tall — and a real ripple gets away with a centimetre because
- * it is also about a metre wide. This ring has been stretched to three
- * metres to clear the relief blur (`BOB_WIDTH`), so an honest height over
- * that width is a slope of well under a hundredth: a surface normal that
- * does not visibly turn, on a grid whose cell is a metre and a half. At
- * this height the crest's face runs at about one in thirteen, which is
- * where the water starts to catch the sky differently along the ring —
- * which is the whole of what a ripple IS to look at. */
-const BOB_CREST = 0.18;
-/** How long the ring takes to come up, s — a birth over a couple of frames
- * would be a step in the surface at the hull's rim. */
+/** How long the sheen takes to come up, s — a birth over a couple of
+ * frames would be a step in the reflection at the hull's rim. */
 const BOB_BIRTH = 0.3;
 
 /** How much the ring breaks the reflection at its peak. It is the whole of
@@ -230,20 +218,20 @@ export function bobStations(radius: number, age: number, out: Float32Array): voi
 }
 
 /** THE RING'S SECTION at `r` m from its centre, for a ring born `age`
- * seconds ago at `radius` m with `strength` 0..1. `relief` is the DETAIL
- * row's share of the height it moves; the churn is never dimmed, because
- * without it a ring the row has flattened is nothing at all. */
+ * seconds ago at `radius` m with `strength` 0..1: churn, and nothing else
+ * — the height is the engine's. */
 export function bobAt(
   r: number,
   radius: number,
   age: number,
   strength: number,
-  relief: number,
   out: { foam: number; churn: number; up: number; down: number; cover: number },
 ): void {
   out.foam = 0;
+  out.up = 0;
+  out.down = 0;
   if (strength <= 0 || age < 0 || age >= BOB_LIFE) {
-    out.churn = out.up = out.down = out.cover = 0;
+    out.churn = out.cover = 0;
     return;
   }
   const rc = radius + BOB_SPEED * age;
@@ -255,17 +243,13 @@ export function bobAt(
   const env = (1 - Math.exp(-age / BOB_BIRTH)) * left * left * Math.sqrt(radius / rc);
   const d = (r - rc) / (BOB_WIDTH / 2);
   const crest = Math.exp(-d * d * 2);
-  const trough = Math.exp(-(d + BOB_TROUGH_AT) * (d + BOB_TROUGH_AT) * 2);
   // Nothing inside the waterline the ring was born on: the hull is
   // standing there, and a crest whose skirt reaches under it is a mound
   // the craft sits on top of for the first half second of its life. The
   // feather is cut off the BIRTH RADIUS rather than off the ring's width,
   // which is wider than the hull and would leave a skirt over its middle.
   const inside = smoothstep(radius * BOB_HOLLOW_IN, radius, r);
-  const amp = BOB_CREST * strength * relief * env;
   const lift = BOB_CHURN_FLOOR + (1 - BOB_CHURN_FLOOR) * strength;
-  out.up = amp * crest;
-  out.down = amp * BOB_TROUGH * trough;
   out.churn = BOB_CHURN * lift * env * crest;
   out.cover = inside;
 }

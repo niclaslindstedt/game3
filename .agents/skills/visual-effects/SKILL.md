@@ -41,7 +41,8 @@ that wants the camera to move goes there, not into an ad-hoc transform.
 | Effect | Where |
 | --- | --- |
 | The spray: the chine sheets while planing, the pump's rooster tail, the reverse bucket's boil, the landing's plume, the bow driving into a face | `pwa/src/game/spray.ts` — one `THREE.Points` pool, a custom shader so every droplet has its own size, everything within a hull length of the craft |
-| The wake's SHAPE by speed and by age — the road, the boil, dense fan foam inside the Kelvin wave, the hollow, the rise time of the relief | `pwa/src/game/wake-profile.ts`; `tests/wake_test.ts` holds the reference photograph's claims as arithmetic |
+| The wake's SHAPE by speed and by age — the road, the boil, dense fan foam inside the Kelvin wave, the hollow and the mound under the hull, the rise time of the relief | `pwa/src/game/wake-profile.ts`; `tests/wake_test.ts` holds the reference photograph's claims as arithmetic |
+| THE WAVES THE CRAFT LEAVES — the V's arms, a landing's ring, a bobbing hull's rings — are NOT this skill's: they are the engine's WASH (`engine/game/wash.ts`, `water-feel`), real water the probes read and the grid is displaced by. The map lays only the white and the churn on them, at the wash's own group speed, and never a second relief | `make wash` is the picture; `pwa/src/game/wake-bob.ts` is the sheen on the bob's rings |
 | The wake's MAP — the trail rasterised once a frame from straight above, one channel each for foam, churn, crest and hollow; a landing's foam stamped into it by the spray | `pwa/src/game/wake.ts` |
 | The foam's mottling and the droplet, made in code; the anisotropy every tile seen along the water needs | `pwa/src/game/fx-textures.ts` |
 | Footprints on the sand — decoration placed on the level's own seed, on `sand` only, instanced, never a solid | `pwa/src/game/footprints.ts` |

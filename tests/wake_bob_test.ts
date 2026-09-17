@@ -9,7 +9,7 @@
 
 import { describe, expect, it } from "vitest";
 
-import { NEUTRAL_INPUT, createGame, heightAt, placeRun, step, TUNING } from "@engine";
+import { NEUTRAL_INPUT, createGame, heightAt, placeRun, step, TUNING, WASH_GROUP } from "@engine";
 
 import {
   BOB_FULL,
@@ -28,7 +28,6 @@ import {
   bobStations,
   bobStep,
 } from "../pwa/src/game/wake-bob.ts";
-import { WAKE_HEIGHT } from "../pwa/src/game/wake-profile.ts";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 const section = { foam: 0, churn: 0, up: 0, down: 0, cover: 0 };
@@ -127,22 +126,23 @@ describe("the bob's ring", () => {
   it("is never white", () => {
     for (const age of [0, 0.4, 1, 2, 3]) {
       for (let r = 0; r < 14; r += 0.25) {
-        bobAt(r, 1.6, age, 1, 1, section);
+        bobAt(r, 1.6, age, 1, section);
         expect(section.foam).toBe(0);
       }
     }
   });
 
-  it("rolls its crest out at BOB_SPEED", () => {
+  it("rolls its sheen out at the wash's group speed — where the engine's ring is", () => {
+    expect(BOB_SPEED).toBe(WASH_GROUP);
     const radius = 1.6;
     for (const age of [0.5, 1.5, 2.5]) {
       let best = -1;
       let at = 0;
       for (let r = 0; r < 20; r += 0.02) {
-        bobAt(r, radius, age, 1, 1, section);
-        const up = section.up * section.cover;
-        if (up > best) {
-          best = up;
+        bobAt(r, radius, age, 1, section);
+        const churn = section.churn * section.cover;
+        if (churn > best) {
+          best = churn;
           at = r;
         }
       }
@@ -154,29 +154,30 @@ describe("the bob's ring", () => {
     const peak = (age: number) => {
       let best = 0;
       for (let r = 0; r < 24; r += 0.05) {
-        bobAt(r, 1.6, age, 1, 1, section);
-        best = Math.max(best, section.up * section.cover);
+        bobAt(r, 1.6, age, 1, section);
+        best = Math.max(best, section.churn * section.cover);
       }
       return best;
     };
     expect(peak(1.2)).toBeGreaterThan(peak(2.4));
     expect(peak(2.4)).toBeGreaterThan(0);
     expect(peak(BOB_LIFE)).toBe(0);
-    bobAt(3, 1.6, BOB_LIFE + 0.1, 1, 1, section);
+    bobAt(3, 1.6, BOB_LIFE + 0.1, 1, section);
     expect(section.cover).toBe(0);
   });
 
-  it("draws a trough inside its crest", () => {
-    const age = 1;
-    const rc = 1.6 + BOB_SPEED * age;
-    bobAt(rc, 1.6, age, 1, 1, section);
-    const crest = section.up;
-    bobAt(rc - (BOB_WIDTH / 2) * 1.15, 1.6, age, 1, 1, section);
-    expect(section.down).toBeGreaterThan(crest * 0.4);
+  it("moves no water of its own: the ring's height is the engine's wash", () => {
+    for (const age of [0.2, 1, 2.5]) {
+      for (let r = 0; r < 20; r += 0.25) {
+        bobAt(r, 1.6, age, 1, section);
+        expect(section.up).toBe(0);
+        expect(section.down).toBe(0);
+      }
+    }
   });
 
   it("puts nothing inside the waterline it was born on", () => {
-    bobAt(0, 1.6, 0.05, 1, 1, section);
+    bobAt(0, 1.6, 0.05, 1, section);
     expect(section.cover).toBe(0);
   });
 
@@ -184,20 +185,11 @@ describe("the bob's ring", () => {
     expect(BOB_WIDTH).toBeGreaterThanOrEqual(3);
   });
 
-  it("keeps its churn when the DETAIL row takes its relief away", () => {
+  it("carries its churn on the crest", () => {
     const age = 1;
     const rc = 1.6 + BOB_SPEED * age;
-    bobAt(rc, 1.6, age, 1, 0, section);
-    expect(section.up).toBe(0);
+    bobAt(rc, 1.6, age, 1, section);
     expect(section.churn).toBeGreaterThan(0.1);
-  });
-
-  it("never asks for more height than the map's bytes carry", () => {
-    for (let r = 0; r < 20; r += 0.05) {
-      bobAt(r, 1.2, 0.3, 1, 1, section);
-      expect(section.up).toBeLessThanOrEqual(WAKE_HEIGHT);
-      expect(section.down).toBeLessThanOrEqual(WAKE_HEIGHT);
-    }
   });
 });
 

@@ -16,6 +16,7 @@ import { stepCraft } from "./craft.ts";
 import { resetCraft, stepCourse } from "./course.ts";
 import { NEUTRAL_INPUT, type CraftInput, type GameEvent, type GameState } from "./state.ts";
 import { surfaceAt, type SurfaceSample } from "./water.ts";
+import { stepWash } from "./wash.ts";
 import { closeCombo, resetTricks, stepTricks } from "./tricks.ts";
 
 /** THE RUN'S AIR RECORD, read off the flight the craft has just reported.
@@ -57,6 +58,9 @@ export function stepRun(run: GameState, input: CraftInput, events: GameEvent[]):
   const y0 = c.y;
   const z0 = c.z;
   stepCraft(run, live ? input : NEUTRAL_INPUT, events);
+  // THE WASH the hull just left — off what the craft has this step done
+  // and this step's landings, before anything reads the water again.
+  stepWash(run, events);
   // UNDER THE LIGHTS THE FIELD HOLDS STATION — IN THE WATER, NOT AGAINST
   // IT. Neutral makes no propulsive way, but a grid left to the wind and
   // sea for three seconds still drifts apart before GO; the hull heaves

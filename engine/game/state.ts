@@ -13,6 +13,7 @@ import type { Level } from "../mapgen/types.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import type { RunRules } from "./defs/modes.ts";
 import type { SeaState } from "./water.ts";
+import type { Wash } from "./wash.ts";
 import type { WindState } from "./wind.ts";
 
 export type CraftInput = {
@@ -128,6 +129,12 @@ export type CraftState = {
    * bottom probe times the deck's flooded share. A buried bow alone is 0;
    * a deck swallowed by a following wave rises toward 1. */
   submerged: number;
+  /** THE WATER'S OWN RATE OF RISE under the wet bottom, m/s — the mean
+   * Lagrangian surface velocity's vertical part over the wet probes
+   * (`hull.ts`'s `waterVy`). What the wash reads the hull's PLUNGE against:
+   * a hull carried up a swell in step with it shoves nothing aside, and
+   * `vy − waterVy` is the heave that does. 0 on a dry hull. */
+  waterVy: number;
   /** The slam the hull took this step, N — the wedge impact of the probes
    * ENTERING the water (`hull.ts`), capped as the physics caps it. Zero on a
    * hull that is riding rather than landing. Read by the app's audio for the
@@ -524,6 +531,10 @@ export type GameState = {
   /** THE FIELD: every other rider on the water, in grid order. Empty on a
    * run nobody else is in, which is every run but a race (`rivals.ts`). */
   rivals: Rival[];
+  /** THIS RIDER'S WASH — the waves his hull has left in the water
+   * (`wash.ts`): laid by his own step, and standing on the sea for
+   * everyone through `SeaState.washes`. */
+  wash: Wash;
   /** Seconds of the lights still to run; 0 once they are out, and for the
    * whole of a run that never had any. */
   countdown: number;

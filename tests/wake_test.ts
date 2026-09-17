@@ -7,6 +7,8 @@
 
 import { describe, expect, it } from "vitest";
 
+import { WASH_GROUP } from "@engine";
+
 import {
   BOIL_RUN,
   BRAKE_PACE_FULL,
@@ -168,10 +170,11 @@ describe("the stern wave", () => {
   });
 
   it("bends the water DOWN at the transom and UP again at the crossing", () => {
-    // The claim the whole mark is for, and the one a plan view cannot
-    // make: along the axis the surface drops behind the transom, comes
-    // back through the still line and stands PROUD of it where the fan's
-    // two rails meet.
+    // The claim the mark is for, and the one a plan view cannot make:
+    // along the axis the surface drops behind the transom, comes back
+    // through the still line and stands PROUD of it where the fan's two
+    // rails meet. Everything further out — the arms of the V — is the
+    // engine's wash, and this map does not restate it.
     const s = wakeSection();
     const mound = moundAt(BEAM, 1);
     sternAt(0, 0.2, 2, 20, 1, BEAM, s);
@@ -194,56 +197,41 @@ describe("the stern wave", () => {
     expect(moundAt(2 * BEAM, 0)).toBeCloseTo(2 * bare, 5);
   });
 
-  it("reads as a TRIANGLE: the crest stands further off the axis the further astern", () => {
-    // The shape the whole mark is for. The arms leave the transom's
-    // corners and ride outward at Kelvin's angle for as long as the trail
-    // lasts, so what a rider looks back at is a V that never stops
-    // opening — never a stripe, and never a lozenge on the axis.
+  it("carries no arms of its own: the V's crests are the engine's wash", () => {
+    // The map's relief stops at the hull's own footprint. Off the axis,
+    // past the mound, the section lifts nothing — the diverging crests a
+    // rider looks back at are real water (`engine/game/wash.ts`), which
+    // the hull feels and the grid is displaced by, and a second copy here
+    // would be the same wave drawn twice. The geometry of the arms stays,
+    // for the fan's white and the cover to follow.
     const s = wakeSection();
-    const crestOff = (run: number) => {
-      let best = -1;
-      let at = 0;
-      for (let a = 0; a <= 1; a += 0.005) {
+    for (const run of [8, 20, 40]) {
+      for (let a = 0.5; a <= 1; a += 0.05) {
         sternAt(a, run, 4, 20, 1, BEAM, s);
-        if (s.up > best) [best, at] = [s.up, a * sternHalf(BEAM, run)];
+        expect(s.up).toBe(0);
       }
-      return { up: best, off: at };
-    };
-    const near = crestOff(8);
-    const mid = crestOff(20);
-    const far = crestOff(40);
-    expect(mid.off).toBeGreaterThan(near.off + 3);
-    expect(far.off).toBeGreaterThan(mid.off + 3);
-    // …at Kelvin's angle, which is the rate and not a fudge.
-    expect((far.off - mid.off) / 20).toBeCloseTo(KELVIN_TAN, 1);
+    }
     expect(armAt(BEAM, 0)).toBeCloseTo(BEAM / 2, 5);
+    expect(armAt(BEAM, 20) - armAt(BEAM, 0)).toBeCloseTo(20 * KELVIN_TAN, 5);
   });
 
-  it("fades into the water at the back INCREMENTALLY, not at a cliff", () => {
-    // It must still be there at the far edge of the map — the V is what a
-    // rider sees the whole time they are looking behind them — and it must
-    // go down by steps rather than stopping.
+  it("closes its hollow astern by degrees, and is flat well back", () => {
+    // The map's relief is the hull's own footprint: the hollow fills over
+    // the first tens of metres, step by step rather than at a line, and
+    // far astern the surface is the engine's — the sea and the wash.
     const s = wakeSection();
-    const crest = (run: number) => {
+    const hollow = (run: number) => {
       let best = 0;
       for (let a = 0; a <= 1; a += 0.01) {
         sternAt(a, run, 4, 20, 1, BEAM, s);
-        if (s.up > best) best = s.up;
+        if (s.down > best) best = s.down;
       }
       return best;
     };
-    // Measured past the apex, which is the tallest part of the mark and
-    // hands its water to the arms over the first few metres — that drop is
-    // the hand-over, not the fade.
-    const steps = [16, 24, 32, 40, 48, 56].map(crest);
-    expect(crest(moundAt(BEAM, 1))).toBeGreaterThan(steps[0]);
-    for (let i = 1; i < steps.length; i++) {
-      expect(steps[i]).toBeLessThan(steps[i - 1]);
-      // No step takes more than a quarter of what is left: that is what
-      // makes the fade read as distance rather than as an edge.
-      expect(steps[i]).toBeGreaterThan(steps[i - 1] * 0.75);
-    }
-    expect(steps[steps.length - 1]).toBeGreaterThan(0.02);
+    const steps = [8, 16, 24, 32, 40].map(hollow);
+    expect(hollow(0.5)).toBeGreaterThan(steps[0]);
+    for (let i = 1; i < steps.length; i++) expect(steps[i]).toBeLessThan(steps[i - 1]);
+    expect(steps[steps.length - 1]).toBeLessThan(0.01);
   });
 
   it("forms over a moment rather than at a step, and carries no white", () => {
@@ -405,9 +393,10 @@ describe("the fan", () => {
     // The SHAPE that pace throws is the stern wave's, and it is not there
     // at a crawl at all: below the transom's clearing speed nothing has
     // ventilated and there is no hollow to overshoot out of.
-    sternAt(0.6, 6, 2, crawl, roadStrength(crawl, 1), BEAM, s);
+    const mound = moundAt(BEAM, 1);
+    sternAt(0, mound, 2, crawl, roadStrength(crawl, 1), BEAM, s);
     expect(s.up).toBe(0);
-    sternAt(0.6, 6, 2, 15, roadStrength(15, 1), BEAM, s);
+    sternAt(0, mound, 2, 15, roadStrength(15, 1), BEAM, s);
     expect(s.up).toBeGreaterThan(0);
   });
 });
@@ -432,44 +421,41 @@ describe("the splash", () => {
     expect(s.down).toBeGreaterThan(0);
   });
 
-  it("rolls a ring wave out at its speed, thinning as it goes, laced white", () => {
+  it("laces the ring white at the wash's group speed, thinning as it goes, and lifts nothing", () => {
+    // The ring wave itself is the engine's (`engine/game/wash.ts`); what
+    // the map carries is the white on its crest, which has to ride where
+    // the water is actually moving — the wash's packet, at its group speed.
     const s = wakeSection();
-    const crestAt = (age: number) => {
+    const laceAt = (age: number) => {
       let best = -1;
       let at = 0;
-      for (let r = 0; r < splashReach(RADIUS, age, 1); r += 0.02) {
+      for (let r = RADIUS + 0.5; r < splashReach(RADIUS, age, 1); r += 0.02) {
         splashAt(r, RADIUS, age, 1, DEPTH, 1, s);
-        if (s.up > best) {
-          best = s.up;
+        expect(s.up).toBe(0);
+        if (s.foam > best) {
+          best = s.foam;
           at = r;
         }
       }
-      return { r: at, up: best };
+      return { r: at, foam: best };
     };
-    const early = crestAt(0.5);
-    const late = crestAt(1.5);
+    const early = laceAt(0.5);
+    const late = laceAt(1.5);
+    expect(RING_SPEED).toBe(WASH_GROUP);
     expect(late.r - early.r).toBeCloseTo(RING_SPEED, 1);
-    expect(late.up).toBeLessThan(early.up);
-    expect(early.up).toBeGreaterThan(0);
-    expect(early.up).toBeLessThan(WAKE_HEIGHT);
-    // A trough drawn in just inside the crest, and foam on the crest itself.
-    splashAt(early.r, RADIUS, 0.5, 1, DEPTH, 1, s);
-    const crest = { ...s };
-    splashAt(early.r - 0.9, RADIUS, 0.5, 1, DEPTH, 1, s);
-    expect(s.down).toBeGreaterThan(crest.down);
-    expect(crest.foam).toBeGreaterThan(0);
+    expect(late.foam).toBeLessThan(early.foam);
+    expect(early.foam).toBeGreaterThan(0);
     // …and gone once it has lived its life.
     splashAt(RADIUS + RING_SPEED * (RING_LIFE + 0.1), RADIUS, RING_LIFE + 0.1, 1, DEPTH, 1, s);
-    expect(s.up).toBe(0);
+    expect(s.foam).toBe(0);
   });
 
-  it("is the DETAIL row's: no ring at a ring share of nought, no crater at no depth", () => {
+  it("is the DETAIL row's: no lace at a ring share of nought, no crater at no depth", () => {
     const s = wakeSection();
-    for (let r = 0; r < 8; r += 0.1) {
+    for (let r = RADIUS + 1; r < 8; r += 0.1) {
       splashAt(r, RADIUS, 0.6, 1, DEPTH, 0, s);
-      expect(s.up).toBe(0);
+      expect(s.foam).toBe(0);
       splashAt(r, RADIUS, 0.6, 1, 0, 1, s);
-      expect(s.up).toBe(0);
       expect(s.down).toBe(0);
     }
     // The foam patch is there whatever the row says.

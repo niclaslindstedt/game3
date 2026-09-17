@@ -45,6 +45,7 @@ import { clipHulls } from "./hull-contact.ts";
 import { stepRun } from "./run.ts";
 import { NEUTRAL_INPUT, type CraftState, type GameEvent, type GameState } from "./state.ts";
 import { freshTricks } from "./tricks.ts";
+import { freshWash } from "./wash.ts";
 
 const G = RACE.grid;
 const B = RACE.bump;
@@ -125,8 +126,10 @@ export function createRivals(state: GameState, crafts: readonly CraftState[]): v
       progress: freshProgress(state.level),
       tricks: freshTricks(),
       rivals: [],
+      wash: freshWash(),
       events: [],
     };
+    state.sea.washes.push(run.wash);
     // ...AND THE RIDER ON IT, before the hull is stood anywhere: a spec is
     // what the draft, the inertia and the windage are all read off, and
     // `standCraft` floats the craft at the draft the spec it has says. The
