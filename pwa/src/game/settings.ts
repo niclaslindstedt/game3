@@ -38,7 +38,7 @@ import {
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { CAMPAIGN_LEVELS } from "./campaign-levels.ts";
-import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
+import { type ScenarioName } from "./scenarios.ts";
 import {
   DEFAULT_VIDEO,
   DISTANCE_LEVELS,
@@ -653,9 +653,16 @@ export function mergeSettings(parsed: unknown): Settings {
   if (dev) {
     settings.dev.wind = inRange(dev.wind, DEV_WIND_RANGE);
     settings.dev.hs = inRange(dev.hs, DEV_HS_RANGE);
-    if (SCENARIO_NAMES.some((name) => name === dev.scene)) {
-      settings.dev.scene = dev.scene as ScenarioName;
-    }
+    // ...but NOT the SCENE, which is read off the URL every time and never
+    // out of the store (`saveSettings` does not write one either). A scene
+    // is a moment STAGED — `placeRun` stands the craft at speed somewhere
+    // down the shore and takes the lights off in front of it, because a
+    // moment held at the grid for three seconds is a scene of nothing. That
+    // is right for the frame a lab is photographing and wrong for every run
+    // after it: kept, it silently re-staged every ride this browser ever
+    // started again, with no row on any card to take it off. It lives as
+    // long as the `?scene=` that asked for it and not one load longer, and
+    // a blob written before this rule heals on the next visit.
     if (dev.cost === true) settings.dev.cost = true;
   }
   // A tool nobody can reach is a tool nobody can switch off: if the menu
@@ -677,7 +684,11 @@ export function loadSettings(): Settings {
 
 export function saveSettings(settings: Settings): void {
   try {
-    localStorage.setItem(SETTINGS_KEY, JSON.stringify(settings));
+    // The SCENE is never written down — see `mergeSettings`. Stripped here
+    // rather than left to the read side alone so a blob this build wrote
+    // cannot re-stage a run for a build that reads it more trustingly.
+    const kept: Settings = { ...settings, dev: { ...settings.dev, scene: null } };
+    localStorage.setItem(SETTINGS_KEY, JSON.stringify(kept));
   } catch {
     /* storage unavailable — the choice still applies to this session */
   }

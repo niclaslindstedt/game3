@@ -61,6 +61,7 @@ import {
   SEA_STATES,
   freshSettings,
   mergeSettings,
+  saveSettings,
 } from "../pwa/src/game/settings.ts";
 import { WATER_PRESETS } from "../pwa/src/game/settings-video.ts";
 import { CAMPAIGN_LEVELS, shoreOf } from "../pwa/src/game/campaign.ts";
@@ -908,12 +909,44 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(sneaked.dev).toEqual(DEFAULT_SETTINGS.dev);
   });
 
-  it("carries a developer's own settings once the menu is out", () => {
+  it("carries a developer's own settings once the menu is out — but never a SCENE", () => {
     const dev = mergeSettings({
       developer: true,
       dev: { wind: 14, hs: 3, scene: "dive", cost: true },
     });
-    expect(dev.dev).toEqual({ wind: 14, hs: 3, scene: "dive", cost: true });
+    expect(dev.dev).toEqual({ wind: 14, hs: 3, scene: null, cost: true });
+  });
+
+  it("never reads a staged SCENE back out of the store, and never writes one in", () => {
+    // A scene takes the lights off the run it stages (`placeRun`), which is
+    // right for a frame being photographed and wrong for every ride after
+    // it — and no card carries a row to take one off again. So it lives as
+    // long as the `?scene=` that asked for it: a blob written before this
+    // rule heals on the next visit, and one written now carries no scene to
+    // heal from. Anything else is a browser that silently re-stages every
+    // run it ever starts.
+    expect(mergeSettings({ developer: true, dev: { scene: "cruise" } }).dev.scene).toBeNull();
+    const saved: Record<string, string> = {};
+    const store = globalThis as unknown as { localStorage?: unknown };
+    const had = "localStorage" in store;
+    store.localStorage = {
+      setItem: (k: string, v: string) => {
+        saved[k] = v;
+      },
+    };
+    try {
+      saveSettings({
+        ...DEFAULT_SETTINGS,
+        developer: true,
+        dev: { ...DEFAULT_SETTINGS.dev, scene: "cruise", cost: true },
+      });
+    } finally {
+      if (!had) delete store.localStorage;
+    }
+    const blob = JSON.parse(Object.values(saved)[0]!) as { dev: { scene: unknown; cost: unknown } };
+    expect(blob.dev.scene).toBeNull();
+    // ...and the rest of the developer's own row is still written down.
+    expect(blob.dev.cost).toBe(true);
   });
 
   it("ignores settings a build has dropped, rather than choking on them", () => {
