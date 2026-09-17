@@ -45,6 +45,8 @@ export function freshProgress(level: Level): Progress {
     lastResetAt: 0,
     bestAir: 0,
     bestAirAt: 0,
+    bestLength: 0,
+    bestLengthAt: 0,
     peakAltitude: 0,
   };
 }
@@ -304,6 +306,7 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.standHold = 0;
   c.airborne = false;
   c.airTime = 0;
+  c.airLength = 0;
   // ...and nothing UNDER it either: a craft stood afloat is out of any
   // spell it was lifted out of, with no float-up owed on it.
   c.under = false;

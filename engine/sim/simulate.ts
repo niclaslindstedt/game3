@@ -55,6 +55,14 @@ export type RunReport = {
   airTime: number;
   /** ...and the longest single flight of the run, s, on the same line. */
   bestAir: number;
+  /** METRES OF JUMP — the same flights read on their other axis, the plan
+   * distance each one carried the hull, summed. It is beside the air time
+   * because the two are the two halves of what a jump is worth
+   * (`game/tricks.ts`), so a change that quietly stops the roster CARRYING
+   * its speed through the launch shows here while the seconds hold up. */
+  airLength: number;
+  /** ...and the longest single jump of the run, m. */
+  bestLength: number;
   /** THE TRICK SCORE the bot banked (`game/tricks.ts`) — air time and the
    * flips over it, at whatever multipliers it strung together. The bot
    * rides for the clock and never goes for a flip, so this is very nearly
@@ -121,6 +129,7 @@ export function simulateStage(options: SimOptions): RunReport {
 
   let topSpeed = 0;
   let airTime = 0;
+  let airLength = 0;
   let launches = 0;
   let dives = 0;
   let underTime = 0;
@@ -147,8 +156,10 @@ export function simulateStage(options: SimOptions): RunReport {
       else if (e.kind === "hit") hits += 1;
       else if (e.kind === "ground") groundings += 1;
       else if (e.kind === "reset") resets += 1;
-      else if (e.kind === "land" && e.airTime > TUNING.flight.airCounts) airTime += e.airTime;
-      else if (e.kind === "capsize") capsizes += 1;
+      else if (e.kind === "land" && e.airTime > TUNING.flight.airCounts) {
+        airTime += e.airTime;
+        airLength += e.length;
+      } else if (e.kind === "capsize") capsizes += 1;
       else if (e.kind === "combo" && e.points > bestCombo) bestCombo = e.points;
     }
     const c = state.craft;
@@ -179,6 +190,8 @@ export function simulateStage(options: SimOptions): RunReport {
     topSpeed,
     airTime,
     bestAir: p.bestAir,
+    airLength,
+    bestLength: p.bestLength,
     score: state.tricks.score,
     bestCombo,
     launches,

@@ -15,11 +15,13 @@
 //   bottom left   the ALTITUDE TAPE and WIND METER, then the rev bar and
 //                 speed — the moving instruments share the top row, where
 //                 their changing positions can be read in one glance
-//   top centre    the AIR CLOCK, while the hull is off the water — the one
-//                 number a rider is trying to make go up, so it sits where
-//                 he is already looking to aim the landing — with the COMBO
-//                 under it: what the flight and the flips over it are worth
-//                 so far, and the multiplier they will be paid at
+//   top centre    the AIR CLOCK and the JUMP LENGTH beside it, while the
+//                 hull is off the water — the two numbers a rider is trying
+//                 to make go up, and the two halves of what a jump is paid
+//                 for, so they sit where he is already looking to aim the
+//                 landing — with the COMBO under them: what the flight and
+//                 the flips over it are worth so far, and the multiplier
+//                 they will be paid at
 //   upper centre  a MISSED CHECKPOINT warning, its camera-space arrow and
 //                 the metres back, until the rider returns to the gate
 //   bottom right  the news column — a split, a dive, a hit
@@ -343,18 +345,45 @@ export function Hud({
       )}
 
       {snap.tricksOn && (snap.airTime > 0 || snap.combo > 0) && (
-        <div
-          class={`hud-air ${snap.airRecord ? "hud-air-record" : ""}`}
-          style={{ "--air-grow": String(snap.airGrow) }}
-        >
+        <div class="hud-air" style={{ "--air-grow": String(snap.airGrow) }}>
           {snap.airTime > 0 && (
             <div class="hud-air-tile">
-              <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
-              <span class="hud-chip-sub">{snap.under ? STRINGS.underLabel : STRINGS.airLabel}</span>
-              {/* UNDER the unit label, at the foot of the same column: the
-                  clock keeps the centreline whether the word is there or
-                  not, and the tile grows DOWNWARD to make room for it. */}
-              {snap.airRecord && <span class="hud-air-best">{STRINGS.airRecordLabel}</span>}
+              {/* THE JUMP, READ TWICE. The seconds and the metres are the
+                  two halves of one flight and the score pays them alike
+                  (`engine/game/tricks.ts`), so they are one tile read left
+                  to right rather than two readouts in two corners — and the
+                  PAIR keeps the centreline, because they appear and go
+                  together on the same line of the same flight. The metres
+                  are drawn smaller because the clock is the anchor a rider
+                  already knows where to find; they share its baseline, so
+                  the two read as one line and not as a stack.
+
+                  The metres stand down while the hull is UNDER the water:
+                  the tile is showing how long it has been down there and
+                  there is no distance in that. */}
+              <div class="hud-air-reads">
+                <span class={`hud-air-read ${snap.airRecord ? "hud-air-read-best" : ""}`}>
+                  <span class="hud-air-num">{STRINGS.air(snap.airTime)}</span>
+                  <span class="hud-chip-sub">
+                    {snap.under ? STRINGS.underLabel : STRINGS.airLabel}
+                  </span>
+                  {/* UNDER the unit label, at the foot of its own column: the
+                      figure keeps its place whether the word is there or
+                      not, and the tile grows DOWNWARD to make room for it. */}
+                  {snap.airRecord && <span class="hud-air-best">{STRINGS.airRecordLabel}</span>}
+                </span>
+                {snap.airLength > 0 && (
+                  <span
+                    class={`hud-air-read hud-air-len ${snap.lengthRecord ? "hud-air-read-best" : ""}`}
+                  >
+                    <span class="hud-air-num">{STRINGS.length(snap.airLength)}</span>
+                    <span class="hud-chip-sub">{STRINGS.lengthLabel}</span>
+                    {snap.lengthRecord && (
+                      <span class="hud-air-best">{STRINGS.airRecordLabel}</span>
+                    )}
+                  </span>
+                )}
+              </div>
             </div>
           )}
           {/* THE COMBO, under the clock and in the same column, because they

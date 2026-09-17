@@ -200,6 +200,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.waterVy = 0;
     c.airborne = false;
     c.airTime = 0;
+    c.airLength = 0;
     c.capsizedFor = 0;
     // A hull the rider is climbing back onto is out of any spell and owed
     // no float-up: the capsize's righting is the hand now.
@@ -852,6 +853,9 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   const airborne = !inWater && !contact.onRamp && !contact.onGround;
   if (airborne && !c.airborne) {
     c.airTime = 0;
+    c.airLength = 0;
+    c.launchX = c.x;
+    c.launchZ = c.z;
     c.launchVy = c.vy;
     c.launchPending = true;
     c.dived = false;
@@ -862,11 +866,13 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
         t: state.t,
         vy: Math.min(c.vy, hull.entryVy > 0 ? -hull.entryVy : c.vy),
         airTime: c.airTime,
+        length: c.airLength,
         pitch: c.pitch,
         speed: c.speed,
-        // Whether it was the run's longest is the RUN's to say; the craft
-        // only knows how long this one was (`step.ts`).
+        // Whether it was the run's longest, on either axis, is the RUN's to
+        // say; the craft only knows what this one flight did (`step.ts`).
         record: false,
+        lengthRecord: false,
       });
       c.landing = 0;
     }
@@ -875,6 +881,10 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.airborne = airborne;
   if (airborne) {
     c.airTime += dt;
+    // ...AND HOW FAR IT HAS CARRIED HIM, off the point it left. The FURTHEST
+    // reached rather than where it is now, so a hull pushed back by a gust
+    // reads the jump it made (`state.ts`).
+    c.airLength = Math.max(c.airLength, Math.hypot(c.x - c.launchX, c.z - c.launchZ));
     if (c.launchPending && c.airTime >= T.flight.minAir) {
       c.launchPending = false;
       if (c.launchVy >= T.flight.launchVy) {
@@ -883,6 +893,7 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     }
   } else {
     c.airTime = 0;
+    c.airLength = 0;
   }
 
   // THE SPELL UNDER THE WATER — the flight's bookkeeping on the other side

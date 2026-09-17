@@ -1427,6 +1427,38 @@ canvas {
   align-items: center;
 }
 
+/* THE TWO HALVES OF ONE JUMP, side by side: how long it held him up and how
+   far it carried him. A ROW rather than a second line under the first,
+   because they are one reading of one flight and a rider takes them in one
+   glance — and on a BASELINE, so the big figure and the small one sit on the
+   same line of type instead of reading as a stack.
+
+   The pair is what keeps the centreline, not the clock alone. That is safe
+   because the two arrive and leave together: both are gated on the same
+   flight past the same line, so nothing here slides sideways mid-jump. The
+   one time the metres stand down is a spell UNDER the water, where the tile
+   has changed regime anyway and the seconds re-centring says so. */
+.hud-air-reads {
+  display: flex;
+  align-items: baseline;
+  gap: 0.5em;
+}
+
+.hud-air-read {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The metres are the quieter of the two to LOOK at and the equal of it to
+   earn. Smaller because the clock is the anchor a rider's eye already knows
+   where to find on a frame he is not really looking at — and because two
+   figures at the full size is a tile half the width of a phone at the top of
+   a flight worth the whole of `--air-grow`. */
+.hud-air-len .hud-air-num {
+  font-size: calc(var(--air-size) * 0.62);
+}
+
 .hud-air-num {
   font-size: var(--air-size);
   font-weight: 700;
@@ -1440,11 +1472,16 @@ canvas {
    tile BREATHES — the one thing on this screen that moves under its own
    steam, which is what separates "still up there" from "that was the one".
 
-   The word is the column's third line, under the unit label: the clock is
-   centred on the frame and stays there whether the news is up or not, and
-   the tile — anchored by its top edge — grows DOWNWARD to make room. A word
-   laid out beside the number would push the number off the centreline. */
-.hud-air-record .hud-air-tile {
+   The word is the column's third line, under the unit label: each figure
+   keeps its own place whether the news is up or not, and the tile — anchored
+   by its top edge — grows DOWNWARD to make room. A word laid out beside the
+   number would push the number off its column.
+
+   The breathing is the RECORD'S OWN, not the tile's. The seconds and the
+   metres are two bests and a flight takes one, the other or both, so the
+   half that won it is the half that moves; a tile breathing whole would
+   claim the record for a figure that did not take it. */
+.hud-air-read-best {
   animation: hud-air-pulse 640ms ease-in-out infinite;
 }
 
@@ -5118,11 +5155,8 @@ button.knob-read:focus-visible {
      word beside it say the same thing standing still. The clock's own growth
      is not motion for motion's sake — the size IS the reading — so it stays,
      and so does the fade, which is opacity and travels nowhere. */
-  .hud-air-record .hud-air-tile {
+  .hud-air-read-best {
     animation: none;
-  }
-
-  .hud-air-record .hud-air-tile {
     text-shadow:
       0 1px 0 var(--hud-shadow),
       0 0 0.45em var(--hud-good);

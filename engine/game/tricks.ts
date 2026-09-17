@@ -7,7 +7,9 @@
 // you. Fall off it and the lot goes.
 //
 // WHAT IS SCORED, because these are what a rider can reach: the time the
-// hull spends off the water, the revolutions it turns nose-over-tail while
+// hull spends off the water AND the ground that flight covered — the two
+// halves of one jump, paid on one curve and weighing the same — the
+// revolutions it turns nose-over-tail while
 // it is up there (THE PUMP throws one: `TUNING.flight.pump`), the
 // revolutions it turns about its own length (THE WHIP: `TUNING.flight.whip`)
 // and the CORKSCREW of having both come round in one flight, the flight
@@ -20,7 +22,8 @@
 // trick taken off a buoy are the same machinery with another term in it —
 // `TrickState` is shaped for them and this module is where they land.
 //
-// THE EIGHT RULES, and the reason each is the shape it is:
+// THE NINE RULES, and the reason each is the shape it is (the first is the
+// jump read twice, so it is numbered 1 and 1b):
 //
 // 1. AIR TIME PAYS BY THE SECOND, AT A RATE THAT RISES WITH THE FLIGHT.
 //    The rate is logarithmic in how long the hull has been up
@@ -33,6 +36,21 @@
 //    two-metre chop is not doing what a rider going over the top of a storm
 //    sea is doing, and a score that paid them per second alike would say
 //    they were.
+//
+// 1b. ...AND SO DOES THE GROUND IT COVERED, BY THE METRE, ON THE SAME
+//    CURVE. A jump has two measurements in it and the clock only takes one:
+//    how long the rider hung, and how far it carried him. The length is paid
+//    as it is covered, at `lengthPointsPerMetre` — the air's own shape drawn
+//    in metres and tied to it at one reference speed (`tricks.lengthKnee`),
+//    so a flight carrying the rider at that speed earns exactly as much by
+//    the metre as by the second. An ordinary jump is therefore worth twice
+//    what its air time alone was worth, and the two halves only come apart
+//    where they should: a hull popped straight up off a crest is all seconds
+//    and no metres, and one driven flat off a lip at speed is the other way
+//    about. Both are jumps and neither is the other, which is precisely what
+//    one number could not say. It buys no element and no rung of its own —
+//    the flight is already named by rule 3, and a second rung for the same
+//    jump would be the same moment sold twice.
 //
 // 2. A REVOLUTION RAISES THE MULTIPLIER, AND THE NEXT ONE RAISES IT MORE.
 //    The first backflip of a flight is worth one step of multiplier and
@@ -138,6 +156,37 @@ export function airPointsPerSecond(seconds: number): number {
   return T.airRate * Math.log2(1 + Math.max(0, seconds) / T.airKnee);
 }
 
+/** ...and what a METRE of that flight is worth `metres` into it, points/m —
+ * the same curve on the jump's other axis (rule 1b).
+ *
+ * The rate is not a dial of its own: it is `airRate · airKnee / lengthKnee`,
+ * which is the one arithmetic that makes the two halves WEIGH the same. Work
+ * it through for a flight carrying the rider at the reference speed
+ * `v = lengthKnee / airKnee`, so that `d = v·t`:
+ *
+ *   ∫ lengthRate · log2(1 + d/lengthKnee) dd   with d = v·t, dd = v·dt
+ *     = lengthRate · v · ∫ log2(1 + t/airKnee) dt
+ *     = airRate · ∫ log2(1 + t/airKnee) dt
+ *
+ * — the air's own purse, to the last point, and from the same counting line
+ * because the metres before it are as free as the seconds are. So an
+ * ordinary jump is paid twice an ordinary jump's air time, and the two only
+ * come apart where they SHOULD: a hull popped straight up off a crest is all
+ * seconds and no metres, and one driven flat off a lip at speed is the other
+ * way about. That is the whole point of scoring the length at all — a rider
+ * who carries his speed through the launch is doing something a clock alone
+ * cannot see, and the purse now says so.
+ *
+ * Stating the rate here rather than in `TUNING.tricks` is deliberate: a
+ * `lengthRate` beside `airRate` would be a second copy of the tie, and the
+ * day somebody moved one the two curves would quietly stop weighing the
+ * same. One number is authored (`lengthKnee`) and it is the reference
+ * SPEED in disguise. */
+export function lengthPointsPerMetre(metres: number): number {
+  const rate = (T.airRate * T.airKnee) / T.lengthKnee;
+  return rate * Math.log2(1 + Math.max(0, metres) / T.lengthKnee);
+}
+
 /** ...and what a second on the top of a wave is worth `seconds` into the
  * ride, points/s. The air's own curve at the crest ride's own rate, and
  * deliberately so: the two are the same KIND of thing — a moment HELD
@@ -159,6 +208,7 @@ export function freshTricks(): TrickState {
     spins: 0,
     roll: 0,
     rolls: 0,
+    paidLength: 0,
     aired: false,
     airPaid: false,
     corked: false,
@@ -248,6 +298,7 @@ function bail(state: GameState, events: GameEvent[]): void {
   k.spins = 0;
   k.roll = 0;
   k.rolls = 0;
+  k.paidLength = 0;
   k.aired = false;
   k.airPaid = false;
   k.corked = false;
@@ -417,16 +468,27 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
     if (c.airTime > T.airElement) k.aired = true;
     if (c.airTime > TUNING.flight.airCounts) {
       k.base += airPointsPerSecond(c.airTime) * dt;
+      // ...AND BY THE METRE, over the ground this step covered (rule 1b).
+      // The air integrates its rate over `dt`; this integrates its own over
+      // the distance gained, which is the same sum read on the flight's
+      // other axis — and past the same counting line, so the metres before
+      // it are as free as the seconds.
+      k.base += lengthPointsPerMetre(c.airLength) * Math.max(0, c.airLength - k.paidLength);
       // The flight itself holds the combo open; the window is what the
       // rider has AFTER it. Reset here rather than on the `land` event so a
       // flight that ends against a rock still leaves a full window.
       k.link = T.linkWindow;
     }
+    // Every airborne step, paid or not: a flight opens at `airLength` 0
+    // (`craft.ts` zeroes it at the launch), so this can never be carrying a
+    // previous flight's metres by the time the line is crossed.
+    k.paidLength = c.airLength;
   } else {
     k.rotation = 0;
     k.spins = 0;
     k.roll = 0;
     k.rolls = 0;
+    k.paidLength = 0;
     k.corked = false;
     if (c.under) {
       // Nothing on the SURFACE is in progress down here: a hull under the

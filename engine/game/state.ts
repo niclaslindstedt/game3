@@ -120,6 +120,21 @@ export type CraftState = {
    * `airTime` is the seconds since it left, 0 when afloat. */
   airborne: boolean;
   airTime: number;
+  /** HOW FAR THIS FLIGHT HAS CARRIED HIM, m — the plan distance from the
+   * point the hull left (`launchX`, `launchZ`), and 0 when afloat. The
+   * air clock's other axis: how long he has been up, and how far it has
+   * taken him.
+   *
+   * It is the FURTHEST the flight has reached rather than where it is now,
+   * so a hull blown back by a gust reads the jump it made and never counts
+   * down — and it is a displacement rather than a path length because
+   * "how far did it carry" is a straight line between two points on the
+   * water. (Measured, the two are the same to a centimetre over 302 bot
+   * flights: a hull in the air travels in a straight line in plan whatever
+   * it is doing about its own axes.) */
+  airLength: number;
+  launchX: number;
+  launchZ: number;
   /** How far onto the plane the hull is, 0..1 — the dynamic lift's share of
    * the weight, eased so the HUD and the spray can read it. */
   planing: number;
@@ -305,6 +320,15 @@ export type Progress = {
    * own, which is what keeps the HUD a reader of the state
    * (`pwa/src/game/snapshot.ts`). */
   bestAirAt: number;
+  /** ...AND THE RUN'S LONGEST JUMP, m, with the clock it was landed at —
+   * `bestAir` and `bestAirAt` on the flight's other axis, kept apart from
+   * them because they are not the same flight: the longest hang and the
+   * longest carry are two different jumps as often as they are one, which
+   * is the whole reason both are worth reading. A landing that beats it
+   * carries `lengthRecord`. Counted from the same line the air is
+   * (`flight.airCounts`) and standing across a reset for the same reason. */
+  bestLength: number;
+  bestLengthAt: number;
   /** THE RUN'S HIGH-WATER MARK, m — the highest `craft.altitude` has read
    * so far, 0 until the craft has been above still water at all. The
    * altimeter is a live number and the apex of a flight is gone in a
@@ -397,6 +421,12 @@ export type TrickState = {
    * two singles. */
   roll: number;
   rolls: number;
+  /** How many of THIS FLIGHT's metres the combo has already been paid for,
+   * m — `spins` and `rolls` on the distance axis, and there for the same
+   * reason: the length is paid as it is COVERED, so the tick needs to know
+   * which part of `craft.airLength` it has already bought. 0 whenever the
+   * hull is on the water. */
+  paidLength: number;
   /** Whether this flight has lasted `tricks.airElement` — the air is in
    * hand as an element — and whether it has yet been PAID its rung, which
    * happens only when a trick lands beside it. `aired` is the flight's and
@@ -464,20 +494,25 @@ export type GameEvent =
   /** The hull leaving the water with `vy` m/s upward, off a ramp or a wave. */
   | { kind: "launch"; t: number; vy: number; speed: number }
   /** The hull arriving. `vy` is the descent, m/s (negative), `airTime` how
-   * long it was up, `pitch` the attitude it met the water at. `record` is
-   * true when that flight is the longest of the run so far and long enough
-   * to count at all (`flight.airCounts`) — the run's new best, decided
-   * where the run is orchestrated (`step.ts`) rather than by whoever reads
-   * the event, because two readers comparing clocks of their own would
-   * disagree about which landing set it. */
+   * long it was up, `length` how far it carried him in plan, m, and `pitch`
+   * the attitude it met the water at. `record` and `lengthRecord` are true
+   * when that flight is the run's longest ON THAT AXIS so far and long
+   * enough to count at all (`flight.airCounts`) — two separate bests
+   * because the longest hang and the longest carry are two different jumps
+   * as often as they are one. Both are decided where the run is
+   * orchestrated (`step.ts`) rather than by whoever reads the event,
+   * because two readers comparing clocks of their own would disagree about
+   * which landing set it. */
   | {
       kind: "land";
       t: number;
       vy: number;
       airTime: number;
+      length: number;
       pitch: number;
       speed: number;
       record: boolean;
+      lengthRecord: boolean;
     }
   /** A landing that buried the bow: the nose went in `depth` metres. */
   | { kind: "dive"; t: number; depth: number; speed: number }

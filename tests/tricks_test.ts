@@ -4,16 +4,18 @@
 // level with `placeRun`, so what is measured is the scoring rule and not
 // whichever wave the generator happened to deal.
 //
-// The three claims the model makes, each with its assertion: the purse over
-// a flight grows faster than the flight does, a revolution's Nth turn is
-// worth more than its first, and nothing is banked until the rider is back
-// on the water with the craft under him.
+// The four claims the model makes, each with its assertion: the purse over
+// a flight grows faster than the flight does, the METRES it covered weigh
+// the same as the seconds it lasted, a revolution's Nth turn is worth more
+// than its first, and nothing is banked until the rider is back on the water
+// with the craft under him.
 import { describe, expect, it } from "vitest";
 
 import {
   TUNING,
   airPointsPerSecond,
   createGame,
+  lengthPointsPerMetre,
   placeRun,
   ridingCrest,
   step,
@@ -48,18 +50,25 @@ function ride(
   return events;
 }
 
-/** Fly for `vy` m/s upward off calm water and ride until the combo has
- * banked; what came back is the whole purse for that one flight. */
-function jump(vy: number, height = 1.5): { banked: number; air: number } {
+/** Fly for `vy` m/s upward off calm water at `speed` of way and ride until
+ * the combo has banked; what came back is the whole purse for that one
+ * flight, with both of the measurements it was paid for. */
+function jump(
+  vy: number,
+  height = 1.5,
+  speed = 15,
+): { banked: number; air: number; length: number } {
   const state = game();
-  placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height, vy });
+  placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed, height, vy });
   let air = 0;
+  let length = 0;
   const events = ride(state, 3 + vy / 2, (s) => {
     air = Math.max(air, s.craft.airTime);
+    length = Math.max(length, s.craft.airLength);
     return COAST;
   });
   const combo = events.find((e) => e.kind === "combo");
-  return { banked: combo?.kind === "combo" ? combo.points : 0, air };
+  return { banked: combo?.kind === "combo" ? combo.points : 0, air, length };
 }
 
 describe("the air's rate", () => {
@@ -116,6 +125,158 @@ describe("a flight's purse", () => {
     const mid = state.tricks.base;
     ride(state, 0.4);
     expect(state.tricks.base).toBeGreaterThan(mid);
+  });
+});
+
+describe("the jump's other half", () => {
+  const T = TUNING.tricks;
+  /** The rate the length curve is quoted at, points/m — stated here the way
+   * `lengthPointsPerMetre` derives it, so a change to either end of the tie
+   * has to move this line too. */
+  const lengthRate = (T.airRate * T.airKnee) / T.lengthKnee;
+  /** ...and the speed the two curves are tied at, m/s. */
+  const reference = T.lengthKnee / T.airKnee;
+
+  it("is the air's own curve drawn in metres", () => {
+    expect(lengthPointsPerMetre(T.lengthKnee)).toBeCloseTo(lengthRate, 6);
+    expect(lengthPointsPerMetre(0)).toBe(0);
+    for (const d of [5, 10, 20, 50]) {
+      expect(lengthPointsPerMetre(d * 2)).toBeGreaterThan(lengthPointsPerMetre(d));
+    }
+    // Bounded the way the air's is: twenty times the jump is under five
+    // times the rate.
+    expect(lengthPointsPerMetre(20 * T.lengthKnee)).toBeLessThan(5 * lengthRate);
+  });
+
+  it("WEIGHS THE SAME as the air over a flight at the reference speed", () => {
+    // The whole balance claim, integrated rather than argued: a flight
+    // carried at `lengthKnee / airKnee` m/s earns the same purse by the
+    // metre as by the second, from the same counting line. The two halves
+    // of a typical jump are therefore worth the same, which is what makes
+    // the length a second earner rather than a second helping.
+    const line = TUNING.flight.airCounts;
+    const dt = TUNING.dt;
+    for (const flight of [1, 2, 4, 8]) {
+      let air = 0;
+      let length = 0;
+      // A step BEHIND the line, so the first step past it buys a whole
+      // step's metres — which is what the engine does, where `paidLength`
+      // was last written on the step before the line was crossed.
+      let paid = reference * (line - dt);
+      for (let t = line; t < flight; t += dt) {
+        air += airPointsPerSecond(t) * dt;
+        const d = reference * t;
+        length += lengthPointsPerMetre(d) * (d - paid);
+        paid = d;
+      }
+      expect(length).toBeCloseTo(air, 1);
+    }
+  });
+
+  it("pays MORE than the air on a flight that goes further than that, and less on one that goes less", () => {
+    const line = TUNING.flight.airCounts;
+    const dt = TUNING.dt;
+    /** What a 2 s flight carried at `speed` earns by the metre. */
+    const metres = (speed: number): number => {
+      let length = 0;
+      let paid = speed * (line - dt);
+      for (let t = line; t < 2; t += dt) {
+        const d = speed * t;
+        length += lengthPointsPerMetre(d) * (d - paid);
+        paid = d;
+      }
+      return length;
+    };
+    let air = 0;
+    for (let t = line; t < 2; t += dt) air += airPointsPerSecond(t) * dt;
+    expect(metres(reference * 1.6)).toBeGreaterThan(air);
+    expect(metres(reference * 0.5)).toBeLessThan(air);
+  });
+});
+
+describe("the jump counter", () => {
+  it("measures the plan distance from where the hull left, and is 0 on the water", () => {
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
+    const c = state.craft;
+    // A moment staged part-way into a flight has covered ground, and
+    // `placeRun` puts the launch point back up the heading to match: the
+    // stage is a flight already in progress, not one that went nowhere.
+    expect(c.airLength).toBeCloseTo(18 * c.airTime, 6);
+    ride(state, 1);
+    expect(c.airborne).toBe(true);
+    expect(c.airLength).toBeGreaterThan(10);
+    // It IS the displacement from the launch point and not a clock in
+    // disguise.
+    expect(c.airLength).toBeCloseTo(Math.hypot(c.x - c.launchX, c.z - c.launchZ), 6);
+    // Heading is +x, so the launch stands just short of where it was stood
+    // and dead abeam of nothing.
+    expect(c.launchX).toBeLessThan(100);
+    expect(c.launchZ).toBeCloseTo(200, 6);
+    // ...and it goes with the water, exactly as the air clock does.
+    ride(state, 4);
+    expect(c.airborne).toBe(false);
+    expect(c.airLength).toBe(0);
+  });
+
+  it("never counts down: it is the furthest the flight reached", () => {
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
+    const c = state.craft;
+    let last = 0;
+    for (let i = 0; i < 1.4 * TUNING.physicsHz; i++) {
+      step(state, COAST);
+      if (!c.airborne) break;
+      expect(c.airLength).toBeGreaterThanOrEqual(last);
+      last = c.airLength;
+    }
+    expect(last).toBeGreaterThan(10);
+  });
+
+  it("is on the landing, and the run keeps its longest apart from its longest flight", () => {
+    const state = game();
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 18, height: 1.5, vy: 9 });
+    const events = ride(state, 4);
+    const landing = events.find((e) => e.kind === "land");
+    expect(landing?.kind === "land" && landing.length).toBeGreaterThan(10);
+    // The first flight of a run takes both records, which is what says the
+    // two are counted at all.
+    expect(landing?.kind === "land" && landing.record).toBe(true);
+    expect(landing?.kind === "land" && landing.lengthRecord).toBe(true);
+    expect(state.progress.bestLength).toBeGreaterThan(10);
+    expect(state.progress.bestLengthAt).toBeGreaterThan(0);
+  });
+
+  it("takes the length record on a flight that did NOT take the air record", () => {
+    const state = game();
+    // A long slow hang first, then a shorter flight driven twice as fast:
+    // the second beats the first on distance and loses on seconds, which is
+    // the case a single "best jump" could not hold.
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 6, height: 1.5, vy: 9 });
+    ride(state, 6);
+    const hang = state.progress.bestAir;
+    placeRun(state, { x: 400, z: 200, heading: Math.PI / 2, speed: 26, height: 1.5, vy: 6 });
+    const events = ride(state, 6);
+    const landing = events.find((e) => e.kind === "land");
+    expect(landing?.kind === "land" && landing.airTime).toBeLessThan(hang);
+    expect(landing?.kind === "land" && landing.record).toBe(false);
+    expect(landing?.kind === "land" && landing.lengthRecord).toBe(true);
+    expect(state.progress.bestAir).toBeCloseTo(hang, 6);
+  });
+
+  it("pays for the distance: the same hang carried further banks more", () => {
+    // Same launch, same climb, twice the way on. The air the two buy is
+    // within a hair of each other and the purse is not, which is the whole
+    // point of scoring the length at all.
+    const slow = jump(9, 1.5, 8);
+    const fast = jump(9, 1.5, 24);
+    // Within a twentieth of each other, and the fast one is the SHORTER of
+    // the two — three times the way on is three times the air drag. So it
+    // out-earns the slow one on less air, which no clock could have said.
+    expect(fast.air).toBeLessThan(slow.air);
+    expect(fast.air).toBeGreaterThan(0.95 * slow.air);
+    expect(fast.length).toBeGreaterThan(2 * slow.length);
+    expect(fast.banked).toBeGreaterThan(1.3 * slow.banked);
   });
 });
 

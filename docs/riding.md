@@ -345,7 +345,7 @@ The ladder flattens between 0.5 and 0.75 and then opens again: at 1 the hand is 
 
 ## The score (`tricks.ts`)
 
-The clock is the race. The SCORE is the other game on the same water, and it pays for the parts of a run the clock has no opinion about: the time the hull spends off the water, the revolutions it turns nose-over-tail while it is up there (THE PUMP), the revolutions it turns about its own length (THE WHIP), the CORKSCREW of both coming round in one flight, the flight itself as an element beside any of them, the top of a WAVE held and run along, and the hull LAID OVER on the water and brought back up. Every number is `TUNING.tricks`, and every one of them is an arcade dial — none is measured against anything, and what they are chosen against is the LADDER they make between one flight and the next.
+The clock is the race. The SCORE is the other game on the same water, and it pays for the parts of a run the clock has no opinion about: the time the hull spends off the water AND the ground that flight covered, the revolutions it turns nose-over-tail while it is up there (THE PUMP), the revolutions it turns about its own length (THE WHIP), the CORKSCREW of both coming round in one flight, the flight itself as an element beside any of them, the top of a WAVE held and run along, and the hull LAID OVER on the water and brought back up. Every number is `TUNING.tricks`, and every one of them is an arcade dial — none is measured against anything, and what they are chosen against is the LADDER they make between one flight and the next.
 
 **Air time pays by the second, at a rate that rises with the flight.** `airPointsPerSecond(t) = airRate · log2(1 + t / airKnee)` — 100 points a second one knee (1 s) into a flight, half again that at three seconds, about four and a half times it at twenty. A flight's whole purse is that rate integrated over it, which grows rather faster than the flight does:
 
@@ -359,22 +359,44 @@ The clock is the race. The SCORE is the other game on the same water, and it pay
 
 (The purse is the rate integrated from the counting line, which is where the ticking starts — so the first half-second of every flight is free.) Twenty times the flight is a hundred and fifty-seven times the money, and the rate itself never runs away. That is the shape the whole thing is for: a rider clearing a two-metre chop is not doing what a rider going over the top of a storm sea is doing, and a score that paid them alike per second would say he was. Nothing ticks below `flight.airCounts` (0.5 s) — a hull skipping off a crest did not go anywhere, and in a head sea it does that a fifth of the steps.
 
+**AND SO DOES THE GROUND IT COVERED, BY THE METRE, ON THE SAME CURVE.** A jump has two measurements in it and a clock only takes one. `lengthPointsPerMetre(d) = lengthRate · log2(1 + d / lengthKnee)` is the air's own shape drawn in metres, ticked as the distance is COVERED rather than as the seconds pass, and paid from the same counting line — so the metres before `flight.airCounts` are as free as the seconds are. What the hull publishes is `CraftState.airLength`: the plan distance from the point it left (`launchX`, `launchZ`), carried as the FURTHEST the flight has reached so it never counts down, and 0 on the water.
+
+**The rate is not a dial of its own.** There is one authored number, `tricks.lengthKnee` = 17.5 m, and `lengthRate` is `airRate · airKnee / lengthKnee` = 5.71 points a metre, stated once in `tricks.ts` rather than beside `airRate` where it would be a second copy of the tie. The knee is a SPEED in disguise — 17.5 m in the air's own 1 s knee — and tying the two curves there is what makes them weigh the same. Work it through for a flight carried at exactly that speed, so `d = v·t`:
+
+    ∫ lengthRate · log2(1 + d/lengthKnee) dd   with d = v·t, dd = v·dt
+      = lengthRate · v · ∫ log2(1 + t/airKnee) dt
+      = airRate · ∫ log2(1 + t/airKnee) dt
+
+— the air's own purse, to the last point. So an ordinary jump now earns twice an ordinary jump's air time, and the two halves come apart only where they should: a hull popped straight up off a crest is all seconds and no metres, and one driven flat off a lip at speed is the other way about. That is the whole reason for scoring the length at all — a rider who carries his speed through the launch is doing something a clock alone cannot see.
+
+**17.5 m/s is measured, not chosen.** The bot rode the four campaign TRICKS shores on all four hulls: 302 flights that counted, 4 844 m over 278 s = 17.4 m/s, the four shores between 16.4 and 18.0 and the roster between 15.1 (the dart, the slowest) and 19.3 (the marlin, the fastest). One figure covers the coasts and the catalog alike, and what it buys is exactly the balance it was chosen for — over that same corpus the metres pay 0.93 of what the seconds do in aggregate, and the MEDIAN flight comes out at 1.04. The spread around it is the feature: the tenth percentile is 0.57 and the ninetieth 1.60, which is a slow high jump and a fast flat one being told apart.
+
+| Flight, at 17.5 m/s | Air purse | Length purse | Both  |
+| ------------------- | --------- | ------------ | ----- |
+| 1 s, 18 m           | 40        | 40           | 80    |
+| 2 s, 35 m           | 172       | 172          | 344   |
+| 5 s, 88 m           | 815       | 815          | 1 630 |
+
+It buys NO element and no rung of its own. The flight is already named by the air's own rung (below) and a second rung for the same jump would be the same moment sold twice — so what the length moves is the base, and the multiplier keeps meaning "he turned something".
+
 **A revolution raises the multiplier, and the next one raises it more.** The rotation is the body pitch rate summed while aloft (`−wx · dt`, the same reading `flight_test` measures a backflip with) — the flip axis whatever attitude the hull is in, and a sum that comes to nothing in chop, so a hull being thrown about cannot accumulate a flip. Each whole turn is scored the instant it closes, in the air: the Nth revolution of a flight is worth `N · flipPoints` of base and `N` steps of multiplier, the multiplier starting at 1.
 
 **A side spin climbs the same ladder, and climbs it separately.** The roll is the body ROLL rate summed while aloft (`−wz · dt`), the hull's own length as the axis, and each whole turn is worth `N · rollPoints` of base and `N` steps of multiplier exactly as a flip is. `rollPoints` is the same 300 as `flipPoints`, because the two are the same commitment asked of the same rider on two axes — the roll is the easier one to start and the harder one to hold together, since the hull has to come back the right way up for a landing the flip would have levelled it for. Naming them equal is also what makes them worth CHAINING: a rider who could earn more by flipping twice would never roll. The two counts are kept APART, so a flip with a roll in it is two FIRST revolutions and not one second one — which is what stops a corkscrew being priced as a double of either.
 
 **And so does the air they were turned in, once something was turned in it.** A flight past `tricks.airElement` (0.5 s) is an element of the combo like any other and worth one step of multiplier — but it is only ever credited beside a trick, and only once per combo. Both halves are load-bearing. Credit it on its own and every jump on the course reads ×2, which is a multiplier that has stopped saying anything; credit it per flight and a rider climbs the ladder by hopping off crests. It adds NO base: the air is already paid by the second, and paying it twice would be the same seconds sold at two prices.
 
-| Flight               | Base                  | Multiplier | Combo  |
-| -------------------- | --------------------- | ---------- | ------ |
-| 2 s, flat            | 172                   | ×1         | 172    |
-| 2 s + backflip       | 172 + 300             | ×3         | 1 417  |
-| 2 s + barrel roll    | 172 + 300             | ×3         | 1 417  |
-| 2 s + both           | 172 + 300 + 300 + 300 | ×5         | 5 360  |
-| 4 s + double flip    | 569 + 300 + 600       | ×5         | 7 347  |
-| 4 s + flip + 2× roll | 569 + 300 + 300 + 600 | ×6         | 10 617 |
+The table below quotes every flight at the reference speed, so its air and its length are the same figure and the jump's base is twice what the seconds alone would pay:
 
-A double is ×4 of its own revolutions rather than ×3 on purpose: it is not two backflips, it is one much harder trick that happens to be measured in revolutions, and the ladder has to say so or nobody goes for the second one.
+| Flight               | Base                    | Multiplier | Combo  |
+| -------------------- | ----------------------- | ---------- | ------ |
+| 2 s, flat            | 344                     | ×1         | 344    |
+| 2 s + backflip       | 344 + 300               | ×3         | 1 932  |
+| 2 s + barrel roll    | 344 + 300               | ×3         | 1 932  |
+| 2 s + both           | 344 + 300 + 300 + 300   | ×5         | 6 220  |
+| 4 s + double flip    | 1 138 + 300 + 600       | ×5         | 10 190 |
+| 4 s + flip + 2× roll | 1 138 + 300 + 300 + 600 | ×6         | 14 028 |
+
+A double is ×4 of its own revolutions rather than ×3 on purpose: it is not two backflips, it is one much harder trick that happens to be measured in revolutions, and the ladder has to say so or nobody goes for the second one. Note what the length did to the rest of the ladder: `flipPoints` has not moved, so a revolution is now a smaller share of a typical combo's base than it was — 47 % of the base of a 2 s flight with a backflip in it rather than 63 %. That is the intended trade. A flip taken off a jump that went nowhere is worth what it always was; what has changed is that the jump under it is now worth having been a jump.
 
 **Both axes in ONE flight are a third element: the CORKSCREW.** Won the moment the second of the two comes round, whichever order they came in, for `corkscrewPoints` (300) of base and one step of multiplier — once per flight, so a combo that corks two linked flights is paid for both. The two revolutions have already been paid at their own index; what this prices is the COMBINATION, which is a different and harder thing than the same two turns taken off two waves in a row. The row above is what it does to the ladder: 5 360 against the 3 089 the two paid apart, and still under the 7 347 of a double backflip, which is the order the two belong in.
 

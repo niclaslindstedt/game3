@@ -63,27 +63,33 @@ describe("what an event is worth in the hands", () => {
       t: 0,
       vy: -1.5,
       airTime: 0.4,
+      length: 6,
       pitch: 0,
       speed: 14,
       record: false,
+      lengthRecord: false,
     });
     const hard = felt({
       kind: "land",
       t: 0,
       vy: -6,
       airTime: 1.2,
+      length: 21,
       pitch: 0.1,
       speed: 18,
       record: false,
+      lengthRecord: false,
     });
     const slam = felt({
       kind: "land",
       t: 0,
       vy: -11,
       airTime: 2.4,
+      length: 42,
       pitch: 0.3,
       speed: 22,
       record: false,
+      lengthRecord: false,
     });
     expect(touch.strength).toBeLessThan(hard.strength);
     expect(hard.strength).toBeLessThan(slam.strength);
@@ -119,7 +125,17 @@ describe("what an event is worth in the hands", () => {
     expect(over.ms).toBe(RUMBLE.longest);
     // …and nothing else reaches it.
     const others: GameEvent[] = [
-      { kind: "land", t: 0, vy: -20, airTime: 3, pitch: 0.4, speed: 25, record: false },
+      {
+        kind: "land",
+        t: 0,
+        vy: -20,
+        airTime: 3,
+        length: 60,
+        pitch: 0.4,
+        speed: 25,
+        record: false,
+        lengthRecord: false,
+      },
       { kind: "hit", t: 0, solid: "boulder", speed: 40 },
       { kind: "dive", t: 0, depth: 3, speed: 25 },
     ];
@@ -236,7 +252,17 @@ describe("one motor, one pulse at a time", () => {
     const { rumble, felt } = ledger();
     const chop = slammed(2);
     rumble.events([
-      { kind: "land", t: 0, vy: -9, airTime: 2, pitch: 0.2, speed: 20, record: false },
+      {
+        kind: "land",
+        t: 0,
+        vy: -9,
+        airTime: 2,
+        length: 36,
+        pitch: 0.2,
+        speed: 20,
+        record: false,
+        lengthRecord: false,
+      },
     ]);
     const landing = felt.length;
     expect(landing).toBe(1);
@@ -269,7 +295,17 @@ describe("one motor, one pulse at a time", () => {
     const { rumble, felt } = ledger();
     rumble.events([
       { kind: "gate", t: 0, gate: 1, split: 9 },
-      { kind: "land", t: 0, vy: -2, airTime: 0.3, pitch: 0, speed: 12, record: false },
+      {
+        kind: "land",
+        t: 0,
+        vy: -2,
+        airTime: 0.3,
+        length: 4,
+        pitch: 0,
+        speed: 12,
+        record: false,
+        lengthRecord: false,
+      },
       { kind: "capsize", t: 0, speed: 8 },
     ]);
     expect(felt).toHaveLength(1);

@@ -239,9 +239,16 @@ export const STRINGS = {
    * rather than over it (`CraftState.under`): one tile, two words, because
    * they are one reading — how long the hull has been off the surface. */
   underLabel: "UNDER",
-  /** The word under the air clock while the flight on it is the run's
-   * longest. Under rather than beside: the clock keeps the centreline and
-   * the news is read as a second line of the same readout. */
+  /** THE JUMP COUNTER beside the clock, whole metres — the flight's other
+   * half, and the one the score pays by the metre for. Whole metres because
+   * a tenth of one is under the width of the hull and nothing a rider can
+   * ride towards; the seconds carry the tenths because a tenth of a second
+   * is a real difference in the air. */
+  length: (metres: number): string => `${Math.round(metres)}m`,
+  lengthLabel: "LENGTH",
+  /** The word under whichever of the two is the run's longest. Under rather
+   * than beside: each figure keeps its own column and the news is read as a
+   * second line of the same readout. */
   airRecordLabel: "RECORD",
   /** THE SCORE (`engine/game/tricks.ts`): what the rider has banked this
    * run, and the combo he is still riding on. The combo carries its
@@ -316,11 +323,18 @@ export const STRINGS = {
   floatUp: "FLOATED UP",
   hit: "HIT",
   grounded: "AGROUND",
-  landed: (airSeconds: number): string => `AIR ${airSeconds.toFixed(1)}s`,
-  /** ...and the same flight when it is the longest of the run so far. The
-   * number is the point, so it reads the same way and the word is what is
-   * added to it. */
+  /** THE FLIGHT, as the column bills it: both halves of it, because both
+   * are what it was paid for (`engine/game/tricks.ts`). */
+  landed: (airSeconds: number, metres: number): string =>
+    `AIR ${airSeconds.toFixed(1)}s · ${Math.round(metres)}m`,
+  /** ...and the same flight when it is the longest of the run so far, on
+   * whichever axis took the record. The number is the point, so each reads
+   * the way its own half does and the word is what is added to it. Two
+   * lines rather than one because the two bests are two different jumps as
+   * often as they are one, and a run that takes both at once is a run worth
+   * saying so about twice. */
   airRecord: (airSeconds: number): string => `BEST AIR ${airSeconds.toFixed(1)}s`,
+  lengthRecord: (metres: number): string => `BEST JUMP ${Math.round(metres)}m`,
   /** The new-build button: the word the armed mark shows, and the two
    * labels a pointer and a screen reader get — one for the mark, one for
    * the armed button, whose press throws the run away. */

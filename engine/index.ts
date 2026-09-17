@@ -122,6 +122,7 @@ export {
   airPointsPerSecond,
   closeCombo,
   freshTricks,
+  lengthPointsPerMetre,
   stepTricks,
   wavePointsPerSecond,
 } from "./game/tricks.ts";

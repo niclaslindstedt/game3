@@ -19,21 +19,35 @@ import { surfaceAt, type SurfaceSample } from "./water.ts";
 import { stepWash } from "./wash.ts";
 import { closeCombo, resetTricks, stepTricks } from "./tricks.ts";
 
-/** THE RUN'S AIR RECORD, read off the flight the craft has just reported.
- * The craft knows how long it was up; only the run knows whether anything
- * has been up longer, so the comparison is here and the landing that won it
- * is marked as it goes past — one event, one flash, and `progress.bestAir`
- * and `bestAirAt` left holding the number and the moment it was set, so a
- * readout can hold it on screen without a clock of its own. A flight under
- * `flight.airCounts` is not air time at all and cannot take it. */
-function noteAirRecord(state: GameState, events: GameEvent[]): void {
+/** THE RUN'S FLIGHT RECORDS, read off the flight the craft has just
+ * reported. The craft knows what this one jump did; only the run knows
+ * whether anything has beaten it, so the comparison is here and the landing
+ * that won it is marked as it goes past — one event, one flash, and
+ * `progress.bestAir` / `bestLength` left holding the numbers with the moments
+ * they were set at, so a readout can hold them on screen without a clock of
+ * its own.
+ *
+ * TWO RECORDS, JUDGED APART. The longest hang and the longest carry are two
+ * different jumps as often as they are one — a pop off a crest takes the
+ * first and a flat drive off a lip takes the second — so a single "best
+ * jump" would have to throw one of them away. Both are counted from the same
+ * line: a flight under `flight.airCounts` did not go anywhere and cannot
+ * take either. */
+function noteFlightRecords(state: GameState, events: GameEvent[]): void {
+  const p = state.progress;
   for (let i = 0; i < events.length; i++) {
     const e = events[i];
-    if (e.kind !== "land") continue;
-    if (e.airTime <= TUNING.flight.airCounts || e.airTime <= state.progress.bestAir) continue;
-    state.progress.bestAir = e.airTime;
-    state.progress.bestAirAt = state.t;
-    e.record = true;
+    if (e.kind !== "land" || e.airTime <= TUNING.flight.airCounts) continue;
+    if (e.airTime > p.bestAir) {
+      p.bestAir = e.airTime;
+      p.bestAirAt = state.t;
+      e.record = true;
+    }
+    if (e.length > p.bestLength) {
+      p.bestLength = e.length;
+      p.bestLengthAt = state.t;
+      e.lengthRecord = true;
+    }
   }
 }
 
@@ -83,7 +97,7 @@ export function stepRun(run: GameState, input: CraftInput, events: GameEvent[]):
     c.vx = water.vx;
     c.vz = water.vz;
   }
-  noteAirRecord(run, events);
+  noteFlightRecords(run, events);
   // THE RUN'S HIGH-WATER MARK, taken at the physics rate rather than off a
   // landing: the apex of a flight is an instant with no event at it, and a
   // presentation sampling the altimeter a dozen times a second would read

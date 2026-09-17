@@ -177,7 +177,17 @@ const EVERY_EVENT_BY_KIND: { [K in GameEvent["kind"]]: Extract<GameEvent, { kind
   airGate: { kind: "airGate", t: 1, gate: 1, split: 20, height: 3 },
   missedGate: { kind: "missedGate", t: 1, gate: 2, penalty: 5 },
   launch: { kind: "launch", t: 1, vy: 4, speed: 20 },
-  land: { kind: "land", t: 1, vy: -4, airTime: 0.8, pitch: 0.1, speed: 18, record: false },
+  land: {
+    kind: "land",
+    t: 1,
+    vy: -4,
+    airTime: 0.8,
+    length: 14,
+    pitch: 0.1,
+    speed: 18,
+    record: false,
+    lengthRecord: false,
+  },
   dive: { kind: "dive", t: 1, depth: 0.8, speed: 15 },
   submerge: { kind: "submerge", t: 1, depth: 1.6, speed: 12 },
   surface: { kind: "surface", t: 1, underTime: 2.4, clean: true },
@@ -293,27 +303,33 @@ describe("the route (audio/route.ts)", () => {
       t: 0,
       vy: -2,
       airTime: 0.4,
+      length: 7,
       pitch: 0,
       speed: 15,
       record: false,
+      lengthRecord: false,
     })!;
     const hard = soundForEvent({
       kind: "land",
       t: 0,
       vy: -9,
       airTime: 1.5,
+      length: 28,
       pitch: 0,
       speed: 20,
       record: false,
+      lengthRecord: false,
     })!;
     const nose = soundForEvent({
       kind: "land",
       t: 0,
       vy: -2,
       airTime: 0.4,
+      length: 7,
       pitch: -0.5,
       speed: 15,
       record: false,
+      lengthRecord: false,
     })!;
     expect(soft.id).toBe("land_soft");
     expect(hard.id).toBe("land_hard");
@@ -412,9 +428,11 @@ describe("the route (audio/route.ts)", () => {
       t: 0,
       vy: -3,
       airTime: 0.5,
+      length: 8,
       pitch: 0,
       speed: 15,
       record: false,
+      lengthRecord: false,
     })!;
     const dive = bubblesForEvent({ kind: "dive", t: 0, depth: 1, speed: 15 })!;
     const over = bubblesForEvent({ kind: "capsize", t: 0, speed: 1 })!;
@@ -431,8 +449,10 @@ describe("the route (audio/route.ts)", () => {
       t: 1,
       vy: -4,
       airTime: 2.4,
+      length: 42,
       pitch: 0.1,
       speed: 18,
+      lengthRecord: false,
     } as const;
     const best = recordForEvent({ ...landing, record: true }, MODE_RULES.tricks.tricks)!;
     expect(best.id).toBe("air_record");
