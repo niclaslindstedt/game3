@@ -71,6 +71,14 @@ The HUD is the game's own type over the water: **speed** big in km/h, the **rpm 
 
 **The backflip**, and how it is actually ridden: hold the lean back going up the face of a wave or up a ramp's deck, and then **TAP** it off the lip — every tap is another haul on the bars, and the hull comes round faster for each one. A hold alone is one haul and will only flip the lightest hull; the taps are what bring a **backflip** round off an ordinary ramp, in a tap or two on the stand-up and in six or seven on the tourer, because how much a haul is worth is the rider's own authority against the hull's pitch inertia. Stop tapping and it stops turning faster, which is how you aim the landing — and nothing is banked until the hull is back on the water under you.
 
+**The corkscrew.** Throw the bars fully OVER while you are hauling them back and both axes come round in the same flight: the flip, the barrel roll, and a third element for having done them together, which is worth more than the two taken off two waves in a row. It is the trick to go looking for once you have both of the others — and it has to be landed, because a combo with a corkscrew in it is a combo that goes in the water with you.
+
+**Riding the wave.** The one thing worth points that never leaves the water: run ALONG a wave with a metre or more in it and hold the top of it, and the score ticks while you stay up there. Take it across the sea instead and you are over the crest and down the back in half a second; run with it and you keep it for a couple; turn along it and you can hold it for three to five. Past a second it is an element in its own right, and it is the move that carries a combo from one wave to the next.
+
+**The laydown.** Lay the hull right over on its side — past forty-five degrees, which a carve on flat water will not reach, so it wants a wave face or the hull's own roll under it — and bring it back up level. It is the cheapest of the elements and the only one you can turn anywhere, and it is a lean away from a capsize the whole time.
+
+**Keeping the combo alive.** A combo stays open while you are DOING something — in the air, holding the top of a wave, or driven under by a following wave with the craft still answering — and for a second on the water after any of them. So a flip off this wave and a laydown off the next are one combo at one multiplier rather than two small ones, and stringing them is worth far more than landing them apart. Going over the bars ends it and pays nothing.
+
 ### Installing on your phone
 
 The game is a PWA. iOS Safari: Share → **Add to Home Screen**. Android Chrome: menu → **Install app** (or accept the install prompt). The installed game launches fullscreen, works offline once loaded, and shows an in-app prompt when a new build ships.

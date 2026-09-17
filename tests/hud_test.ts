@@ -276,8 +276,25 @@ describe("the combo's line", () => {
   });
 
   it("calls a flip and a roll turned in ONE flight a corkscrew, once", () => {
-    const line = STRINGS.comboLine([part("air"), part("backflip"), part("roll")]);
+    // The engine scores all three — the two revolutions at their own index,
+    // then the combination (`tricks.ts`) — and the line names the one.
+    const line = STRINGS.comboLine([
+      part("air"),
+      part("backflip"),
+      part("roll"),
+      part("corkscrew"),
+    ]);
     expect(line).toBe("AIR + CORKSCREW");
+  });
+
+  it("...and carries the deeper axis's revolution count into the compound", () => {
+    const line = STRINGS.comboLine([part("backflip", 2), part("roll"), part("corkscrew")]);
+    expect(line).toBe("DOUBLE CORKSCREW");
+  });
+
+  it("names the crest ride and the laydown, which are turned on the water", () => {
+    expect(STRINGS.comboLine([part("wave")])).toBe("WAVE RIDE");
+    expect(STRINGS.comboLine([part("laydown")])).toBe("LAYDOWN");
   });
 
   it("...and does not, when they were taken off two waves in a row", () => {

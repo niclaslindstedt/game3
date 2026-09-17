@@ -6,18 +6,21 @@
 // and nothing is yours until you are back on the water with the craft under
 // you. Fall off it and the lot goes.
 //
-// FIVE THINGS ARE SCORED, because five are reachable: the time the hull
-// spends off the water, the revolutions it turns nose-over-tail while it is
-// up there (THE PUMP throws one: `TUNING.flight.pump`), the revolutions it
-// turns about its own length (THE WHIP: `TUNING.flight.whip`), the flight
-// itself as an element beside any of them — and THE TIME IT SPENDS UNDER
-// THE WATER (`submerged.ts`), which is the air's mirror on the other side
-// of the surface and paid by the same rule, with the SUBMARINE the element
-// a clean surfacing wins. A hull on its tail and a trick taken off a buoy
-// are the same machinery with another term in it — `TrickState` is shaped
-// for them and this module is where they land.
+// WHAT IS SCORED, because these are what a rider can reach: the time the
+// hull spends off the water, the revolutions it turns nose-over-tail while
+// it is up there (THE PUMP throws one: `TUNING.flight.pump`), the
+// revolutions it turns about its own length (THE WHIP: `TUNING.flight.whip`)
+// and the CORKSCREW of having both come round in one flight, the flight
+// itself as an element beside any of them, THE TIME IT SPENDS UNDER THE
+// WATER (`submerged.ts`), which is the air's mirror on the other side of
+// the surface and paid by the same rule, with the SUBMARINE the element a
+// clean surfacing wins — and the two a rider turns without leaving the
+// surface at all: the top of a wave HELD and run along (`wave-ride.ts`),
+// and the hull LAID OVER and brought back up. A hull on its tail and a
+// trick taken off a buoy are the same machinery with another term in it —
+// `TrickState` is shaped for them and this module is where they land.
 //
-// THE FIVE RULES, and the reason each is the shape it is:
+// THE EIGHT RULES, and the reason each is the shape it is:
 //
 // 1. AIR TIME PAYS BY THE SECOND, AT A RATE THAT RISES WITH THE FLIGHT.
 //    The rate is logarithmic in how long the hull has been up
@@ -81,6 +84,31 @@
 //    it is the start of something, or it is nothing, and the float-up says
 //    which.
 //
+// 6. BOTH AXES IN ONE FLIGHT ARE A THIRD THING: THE CORKSCREW. Won the
+//    moment the second of the two comes round, whichever order they came
+//    in, for `corkscrewPoints` of base and one step — and once per flight,
+//    so a combo that corks two linked flights is paid for both. The
+//    revolutions are already paid at their own index; what this prices is
+//    the COMBINATION, which is what makes it different from the same two
+//    turns taken off two waves in a row. It lands between the two turns and
+//    a double of either: 5 400 against 3 100 and 7 300.
+//
+// 7. THE TOP OF A WAVE IS PAID THE WAY THE AIR IS, and for the air's
+//    reason: it is a moment HELD rather than a thing done, so it ticks
+//    (`wavePointsPerSecond`, the air's curve at a quieter rate) and past
+//    `waveElement` it is an element in its own right. What counts as being
+//    on the crest is `wave-ride.ts`'s and stated once there — a wave with a
+//    metre in it, the hull in the top tenth of it, and the rider making
+//    way. Like the submarine and unlike the air, the element stands ALONE:
+//    every ramp on the course hands a rider a flight and nothing anywhere
+//    hands him a crest.
+//
+// 8. A LAYDOWN IS THE ONE ELEMENT THAT NEEDS NEITHER AIR NOR A WAVE — the
+//    hull heeled past `laydownAngle` and brought back level, won on the way
+//    back up. It is priced under a revolution because the hull never passes
+//    its own beam ends, and it is bounded at `laydownOver` because past
+//    there the rider is not laying it down, he is going over.
+//
 // The engine only ever says what happened: `trick`, `combo` and `bail`
 // events carry the beat a presentation pulses on, and `TrickState` carries
 // the numbers and the ELEMENT LIST it reads. No word for any of it is here
@@ -90,6 +118,7 @@
 
 import { TUNING } from "./defs/tuning.ts";
 import type { GameEvent, GameState, TrickKind, TrickState } from "./state.ts";
+import { ridingCrest, underWay, waveUnder, type WaveUnder } from "./wave-ride.ts";
 
 const T = TUNING.tricks;
 const TAU = Math.PI * 2;
@@ -109,6 +138,17 @@ export function airPointsPerSecond(seconds: number): number {
   return T.airRate * Math.log2(1 + Math.max(0, seconds) / T.airKnee);
 }
 
+/** ...and what a second on the top of a wave is worth `seconds` into the
+ * ride, points/s. The air's own curve at the crest ride's own rate, and
+ * deliberately so: the two are the same KIND of thing — a moment HELD
+ * rather than a thing done — so a rider reads one ladder and not two, and
+ * the only claim the lower rate makes is that a crest is the quieter of the
+ * two moments. (The water under the surface is paid at the air's own rate
+ * rather than this one, because being under is the air's mirror — rule 5.) */
+export function wavePointsPerSecond(seconds: number): number {
+  return T.waveRate * Math.log2(1 + Math.max(0, seconds) / T.waveKnee);
+}
+
 export function freshTricks(): TrickState {
   return {
     score: 0,
@@ -121,6 +161,11 @@ export function freshTricks(): TrickState {
     rolls: 0,
     aired: false,
     airPaid: false,
+    corked: false,
+    riding: false,
+    rideTime: 0,
+    waved: false,
+    heeled: 0,
     parts: [],
     flight: 0,
     last: 0,
@@ -154,6 +199,11 @@ function win(
   }
   k.base += points;
   k.mult += spins;
+  // AN ELEMENT WON IS THE COMBO IN PLAY, wherever it was won. Set here
+  // rather than by each caller because an element that opened no window
+  // would bank on the next step: the laydown is turned on the water, where
+  // nothing else is holding the combo up.
+  k.link = T.linkWindow;
   k.parts.push({ kind, spins, flight: k.flight });
   events.push({ kind: "trick", t: state.t, trick: kind, spins, points, mult: k.mult });
 }
@@ -200,6 +250,11 @@ function bail(state: GameState, events: GameEvent[]): void {
   k.rolls = 0;
   k.aired = false;
   k.airPaid = false;
+  k.corked = false;
+  k.riding = false;
+  k.rideTime = 0;
+  k.waved = false;
+  k.heeled = 0;
 }
 
 /** THE RIDER PUT BACK AT A GATE — everything riding on the combo goes with
@@ -217,6 +272,70 @@ export function resetTricks(state: GameState, events: GameEvent[]): void {
  * is nothing done. */
 export function closeCombo(state: GameState, events: GameEvent[]): void {
   if (state.tricks.base > 0) bank(state, events);
+}
+
+/** The wave under the hull, read once a step into one object the module
+ * keeps: `stepTricks` runs for the player and for every rival in turn and
+ * none of them holds the reading past its own step. */
+const under: WaveUnder = { height: 0, share: 0 };
+
+/** THE TOP OF A WAVE, HELD (rule 7). What counts as being on one is
+ * `wave-ride.ts`'s and asked here; what it is WORTH is this module's. The
+ * hold is one ride for as long as it lasts — the element is bought once and
+ * the seconds tick throughout — and the ride ending is what arms the next
+ * one, so a rider chains crests by coming off one and catching another. */
+function stepWave(state: GameState, events: GameEvent[]): void {
+  const k = state.tricks;
+  const c = state.craft;
+  // The free half of the question first: the sweep below is nine samples of
+  // the sea and a rider who is not going anywhere cannot be riding one.
+  const on =
+    underWay(c) &&
+    ridingCrest(c, waveUnder(state.sea, state.level, c.x, c.z, state.t, under), k.riding);
+  if (!on) {
+    k.riding = false;
+    k.rideTime = 0;
+    k.waved = false;
+    return;
+  }
+  k.riding = true;
+  k.rideTime += TUNING.dt;
+  k.base += wavePointsPerSecond(k.rideTime) * TUNING.dt;
+  // The ride holds the combo open the way a flight does; the window is what
+  // the rider has after he comes off it.
+  k.link = T.linkWindow;
+  if (!k.waved && k.rideTime >= T.waveElement) {
+    k.waved = true;
+    // No base, for the air's reason: the seconds are already paid and are
+    // not sold twice.
+    win(state, events, "wave", 1, 0);
+  }
+}
+
+/** THE HULL LAID OVER AND BROUGHT BACK (rule 8) — read off the roll angle
+ * alone, because that is the whole trick: how the rider got it over there
+ * is his business.
+ *
+ * What is carried is the PEAK of the heel rather than a latch, and it has
+ * to be: a hull thrown onto its beam ends comes back THROUGH the laydown's
+ * own band on its way up, and a latch armed in there would pay a capsize
+ * saved as a trick turned. The peak is judged once, when the hull is level
+ * again, and it has to fall inside the band at both ends. */
+function stepLaydown(state: GameState, events: GameEvent[]): void {
+  const k = state.tricks;
+  const c = state.craft;
+  if (!underWay(c)) {
+    k.heeled = 0;
+    return;
+  }
+  const heel = Math.abs(c.roll);
+  if (heel > k.heeled) k.heeled = heel;
+  if (heel > T.laydownLevel) return;
+  const peak = k.heeled;
+  k.heeled = 0;
+  if (peak >= T.laydownAngle && peak <= T.laydownOver) {
+    win(state, events, "laydown", 1, T.laydownPoints);
+  }
 }
 
 /** One fixed step of the score, run after the craft has been stepped and
@@ -275,6 +394,23 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
       k.rolls += 1;
       win(state, events, "roll", k.rolls, T.rollPoints * k.rolls);
     }
+    // BOTH AXES IN ONE FLIGHT (rule 6): the third thing the rider did by
+    // doing the other two at once. Won as the second of them comes round —
+    // whichever order they came in — and once per flight, so a combo that
+    // corks two linked flights is paid for both. The revolutions themselves
+    // have already been paid at their own index; what this adds is the
+    // combination.
+    if (!k.corked && k.spins > 0 && k.rolls > 0) {
+      k.corked = true;
+      win(state, events, "corkscrew", 1, T.corkscrewPoints);
+    }
+    // THE WATER IS BEHIND HIM, so anything it was holding is over: the
+    // crest he left is not the crest he lands on, and a hull heeled over as
+    // it launched must not be paid a laydown for landing level.
+    k.riding = false;
+    k.rideTime = 0;
+    k.waved = false;
+    k.heeled = 0;
     // THE AIR AS AN ELEMENT (rule 3) — in hand from here, and sold only by
     // the next trick to land. A flight is either long enough or it is not,
     // so this is set and never unset until the water takes it.
@@ -291,7 +427,15 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
     k.spins = 0;
     k.roll = 0;
     k.rolls = 0;
+    k.corked = false;
     if (c.under) {
+      // Nothing on the SURFACE is in progress down here: a hull under the
+      // water is neither on a crest nor laying one over, and rule 5 is what
+      // pays for where it is instead.
+      k.riding = false;
+      k.rideTime = 0;
+      k.waved = false;
+      k.heeled = 0;
       // UNDER THE WATER (rule 5): the same rate on the spell's own clock,
       // and the combo held open the way a flight holds it. `aired` is
       // kept — the air a rider dived out of is still his to sell. Nothing
@@ -308,6 +452,8 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
       // cleared in between could never be sold through the water. Nothing
       // else can sell it in that half second — a revolution takes longer.
       if (c.landing > TUNING.submerged.counts) k.aired = false;
+      stepWave(state, events);
+      stepLaydown(state, events);
       if (k.base > 0) {
         k.link -= dt;
         if (k.link <= 0) bank(state, events);

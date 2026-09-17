@@ -337,8 +337,22 @@ export type Progress = {
  *   up under its rider (`submerged.ts`), once the spell lasted
  *   `tricks.diveElement`. Paid by the second like the air and worth a rung
  *   on its own, because a hull that came up clean was RIDDEN up; one the
- *   float-up brought up is a bail. */
-export type TrickKind = "backflip" | "frontflip" | "roll" | "air" | "submarine";
+ *   float-up brought up is a bail.
+ * - `corkscrew` — a flip and a side spin turned in the SAME flight, won
+ *   the moment the second of the two axes comes round. Its revolutions are
+ *   already paid as their own elements; this is the third thing the rider
+ *   did by doing both at once, and it is the only element whose own name a
+ *   readout puts in place of the two it was made of.
+ * - `wave` — the top of a wave held and run along, once it has been held
+ *   `tricks.waveElement`. The crest ride's `air`: paid by the second while
+ *   it lasts, so the element itself is the rung alone. Unlike the air it
+ *   stands on its own, because a hull is handed a flight off every ramp on
+ *   the course and is never handed a crest.
+ * - `laydown` — the hull laid over past `tricks.laydownAngle` and brought
+ *   back level, the one element a rider can turn without leaving the
+ *   water. */
+export type TrickKind =
+  "backflip" | "frontflip" | "roll" | "air" | "submarine" | "corkscrew" | "wave" | "laydown";
 
 /** One element of a combo as it stands in the state: what it was, how many
  * revolutions of it (1 for the air, and for the first turn of a flight; 2
@@ -390,6 +404,28 @@ export type TrickState = {
    * a second linked flight cannot sell the same rung twice. */
   aired: boolean;
   airPaid: boolean;
+  /** Whether THIS FLIGHT has already been paid its corkscrew — the rung
+   * both axes coming round in one flight is worth. The flight's, so it
+   * clears with the water like `aired`: a rider who corks two linked
+   * flights has done it twice. */
+  corked: boolean;
+  /** THE CREST RIDE IN PROGRESS (`wave-ride.ts`): whether the hull is on
+   * the top of a wave now, how long it has held it, s, and whether that
+   * hold has already bought its element. All three clear the moment the
+   * ride ends, so the next crest is a fresh one — `riding` is carried
+   * because the band the share has to stay inside is wider than the one it
+   * has to enter (`tricks.waveHold` against `waveCrest`). */
+  riding: boolean;
+  rideTime: number;
+  waved: boolean;
+  /** THE LAYDOWN IN PROGRESS: how far over, rad, this heel has been at its
+   * furthest. Zeroed the moment the hull is level again, so it is the PEAK
+   * of one excursion and the whole of what decides whether that excursion
+   * was a laydown — the band it has to fall in is bounded at both ends
+   * (`tricks.laydownAngle`, `laydownOver`), and holding the peak rather
+   * than a latch is what stops a hull on its beam ends claiming one on the
+   * way back through the band. */
+  heeled: number;
   /** THE ELEMENTS of the combo in progress, in the order they were won —
    * what a readout names and joins (`STRINGS.comboLine`). Emptied with the
    * combo, as is `flight`, which counts the launches this combo has run
