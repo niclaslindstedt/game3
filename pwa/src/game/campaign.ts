@@ -391,6 +391,23 @@ export function continueAt(shore: CampaignShore, progress: CampaignProgress): Ca
   );
 }
 
+/** HOW FAR THE CAMPAIGN HAS GOT, in one figure — what the front door's
+ * hero tile bills itself with. CLEARED rather than ridden, because cleared
+ * is what opens the next rung: a level ridden and lost is a level still
+ * standing there. Counted over the whole ladder rather than the open shore,
+ * so the figure a door shows never goes backwards or resets between
+ * shores. */
+export function campaignStanding(progress: CampaignProgress): {
+  cleared: number;
+  of: number;
+} {
+  const levels = SHORES.flatMap((shore) => shore.levels);
+  return {
+    cleared: levels.filter((level) => levelCleared(progress, level)).length,
+    of: levels.length,
+  };
+}
+
 /** Where the ladder goes after a level: the next rung, the next SHORE
  * behind the table it is locked to, or the end of the road. */
 export type LadderStep =

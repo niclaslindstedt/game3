@@ -4,44 +4,65 @@
 // bot-ridden run behind this card the whole time it is up. A menu that
 // stopped the water would be a menu that announces the game is not running.
 //
-// FIVE TILES, AND THE FIRST THREE ARE THE GAME.
+// THREE TIERS, AND THE COLOUR IS THE TIER. That is the whole rule, and it is
+// one sentence because a door a player has to be taught is a door that has
+// failed: **how close is this press to water?**
 //
-// Each is a MARK and a NAME (menu-glyphs.tsx), two abreast. The mark is what
-// the eye lands on, the word is what confirms it, and a player learns each
-// one once.
+//   THE ORANGE ONE  is the way IN — the campaign, and nothing else on the
+//                   card is orange. The lit colour means one thing here, so
+//                   a rider who has just arrived is looking at the tile to
+//                   press before they have read a word. (Two lit tiles is
+//                   the same as none: the eye is given a choice where it
+//                   wanted an answer.)
+//   THE SEA BLUE    are the four ways onto water WITHOUT a ladder. Four,
+//                   equal, and deliberately not ranked against each other:
+//                   they are four games, not four rungs.
+//   THE FOOT STRIP  is everything that is not water. It is not tile-shaped
+//                   at all, because a thing that does not start a run should
+//                   not wear the shape of one.
 //
+// The tiles, in the order they stand:
+//
+//   CAMPAIGN   → the ladder (menu-campaign.tsx). THE HERO: twice the width
+//                of the rest, the largest mark on the card, and a line of
+//                its own saying how far up the twelve the player has got
+//                (`campaignStanding`). It is the only tile with something to
+//                ride FOR, and the only one whose face changes between
+//                visits — which is what makes it worth looking at on the
+//                second visit as well as the first.
 //   RACE       → the LEVEL card (menu-levels.tsx), set up for that game:
 //   TRICKS       eleven others on the grid, or the shore with its course
-//   TIME TRIAL   taken off it, or the course against the clock alone. THREE
-//                TILES RATHER THAN A ROW ON THE CARD BEHIND THEM, because
-//                the mode is not a setting on a run — it is which game is
-//                being played, and the three are what this game IS. A door
-//                that opens onto a card and then asks which game you meant
-//                is a door that has not answered anything. RACE keeps the
-//                orange the one way on always had, so a rider who came here
-//                to ride is looking at the tile to press before they have
-//                read a word. Each writes `settings.ride.mode` on the way
-//                through, so the card that follows is titled with the game
-//                it is setting up and its LENGTH row appears for the one
-//                mode that has one.
-//   FREE       → the START card (menu-start.tsx) instead, and it is the only
+//   TIME TRIAL   taken off it, or the course against the clock alone. TILES
+//                RATHER THAN A ROW ON THE CARD BEHIND THEM, because the mode
+//                is not a setting on a run — it is which game is being
+//                played. A door that opens onto a card and then asks which
+//                game you meant is a door that has not answered anything.
+//                Each writes `settings.ride.mode` on the way through, so the
+//                card that follows is titled with the game it is setting up
+//                and its LENGTH row appears for the one mode that has one.
+//   FREE RIDE  → the START card (menu-start.tsx) instead, and it is the only
 //                tile that opens it: a seed of your own, a wind off any
 //                quarter and a sea of any size are the knobs of the one mode
 //                where nothing is being measured. The other three ride the
 //                campaign's pinned shores, so that two times down the same
 //                level are two times down the same water.
 //   GALLERY    → the pictures the player took (menu-gallery.tsx), and the
-//                only place one is ever shown. It stands under the three
-//                because nothing gets into it without a run first.
+//                only place one is ever shown. On the strip because nothing
+//                gets into it without a run first.
 //   OPTIONS    → the knobs the game actually has (menu-options.tsx), and
 //                behind one of its rows the keyboard's bindings
 //                (menu-keys.tsx).
 //   DEVELOPER  → hidden until RACE has been HELD for seven seconds
 //                (menu-hold.ts, `DEV_HOLD_MS`), and out for good once found.
 //
-// GALLERY and OPTIONS are QUIET (`menu-tile-quiet`): they are not ways onto
-// the water, and a front door where five tiles shout equally is a front door
-// with no way on.
+// THE DOOR LAYS ITSELF OUT ALONG WHICHEVER AXIS HAS ROOM. A phone held
+// UPRIGHT has height and no width, so the hero takes a row of its own and
+// the four modes pair off beneath it. A phone held SIDEWAYS — which is how
+// this game is actually held — has the opposite, so the card widens, the
+// hero stands beside the four rather than above them, and the whole door
+// comes to two rows. The stylesheet owns the arithmetic; what matters here
+// is that the DOM is one order and one markup either way, so there is no
+// second door to keep in step.
 //
 // The hold is on RACE and not on the wordmark or a corner because a secret
 // nobody can be told about is a secret nobody finds. "Hold the button you
@@ -67,7 +88,12 @@ import {
   tickHold,
   type HoldState,
 } from "./menu-hold.ts";
-import { findLevel, type CampaignLevel, type CampaignProgress } from "./campaign.ts";
+import {
+  campaignStanding,
+  findLevel,
+  type CampaignLevel,
+  type CampaignProgress,
+} from "./campaign.ts";
 import { CampaignPage } from "./menu-campaign.tsx";
 import { CraftPage } from "./menu-craft.tsx";
 import { BenchmarkHistoryPage } from "./menu-bench.tsx";
@@ -239,9 +265,8 @@ function HoldTile({
   return (
     <button
       type="button"
-      class={`menu-tile menu-tile-start${saying ? " menu-tile-holding" : ""}`}
+      class={`menu-tile menu-tile-mode${saying ? " menu-tile-holding" : ""}`}
       data-menu="race"
-      data-nav-next
       // Only BEGINNING is gated on there being something left to unlock.
       // The enders are always bound: a hold that armed on the last press has
       // to be let go of even though the tile has stopped holding.
@@ -277,11 +302,15 @@ function HoldTile({
 
 function RootPage({
   settings,
+  progress,
   onNavigate,
   onMode,
   onUnlock,
 }: {
   settings: Settings;
+  /** The board, for the one live figure on the door: how far up the ladder
+   * the hero tile bills itself at. */
+  progress: CampaignProgress;
   onNavigate: (page: MenuPage) => void;
   /** Which game the start card behind this door is setting up. Written on
    * the way through rather than read back here: the tiles are a CHOICE, not
@@ -290,6 +319,7 @@ function RootPage({
   onUnlock: () => void;
 }) {
   const [said, setSaid] = useState(false);
+  const standing = campaignStanding(progress);
   return (
     <div class="menu-card menu-card-root">
       <div class="menu-brand">
@@ -302,24 +332,31 @@ function RootPage({
         </div>
         <span class="menu-brand-tag">{STRINGS.menuTag}</span>
       </div>
-      {/* THE FOUR WAYS ONTO THE WATER FIRST, then the two things that are
-          not riding. Six is even, so the block is square; unlocking the
-          developer tile makes it seven and the odd one out takes the whole
-          bottom row rather than sitting beside a hole (`.menu-tiles`'s odd
-          rule), which is the same rule that used to catch OPTIONS. */}
+      {/* THE WAYS ONTO THE WATER — the hero first, then the four modes. The
+          two tiers are one grid rather than two blocks, so the hero spanning
+          a row (upright) or a quadrant (sideways) is a span rather than a
+          second layout to keep in step. */}
       <div class="menu-tiles">
-        {/* THE CAMPAIGN FIRST: the one way on with something to ride FOR,
-            and the one a new player is meant to press. It wears the lit
-            tile's orange; RACE keeps the hold. */}
         <button
           type="button"
-          class="menu-tile menu-tile-start"
+          class="menu-tile menu-tile-hero"
           data-menu="campaign"
           data-nav-next
+          data-nav-focus
           onClick={() => onNavigate({ page: "campaign" })}
         >
+          {/* The sheen: a slow bar of light travelling the tile, the one
+              moving thing on a card that stands over moving water. Purely
+              a transform (see the stylesheet), and off under
+              `prefers-reduced-motion`. */}
+          <span class="menu-tile-sheen" aria-hidden="true" />
           <Glyph name="trophy" />
-          <span class="menu-tile-name">{STRINGS.campaign}</span>
+          <span class="menu-tile-words">
+            <span class="menu-tile-name">{STRINGS.campaign}</span>
+            <span class="menu-tile-line">
+              {STRINGS.menuCampaignLine(standing.cleared, standing.of)}
+            </span>
+          </span>
         </button>
         <HoldTile
           glyph={MODE_GLYPHS.race}
@@ -340,7 +377,7 @@ function RootPage({
           <button
             key={mode}
             type="button"
-            class="menu-tile"
+            class="menu-tile menu-tile-mode"
             data-menu={mode}
             onClick={() => {
               onMode(mode);
@@ -351,9 +388,15 @@ function RootPage({
             <span class="menu-tile-name">{STRINGS.modeName(mode)}</span>
           </button>
         ))}
+      </div>
+      {/* EVERYTHING THAT IS NOT WATER, along the foot: a low strip of mark
+          and word, sharing one row whatever the viewport. It is the tier
+          that costs the door the least height, which is right — it is the
+          tier nobody came here for. */}
+      <div class="menu-strip">
         <button
           type="button"
-          class="menu-tile menu-tile-quiet"
+          class="menu-chip"
           data-menu="gallery"
           onClick={() => onNavigate({ page: "gallery" })}
         >
@@ -362,7 +405,7 @@ function RootPage({
         </button>
         <button
           type="button"
-          class="menu-tile menu-tile-quiet"
+          class="menu-chip"
           data-menu="options"
           onClick={() => onNavigate({ page: "options" })}
         >
@@ -372,7 +415,7 @@ function RootPage({
         {settings.developer && (
           <button
             type="button"
-            class="menu-tile menu-tile-dev"
+            class="menu-chip menu-chip-dev"
             data-menu="developer"
             onClick={() => onNavigate({ page: "developer" })}
           >
@@ -380,12 +423,12 @@ function RootPage({
             <span class="menu-tile-name">{STRINGS.menuDeveloper}</span>
           </button>
         )}
+        <VersionStamp />
       </div>
       {/* Said once, on the visit where the hold actually landed. The tile
           appearing is the lasting answer; this is the moment's one, so
           nobody has to wonder whether the seven seconds did anything. */}
       {said && <p class="menu-said">{STRINGS.menuUnlocked}</p>}
-      <VersionStamp />
     </div>
   );
 }
@@ -424,6 +467,7 @@ export function MainMenu({
       {page.page === "root" && (
         <RootPage
           settings={settings}
+          progress={progress}
           onNavigate={onNavigate}
           onMode={(mode) => onSettings({ ...settings, ride: { ...settings.ride, mode } })}
           onUnlock={() => onSettings({ ...settings, developer: true })}

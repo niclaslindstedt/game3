@@ -154,8 +154,8 @@ const SURFACES = {
   pause: { params: { paused: "1" }, wait: ".menu-card-pause", settle: 700 },
 };
 
-/** The two reference viewports (§35.2) — and the phone is a TOUCHSCREEN,
- * not a narrow desktop window.
+/** The reference viewports (§35.2) — and the phone is a TOUCHSCREEN, not a
+ * narrow desktop window.
  *
  * Chromium opens a page as a machine with a mouse: `maxTouchPoints` 0 and
  * `pointer: fine`. So every surface that asks the device what it IS was
@@ -167,10 +167,20 @@ const SURFACES = {
  *
  * `hasTouch` alone is what flips it; `isMobile` would also swap in the
  * mobile visual viewport and move the layout under the camera, which is a
- * second change and not this one's. */
+ * second change and not this one's.
+ *
+ * AND THE THIRD IS THE ONE THE GAME IS ACTUALLY HELD AT. Nobody rides a
+ * jetski on a phone stood upright — they turn it sideways — and neither
+ * reference viewport is ever that: 720 and 844 are both well over the
+ * `(orientation: landscape) and (max-height: 30rem)` query the HUD's own
+ * furniture answers to, so everything that query changes was invisible to
+ * the entire sweep and the cards were never checked against a 393 px
+ * ceiling at all. A front door that scrolls is the regression this row
+ * exists to catch; it is the same phone as the row above it, turned. */
 const VIEWPORTS = {
   desktop: { viewport: { width: 1280, height: 720 }, deviceScaleFactor: 1 },
   phone: { viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true },
+  landscape: { viewport: { width: 844, height: 390 }, deviceScaleFactor: 2, hasTouch: true },
 };
 
 /** Tight, high-resolution views for judging how a craft meets its wake.

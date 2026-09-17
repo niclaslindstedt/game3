@@ -128,6 +128,25 @@ the door comes up over the shore the player was just on.
   waits for a press that never comes and eats the next real one instead. The
   clock in `menu-main.tsx`'s `end` is what stops that; do not remove it
   because "the click always arrives". It does not.
+- **EXACTLY ONE LIT CONTROL PER CARD, and the colour means one thing.** The
+  buoy's orange is the way ON; a second orange control on the same surface
+  does not double the invitation, it cancels it — the eye is handed a choice
+  where it came for an answer, and a player then has to READ the card to find
+  out which press was meant. The front door's rule is the general one: the
+  colour says how close the press is to water (lit = the way in, the card's
+  blue = a way onto water, the foot strip = not water at all), and that is
+  one sentence a player never has to be taught. `data-nav-next` follows the
+  same rule for the same reason — one way on, or START presses whichever the
+  DOM happened to put first.
+- **AN ARRIVAL ANIMATION IS `backwards`, NEVER `both` OR `forwards`.** The
+  fill has one job: hold an element off screen through its own
+  `animation-delay` so a stagger reads as a deal rather than a flicker. A
+  FORWARDS fill keeps applying the last keyframe at animation priority after
+  the animation has ended, and animation priority outranks the cascade — so
+  `:active`'s press transform silently stops working and the card comes up
+  beautifully and then never depresses under a thumb. It photographs
+  perfectly either way; the only way to catch it is to press the thing and
+  measure the box (`previews/` probe, `getBoundingClientRect`).
 - **Every fill on the LOADING card is a `transform`.** The phases that need a
   bar most are single indivisible calls that hold the main thread for
   seconds, and a width or a stroke animated on that thread freezes solid for
