@@ -10,8 +10,9 @@
 // table in `pwa/src/game/fauna.ts`, the way a craft's dimensions are here
 // and its paint is in `craft-styles.ts`. This file states the TYPE, the
 // rarity ladder and the cold coast's rows; the warm coast's are next door
-// in `fauna-warm.ts` and folded in below, the way `defs/sea.ts` is folded
-// into `TUNING` — one subject too big for one file under the §20.5 cap.
+// in `fauna-warm.ts` and the polar coast's in `fauna-arctic.ts`, both
+// folded in below, the way `defs/sea.ts` is folded into `TUNING` — one
+// subject too big for one file under the §20.5 cap.
 //
 // THE CATALOG IS A GRADIENT, AND THE GRADIENT IS THE DESIGN. `offshore` is
 // what makes riding out to sea worth doing: the small fish are banded into
@@ -38,17 +39,19 @@
 // pair of porpoises, one pike lying alone. `perKm` counts PODS, not animals,
 // and `school` says how many are in one.
 //
-// WHY THESE THIRTY, over two coasts. The taiga's are a cold brackish sea's
+// WHY THESE FORTY-TWO, over three coasts. The taiga's are a cold brackish sea's
 // own — the shore's fish, the grey seal hauled off every skerry coast like
 // it, and the small harbour porpoise — and then the water past them: the
 // salmon running at sea, the cod, the white-beaked dolphin, the basking
 // shark lying with its dorsal and the tip of its tail out, the killer
 // whale, and the two great rorquals. The mangrove's are a warm shelf's,
-// and `fauna-warm.ts` says why. Which coast offers which is
+// and `fauna-warm.ts` says why; the arctic's are the ice edge's, and
+// `fauna-arctic.ts` says why. Which coast offers which is
 // `engine/mapgen/biomes.ts`'s `fauna`; the catalog only says what each
 // animal is.
 
 import type { Band } from "../../mapgen/rules.ts";
+import { ARCTIC_FAUNA } from "./fauna-arctic.ts";
 import { WARM_FAUNA } from "./fauna-warm.ts";
 
 /** Every animal in the catalog. The ids are the campaign's forever: a
@@ -84,7 +87,19 @@ export type FaunaId =
   | "hammerhead"
   | "manta"
   | "whaleshark"
-  | "brydes";
+  | "brydes"
+  | "polarcod"
+  | "capelin"
+  | "char"
+  | "ringed"
+  | "bearded"
+  | "polarbear"
+  | "harp"
+  | "walrus"
+  | "beluga"
+  | "narwhal"
+  | "sleeper"
+  | "bowhead";
 
 /** What SHAPE an animal is, which is the only thing the physics of its
  * swimming needs to know: a fish and a shark beat their tails SIDEWAYS, a
@@ -199,9 +214,9 @@ export type FaunaSpec = {
  * The rungs are set so the ladder reads off the catalog rather than the
  * other way round: the shore's fish are common, the sea's middle is
  * uncommon to scarce, the killer whale and the basking shark are scarce,
- * the minke and the two great sharks rare, and the two GREAT WHALES — the
- * humpback and the warm coast's rorqual — are the only legendary rows
- * there are. A word nothing earns is a word that means nothing. */
+ * the minke and the two great sharks rare, and the three GREAT WHALES — the
+ * humpback, the warm coast's rorqual and the polar coast's bowhead — are
+ * the only legendary rows there are. A word nothing earns is a word that means nothing. */
 const RARITY_FLOOR: readonly (readonly [Rarity, number])[] = [
   ["common", 1.5],
   ["uncommon", 0.4],
@@ -527,7 +542,7 @@ const COLD_FAUNA: readonly FaunaSpec[] = [
   },
 ];
 
-export const FAUNA: readonly FaunaSpec[] = [...COLD_FAUNA, ...WARM_FAUNA];
+export const FAUNA: readonly FaunaSpec[] = [...COLD_FAUNA, ...WARM_FAUNA, ...ARCTIC_FAUNA];
 
 export const FAUNA_IDS: readonly FaunaId[] = FAUNA.map((f) => f.id);
 

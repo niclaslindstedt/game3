@@ -30,7 +30,7 @@
 // figure, so it comes off the same window as the rest and costs no new
 // astronomy.
 
-import { DECLINATION, daylightWindow } from "../lib/solar.ts";
+import { daylightWindow } from "../lib/solar.ts";
 import { biomeOf } from "./biomes.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { Level } from "./types.ts";
@@ -59,11 +59,8 @@ const EDGE = 0.05;
  * however the window sits. The window is the level's own SEASON's.
  */
 export function hourOfDay(level: Pick<Level, "biome" | "season">, when: TimeOfDay): number {
-  const window = daylightWindow(
-    biomeOf(level.biome).latitude,
-    R.day.minSun,
-    DECLINATION[level.season],
-  );
+  const biome = biomeOf(level.biome);
+  const window = daylightWindow(biome.latitude, R.day.minSun, biome.declination[level.season]);
   // A coast in the midnight sun has no crossings and `daylightWindow` hands
   // back the whole clock; the arithmetic below is still the right answer
   // there — midnight, noon and midnight again, the last of them a sun that

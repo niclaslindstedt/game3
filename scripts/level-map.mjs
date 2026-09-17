@@ -49,6 +49,7 @@ const {
   craftAtClass,
   rulesAtPace,
   trickStride,
+  SEASONS,
 } = await import(join(root, "engine/index.ts"));
 // The hinge speed a ring asks for is the bot's arithmetic (engine/sim/
 // bot.ts); it is not on the engine's public surface yet, so it is read
@@ -62,7 +63,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic)",
     },
     scale: { kind: "number", default: 1, help: "pixels per metre" },
     craft: { kind: "string", default: "skiff", help: "hull the launch speeds are quoted for" },
@@ -89,10 +90,14 @@ const args = parseArgs(
       kind: "number",
       help: "R36 — the swell standing off the coast, m (1–20); the seed's own when left out",
     },
+    season: {
+      kind: "string",
+      help: "draw the level in this season instead of the seed's own — winter on a freezing coast is the ice (R37)",
+    },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--biome taiga|mangrove] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--swell m] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--biome taiga|mangrove|arctic] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--swell m] [--season s] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);
@@ -109,7 +114,7 @@ if (args.track !== "coast" && args.track !== "circuit") {
 
 // ── Build it ────────────────────────────────────────────────────────────
 const t0 = Date.now();
-const level = generateLevel(args.seed, {
+const dealt = generateLevel(args.seed, {
   biome: args.biome,
   track: args.track,
   pace: args.pace,
@@ -117,6 +122,14 @@ const level = generateLevel(args.seed, {
   tricks: args.tricks,
   swell: args.swell,
 });
+if (args.season !== undefined && !SEASONS.includes(args.season)) {
+  console.error(`unknown season "${args.season}" (${SEASONS.join(", ")})`);
+  process.exit(2);
+}
+// A season asked for moves the level the way a run's own `season` does
+// (`createGame`): the same shore, under another sky — and, on a freezing
+// coast, under the ice.
+const level = args.season === undefined ? dealt : { ...dealt, season: args.season };
 // The rules the LISTING quotes are the ones this level was built to (R32),
 // and the hulls it quotes launch speeds for are at the same class — a run-up
 // measured against the stock book is a number the level never had to meet.

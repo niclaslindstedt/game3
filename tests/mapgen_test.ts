@@ -24,7 +24,6 @@ import {
   biomeOf,
   clampDial,
   cumulative,
-  DECLINATION,
   SEASONS,
   daylightWindow,
   analyzeLevel,
@@ -458,7 +457,7 @@ describe("level generator", () => {
     for (const seed of LEVEL_SEEDS) {
       const level = levelFor(seed);
       expect(SEASONS).toContain(level.season);
-      const declination = DECLINATION[level.season];
+      const declination = taiga.declination[level.season];
       const daylight = daylightWindow(taiga.latitude, R.day.minSun, declination);
       if (!daylight) throw new Error("the taiga coast has daylight in every season");
       expect(withinBand(level.hour, daylight, 0.05)).toBe(true);

@@ -48,7 +48,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic)",
     },
     season: {
       kind: "string",

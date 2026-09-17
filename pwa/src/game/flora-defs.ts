@@ -39,6 +39,25 @@
 //                   water, with aspen and rowan in the gaps
 //   over the top    nothing: bare rock above `TREE_LINE`
 //
+// THE ARCTIC COAST — a polar shore has NO TREES, and its ladder is a few
+// centimetres high: everything on it grows flat to the ground out of the
+// wind, in cushions and mats on the moraine, and what stands up over the
+// rider's head is ICE, not wood.
+//
+//   in the water    kelp (Laminaria) on the stones under the front
+//   the tideline    stranded ice — bergy bits and floes the tide left on
+//                   the gravel, the one thing on the shore taller than a
+//                   man — and the moraine's cobbles and blocks
+//   the wet ground  cotton grass (Eriophorum) in white tufts, and the moss
+//                   mat, thickest along the crack's melt
+//   the moraine     purple saxifrage (Saxifraga oppositifolia) and moss
+//                   campion (Silene acaulis) in cushions, polar willow
+//                   (Salix polaris) an inch high, mountain avens (Dryas)
+//                   in mats, the yellow poppy (Papaver) on the gravel
+//   the rock        orange lichen (Xanthoria) on every stone the birds sit
+//                   on, and snow in every hollow the wind cannot reach
+//   over the top    the ice
+//
 // THE MANGROVE COAST — a low warm shore, and its ladder is shorter because
 // the land is: nothing stands twenty metres over this water.
 //
@@ -66,6 +85,8 @@
 
 import type { BiomeId, Surface } from "@engine";
 
+import { ARCTIC_FLORA } from "./flora-defs-arctic.ts";
+
 /** The tree line, m above sea level: how high anything with a trunk gets
  * up a hill before the rock stands bare, which is what makes a rugged
  * headland (R21) read as rock rather than as a wooded ridge. Stated here
@@ -76,10 +97,11 @@ export const TREE_LINE = 20;
 
 export type Band = { readonly min: number; readonly max: number };
 
-/** How a species is BUILT (`flora-shapes.ts`). Nine shapes carry two
+/** How a species is BUILT (`flora-shapes.ts`). Nine shapes carry three
  * rosters: what separates a birch from a rowan is its size, its bark and
- * its green, not another builder — and what separates a cabbage palm from
- * a coconut is the count and reach of its fronds. */
+ * its green, not another builder — what separates a cabbage palm from a
+ * coconut is the count and reach of its fronds — and what separates a
+ * cobble from a stranded floe is its size and its white. */
 export type FloraForm =
   /** A bare trunk with a broad, flat, high crown: the Scots pine. */
   | "pine"
@@ -200,7 +222,7 @@ export function floraOf(biome: BiomeId): readonly FloraSpec[] {
 }
 
 /**
- * Both coasts' rosters, from the water up, the taiga's first. ONE list
+ * Every coast's roster, from the water up, the taiga's first. ONE list
  * rather than one per coast because everything that indexes a stand — the
  * placer's spots, the wiring's meshes, the perches the birds read — indexes
  * this list, and a row's place in it is its identity.
@@ -809,4 +831,5 @@ export const FLORA: readonly FloraSpec[] = [
       patch: { scale: 34, over: 0.4 },
     },
   },
+  ...ARCTIC_FLORA,
 ];

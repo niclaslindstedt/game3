@@ -92,7 +92,7 @@
 //   R13 THE DAY AND THE WATER. The run STARTS in daylight: the level is
 //       dealt a SEASON, and its hour is SOLAR time drawn from the window in
 //       which the sun stands at least `day.minSun` over the horizon at the
-//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove)
+//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove, 78°N arctic)
 //       in that season, which decides where the sun stands at it and so
 //       what sky the run is under. So a seed can be a sunrise on the water,
 //       a noon, or a sun going down into the sea — and the clock runs on at

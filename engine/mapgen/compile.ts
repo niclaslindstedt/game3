@@ -27,6 +27,7 @@ import type { GeneratorVersion } from "./versions.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { River } from "./river.ts";
 import { layFlow } from "./flow.ts";
+import { layIce } from "./sea-ice.ts";
 import type {
   Bounds,
   Level,
@@ -118,7 +119,11 @@ export function compileLevel(plan: LevelPlan): Level {
     // share already knows whose water a cell is nearest and a polyline
     // walk per sample is what this classifier is called too often for.
     const inland = -sampleField(offshore, x, z);
-    if (inland <= R.surface.bank.reach && sampleField(bank, x, z) >= R.surface.bank.share) {
+    if (
+      biome.river.banks &&
+      inland <= R.surface.bank.reach &&
+      sampleField(bank, x, z) >= R.surface.bank.share
+    ) {
       return "bank";
     }
     const rugged = geology.ruggedAt(x, z);
@@ -182,6 +187,9 @@ export function compileLevel(plan: LevelPlan): Level {
     solids: plan.solids.map((s) => ({ ...s })),
     river: plan.river.points.map((p) => ({ x: p.x, z: p.z })),
     flow: layFlow(plan.river, ground),
+    // R37 — the ice field, on a coast that freezes: laid off the finished
+    // line, from nothing the stream draws, and null everywhere else.
+    ice: biome.freezes ? layIce(plan.course.path, ground) : null,
     fauna: plan.fauna.map((f) => ({ ...f })),
     course: {
       gates: plan.course.gates.map((g) => (g.ramp ? { ...g, ramp: { ...g.ramp } } : { ...g })),

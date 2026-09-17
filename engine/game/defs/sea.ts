@@ -352,6 +352,14 @@ export const SEA = {
    * water mesh calls that per vertex per frame, so three of them is ~0.4 ms
    * of a 10 ms frame, and a phase field each is ~20 ms of `createSea`. It
    * is the dearest thing in this file per component and it buys the most. */
+  /** R37 — THE SEA UNDER THE ICE: what is left of each band when the level
+   * is a sheet with a channel through it (`createSea`, off `frozen`). The
+   * wind sea in a lead fifty metres wide is the chop that width of water
+   * can grow and no more — a tenth of the open coast's, so the water lies
+   * under the sheet's freeboard and the ice never has a wave through it —
+   * and the groundswell is gone: a swell loses most of its height in the
+   * first few kilometres of pack, and this level is inside it. */
+  ice: { wind: 0.12, swell: 0 },
   swell: {
     /** HOW BIG IT IS IS NOT HERE. The significant height a level's swell
      * stands at is the LEVEL's own (R36, `Level.swell`): the generator

@@ -39,7 +39,6 @@ import * as THREE from "three";
 import { fieldGradient, hash2, sampleField, type Level, type Surface } from "@engine";
 
 import { clamp } from "../lib/util.ts";
-import { TREE_LINE } from "./flora-defs.ts";
 import { shorePaintOf, type ShorePaint } from "./shore-paint.ts";
 import { seaHaze, seaTones, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 
@@ -142,14 +141,16 @@ function paint(
     out.lerp(p.wet, clamp(1 - h / 0.9, 0, 0.8));
     // The forest floor once the shore is behind, and only up to the tree
     // line: a boulder field stays what it is, and a hill stands bare over
-    // the wood. Where the wood starts is the coast's own (`floorFrom`,
-    // `floorAbove`): a mangrove stands at the waterline.
+    // the wood. Where the wood starts and where it stops are the coast's
+    // own (`floorFrom`, `floorAbove`, `floorTo`): a mangrove stands at the
+    // waterline, and an arctic moraine's tundra stops where the ice wall
+    // starts.
     if (kind === "bedrock") {
       const inland = -offshore;
       const [above, over] = p.row.floorAbove;
       const wooded =
         clamp((inland - p.row.floorFrom) / 40, 0, 0.75) * clamp((h - above) / over, 0, 1);
-      out.lerp(p.floor, wooded * clamp(1 - (h - TREE_LINE) / 8, 0, 1));
+      out.lerp(p.floor, wooded * clamp(1 - (h - p.row.floorTo) / 8, 0, 1));
     }
   }
   // A little speckle so a flat slab is not one flat colour, and the

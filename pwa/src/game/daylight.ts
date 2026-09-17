@@ -25,7 +25,7 @@
 // reads it to name the light, and the tests read all of it without
 // standing up a renderer.
 
-import { DECLINATION, sunAt, sunHourAt, type Level, type SunPlace } from "@engine";
+import { declinationOf, sunAt, sunHourAt, type BiomeId, type Level, type SunPlace } from "@engine";
 
 export { SOUTH, sunAt, hourOfElevation, type SunPlace } from "@engine";
 
@@ -97,19 +97,27 @@ export function litAt(altitude: number, elevation: number): number {
 }
 
 /** Where the sun stands at an hour on a coast in a season, for callers
- * that already have the level's own latitude. */
-export function sunOver(hour: number, latitude: number, season: Level["season"]): SunPlace {
-  return sunAt(hour, latitude, DECLINATION[season]);
+ * that already have the level's own latitude. WHEN in the year the season
+ * falls is the coast's own (`Biome.declination`), which is why the coast is
+ * named beside the latitude: a polar coast dates its winter to the sun's
+ * return over the ice rather than to a November it has no daylight in. */
+export function sunOver(
+  hour: number,
+  latitude: number,
+  season: Level["season"],
+  biome: BiomeId = "taiga",
+): SunPlace {
+  return sunAt(hour, latitude, declinationOf(biome, season));
 }
 
 /** Where the sun stands NOW — at run time `t` on this level, its clock run
  * on from the hour it was dealt. */
 export function sunNow(
-  level: Pick<Level, "hour" | "season">,
+  level: Pick<Level, "hour" | "season" | "biome">,
   latitude: number,
   t: number,
 ): SunPlace {
-  return sunOver(sunHourAt(level, t), latitude, level.season);
+  return sunOver(sunHourAt(level, t), latitude, level.season, level.biome);
 }
 
 /** "16:00" — and "16:30" for a half, since a level's hour is a real number

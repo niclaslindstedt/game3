@@ -31,7 +31,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the circuit stands off (taiga, mangrove)",
+      help: "which coast the circuit stands off (taiga, mangrove, arctic)",
     },
     pace: { kind: "number", default: 1, help: "R32 speed class; 1 is STOCK" },
     ramp: { kind: "number", default: 1, help: "R33 ramp-width multiple; 1 is STOCK" },
@@ -39,7 +39,7 @@ const args = parseArgs(
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the scoring report as JSON" },
   },
-  "usage: npm run course -- --seed n [--biome taiga|mangrove] [--pace k] [--ramp k] [--size px] [--out name] [--json]",
+  "usage: npm run course -- --seed n [--biome taiga|mangrove|arctic] [--pace k] [--ramp k] [--size px] [--out name] [--json]",
 );
 if (!isBiomeId(args.biome)) {
   console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);

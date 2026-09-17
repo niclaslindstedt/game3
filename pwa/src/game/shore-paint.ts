@@ -13,6 +13,7 @@
 import type { BiomeId } from "@engine";
 
 import { PALETTE } from "../identity.ts";
+import { TREE_LINE } from "./flora-defs.ts";
 
 export type ShorePaint = {
   /** The smoothed slab: what the classifier calls bedrock. */
@@ -42,10 +43,15 @@ export type ShorePaint = {
   /** The ground under the wood, and where the wood starts: metres inland
    * of the waterline, and the height band over sea level it fades in over.
    * A northern shore keeps its slabs bare for twenty metres before the
-   * pines; a mangrove stands with its feet in the water. */
+   * pines; a mangrove stands with its feet in the water. And where it
+   * STOPS, m over sea level: the tree line on a wooded coast, so the hill
+   * stands bare over the wood — and the top of the moraine on a coast
+   * whose "bedrock" past that height is a wall of ice with nothing
+   * growing on it. */
   readonly floor: string;
   readonly floorFrom: number;
   readonly floorAbove: readonly [number, number];
+  readonly floorTo: number;
   /** The stone the standing rocks are carved in — the wet band at the
    * water, the face above it, the lit crown — for the sculpted kinds, and
    * the two tones the instanced kinds take: the reef awash and the erratic
@@ -79,6 +85,7 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     floor: PALETTE.pineDark,
     floorFrom: 22,
     floorAbove: [1.2, 3],
+    floorTo: TREE_LINE,
     stone: null,
     // A reef is a dark shape UNDER the water, and it has to stay a shape:
     // the sea bed's own olive taken a step down rather than the near-black
@@ -117,12 +124,63 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     floor: "#4a4633",
     floorFrom: 3,
     floorAbove: [0.25, 1.2],
+    floorTo: TREE_LINE,
     // Limestone: pale, bleached at the crown, dark and green where the sea
     // keeps it wet.
     stone: { wet: 0x5a6152, body: 0xb3ab94, lit: 0xd9d2bb },
     // A coral head or a sandbar awash — pale under the water, not dark.
     reef: 0x9aa088,
     erratic: 0xb3ab94,
+  },
+  arctic: {
+    // THE "BEDROCK" IS ICE. The classifier calls the glacier's front
+    // bedrock — a face steeper than anything else on any coast — and the
+    // wall is painted the blue-white of old glacier ice, lightening to
+    // snow at its lip (`terrain.ts` lightens bedrock as it climbs, which
+    // is exactly what a snow-covered glacier surface does). The "rock" is
+    // the moraine: the dark wet till and the boulders the ice dropped,
+    // nearly black against the wall.
+    bedrock: "#d6e6f0",
+    boulder: "#4a4c4a",
+    // The "sand" is the moraine's GRAVEL: grey, coarse, and darker wet.
+    // No white sand and no ochre anywhere on this coast — a warm hex here
+    // is a beach, and this is not a beach.
+    sand: "#8c8a86",
+    sandWet: "#5c5d5b",
+    sandBed: "#767a78",
+    // The bottom off a glacier is cobble and silt, dark blue-grey.
+    bed: "#2a3a42",
+    bedReach: 30,
+    // The wet band on the wall: the ice at the waterline is the BLUEST
+    // thing on the coast, because it is the oldest and the densest and
+    // the sea keeps it polished.
+    wet: "#8ab6cc",
+    // The crack's walls are ice too, and its "bank" is the ice again —
+    // the classifier's bank is soil and grass on a coast that has soil,
+    // and this one has none. The last two metres over the water are the
+    // deep blue of the wall's foot.
+    bank: "#c8dde9",
+    bankStone: "#8ab6cc",
+    bankStoneUp: 2,
+    // THE TUNDRA: the ground under nothing, because nothing here has a
+    // trunk. Brown-green moss and lichen over the till, and it takes the
+    // low ground only — every metre of ground over `floorTo` is the
+    // glacier's own surface, and a glacier is ice to its top.
+    floor: "#6e6a56",
+    floorFrom: 6,
+    floorAbove: [0.4, 2],
+    floorTo: 6,
+    // THE STANDING ROCKS ARE BERGS. A skerry off this coast is a berg
+    // grounded in the shallows and a stack the tallest berg on the level:
+    // the same carving as the taiga's granite, in ice — the deep blue
+    // where the sea has it, white above, and lit nearly to paper at the
+    // crown.
+    stone: { wet: 0x7fb0c8, body: 0xdbe9f1, lit: 0xf6fafc },
+    // A growler awash: pale under the water, the one pale reef in the game.
+    reef: 0xa8c8d6,
+    // …and the erratics are the real thing, dark moraine blocks on the
+    // gravel — the one kind of rock here that is actually rock.
+    erratic: 0x5a5854,
   },
 };
 

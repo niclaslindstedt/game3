@@ -120,6 +120,7 @@ import {
   seaExposure,
   type Shelter,
 } from "./fetch.ts";
+import { frozen } from "./ice.ts";
 import { oceanDepth, oceanOffset, oceanOut, STORM_CEILING, stormRamp } from "./ocean.ts";
 import { type Wash, washAt, type WashSample } from "./wash.ts";
 import { layBand } from "./wave-band.ts";
@@ -307,12 +308,15 @@ export function createSea(
   // place the difference is applied — a quoted override is the sea the
   // run asked for and takes neither.
   const coast = biomeOf(level.biome).sea;
+  // R37 — and on a run ridden down a channel through the ice, what a lead
+  // can grow of each: the wind bands a fraction, the swell nothing.
+  const sheet = frozen(level) ? S.ice : { wind: 1, swell: 1 };
 
   // ── The ocean band ────────────────────────────────────────────────────
   const fetchRef = effectiveFetch(shelter.reachRef);
   const hsRef = override
     ? Math.max(0, override.hs)
-    : fetchHeight(u, fetchRef) * S.heightScale * coast.wind;
+    : fetchHeight(u, fetchRef) * S.heightScale * coast.wind * sheet.wind;
   // A quoted sea takes its period from `steepness`; a wind sea takes the
   // law's and scales it. Either way this is the WAVELENGTH dial, since
   // L₀ = g·Tp²/2π.
@@ -339,7 +343,7 @@ export function createSea(
   // ── The local band ────────────────────────────────────────────────────
   // Quoted once for the level, at the MEAN wind over `localFetch` — the
   // same reference `shelter.chop` is a share of, so the two cannot drift.
-  const localHs = fetchHeight(u, S.localFetch) * S.heightScale * coast.wind;
+  const localHs = fetchHeight(u, S.localFetch) * S.heightScale * coast.wind * sheet.wind;
   const localTp = fetchPeriod(u, S.localFetch) * S.periodScale;
   const local = layBand(
     rng,
@@ -409,7 +413,7 @@ export function createSea(
   const quoted = W.steepness * (1 + W.steepVary * (2 * rng.next() - 1));
   const swellSteep = Math.max(quoted, swellDealt / W.maxLength);
   const swellTp = Math.sqrt((TAU * swellDealt) / (G * swellSteep));
-  const swellHs = swellDealt * coast.swell;
+  const swellHs = swellDealt * coast.swell * sheet.swell;
   const swellTravel = travel + W.off * (2 * rng.next() - 1);
   const swell =
     swellHs > 0

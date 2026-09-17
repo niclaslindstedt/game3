@@ -18,6 +18,7 @@ export {
   clampSwell,
   dealSwell,
   GATE_CORNER,
+  ICE,
   RAMP_DIAL,
   SWELL_DIAL,
   TRICK_SHARE,
@@ -25,7 +26,15 @@ export {
   trickStride,
   type PacedRules,
 } from "./pace.ts";
-export { BIOMES, BIOME_IDS, biomeOf, isBiomeId, type Biome } from "./biomes.ts";
+export {
+  BIOMES,
+  BIOME_IDS,
+  biomeOf,
+  declinationOf,
+  isBiomeId,
+  type Biome,
+  type RiverShape,
+} from "./biomes.ts";
 export { layFauna, podClearance, walkPod, type PodLoop } from "./fauna.ts";
 export { WEATHER_IDS, hasDeck, isWet, pickWeather, skyCover } from "./weather.ts";
 export { TIMES_OF_DAY, dealtTimeOfDay, hourOfDay, type TimeOfDay } from "./daytime.ts";

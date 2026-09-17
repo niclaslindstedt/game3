@@ -140,6 +140,49 @@ export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
   // BLACK ABOVE, WHITE BELOW, and the water only ever sees the white: a
   // flock of them overhead is a field of white crosses.
   sootytern: { back: 0x1b1d20, belly: 0xf4f5f4, tip: 0x141618, head: 0x1b1d20, bill: 0x141618 },
+  // ── The arctic coast ──────────────────────────────────────────────────
+  // A pale grey mantle and NO black in the tips: the wingtips are the
+  // mantle's own pale grey, which is what tells a glaucous gull from every
+  // other big gull at any range.
+  glaucous: { back: 0xb4bcc2, belly: 0xf6f7f8, tip: 0xc8ced2, head: 0xf6f7f8, bill: 0xe0b23a },
+  // White all over, tips included — the whitest thing in the roster — with
+  // a dark eye, a grey-yellow bill and black legs.
+  ivorygull: { back: 0xf8f9fa, belly: 0xfafbfc, tip: 0xf0f2f4, head: 0xf8f9fa, bill: 0xb8b090 },
+  // The auks: black above, white below, and the water sees the white.
+  littleauk: { back: 0x1a1c1e, belly: 0xf2f3f2, tip: 0x141618, head: 0x1a1c1e, bill: 0x1a1c1e },
+  guillemot: { back: 0x1c1e22, belly: 0xf4f5f4, tip: 0x141618, head: 0x1c1e22, bill: 0x1a1a1a },
+  // …and the puffin with its striped bill, orange from the water.
+  puffin: { back: 0x1c1e22, belly: 0xf4f5f4, tip: 0x141618, head: 0x2a2c30, bill: 0xe07a3a },
+  // Black, with the white patch on the wing — the one white on it — and
+  // red feet nobody sees from the water.
+  blackguillemot: {
+    back: 0x1a1a1c,
+    belly: 0x2a2a2c,
+    tip: 0xe8e8e8,
+    head: 0x1a1a1c,
+    bill: 0x1a1a1a,
+  },
+  // The drake: white and black like the common eider, with the orange
+  // shield over the bill that names it.
+  kingeider: { back: 0xe6e8e4, belly: 0x141618, tip: 0x141618, head: 0xb8c8d4, bill: 0xe08a3a },
+  // The drake in summer: dark brown above, white below and on the flank,
+  // a white face patch.
+  longtail: { back: 0x4a3e34, belly: 0xf0f0ea, tip: 0x2a241e, head: 0x4a3e34, bill: 0x2a2a2a },
+  // A small dark goose: black head and neck, dark grey-brown mantle, the
+  // white under the tail the one bright thing on it.
+  brent: { back: 0x4a4a46, belly: 0x8a8a84, tip: 0x2a2a28, head: 0x1c1c1c, bill: 0x1c1c1c },
+  // WHITE WITH BLACK WINGTIPS, the pink bill: from below a snow goose in a
+  // vee is a white cross with inked tips, the gannet's mark on a goose.
+  snowgoose: { back: 0xf4f5f4, belly: 0xf6f7f6, tip: 0x1a1c1e, head: 0xf4f5f4, bill: 0xe89a8a },
+  // Dark brown all over, with the pale flash at the base of the primaries
+  // that shows on the underwing.
+  skua: { back: 0x3e3630, belly: 0x5a5048, tip: 0x2a241e, head: 0x3e3630, bill: 0x1f1c18 },
+  // Grey above, pale and barred below, with the dark moustache; the pale
+  // form of the polar falcon, so it reads against the wall.
+  gyrfalcon: { back: 0x8a9298, belly: 0xe8eaea, tip: 0x5a6268, head: 0xb8bec2, bill: 0x6a6a5a },
+  // Black to the tips, with the glossed mantle a shade lighter than the
+  // wing.
+  raven: { back: 0x1e2022, belly: 0x141618, tip: 0x0e1012, head: 0x1a1c1e, bill: 0x141618 },
 };
 
 /** How far back the ARM sweeps at the shoulder and the HAND at the wrist

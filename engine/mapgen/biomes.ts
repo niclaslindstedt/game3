@@ -21,7 +21,7 @@
 // on a map.
 //
 // Seven ids are reserved in `types.ts` so a campaign location never changes
-// its name; TWO rows are built. The taiga's is the coast every rule in
+// its name; THREE rows are built. The taiga's is the coast every rule in
 // `rules.ts` was written against — a cold northern skerry coast: low,
 // glacially planed bedrock slabs sliding into brackish water, boulder
 // fields the ice left behind, gravel and sand collecting in the bays,
@@ -29,12 +29,17 @@
 // the islands before it ever reaches the shore. The mangrove's is its
 // opposite in nearly every row: a flat, warm, salt coast of white sand and
 // mangrove, nothing standing higher than a dune, no rock to speak of, and
-// a clear turquoise sea with a long lazy groundswell in it. Asking for an
+// a clear turquoise sea with a long lazy groundswell in it. The arctic's is
+// the third kind of shore there is: a WALL OF ICE — a glacier's front
+// standing forty metres out of the sea, with moraine and gravel in the
+// bays between the fronts, bergs grounded off it where the taiga has
+// skerries, a crack in the ice where the taiga has a river, and water at
+// the freezing point that is ice for half the year (R37). Asking for an
 // unbuilt biome throws, by design: a level on a coast nobody has drawn is
 // not a level.
 
 import type { FaunaId } from "../game/defs/fauna.ts";
-import type { Season } from "../lib/solar.ts";
+import { DECLINATION, type Season } from "../lib/solar.ts";
 import type { Band } from "./rules.ts";
 import type { BiomeId, Weather } from "./types.ts";
 
@@ -65,6 +70,12 @@ export type RiverShape = {
    * mouth. A northern coast's rivers are torrents and a flat warm coast's
    * are lazy, and with the width above this is the whole of the current. */
   readonly discharge: number;
+  /** Whether the river has BANKS of its own (R16, R26): soil and grass
+   * down to the water, whatever the coast either side of the mouth is
+   * made of. False on a coast whose river is a crack in ice: its sides are
+   * the coast's own material, the classifier never calls them bank, and
+   * the analysis does not ask for one. */
+  readonly banks: boolean;
   /** THE BARS: low islands standing in the mouth's own reach — a delta.
    * `count` of them, each `r` metres across (mean plan radius, warped like
    * any island), `reach` metres up the river from the mouth in walked
@@ -91,19 +102,33 @@ export type Biome = {
    * is a fact about the coast rather than about the run, which is why it
    * sits in the biome's row and not in the rule book. */
   readonly latitude: number;
+  /** WHEN IN THE YEAR EACH SEASON IS, on this coast, as the sun's
+   * declination on the season's middle day, degrees (R13). The seasons
+   * are meteorological and so are dated to a PLACE (`DECLINATION` is the
+   * taiga's dating, and the mangrove keeps it because a warm coast's year
+   * has no reason to be dated otherwise), but a coast whose sea is ice
+   * for half the year has a different year: its winter water is the weeks
+   * the sun is back over the ice, not the weeks it is under the horizon.
+   * The generator refuses a season the sun never rises in, so a row here
+   * is what lets a polar coast be ridden in four seasons at all. */
+  readonly declination: Record<Season, number>;
   /** Multiplier on `LEVEL_RULES.land.plateau` — how high this coast's land
    * stands against the rule book's band (1 is the taiga's). Held under
    * `land.maxHeight` whatever it is. */
   readonly relief: number;
   /** HOW STEEPLY THE LAND COMES DOWN TO THE WATER: the share of
    * `LEVEL_RULES.land.reach` over which the shore climbs to its hill
-   * (R2). 1 is the taiga's low rise over the whole reach; under it the same
-   * hill is met sooner — a coast of steep banks and headlands falling
-   * straight into the sea — and the ground is flat from there. Never over
-   * 1: the offshore field stops measuring at `land.measured`, and R2's
-   * check reads the profile against the full reach. With `relief` this is
-   * the landscape: low and gentle, low and steep, high and gentle, high and
-   * steep are four different coasts. */
+   * (R2) on the most RUGGED stretch of the coast. 1 is the taiga's low rise
+   * over the whole reach; under it the same hill is met sooner — a coast of
+   * steep banks and headlands falling straight into the sea — and the
+   * ground is flat from there. The soft stretches (R21) climb over the
+   * whole reach whatever this says: the character is what separates a
+   * wall from the bay beside it, and a coast that fell into the sea as a
+   * wall everywhere would be one material along its whole waterline. Never
+   * over 1: the offshore field stops measuring at `land.measured`, and
+   * R2's check reads the profile against the full reach. With `relief`
+   * this is the landscape: low and gentle, low and steep, high and gentle,
+   * high and steep are four different coasts. */
   readonly climb: number;
   /** What this coast's RIVER is like (R26, R27). */
   readonly river: RiverShape;
@@ -149,6 +174,10 @@ export type Biome = {
    * the summer haze, a warm shore the other way about — so the chart is
    * the biome's rather than the rule book's. */
   readonly weathers: readonly Weather[];
+  /** WHETHER THIS COAST'S SEA FREEZES (R37): in its winter the level is
+   * ridden down an icebreaker's channel through a sheet of ice. A coast
+   * whose winter water stays over the freezing point never does. */
+  readonly freezes: boolean;
   /** What SWIMS on this coast (R20) — ids from `engine/game/defs/fauna.ts`.
    * How often each is met is the catalog's `perKm`, not the biome's: a
    * coast says which animals are possible, the animal says how rare it is.
@@ -157,7 +186,7 @@ export type Biome = {
 };
 
 /** Every biome that is BUILT, in the order they are offered. */
-export const BIOME_IDS: readonly BiomeId[] = ["taiga", "mangrove"];
+export const BIOME_IDS: readonly BiomeId[] = ["taiga", "mangrove", "arctic"];
 
 export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
   taiga: {
@@ -186,6 +215,7 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // midnight — and far enough north that the December sun barely clears
     // the water at noon.
     latitude: 62,
+    declination: DECLINATION,
     relief: 1,
     climb: 1,
     // A skerry coast's river is a ROCK CHANNEL: it leaves through the one
@@ -195,7 +225,7 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // coasts. No delta: there is no sediment to build one from, and the
     // mouth is a sound, not a fan. The rule book's own numbers, which is
     // what the ones mean.
-    river: { mouth: 1, head: 1, taper: 1, bend: 1, discharge: 1, bars: null },
+    river: { mouth: 1, head: 1, taper: 1, bend: 1, discharge: 1, banks: true, bars: null },
     rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },
     boulderField: 1,
     beaches: true,
@@ -213,6 +243,9 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // hanging the draw on the wind is that both are on the same chart. No
     // haze: that is warm water's sky.
     weathers: ["clear", "high", "overcast", "rain", "squall"],
+    // A brackish northern sea does freeze — but not in the weeks its winter
+    // is dated to (`DECLINATION`), which are the last open water before it.
+    freezes: false,
     // R20 — a cold brackish sea's own, listed the way it is met: the
     // shore's fish and the sea trout along it, the grey seal off every
     // skerry, the porpoise in the sounds — and then the open water past
@@ -261,6 +294,7 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // year round, and every night is black — a dusk of twenty minutes and
     // then the stars. The opposite of the taiga's light in every rung.
     latitude: 27,
+    declination: DECLINATION,
     // Nothing stands higher than a dune. A third of the taiga's plateau
     // puts the tallest ground on the coast a few metres over the water.
     relief: 0.3,
@@ -283,6 +317,7 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
       taper: 0.65,
       bend: 1.5,
       discharge: 0.35,
+      banks: true,
       bars: {
         count: { min: 2, max: 4 },
         r: { min: 7, max: 16 },
@@ -323,6 +358,7 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // front's overcast in the middle, and at the top the rain and the
     // black afternoon storm that is this coast's own squall.
     weathers: ["clear", "haze", "high", "overcast", "rain", "squall"],
+    freezes: false,
     // R20 — a warm shelf's, listed the way it is met. Over the flats and
     // along the mangrove edge: the mullet that leap, the snook and the
     // redfish in the roots, the ray on the sand, the manatee and the
@@ -351,6 +387,145 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
       "brydes",
     ],
   },
+  arctic: {
+    id: "arctic",
+    name: "Arctic coast",
+    // Full salt and at the freezing point: sea water freezes at −1.8 °C,
+    // and the surface off a polar coast sits within a degree or two of it
+    // for most of the year — under the ice it IS that, and in the weeks
+    // of open water a metre of glacier melt lies on top of the sea and
+    // warms to a few degrees over it. 1027 kg/m³ is the polar surface
+    // water's own. The seasons are this coast's own weeks (`declination`
+    // below): the ice going out, high summer, the sea freezing over, and
+    // the sun back over the ice.
+    water: {
+      density: 1027,
+      temperature: {
+        spring: { min: -1.5, max: 1 },
+        summer: { min: 1, max: 6 },
+        autumn: { min: -1, max: 3 },
+        winter: { min: -1.8, max: -0.5 },
+      },
+    },
+    // High Arctic: eleven degrees past the polar circle. The sun is up for
+    // four months without setting and down for nearly four without rising,
+    // stands twelve degrees up at an equinox noon and thirty-five at
+    // midsummer's, and the whole character of the light is that it comes
+    // in LOW — under the cloud, along the water, off the ice.
+    latitude: 78,
+    // THIS COAST DATES ITS OWN YEAR, because the taiga's dating puts its
+    // winter in a November this coast has no sun in. A polar coast's four
+    // riding seasons are: SPRING in late May (+21°), the midnight sun a
+    // month old and the fjord ice going out; SUMMER in late July (+20°),
+    // the open-water weeks, and the fog season; AUTUMN in late September
+    // (−2°), the sun ten degrees up at noon and the first nights dark
+    // enough for stars, the sea about to freeze; and WINTER in early March
+    // (−6.5°), the sun a fortnight back over the horizon and the sea a
+    // sheet of ice two metres thick — which is the season R37 breaks a
+    // channel through. The two summer rows never set (a level in either is
+    // dealt any hour of the clock); the two winter rows give a six-hour
+    // day and a night eighteen degrees under.
+    declination: { spring: 21.0, summer: 20.0, autumn: -2.0, winter: -6.5 },
+    // THE ICE WALL. A tidewater glacier's front stands twelve to sixty
+    // metres above the water (the big outlet fronts run to eighty), and
+    // the rule book's `land.maxHeight` is 45 m, so the wall is written to
+    // reach that ceiling: near twice the taiga's plateau puts a rugged
+    // stretch's hill at the roof on most draws and thirty metres on the
+    // rest. Not more, because the soft stretches (R21) keep their share of
+    // the same plateau and those are the coast's other half — a low
+    // moraine of gravel and boulders between one front and the next, a
+    // few metres over the water — and a relief that put the bays at the
+    // taiga's headland heights made every one of them a slope the
+    // classifier calls bedrock, and the coast one material.
+    relief: 1.8,
+    // …and on a rugged stretch it comes down as a WALL. The whole climb is
+    // met over a sixteenth of the taiga's reach — six metres of plan for
+    // forty of height — which is as near vertical as a heightfield with a
+    // four-metre cell can be asked for, and the classifier calls every
+    // face steeper than `surface.bedrockSlope` bedrock, so the wall is one
+    // material from the waterline to its lip and the glacier's surface
+    // behind it is flat from there. The soft stretches climb over the
+    // whole reach, as every coast's do: those are the moraine slopes
+    // between one front and the next, where the gravel and the boulder
+    // fields are, and where a rider can actually get out of the water.
+    climb: 0.06,
+    // A CRACK IN THE ICE, where the taiga has a river. A rift in an ice
+    // front holds its width for most of its length — the walls are
+    // parallel sheer ice, tens of metres apart, and the crack pinches to
+    // nothing at its head rather than closing on a taper — so the mouth is
+    // the race's own water and the width is held far up the country. It
+    // bends as a rock channel does — R26's sinuosity floor is the same on
+    // every coast, and a crack kinks its way inland as much as a river
+    // winds. What runs down it is a fraction of a torrent, the glacier's
+    // own melt draining out through its front in summer and the tide the
+    // rest of the year. And it has NO BANKS: the crack's sides are the
+    // wall's own ice, so the classifier never calls them bank and R26 does
+    // not ask it to (`banks`). No bars either: ice drops no sediment to
+    // build one from.
+    river: { mouth: 1, head: 1, taper: 0.55, bend: 1, discharge: 0.2, banks: false, bars: null },
+    // WHAT STANDS IN THIS WATER IS ICE. A skerry on this coast is a berg
+    // grounded off the front, a reef a growler awash, a stack the tallest
+    // berg on the level — all of them carved by the same placer in the
+    // coast's own stone (`shore-paint.ts`), which here is blue-white — and
+    // the boulders and the erratics are the real thing: a glacier's front
+    // is where the moraine is, and the blocks it dropped stand on the
+    // gravel below it thicker than on any other coast.
+    rocks: { skerry: 0.55, boulder: 1.3, reef: 0.6, erratic: 1.6, stack: 0.7 },
+    // A moraine is boulder to the water: the widest field of the three.
+    // MEASURED over sixteen seeds with the sand row below: all sixteen
+    // build.
+    boulderField: 1.4,
+    beaches: true,
+    // The "sand" is the moraine's gravel — grey, coarse, and in the bays
+    // between the fronts only. Somewhat under the taiga's: most of this
+    // waterline is ice or the boulders under it, and the gravel is what
+    // breaks the two up for R21's quilt.
+    shore: { sand: 0.85 },
+    // A COAST HEMMED IN BY ICE. The pack stands off it most of the year and
+    // the fjord's own fetch is short, so the wind sea is the taiga's or a
+    // little under; and the groundswell is half gone — the ice edge takes
+    // most of a swell's height out of it in a few kilometres, which is why
+    // the sea inside the pack is the flattest in the game and why the
+    // winter sheet (R37) forms on it at all.
+    sea: { wind: 0.7, swell: 0.5 },
+    // R19 — a polar year on one chart. The haze is this coast's SEA
+    // SMOKE: air thirty degrees colder than the water it crosses, standing
+    // over every lead as a low white fog. Overcast is the ordinary sky
+    // here — a polar coast is under stratus most of the year — and the rain
+    // and the squall are SNOW and a BLIZZARD, a white sky and a white-out,
+    // painted so in `sky-looks.ts`.
+    weathers: ["clear", "haze", "high", "overcast", "rain", "squall"],
+    // R37 — and in its winter the sea is a sheet of ice with a channel
+    // broken through it: the whole reason the winter is dated to March.
+    freezes: true,
+    // R20 — the ice edge's own, listed the way it is met. Under the ice
+    // and along the front: the polar cod in the cracks, the capelin
+    // shoaling on the gravel, the char out of the crack in summer, the
+    // ringed seal at its hole and the bearded seal on the floe, the polar
+    // bear swimming the lead. Out past them: the walrus, the beluga
+    // herd, the harp seals, the killer whale come in for them — and then
+    // the two things nobody sees anywhere else, the narwhal's tusk and the
+    // bowhead's blow, and the sleeper shark that never comes up at all.
+    // The minke and the humpback are the summer's, as they are on the
+    // taiga, and their rows are the taiga's own.
+    fauna: [
+      "polarcod",
+      "capelin",
+      "char",
+      "ringed",
+      "bearded",
+      "polarbear",
+      "harp",
+      "walrus",
+      "beluga",
+      "orca",
+      "minke",
+      "narwhal",
+      "humpback",
+      "sleeper",
+      "bowhead",
+    ],
+  },
 };
 
 /** The row for a biome id; throws for a coast that is not built yet. */
@@ -358,6 +533,14 @@ export function biomeOf(id: BiomeId): Biome {
   const row = BIOMES[id];
   if (!row) throw new Error(`biome "${id}" is not built yet (built: ${BIOME_IDS.join(", ")})`);
   return row;
+}
+
+/** THE SUN'S DECLINATION on this coast in this season, degrees — the one
+ * reading of where in the year a season falls, for everything that puts
+ * the sun somewhere: the generator's daylight window (R13), the analysis
+ * that re-checks it, the rating's sun axis, and the app's sky. */
+export function declinationOf(biome: BiomeId, season: Season): number {
+  return biomeOf(biome).declination[season];
 }
 
 /** Whether a string names a coast that is BUILT — what a URL, a stored

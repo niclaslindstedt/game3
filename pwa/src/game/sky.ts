@@ -523,7 +523,9 @@ export function skyAt(
   season: Season = "summer",
   biome: BiomeId = "taiga",
 ): Preset {
-  const p = misted(seasoned(openSky(sunOver(hour, latitude, season)), seasonsOf(biome)[season]));
+  const p = misted(
+    seasoned(openSky(sunOver(hour, latitude, season, biome)), seasonsOf(biome)[season]),
+  );
   const looks = looksOf(biome);
   return isOpen(weather) ? opened(p, looks[weather], cover) : lidded(p, looks[weather], cover);
 }

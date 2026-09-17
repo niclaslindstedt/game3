@@ -94,11 +94,21 @@ export function shelfFactor(rugged: number, offshore: number): number {
 
 /** R2 — the land's step: height at `inland` m from the waterline, climbing
  * to `hill` over `reach` m and stopping there. The reach is the rule
- * book's times the coast's `climb`: a coast of steep banks meets its hill
- * sooner and is flat from there. */
+ * book's, shortened by the coast's `climb` where the coast is rugged: a
+ * coast of steep banks meets its hill sooner and is flat from there. */
 export function landHeight(inland: number, hill: number, reach: number = R.land.reach): number {
   return hill * smooth(clamp(inland / reach, 0, 1));
 }
+
+/** R2, R21 — the ruggedness a coast's `climb` starts shortening the reach
+ * at. The shortening is applied over the TOP of the character only, so the
+ * soft and the middling stretches of a wall coast keep the rule book's own
+ * slopes — and so keep their beaches and their boulder fields, which the
+ * classifier reads off the slope before anything else (R16). A wall that
+ * began at the middle of the character took every stretch of the arctic
+ * but its softest bays to bedrock, and no seed passed R21's quilt. On a
+ * coast with `climb` at 1 the shortening is nothing wherever it starts. */
+const WALL_FROM = 0.35;
 
 export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
   const plateau = inBand(rng, R.land.plateau) * biome.relief;
@@ -143,10 +153,18 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
   // level's cells are open sea, and this is the bake's inner loop.
   const shelfEnd = R.sea.shelf.reach + R.sea.shelf.blend;
   // R2 — how far inland this coast's land takes to climb, m: the rule's
-  // reach on the taiga, shorter on a coast that comes down steep. Never
-  // longer, because the offshore field stops measuring past `land.measured`
-  // and R2's own check reads the profile against the full reach.
-  const reach = R.land.reach * Math.min(1, biome.climb);
+  // reach on the taiga, and shorter on a coast that comes down steep — on
+  // its RUGGED stretches (R21). A soft stretch climbs over the whole reach
+  // on every coast, because the character is what separates a wall from
+  // the bay beside it: an ice front stands on the headlands and the
+  // moraine between two fronts is a slope, and a coast that came down as
+  // a wall EVERYWHERE would be one material from end to end and fail R21's
+  // quilt on every seed. Never longer than the rule's, because the
+  // offshore field stops measuring past `land.measured` and R2's own check
+  // reads the profile against the full reach.
+  const climb = Math.min(1, biome.climb);
+  const reachAt = (rugged: number): number =>
+    R.land.reach * lerp(1, climb, smooth(clamp((rugged - WALL_FROM) / (1 - WALL_FROM), 0, 1)));
   const groundAt = (x: number, z: number, offshore: number): number => {
     if (offshore >= shelfEnd) {
       const grain = (valueNoise(x, z, R.sea.detail.scale, bedSeed) - 0.5) * 2;
@@ -160,6 +178,7 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
       return bed + grain * R.sea.detail.amplitude * fade;
     }
     const inland = -offshore;
+    const reach = reachAt(rugged);
     const step = landHeight(inland, hillAt(rugged), reach);
     // The slabs fade in from the waterline and out at the reach: the
     // window is what keeps the hilltop flat and the shoreline where the

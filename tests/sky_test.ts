@@ -25,7 +25,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  DECLINATION,
   LEVEL_RULES as R,
   SEASONS,
   SUN_SECONDS_PER_HOUR,
@@ -70,7 +69,7 @@ const DEG = Math.PI / 180;
 const sunAt = (hour: number, season: Season = "summer") => sunOver(hour, LAT, season);
 /** R13 — the hours a level on this coast can START at, per season. */
 const window = (season: Season): { min: number; max: number } => {
-  const w = daylightWindow(LAT, R.day.minSun, DECLINATION[season]);
+  const w = daylightWindow(LAT, R.day.minSun, TAIGA.declination[season]);
   if (!w) throw new Error(`the taiga coast has daylight in ${season}`);
   return w;
 };
@@ -551,7 +550,10 @@ describe("R13 — the named hour a level was dealt (dealtTimeOfDay)", () => {
     // three daylight rungs than it is to midnight, which is a fact about the
     // window's width and so about the coast and the season.
     for (const season of SEASONS) {
-      const window = daylightWindow(LAT, R.day.minSun, DECLINATION[season]) ?? { min: 0, max: 24 };
+      const window = daylightWindow(LAT, R.day.minSun, TAIGA.declination[season]) ?? {
+        min: 0,
+        max: 24,
+      };
       for (let h = window.min; h <= window.max; h += 0.25) {
         expect(dealtTimeOfDay({ ...level, season, hour: h })).not.toBe("night");
       }

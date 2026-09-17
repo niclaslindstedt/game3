@@ -66,7 +66,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic)",
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     from: { kind: "number", help: "override the wind's from-direction, degrees" },
@@ -83,7 +83,7 @@ const args = parseArgs(
     times: { kind: "number", default: 5, help: "moments drawn on the transect, a second apart" },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
   },
-  "usage: npm run waves -- --seed n [--biome taiga|mangrove] [--wind m/s] [--from deg] [--hs m [--tp s]] [--swell m] [--reach m] [--times n] [--out name]",
+  "usage: npm run waves -- --seed n [--biome taiga|mangrove|arctic] [--wind m/s] [--from deg] [--hs m [--tp s]] [--swell m] [--reach m] [--times n] [--out name]",
 );
 
 // ── The sea ─────────────────────────────────────────────────────────────

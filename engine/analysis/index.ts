@@ -28,7 +28,7 @@
 
 import { sampleField } from "../lib/heightfield.ts";
 import { angleDiff } from "../lib/math.ts";
-import { DECLINATION, daylightWindow } from "../lib/solar.ts";
+import { daylightWindow } from "../lib/solar.ts";
 import { faunaById } from "../game/defs/fauna.ts";
 import { createShelter } from "../game/fetch.ts";
 import { gatePassPoint } from "../game/course.ts";
@@ -501,7 +501,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
   // own season. Re-derived from the latitude rather than compared against
   // a band somebody wrote down: the rule is about where the sun stands,
   // and the window is what that works out to on this coast in this season.
-  const daylight = daylightWindow(biome.latitude, R.day.minSun, DECLINATION[level.season]);
+  const daylight = daylightWindow(biome.latitude, R.day.minSun, biome.declination[level.season]);
   if (!daylight) {
     rep.fail("R13", "sun", `the sun never rises on the ${biome.name} in ${level.season}`);
   } else if (!withinBand(level.hour, daylight, A.day.hour)) {

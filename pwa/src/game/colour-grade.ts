@@ -159,6 +159,33 @@ export const COLOUR_GRADES: Readonly<Partial<Record<BiomeId, ColourGrade>>> = {
     // rather than merely lit, and no single cast can do it.
     split: [0.3, 0.24],
   },
+  arctic: {
+    // A POLAR COAST, GRADED THE WAY A FILM SHOT ON THE ICE IS: high-key,
+    // nearly monochrome, the blacks lifted further than the taiga's and
+    // the whole picture pulled toward a steel blue. What makes the arctic
+    // read as the arctic is not blue — it is the ABSENCE of every other
+    // colour, and the light coming from the whole white sky rather than
+    // from the sun. The contrast is the flattest of the three: a white
+    // wall over black water under a grey sky is a picture with no
+    // midtones in it, and grading contrast INTO it makes a night of the
+    // water.
+    contrast: 0.94,
+    // Lifted a touch past the taiga's: ice fog and snow-light in every
+    // shadow. Not far — twice this is the veil the taiga's row warns of.
+    lift: 0.03,
+    // The most drained of the three. The buoys and the craft survive it;
+    // nothing else on this coast had colour to lose.
+    saturation: 0.78,
+    // Steel-blue white over everything.
+    tint: "#d8e4f2",
+    // The blue of the ice at the waterline in the darks — the water, the
+    // wall's foot, the underside of every floe.
+    shade: "#4a6f92",
+    // And the lights kept COLD: a cold cyan-white, because the highlights
+    // here are snow and a snowfield that goes warm reads as sand.
+    glow: "#e6f0f8",
+    split: [0.26, 0.14],
+  },
 };
 
 /** The row for a coast; throws for one nobody has graded, the way

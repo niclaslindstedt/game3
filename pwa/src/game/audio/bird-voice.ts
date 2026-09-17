@@ -84,6 +84,40 @@ export const BIRD_CALLS: Readonly<Record<BirdId, BirdCall | null>> = {
   booby: null,
   noddy: { sound: "tern_cry", airborne: 4, perched: 1.5, ref: 22, reach: 170 },
   sootytern: { sound: "tern_cry", airborne: 9, perched: 3, ref: 28, reach: 240 },
+  // THE ARCTIC COAST. The two gulls are gulls and cry like them, the
+  // glaucous the coast's everyday racket and the ivory gull a thinner,
+  // rarer voice; the geese honk to hold their line; the skua is a gull too
+  // and borrows the cry; the two ducks murmur on the water the way the
+  // taiga's eider does and whirr up off it. The auks are the bird cliff's
+  // noise and say nothing over the water — a raft of little auks is quiet
+  // — and the falcon and the raven keep the coast's silence.
+  glaucous: { sound: "gull_cry", airborne: 4, perched: 1, ref: 32, reach: 280 },
+  ivorygull: { sound: "gull_cry", airborne: 2, perched: 0.5, ref: 24, reach: 200 },
+  littleauk: null,
+  guillemot: null,
+  puffin: null,
+  blackguillemot: null,
+  kingeider: {
+    sound: "eider_coo",
+    airborne: 0.5,
+    perched: 2,
+    ref: 18,
+    reach: 90,
+    flush: "eider_whirr",
+  },
+  longtail: {
+    sound: "eider_coo",
+    airborne: 1,
+    perched: 3,
+    ref: 20,
+    reach: 110,
+    flush: "eider_whirr",
+  },
+  brent: { sound: "goose_honk", airborne: 6, perched: 1, ref: 50, reach: 440 },
+  snowgoose: { sound: "goose_honk", airborne: 8, perched: 1, ref: 60, reach: 520 },
+  skua: { sound: "gull_cry", airborne: 2, perched: 0.5, ref: 26, reach: 200 },
+  gyrfalcon: null,
+  raven: null,
 };
 
 /** The slot the draw is made per, s. A flock cries at most once a slot,

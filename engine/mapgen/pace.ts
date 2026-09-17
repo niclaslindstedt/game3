@@ -118,6 +118,34 @@
 //       builds on it, adding its own storm in energy the way two seas
 //       standing in the same water do, so riding out grows the sea whatever
 //       the coast was dealt.
+//   R37 THE SEA FREEZES, AND AN ICEBREAKER OPENS THE COURSE. A coast that
+//       freezes (`Biome.freezes`) carries an ICE FIELD as well as its
+//       ground — metres inside the sheet at every cell, negative in open
+//       water (`Level.ice`) — and in the coast's WINTER the sea under that
+//       field is a sheet of ice: level ice `ICE.thickness` thick, standing
+//       `ICE.freeboard` over the water, from the shore out past the rim of
+//       the level to the horizon. The one open water on it is the CHANNEL
+//       an icebreaker has cut down the racing line: `ICE.channel` either
+//       side of the course's own path, a turning basin `ICE.basin` across
+//       at the start and the finish, and `ICE.brash` of broken rubble
+//       sloping down from the sheet's edge into it. The field is laid off
+//       the FINISHED course — after the search has accepted the level and
+//       from nothing the seeded stream draws — so a coast that freezes is
+//       the same shore in every season and no seed re-rolls for the sheet
+//       existing; and it is read at RUN time against the season the run is
+//       ridden in, which is what lets a run ask for the winter on a shore
+//       dealt the summer (`createGame`'s `season`) and get the ice with it.
+//       The sheet is GROUND to the hull (`bedAt`): a rider who leaves the
+//       channel rides up the brash onto it and grounds, which is the whole
+//       of what keeps a winter run in the channel. The sea inside a lead
+//       fifty metres wide is chop and nothing more, and no groundswell
+//       survives a few kilometres of pack: `createSea` lays the wind bands
+//       at `TUNING.sea.ice.wind` of their height and the swell at
+//       `TUNING.sea.ice.swell` of its, so the water in the channel lies
+//       under the sheet's freeboard and the ice never has a wave through
+//       it. Nothing else about the level moves: the gates, the rocks and
+//       the bed are the summer's, and the analysis scores the shore the
+//       ice lies on rather than the ice.
 //
 // Split out of `rules.ts` for the §20.5 cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
@@ -283,6 +311,34 @@ export function dealSwell(u: number): number {
   const shape = Math.min(Math.max(u, 0), 1) ** 2;
   return clampSwell(SWELL_DIAL.min * (SWELL_DIAL.max / SWELL_DIAL.min) ** shape);
 }
+
+/** R37 — THE ICE: what a frozen coast's sheet is, and the channel cut
+ * through it. Stated here rather than in `rules.ts` for R33's and R34's
+ * reason: that file is at the §20.5 cap.
+ *
+ * `thickness` is level first-year ice at the end of a polar winter — two
+ * metres — and `freeboard` is what stands over the water: a tenth of the
+ * thickness by the density of ice against sea water, plus the snow on it.
+ * `channel` is the HALF-width of the water an icebreaker leaves: a big
+ * icebreaker is twenty-five metres in the beam and the brash channel behind
+ * it is about twice that, which is also wide enough that R8's decks and the
+ * slalom marks at their standoff stand in open water. `basin` is the round
+ * pool cut at either end of the line, where the ship turned; `brash` is the
+ * band of broken ice at the sheet's edge, sloping down into the channel,
+ * and it is what a hull that leaves the channel rides up. `season` is the
+ * one the sheet stands in — the coast's own winter (`Biome.declination`
+ * dates it to the weeks the sun is back over the ice). */
+export const ICE = {
+  season: "winter",
+  thickness: 2,
+  freeboard: 0.35,
+  channel: 26,
+  basin: 80,
+  brash: 6,
+  /** How far past the channel's edge the field still measures, m; every
+   * cell further under the sheet than this reads exactly this. */
+  measured: 60,
+} as const;
 
 /** R35 — the share of its own top speed a rider is to arrive at every lip
  * at: the PRACTICAL top speed, as opposed to the asymptote the catalog

@@ -38,7 +38,14 @@ import {
   type Flock,
 } from "../pwa/src/game/bird-plan.ts";
 import { planBirds } from "../pwa/src/game/bird-roost.ts";
-import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
+import {
+  ARCTIC_SEEDS,
+  LEVEL_SEEDS,
+  MANGROVE_SEEDS,
+  arcticFor,
+  levelFor,
+  mangroveFor,
+} from "./support/levels.ts";
 
 /** The seeds this file flies. Fewer than the corpus, because a plan plants
  * the shore's tall trees to find the eagle a perch. */
@@ -164,13 +171,17 @@ describe("the roster", () => {
       expect(spec.biomes.length, spec.id).toBeGreaterThan(0);
       for (const id of spec.biomes) expect(BIOME_IDS, `${spec.id} on ${id}`).toContain(id);
     }
-    // Each coast has an everyday bird, a raptor and something that fishes
-    // from the air; the gull is everywhere.
+    // Each coast has an everyday bird (a gull, on every one of them), a
+    // raptor that lives one to a stretch, and something that fishes from
+    // the air.
     for (const biome of BIOME_IDS) {
       const rows = birdsOf(biome);
-      expect(rows.map((r) => r.id)).toContain("gull");
       expect(
-        rows.some((r) => r.home === "tree" && r.flock.max === 1),
+        rows.some((r) => r.name.toLowerCase().includes("gull") && r.perKm >= 1.4),
+        `${biome}: a gull`,
+      ).toBe(true);
+      expect(
+        rows.some((r) => r.flock.max === 1 && r.glide >= 0.5 && r.altitude.min >= 25),
         `${biome}: raptor`,
       ).toBe(true);
       expect(
@@ -178,9 +189,19 @@ describe("the roster", () => {
         `${biome}: a diver`,
       ).toBe(true);
     }
-    // The pink one is the warm coast's alone.
+    // The wooded coasts' raptors perch in a tree; the polar coast has no
+    // tree, and its falcon sits on whatever stands out of the water.
+    expect(birdById("eagle").home).toBe("tree");
+    expect(birdById("osprey").home).toBe("tree");
+    expect(birdById("gyrfalcon").home).toBe("skerry");
+    expect(birdsOf("arctic").every((r) => r.home !== "tree")).toBe(true);
+    // The pink one is the warm coast's alone, the eider the taiga's, and
+    // the auks the ice's.
     expect(birdById("spoonbill").biomes).toEqual(["mangrove"]);
     expect(birdById("eider").biomes).toEqual(["taiga"]);
+    for (const id of ["littleauk", "guillemot", "puffin", "blackguillemot", "ivorygull"] as const) {
+      expect(birdById(id).biomes, id).toEqual(["arctic"]);
+    }
   });
 
   it("flies the big birds slow and the small ones fast", () => {
@@ -283,6 +304,19 @@ describe("the flocks a level carries", () => {
       expect(plan.crossers).toHaveLength(0);
     }
     expect(pelicans).toBeGreaterThan(0);
+    // …and the arctic flies its own roster, with the geese going over in
+    // the spring and the autumn.
+    let arcticFlocks = 0;
+    for (const seed of ARCTIC_SEEDS) {
+      const level = arcticFor(seed);
+      const plan = planBirds(level);
+      for (const flock of plan.flocks) {
+        expect(birdById(flock.species).biomes, flock.species).toContain("arctic");
+      }
+      arcticFlocks += plan.flocks.length;
+      expect(planBirds({ ...level, season: "autumn" }).crossers.length).toBeGreaterThan(0);
+    }
+    expect(arcticFlocks / ARCTIC_SEEDS.length).toBeGreaterThan(3);
   });
 
   it("plans the same birds twice for the same seed", () => {
