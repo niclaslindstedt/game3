@@ -25,7 +25,7 @@ import {
   decodeStream,
   encodeStream,
   ghostMatches,
-  readGhost,
+  readControls,
   readsAsGhost,
   snapInput,
   type GhostRun,
@@ -55,7 +55,7 @@ describe("an axis on the tape's grid", () => {
   it("survives the round trip exactly, so the replay is driven on what the run was", () => {
     const recorder = createGhostRecorder();
     for (let i = 0; i < 600; i++) recorder.record(scripted(i));
-    const tape = readGhost(recorder.seal(STAGE, "skiff", 12.5));
+    const tape = readControls(recorder.sealGhost(STAGE, "skiff", 12.5));
     for (let i = 0; i < 600; i++) {
       // The very object the engine is handed, compared field by field: a
       // hundredth of a degree of lock recorded wrong is a replay that walks
@@ -104,7 +104,7 @@ describe("the stream", () => {
 });
 
 describe("what a tape is allowed back onto the water for", () => {
-  const run = createGhostRecorder().seal(STAGE, "skiff", 12.5);
+  const run = createGhostRecorder().sealGhost(STAGE, "skiff", 12.5);
 
   it("is the same stage, the same shore and the same length", () => {
     expect(ghostMatches({ ...run, steps: 1 }, STAGE)).toBe(true);
@@ -158,7 +158,7 @@ describe("the run, ridden again", () => {
       step(ridden, driven);
       track.push(pose(ridden));
     }
-    const tape = readGhost(recorder.seal(STAGE, "skiff", ridden.progress.time));
+    const tape = readControls(recorder.sealGhost(STAGE, "skiff", ridden.progress.time));
     expect(tape.steps).toBe(STEPS);
 
     const replayed = createGame(options);
@@ -193,7 +193,7 @@ describe("the run, ridden again", () => {
       recorder.record(driven);
       step(ridden, driven);
     }
-    const tape = readGhost(recorder.seal(STAGE, "skiff", 1));
+    const tape = readControls(recorder.sealGhost(STAGE, "skiff", 1));
 
     const ghost = createGame(raced);
     dropField(ghost);
@@ -213,7 +213,7 @@ describe("the run, ridden again", () => {
   });
 
   it("holds still at the end of the tape rather than riding on", () => {
-    const tape = readGhost(createGhostRecorder().seal(STAGE, "skiff", 1));
+    const tape = readControls(createGhostRecorder().sealGhost(STAGE, "skiff", 1));
     expect({ ...tape.at(0) }).toEqual({ ...NEUTRAL_INPUT });
     expect({ ...tape.at(-1) }).toEqual({ ...NEUTRAL_INPUT });
   });

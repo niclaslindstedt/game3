@@ -104,6 +104,9 @@ const CAMERA_LABELS: Record<CameraMode, string> = {
   far: STRINGS.cameraFar,
   heli: STRINGS.cameraHeli,
   drone: STRINGS.cameraDrone,
+  // Off `CAMERA_MODES`, so no row here ever offers it — it is named because
+  // the type is the whole ladder and a replay's bar prints the word.
+  tv: STRINGS.cameraTv,
 };
 
 /** Exported because the PAUSE CARD's strip carries the same row: a camera

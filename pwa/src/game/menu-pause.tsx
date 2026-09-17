@@ -10,6 +10,13 @@
 //   MAIN MENU  out of the run and back to the front door. Nothing is torn
 //              down: the same craft carries on under the bot.
 //
+// ...and a fourth that is only there when there is something to offer: WATCH
+// REPLAY, the run so far put back on the water with nobody riding it
+// (`replay.ts`). It stands in the LEAVING group beside MAIN MENU rather than
+// beside RESUME, and it says what it costs on the row — watching a recording
+// ends the run it is a recording of, and that is not something to discover
+// after the press.
+//
 // THE SETTINGS ARE BEHIND A DOOR, NOT SPREAD ACROSS THE CARD. They were four
 // rows standing between RESUME and MAIN MENU, and four knobs are four things
 // to read past on a card whose entire job is to be left again — the reason
@@ -119,6 +126,7 @@ export function PauseMenu({
   settings,
   onSettings,
   onResume,
+  onReplay,
   onMainMenu,
 }: {
   /** What the card bills the held run as — read off the run itself rather
@@ -129,6 +137,9 @@ export function PauseMenu({
   settings: Settings;
   onSettings: (settings: Settings) => void;
   onResume: () => void;
+  /** Watch the run so far — null on a run that keeps no recording (a free
+   * ride, a staged scene), so the card never grows a row that does nothing. */
+  onReplay: (() => void) | null;
   onMainMenu: () => void;
 }) {
   // Which of the card's two faces is up. Local, and dropped the moment the
@@ -177,6 +188,12 @@ export function PauseMenu({
             </button>
           </div>
           <div class="menu-items">
+            {onReplay && (
+              <button type="button" class="menu-item menu-item-leave" onClick={onReplay}>
+                <span class="menu-item-name">{STRINGS.pauseReplay}</span>
+                <span class="menu-item-note">{STRINGS.pauseReplayNote}</span>
+              </button>
+            )}
             <button type="button" class="menu-item menu-item-leave" onClick={onMainMenu}>
               <span class="menu-item-name">{STRINGS.pauseMainMenu}</span>
             </button>

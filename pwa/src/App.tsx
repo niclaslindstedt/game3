@@ -87,7 +87,7 @@ import {
   type CampaignProgress,
 } from "./game/campaign.ts";
 import { UpdateButton } from "./game/update-button.tsx";
-import { createInputManager, type InputAction } from "./game/input.ts";
+import { createInputManager } from "./game/input.ts";
 import { createBenchmark, createLoader } from "./game/app-load.ts";
 import type { BenchmarkStatus } from "./game/benchmark.ts";
 import { BenchmarkCard } from "./game/menu-bench.tsx";
@@ -96,25 +96,28 @@ import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
 import type { FrameCost, GameRenderer } from "./game/renderer.ts";
-import { fallbackGame, freeRides, gameFor, tryGame } from "./game/new-game.ts";
+import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
 import { loadRecords, saveRecords, type RecordBook } from "./game/records.ts";
+import { snapInput } from "./game/ghost.ts";
 import { createGhostRig } from "./game/ghost-run.ts";
+import { createRunActions } from "./game/run-actions.ts";
+import { createRunSurfaces, type RunSurfaces } from "./game/run-surfaces.ts";
+import { createReplayRun } from "./game/replay-run.ts";
+import { ReplayBar, type ReplayBarProps } from "./game/hud-replay.tsx";
 import { createRunClock } from "./game/run-loop.ts";
 import { createSettler } from "./game/run-settle.ts";
 import type { LoadPhase } from "./game/run-loader.ts";
 import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
-import { captureFrame } from "./game/screenshots.ts";
-import { copyWhenReady, type PendingCopy } from "./lib/share-image.ts";
-import { readHudLayer, type HudLayer } from "./game/shot-hud.ts";
+import { readHudLayer } from "./game/shot-hud.ts";
+import { createShotRequest } from "./game/shot-request.ts";
 import { loadSettings, saveSettings, type Settings } from "./game/settings.ts";
 import { FRAME_RATE_CAP } from "./game/settings-video.ts";
-import { appDraws, canPause, hudOver, playerRides, simulates, type Shell } from "./game/shell.ts";
+import { appDraws, hudOver, playerRides, simulates, soundsLive, type Shell } from "./game/shell.ts";
 import { readParams, settingsFor } from "./game/url-params.ts";
 import { createVideoProbe, promoteVideo } from "./game/video-probe.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
-import { STRINGS } from "./game/strings.ts";
 import { clamp } from "./lib/util.ts";
 
 /** How often the HUD's readouts are refreshed, s. Twelve a second reads
@@ -192,11 +195,22 @@ export function App() {
    * (`game/benchmark.ts`). Non-null IS the `bench` surface: the card is the
    * status and the status is the card. */
   const [bench, setBench] = useState<BenchmarkStatus | null>(null);
+  /** THE BAR OVER A RECORDING (`game/replay.ts`), or null over a run somebody
+   * is riding. Refreshed on the HUD's own tick like every other readout —
+   * how far through and whether the picture is running slow both move every
+   * frame, and a React render per frame is the one thing a replay must not
+   * cost. */
+  const [replayBar, setReplayBar] = useState<ReplayBarProps | null>(null);
+  /** Whether there is a recording worth OFFERING — what puts WATCH REPLAY on
+   * the pause card and on the finish plate, and leaves both without it on a
+   * run that keeps none. */
+  const [canReplay, setCanReplay] = useState(false);
   /** The two flags the loop raises at most once a frame and React re-renders
    * on. Refs beside the state so the loop can ask "have I already said this?"
    * without waiting for a render to answer. */
   const warmRef = useRef(false);
   const awayRef = useRef(false);
+  const canReplayRef = useRef(false);
   /** THE FRAME RATE ROW, applied: the gate every animation frame is asked
    * past before anything is stepped or drawn (`frame-rate.ts`). Built once
    * with the loop and re-capped from the effect below, so a cap moved on the
@@ -214,18 +228,15 @@ export function App() {
   const startRunRef = useRef<(campaign?: CampaignLevel) => void>(() => {});
   /** ...and the same for the presses that move a RUN between surfaces: the
    * minimap and Escape put the pause card up, and the card takes it down
-   * again — back to the water, or out to the front door. The loop owns the
-   * run, so it owns these. */
-  const runRef = useRef<{
-    pause: () => void;
-    resume: () => void;
-    toMenu: () => void;
-    abandonLoad: () => void;
-  }>({
+   * again — back to the water, out to a recording of it, or out to the front
+   * door. What each one MEANS is `run-surfaces.ts`'s; the loop owns the run,
+   * so it owns the closures they are built over. */
+  const runRef = useRef<RunSurfaces>({
     pause: () => {},
     resume: () => {},
     toMenu: () => {},
     abandonLoad: () => {},
+    watch: () => {},
   });
   /** ...and the presses that hand the canvas to the stopwatch and take it
    * back, boxed for the same reason: the loop owns the run, the renderer and
@@ -370,6 +381,12 @@ export function App() {
      * rode would level a hull the scene had thrown nose-down, so the still
      * that came back would be of a landing and not of the dive it names. */
     const inputFor = (): CraftInput => {
+      // A RECORDING IS RIDDEN BY ITS TAPE, and nothing else is asked: not the
+      // script, not the bot, not the thumb on the glass. Above the scenario
+      // for the same reason the scenario is above the bot — whoever owns the
+      // controls owns them from the first step.
+      const taped = replays.input();
+      if (taped) return taped;
       if (scenario) {
         const at = state.t - scriptFrom;
         if (at <= scenario.seconds) return scenario.script(at);
@@ -386,29 +403,16 @@ export function App() {
       live.push({ id: flashId++, text, tone, until: wall + FLASH_LIFE });
     };
 
-    /** The picture asked for and not yet served: the label it will carry, the
-     * HUD as it stood at the press, and the clipboard write already started
-     * for it. Served by the frame loop, in the same task as the render that
-     * filled the buffer. */
-    let wantedShot: { label: string; hud: HudLayer | null; copy: PendingCopy | null } | null = null;
+    /** THE SHUTTER (`shot-request.ts`): a picture asked for at the press and
+     * served frames later, when there is one to serve. */
+    const shots = createShotRequest({
+      canvas: () => canvasRef.current,
+      answers: () => hudOver(shellRef.current),
+      label: () => shotLabel(state),
+      hud: readHudLayer,
+      say,
+    });
 
-    /** THE SHUTTER. Only where there is a run to photograph and a HUD to
-     * answer on — under the front door the frame is the bot's demo behind a
-     * card, and the news column the receipt would go in is not on screen.
-     * The pause card counts: a held frame is a frame, and the card standing
-     * over it is part of what was on the screen. */
-    const takeShot = (): void => {
-      if (!hudOver(shellRef.current)) return;
-      // One at a time. A held key repeats, and a second request landing on
-      // the same frame would replace the first one's label with its own.
-      if (wantedShot) return;
-      // THE CLIPBOARD IS CLAIMED HERE, AT THE PRESS, and settled frames later
-      // when the picture exists: the write wants the press's own user
-      // activation and there is none left by the time the buffer can be read
-      // (`lib/share-image.ts`). Null where the browser has no PNG writer, and
-      // the receipt then says only that the picture was filed.
-      wantedShot = { label: shotLabel(state), hud: readHudLayer(), copy: copyWhenReady() };
-    };
     /** THE GHOST (`ghost-run.ts`): your best run on this water, riding it
      * again beside you — on a tricks run or a time trial, where there is
      * nobody else out there to be measured against. It is armed with every
@@ -419,6 +423,18 @@ export function App() {
       params,
       settings: () => settingsRef.current,
       rides: () => playerRides(shellRef.current) && scenario === null,
+    });
+
+    /** THE RECORDING (`replay-run.ts`): every measured run written down as
+     * the controls that rode it, with the moments worth a camera beside
+     * them — armed with every run the player is handed, stepped with every
+     * step of the engine, and cut where a card asks to watch it back. */
+    const replays = createReplayRun({
+      renderer,
+      params,
+      settings: () => settingsRef.current,
+      adopt: (next) => world.adopt(next),
+      shell: () => shellRef.current,
     });
 
     /** THE RUN IS OVER — the finish line or the buzzer. What a figure does to
@@ -439,15 +455,27 @@ export function App() {
     });
 
     const stepOnce = (): void => {
-      const driven = inputFor();
+      // SNAPPED WHOEVER PRODUCED IT (`ghost.ts`), at the one place the engine
+      // is handed an input: a recorded run's first steps are the BOT's while
+      // the loading card is still up, and `run.ts` throws those away only for
+      // as long as the lights are on — so a load that outlasts the countdown
+      // would put lock on the tape that the tape cannot write down.
+      const driven = snapInput(inputFor());
       step(state, driven);
       // The tape is what the ENGINE was handed, and the ghost's own run walks
       // forward beside it off its own — both before anything is observed, so
       // the bodies on both craft are posed off the step just taken.
       ghost.step(driven);
+      // ...and the recording is written from the run's OWN first step, which
+      // is why the state is handed over with the controls: the tape belongs
+      // to a run, not to a surface, and the loading card's own frames take
+      // steps of it before anybody's hands are on it (`replay.ts`).
+      replays.step(driven, state);
       renderer.observe(state);
-      if (playerRides(shellRef.current)) {
+      if (soundsLive(shellRef.current)) {
         audio.events(state.events, state.rules.tricks);
+      }
+      if (playerRides(shellRef.current)) {
         runRumble.events(state.events);
         // The hull, every STEP: the slam is a spike a couple of steps wide
         // at 120 Hz, so a frame that sampled it would feel a random fifth of
@@ -457,8 +485,16 @@ export function App() {
       for (const e of state.events) {
         const line = flashFor(e, state);
         if (line) live.push({ id: flashId++, ...line, until: wall + FLASH_LIFE });
-        if (e.kind === "finish") settle(e.time);
-        else if (e.kind === "timeUp") settle(e.score);
+        // The figure is remembered whether or not the books take it: the bar
+        // over a recording bills the run it is of, and a run outside the
+        // honesty test still has a clock on it.
+        if (e.kind === "finish") {
+          replays.finished(e.time);
+          settle(e.time);
+        } else if (e.kind === "timeUp") {
+          replays.finished(e.score);
+          settle(e.score);
+        }
       }
     };
 
@@ -475,6 +511,7 @@ export function App() {
       // armed here only where the player is about to ride: the sea behind a
       // card is the bot's, and nobody records a bot.
       ghost.arm(state, ridingRef.current, playerRides(shellRef.current));
+      replays.arm(state, ridingRef.current, playerRides(shellRef.current) && scenario === null);
       live.length = 0;
       setResult(null);
       audio.reset();
@@ -512,6 +549,7 @@ export function App() {
     // so it gets its ghost too — armed here rather than in `stand` above,
     // which ran before there was a surface to ask about.
     ghost.arm(state, null, playerRides(shellRef.current));
+    replays.arm(state, null, playerRides(shellRef.current) && scenario === null);
 
     /* ── STANDING A RUN UP ───────────────────────────────────────────────
        `run-loader.ts` sequences a load; `app-load.ts` owns the steps and the
@@ -559,6 +597,7 @@ export function App() {
           // stood up on the level object beside it rather than on a second
           // build of the same seed.
           ghost.arm(game, campaign ?? null, true);
+          replays.arm(game, campaign ?? null, true);
           if (s.dev.scene) {
             scenario = stageScenario(game, s.dev.scene);
             scriptFrom = game.t;
@@ -599,92 +638,44 @@ export function App() {
     // and the keyboard is one of the two things that moves it.
     const walk = walkCardsOnKeys(nav, () => shellRef.current !== "run");
 
-    /* ── THE PAUSE CARD, AND THE WAY OUT OF A RUN ────────────────────────
-       The card is a SURFACE, so putting it up is a shell change and nothing
-       else: the frame loop reads `simulates()` and stops stepping, the state
-       is left exactly where it stood, and RESUME is one press that lands on
-       the very frame it was left on. Going to the front door instead tears
-       nothing down either — the same craft carries on under the bot, which
-       is what keeps the water moving under the menu. */
-    runRef.current = {
-      pause: () => {
-        if (!canPause(shellRef.current)) return;
-        setShellNow("pause");
-      },
-      resume: () => {
-        if (shellRef.current !== "pause") return;
-        setShellNow("run");
-        // The clock is not what held the run — the loop simply stopped
-        // asking it for steps — so there is no debt to forgive, and `last`
-        // moved with every frame. The next frame is one frame long.
-      },
-      toMenu: () => {
+    /* ── THE WAYS A RUN IS LEFT ──────────────────────────────────────────
+       `run-surfaces.ts` owns all five — the pause card up and down, the run
+       watched back, the front door, and giving up on a load. What only this
+       loop can give them is handed over below. */
+    runRef.current = createRunSurfaces({
+      settings: () => settingsRef.current,
+      shell: () => shellRef.current,
+      setShell: setShellNow,
+      unfreeze: () => {
         frozen = false;
-        clock.resume();
-        setResult(null);
-        // Out of a campaign run the door opens on the ladder, where the box
-        // just ridden shows what it paid; the run itself carries on under
-        // the bot and stops being the campaign's.
-        setMenuPage(ridingRef.current ? { page: "campaign" } : { page: "root" });
+      },
+      resumeClock: () => clock.resume(),
+      onCampaign: () => ridingRef.current !== null,
+      leaveCampaign: () => {
         ridingRef.current = null;
-        // …and the ghost off the water with it: the run carries on under the
-        // bot, and a see-through hull riding an attract sea is nobody's best.
-        ghost.clear();
-        setShellNow("menu");
       },
-      // The way off a load that will not finish. Back to the card that CHOSE
-      // the shore the generator refused rather than to the front door — the
-      // level card on a measured run, the start card's seed row on a free
-      // one — so the player is one press from the next shore along rather
-      // than three.
-      abandonLoad: () => {
-        loader.abandon();
-        setMenuPage({ page: freeRides(settingsRef.current) ? "start" : "levels" });
-        setShellNow("menu");
-      },
-    };
+      setMenuPage,
+      setResult,
+      abandon: () => loader.abandon(),
+      ghost,
+      replays,
+    });
 
-    /** One of the game's own buttons, wherever the press came from. */
-    const act = (action: InputAction): void => {
-      // A BENCHMARK IS NOT A RUN: none of the run's own keys mean what they
-      // usually mean over one, and every one of them is somebody reaching for
-      // the way out.
-      if (shellRef.current === "bench") {
-        benchRef.current.leave();
-        return;
-      }
-      // Escape over a run. Over the CARD it never reaches here at all:
-      // `walkCardsOnKeys` takes it in the capture phase and presses the
-      // surface's own way back — RESUME on the card, and the head's way out
-      // on the options page under it.
-      if (action === "pause") {
-        runRef.current.pause();
-        return;
-      }
-      // The shutter, like the pause card, is reached from the held frame as
-      // well as the moving one — so it is answered before the gate below.
-      if (action === "shot") {
-        takeShot();
-        return;
-      }
-      // THE READOUTS OFF THE WATER, and the key writes the same switch
-      // OPTIONS ▸ HUD and the pause card's own row write — one answer, so a
-      // screen cleared for a wave is still clear next run. Wherever the HUD
-      // is UP rather than only over a moving run: it stands under the pause
-      // card too, and a held frame is exactly where a rider wants the water
-      // uncovered.
-      if (action === "hud") {
-        if (!hudOver(shellRef.current)) return;
-        setSettings((s) => ({ ...s, hud: { ...s.hud, on: !s.hud.on } }));
-        return;
-      }
-      if (shellRef.current !== "run") return;
-      if (action === "restart") {
+    /** One of the game's own buttons, wherever the press came from —
+     * `run-actions.ts` owns what each surface does to one. */
+    const act = createRunActions({
+      shell: () => shellRef.current,
+      camera: renderer.camera,
+      surfaces: runRef.current,
+      leaveBench: () => benchRef.current.leave(),
+      shoot: shots.take,
+      toggleHud: () => setSettings((s) => ({ ...s, hud: { ...s.hud, on: !s.hud.on } })),
+      restart: () => {
         frozen = false;
         stand(settingsRef.current.dev.scene, 0);
         clock.resume();
-      } else if (action === "camera") renderer.camera.cycle();
-    };
+      },
+    });
     input.onAction(act);
 
     /* ── A MENU ROW, PRESSED ──────────────────────────────────────────────
@@ -761,45 +752,37 @@ export function App() {
       // passing, so the wave holds, the spray hangs and the camera stops. A
       // frame's worth of dt handed to the renderer over a state that is not
       // moving is a craft doing 90 km/h on standing water.
+      // THE DIRECTOR, once a frame and before anything is stepped: the camera
+      // is told which moment holds the frame and this loop is told how fast
+      // the picture runs (`replay-run.ts`). 1 on everything that is not a
+      // recording in slow motion.
+      const timeRate = replays.frame();
       const held = !simulates(shellRef.current);
       if (!frozen && !held) {
-        const steps = clock.frame(dtFrame);
+        const steps = clock.frame(dtFrame * timeRate);
         for (let i = 0; i < steps; i++) stepOnce();
+        // The tape has run out: a recording ends at the front door, which is
+        // where the run it was cut from would have left the player anyway.
+        if (replays.over()) runRef.current.toMenu();
       } else {
         // Frozen: the controls are still read, so a banked reset does not
         // fire the moment the picture thaws — and a thumb resting on a zone
         // behind the card does not either.
         input.sample(TUNING.dt);
       }
-      renderer.render(state, held || clock.paused() ? 0 : dtFrame);
-      // THE PICTURE, IF ONE WAS ASKED FOR — lifted here and nowhere else:
-      // the context keeps no back buffer for anyone who asks later, so the
-      // pixels have to come off in the same task as the render that filled
-      // them. Everything after the grab can wait, and does.
-      if (wantedShot) {
-        const wanted = wantedShot;
-        wantedShot = null;
-        const canvasNow = canvasRef.current;
-        if (!canvasNow) {
-          wanted.copy?.ready(null);
-          say(STRINGS.shotFailed, "bad");
-        } else {
-          void captureFrame(canvasNow, wanted.label, wanted.hud).then(async (capture) => {
-            wanted.copy?.ready(capture?.blob ?? null);
-            if (!capture) return say(STRINGS.shotFailed, "bad");
-            // The copy is waited on rather than assumed: a browser can hold
-            // the permission back, and one receipt that tells the truth is
-            // worth more than an instant one that does not.
-            const copied = (await wanted.copy?.done) ?? false;
-            say(copied ? STRINGS.shotCopied : STRINGS.shotKept, "good");
-          });
-        }
-      }
+      // ...and the picture ages at the same rate the engine does, so the
+      // spray hangs and the wake spreads in slow motion with the hull that
+      // threw them rather than racing ahead of it.
+      renderer.render(state, held || clock.paused() ? 0 : dtFrame * timeRate);
+      // THE PICTURE, IF ONE WAS ASKED FOR — served here and nowhere else,
+      // in the same task as the render that filled the buffer
+      // (`shot-request.ts` says why).
+      shots.serve();
       // The beds follow the same frames the engine took: fed whenever the
       // sea moved, hushed whenever it did not — see this file's header.
       if (!frozen && !held && !clock.paused()) {
         audio.setView(renderer.camera.mode());
-        audio.frame(state, dtFrame, shellRef.current === "run" ? 1 : CARD_DUCK);
+        audio.frame(state, dtFrame * timeRate, soundsLive(shellRef.current) ? 1 : CARD_DUCK);
         // …and the sea under it paid out, at most one slap per gap. Only
         // with the player's hands on the craft: there is no ducking a motor,
         // so a card is the difference between a pulse and no pulse rather
@@ -845,6 +828,17 @@ export function App() {
         if (clock.paused() !== awayRef.current) {
           awayRef.current = clock.paused();
           setAway(awayRef.current);
+        }
+        // The bar over a recording, refreshed with every other readout —
+        // never per frame, which is the one cost a replay must not carry.
+        const bar = replays.bar();
+        setReplayBar(bar && { ...bar, onLeave: () => runRef.current.toMenu() });
+        // ...and whether the two cards may offer one at all. Guarded on a ref
+        // so a run that keeps no recording is not a `setState` a second.
+        const offers = replays.offers();
+        if (offers !== canReplayRef.current) {
+          canReplayRef.current = offers;
+          setCanReplay(offers);
         }
       }
     };
@@ -912,6 +906,7 @@ export function App() {
           input={inputRef.current!}
           away={away}
           result={result}
+          onReplay={canReplay ? () => runRef.current.watch() : null}
           fps={settings.hud.fps ? fps : null}
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
@@ -939,6 +934,16 @@ export function App() {
           </div>
         </div>
       )}
+      {/* THE BAR OVER A RECORDING. OUTSIDE the HUD's own switch, for the
+          reason the new-build notice is: a setting worded "the readouts over
+          the water" must not be able to take away the only way out of a
+          replay. Its own layer, so it stands whether or not the instruments
+          under it are drawn. */}
+      {replayBar && (
+        <div class="hud hud-replay-layer">
+          <ReplayBar {...replayBar} />
+        </div>
+      )}
       {/* THE RUN, HELD. Over the HUD and over the frozen frame, wearing the
           front door's own chrome — it is the same game asking the same kind
           of question, and one card look beats two. */}
@@ -949,6 +954,7 @@ export function App() {
           settings={settings}
           onSettings={setSettings}
           onResume={() => runRef.current.resume()}
+          onReplay={canReplay ? () => runRef.current.watch() : null}
           onMainMenu={() => runRef.current.toMenu()}
         />
       )}
