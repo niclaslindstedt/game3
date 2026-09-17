@@ -733,34 +733,50 @@ export const STRINGS = {
   keysRestore: "RESET KEYS",
 
   /* ── THE DEVELOPER PAGE (menu-dev.tsx) ─────────────────────────────── */
-  /** The three groups: which shore and where on it, what the water is doing,
-   * and the instruments over the top. */
-  devGroupRun: "THE RUN",
-  devGroupSea: "THE SEA",
+  /** The one group of rows left on the page: the instruments over the top.
+   * The shore, the scene and the water the run is stood up in are the START
+   * CARD's and the repro link's — see the file's header. */
   devGroupTools: "TOOLS",
-  devSeed: "SEED",
-  devSeedHint: "The same shore the start card picks — one setting, two places to turn it",
-  devWind: "WIND",
-  devWindHint:
-    "Ride in this wind from the level's own quarter, whatever the shore was generated with",
-  devSea: "SEA",
-  devSeaHint: "…or quote the sea by its significant height. Set beside a wind, this one wins",
-  devScene: "SCENE",
-  devSceneHint: "Stand the run in a staged moment instead of at the start line",
   devCost: "FRAME COST",
   devCostHint: "The water's CPU time, the draw calls and the triangles, in the HUD's corner",
   /** The page's own line under the rows — the bargain the whole page is
    * built on, said where a row is not being looked at. */
   devCaption: "Every row here is a parameter the repro link carries",
-  devAuto: "AUTO",
-  devStart: "START",
   devLock: "LOCK THE DEVELOPER MENU",
-  /** A wind, a sea and a seed as the developer page reads them back. */
-  devWindValue: (ms: number): string => `${ms.toFixed(0)} m/s`,
-  devSeaValue: (m: number): string => `${m.toFixed(1)} m`,
   devRepro: "COPY REPRO LINK",
   devReproCopied: "COPIED",
   devReproFailed: "COPY FAILED",
+
+  /* ── THE UNLOCKS PAGE (menu-unlocks.tsx) ───────────────────────────── */
+  /** The row into it, its title, and the one figure it bills itself with. */
+  unlocksTitle: "UNLOCKS",
+  unlocksRowHint: (cleared: number, of: number): string =>
+    `Open or shut the campaign's shores — ${cleared} of ${of} levels cleared`,
+  unlocksLine: (cleared: number, of: number): string =>
+    `${cleared} of ${of} levels cleared · the record book is kept either way`,
+  /** THE RULE, on the page rather than in a tooltip: a phone has no hover,
+   * and a press whose reach is a surprise is a press nobody trusts twice. */
+  unlocksRule:
+    "A shore at a time. UNLOCK wins it and every shore before it; LOCK puts it and every shore " +
+    "after back to never ridden — a campaign is a ladder, and it has no rung hanging in mid-air.",
+  unlocksAll: "UNLOCK EVERYTHING",
+  unlocksAllHint: (spent: boolean): string =>
+    spent
+      ? "Every shore is already won — in the campaign and in the modes it opens"
+      : "Win every level of every shore, which opens them in race, tricks and time trial too",
+  unlocksNone: "LOCK EVERYTHING",
+  unlocksNoneHint: (spent: boolean): string =>
+    spent
+      ? "Nothing has been ridden — the campaign is already back at its first level"
+      : "Back to a board that has never ridden a level; your records are untouched",
+  unlocksShoreLine: (cleared: number, of: number, open: boolean): string =>
+    `${cleared} of ${of} cleared · ${open ? "open" : "shut"}`,
+  unlocksOpen: "UNLOCK",
+  unlocksShut: "LOCK",
+  unlocksOpenHint: (shore: string): string =>
+    `Win every level of ${shore} and every shore before it`,
+  unlocksShutHint: (shore: string): string =>
+    `Put ${shore} and every shore after it back to never ridden`,
 
   /* ── THE BENCHMARK (menu-bench.tsx, benchmark*.ts) ─────────────────── */
   /** The developer page's two rows into it, and what each promises. The

@@ -219,10 +219,16 @@ export type LevelScores = Record<string, number>;
 /** What the player got out of a level, best of every afternoon: the figure
  * in the level's own currency (seconds on a race, points on a tricks run),
  * the hull that set it, the best place against the field, and — on a
- * tricks level — the best medal. */
+ * tricks level — the best medal.
+ *
+ * THE FIGURE AND THE HULL ARE ONE PAIR, and the pair is OPTIONAL: a row
+ * with neither is a level the developer OPENED rather than rode
+ * (`unlockShores`), which has a place and a medal because that is what a
+ * lock reads, and no time of its own because nobody set one. The first
+ * real run down it fills the pair in. Nothing else may write half of it. */
 export type LevelResult = {
-  best: number;
-  craft: CraftId;
+  best?: number;
+  craft?: CraftId;
   place: number;
   medal: Medal | null;
 };
@@ -265,10 +271,16 @@ export function recordRun(
   const place = run.order.indexOf(null) + 1 || run.order.length + 1;
   const medal = level.mode === "tricks" ? medalFor(level, run.value) : null;
   const stood = progress.results[level.id];
+  // The figure and the hull are kept or replaced TOGETHER — a best time
+  // beside the wrong craft is a line the card would read out loud. A level
+  // standing on a developer's unlock has no figure at all, so the first run
+  // down it always sets one.
+  const figure =
+    stood?.best === undefined || betterThan(level, run.value, stood.best)
+      ? { best: run.value, craft: run.craft }
+      : { best: stood.best, craft: stood.craft };
   const result: LevelResult = {
-    best: stood === undefined || betterThan(level, run.value, stood.best) ? run.value : stood.best,
-    craft:
-      stood === undefined || betterThan(level, run.value, stood.best) ? run.craft : stood.craft,
+    ...figure,
     place: stood === undefined ? place : Math.min(stood.place, place),
     medal: stood === undefined ? medal : bestMedal(stood.medal, medal),
   };
@@ -431,6 +443,117 @@ export function ladderAfter(levelId: string, progress: CampaignProgress): Ladder
     : { kind: "locked", shore: here.shore };
 }
 
+/* ── THE DEVELOPER'S LOCKS ────────────────────────────────────────────── */
+
+/** THE LADDER IS A PREFIX, and both presses on the UNLOCKS page are built on
+ * that one fact: a shore opens once the one before it has been WON
+ * (`shoreUnlocked`), so opening a shore means winning the run UP TO it, and
+ * shutting one means undoing everything FROM it on. A board with a hole in
+ * the middle is a state the campaign itself would never deal, and a page
+ * that could produce one would be a page that tests a game nobody plays.
+ *
+ * What a grant writes is a WIN, because a win is the only thing that opens
+ * anything: the player top of the level's board, the podium filled in behind
+ * him, and — on a tricks rung — the gold that clears it. What it does not
+ * write is a FIGURE. Nobody rode the level, so the box shows no time and no
+ * score until somebody does (`LevelResult`).
+ *
+ * NEITHER PRESS TOUCHES THE RECORD BOOK. A campaign result is one afternoon
+ * on a rung; the player's best down a shore in a mode lives in `records.ts`,
+ * which is a different store and is left alone — so a lock puts the ladder
+ * back where it was without costing a single line of what was ridden for it.
+ */
+function grantLevel(level: CampaignLevel): { result: LevelResult; scores: LevelScores } {
+  const scores: LevelScores = { [PLAYER_ID]: POINTS[0] };
+  for (let i = 1; i < POINTS.length; i += 1) scores[riderKey(i - 1)] = POINTS[i];
+  return {
+    result: { place: 1, medal: level.mode === "tricks" ? MEDALS[MEDALS.length - 1] : null },
+    scores,
+  };
+}
+
+/** Every level of these shores won outright, keeping any figure that was
+ * actually ridden: a grant moves the place, the medal and the board, and
+ * never a time somebody set. */
+function openShores(
+  progress: CampaignProgress,
+  shores: readonly CampaignShore[],
+): CampaignProgress {
+  const results = { ...progress.results };
+  const points = { ...progress.points };
+  for (const shore of shores) {
+    for (const level of shore.levels) {
+      const { result, scores } = grantLevel(level);
+      const stood = results[level.id];
+      results[level.id] =
+        stood?.best === undefined ? result : { ...result, best: stood.best, craft: stood.craft };
+      points[level.id] = scores;
+    }
+  }
+  return { results, points };
+}
+
+/** Every level of these shores back to never having been ridden — the result
+ * and the board both go, which is what `levelsRidden` and the table read. */
+function shutShores(
+  progress: CampaignProgress,
+  shores: readonly CampaignShore[],
+): CampaignProgress {
+  const gone = new Set(shores.flatMap((shore) => shore.levels.map((level) => level.id)));
+  const results = { ...progress.results };
+  const points = { ...progress.points };
+  for (const id of gone) {
+    delete results[id];
+    delete points[id];
+  }
+  return { results, points };
+}
+
+/** Open the campaign AS FAR AS one shore: it and every shore before it won.
+ * Null — or an id this ladder does not know — opens the lot. */
+export function unlockShores(progress: CampaignProgress, shoreId: string | null): CampaignProgress {
+  const index = SHORES.findIndex((shore) => shore.id === shoreId);
+  return openShores(progress, index < 0 ? SHORES : SHORES.slice(0, index + 1));
+}
+
+/** Shut one shore and every shore in FRONT of it: the campaign reads as
+ * having stopped at the shore before this one. Null shuts the lot. */
+export function lockShores(progress: CampaignProgress, shoreId: string | null): CampaignProgress {
+  const index = SHORES.findIndex((shore) => shore.id === shoreId);
+  return shutShores(progress, index < 0 ? SHORES : SHORES.slice(index));
+}
+
+/** One shore's row on the UNLOCKS page: what it reads, and whether either
+ * press has anything left to do. Both spent states are read over a RUN of
+ * shores rather than over the one on the row, because both presses work on a
+ * prefix — UNLOCK is spent once everything up to here is won, LOCK once
+ * everything from here on has never been ridden. */
+export type UnlockRow = {
+  shore: CampaignShore;
+  /** Levels of it the player is on points for. */
+  cleared: number;
+  of: number;
+  /** Whether the campaign will let the player onto the shore at all. */
+  open: boolean;
+  /** Nothing left for UNLOCK to do. */
+  won: boolean;
+  /** Nothing left for LOCK to do. */
+  shut: boolean;
+};
+
+export function unlockRows(progress: CampaignProgress): UnlockRow[] {
+  const won = SHORES.map((shore) => shoreWon(shore, progress));
+  const ridden = SHORES.map((shore) => levelsRidden(shore, progress) > 0);
+  return SHORES.map((shore, index) => ({
+    shore,
+    cleared: shore.levels.filter((level) => levelCleared(progress, level)).length,
+    of: shore.levels.length,
+    open: shoreUnlocked(shore, progress),
+    won: won.slice(0, index + 1).every(Boolean),
+    shut: !ridden.slice(index).some(Boolean),
+  }));
+}
+
 /* ── STORAGE ──────────────────────────────────────────────────────────── */
 
 const PROGRESS_KEY = "sea-haven-campaign";
@@ -448,12 +571,20 @@ export function mergeProgress(parsed: unknown): CampaignProgress {
     for (const [id, row] of Object.entries(blob.results as Record<string, unknown>)) {
       if (!known.has(id) || typeof row !== "object" || row === null) continue;
       const r = row as Partial<LevelResult>;
+      if (!Number.isInteger(r.place) || (r.place as number) < 1) continue;
+      const medal = MEDALS.find((m) => m === r.medal) ?? null;
+      const place = r.place as number;
+      // A row CLAIMING a figure has to make both halves of the pair good or
+      // it is junk and goes; a row claiming neither is a level opened from
+      // the developer page and stands on its place alone.
+      if (r.best === undefined && r.craft === undefined) {
+        out.results[id] = { place, medal };
+        continue;
+      }
       if (typeof r.best !== "number" || !Number.isFinite(r.best) || r.best < 0) continue;
       const craft = r.craft;
       if (typeof craft !== "string" || !isCraftId(craft)) continue;
-      if (!Number.isInteger(r.place) || (r.place as number) < 1) continue;
-      const medal = MEDALS.find((m) => m === r.medal) ?? null;
-      out.results[id] = { best: r.best, craft, place: r.place as number, medal };
+      out.results[id] = { best: r.best, craft, place, medal };
     }
   }
   if (typeof blob.points === "object" && blob.points !== null) {

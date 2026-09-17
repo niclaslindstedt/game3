@@ -102,6 +102,7 @@ import { GalleryPage } from "./menu-gallery.tsx";
 import { Glyph, type GlyphName } from "./menu-glyphs.tsx";
 import { KeysPage } from "./menu-keys.tsx";
 import { OptionsPage } from "./menu-options.tsx";
+import { UnlocksPage } from "./menu-unlocks.tsx";
 import { StartPage } from "./menu-start.tsx";
 import type { RecordBook } from "./records.ts";
 import { LevelsPage } from "./menu-levels.tsx";
@@ -442,6 +443,7 @@ export function MainMenu({
   progress,
   onSettings,
   onNavigate,
+  onProgress,
   onStart,
   onCampaign,
   onBenchmark,
@@ -455,6 +457,9 @@ export function MainMenu({
   progress: CampaignProgress;
   onSettings: (settings: Settings) => void;
   onNavigate: (page: MenuPage) => void;
+  /** Set the board outright — the UNLOCKS page's press, and the only place
+   * anything but a finished run writes it (`menu-unlocks.tsx`). */
+  onProgress: (progress: CampaignProgress) => void;
   onStart: () => void;
   /** Stand a CAMPAIGN level up, once the craft card has chosen the hull. */
   onCampaign: (level: CampaignLevel) => void;
@@ -542,10 +547,19 @@ export function MainMenu({
       {page.page === "developer" && (
         <DeveloperPage
           settings={settings}
+          progress={progress}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
+          onUnlocks={() => onNavigate({ page: "unlocks" })}
           onBenchmark={onBenchmark}
           onBenchmarkHistory={() => onNavigate({ page: "benchHistory" })}
+        />
+      )}
+      {page.page === "unlocks" && (
+        <UnlocksPage
+          progress={progress}
+          onProgress={onProgress}
+          onBack={() => onNavigate({ page: "developer" })}
         />
       )}
       {page.page === "benchHistory" && (

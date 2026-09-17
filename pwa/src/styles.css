@@ -5618,6 +5618,62 @@ button.knob-read:focus-visible {
   font-size: 0.88rem;
 }
 
+/* THE UNLOCKS PAGE's shore rows: a name and how far it has got on the left,
+   then the two presses. The presses are sized off their WORDS rather than
+   shared out, so UNLOCK and LOCK stand the same width on every row however
+   long the shore's name is. */
+.dev-locks {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+}
+
+.dev-lock {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.dev-lock-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
+  letter-spacing: 0.06em;
+}
+
+.dev-lock-act {
+  width: 6.5rem;
+  justify-content: center;
+  text-align: center;
+}
+
+/* SPENT, either way: a press with nothing left to do stays on the row and
+   goes quiet, because a row that vanished would move the shore under the
+   thumb reaching for the other one. */
+.dev-lock-act:disabled,
+.menu-item-dev:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+/* A phone in portrait: the presses drop under the name rather than squeezing
+   it to two letters. */
+@media (width <= 30rem) {
+  .dev-lock {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .dev-lock-text {
+    grid-column: 1 / -1;
+  }
+
+  .dev-lock-act {
+    width: 100%;
+  }
+}
+
 /* A phone in portrait: the run rows stop being four columns and become two,
    with the code and the date sitting under the score rather than beside it. */
 @media (width <= 30rem) {
