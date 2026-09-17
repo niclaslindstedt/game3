@@ -116,4 +116,4 @@ One seed cannot show a distribution; four seeds × four craft is the floor, and 
 
 ## Screenshots close the loop
 
-The sim says whether the bot finished; it does not say whether the ride LOOKS right. `make screenshots SCENE=` drives the built app to the same staged moments (`pwa/src/game/scenarios.ts`) at the two reference viewports, and `make ride SCENARIO=` draws the same moments through the engine alone — the `playtest` and `test-scenario` skills own those halves.
+The sim says whether the bot finished; it does not say whether the ride LOOKS right. `make screenshots SCENE=` drives the built app to the same staged moments (`pwa/src/game/scenarios.ts`) at the reference viewports, and `make ride SCENARIO=` draws the same moments through the engine alone — the `playtest` and `test-scenario` skills own those halves.

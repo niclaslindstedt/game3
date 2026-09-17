@@ -1,6 +1,6 @@
 ---
 name: ui-review
-description: "Use for a fit-and-finish pass over the game's UI — the HUD, the touch controls (the handlebar and the throttle lever), the finish card, the update toast. Drives the screenshot-audit loop: capture every surface at the reference viewports (desktop landscape, phone portrait), evaluate against the quality bar, fix what clips, overflows, or drifts off the shared look, and verify with re-captures."
+description: "Use for a fit-and-finish pass over the game's UI — the HUD, the touch controls (the handlebar and the throttle lever), the finish card, the update toast. Drives the screenshot-audit loop: capture every surface at the reference viewports (desktop landscape, phone portrait, phone landscape), evaluate against the quality bar, fix what clips, overflows, or drifts off the shared look, and verify with re-captures."
 ---
 
 # UI Review — audit the HUD and every overlay
@@ -26,17 +26,25 @@ touches. Load **`skill-reflection`** at both ends of the session.
 
 | Piece | Role |
 | --- | --- |
-| `scripts/screenshot.mjs` | The capture harness — serves `pwa/dist`, opens `?seed=&craft=&scene=&shot=1`, waits for `window.__SH_READY__`, captures at 1280×720 (desktop landscape) and 390×844 (phone portrait) to `previews/` |
+| `scripts/screenshot.mjs` | The capture harness — serves `pwa/dist`, opens `?seed=&craft=&scene=&shot=1`, waits for `window.__SH_READY__`, captures at 1280×720 (desktop landscape), 390×844 (phone portrait) and 844×390 (phone LANDSCAPE) to `previews/`; `--viewport` names one, `all` is every one |
 | `make screenshots SCENE=<name>` | Runs it for one scene against the BUILT app (`make build` first); `CHROMIUM_PATH=/opt/pw-browsers/chromium` in web sessions; no `SCENE=` is every scene |
 | Read tool on the PNGs | The evaluation itself — every judgement is made on a screenshot, not on source |
 | `npm run dev` | Headed spot-checks (the toast's timing, touch behaviour in devtools emulation) |
 
-The two shipped viewports are the floor, not the ceiling: when a change is
-layout-sensitive, add a capture at the tight cases — landscape phone
-(844×390, the harshest axis for a HUD strip: the lever and the handlebar
-each want the bottom corner and the speed wants the middle) and a small
-phone (375×667) — by passing a viewport in a scene. A surface tuned to
-exactly fit 390×844 runs out of room on the SE class first.
+**THE THIRD VIEWPORT IS THE ONE THE GAME IS HELD AT, and it is the only one
+that reaches the `@media (orientation: landscape) and (max-height: 34rem)`
+rules** — 720 and 844 are both far above them, so everything those rules
+change is invisible to the other two. It is also the harshest axis in the
+app: 390 px of height for a card that is paid for in rows, with the lever
+and the handlebar both wanting the bottom corner and the speed wanting the
+middle. **Judge every layout change there, and treat a card that scrolls
+there as a bug** — `.menu-card` and `.hud-card` both slide past the fold
+rather than clipping, so the overrun shows in no diff and reads as a missing
+feature.
+
+The three are the floor, not the ceiling: a small phone (375×667) is the next
+tight case, since a surface tuned to exactly fit 390×844 runs out of room on
+the SE class first.
 
 **When the change is ONE instrument's placement rather than a surface, take
 one scene per viewport instead of the whole sweep.** `SCENE=rest` is the cheap
@@ -48,7 +56,7 @@ its floor; `SCENE=cruise` is the same frame at speed.
 Judge every screenshot against this list. Extend it when a new rule of thumb
 settles (that is the `skill-reflection` promotion path).
 
-1. **Nothing clips or overlaps at either viewport.** The HUD's elements keep
+1. **Nothing clips, overlaps or SCROLLS at any of the three viewports.** The HUD's elements keep
    clear of each other and of the safe areas at every aspect ratio the scenes
    capture.
 2. **Legible over the WORLD, not over a mockup.** The scene behind the HUD is

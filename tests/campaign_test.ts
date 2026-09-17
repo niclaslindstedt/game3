@@ -43,6 +43,7 @@ import {
   POINTS,
   SHORES,
   betterThan,
+  campaignStanding,
   continueAt,
   findLevel,
   fitsMode,
@@ -262,6 +263,41 @@ describe("a run, booked", () => {
       });
       expect(levelCleared(after, race), `place ${place}`).toBe(place <= PODIUM);
     }
+  });
+});
+
+describe("how far the campaign has got, as the front door bills it", () => {
+  const race = MANGROVE.levels[0];
+  const tricks = MANGROVE.levels[1];
+
+  it("counts CLEARED levels over the whole ladder, not ridden ones and not one shore", () => {
+    expect(campaignStanding(EMPTY_PROGRESS)).toEqual({
+      cleared: 0,
+      of: SHORES.flatMap((s) => s.levels).length,
+    });
+
+    // Ridden and lost is not cleared: the rung is still standing there.
+    const lost = recordRun(EMPTY_PROGRESS, race, {
+      value: 100,
+      craft: "skiff",
+      order: order(RACE.rivals + 1),
+    });
+    expect(lost.results[race.id]).toBeDefined();
+    expect(campaignStanding(lost).cleared).toBe(0);
+
+    // A podium clears it, and the figure is over BOTH shores' twelve — a
+    // door whose count reset when a new shore opened would read as progress
+    // being taken away.
+    const won = recordRun(EMPTY_PROGRESS, race, { value: 90, craft: "skiff", order: order(1) });
+    expect(campaignStanding(won).cleared).toBe(1);
+    expect(campaignStanding(won).of).toBe(MANGROVE.levels.length + TAIGA.levels.length);
+
+    const both = recordRun(won, tricks, {
+      value: tricks.medals!.bronze,
+      craft: "skiff",
+      order: order(12),
+    });
+    expect(campaignStanding(both).cleared).toBe(2);
   });
 });
 

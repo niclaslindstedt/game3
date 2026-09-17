@@ -347,14 +347,24 @@ export const STRINGS = {
   splashPress: "PRESS ANY KEY TO START",
 
   /* ── THE MAIN MENU (menu-main.tsx) ─────────────────────────────────── */
-  /** The game's own billing, under the wordmark on the front door. */
-  menuTag: "ride the northern shores",
-  /** The three ways onto the water are the front door's first three tiles,
-   * and their words are `modeName`'s — a tile and the card it opens must not
-   * be able to disagree about which game was pressed. */
+  /** The game's own billing, under the wordmark on the front door. It names
+   * the two COASTS — a cold sheltered skerry coast and a warm flat one —
+   * because that is what the game is, and because a door billed as northern
+   * stands over a mangrove half the time it is up. A kind of coast, never a
+   * place (`tests/biome_test.ts`). */
+  menuTag: "cold skerries, warm shallows",
+  /** The four ways onto the water are the front door's mode tiles, and their
+   * words are `modeName`'s — a tile and the card it opens must not be able
+   * to disagree about which game was pressed. These three are the foot
+   * strip: present, findable, and not a way onto water. */
   menuGallery: "GALLERY",
   menuOptions: "OPTIONS",
   menuDeveloper: "DEVELOPER",
+  /** What the hero tile bills the campaign with — how far up the ladder the
+   * player is, read off `campaignStanding`. A door that says the same thing
+   * on every visit is a door nobody looks at twice. */
+  menuCampaignLine: (cleared: number, of: number): string =>
+    cleared === 0 ? `${of} SHORES · START HERE` : `${cleared} OF ${of} SHORES CLEARED`,
   /** The way out of every page under the front door. */
   menuBack: "MENU",
   /** What RACE says while it is being held down — the developer menu is

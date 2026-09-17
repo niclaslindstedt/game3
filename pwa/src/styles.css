@@ -2610,21 +2610,41 @@ canvas {
 }
 
 /* ── THE FRONT DOOR'S TILES ────────────────────────────────────────────────
-   A mark and a name, two abreast. The full-width rows this replaced said the
-   same words in a column three deep: correct, and read as a form rather than
-   as the way into a game. A tile is the arcade's own shape — the mark is what
-   the eye lands on and the word is what confirms it — and two columns is the
-   shape the door is designed AT, so the block is the same on a phone held
-   upright as it is on a laptop rather than a column stretched to the card. */
+   A mark and a name, and never a full-width row carrying the same words in a
+   column: a column of labelled rows is a FORM, which is the one thing the way
+   into a game must not read as. A tile is the arcade's own shape — the mark
+   is what the eye lands on, the word is what confirms it, and a player learns
+   each one once.
+
+   THE COLOUR IS THE TIER, and the tier is how close the press is to water
+   (`menu-main.tsx`'s header states it in full). ORANGE is the way IN and
+   there is exactly one of it; SEA BLUE is a way onto water; the foot strip
+   below is everything that is not. A door where two tiles are lit is a door
+   with no way on, because the eye is handed a choice where it wanted an
+   answer — so nothing but the hero is allowed the buoy's orange.
+
+   THE GRID IS ONE GRID AT EVERY VIEWPORT and the hero is a SPAN in it, so
+   the door turning sideways is a change of column count rather than a second
+   layout to keep in step. Upright: two columns, the hero across the top and
+   the four modes paired beneath it. Sideways: four columns and the hero
+   takes the left quadrant, which is the shape that fits the one axis a phone
+   held sideways has any room on (see the landscape rule at the foot of this
+   block). */
 .menu-tiles {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.5rem;
 }
 
-/* One tile. `position: relative` so START's hold fill has something to be
+/* One tile. `position: relative` so RACE's hold fill has something to be
    clipped by, and `overflow: hidden` so the fill wears the tile's own rounded
-   corners rather than squaring them off. */
+   corners rather than squaring them off.
+
+   The drop is the card's own idiom — a hard offset with no blur, the shadow
+   the whole game's chrome is drawn with — and it is what the press SPENDS:
+   `:active` walks the tile down by exactly the shadow's height and takes the
+   shadow away, so the button goes into the card rather than merely tinting.
+   A blurred shadow here would be the one soft edge on the screen. */
 .menu-tile {
   position: relative;
   overflow: hidden;
@@ -2633,11 +2653,12 @@ canvas {
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  min-height: 5.8rem;
+  min-height: 5.2rem;
   padding: 0.9rem 0.5rem;
   border: 2px solid rgb(242 247 248 / 26%);
   border-radius: 0.55rem;
   background: rgb(27 111 138 / 55%);
+  box-shadow: 0 3px 0 rgb(8 42 56 / 50%);
   color: var(--hud-ink);
   font: inherit;
   /* The mark is sized off this, so the whole tile grows together: a laptop
@@ -2651,7 +2672,7 @@ canvas {
   touch-action: manipulation;
 }
 
-/* The mark, over START's hold fill rather than under it — `position` is what
+/* The mark, over RACE's hold fill rather than under it — `position` is what
    gives it a stacking context of its own, exactly as the label below has. */
 .menu-tile .menu-glyph {
   position: relative;
@@ -2669,10 +2690,11 @@ canvas {
 }
 
 .menu-tile:active {
-  transform: translateY(1px);
+  transform: translateY(3px);
+  box-shadow: none;
 }
 
-/* The label under the mark. It wraps rather than being clipped: START says
+/* The label under the mark. It wraps rather than being clipped: RACE says
    KEEP HOLDING… while it is being held, which is two words in a tile half a
    phone wide. */
 .menu-tile-name {
@@ -2681,79 +2703,178 @@ canvas {
   text-wrap: balance;
 }
 
-/* RACE — the way ON, given the weight the eye should land on first. Its mark
-   goes the other way round — ink on the orange, where the rest are orange on
-   the card — so the tile reads as the lit one rather than as one of three. */
-.menu-tile-start {
-  background: rgb(242 140 40 / 78%);
-  border-color: rgb(242 247 248 / 42%);
+/* ── THE HERO ──────────────────────────────────────────────────────────────
+   THE CAMPAIGN, and the only lit tile on the card. It is bigger than the
+   four beside it in every way the eye reads size — width, mark, weight of
+   colour — because being told which button to press first is the single most
+   useful thing a front door can do for somebody who has just arrived.
+
+   It is also the only tile whose FACE CHANGES between visits: the line under
+   the name is how far up the twelve the player has got (`campaignStanding`).
+   That is what stops the door being furniture — a card that says exactly the
+   same thing on the fortieth visit as on the first is a card nobody reads
+   twice, and no amount of decoration fixes it.
+
+   Laid out as a ROW here — mark left, words right — which is the shape that
+   fills a tile twice as wide as it is tall, and which breaks the grid of
+   identical centred stacks the rest of the card is. */
+.menu-tile-hero {
+  grid-column: 1 / -1;
+  flex-direction: row;
+  justify-content: flex-start;
+  gap: 0.9rem;
+  min-height: 0;
+  padding: 0.85rem 1.1rem;
+  background: rgb(242 140 40 / 82%);
+  border-color: rgb(242 247 248 / 45%);
+  text-align: left;
 }
 
-.menu-tile-start .menu-glyph {
+/* Ink on the orange, where every other mark on the card is orange on the
+   blue: the hero is the one tile lit from the other side. */
+.menu-tile-hero .menu-glyph {
+  width: 2.6em;
+  height: 2.6em;
   color: var(--foam);
 }
 
-.menu-tile-start:hover,
-.menu-tile-start:focus-visible,
-.menu-tile-start.nav-cursor {
+.menu-tile-hero:hover,
+.menu-tile-hero:focus-visible,
+.menu-tile-hero.nav-cursor {
   background: var(--buoy);
+  border-color: var(--foam);
 }
 
-/* GALLERY and OPTIONS: on the door, and visibly not a way onto the water.
-   The three mode tiles above them are what the door is FOR, so these give up
-   the card's blue for the ground it is painted on and their marks go quiet
-   with them — present, findable, and not competing with a press that starts
-   a run. */
-.menu-tile-quiet {
+.menu-tile-words {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.2rem;
+  min-width: 0;
+}
+
+.menu-tile-hero .menu-tile-name {
+  font-size: 1.25em;
+}
+
+/* HOW FAR UP THE LADDER, under the name. Dimmed against the name rather than
+   coloured: it is the same tile's second line, not a second thing to press. */
+.menu-tile-line {
+  font-size: 0.72em;
+  font-weight: 600;
+  letter-spacing: 0.16em;
+  text-indent: 0.16em;
+  line-height: 1.2;
+  color: rgb(255 255 255 / 82%);
+}
+
+/* THE SHEEN — a bar of light travelling the hero, the one moving thing on a
+   card that stands over moving water. It is a transform and an opacity and
+   nothing else, so it is composited rather than repainted: this card is up
+   while the engine is stepping a bot-ridden run behind it, and an effect
+   that cost the main thread would be paid for out of that sea's frame rate.
+
+   Off unless the machine has said it wants motion — see the rule below. */
+.menu-tile-sheen {
+  position: absolute;
+  top: -50%;
+  bottom: -50%;
+  left: -40%;
+  width: 28%;
+  transform: translateX(-200%) rotate(14deg);
+  background: linear-gradient(
+    90deg,
+    rgb(255 255 255 / 0%),
+    rgb(255 255 255 / 26%),
+    rgb(255 255 255 / 0%)
+  );
+  opacity: 0;
+  pointer-events: none;
+}
+
+/* ── THE FOUR MODES ────────────────────────────────────────────────────────
+   The ways onto water that carry no ladder. All four wear the plain tile
+   above unchanged: they are four GAMES, not four rungs, and ranking them by
+   colour would be inventing a hierarchy the game does not have. The class
+   exists so the landscape rule can address them apart from the hero. */
+.menu-tile-mode {
+  grid-column: span 1;
+}
+
+/* ── THE FOOT STRIP ────────────────────────────────────────────────────────
+   Everything that is NOT a way onto the water, along the bottom of the card
+   in one low row. It is deliberately not tile-shaped: a press that cannot
+   start a run should not wear the shape of one, and the strip is the cheapest
+   tier in the door's height budget — which is right, because it is the tier
+   nobody came here for. The build stamp rides at the far end of the same row
+   for the same reason, and costs the card no line of its own. */
+.menu-strip {
+  display: flex;
+  /* The stamp is the one thing here that MUST NOT break — a commit sha split
+     across two lines is a string nobody can match against `git log` — so the
+     row wraps rather than squeezing it. On a narrow phone that puts the
+     stamp on a line of its own; everywhere else the three share one. */
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.4rem;
+  margin-top: 0.1rem;
+}
+
+.menu-chip {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  padding: 0.5rem 0.7rem;
+  border: 2px solid rgb(242 247 248 / 18%);
+  border-radius: 0.5rem;
   background: rgb(8 42 56 / 55%);
-  border-color: rgb(242 247 248 / 18%);
+  color: rgb(242 247 248 / 78%);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-indent: 0.14em;
+  text-transform: uppercase;
+  cursor: pointer;
+  touch-action: manipulation;
 }
 
-.menu-tile-quiet .menu-glyph {
+.menu-chip .menu-glyph {
+  width: 1.35em;
+  height: 1.35em;
   color: rgb(242 247 248 / 62%);
 }
 
-.menu-tile-quiet:hover,
-.menu-tile-quiet:focus-visible,
-.menu-tile-quiet.nav-cursor {
+.menu-chip:hover,
+.menu-chip:focus-visible,
+.menu-chip.nav-cursor {
   border-color: var(--buoy);
   background: rgb(27 111 138 / 70%);
+  color: var(--hud-ink);
+  outline: none;
 }
 
-.menu-tile-quiet:hover .menu-glyph,
-.menu-tile-quiet:focus-visible .menu-glyph,
-.menu-tile-quiet.nav-cursor .menu-glyph {
+.menu-chip:hover .menu-glyph,
+.menu-chip:focus-visible .menu-glyph,
+.menu-chip.nav-cursor .menu-glyph {
   color: var(--buoy);
 }
 
-/* The developer tile, once it has been let out: present, and visibly not
-   part of the game. */
-.menu-tile-dev {
-  background: rgb(8 42 56 / 70%);
+.menu-chip:active {
+  transform: translateY(1px);
+}
+
+/* The developer chip, once it has been let out: on the strip, and visibly
+   not part of the game. */
+.menu-chip-dev {
   border-style: dashed;
   color: var(--hud-info);
-  font-size: 0.8rem;
 }
 
-.menu-tile-dev .menu-glyph {
+.menu-chip-dev .menu-glyph {
   color: var(--hud-info);
-}
-
-/* AN ODD COUNT LEAVES A HOLE — five tiles is the door every player sees,
-   since the developer one is out until it is found. The last one takes the
-   whole row instead of sitting beside a gap, and lies down while it does:
-   a full-width tile as tall as a square is a slab. */
-.menu-tiles > .menu-tile:last-child:nth-child(odd) {
-  grid-column: 1 / -1;
-  flex-direction: row;
-  min-height: 0;
-  gap: 0.6rem;
-  padding: 0.75rem 1rem;
-}
-
-.menu-tiles > .menu-tile:last-child:nth-child(odd) .menu-glyph {
-  width: 1.3em;
-  height: 1.3em;
 }
 
 /* THE HOLD, drawn as the tile filling (`menu-hold.ts`). Scaled from the left
@@ -2772,6 +2893,186 @@ canvas {
    changed by now (STRINGS.menuHolding); this is the tile agreeing with it. */
 .menu-tile-holding {
   border-color: var(--foam);
+}
+
+/* ── THE DOOR ARRIVING, AND THE ONE THING ON IT THAT MOVES ─────────────────
+   The tiles come up in sequence rather than all at once — the arcade's own
+   entrance, and the difference between a card that APPEARS and a card that
+   is dealt. Both halves are a transform and an opacity, which is what keeps
+   them off the main thread the sea behind the card is being stepped on.
+
+   Asked for rather than assumed: a machine that has not said it wants motion
+   gets the door standing there already, which is also what every screenshot
+   the lab takes is of. */
+@media (prefers-reduced-motion: no-preference) {
+  /* `backwards`, never `both`. The fill has one job — hold the tile off
+     screen through its own delay — and a FORWARDS fill would go on applying
+     `transform: none` at animation priority after the arrival has finished,
+     which outranks the cascade and silently kills `:active`'s press. The
+     door would come up beautifully and then never depress under a thumb. */
+  .menu-card-root .menu-tile,
+  .menu-card-root .menu-chip {
+    animation: menu-tile-in 320ms cubic-bezier(0.22, 0.61, 0.36, 1) backwards;
+  }
+
+  /* A beat between one tile and the next. Short enough that the whole door
+     is standing inside half a second — a front door that has to be waited
+     out is worse than one that simply appeared. */
+  .menu-card-root .menu-tiles > :nth-child(1) {
+    animation-delay: 40ms;
+  }
+
+  .menu-card-root .menu-tiles > :nth-child(2) {
+    animation-delay: 90ms;
+  }
+
+  .menu-card-root .menu-tiles > :nth-child(3) {
+    animation-delay: 140ms;
+  }
+
+  .menu-card-root .menu-tiles > :nth-child(4) {
+    animation-delay: 190ms;
+  }
+
+  .menu-card-root .menu-tiles > :nth-child(5) {
+    animation-delay: 240ms;
+  }
+
+  .menu-card-root .menu-strip > :nth-child(n) {
+    animation-delay: 290ms;
+  }
+
+  /* The sheen, once the hero has landed and then every few seconds — a long
+     wait and a fast pass, so it reads as light catching the tile rather than
+     as a thing that is animating. */
+  .menu-tile-sheen {
+    animation: menu-sheen 5.5s 1.2s ease-in-out infinite;
+  }
+}
+
+@keyframes menu-tile-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.7rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@keyframes menu-sheen {
+  0% {
+    opacity: 0;
+    transform: translateX(-200%) rotate(14deg);
+  }
+  6% {
+    opacity: 1;
+  }
+  22% {
+    opacity: 0;
+  }
+  22.01%,
+  100% {
+    opacity: 0;
+    transform: translateX(700%) rotate(14deg);
+  }
+}
+
+/* ── THE DOOR TURNED SIDEWAYS ──────────────────────────────────────────────
+   HOW THE GAME IS ACTUALLY HELD. A phone on its side has width and no height
+   at all — 390 px of it, less the safe areas — and the upright door spends
+   its whole budget down the one axis that has none: three rows of tiles and
+   a brand block came to 129 px more than the viewport, so the card scrolled
+   and the last two ways onto the water were below the fold on the surface
+   most players meet the game on.
+
+   The answer is not smaller tiles. It is to spend the axis that HAS room:
+   the card is let out to twice its upright width, the grid goes to four
+   columns, and the hero takes the left quadrant instead of the top row. The
+   door comes to TWO rows of tiles and a strip, and everything is above the
+   fold at 390 px with room to spare.
+
+   `max-height` rather than a width query, because what is short is what
+   hurts: a desktop window dragged into a letterbox has exactly the same
+   problem and gets exactly the same door. The ceiling is the craft card's
+   own (34rem), not the HUD panel's 30rem: a card is paid for in the height
+   of its ROWS and runs out of room a good deal earlier than an instrument
+   that only has to tighten, and the upright door is within a few pixels of
+   the fold at 500 px. */
+@media (orientation: landscape) and (max-height: 34rem) {
+  .menu-card-root {
+    width: min(48rem, 100%);
+    gap: 0.6rem;
+  }
+
+  /* One line, not a lockup: the name and its billing side by side, which is
+     the brand at a third of the height and no less of it. */
+  .menu-brand {
+    flex-direction: row;
+    align-items: baseline;
+    gap: 0.6rem;
+    margin-bottom: 0;
+  }
+
+  .menu-brand-mark {
+    width: 2.2rem;
+    align-self: center;
+  }
+
+  .menu-brand-name {
+    font-size: 1.5rem;
+  }
+
+  .menu-brand-tag {
+    font-size: 0.62rem;
+  }
+
+  /* The hero's two columns are narrower than the modes' two, so the lit
+     tile takes a little under half the door rather than a little over: a
+     quadrant of flat orange wider than everything else put together stops
+     reading as the way in and starts reading as a wall. */
+  .menu-tiles {
+    grid-template-columns: 0.82fr 0.82fr 1fr 1fr;
+  }
+
+  /* The left quadrant: two columns and both rows. Tall as well as wide now,
+     so the hero stands its mark ABOVE its words rather than beside them —
+     a row of content pinned in the middle of a square reads as a tile that
+     did not finish loading. */
+  .menu-tile-hero {
+    grid-column: span 2;
+    grid-row: span 2;
+    flex-direction: column;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.7rem 1rem;
+    text-align: center;
+  }
+
+  /* The mark carries the tile here. It has two rows of height to fill and
+     nothing else to fill them with, and a small glyph adrift in the middle
+     of a square reads as a tile that did not finish loading. */
+  .menu-tile-hero .menu-glyph {
+    width: 4.4em;
+    height: 4.4em;
+  }
+
+  .menu-tile-words {
+    align-items: center;
+    text-align: center;
+  }
+
+  .menu-tile-mode {
+    min-height: 0;
+    padding: 0.55rem 0.4rem;
+    gap: 0.35rem;
+  }
+
+  .menu-tile-mode .menu-glyph {
+    width: 1.9em;
+    height: 1.9em;
+  }
 }
 
 .menu-items {
@@ -2851,10 +3152,14 @@ canvas {
   color: var(--buoy);
 }
 
-/* The build, bottom right of the front door, linking to its own commit. */
+/* The build, at the far end of the foot strip, linking to its own commit.
+   `margin-left: auto` is what puts it there — it rides in the strip's row
+   rather than on a line of its own, which is a line of card height bought
+   back for nothing. */
 .menu-version {
-  align-self: flex-end;
-  margin-top: 0.3rem;
+  margin-left: auto;
+  padding-left: 0.4rem;
+  white-space: nowrap;
   font-size: 0.62rem;
   letter-spacing: 0.12em;
   /* A commit sha is a sha. The card upper-cases everything on it, and a
