@@ -909,23 +909,28 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(sneaked.dev).toEqual(DEFAULT_SETTINGS.dev);
   });
 
-  it("carries a developer's own settings once the menu is out — but never a SCENE", () => {
+  it("remembers a developer's TOGGLE and never their OVERRIDES", () => {
+    // The rule, stated once: a row with a knob on the page to switch it off
+    // is a preference and is kept; a row only a URL can set, that silently
+    // rewrites every run and that no card can clear, is not.
     const dev = mergeSettings({
       developer: true,
       dev: { wind: 14, hs: 3, scene: "dive", cost: true },
     });
-    expect(dev.dev).toEqual({ wind: 14, hs: 3, scene: null, cost: true });
+    expect(dev.dev).toEqual({ wind: null, hs: null, scene: null, cost: true });
   });
 
-  it("never reads a staged SCENE back out of the store, and never writes one in", () => {
-    // A scene takes the lights off the run it stages (`placeRun`), which is
-    // right for a frame being photographed and wrong for every ride after
-    // it — and no card carries a row to take one off again. So it lives as
-    // long as the `?scene=` that asked for it: a blob written before this
-    // rule heals on the next visit, and one written now carries no scene to
-    // heal from. Anything else is a browser that silently re-stages every
-    // run it ever starts.
-    expect(mergeSettings({ developer: true, dev: { scene: "cruise" } }).dev.scene).toBeNull();
+  it("never reads a developer's OVERRIDES out of the store, and never writes them in", () => {
+    // Each of the three rewrites every run that follows — a scene STAGES it
+    // (and `placeRun` takes the lights off in front of it), a wind or a sea
+    // replaces the day the generator dealt — and each one also stops the
+    // finish being written down. None has a row on any card to clear it, so
+    // kept, a rider who picked one up from a link had no way back: every ride
+    // re-staged, and the game silent at the end of all of them.
+    for (const [row, value] of Object.entries({ scene: "cruise", wind: 14, hs: 3 })) {
+      const back = mergeSettings({ developer: true, dev: { [row]: value } }).dev;
+      expect(back[row as "scene" | "wind" | "hs"]).toBeNull();
+    }
     const saved: Record<string, string> = {};
     const store = globalThis as unknown as { localStorage?: unknown };
     const had = "localStorage" in store;
@@ -938,14 +943,18 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       saveSettings({
         ...DEFAULT_SETTINGS,
         developer: true,
-        dev: { ...DEFAULT_SETTINGS.dev, scene: "cruise", cost: true },
+        dev: { scene: "cruise", wind: 14, hs: 3, cost: true },
       });
     } finally {
       if (!had) delete store.localStorage;
     }
-    const blob = JSON.parse(Object.values(saved)[0]!) as { dev: { scene: unknown; cost: unknown } };
+    const blob = JSON.parse(Object.values(saved)[0]!) as {
+      dev: { scene: unknown; wind: unknown; hs: unknown; cost: unknown };
+    };
     expect(blob.dev.scene).toBeNull();
-    // ...and the rest of the developer's own row is still written down.
+    expect(blob.dev.wind).toBeNull();
+    expect(blob.dev.hs).toBeNull();
+    // ...and the TOGGLE is still written down.
     expect(blob.dev.cost).toBe(true);
   });
 

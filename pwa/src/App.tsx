@@ -446,7 +446,7 @@ export function App() {
       current: () => state,
       settings: () => settingsRef.current,
       track: params.track,
-      rides: () => playerRides(shellRef.current) && scenario === null,
+      rides: () => playerRides(shellRef.current),
       riding: () => ridingRef.current,
       progress: progressRef,
       setProgress,

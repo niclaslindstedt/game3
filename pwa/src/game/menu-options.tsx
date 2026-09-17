@@ -377,13 +377,25 @@ export function OptionsPage({
           found. It is not a setting the player chose and it is not a mess this
           button is for tidying: making somebody hold START for seven seconds
           again because they wanted their camera back would be the page
-          punishing them for using it. */}
+          punishing them for using it.
+
+          It DOES clear the developer's OVERRIDES, though — the staged scene,
+          the wind and the sea a link may have set. Those are exactly the mess
+          this button is for: each one silently re-stages or re-weathers every
+          run and stops the finish being written down, none has a row of its
+          own to switch off, and a rider who has got as far as pressing this
+          is asking for the game back. The frame-cost readout has its own knob
+          on the page, so it is left where it was put. */}
       <button
         type="button"
         class="opt-reset"
         onClick={() => {
           const fresh = freshSettings();
-          onSettings({ ...fresh, developer: settings.developer, dev: { ...settings.dev } });
+          onSettings({
+            ...fresh,
+            developer: settings.developer,
+            dev: { ...fresh.dev, cost: settings.dev.cost },
+          });
         }}
       >
         {STRINGS.optRestore}

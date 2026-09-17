@@ -25,11 +25,9 @@
 import { fieldOrder, type GameState, type TrackKind } from "@engine";
 
 import { recordRun, type CampaignLevel, type CampaignProgress } from "./campaign.ts";
-import type { GhostRig } from "./ghost-run.ts";
-import type { HudResult } from "./hud-result.tsx";
 import { bestFor, noteRecord, type RecordBook } from "./records.ts";
 import { recordKeyFor } from "./new-game.ts";
-import { campaignResultFor, resultFor } from "./run-news.ts";
+import { campaignResultFor, resultFor, type HudResult } from "./run-news.ts";
 import type { Settings } from "./settings.ts";
 
 /** A box the app writes through as well as into — a React ref. Written
@@ -43,9 +41,10 @@ export type SettleWorld = {
   settings: () => Settings;
   /** The kind of track the URL asked for, for the record book's key. */
   track: TrackKind | undefined;
-  /** Whether the player's own hands were on the craft, and the run was not a
-   * staged moment. The rest of the honesty test — the developer's rows — is
-   * read off the settings here. */
+  /** Whether the player's own hands were on the craft. The bot rides the sea
+   * behind every card and crosses the line like anybody else; its finish is
+   * not one anyone asked for, and is the one finish that says nothing at
+   * all. */
   rides: () => boolean;
   /** The campaign level under the HUD, or null on every other run. */
   riding: () => CampaignLevel | null;
@@ -54,20 +53,42 @@ export type SettleWorld = {
   records: Box<RecordBook>;
   setRecords: (book: RecordBook) => void;
   setResult: (result: HudResult | null) => void;
-  ghost: GhostRig;
+  /** The tape, narrowed to the one thing a finish does to it. Structural
+   * rather than `GhostRig` so this module does not reach the renderer
+   * through `ghost-run.ts` for a type it uses one method of — which is what
+   * keeps the whole of what a finish DOES readable by the root suite
+   * (`tests/run_settle_test.ts`). */
+  ghost: { seal: (value: number) => void };
 };
 
 /** THE FINISH, booked. `value` is the run's figure in the mode's own
  * currency — the finish's time, or the score the buzzer caught. */
 export function createSettler(world: SettleWorld): (value: number) => void {
   return (value: number): void => {
+    // The one finish nobody is owed anything for.
+    if (!world.rides()) return;
     const s = world.settings();
-    if (!world.rides() || s.dev.scene !== null || s.dev.wind !== null || s.dev.hs !== null) return;
     const state = world.current();
+    // THE HONESTY TEST, and it governs THE BOOKS ALONE: a staged moment, or
+    // a wind or a sea set by hand, is not a run on this shore, so nothing it
+    // does is written down — no tape, no ladder, no row (`ghost-run.ts` and
+    // `replay.ts` refuse the same three rows, for the same reason).
+    //
+    // THE PLATE IS NOT A BOOKING. It is the game saying what just happened,
+    // and a rider who crossed the line is owed it whatever the developer
+    // page happens to be holding — it simply claims nothing. Folding it into
+    // the test above left the game SILENT at the end of every run for anyone
+    // carrying one of these rows, in every mode, which is how a finished run
+    // came to look like no finish at all.
+    // Read off the developer's rows and not off whether `App.tsx` happens to
+    // hold a staged scenario: a scene is set one way (`settings.dev.scene`,
+    // which is what stages it), and `ghost-run.ts` and `replay.ts` already
+    // ask exactly this question in exactly these words.
+    const books = s.dev.scene === null && s.dev.wind === null && s.dev.hs === null;
     // THE TAPE FIRST, while the figure on file is still the one this run was
     // measured against: the rig keeps the run that BEAT it (`ghost-run.ts`),
     // and a book written before it would have moved the post.
-    world.ghost.seal(value);
+    if (books) world.ghost.seal(value);
     // A CAMPAIGN RUN goes in the campaign's book and nowhere else: the field
     // is placed as it stands at the line (`fieldOrder`), the board keeps the
     // better afternoon, and the plate says what the finish did to the ladder.
@@ -75,12 +96,25 @@ export function createSettler(world: SettleWorld): (value: number) => void {
     if (pinned) {
       const before = world.progress.current;
       const order = fieldOrder(state);
-      const after = recordRun(before, pinned, { value, craft: state.craft.spec.id, order });
-      world.progress.current = after;
-      world.setProgress(after);
-      world.setResult(
-        campaignResultFor(pinned, order.indexOf(null) + 1, order.length, value, before, after),
+      const after = books
+        ? recordRun(before, pinned, { value, craft: state.craft.spec.id, order })
+        : before;
+      if (books) {
+        world.progress.current = after;
+        world.setProgress(after);
+      }
+      // A ladder that did not move says so by being handed the same progress
+      // twice; the RECORD is the one line it would still have claimed off a
+      // rung nobody had ridden, so an unbooked run is told it took none.
+      const plate = campaignResultFor(
+        pinned,
+        order.indexOf(null) + 1,
+        order.length,
+        value,
+        before,
+        after,
       );
+      world.setResult(books ? plate : { ...plate, record: false });
       return;
     }
     // A FREE RIDE still gets its plate and never gets a row: its weather is
@@ -88,11 +122,13 @@ export function createSettler(world: SettleWorld): (value: number) => void {
     const key = recordKeyFor(s, world.track);
     const book = world.records.current;
     const standing = bestFor(book, key);
-    const noted = noteRecord(book, key, { value, craft: state.craft.spec.id, at: Date.now() });
-    if (noted.record) {
+    const noted = books
+      ? noteRecord(book, key, { value, craft: state.craft.spec.id, at: Date.now() })
+      : null;
+    if (noted?.record) {
       world.records.current = noted.book;
       world.setRecords(noted.book);
     }
-    world.setResult(resultFor(s, state, value, standing?.value ?? null, noted.record));
+    world.setResult(resultFor(s, state, value, standing?.value ?? null, noted?.record ?? false));
   };
 }

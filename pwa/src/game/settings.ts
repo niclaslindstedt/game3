@@ -651,18 +651,25 @@ export function mergeSettings(parsed: unknown): Settings {
   if (blob.developer === true) settings.developer = true;
   const dev = blob.dev as Partial<Record<keyof DevSettings, unknown>> | undefined;
   if (dev) {
-    settings.dev.wind = inRange(dev.wind, DEV_WIND_RANGE);
-    settings.dev.hs = inRange(dev.hs, DEV_HS_RANGE);
-    // ...but NOT the SCENE, which is read off the URL every time and never
-    // out of the store (`saveSettings` does not write one either). A scene
-    // is a moment STAGED — `placeRun` stands the craft at speed somewhere
-    // down the shore and takes the lights off in front of it, because a
-    // moment held at the grid for three seconds is a scene of nothing. That
-    // is right for the frame a lab is photographing and wrong for every run
-    // after it: kept, it silently re-staged every ride this browser ever
-    // started again, with no row on any card to take it off. It lives as
-    // long as the `?scene=` that asked for it and not one load longer, and
-    // a blob written before this rule heals on the next visit.
+    // A DEVELOPER'S OVERRIDES ARE NOT REMEMBERED — only a developer's
+    // TOGGLES are. The difference is whether the page carries a row to turn
+    // the thing off again:
+    //
+    //   SCENE, WIND, SEA are OVERRIDES. Each is set by a URL alone, each
+    //   silently rewrites every run that follows — a scene STAGES the run
+    //   (`placeRun` stands the craft down the shore and takes the lights off
+    //   in front of it), a wind or a sea replaces the day the generator
+    //   dealt — and each one, being a run the game will not vouch for, also
+    //   stops the finish being written down. None has a row on any card, so
+    //   a rider who picked one up from a link had no way back: kept, they
+    //   re-staged and re-weathered every ride that browser ever started
+    //   again, and left the game silent at the end of all of them. They live
+    //   as long as the URL that asks for them and not one load longer, and a
+    //   blob written before this rule heals on the next visit.
+    //
+    //   FRAME COST is a TOGGLE: a readout, with its own knob on the page
+    //   that switches it back off, and it changes nothing about the run. It
+    //   is remembered, like any other preference.
     if (dev.cost === true) settings.dev.cost = true;
   }
   // A tool nobody can reach is a tool nobody can switch off: if the menu
@@ -684,10 +691,14 @@ export function loadSettings(): Settings {
 
 export function saveSettings(settings: Settings): void {
   try {
-    // The SCENE is never written down — see `mergeSettings`. Stripped here
-    // rather than left to the read side alone so a blob this build wrote
-    // cannot re-stage a run for a build that reads it more trustingly.
-    const kept: Settings = { ...settings, dev: { ...settings.dev, scene: null } };
+    // The developer's OVERRIDES are never written down — see `mergeSettings`.
+    // Stripped here rather than left to the read side alone so a blob this
+    // build wrote cannot re-stage or re-weather a run for a build that reads
+    // it more trustingly.
+    const kept: Settings = {
+      ...settings,
+      dev: { ...settings.dev, scene: null, wind: null, hs: null },
+    };
     localStorage.setItem(SETTINGS_KEY, JSON.stringify(kept));
   } catch {
     /* storage unavailable — the choice still applies to this session */

@@ -40,6 +40,7 @@
 
 import { REPO_URL } from "../identity.ts";
 import { formatTime } from "../lib/util.ts";
+import type { HudFlash } from "./run-news.ts";
 import { hourLabel } from "./daylight.ts";
 import { HudActions } from "./hud-actions.tsx";
 import { AltitudeTape, RevBar, WindMeter } from "./hud-dial.tsx";
@@ -54,11 +55,7 @@ import { UpdateButton } from "./update-button.tsx";
 /** A line in the news column: what it says, its colour, and an id the list
  * is keyed on so a line leaving does not restart the animation of the one
  * under it. */
-export type HudFlash = {
-  id: number;
-  text: string;
-  tone: "good" | "bad" | "info";
-};
+export type { HudFlash };
 
 /** Whether the device has a touchscreen to put the thumb zones on. A
  * laptop with one reports it and gets them; a desktop does not. */
