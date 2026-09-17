@@ -31,6 +31,9 @@ export type MenuPage =
   | { page: "options" }
   | { page: "keys" }
   | { page: "developer" }
+  /** Behind the developer page: the campaign's shores opened or shut by
+   * hand (`menu-unlocks.tsx`). */
+  | { page: "unlocks" }
   /** Behind the developer page: every benchmark this machine has scored
    * (`menu-bench.tsx`). A page rather than a card over the run, because it is
    * read without one — the comparison is between runs, not inside one. */

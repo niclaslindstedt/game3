@@ -148,6 +148,10 @@ const SURFACES = {
   options: { params: { menu: "options" }, wait: ".menu-card-options", settle: 400 },
   keys: { params: { menu: "keys" }, wait: ".menu-card-keys", settle: 400 },
   developer: { params: { menu: "developer" }, wait: ".menu-card", settle: 400 },
+  // The campaign's shores opened or shut by hand. A lab's browser profile has
+  // never ridden a level, so what this photographs is the page as a fresh
+  // save finds it: everything shut, every LOCK spent, every UNLOCK live.
+  unlocks: { params: { menu: "unlocks" }, wait: ".dev-locks", settle: 400 },
   // The benchmark's list as a FRESH VISIT finds it — the same bargain the
   // gallery strikes above. The history lives in this machine's local storage
   // and a lab's profile has never scored a run, so what this photographs is

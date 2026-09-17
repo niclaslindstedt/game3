@@ -64,9 +64,10 @@
 //                  a report about it is handed on
 //   ?splash=0/1    force the attract card off, or back on
 //   ?menu=start    open the front door ON that page (root | campaign | levels |
-//                  start | craft | options | keys | developer | benchHistory) — how
-//                  the lab photographs a menu surface, and how a link points at one.
-//                  The last two let the developer menu out with them: a URL
+//                  start | craft | options | keys | developer | unlocks |
+//                  benchHistory) — how the lab photographs a menu surface, and how
+//                  a link points at one.
+//                  The last three let the developer menu out with them: a URL
 //                  that names a page has, by definition, found it
 //   ?update=1      show the new-build button as if a build were waiting, so
 //                  the surface can be photographed (read where it is drawn,
@@ -284,6 +285,7 @@ export function readParams(search: string): Params {
       menu === "options" ||
       menu === "keys" ||
       menu === "developer" ||
+      menu === "unlocks" ||
       menu === "benchHistory" ||
       menu === "root"
         ? { page: menu }
@@ -337,7 +339,11 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   // hold is a way IN, not a lock, and making the lab hold a button for seven
   // seconds to photograph a page would be the harness re-earning a secret it
   // was handed.
-  if (params.menu?.page === "developer" || params.menu?.page === "benchHistory") {
+  if (
+    params.menu?.page === "developer" ||
+    params.menu?.page === "unlocks" ||
+    params.menu?.page === "benchHistory"
+  ) {
     settings.developer = true;
   }
   if (params.wind !== undefined) settings.dev.wind = params.wind;

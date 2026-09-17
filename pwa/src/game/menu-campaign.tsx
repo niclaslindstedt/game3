@@ -137,9 +137,14 @@ function LevelBox({
           >
             {STRINGS.campaignPlace(result.place, field)}
           </span>
-          <span class="menu-level-mark">
-            {level.mode === "tricks" ? STRINGS.resultScore(result.best) : formatTime(result.best)}
-          </span>
+          {/* A box standing on a developer's unlock has a place and no
+              figure of its own: nobody rode it, so there is nothing to
+              quote until somebody does. */}
+          {result.best !== undefined && (
+            <span class="menu-level-mark">
+              {level.mode === "tricks" ? STRINGS.resultScore(result.best) : formatTime(result.best)}
+            </span>
+          )}
         </span>
       )}
     </button>

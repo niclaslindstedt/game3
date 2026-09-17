@@ -160,8 +160,11 @@ export function campaignResultFor(
 ): HudResult {
   const figure = level.mode === "tricks" ? STRINGS.resultScore(value) : STRINGS.resultTime(value);
   const stood = before.results[level.id];
-  const record =
-    stood === undefined || (level.mode === "tricks" ? value > stood.best : value < stood.best);
+  // A level standing on a developer's unlock has a place and no figure, so
+  // the first run down it is a record by definition — which is exactly what
+  // it is, because nobody had ridden it.
+  const best = stood?.best;
+  const record = best === undefined || (level.mode === "tricks" ? value > best : value < best);
   const lines: string[] = [];
   const medal = medalFor(level, value);
   if (level.mode === "tricks")

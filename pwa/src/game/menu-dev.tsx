@@ -2,20 +2,31 @@
 // THE DEVELOPER PAGE: out of the way of a player who never found it (hold
 // START for seven seconds — `DEV_HOLD_MS`), and blunt for one who did.
 //
-// EVERY ROW HERE IS A URL PARAMETER `App.tsx` ALREADY READS (`?seed=`,
-// `?wind=`, `?hs=`, `?scene=`). That is the rule for anything added, not a
-// coincidence about what happened to be easy: a developer setting exists to
-// reach, from inside the game, a frame that could otherwise only be reached
-// by typing a query string — so a frame somebody FINDS by poking at this page
-// can always be handed to somebody else as a link. COPY REPRO LINK is the
-// other half of that bargain, and the reason the page is worth having at all
-// rather than four more URL parameters nobody can remember.
+// EVERY ROW HERE IS A URL PARAMETER `App.tsx` ALREADY READS. That is the rule
+// for anything added, not a coincidence about what happened to be easy: a
+// developer setting exists to reach, from inside the game, a frame that could
+// otherwise only be reached by typing a query string — so a frame somebody
+// FINDS by poking at this page can always be handed to somebody else as a
+// link. COPY REPRO LINK is the other half of that bargain, and the reason the
+// page is worth having at all rather than more URL parameters nobody can
+// remember.
+//
+// WHAT THE PAGE DOES NOT CARRY IS A SECOND SET OF FADERS FOR THE RUN. The
+// shore, the staged moment and the water a run is stood up in are `?seed=`,
+// `?scene=`, `?wind=` and `?hs=` — still read on boot, still carried by the
+// repro link — and the start card already owns the seed and the day as
+// rows a PLAYER turns. Two places to turn one dial is two answers to one
+// question the first time they disagree, so the tools stay here and the
+// dials stay where the game keeps them.
 //
 // The rows are the KNOBS (`menu-knobs.tsx`), shared with OPTIONS, the start
-// card and the pause strip: a wind picked here and a camera picked there have
+// card and the pause strip: a row picked here and a camera picked there have
 // to be the same kind of row, or the page reads as a different program bolted
 // onto the side of the game. Their sentences go to the ONE caption bar at the
 // foot, which is what lets a page of tools stay a page rather than a booklet.
+//
+// UNLOCKS is the one press here that changes the SAVE rather than the run
+// (`menu-unlocks.tsx`), and it is a page of its own for the room it needs.
 //
 // THE BENCHMARK IS THE ONE ROW HERE THAT IS NOT A URL PARAMETER, and it is
 // the exception the rule is worth stating for: it does not stand a frame up,
@@ -33,39 +44,14 @@ import { MODE_RULES } from "@engine";
 
 import { BENCHMARK, benchmarkSeconds } from "./benchmark-plan.ts";
 import { benchmarkRuns } from "./benchmark-history.ts";
-import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
+import { campaignStanding, type CampaignProgress } from "./campaign.ts";
 import { MenuHead } from "./menu.tsx";
-import {
-  Caption,
-  FadeRow,
-  type Hint,
-  KnobGroup,
-  NumberRow,
-  ON_OFF,
-  StepRow,
-  onOff,
-  type Stop,
-} from "./menu-knobs.tsx";
-import {
-  DEFAULT_SEED,
-  DEV_HS_RANGE,
-  DEV_WIND_RANGE,
-  SEED_RANGE,
-  freshSettings,
-  type Settings,
-} from "./settings.ts";
+import { Caption, type Hint, KnobGroup, ON_OFF, StepRow, onOff } from "./menu-knobs.tsx";
+import { DEFAULT_SEED, freshSettings, type Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
 /** How long a copy button wears its receipt before going back to its label. */
 const SAID_MS = 2000;
-
-/** The scenes, plus the one that is not a scene: START, which is the level's
- * own start line with the clock running — what a player gets, and therefore
- * what a bug report is about until somebody says otherwise. */
-const SCENE_STOPS: Stop<ScenarioName | "start">[] = [
-  { id: "start", label: STRINGS.devStart },
-  ...SCENARIO_NAMES.map((id) => ({ id, label: id.toUpperCase() })),
-];
 
 /**
  * The query string that stands this exact run up again — the same parameters
@@ -101,14 +87,21 @@ export function reproQuery(settings: Settings): string {
 
 export function DeveloperPage({
   settings,
+  progress,
   onSettings,
   onBack,
+  onUnlocks,
   onBenchmark,
   onBenchmarkHistory,
 }: {
   settings: Settings;
+  /** The campaign's board, for the one figure the UNLOCKS row bills itself
+   * with. The page that SETS it is `menu-unlocks.tsx`. */
+  progress: CampaignProgress;
   onSettings: (settings: Settings) => void;
   onBack: () => void;
+  /** Open or shut the campaign's shores. */
+  onUnlocks: () => void;
   /** Take the canvas and time a race on it. */
   onBenchmark: () => void;
   /** …and the list of every one this machine has scored, reachable without
@@ -122,83 +115,32 @@ export function DeveloperPage({
   const dev = settings.dev;
   const setDev = (patch: Partial<Settings["dev"]>): void =>
     onSettings({ ...settings, dev: { ...dev, ...patch } });
-  // The SEED is the START CARD's row, shown here too because a developer
-  // reaching for a seed should not have to walk back out to the front door
-  // for it. One setting, two places to turn it — never two seeds.
-  const seed = settings.ride.seed ?? DEFAULT_SEED;
-  // The default shore stays stored as null, exactly as it is on the start
-  // card — see the note beside `setSeed` there.
-  const setSeed = (next: number): void =>
-    onSettings({
-      ...settings,
-      ride: { ...settings.ride, seed: next === DEFAULT_SEED ? null : next },
-    });
+  const standing = campaignStanding(progress);
 
   return (
     <div class="menu-card menu-card-options" onPointerLeave={() => setHint(null)}>
       <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuDeveloper} />
-      <div class="knob-groups">
-        <div class="knob-col">
-          <KnobGroup title={STRINGS.devGroupRun}>
-            <NumberRow
-              label={STRINGS.devSeed}
-              hint={STRINGS.devSeedHint}
-              value={seed}
-              min={SEED_RANGE.min}
-              max={SEED_RANGE.max}
-              onValue={setSeed}
-              onHint={setHint}
-            />
-            <StepRow
-              label={STRINGS.devScene}
-              hint={STRINGS.devSceneHint}
-              stops={SCENE_STOPS}
-              value={dev.scene ?? "start"}
-              onPick={(scene) => setDev({ scene: scene === "start" ? null : scene })}
-              onHint={setHint}
-            />
-          </KnobGroup>
-          <KnobGroup title={STRINGS.devGroupTools}>
-            <StepRow
-              label={STRINGS.devCost}
-              hint={STRINGS.devCostHint}
-              stops={ON_OFF}
-              value={onOff(dev.cost)}
-              onPick={(id) => setDev({ cost: id === "on" })}
-              onHint={setHint}
-            />
-          </KnobGroup>
-        </div>
-        <div class="knob-col">
-          <KnobGroup title={STRINGS.devGroupSea}>
-            <FadeRow
-              label={STRINGS.devWind}
-              hint={STRINGS.devWindHint}
-              value={dev.wind}
-              min={DEV_WIND_RANGE.min}
-              max={DEV_WIND_RANGE.max}
-              step={1}
-              autoLabel={STRINGS.devAuto}
-              read={STRINGS.devWindValue}
-              onChange={(wind) => setDev({ wind })}
-              onHint={setHint}
-            />
-            <FadeRow
-              label={STRINGS.devSea}
-              hint={STRINGS.devSeaHint}
-              value={dev.hs}
-              min={DEV_HS_RANGE.min}
-              max={DEV_HS_RANGE.max}
-              step={0.5}
-              autoLabel={STRINGS.devAuto}
-              read={STRINGS.devSeaValue}
-              onChange={(hs) => setDev({ hs })}
-              onHint={setHint}
-            />
-          </KnobGroup>
-        </div>
-      </div>
+      {/* ONE GROUP, FULL WIDTH — no `knob-groups` wrapper, because the two
+          columns it deals on a wide screen are OPTIONS' answer to a page of
+          twenty rows and would leave this one row sitting in half a card
+          with the presses under it running the whole width. */}
+      <KnobGroup title={STRINGS.devGroupTools}>
+        <StepRow
+          label={STRINGS.devCost}
+          hint={STRINGS.devCostHint}
+          stops={ON_OFF}
+          value={onOff(dev.cost)}
+          onPick={(id) => setDev({ cost: id === "on" })}
+          onHint={setHint}
+        />
+      </KnobGroup>
       <Caption hint={hint} fallback={STRINGS.devCaption} />
+      {/* THE SAVE, not the run: the one press on this page that changes what
+          the campaign card says has been ridden. */}
+      <button type="button" class="menu-item menu-item-dev" onClick={onUnlocks}>
+        {STRINGS.unlocksTitle}
+        <span class="menu-item-sub">{STRINGS.unlocksRowHint(standing.cleared, standing.of)}</span>
+      </button>
       {/* THE STOPWATCH, under the rows rather than among them: it is not a
           setting, it is a press that takes the canvas for thirty seconds. */}
       <button type="button" class="menu-item menu-item-dev" onClick={onBenchmark}>

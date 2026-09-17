@@ -18,6 +18,10 @@
 //   * A SAVE FROM ANOTHER BUILD. A blob naming a level the ladder no longer
 //     has, or a hull the roster no longer carries, must not poison the
 //     board.
+//   * A BOARD WITH A HOLE IN IT. The developer page sets the ladder outright
+//     (`unlockShores` / `lockShores`), and a prefix that is not a prefix is a
+//     state the campaign itself would never deal — a shore standing open
+//     behind one that has never been ridden.
 //
 // The levels themselves — that each pinned shore still builds to its
 // digest — are `generator_version_test`'s; this file never generates one.
@@ -63,6 +67,9 @@ import {
   shoreStandings,
   shoreUnlocked,
   shoreWon,
+  lockShores,
+  unlockRows,
+  unlockShores,
   type CampaignProgress,
 } from "../pwa/src/game/campaign.ts";
 import { GAME_MODES } from "@engine";
@@ -402,6 +409,144 @@ describe("the locks", () => {
     expect(ladderAfter("mangrove-6", wins)).toEqual({ kind: "next", level: TAIGA.levels[0] });
     expect(ladderAfter("taiga-6", rideShore(wins, TAIGA, 1))).toEqual({ kind: "end" });
     expect(ladderAfter("nowhere-1", wins)).toEqual({ kind: "end" });
+  });
+});
+
+describe("the developer's locks (unlockShores, lockShores)", () => {
+  // The whole point of the page: the last rung is four evenings away, and
+  // every review pass of this game has to LOOK at it.
+  it("opens a shore, and every shore before it with it", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, TAIGA.id);
+    expect(shoreWon(MANGROVE, opened)).toBe(true);
+    expect(shoreWon(TAIGA, opened)).toBe(true);
+    expect(shoreUnlocked(TAIGA, opened)).toBe(true);
+    for (const level of TAIGA.levels) expect(levelCleared(opened, level)).toBe(true);
+    expect(campaignStanding(opened)).toEqual({ cleared: 12, of: 12 });
+  });
+
+  it("opens the FIRST shore without touching the one behind it", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, MANGROVE.id);
+    expect(shoreWon(MANGROVE, opened)).toBe(true);
+    // The second shore opens because the FIRST was won, and is untouched
+    // itself: its levels are all still there to ride.
+    expect(shoreUnlocked(TAIGA, opened)).toBe(true);
+    expect(levelsRidden(TAIGA, opened)).toBe(0);
+    expect(levelUnlocked(TAIGA, 1, opened)).toBe(false);
+  });
+
+  it("puts the player top of every board it grants", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, null);
+    for (const shore of SHORES) {
+      const table = shoreStandings(shore, opened);
+      expect(table[0].you).toBe(true);
+      expect(table[0].wins).toBe(shore.levels.length);
+      expect(playerStanding(shore, opened).points).toBe(POINTS[0] * shore.levels.length);
+    }
+    // ...and the podium behind him, so the table reads like a season and not
+    // like a row of walkovers on an empty board.
+    const board = opened.points[MANGROVE.levels[0].id];
+    expect(board[PLAYER_ID]).toBe(POINTS[0]);
+    expect(board[riderKey(0)]).toBe(POINTS[1]);
+  });
+
+  it("clears a tricks rung with the gold it takes, and quotes no figure", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, null);
+    const tricks = CAMPAIGN_LEVELS.filter((level) => level.mode === "tricks");
+    expect(tricks.length).toBeGreaterThan(0);
+    for (const level of tricks) {
+      expect(opened.results[level.id].medal).toBe(MEDALS[MEDALS.length - 1]);
+    }
+    // NOBODY RODE IT, so the box has nothing to quote: a grant that invented
+    // a time would put a lap on the card that was never ridden.
+    for (const level of CAMPAIGN_LEVELS) {
+      expect(opened.results[level.id].best).toBeUndefined();
+      expect(opened.results[level.id].craft).toBeUndefined();
+    }
+  });
+
+  it("keeps a figure that was actually ridden", () => {
+    const ridden = recordRun(EMPTY_PROGRESS, MANGROVE.levels[0], {
+      value: 111,
+      craft: "dart",
+      order: order(5),
+    });
+    const opened = unlockShores(ridden, null);
+    const result = opened.results[MANGROVE.levels[0].id];
+    expect(result.best).toBe(111);
+    expect(result.craft).toBe("dart");
+    expect(result.place).toBe(1);
+  });
+
+  it("lets the first run down an opened level set the figure", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, null);
+    const level = MANGROVE.levels[0];
+    const after = recordRun(opened, level, { value: 130, craft: "otter", order: order(4) });
+    expect(after.results[level.id].best).toBe(130);
+    expect(after.results[level.id].craft).toBe("otter");
+    // ...and it cannot cost the grant: the place kept is the better of the
+    // two, exactly as a second afternoon's is.
+    expect(after.results[level.id].place).toBe(1);
+  });
+
+  it("shuts a shore and every shore after it", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, null);
+    const shut = lockShores(opened, TAIGA.id);
+    expect(shoreWon(MANGROVE, shut)).toBe(true);
+    expect(levelsRidden(TAIGA, shut)).toBe(0);
+    expect(shut.points[TAIGA.levels[0].id]).toBeUndefined();
+    // The shore is still OPEN — the one before it was won — and it is the
+    // levels inside it that are back to being ridden for.
+    expect(shoreUnlocked(TAIGA, shut)).toBe(true);
+    expect(levelUnlocked(TAIGA, 1, shut)).toBe(false);
+  });
+
+  it("goes all the way back, and all the way forward, on null", () => {
+    const shut = lockShores(unlockShores(EMPTY_PROGRESS, null), null);
+    expect(shut).toEqual(EMPTY_PROGRESS);
+    expect(campaignStanding(shut)).toEqual({ cleared: 0, of: 12 });
+    expect(shoreUnlocked(TAIGA, shut)).toBe(false);
+  });
+
+  it("never leaves the ladder with a hole in it", () => {
+    // A shore standing OPEN behind one that has never been ridden is the one
+    // state the campaign itself cannot deal, and both presses work on a
+    // prefix precisely so that neither can produce it.
+    const boards = [
+      EMPTY_PROGRESS,
+      ...SHORES.map((shore) => unlockShores(EMPTY_PROGRESS, shore.id)),
+      ...SHORES.map((shore) => lockShores(unlockShores(EMPTY_PROGRESS, null), shore.id)),
+    ];
+    for (const board of boards) {
+      let behind = true;
+      for (const shore of SHORES) {
+        if (!shoreUnlocked(shore, board)) behind = false;
+        else expect(behind).toBe(true);
+      }
+    }
+  });
+
+  it("leaves a stored board it can read back", () => {
+    const opened = unlockShores(EMPTY_PROGRESS, null);
+    expect(mergeProgress(JSON.parse(JSON.stringify(opened)))).toEqual(opened);
+  });
+
+  it("says which press still has something to do", () => {
+    const fresh = unlockRows(EMPTY_PROGRESS);
+    expect(fresh.map((row) => row.won)).toEqual([false, false]);
+    expect(fresh.map((row) => row.shut)).toEqual([true, true]);
+    expect(fresh.map((row) => row.open)).toEqual([true, false]);
+    expect(fresh[0]).toMatchObject({ cleared: 0, of: MANGROVE.levels.length });
+
+    const all = unlockRows(unlockShores(EMPTY_PROGRESS, null));
+    expect(all.map((row) => row.won)).toEqual([true, true]);
+    expect(all.map((row) => row.shut)).toEqual([false, false]);
+    expect(all[1].cleared).toBe(TAIGA.levels.length);
+
+    // The FIRST shore won and the second untouched: its own unlock is spent,
+    // the second's is not, and the second's lock has nothing left either.
+    const first = unlockRows(unlockShores(EMPTY_PROGRESS, MANGROVE.id));
+    expect(first.map((row) => row.won)).toEqual([true, false]);
+    expect(first.map((row) => row.shut)).toEqual([false, true]);
   });
 });
 

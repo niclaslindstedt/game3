@@ -898,6 +898,20 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     expect(mergeSettings({ developer: true }).developer).toBe(true);
   });
 
+  it("lets the developer menu out with a link that names one of its pages", () => {
+    // A URL naming a page behind the seven-second hold has, by definition,
+    // found it — and a lab that landed on a page with the menu still locked
+    // would photograph a card with no way back to the front door.
+    for (const page of ["developer", "unlocks", "benchHistory"] as const) {
+      const laid = settingsFor(DEFAULT_SETTINGS, readParams(`?menu=${page}`));
+      expect(readParams(`?menu=${page}`).menu).toEqual({ page });
+      expect(laid.developer).toBe(true);
+    }
+    // ...and a page a player can reach on their own does not.
+    expect(settingsFor(DEFAULT_SETTINGS, readParams("?menu=options")).developer).toBe(false);
+    expect(readParams("?menu=nowhere").menu).toBeNull();
+  });
+
   it("clears every developer tool for anyone who never found the menu", () => {
     // A tool nobody can reach is a tool nobody can switch off.
     const sneaked = mergeSettings({ dev: { cost: true, scene: "dive" } });

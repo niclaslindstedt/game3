@@ -965,6 +965,7 @@ export function App() {
           progress={progress}
           onSettings={setSettings}
           onNavigate={setMenuPage}
+          onProgress={setProgress}
           onStart={() => startRunRef.current()}
           onCampaign={(level) => startRunRef.current(level)}
           onBenchmark={() => benchRef.current.start()}
