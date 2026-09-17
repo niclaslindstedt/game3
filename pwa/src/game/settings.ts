@@ -262,20 +262,6 @@ export type RideSettings = {
    * in — and the sky it implies is read off the figure either way
    * (`skyForWind`). */
   wind: number | null;
-  /** WHICH QUARTER that wind blows from, DEGREES off dead onshore: 0 is
-   * straight in off the open water, ±90 along the shore, ±180 off the land
-   * behind (the engine's `windQuarter`, which is the same angle in rad).
-   * Null rides the quarter the level was dealt, which R12 always deals
-   * within 60° of onshore.
-   *
-   * Only FREE's row writes it, and that is the point: a quarter past a
-   * right angle turns the fetch round onto the land and flattens the sea
-   * however hard the wind is set, which is a real day and not a day any
-   * mode that measures a rider should be able to deal itself.
-   *
-   * Degrees rather than radians because it is a stored blob and a link: a
-   * row worth reading back off a URL is a row somebody can read. */
-  windQuarter: number | null;
   /** R36 — HOW BIG THE SEA OUTSIDE IS, m of significant height inside the
    * engine's own `SWELL_DIAL` — FREE's fader stands anywhere on it and
    * {@link SEA_METRES} is the scale a figure is READ on
@@ -450,7 +436,6 @@ export const DEFAULT_SETTINGS: Settings = {
     wind: null,
     // FREE's own row, and the only one that does not also appear on the
     // other three cards: the quarter is a knob a measured run does not get.
-    windQuarter: null,
     // R36 — and its own sea outside: a shore is dealt a swell as surely as
     // it is dealt a wind, and the two are separate weather.
     swell: null,
@@ -477,7 +462,7 @@ export const DEFAULT_SEED = 38;
 export const SEED_RANGE = { min: 1, max: 999999 } as const;
 
 /**
- * FREE'S OWN TRAVEL — how far its three faders go, and the one place in the
+ * FREE'S OWN TRAVEL — how far its two faders go, and the one place in the
  * app where a row is deliberately allowed past what the generator deals.
  *
  * THE WIND runs from a flat calm to forty metres a second. R12 deals between
@@ -488,21 +473,17 @@ export const SEED_RANGE = { min: 1, max: 999999 } as const;
  * find out what that looks like. Nothing is measured on it (`records.ts`), so
  * nothing is being cheated.
  *
- * THE QUARTER is the whole circle, in degrees off dead onshore: past a right
- * angle the wind is blowing out to sea and the fetch is measured over the
- * land, so the water goes flat however hard the row is pushed. That is the
- * honest answer and it is worth being able to see.
+ * WHICH QUARTER it blows from is not a row at all, and was one: a free ride
+ * is always given the wind dead onshore (`new-game.ts`'s `quarterOf`),
+ * because the quarter is what the fetch is measured along and a row that
+ * turned it off the sea flattened the water however hard the one above it
+ * was pushed — a fader that could quietly cancel its neighbours.
  *
  * THE SWELL is not stated here at all — it is the ENGINE's `SWELL_DIAL`, and
  * restating its ends in the app is how a card comes to offer a sea the
  * generator would clamp.
  */
 export const FREE_WIND_RANGE = { min: 0, max: 40 } as const;
-export const QUARTER_RANGE = { min: -180, max: 180 } as const;
-/** What one press of the quarter row's arrow is worth, degrees. Fifteen is
- * a point of the compass rose's own eighth, so the ladder passes through
- * dead onshore, the corners and along the shore exactly. */
-export const QUARTER_STEP = 15;
 
 const SETTINGS_KEY = "sea-haven-settings";
 
@@ -619,13 +600,12 @@ export function mergeSettings(parsed: unknown): Settings {
   }
   if (TIMES_OF_DAY.some((id) => id === ride?.time)) settings.ride.time = ride?.time as TimeOfDay;
   if (SEASONS.some((id) => id === ride?.season)) settings.ride.season = ride?.season as Season;
-  // The wind, the quarter and the sea are RANGES rather than ladders now
-  // that FREE's faders write them: a stored figure between two of the start
-  // card's rungs is a free run's answer, not a corrupt blob. Each is still
-  // checked — a figure off the travel is one no row could put the thumb back
-  // on — and the sea's range is the ENGINE's, never a copy of it.
+  // The wind and the sea are RANGES rather than ladders now that FREE's
+  // faders write them: a stored figure between two of the start card's rungs
+  // is a free run's answer, not a corrupt blob. Both are still checked — a
+  // figure off the travel is one no row could put the thumb back on — and
+  // the sea's range is the ENGINE's, never a copy of it.
   settings.ride.wind = inRange(ride?.wind, FREE_WIND_RANGE);
-  settings.ride.windQuarter = inRange(ride?.windQuarter, QUARTER_RANGE);
   settings.ride.swell = inRange(ride?.swell, SWELL_DIAL);
   // Checked against the ENGINE's ladder, not a copy of it: a sky R19 stops
   // dealing is a sky this card stops offering, on the same day.

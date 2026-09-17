@@ -51,20 +51,6 @@ const CLASS_NAMES: Record<string, string> = {
   "1.5": "OPEN",
 };
 
-/** WHERE A QUARTER STANDS against the coast, in words — the compass rose's
- * own eighths measured off dead onshore: inside 22.5° of it the wind is
- * straight in, past 157.5° it is straight off the land, a right angle either
- * way is along the shore, and the two quadrants between are quartering onto
- * it or off it. */
-function quarterWord(deg: number): string {
-  const away = Math.abs(deg);
-  if (away <= 22.5) return "Straight in off the sea";
-  if (away < 67.5) return "Quartering onto the shore";
-  if (away <= 112.5) return "Straight along the shore";
-  if (away < 157.5) return "Quartering off the shore";
-  return "Straight off the land";
-}
-
 /** The tail every free row's caption ends with: what this shore was dealt,
  * or nothing at all while the chart is still being built. */
 function dealtIs(dealt: number | null, read: (value: number) => string): string {
@@ -501,29 +487,11 @@ export const STRINGS = {
   /** The same three questions the rows above ask in words, asked as
    * FIGURES — and one the other cards never ask at all. */
   freeWindHint: (dealt: number | null): string =>
-    `The wind itself, m/s — the worded card's rungs are 4, 12 and 20, and this runs to twice that. Past about 25 you are riding weather nothing was built for.${dealtIs(dealt, (ms) => `${Math.round(ms)} m/s`)}`,
+    `The wind itself, m/s, always straight in off the open water — the worded card's rungs are 4, 12 and 20, and this runs to twice that. Past about 25 you are riding weather nothing was built for.${dealtIs(dealt, (ms) => `${Math.round(ms)} m/s`)}`,
   freeWindValue: (ms: number): string => `${Math.round(ms)} M/S`,
   freeWavesHint: (dealt: number | null): string =>
     `How big the swell out past the coast is, in metres — anywhere on the scale rather than the nearest rung of it.${dealtIs(dealt, (m) => `${m.toFixed(1)} m`)}`,
   freeWavesValue: (metres: number): string => `${metres.toFixed(1)} M`,
-  /** QUARTER rather than "WIND FROM": the knob's name column is the width
-   * of WEATHER and a longer word is truncated with an ellipsis on the card
-   * and harder on a phone. It is also the right word — a wind's quarter is
-   * where it blows out of — and the caption under the rows says what it is
-   * being measured against. */
-  freeQuarter: "QUARTER",
-  /** WHERE THE WIND IS COMING FROM, said in full — the row itself has only
-   * room for the degrees (`.knob-fade` is a fixed width shared by every
-   * fader in the game), so the word for what those degrees MEAN is the
-   * caption's job, and it names where the row stands right now. */
-  freeQuarterHint: (deg: number | null, dealt: number | null): string =>
-    `Which quarter the wind blows out of, measured off the open water — straight in builds the sea, along the shore rakes it, off the land flattens it however hard you set it.${
-      deg === null ? "" : ` ${quarterWord(deg)}.`
-    }${dealtIs(dealt, (d) => `${Math.round(d)}°, ${quarterWord(d).toLowerCase()}`)}`,
-  /** The quarter as the row reads it: signed degrees off dead onshore, so a
-   * rider can tell one side of the shore from the other. The WORD for what
-   * they mean is the caption's, for the reason above it. */
-  freeQuarterValue: (deg: number): string => `${deg > 0 ? "+" : ""}${Math.round(deg)}°`,
   /** The card's caption on a free ride: the mark's sentence would be a lie
    * here, because three of the rows are faders with no rung to land back on
    * — each opens on the shore's own answer and is dragged off it. */

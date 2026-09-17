@@ -148,9 +148,8 @@ export function gameFor(s: Settings, params: LevelParams, over?: RunOver): GameS
     // The developer's own rows win where they are set: they are the exact
     // figure, and the card's is a word standing for one.
     windSpeed: s.dev.wind ?? wind ?? undefined,
-    // ...and WHICH WAY it blows, FREE's row alone (`freeRides`): rad off
-    // dead onshore, which the row keeps in degrees because that is what a
-    // person reads. Left alone it is the quarter R12 dealt.
+    // ...and WHICH WAY it blows, which on a FREE ride is not a question:
+    // dead onshore, always (`quarterOf`).
     windQuarter: quarterOf(s),
     // R36 — the sea standing off the coast, which the WIND row above does
     // not imply and cannot ask for. Left alone it is the shore's own.
@@ -175,12 +174,22 @@ export function freeRides(s: Settings): boolean {
   return s.ride.mode === "free";
 }
 
-/** The quarter the wind is asked to blow from, rad off dead onshore, or
- * nothing where the level's own is being ridden. Degrees on the row and in
- * the stored blob; radians is what the engine speaks. */
+/** The quarter the wind is asked to blow from, rad off dead onshore — ZERO
+ * on a free ride, and nothing at all anywhere else, where the level rides
+ * the quarter R12 dealt it.
+ *
+ * Zero is straight in off the open water, which is to say square on to the
+ * average line of the shore (`Level.seaHeading`, and `windQuarter` in
+ * `engine/game/wind.ts` is what it is measured against). FREE used to offer
+ * the angle as a fader and it was the one row on the card that could undo
+ * the two above it: the quarter is what the fetch is measured along, so a
+ * wind turned off the sea has no water at its back and grows nothing,
+ * leaving a rider who asked for forty metres a second and a twenty-metre
+ * swell on flat water with no row saying which one had cancelled the other.
+ * The sea a free ride asks for is the sea it gets, so the wind is always at
+ * the fetch's back and the WIND and WAVES rows mean what they say. */
 function quarterOf(s: Settings): number | undefined {
-  if (!freeRides(s) || s.ride.windQuarter === null) return undefined;
-  return (s.ride.windQuarter * Math.PI) / 180;
+  return freeRides(s) ? 0 : undefined;
 }
 
 /** THE CLASS A RUN IS RIDDEN AT: STOCK, unless the run is a FREE one.

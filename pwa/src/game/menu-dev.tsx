@@ -67,15 +67,14 @@ export function reproQuery(settings: Settings): string {
   params.set("craft", ride.craft);
   params.set("mode", ride.mode);
   if (ride.mode === "tricks") params.set("minutes", String(ride.tricksMinutes));
-  // The start card's own weather rows travel as well — the hour, the wind and
-  // the quarter it blows from, the sea outside, the sky — because a link that
+  // The start card's own weather rows travel as well — the hour, the wind,
+  // the sea outside, the sky — because a link that
   // dropped them would stand the frame up under different weather from the
   // one it was copied out of, which is the one thing a repro link may never
   // do. Each is a FIGURE where the row stores one, which is the same spelling
   // `url-params.ts` reads back.
   if (ride.time !== null) params.set("time", ride.time);
   if (ride.wind !== null) params.set("day", String(ride.wind));
-  if (ride.windQuarter !== null) params.set("windfrom", String(ride.windQuarter));
   if (ride.swell !== null) params.set("waves", String(ride.swell));
   if (ride.weather !== null) params.set("weather", ride.weather);
   if (dev.scene !== null) params.set("scene", dev.scene);
