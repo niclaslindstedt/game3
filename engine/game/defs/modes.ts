@@ -113,22 +113,86 @@ export const RACE = {
    * clear intake, so a slot over anything shallower is a slot the grid is
    * moved forward off. */
   gridDepth: 1.5,
-  /** HOW ONE HULL LEANS ON ANOTHER (`rivals.ts`). The two are resolved as a
-   * pair of keels — three points along each, a hull's half-beam round every
-   * one — pushed apart along the line between the two closest points and
-   * given an impulse along it. `restitution` is how much of the closing
-   * speed comes back (a hull is a hollow shell on the water: it bounces
-   * more than a skerry gives, and less than a buoy would); `tangentKeep`
-   * how much of the sliding speed is kept, so a shoulder-to-shoulder barge
-   * costs both riders a little of their way and neither of them their
-   * heading. `speed` is the closing speed, m/s, above which the contact is
-   * an EVENT worth a sound and a shudder, and `cooldown` how long, s, one
-   * hull is deaf to the same rival after one. */
-  bump: { restitution: 0.4, tangentKeep: 0.9, speed: 1.2, cooldown: 0.5 },
-  /** Two hulls at heights this far apart, m, are not touching: one is
-   * flying over the other, and a ring ridden above a rival's head is not a
-   * collision. */
-  bumpClearance: 1.6,
+  /** HOW ONE HULL LEANS ON ANOTHER (`hull-contact.ts`). The model there is
+   * a pair of oriented shells resolved through whichever face is the
+   * shallowest way out, and a sequential-impulse solver over the contacts
+   * that come back; these are its numbers. The first group is the SHAPE,
+   * the second the SOLVER, and the third the arcade's dials — which are
+   * dials, not measurements, and are the knobs to reach for when a contact
+   * reads wrong rather than the solver above them.
+   *
+   * There is no height at which two hulls stop touching: the shell runs
+   * keel to deck and stops, so a rider who clears a rival's deck clears
+   * her, and one who does not lands on it. */
+  bump: {
+    /** THE SHAPE. How much of the half-beam the contact shell carries —
+     * just under all of it, since the plan circle the sponsons sweep is
+     * the widest the hull ever is and a shell that stood proud of it would
+     * be an invisible fender. `stemBeam` is the least beam the bow may be
+     * drawn down to as a share of the shell's own, m/m: the hull's taper
+     * table (`TUNING.hull.stationTaper`) runs out at 0.45 four fifths of
+     * the way forward and its slope carried to the stem lands near a
+     * third, which is a fine bow and not a knife. */
+    shellBeam: 0.97,
+    stemBeam: 0.28,
+    /** THE SOLVER. `restitution` is how much of the closing speed comes
+     * back: a hull is a hollow shell on the water, so it gives more than a
+     * skerry and less than a buoy. `friction` is Coulomb against the slide
+     * across a contact — wet gel coat on wet gel coat, which is slippery
+     * but not ice, and is what turns a shoulder into two hulls running on
+     * together rather than one sliding off the other. */
+    restitution: 0.3,
+    friction: 0.35,
+    /** How much of the overlap past `slop` the Baumgarte bias pushes out
+     * per step (0..1), the overlap it tolerates (m) and the most that bias
+     * may ever be worth (m/s). The cap is what keeps a hull that somehow
+     * arrives deeply overlapped — a reset onto a rival, a landing square
+     * on her deck — from being fired out of her rather than pushed off. */
+    push: 0.3,
+    slop: 0.02,
+    maxBias: 2.5,
+    /** Relaxation passes over the manifold, and the most contacts one pair
+     * may put in it (two shells of twelve points each, so the cap is only
+     * ever reached by hulls almost exactly on top of each other). */
+    passes: 2,
+    maxContacts: 16,
+    /** THE DIALS. How much of the rotation a contact's couple works out to
+     * on each axis the hull actually keeps: nose-over-tail, about the mast,
+     * and along the keel. All three at 1 is the bare rigid-body answer.
+     *
+     * PITCH IS LEFT AT THE PHYSICS. It is the axis a rear-ender is READ on
+     * — a stern lifted, a bow driven under — and a planing hull rights
+     * itself in under a second, so there is nothing to protect the rider
+     * from and taxing it only makes the contact read soft. YAW is held down
+     * hardest, because it is the one a rider cannot ride out: a hull turned
+     * across its own way loses everything it had and takes seconds to get
+     * going again, and a race decided by a pirouette is not a race. ROLL
+     * sits between them — a heel is worth feeling and a capsize is not. */
+    pitchGain: 1,
+    yawGain: 0.55,
+    rollGain: 0.65,
+    /** ...and the ceiling over the whole meeting, rad/s: the most fresh
+     * rotation one hull may take away from one contact with another,
+     * whatever the arithmetic came out at. A shade under a third of a turn
+     * a second. */
+    spinCap: 1.8,
+    /** THE COUPLE THAT LINES TWO HULLS UP, rad/s² at full press, with a
+     * damping on the relative turn rate, 1/s, and the normal impulse per
+     * kilogram of the two of them at which the press counts as full,
+     * m/s. Three sample points down a rail carry most of a line contact's
+     * couple; this is the last of it, and it is what makes leaning on a
+     * rival end with the two of them running side by side rather than
+     * scissoring apart. Zero leaves only what the manifold itself
+     * carries. */
+    align: 1.7,
+    alignDamp: 1.2,
+    alignFull: 0.5,
+    /** The closing speed, m/s, above which the contact is an EVENT worth a
+     * sound and a shudder, and how long, s, one hull is deaf to the same
+     * rival after one. */
+    speed: 1.2,
+    cooldown: 0.5,
+  },
   /** THE FIELD'S PACE. Every rival rides the same bot the sim rides, on the
    * same roster at the same class as the player, and what separates them
    * is the THROTTLE each is allowed: dealt off the run's own stream between

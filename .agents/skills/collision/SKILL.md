@@ -21,20 +21,21 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 
 | Piece | File |
 | --- | --- |
-| Solids: cylinder push-out against `level.solids`, restitution, the `hit` event | `engine/game/collision.ts` |
+| Solids: whaleback push-out against `level.solids` — the flank is the wall, the crown is the road, restitution, the `hit` event | `engine/game/collision.ts` |
 | Grounding: probes vs `level.ground` — normal force + friction, the `ground` event | `engine/game/collision.ts` |
 | Ramps: a plane the probes ride on, hinged at the water at its rear edge, contact normal from its angle | `engine/game/collision.ts` reading `Gate.ramp` |
 | Level bounds: a soft push back inside `level.bounds` | `engine/game/collision.ts` |
 | Gates: line crossing (water) / ring pass (air), in course order; `missedGate` when the craft crosses the owed gate's plane outside its opening, or reaches a later gate after already passing it — the missed gate then counts as reached with a penalty | `engine/game/course.ts` (`gate`, `airGate`, `missedGate`, `finish`, the splits) |
 | Reset to the last gate passed, facing the next | `engine/game/course.ts` + `step.ts` on the `reset` edge |
-| Every number: restitution, friction, the push-out margin, the bounds' spring, the miss penalty | `engine/game/defs/tuning.ts` → `TUNING.collision`, `TUNING.course` |
+| Every number: restitution, friction, the push-out margin, the bounds' spring, the miss penalty | `engine/game/defs/tuning.ts` → `TUNING.contact`, `TUNING.course` (there is no `TUNING.collision`) |
+| ANOTHER HULL: the oriented shell, the min-translation faces, the sequential-impulse solver, the arcade's dials | `engine/game/hull-contact.ts`, `RACE.bump` in `engine/game/defs/modes.ts` — `rivals.ts` only says which PAIRS are asked |
 | What a solid IS (kind, radius, top height) and where it stands | `engine/mapgen/types.ts` (`Solid`), placed by `compile.ts` under `rules.ts` — the `mapgen-improvement` skill |
 | The landing and the dive — the slam itself | `engine/game/hull.ts` (the `craft-physics` skill); this skill owns what the `land` / `dive` EVENTS mean and when they fire |
 | What the events mean to the app | `pwa/src/game/renderer.ts` (a plume, a shudder — later `visual-effects`), `hud.tsx` (the miss, the split) |
 | Drawing the solids where the engine put them | `pwa/src/game/rocks.ts` |
 | Drawing the gates and the ramps | `pwa/src/game/gates.ts` |
 | Damage | `engine/game/damage.ts` and `pwa/src/game/damage-fx.ts` — PLACEHOLDERS with a header comment. Not this session's; a contact today costs speed and attitude, never a ledger |
-| Tests | `tests/collision_test.ts` (solid push-out, grounding, ramp contact), `tests/course_test.ts` (gate order, splits, reset) |
+| Tests | `tests/collision_test.ts` (solid push-out, grounding, ramp contact), `tests/hull_contact_test.ts` (the shell, and which end of a rival you met), `tests/course_test.ts` (gate order, splits, reset) |
 
 ## The events, and what each MEANS
 
@@ -141,7 +142,7 @@ transition into it.
    one solid, ramp or shallow the scenario is about, `placeRun` at the
    moment, then step — both patterns live in `tests/collision_test.ts`.
 2. **Tune defs first.** If the change is feel (bounces too hard, grounding
-   too sticky, the miss too cheap), it is a `TUNING.collision` /
+   too sticky, the miss too cheap), it is a `TUNING.contact` /
    `TUNING.course` number with units in the comment — not a model edit.
 3. **Assert the rule you claim** in `tests/collision_test.ts` /
    `course_test.ts`: square into a skerry (pushed out, `hit` once, speed

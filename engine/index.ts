@@ -45,6 +45,9 @@ export {
   racePlace,
   rivalSlot,
 } from "./game/rivals.ts";
+// ...and HULL AGAINST HULL (game/hull-contact.ts): the shell one rider meets
+// another's with, and the solver that resolves the two of them.
+export { clipHulls, hullShell, type HullShell } from "./game/hull-contact.ts";
 // A run stood at a moment instead of ridden to it (place.ts).
 export { placeRun, type RunMoment } from "./game/place.ts";
 export {
