@@ -5421,6 +5421,22 @@ button.knob-read:focus-visible {
   gap: 0.5rem;
 }
 
+/* A PHONE ON ITS SIDE lays the shores out the other way round, the way the
+   front door does — and here it is the BANNER that needs it rather than the
+   thumb. A row's height is capped by the viewport (there are only 390 px of
+   it) while its width is the card's, so full-width rows come out nearer 6:1
+   on a shape the card is widest at: `object-fit: cover` then takes a thin
+   band across the middle of the shot and the shore is cropped clean out of
+   it, which leaves the picture saying "water" where it has to say "coast".
+   Side by side, each row is back to about 3:1 and shows what the other two
+   viewports show. Matched on being SHORT and WIDE rather than on
+   orientation, because that is the condition the framing actually has. */
+@media (max-height: 30rem) and (min-width: 34rem) {
+  .menu-shores {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
 /* The row itself. Its height is held at about three times its width at every
    viewport either card is read at — see `.menu-shore-shot` for why the ratio
    is load-bearing rather than taste. */
