@@ -83,16 +83,22 @@ export function flashFor(
     case "bail":
       return { text: STRINGS.bailed(e.lost), tone: "bad" };
     case "land":
-      // THE RECORD IS THE BETTER NEWS. A landing that took the run's
-      // longest flight is called out as one; every other flight that
-      // counted gets the plain reading, and a hop that was not air time at
-      // all (`flight.airCounts`) is a wave, not a jump, and gets no line.
-      // None of it on a run with the tricks off: the air is not what that
-      // run is about, and the column is for what is.
+      // THE RECORD IS THE BETTER NEWS, on either of the flight's two axes:
+      // a landing that took the run's longest HANG is called out as one, and
+      // so is one that took the longest CARRY, because they are two
+      // different jumps as often as they are one. A landing that took both
+      // is billed by the air's line — the column is one line per event, and
+      // the seconds are the half a rider was already watching climb. Every
+      // other flight that counted gets the plain reading with both figures
+      // in it, and a hop that was not air time at all (`flight.airCounts`)
+      // is a wave, not a jump, and gets no line. None of it on a run with
+      // the tricks off: the air is not what that run is about, and the
+      // column is for what is.
       if (!state.rules.tricks) return null;
       if (e.record) return { text: STRINGS.airRecord(e.airTime), tone: "good" };
+      if (e.lengthRecord) return { text: STRINGS.lengthRecord(e.length), tone: "good" };
       return e.airTime > TUNING.flight.airCounts
-        ? { text: STRINGS.landed(e.airTime), tone: "info" }
+        ? { text: STRINGS.landed(e.airTime, e.length), tone: "info" }
         : null;
     default:
       return null;

@@ -90,6 +90,7 @@ console.log(
     pad("miss", 4),
     pad("top", 6),
     pad("air", 5),
+    pad("jump", 6),
     pad("score", 7),
     pad("lnch", 4),
     pad("dive", 4),
@@ -125,6 +126,7 @@ for (const seed of seeds) {
         pad(r.gatesMissed, 4),
         pad(kmh(r.topSpeed), 6),
         pad(r.airTime.toFixed(1), 5),
+        pad(r.airLength.toFixed(0), 6),
         pad(r.score, 7),
         pad(r.launches, 4),
         pad(r.dives, 4),
@@ -155,6 +157,7 @@ for (const craft of crafts) {
     `${craft.padEnd(7)} ${done.length}/${own.length} finished · ` +
       `pace ${pace.toFixed(1)} km/h · top ${kmh(Math.max(...own.map((r) => r.topSpeed)))} km/h · ` +
       `air ${(sum((r) => r.airTime) / own.length).toFixed(1)} s/run · ` +
+      `jump ${(sum((r) => r.airLength) / own.length).toFixed(0)} m/run · ` +
       `score ${Math.round(sum((r) => r.score) / own.length)}/run · ` +
       `launches ${sum((r) => r.launches)} · dives ${sum((r) => r.dives)} · ` +
       `under ${sum((r) => r.underTime).toFixed(1)} s · float-ups ${sum((r) => r.floatUps)} · ` +

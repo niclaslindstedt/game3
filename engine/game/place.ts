@@ -112,6 +112,17 @@ export function placeRun(state: GameState, moment: RunMoment): void {
     c.y = heightAt(state.sea, state.level, moment.x, moment.z, state.t) + height;
     c.airborne = true;
     c.airTime = Math.max(moment.airTime ?? 0, 0.01);
+    // ...AND HOW FAR IT HAS ALREADY CARRIED HIM, which is not a second
+    // thing to state: a hull in the air travels in a straight line in plan
+    // at the way it left with, so a moment staged `airTime` into a flight
+    // at `speed` has covered `speed · airTime` of ground. The launch point
+    // is put back UP THE HEADING by exactly that, so the moment is
+    // internally consistent — `airLength` is the distance from it, as it is
+    // in a flight nobody staged — and a photographed hang reads the jump it
+    // is part of rather than one that has gone nowhere.
+    c.airLength = speed * c.airTime;
+    c.launchX = c.x - Math.sin(moment.heading) * c.airLength;
+    c.launchZ = c.z - Math.cos(moment.heading) * c.airLength;
     c.launchVy = c.vy;
   } else {
     // A hull under way rides higher than one at rest.

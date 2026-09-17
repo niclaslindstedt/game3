@@ -134,7 +134,17 @@ describe("what lays it", () => {
     const c = state.craft;
     // Struck by hand, off the event the hull would have pushed.
     stepWash(state, [
-      { kind: "land", t: state.t, vy: -5, airTime: 1, pitch: 0, speed: 0, record: false },
+      {
+        kind: "land",
+        t: state.t,
+        vy: -5,
+        airTime: 1,
+        length: 0,
+        pitch: 0,
+        speed: 0,
+        record: false,
+        lengthRecord: false,
+      },
     ]);
     expect(state.wash.count).toBe(1);
     expect(state.wash.a[0]).toBeCloseTo(W.splash * 5, 9);

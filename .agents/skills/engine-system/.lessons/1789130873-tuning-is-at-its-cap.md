@@ -11,13 +11,19 @@ the 1000-line cap `tests/file_size_test.ts` holds it to: 909 lines before
 one session and 998 after a single new subsystem block, whose first draft
 blew past the cap twice.
 
-It is NOT close to the cap today — splitting `TUNING.assist` and
-`TUNING.sea` / `.wind` out into `defs/assist.ts` and `defs/sea.ts` (folded
-back in under the same names, so every reader still spells it
-`TUNING.assist`) took it to ~715, and a 40-line trick-score block left it at
-755. Check the number before compressing against it rather than trusting
-this lesson's. The WRITING RULE below is what survives, because it is why
-the file has room at all.
+It has since run at the cap a THIRD time: 1011 lines after a ~35-line
+addition to the trick-score block. So do not trust any number a lesson
+quotes — `wc -l engine/game/defs/tuning.ts` before you start, and expect the
+file to be near the cap rather than far from it.
+
+THE STANDING ANSWER IS THE SPLIT, and it is cheap: lift the block into
+`defs/<subject>.ts` as an exported const and fold it back in under the same
+name (`tricks: TRICKS`), so every reader still spells it `TUNING.tricks` and
+nothing else in the tree moves. Seven blocks live that way now — assist,
+sea, wind, wash, flight, submerged, tricks — and each took one edit plus
+the import. Prefer splitting the block you are ALREADY editing over
+compressing a block you are not. The WRITING RULE below still applies to
+what stays behind, because it is why the file has room at all.
 
 Reaching for the §20.5.1 `game-spec:allow-large-file:` marker on the first
 overflow is the wrong move — it is for files whose SUBJECT is genuinely that

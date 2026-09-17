@@ -256,6 +256,21 @@ export type HudSnapshot = {
    * than running. What makes the readout stick and pulse, and what puts the
    * word beside it. */
   airRecord: boolean;
+  /** THE JUMP COUNTER, m — how far this flight has carried him
+   * (`CraftState.airLength`), read on the air clock's own rule: 0 under the
+   * line, the live figure past it, and the run's best held for a moment
+   * after the landing that took it. It sits BESIDE the clock because they
+   * are the two halves of one jump and the score pays them alike
+   * (`engine/game/tricks.ts`) — a rider who can only see the seconds cannot
+   * see half of what he is being paid for.
+   *
+   * 0 while the hull is UNDER: the metres are the air's, and a spell under
+   * the water has none of them to read. */
+  airLength: number;
+  /** ...and its own record word, on the same rule as `airRecord` and kept
+   * apart from it because the two bests are two different jumps as often as
+   * they are one. */
+  lengthRecord: boolean;
   /** THE SCORE, banked (`tricks.score`) — the run's other total, and the
    * only number on this screen the clock has no opinion about. */
   score: number;
@@ -328,6 +343,8 @@ function airClock(state: GameState): {
   under: boolean;
   grow: number;
   record: boolean;
+  length: number;
+  lengthRecord: boolean;
 } {
   const c = state.craft;
   const p = state.progress;
@@ -336,6 +353,12 @@ function airClock(state: GameState): {
   const under = c.under && c.underTime > TUNING.submerged.counts ? c.underTime : 0;
   const held = p.bestAir > 0 && state.t - p.bestAirAt < AIR_HOLD;
   const time = live > 0 ? live : under > 0 ? under : held ? p.bestAir : 0;
+  // THE METRES, on the clock's own rule and its own hold. A spell under the
+  // water has none — the tile is showing the seconds it has been down there
+  // and there is no distance in that — so the whole reading stands down
+  // while the seconds belong to the water.
+  const heldLong = p.bestLength > 0 && state.t - p.bestLengthAt < AIR_HOLD;
+  const length = under > 0 && live === 0 ? 0 : live > 0 ? c.airLength : heldLong ? p.bestLength : 0;
   return {
     time,
     under: under > 0 && live === 0,
@@ -343,6 +366,13 @@ function airClock(state: GameState): {
     // The record is the AIR's: a spell under the water takes no record and
     // never reads as one.
     record: under > 0 && live === 0 ? false : live > 0 ? p.bestAir > 0 && live > p.bestAir : held,
+    length,
+    lengthRecord:
+      under > 0 && live === 0
+        ? false
+        : live > 0
+          ? p.bestLength > 0 && c.airLength > p.bestLength
+          : heldLong,
   };
 }
 
@@ -460,6 +490,8 @@ export function takeSnapshot(state: GameState, ghost: GameState | null = null): 
     under: air.under,
     airGrow: air.grow,
     airRecord: air.record,
+    airLength: air.length,
+    lengthRecord: air.lengthRecord,
     ghostGap: ghostGap(state, ghost),
     seed: state.seed,
     craft: c.spec.id,

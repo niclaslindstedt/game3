@@ -54,7 +54,17 @@ function stager(): { state: GameState; at: (events: GameEvent[], pose?: Partial<
 type Pose = { x: number; y: number; z: number; heading: number; speed: number };
 
 function land(airTime: number, record = false): GameEvent {
-  return { kind: "land", t: 0, vy: -6, airTime, pitch: 0, speed: 20, record };
+  return {
+    kind: "land",
+    t: 0,
+    vy: -6,
+    airTime,
+    length: airTime * 18,
+    pitch: 0,
+    speed: 20,
+    record,
+    lengthRecord: false,
+  };
 }
 
 describe("a moment worth a camera", () => {
