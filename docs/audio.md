@@ -343,7 +343,8 @@ camera-dependent sound is a column in that table, never a branch in a bed.
 ## Options
 
 OPTIONS ▸ SOUND is one fader, 0–100% in twentieths, reading OFF at the
-bottom of its travel; the pause card opens the same page. It scales one view
+bottom of its travel; the pause card's own OPTIONS panel carries the same
+row. It scales one view
 of the one synth, and a layer reads the fader every frame, so a fader moved
 mid-run is heard at once. A MUSIC fader arrives with the music, not before.
 

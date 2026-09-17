@@ -2967,16 +2967,36 @@ canvas {
   gap: 0.3rem;
 }
 
+/* THE HEADING IS WHAT MAKES THE PAGE SCANNABLE, so it is drawn to be found
+   rather than merely present: the mark first, then the word, over a rule that
+   runs the width of the group it opens. It used to be 0.62rem of letter-spaced
+   text with nothing beside it — the same ink, the same case and nearly the
+   same size as the row labels under it, which is a heading the eye reads as
+   one more row and walks straight past.
+
+   The MARK is the fix and the text is the confirmation: it is the only thing
+   in the column that is not a word, so a rider looking for the sound finds the
+   cone without reading anything at all. */
 .knob-group-title {
+  display: flex;
+  align-items: center;
+  gap: 0.42rem;
   margin: 0;
   font: inherit;
-  font-size: 0.62rem;
+  font-size: 0.68rem;
   font-weight: 700;
-  letter-spacing: 0.24em;
-  text-indent: 0.24em;
+  letter-spacing: 0.2em;
   color: var(--buoy);
-  padding: 0 0.25rem 0.15rem;
-  border-bottom: 2px solid rgb(242 140 40 / 32%);
+  padding: 0 0.2rem 0.25rem;
+  border-bottom: 2px solid rgb(242 140 40 / 42%);
+}
+
+/* Half again the heading's own size: the mark is what is being looked FOR,
+   and a glyph set to the text's `em` reads as punctuation beside it. */
+.knob-group-glyph {
+  width: 1.5em;
+  height: 1.5em;
+  opacity: 0.95;
 }
 
 .knob-rows {
@@ -3171,12 +3191,25 @@ canvas {
 }
 
 /* A fader: the ladder drawn as a track, filled to the level (`--fill` is
-   written by the row), the reading beside it — and the reading is the press
-   that means AUTO. */
+   written by the row), THE READING OVER IT — and on the rows that have one,
+   the reading is also the press that means AUTO.
+
+   It takes no width of its own any more. The track stands exactly where a
+   ladder's pips stand and the reading exactly where a ladder's value stands,
+   so a column mixing the two has one value line down it instead of two; the
+   fader used to be two and a half rem wider than every row above it, which
+   put its answer somewhere the eye had to go and find. */
 .knob-fade {
-  flex-direction: row;
-  gap: 0.4rem;
-  width: clamp(8.5rem, 30vw, 11rem);
+  gap: 0.05rem;
+}
+
+/* The one row that is taller than the rest, and the only honest way to have
+   both: the reading needs the value line, and the track needs a BAND to be
+   pressed on rather than the 8 px line drawn inside it. Stacking them costs
+   the difference, and a fader you can only set by catching its thumb is worse
+   than a row a third of a rem taller than its neighbours. */
+.knob-faded {
+  min-height: 2.8rem;
 }
 
 /* THE WHOLE BAND IS THE PRESS, not the line drawn inside it. A range input is
@@ -3186,9 +3219,9 @@ canvas {
    set it. The element is therefore a finger-tall transparent band with the
    line drawn on the runnable track inside it. */
 .knob-range {
-  flex: 1;
+  width: 100%;
   min-width: 0;
-  height: 1.5rem;
+  height: 1.2rem;
   margin: 0;
   appearance: none;
   background: none;
@@ -3236,21 +3269,22 @@ canvas {
   border: 2px solid var(--hud-shadow);
 }
 
-/* The reading beside the track, in the same box whether it is a press or only
-   a word — a row whose readout stopped being a button must not change width
-   for it, or the two faders on a page stop lining up. */
+/* The reading OVER the track, on the same line every ladder's value stands
+   on, and in the same box whether it is a press or only a word — a row whose
+   readout stopped being a button must not change width for it, or the two
+   faders on a page stop lining up. */
 .knob-read {
   min-width: 3.4em;
-  padding: 0.15rem 0.2rem;
+  padding: 0 0.25rem;
   border: 2px solid transparent;
   border-radius: 0.35rem;
   background: transparent;
   font: inherit;
-  font-size: 0.72rem;
+  font-size: 0.76rem;
   font-weight: 700;
   letter-spacing: 0.06em;
   color: var(--buoy);
-  text-align: right;
+  text-align: center;
 }
 
 /* Only the readout that IS a press looks like one. A word that lights under
@@ -3305,6 +3339,25 @@ button.knob-read:focus-visible {
 .knob-caption-on {
   opacity: 0.95;
   border-left-color: var(--buoy);
+}
+
+/* THE ROW'S OWN NAME, LEADING THE SENTENCE. A caption is read out of the
+   corner of the eye while the pointer is still on the row, and a page of rows
+   is a page of near-identical silhouettes: a sentence with nothing naming what
+   it is about has to be traced back up the column before it can be used. In
+   the buoy colour, so the eye finds the pairing without the bar becoming two
+   lines. */
+.knob-caption-name {
+  color: var(--buoy);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+}
+
+.knob-caption-name::after {
+  content: " — ";
+  color: var(--hud-info);
+  font-weight: 500;
+  letter-spacing: 0;
 }
 
 /* ── THE PAGES THE KNOBS STAND ON ──────────────────────────────────────────
@@ -3412,18 +3465,49 @@ button.knob-read:focus-visible {
    are the thumb targets and 40px is the floor for one, so a settings page
    that fits by making itself harder to press has not fixed anything. */
 @media (max-width: 30rem) {
+  /* The settings cards are the two longest in the game, and on a phone the
+     last thing on each (RESTORE DEFAULTS, RESET KEYS) is the one a player
+     scrolls to find when it has slid past the bottom — which `overflow-y:
+     auto` hides in every screenshot. The card's own top and bottom padding is
+     the cheapest height on it: chrome rather than anything to read or press,
+     and the side gutters keep theirs. */
+  .menu-card-options,
+  .menu-card-keys,
+  .menu-card-start {
+    padding-top: 0.7rem;
+    padding-bottom: 0.7rem;
+  }
+
   .menu-card-options,
   .menu-card-keys {
-    gap: 0.4rem;
+    gap: 0.35rem;
   }
 
   .knob-groups,
   .knob-col {
-    gap: 0.4rem;
+    gap: 0.3rem;
   }
 
   .knob-group {
-    gap: 0.2rem;
+    gap: 0.15rem;
+  }
+
+  /* THE HEADINGS PAY FOR THEMSELVES HERE. A phone stacks every group in one
+     column, so each heading is height the rows do not get — five of them at
+     the width the desktop draws them put the card's last row past the bottom
+     of the viewport, which is invisible in a screenshot and reads as a bug in
+     the hand. The MARK is what the group is found by, so it is the last thing
+     to give: it holds at the size the contact sheet's small tile draws it
+     (14 px, `make glyphs`) and everything around it is what tightens. */
+  .knob-group-title {
+    gap: 0.35rem;
+    font-size: 0.6rem;
+    padding-bottom: 0.12rem;
+  }
+
+  .knob-group-glyph {
+    width: 1.45em;
+    height: 1.45em;
   }
 
   .knob-rows {
@@ -3466,10 +3550,6 @@ button.knob-read:focus-visible {
     width: 6.8rem;
   }
 
-  .menu-card-options .knob-fade {
-    width: 9.5rem;
-  }
-
   /* The start card's two columns, and the chart taking the room they buy it.
      `align-items: start` so the SHORE column is not stretched to the height of
      nothing, and the chart column is the wider of the two: a coast is read,
@@ -3508,12 +3588,36 @@ button.knob-read:focus-visible {
   }
 }
 
-/* THE PAUSE STRIP (menu-pause.tsx): the same rows, between RESUME and the one
-   press that ends the run. It sits in the card's own gap rather than under a
-   group heading — three rows a rider already knows the names of do not need a
-   word over them, and a card held over a frozen run is not a page to read. */
-.menu-pause-knobs {
-  gap: 0.3rem;
+/* THE PAUSE CARD'S OPTIONS PANEL (menu-pause.tsx): the same groups the front
+   door's page carries, one column wide, on the pause card's own narrow plate
+   so the two faces of the card are the same object rather than two.
+
+   ONE COLUMN AT EVERY WIDTH. `.knob-groups` goes to a two-column grid at
+   48rem, which is a rule written for a twelve-row page; four rows split two
+   and two is a panel with a hole in the corner of it. */
+.menu-card-pause-options {
+  align-items: stretch;
+  text-align: left;
+  gap: 0.55rem;
+}
+
+/* `align-items` is restated on purpose: the two-column rule at 48rem sets it
+   to `start` for a GRID, where it means "do not stretch a short group down the
+   row", and the same word in a flex COLUMN means "do not stretch a group
+   ACROSS" — which sized every group to its own longest label and left the
+   panel's rows standing at three different widths. */
+.menu-card-pause-options .knob-groups {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 0.55rem;
+}
+
+/* The head reads as the card's, not as a page's: the run behind it is still
+   the subject, and a title the weight of PAUSED would make the panel look
+   like somewhere you had navigated to. */
+.menu-card-pause-options .menu-title {
+  font-size: clamp(0.95rem, 3.4vmin, 1.15rem);
 }
 
 /* ── THE SEED'S PICTURE (seed-preview.tsx) ─────────────────────────────────

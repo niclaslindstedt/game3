@@ -129,7 +129,7 @@ import {
 import { useState } from "preact/hooks";
 
 import { MenuHead } from "./menu.tsx";
-import { Caption, FadeRow, NumberRow, StepRow, type Stop } from "./menu-knobs.tsx";
+import { Caption, FadeRow, type Hint, NumberRow, StepRow, type Stop } from "./menu-knobs.tsx";
 import { SeedPreview, useSeedPreview } from "./seed-preview.tsx";
 import {
   DEFAULT_SEED,
@@ -200,7 +200,7 @@ export function StartPage({
   /** On to the craft card, which is where RIDE is (see the header). */
   onNext: () => void;
 }) {
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<Hint | null>(null);
   const ride = settings.ride;
   const setRide = (patch: Partial<Settings["ride"]>): void =>
     onSettings({ ...settings, ride: { ...ride, ...patch } });
@@ -412,7 +412,7 @@ export function StartPage({
       </div>
       {/* The mark is explained ONCE, at the foot of the whole card rather than
           as a tooltip on three rows nobody hovers. */}
-      <Caption text={hint} fallback={STRINGS.freeCaption} />
+      <Caption hint={hint} fallback={STRINGS.freeCaption} />
     </div>
   );
 }

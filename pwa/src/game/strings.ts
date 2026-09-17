@@ -597,14 +597,20 @@ export const STRINGS = {
   optMore: "more",
 
   /* ── OPTIONS (menu-options.tsx) ────────────────────────────────────── */
-  /** The four groups the page's rows stand under: what the picture costs,
-   * how the ride reaches the rider (where it is watched from, and what it
-   * does to the hands), what it sounds like, what is drawn over it. */
-  optPicture: "PICTURE",
+  /** The five groups the page's rows stand under, in the order they are
+   * walked: what the hands do, where the eye rides, what is drawn over the
+   * water, what it sounds like, and what the picture costs. Each is a word
+   * AND a mark (`menu-glyphs.tsx`) — the mark is what the eye finds the group
+   * by on a card of identical rows. */
+  optControlsGroup: "CONTROLS",
   optRiding: "RIDING",
   optHudGroup: "HUD",
-  /** The page's own line, under the rows, while no row is being looked at. */
-  optCaption: "Every row here changes the sea behind this card as you press it",
+  optSoundGroup: "SOUND",
+  optPicture: "PICTURE",
+  /** The page's own line, under the rows, while no row is being looked at —
+   * so it says the one thing a rider has to know to read the rest of the
+   * card: point at a row and this bar tells you what it does. */
+  optCaption: "Point at a row to read what it does — every one is live on the sea behind this card",
   optCamera: "CAMERA",
   optCameraHint:
     "Where the eye rides — the ladder the C key walks, from the bow out to the helicopter",
@@ -643,7 +649,6 @@ export const STRINGS = {
   optFpsHint: "Frames a second in the corner, beside the build",
   /** The one fader. It reads OFF at the bottom of its travel and a share
    * everywhere else; there is no MUSIC row until there is a score. */
-  optSoundGroup: "SOUND",
   optSound: "EFFECTS",
   optSoundHint: "The engine, the spray, the sea and every splash — OFF at the bottom of the travel",
   optSoundOff: "OFF",
@@ -656,10 +661,13 @@ export const STRINGS = {
   percent: (share: number): string => `${Math.round(share * 100)}%`,
   /** The door to the bindings page, and what stands where a value would:
    * how many actions are behind it, so a row that opens a page still says
-   * what is in there the way every other row says what it is set to. */
-  optControlsGroup: "CONTROLS",
-  optKeyboard: "KEYBOARD",
-  optKeyboardHint: "Which key does what — every action on the craft, and the presses around a run",
+   * what is in there the way every other row says what it is set to. It is
+   * named for what is BEHIND it rather than for the hardware — a page of
+   * bindings is what a rider goes looking for, and KEYBOARD is what the thing
+   * on the desk is called. */
+  optKeyBindings: "KEY BINDINGS",
+  optKeyBindingsHint:
+    "Which key does what — every action on the craft, and the presses around a run",
   optKeysCount: (n: number): string => `${n} KEYS`,
   optRestore: "RESTORE DEFAULTS",
   /** The camera rows, in the ladder's own order — the handlebars backwards.
@@ -676,7 +684,7 @@ export const STRINGS = {
   /** One word per action, and every one of them says what the CRAFT does
    * rather than what the code is called: a rider looking for the brake is
    * looking for the word BRAKE, and `reverse` is the engine's name for it. */
-  keysTitle: "KEYBOARD",
+  keysTitle: "KEY BINDINGS",
   keyThrottle: "THROTTLE",
   keyReverse: "BRAKE / REVERSE",
   keyLeft: "STEER LEFT",
@@ -826,10 +834,21 @@ export const STRINGS = {
    * behind it name the run the same way. */
   pauseTitle: "PAUSED",
   pauseSub: (seed: number, craft: string): string => `SEED ${seed} · ${craft.toUpperCase()}`,
-  /** The two ways on. RESUME is the way OUT of the card as well as its first
-   * row — see menu-pause.tsx. */
+  /** The three ways on. RESUME is the way OUT of the card as well as its
+   * first row, and OPTIONS stands between it and the one press that ends the
+   * run — see menu-pause.tsx. */
   pauseResume: "RESUME",
+  pauseOptions: "OPTIONS",
   pauseMainMenu: "MAIN MENU",
+  /** The card BEHIND the pause card's own options panel, named on the way
+   * back out of it: a head says where ‹ goes, and where ‹ goes from here is
+   * the held run's card and not the front door. */
+  pauseBack: "PAUSED",
+  /** The panel's own line while no row is being looked at. It says the one
+   * thing that is different about settings changed HERE: the run is standing
+   * still behind them, so what they do is visible on the held frame. */
+  pauseOptionsCaption:
+    "Point at a row to read what it does — the held frame behind this card answers to all four",
   /** What the minimap does when it is pressed — the way into the card on a
    * screen with no Escape key to press. */
   pauseOpen: "Pause (Esc)",

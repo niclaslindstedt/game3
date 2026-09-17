@@ -22,12 +22,28 @@
 // day — is the start card's (`menu-start.tsx`), asked once on the way to the
 // water rather than twice in two places.
 //
-// THREE GROUPS IN TWO COLUMNS, AND EVERY ROW THE SAME SILHOUETTE
+// FIVE GROUPS IN ONE ORDER, AND EVERY ROW THE SAME SILHOUETTE
 // (`menu-knobs.tsx`): the name, then the value between two arrows, then the
-// pips under it. The page carries no sentence per row — a switch that explains
-// itself under its own label is two lines of height, and seven of them do not
-// fit a phone — so every explanation goes to the ONE caption bar at the foot,
-// which reads whichever row the pointer or the cursor is on.
+// pips or the track under it. The page carries no sentence per row — a switch
+// that explains itself under its own label is two lines of height, and seven
+// of them do not fit a phone — so every explanation goes to the ONE caption
+// bar at the foot, which NAMES the row the pointer or the cursor is on and
+// then says what it does.
+//
+// THE GROUPS ARE THE PAGE'S REAL STRUCTURE, and each is a word AND A MARK.
+// Twelve rows in one silhouette is a page you have to READ to find anything
+// on; the same twelve under five headings is five small questions, and the
+// mark is what the eye lands on picking between them — it is the only thing
+// on the card that is not text.
+//
+// THEY ARE WALKED IN THE ORDER A RIDER MEETS THEM: the hands first (which key
+// does what, and what the machine does back), then where the eye rides, then
+// what is drawn over the water, then what it sounds like, and last what the
+// picture costs — the one group that is about the MACHINE rather than about
+// the ride, and the one a rider opens this page for least often. On a phone
+// that order is the column; on anything wider the first four stand in the
+// left column and PICTURE takes the right, so the two halves read as the game
+// and the machine.
 //
 // THE PICTURE ROWS ARE OVER A LIVE SEA and apply the moment they are pressed
 // (`App.tsx` hands them to the renderer), which is the whole reason they are
@@ -35,11 +51,11 @@
 // looking at the water twenty metres out, and it is right there behind the
 // card. What each row buys is `settings-video.ts`; this page only asks.
 //
-// THE PAUSE CARD DOES NOT OPEN THIS PAGE. It carries the handful of knobs a
-// rider stops mid-run for, as a strip of these same rows (`menu-pause.tsx`),
-// and everything else waits for the front door — because a picture row is
-// judged against a sea that is MOVING, and the one thing the pause card does
-// is stop it.
+// THE PAUSE CARD DOES NOT OPEN THIS PAGE. It has an OPTIONS panel of its own
+// (`menu-pause.tsx`) carrying the handful of these same rows a rider stops
+// mid-run for, and everything else waits for the front door — because a
+// picture row is judged against a sea that is MOVING, and the one thing the
+// pause card does is stop it.
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
 import { canRumble } from "./haptics.ts";
@@ -48,6 +64,7 @@ import { MenuHead } from "./menu.tsx";
 import {
   Caption,
   FadeRow,
+  type Hint,
   KnobGroup,
   LinkRow,
   ON_OFF,
@@ -148,7 +165,7 @@ export function SoundRow({
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
-  onHint?: (hint: string | null) => void;
+  onHint?: (hint: Hint | null) => void;
 }) {
   return (
     <FadeRow
@@ -176,7 +193,7 @@ export function OptionsPage({
   onBack: () => void;
   onKeys: () => void;
 }) {
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<Hint | null>(null);
   // Asked once per opening rather than per render: the answer is a fact
   // about the machine, and the probe reaches for `navigator` and the
   // touchscreen.
@@ -190,18 +207,97 @@ export function OptionsPage({
   return (
     <div class="menu-card menu-card-options" onPointerLeave={() => setHint(null)}>
       <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.menuOptions} />
-      {/* Two columns on anything wide enough, packed by ROW COUNT rather than
-          by subject order — six on the left, four on the right — so a laptop
-          holds the whole page without scrolling and neither column ends
-          short. On a phone the grid collapses and they stack. */}
+      {/* Two columns on anything wide enough, split where the SUBJECT splits
+          rather than by row count: the four groups about the ride on the
+          left, the six rows about what the machine can afford on the right.
+          The two halves come out within a row of each other in height, and on
+          a phone the grid collapses and the whole thing stacks in the order
+          the DOM has it — which is the order above. */}
       <div class="knob-groups">
+        <div class="knob-col">
+          {/* THE HANDS, FIRST. A binding is the setting a rider goes looking
+              for deliberately — every other row here is found by browsing —
+              so it opens the page, and the motor sits with it because both
+              rows are about what happens between the player and the craft
+              rather than about the picture. */}
+          {(keysOffered || rumbleOffered) && (
+            <KnobGroup title={STRINGS.optControlsGroup} glyph="keyboard">
+              {keysOffered && (
+                <LinkRow
+                  label={STRINGS.optKeyBindings}
+                  hint={STRINGS.optKeyBindingsHint}
+                  value={STRINGS.optKeysCount(KEY_ACTIONS.length)}
+                  onOpen={onKeys}
+                  onHint={setHint}
+                />
+              )}
+              {/* THE MOTOR IS OFFERED ONLY WHERE THERE IS ONE. A desktop
+                  browser answers `navigator.vibrate` and does nothing with
+                  it, so the check is `canRumble()` rather than the API's
+                  existence — a row on a laptop that moves and changes
+                  nothing is worse than no row. The setting is stored either
+                  way, so the phone and the laptop reading the same blob
+                  never argue. */}
+              {rumbleOffered && (
+                <StepRow
+                  label={STRINGS.optRumble}
+                  hint={STRINGS.optRumbleHint}
+                  stops={ON_OFF}
+                  value={onOff(settings.rumble)}
+                  onPick={(id) => onSettings({ ...settings, rumble: id === "on" })}
+                  onHint={setHint}
+                />
+              )}
+            </KnobGroup>
+          )}
+          <KnobGroup title={STRINGS.optRiding} glyph="eye">
+            <StepRow
+              label={STRINGS.optCamera}
+              hint={STRINGS.optCameraHint}
+              stops={CAMERA_STOPS}
+              value={settings.ride.camera}
+              onPick={(camera) => onSettings({ ...settings, ride: { ...settings.ride, camera } })}
+              onHint={setHint}
+            />
+          </KnobGroup>
+          <KnobGroup title={STRINGS.optHudGroup} glyph="gauge">
+            <StepRow
+              label={STRINGS.optHud}
+              hint={STRINGS.optHudHint}
+              stops={ON_OFF}
+              value={onOff(settings.hud.on)}
+              onPick={(id) =>
+                onSettings({ ...settings, hud: { ...settings.hud, on: id === "on" } })
+              }
+              onHint={setHint}
+            />
+            <StepRow
+              label={STRINGS.optFps}
+              hint={STRINGS.optFpsHint}
+              stops={ON_OFF}
+              value={onOff(settings.hud.fps)}
+              onPick={(id) =>
+                onSettings({ ...settings, hud: { ...settings.hud, fps: id === "on" } })
+              }
+              onHint={setHint}
+            />
+          </KnobGroup>
+          {/* THE FADER IS OVER A LIVE SEA TOO: the bus reads it every frame,
+              so the engine under the front door gets quieter as the thumb
+              moves — all the way to silence, which is the bottom of the
+              travel and not a word beside it. It is the same row the pause
+              card's own options panel carries. */}
+          <KnobGroup title={STRINGS.optSoundGroup} glyph="speaker">
+            <SoundRow settings={settings} onSettings={onSettings} onHint={setHint} />
+          </KnobGroup>
+        </div>
         <div class="knob-col">
           {/* Five rows, not one, because they are five different costs: how
               many pixels, how much sea, how much stuff on it, how far out
               there IS any, and how far the eye gets INTO it. A machine can be
               short of one and rich in another — and a sixth for how OFTEN all
               of it is asked for. */}
-          <KnobGroup title={STRINGS.optPicture}>
+          <KnobGroup title={STRINGS.optPicture} glyph="display">
             <StepRow
               label={STRINGS.optResolution}
               hint={STRINGS.optResolutionHint}
@@ -272,80 +368,8 @@ export function OptionsPage({
             />
           </KnobGroup>
         </div>
-        <div class="knob-col">
-          <KnobGroup title={STRINGS.optRiding}>
-            <StepRow
-              label={STRINGS.optCamera}
-              hint={STRINGS.optCameraHint}
-              stops={CAMERA_STOPS}
-              value={settings.ride.camera}
-              onPick={(camera) => onSettings({ ...settings, ride: { ...settings.ride, camera } })}
-              onHint={setHint}
-            />
-            {/* The door to the bindings, in RIDING rather than under a
-                CONTROLS heading of its own: a group title is height, this
-                card already reaches the bottom of a phone, and which keys
-                are under the hands is as much "how this is ridden" as where
-                the eye sits and what the bars do to them. */}
-            {keysOffered && (
-              <LinkRow
-                label={STRINGS.optKeyboard}
-                hint={STRINGS.optKeyboardHint}
-                value={STRINGS.optKeysCount(KEY_ACTIONS.length)}
-                onOpen={onKeys}
-                onHint={setHint}
-              />
-            )}
-            {/* THE MOTOR IS OFFERED ONLY WHERE THERE IS ONE. A desktop
-                browser answers `navigator.vibrate` and does nothing with it,
-                so the check is `canRumble()` rather than the API's existence
-                — a row on a laptop that moves and changes nothing is worse
-                than no row. The setting is stored either way, so the phone
-                and the laptop reading the same blob never argue. */}
-            {rumbleOffered && (
-              <StepRow
-                label={STRINGS.optRumble}
-                hint={STRINGS.optRumbleHint}
-                stops={ON_OFF}
-                value={onOff(settings.rumble)}
-                onPick={(id) => onSettings({ ...settings, rumble: id === "on" })}
-                onHint={setHint}
-              />
-            )}
-          </KnobGroup>
-          {/* THE FADER IS OVER A LIVE SEA TOO: the bus reads it every frame,
-              so the engine under the front door gets quieter as the thumb
-              moves — all the way to silence, which is the bottom of the travel
-              and not a word beside it. It is the same row the pause card
-              carries. */}
-          <KnobGroup title={STRINGS.optSoundGroup}>
-            <SoundRow settings={settings} onSettings={onSettings} onHint={setHint} />
-          </KnobGroup>
-          <KnobGroup title={STRINGS.optHudGroup}>
-            <StepRow
-              label={STRINGS.optHud}
-              hint={STRINGS.optHudHint}
-              stops={ON_OFF}
-              value={onOff(settings.hud.on)}
-              onPick={(id) =>
-                onSettings({ ...settings, hud: { ...settings.hud, on: id === "on" } })
-              }
-              onHint={setHint}
-            />
-            <StepRow
-              label={STRINGS.optFps}
-              hint={STRINGS.optFpsHint}
-              stops={ON_OFF}
-              value={onOff(settings.hud.fps)}
-              onPick={(id) =>
-                onSettings({ ...settings, hud: { ...settings.hud, fps: id === "on" } })
-              }
-              onHint={setHint}
-            />
-          </KnobGroup>
-        </div>
       </div>
-      <Caption text={hint} fallback={STRINGS.optCaption} />
+      <Caption hint={hint} fallback={STRINGS.optCaption} />
       {/* RESTORE DEFAULTS keeps the developer menu OUT once it has been
           found. It is not a setting the player chose and it is not a mess this
           button is for tidying: making somebody hold START for seven seconds

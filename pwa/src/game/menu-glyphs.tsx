@@ -38,6 +38,16 @@ export const GLYPH_NAMES = [
   "sliders",
   "terminal",
   "lock",
+  // The five a SETTINGS GROUP is headed with (`menu-options.tsx`). They are
+  // read at the small end and beside a word, so each one is chosen for what
+  // it is NOT: a wide box with a spacebar in it is not the prompt's tall box,
+  // a screen on a stand is not either of them, and the eye, the dial and the
+  // cone share no silhouette with anything else on the sheet.
+  "keyboard",
+  "eye",
+  "gauge",
+  "display",
+  "speaker",
 ] as const;
 
 export type GlyphName = (typeof GLYPH_NAMES)[number];
@@ -146,6 +156,56 @@ const GLYPHS: Record<GlyphName, JSX.Element> = {
       <rect x="5" y="10.5" width="14" height="10" rx="2" />
       <path d="M8.2 10.5V7.6a3.8 3.8 0 0 1 7.6 0v2.9" />
       <path d="M12 14.6v2.6" />
+    </>
+  ),
+  // A KEYBOARD: the bindings, and the vibration beside them — the group that
+  // is about the player's HANDS. Wide and short where the terminal's box is
+  // tall, and the one thing that survives the small end is the SPACEBAR: a
+  // lone horizontal bar low in a box no other mark on the sheet has.
+  keyboard: (
+    <>
+      <rect x="1.6" y="6.4" width="20.8" height="11.2" rx="2.2" />
+      <path d="M6.2 10.4h1.3M11.35 10.4h1.3M16.5 10.4h1.3" />
+      <path d="M8 14.2h8" />
+    </>
+  ),
+  // AN EYE: where it rides, which is the camera ladder and nothing else. The
+  // one mark here with no straight line in it, so it reads as itself at a
+  // dozen pixels while every box on the sheet is still resolving.
+  eye: (
+    <>
+      <path d="M1.8 12s3.8-6.5 10.2-6.5S22.2 12 22.2 12s-3.8 6.5-10.2 6.5S1.8 12 1.8 12Z" />
+      <circle cx="12" cy="12" r="2.9" />
+    </>
+  ),
+  // THE DIAL OVER THE NOSE: the HUD, drawn as the readout the group is
+  // actually about. The needle is off-centre on purpose — a needle standing
+  // straight up reads as a clock, and the stopwatch is two marks above it.
+  gauge: (
+    <>
+      <path d="M2.9 18.4a9.1 9.1 0 1 1 18.2 0" />
+      {/* Stopping well short of the arc, and thick at the hub: a needle drawn
+          out to the dial is a needle that merges with it at the small end,
+          where this one is actually read — a group heading is 16 px. */}
+      <path d="M12 18 15.9 12.6" />
+      <circle cx="12" cy="18.4" r="1.9" fill="currentColor" stroke="none" />
+    </>
+  ),
+  // A SCREEN ON A STAND: what the picture costs. The stand is what tells it
+  // from the terminal at tile size — the box alone is the same box.
+  display: (
+    <>
+      <rect x="2.4" y="4" width="19.2" height="13" rx="2.2" />
+      <path d="M12 17v3.4M8.4 20.4h7.2" />
+    </>
+  ),
+  // A CONE AND TWO WAVES: the sound. Only two arcs, not three — the third is
+  // a hair's width from the second at the small end and turns the pair into
+  // a smudge.
+  speaker: (
+    <>
+      <path d="M3.4 9.2h3.5L12.2 5v14L6.9 14.8H3.4z" />
+      <path d="M15.8 9.7a3.6 3.6 0 0 1 0 4.6M18.6 7.2a7.3 7.3 0 0 1 0 9.6" />
     </>
   ),
 };

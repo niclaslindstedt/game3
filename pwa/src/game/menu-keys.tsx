@@ -33,7 +33,7 @@
 import { useEffect, useState } from "preact/hooks";
 
 import { MenuHead } from "./menu.tsx";
-import { BindRow, Caption } from "./menu-knobs.tsx";
+import { BindRow, Caption, type Hint } from "./menu-knobs.tsx";
 import { holdNav } from "./menu-nav.ts";
 import { STRINGS } from "./strings.ts";
 import type { Settings } from "./settings.ts";
@@ -59,7 +59,7 @@ export function KeysPage({
   onBack: () => void;
 }) {
   const [listening, setListening] = useState<KeyAction | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<Hint | null>(null);
 
   useEffect(() => {
     if (!listening) return;
@@ -111,7 +111,7 @@ export function KeysPage({
           );
         })}
       </div>
-      <Caption text={hint} fallback={STRINGS.keysCaption} />
+      <Caption hint={hint} fallback={STRINGS.keysCaption} />
       {/* The page's own restore, not the card's: a rider who has made a mess
           of the keys wants the keys back, and having to walk out to OPTIONS
           and throw away their picture to get them would be the page charging

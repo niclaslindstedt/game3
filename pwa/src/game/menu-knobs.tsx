@@ -28,15 +28,30 @@
 import type { ComponentChildren } from "preact";
 import { useRef, useState } from "preact/hooks";
 
+import { Glyph, type GlyphName } from "./menu-glyphs.tsx";
 import { STRINGS } from "./strings.ts";
 
 /** One place a ladder can stand, and the sentence that says what standing
  * there buys. A stop with no line of its own says the row's. */
 export type Stop<T extends string> = { id: T; label: string; hint?: string };
 
-/** Where a row sends its description when it is looked at. A page with a
- * caption bar passes its setter; the pause card's strip passes nothing. */
-export type OnHint = (hint: string | null) => void;
+/** WHAT A ROW DOES, as the caption bar reads it back: the row's own NAME and
+ * then the sentence. The name is carried rather than left to the reader's
+ * memory because a caption is read out of the corner of the eye, a page of
+ * rows is a page of near-identical silhouettes, and a sentence with nothing
+ * naming what it is about is a sentence that has to be traced back up the
+ * column to be used. */
+export type Hint = { label: string; text: string };
+
+/** Where a row sends its description when it is looked at — on the pointer
+ * entering it, and on the cursor landing on it, so a card is read the same
+ * way by a mouse, a thumb and a pad. Every surface carrying rows carries a
+ * {@link Caption} to put it in. */
+export type OnHint = (hint: Hint | null) => void;
+
+/** A row's description, or nothing at all where it has none. */
+const says = (label: string, text: string | undefined): Hint | null =>
+  text === undefined || text === "" ? null : { label, text };
 
 /** The longest ladder still drawn as pips under its value. The five skies fit;
  * the developer page's sixteen scenes do not, and the label carries those on
@@ -105,14 +120,14 @@ export function StepRow<T extends string>({
 }) {
   const at = stops.findIndex((stop) => stop.id === value);
   const current = at < 0 ? null : stops[at];
-  const describe = (): void => onHint?.(current?.hint ?? hint ?? null);
+  const describe = (): void => onHint?.(says(label, current?.hint ?? hint));
   const step = (dir: 1 | -1): void => {
     // Off the ladder entirely — the row has no answer yet — the first press
     // lands on an END of it rather than on whatever index arithmetic on −1
     // happens to produce.
     const to = at < 0 ? (dir > 0 ? 0 : stops.length - 1) : (at + dir + stops.length) % stops.length;
     onPick(stops[to].id);
-    onHint?.(stops[to].hint ?? hint ?? null);
+    onHint?.(says(label, stops[to].hint ?? hint));
   };
   return (
     <div
@@ -172,17 +187,24 @@ export function StepRow<T extends string>({
 }
 
 /**
- * A CONTINUOUS setting — a wind, a sea — drawn as the thing it is: a track
- * with the level filled along it and its reading beside it. The arrows step it
- * one notch, which is what a pad presses; the track itself is a real range
- * input, so a press anywhere along it puts the thumb where the finger landed
- * and carries straight on into the drag — `.knob-range` gives it the BAND to
- * be pressed on, which a bare 8 px line is not.
+ * A CONTINUOUS setting — a wind, a sea, the sound — drawn as the thing it is:
+ * a track with the level filled along it. The arrows step it one notch, which
+ * is what a pad presses; the track itself is a real range input, so a press
+ * anywhere along it puts the thumb where the finger landed and carries
+ * straight on into the drag — `.knob-range` gives it the BAND to be pressed
+ * on, which a bare 8 px line is not.
+ *
+ * THE READING STANDS OVER THE TRACK, where a ladder's value stands over its
+ * pips — because the track and the pips are the same statement drawn two ways
+ * ("where on its travel this is"), and the value is the answer both of them
+ * qualify. Beside the track it was the one thing on a settings page that put
+ * its answer somewhere different from every row above it, and a column of
+ * values that steps sideways once is a column the eye has to re-find.
  *
  * A row whose bottom stop IS an answer — silence is a level a rider chooses,
  * not a deferral — leaves `autoLabel` off, and then the whole setting is on
  * the travel: the thumb dragged to the far left means OFF, and the reading
- * beside it is a reading rather than a press. A row that has an answer NOT on
+ * over it is a reading rather than a press. A row that has an answer NOT on
  * the travel names one: a wind of zero and "the wind this shore was generated
  * with" are different things, and a bottom stop made to serve as both would
  * put one of them out of reach.
@@ -222,11 +244,11 @@ export function FadeRow({
   // its travel is the honest place: the first press then moves UP off it,
   // rather than jumping from wherever a remembered value happened to be.
   const shown = value ?? min;
-  const describe = (): void => onHint?.(hint ?? null);
+  const describe = (): void => onHint?.(says(label, hint));
   const clamp = (next: number): number => Math.min(max, Math.max(min, next));
   const fill = max > min ? (shown - min) / (max - min) : 0;
   return (
-    <div class="knob" data-nav-steps onPointerEnter={describe} onFocusCapture={describe}>
+    <div class="knob knob-faded" data-nav-steps onPointerEnter={describe} onFocusCapture={describe}>
       <KnobLabel label={label} />
       <div class="knob-ctl">
         <button
@@ -239,22 +261,11 @@ export function FadeRow({
           ‹
         </button>
         <span class="knob-value knob-fade">
-          <input
-            class="knob-range"
-            type="range"
-            min={min}
-            max={max}
-            step={step}
-            value={shown}
-            aria-label={label}
-            style={`--fill: ${Math.round(fill * 100)}%`}
-            onInput={(e) => onChange(clamp(Number((e.target as HTMLInputElement).value)))}
-          />
           {/* The reading, and on a row with an answer off the travel the press
               that goes back to it. Where there is no such answer it is a
-              READING and nothing else: a button sitting against the end of
-              the track is a press a thumb aiming for the top of the travel
-              lands on by accident. */}
+              READING and nothing else: a button standing on the row's value
+              line is a press a thumb aiming for the track lands on by
+              accident. */}
           {autoLabel === undefined ? (
             <span class="knob-word knob-read">{read(shown)}</span>
           ) : (
@@ -268,6 +279,17 @@ export function FadeRow({
               {auto ? autoLabel : read(shown)}
             </button>
           )}
+          <input
+            class="knob-range"
+            type="range"
+            min={min}
+            max={max}
+            step={step}
+            value={shown}
+            aria-label={label}
+            style={`--fill: ${Math.round(fill * 100)}%`}
+            onInput={(e) => onChange(clamp(Number((e.target as HTMLInputElement).value)))}
+          />
         </span>
         <button
           type="button"
@@ -321,7 +343,7 @@ export function NumberRow({
   // the draft is read from a ref in the handlers: a stale one in the second of
   // them would commit the same number twice and rebuild the chart for it.
   const draftRef = useRef<string | null>(null);
-  const describe = (): void => onHint?.(hint ?? null);
+  const describe = (): void => onHint?.(says(label, hint));
   const clamp = (next: number): number => Math.min(max, Math.max(min, next));
   const step = (dir: 1 | -1): void => {
     setDraft(null);
@@ -415,7 +437,7 @@ export function LinkRow({
   onOpen: () => void;
   onHint?: OnHint;
 }) {
-  const describe = (): void => onHint?.(hint ?? null);
+  const describe = (): void => onHint?.(says(label, hint));
   return (
     <button
       type="button"
@@ -468,7 +490,7 @@ export function BindRow({
   onListen: () => void;
   onHint?: OnHint;
 }) {
-  const describe = (): void => onHint?.(hint ?? null);
+  const describe = (): void => onHint?.(says(label, hint));
   return (
     <button
       type="button"
@@ -490,23 +512,55 @@ export function BindRow({
   );
 }
 
-/** A handful of rows under one word. */
-export function KnobGroup({ title, children }: { title: string; children: ComponentChildren }) {
+/**
+ * A handful of rows under one word AND ONE MARK.
+ *
+ * The heading is what makes a settings page scannable rather than merely
+ * complete: a column of a dozen identical silhouettes reads as a list to be
+ * searched, and the same dozen under four headings reads as four small
+ * questions — you find the one you came for by picking the heading, not by
+ * reading every row. So the heading is drawn to be found from across the
+ * card, and the GLYPH is what the eye actually lands on: a word set in the
+ * same case and nearly the same size as the rows under it is a word the eye
+ * skips over on its way down the column, and the mark is the only thing on
+ * the page that is not text.
+ */
+export function KnobGroup({
+  title,
+  glyph,
+  children,
+}: {
+  title: string;
+  /** The group's mark. Optional, because the developer page's groups are
+   * scratch headings for a page nobody has to scan. */
+  glyph?: GlyphName;
+  children: ComponentChildren;
+}) {
   return (
     <section class="knob-group">
-      <h3 class="knob-group-title">{title}</h3>
+      <h3 class="knob-group-title">
+        {glyph && <Glyph name={glyph} className="knob-group-glyph" />}
+        <span>{title}</span>
+      </h3>
       <div class="knob-rows">{children}</div>
     </section>
   );
 }
 
-/** The page's ONE sentence — whichever row is being looked at, or the page's
- * own line while none is. Always rendered, even empty, so the card does not
- * change height as the pointer crosses it. */
-export function Caption({ text, fallback }: { text: string | null; fallback: string }) {
+/** The page's ONE sentence — the row being looked at, named and then
+ * explained, or the page's own line while no row is. Always rendered, even
+ * empty, so the card does not change height as the pointer crosses it. */
+export function Caption({ hint, fallback }: { hint: Hint | null; fallback: string }) {
   return (
-    <div class={`knob-caption${text ? " knob-caption-on" : ""}`} aria-live="polite">
-      {text ?? fallback}
+    <div class={`knob-caption${hint ? " knob-caption-on" : ""}`} aria-live="polite">
+      {hint === null ? (
+        fallback
+      ) : (
+        <>
+          <b class="knob-caption-name">{hint.label}</b>
+          {hint.text}
+        </>
+      )}
     </div>
   );
 }
