@@ -108,6 +108,49 @@ export const ASSIST = {
      * catch. */
     right: 120,
     damp: 22,
+    /** THE HAND'S REACH IN ROLL, rad: the roll error it still pulls at
+     * full strength (`rollHold`), and the one past which it has let go
+     * altogether (`rollReach`), fading between the two.
+     *
+     * A rider catches a landing by TRIMMING it — his weight into a
+     * footwell, a shove on the bars — and there is no amount of that
+     * which brings a hull back from its beam ends while it is still in
+     * the air. Unbounded, the same spring hauled a hull round from 150°
+     * of bank and landed it flat: over a staged drop at the shipped dial
+     * the hull never once heeled past 58° however far over it was thrown,
+     * so the capsize the hull's own stability implies was unreachable at
+     * any setting, and everything built to show one — the rider swimming
+     * it round (`rider-pose.ts`), the boil under it (`wake.ts`), the
+     * pulse in the hands (`rumble.ts`) — was dead code.
+     *
+     * The band sits clear at both ends. Below `rollHold` the hand is the
+     * hand that shipped — BIT-IDENTICAL, measured on a staged drop at
+     * every craft out to 0.6 rad of bank — so every landing it was sized
+     * for is untouched. Above `rollReach` the hull's OWN righting arm
+     * decides, and that arm goes through zero near 90° (`hull.ts`'s deck
+     * probes put it there), so the hand is gone a full 30° before the
+     * angle it would otherwise be overruling. What is left is the 20°
+     * between, where a rider is losing it and the help goes with him.
+     *
+     * WHAT THE REACH COSTS, measured over a grid of 3360 staged drops at
+     * the shipped dial — four craft, rolls to ±0.8 rad, pitch to ±0.6,
+     * pitch rates to 4 rad/s, the rider's hands still. This grid is
+     * harsher than the flight bench `docs/riding.md` tabulates and its
+     * absolute rates are not that table's; it is here to read one column
+     * against another, not against that one:
+     *
+     *     reach      1e6    1.60   1.30   1.05   0.90
+     *     bad       61.6%  62.3%  62.5%  63.7%  65.4%
+     *     capsized   8.3%  14.3%  14.4%  14.8%  15.1%
+     *
+     * So a finite reach of any size is most of the difference — the
+     * hand's saves at the far end were nearly all of the capsizes it was
+     * suppressing — and the rest of the ladder is flat enough that the
+     * number is chosen on the geometry rather than on the column: 1.05
+     * rad is the one that clears the righting arm's crossing by 30°. It
+     * buys those capsizes for two landings in a hundred. */
+    rollHold: 0.7,
+    rollReach: 1.05,
   },
 
   /** THE RAMP'S HAND (`rampAssist`, `GameState.rampAssist`): the run up

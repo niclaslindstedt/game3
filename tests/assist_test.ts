@@ -191,24 +191,36 @@ describe("the arcade's hand", () => {
   });
 
   it("lands a hull thrown on its side on its bottom", () => {
-    // Sixty-three degrees of bank off the lip. The bare hull arrives
-    // still on its side; the caught one arrives on its bottom.
-    const bare = toss({ roll: 1.1, assist: 0 });
-    const caught = toss({ roll: 1.1, assist: 1 });
+    // Thirty-four degrees of bank off the lip — inside `rollHold`, where
+    // the hand pulls at full strength. The bare hull arrives still on its
+    // side; the caught one arrives on its bottom.
+    const bare = toss({ roll: 0.6, assist: 0 });
+    const caught = toss({ roll: 0.6, assist: 1 });
     expect(bare.landed).toBe(true);
     expect(caught.landed).toBe(true);
-    expect(Math.abs(bare.roll)).toBeGreaterThan(0.8);
-    expect(Math.abs(caught.roll)).toBeLessThan(Math.abs(bare.roll) / 2);
+    expect(Math.abs(bare.roll)).toBeGreaterThan(0.5);
+    expect(Math.abs(caught.roll)).toBeLessThan(Math.abs(bare.roll) * 0.7);
   });
 
-  it("saves the swim from a launch that goes past vertical", () => {
-    // Past ninety degrees the bare hull arrives inverted and stays there
-    // — a PWC does not self-right, so that is the rider in the water.
-    const bare = toss({ roll: 1.75, assist: 0 });
-    const caught = toss({ roll: 1.75, assist: 1 });
-    expect(bare.capsized).toBe(true);
-    expect(caught.capsized).toBe(false);
-    expect(Math.abs(caught.roll)).toBeLessThan(0.7);
+  it("lets go of a hull thrown further over than a rider could hold", () => {
+    // Past `rollReach` the hand is gone and the hull is the water's. A
+    // hundred degrees of bank is past the hull's own righting arm as well
+    // (`hull.ts`: it goes through zero near ninety), so the hull arrives
+    // on its side, carries on over and stays there — a PWC does not
+    // self-right, and that is the rider in the water. At EVERY dial: the
+    // arcade may soften a landing, never hold a capsize off.
+    for (const assist of [0, 0.5, 1]) {
+      const thrown = toss({ roll: 1.75, assist });
+      expect(thrown.capsized, `assist ${assist}`).toBe(true);
+    }
+  });
+
+  it("lands a hull past its reach exactly as the bare physics would", () => {
+    // Seventy-five degrees of bank is past `rollReach`, so the hand is not
+    // merely weaker there — it is absent, and the full dial and no dial at
+    // all put the hull down in the same attitude.
+    const past = [0, 1].map((assist) => Math.abs(toss({ roll: 1.3, assist }).roll));
+    expect(Math.abs(past[1] - past[0])).toBeLessThan(0.02);
   });
 
   it("turns a nose-down flight into a landing instead of a dive", () => {
@@ -234,16 +246,22 @@ describe("the arcade's hand", () => {
   it("catches every craft alike, the gain being an acceleration and not a torque", () => {
     // Pitch inertia runs 165 to 490 kg·m² across the roster, so a hand
     // quoted in N·m would catch the dart three times as hard as the otter.
+    const caughtRolls: number[] = [];
     for (const craft of ["skiff", "marlin", "otter", "dart"] as const) {
-      const bare = toss({ craft, roll: 1.1, assist: 0 });
-      const caught = toss({ craft, roll: 1.1, assist: 1 });
-      expect(Math.abs(caught.roll), craft).toBeLessThan(Math.abs(bare.roll) / 2);
+      const bare = toss({ craft, roll: 0.6, assist: 0 });
+      const caught = toss({ craft, roll: 0.6, assist: 1 });
+      expect(Math.abs(caught.roll), craft).toBeLessThan(Math.abs(bare.roll) * 0.7);
       expect(caught.capsized, craft).toBe(false);
+      caughtRolls.push(Math.abs(caught.roll));
     }
+    // The attitude the hand puts them down in is the same attitude on all
+    // four, to a couple of degrees — which is the claim. A hand quoted in
+    // N·m would spread these by the ratio of the inertias.
+    expect(Math.max(...caughtRolls) - Math.min(...caughtRolls)).toBeLessThan(0.04);
   });
 
   it("is a dial, and half of it is half the correction", () => {
-    const rolls = [0, 0.5, 1].map((assist) => Math.abs(toss({ roll: 1.1, assist }).roll));
+    const rolls = [0, 0.5, 1].map((assist) => Math.abs(toss({ roll: 0.6, assist }).roll));
     expect(rolls[0]).toBeGreaterThan(rolls[1]);
     expect(rolls[1]).toBeGreaterThan(rolls[2]);
   });

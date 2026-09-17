@@ -218,8 +218,23 @@ export function landingAssist(
   // the rider is pointing is the rider's — and read each against its own
   // tolerance. Signed, so each keeps the direction it has to turn.
   const pitchErr = past((angle * ax) / sin, A.pitchTolerance);
-  const rollErr = past((angle * az) / sin, A.rollTolerance);
-  if (pitchErr === 0 && rollErr === 0) return;
+  const rollRaw = (angle * az) / sin;
+  const rollErr = past(rollRaw, A.rollTolerance);
+  // THE HAND HAS A REACH IN ROLL, and past it the hull belongs to the
+  // water. What a rider has to catch a landing with is trim — his weight
+  // into a footwell, a shove on the bars — and none of that brings a hull
+  // back from its beam ends in the air. The spring is the same spring
+  // inside the bank he rides away from and is gone by `rollReach`, so a
+  // hull thrown further over than he can hold arrives on its side still
+  // carrying the rate it earned, and its own righting arm decides the rest
+  // (`hull.ts`: the deck probes put that arm through zero at about 90°).
+  //
+  // The PITCH half keeps its full reach. A nose held up IS what a rider's
+  // weight does, and a hull that comes down on its nose has the submerged
+  // spell waiting for it (`submerged.ts`) rather than a capsize.
+  const reach = clamp((A.rollReach - Math.abs(rollRaw)) / (A.rollReach - A.rollHold), 0, 1);
+  const rollHand = rollErr * reach;
+  if (pitchErr === 0 && rollHand === 0) return;
 
   // Past the tolerance the torque grows from zero, so nothing steps as a
   // flight crosses the line between "fine" and "caught", and it grows
@@ -234,7 +249,7 @@ export function landingAssist(
   // assist puts in upside down.
   const right = A.right * gain;
   out.tx = -pitchErr * right * ix;
-  out.tz = -rollErr * right * iz;
+  out.tz = -rollHand * right * iz;
   // ...and the rate is damped on the same schedule, so the hull arrives
   // settled instead of swinging through the attitude it was aimed at.
   // Damped flat rather than in proportion to the error, because the rate
@@ -245,7 +260,11 @@ export function landingAssist(
   const damp = A.damp * gain;
   out.tx -= damp * wx * ix;
   out.ty -= damp * wy * iy;
-  out.tz -= damp * wz * iz;
+  // ...and the roll rate is damped only as far as the hand still reaches.
+  // Damping a rate it has let go of the attitude of is the same save by
+  // another route: it costs the hull the roll it is going over on while
+  // claiming to have stood down.
+  out.tz -= damp * wz * iz * reach;
 }
 
 /** THE RAMP'S HAND: the run up a deck four metres wide.
