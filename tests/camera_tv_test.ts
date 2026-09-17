@@ -33,6 +33,9 @@ const seaAt = (seaHeading: number): Level => ({ ...SHORE, seaHeading });
 /** Well out from the beach and clear of both skerries, so a placement case
  * measures the framing rather than the refusal. */
 const OPEN = { x: 620, z: 80 };
+/** One run over that shore, for the cases outside the lens block below —
+ * stood up once for the reason `state` is (see there). */
+const ASHORE_RUN = createGame({ seed: 7, craft: "skiff", level: SHORE, quiet: true });
 
 function shotAt(over: Partial<ReplayShot> = {}): ReplayShot {
   return {
@@ -164,13 +167,7 @@ describe("where the lens is planted", () => {
     const tv = createTvCamera();
     const p = pose();
     const before = { ...p };
-    const framed = tv.update(
-      p,
-      ashore,
-      createGame({ seed: 7, craft: "skiff", level: SHORE, quiet: true }),
-      DT,
-      FLAT,
-    );
+    const framed = tv.update(p, ashore, ASHORE_RUN, DT, FLAT);
     expect(framed).toBe(false);
     // ...and the pose is left exactly as the caller had it, so the rig it
     // falls back to is not flying away from a lens that was never stood.
@@ -189,12 +186,19 @@ describe("where the lens is planted", () => {
 
 describe("the lens, once the craft is coming at it", () => {
   const level = SHORE;
-  /** The craft `back` metres short of the moment, on the line it is riding
+  /** ONE run, stood up once and MOVED — not a fresh `createGame` per
+   * assertion. Building a game is the expensive thing this engine does
+   * (the sea's bands, the wind, the hull), the lens reads nothing off it but
+   * the craft's place and the level's own shore, and `.github/workflows/ci.yml`
+   * says plainly that a file rebuilding the same world once per rule is what
+   * puts the floor under a shard.
+   *
+   * The craft `back` metres short of the moment, on the line it is riding
    * toward the stand — which is what every shot is made of. */
+  const RUN = createGame({ seed: 7, craft: "skiff", level, quiet: true });
   const state = (back: number, side = 0): GameState => {
-    const game = createGame({ seed: 7, craft: "skiff", level, quiet: true });
-    Object.assign(game.craft, { x: OPEN.x + side, z: OPEN.z - back, y: 0 });
-    return game;
+    Object.assign(RUN.craft, { x: OPEN.x + side, z: OPEN.z - back, y: 0 });
+    return RUN;
   };
 
   it("stands still: a tripod does not follow the craft it is watching", () => {
