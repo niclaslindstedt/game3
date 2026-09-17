@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// A COAST IS NAMED IN SIX PLACES, and this is the test that holds them to
+// A COAST IS NAMED IN SEVEN PLACES, and this is the test that holds them to
 // one list. The engine's row (`engine/mapgen/biomes.ts`) says what a coast
-// IS; the app says what it LOOKS like in four tables that cannot import
+// IS; the app says what it LOOKS like in five tables that cannot import
 // each other's reason to exist — its water (`water-optics.ts`), its shore
-// (`shore-paint.ts`), its skies and seasons (`sky-looks.ts`) — and two
-// rosters whose rows each name the coasts they belong to (`flora-defs.ts`,
+// (`shore-paint.ts`), its skies and seasons (`sky-looks.ts`) and the grade
+// its whole picture is finished with (`colour-grade.ts`) — and two rosters
+// whose rows each name the coasts they belong to (`flora-defs.ts`,
 // `bird-defs.ts`). A coast added to `BIOME_IDS` and missing from any of them
 // is a level that throws on load, or a shore with nothing growing on it;
-// the cases below make each of those a red test instead.
+// the cases below make each of those a red test instead. What the grade
+// itself CLAIMS is `tests/colour_grade_test.ts`'s.
 //
 // And a biome is a KIND of coast, never a place. The second half of the
 // file holds the rows to what makes the two coasts two — the cold one is
@@ -35,6 +37,7 @@ import {
 
 import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
 import { BIRDS, birdsOf } from "../pwa/src/game/bird-defs.ts";
+import { COLOUR_GRADES, gradeOf } from "../pwa/src/game/colour-grade.ts";
 import { FLORA, floraOf } from "../pwa/src/game/flora-defs.ts";
 import { SHORE_PAINT, shorePaintOf } from "../pwa/src/game/shore-paint.ts";
 import { SEASON_LOOKS, SKY_LOOKS, looksOf, seasonsOf } from "../pwa/src/game/sky-looks.ts";
@@ -56,12 +59,13 @@ describe("the built coasts", () => {
   });
 
   it("have every app-side half, and no app-side half is for a coast nobody built", () => {
-    for (const table of [WATER_OPTICS, SHORE_PAINT, SKY_LOOKS, SEASON_LOOKS]) {
+    for (const table of [WATER_OPTICS, SHORE_PAINT, SKY_LOOKS, SEASON_LOOKS, COLOUR_GRADES]) {
       expect(Object.keys(table).sort()).toEqual([...BIOME_IDS].sort());
     }
     for (const id of BIOME_IDS) {
       expect(() => waterOpticsOf(id)).not.toThrow();
       expect(() => shorePaintOf(id)).not.toThrow();
+      expect(() => gradeOf(id)).not.toThrow();
       expect(() => looksOf(id)).not.toThrow();
       expect(() => seasonsOf(id)).not.toThrow();
       // Every sky the engine can name is painted on every coast — `Looks`
@@ -72,6 +76,7 @@ describe("the built coasts", () => {
     }
     expect(() => shorePaintOf("arctic")).toThrow(/arctic/);
     expect(() => looksOf("arctic")).toThrow(/arctic/);
+    expect(() => gradeOf("arctic")).toThrow(/arctic/);
   });
 
   it("each grow a cover, fly a roster and carry sea life of their own", () => {
@@ -237,6 +242,18 @@ describe("what makes the two coasts two", () => {
       for (const p of river) expect(sampleField(level.offshore, p.x, p.z)).toBeGreaterThan(0);
     }
     expect(deltas).toBeGreaterThanOrEqual(Math.ceil(MANGROVE_SEEDS.length / 2));
+  });
+
+  it("is the grade: one cold cast against a warm split", () => {
+    // What each grade DOES is `tests/colour_grade_test.ts`'s; what belongs
+    // here is that the two rows are two — a cold coast graded flat and
+    // drained, a warm one punchy and saturated, and neither one's numbers
+    // reachable from the other's by a rounding error.
+    const cold = gradeOf("taiga");
+    const warm = gradeOf("mangrove");
+    expect(cold.contrast).toBeLessThan(warm.contrast);
+    expect(cold.saturation).toBeLessThan(warm.saturation);
+    expect(cold.lift).toBeGreaterThan(warm.lift);
   });
 
   it("is the sky: the haze is warm water's and the cold coast never deals it", () => {

@@ -20,6 +20,7 @@ import type { FrameCost, SceneShare } from "./benchmark-report.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { isEyeCamera } from "./camera-rigs.ts";
 import { createCheckpointArrow } from "./checkpoint-arrow.ts";
+import { gradeOf } from "./colour-grade.ts";
 import { buildCraft, cockpitOf, deckOf, wellCutOf, type WellCut } from "./craft-body.ts";
 import { createCraftLamps, type CraftLamps } from "./craft-lamps.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
@@ -32,6 +33,7 @@ import { createFauna, type Fauna } from "./fauna.ts";
 import { setTextureAnisotropy } from "./fx-textures.ts";
 import { createBuoys, nearestLamps, type Buoys, type BuoyLamp } from "./buoys.ts";
 import { createGates, type Gates } from "./gates.ts";
+import { createGradePass, type GradePass } from "./grade-pass.ts";
 import { createGuideLine, type GuideLine } from "./guide-line.ts";
 import { createFlora, type CoverMirror, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
@@ -168,7 +170,12 @@ export function createRenderer(
   let video = initialVideo;
   const renderer = new THREE.WebGLRenderer({
     canvas,
-    antialias: true,
+    // NO SAMPLES ON THE CANVAS: every edge in the picture is drawn into the
+    // grade's own multisampled target (`grade-pass.ts`), and what reaches
+    // this framebuffer is one screen-filling triangle pair that has none. A
+    // multisampled default framebuffer here would be a second full-screen
+    // allocation and a second resolve, both spent on nothing.
+    antialias: false,
     powerPreference: "high-performance",
   });
   renderer.outputColorSpace = THREE.SRGBColorSpace;
@@ -184,6 +191,10 @@ export function createRenderer(
 
   // THE SKY, and with it the fog and both lights (environment.ts).
   const sky: Environment = createEnvironment(scene);
+  // THE GRADE (grade-pass.ts): the cast this coast's picture is finished
+  // with. Nothing else in the renderer knows it exists — the frame is drawn
+  // into its target instead of onto the canvas, and it writes the canvas.
+  const grade: GradePass = createGradePass();
   // THE CRAFT'S SURFACE (craft-surface.ts): one material for the hull and
   // the rider, on the sky's own uniforms, so what the gel coat reflects is
   // the sky the water beside it reflects.
@@ -349,6 +360,11 @@ export function createRenderer(
       water.setCoast(level.biome);
       water.retone(sky.preset(), sky.hemi, sky.key, sky.cloudLayers());
       fauna.retone(sky.preset());
+      // …and the coast's GRADE (`colour-grade.ts`) — the cold coast cool,
+      // flat and blue in its shadows, the warm one punchy and gold in its
+      // highlights. Seven dials on one material, so a new coast costs no
+      // recompile and the first frame of it is already graded.
+      grade.setGrade(gradeOf(level.biome));
     }
     const id = state.craft.spec.id;
     if (id !== craftId) {
@@ -431,6 +447,10 @@ export function createRenderer(
     camera.updateProjectionMatrix();
     fovWas = 0;
     renderer.getDrawingBufferSize(bufferSize);
+    // The grade reads the picture back at exactly the size it was drawn, so
+    // its target is sized in DEVICE pixels off the drawing buffer rather
+    // than off the CSS box the two are derived from.
+    grade.setSize(bufferSize.x, bufferSize.y);
   };
 
   /** Stand the two water grids up for the WATER and DISTANCE rows as they
@@ -682,9 +702,22 @@ export function createRenderer(
     water.setMirror(mirror.live());
     flora?.drawFor("frame");
 
+    // THE PICTURE, into the grade's target rather than onto the canvas…
+    const onto = renderer.getRenderTarget();
+    renderer.setRenderTarget(grade.target);
     renderer.render(scene, camera);
-    cost.calls = renderer.info.render.calls + pass.calls + marks.calls;
-    cost.triangles = renderer.info.render.triangles + pass.triangles + marks.triangles;
+    renderer.setRenderTarget(onto);
+    // …read HERE, because `render` resets the counters at the top of every
+    // call and the grade's own pass is a second one (the mirror's and the
+    // wake's are captured the same way, for the same reason).
+    const picture = {
+      calls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+    };
+    // …and THE GRADE onto the canvas.
+    const graded = grade.render(renderer);
+    cost.calls = picture.calls + graded.calls + pass.calls + marks.calls;
+    cost.triangles = picture.triangles + graded.triangles + pass.triangles + marks.triangles;
     // WHAT THE SHORE IS HOLDING rather than what this frame drew: the driver's
     // compiled programs and the buffers and textures still resident. Read here
     // with the rest so a reading is one frame's whole account, and flat to ask
@@ -785,6 +818,7 @@ export function createRenderer(
       boxes.disconnect();
       window.removeEventListener("resize", resize);
       sky.dispose();
+      grade.dispose();
       water.dispose();
       mirror.dispose();
       fauna?.dispose();
