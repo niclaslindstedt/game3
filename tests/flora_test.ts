@@ -125,10 +125,11 @@ describe("the flora roster", () => {
   });
 
   it("carries the cushions and the ice a polar shore is actually made of", () => {
-    // Nothing on the polar coast stands knee high but the stranded ice and
-    // the moraine's blocks: the plants are cushions and mats, an inch or
-    // two off the gravel, and the one colour on the coast is in them.
-    for (const id of ["saxifrage", "campion", "polarwillow", "avens", "mossmat", "lichen"]) {
+    // Nothing on the polar coast stands knee high but the stranded ice:
+    // the plants are cushions and mats, an inch or two off the firn, and
+    // the one colour on the coast is in them. And NO STONE: the coast is
+    // ice, so no row of it is a cobble.
+    for (const id of ["saxifrage", "campion", "polarwillow", "avens", "mossmat"]) {
       expect(byId(id).biomes).toEqual(["arctic"]);
       expect(byId(id).look.height.max, id).toBeLessThan(0.15);
     }

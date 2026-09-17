@@ -230,7 +230,7 @@ export const ARCTIC_BIRDS: readonly BirdSpec[] = [
     id: "longtail",
     name: "Long-tailed duck",
     biomes: ["arctic"],
-    // A small quick sea duck in a raft off the gravel, and the noisiest
+    // A small quick sea duck in a raft off the ice foot, and the noisiest
     // duck on any coast.
     span: 0.72,
     length: 0.45,
@@ -331,7 +331,7 @@ export const ARCTIC_BIRDS: readonly BirdSpec[] = [
     name: "Arctic skua",
     biomes: ["arctic"],
     // A dark, falcon-winged gull that lives by robbing the terns: one or
-    // two over the tern colony on the gravel, fast and low, and off after
+    // two over the tern colony on the firn, fast and low, and off after
     // anything carrying a fish.
     span: 1.15,
     length: 0.44,

@@ -31,7 +31,7 @@
 // mangrove, nothing standing higher than a dune, no rock to speak of, and
 // a clear turquoise sea with a long lazy groundswell in it. The arctic's is
 // the third kind of shore there is: a WALL OF ICE — a glacier's front
-// standing forty metres out of the sea, with moraine and gravel in the
+// standing sixty metres out of the sea, with firn and calved rubble in the
 // bays between the fronts, bergs grounded off it where the taiga has
 // skerries, a crack in the ice where the taiga has a river, and water at
 // the freezing point that is ice for half the year (R37). Asking for an
@@ -499,8 +499,8 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // draws. Getting there is the HEADLAND factor rather than the relief:
     // the relief is near twice the taiga's plateau and no more, because
     // the soft stretches (R21) keep their share of the same plateau and
-    // those are the coast's other half — a low moraine of gravel and
-    // boulders between one front and the next, a few metres over the
+    // those are the coast's other half — a low ice foot of firn and
+    // rubble between one front and the next, a few metres over the
     // water — and a relief that put the bays at a headland's height made
     // every one of them a slope the classifier calls bedrock, and the
     // coast one material. Trebling what a rugged stretch climbs to instead
@@ -516,20 +516,20 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // face steeper than `surface.bedrockSlope` bedrock, so the wall is one
     // material from the waterline to its lip and the glacier's surface
     // behind it is flat from there. The soft stretches climb over the
-    // whole reach, as every coast's do: those are the moraine slopes
-    // between one front and the next, where the gravel and the boulder
-    // fields are, and where a rider can actually get out of the water.
+    // whole reach, as every coast's do: those are the ice-foot slopes
+    // between one front and the next, where the firn and the calved
+    // rubble are, and where a rider can actually get out of the water.
     climb: 0.06,
     // …and it is the ORDINARY shore of this coast, not its headlands: the
     // wall starts a quarter of the way up the character and is whole by
-    // the middle of it, so only the softest bays are the moraine slopes
-    // where the gravel and the sand are. It can be, because the wall
+    // the middle of it, so only the softest bays are the ice-foot slopes
+    // where the firn is. It can be, because the wall
     // stands on an APRON: fourteen metres of the rubble it calves onto,
     // level to the water, so the waterline reads as the boulder field it
     // is (R16) and the quilt (R21) is the field's to break rather than the
     // slope's. A wall without one was bedrock from its foot to its lip,
     // and to keep the quilt the coast had to keep two stretches in three
-    // as low moraine — which put the front on one seed's course in four.
+    // as low ice foot — which put the front on one seed's course in four.
     wall: { from: 0.25, to: 0.5, apron: 14 },
     // A CRACK IN THE ICE, where the taiga has a river. A rift in an ice
     // front holds its width for most of its length — the walls are
@@ -561,22 +561,24 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
       ragged: 0.45,
       bars: null,
     },
-    // WHAT STANDS IN THIS WATER IS ICE. A skerry on this coast is a berg
-    // grounded off the front, a reef a growler awash, a stack the tallest
-    // berg on the level — all of them carved by the same placer in the
-    // coast's own stone (`shore-paint.ts`), which here is blue-white — and
-    // the boulders and the erratics are the real thing: a glacier's front
-    // is where the moraine is, and the blocks it dropped stand on the
-    // gravel below it thicker than on any other coast.
-    rocks: { skerry: 0.55, boulder: 1.3, reef: 0.6, erratic: 1.6, stack: 0.7 },
-    // A moraine is boulder to the water: the widest field of the three.
-    // MEASURED over sixteen seeds with the sand row below: all sixteen
-    // build.
+    // EVERYTHING THAT STANDS HERE IS ICE — there is no rock on this coast.
+    // A skerry is a berg grounded off the front, a reef a growler awash, a
+    // stack the tallest berg on the level, and a "boulder" a bergy bit
+    // lying at the wall's foot — all of them carved by the same placer in
+    // the coast's own stone (`shore-paint.ts`), which here is blue-white.
+    // No erratics at all: an erratic is a rock by definition, the one
+    // solid the placer roots in the ground, and there is none to root.
+    rocks: { skerry: 0.55, boulder: 0.9, reef: 0.6, erratic: 0, stack: 0.7 },
+    // The "boulder field" (R16) is the CALVED RUBBLE at the wall's foot —
+    // the blocks the front drops onto its apron — and it is the widest
+    // field of the three, because it is what breaks R21's quilt on a
+    // coast that is otherwise one wall. Painted as ice, never as stone.
     boulderField: 1.4,
     beaches: true,
-    // The "sand" is the moraine's gravel — grey, coarse, and in the bays
-    // between the fronts only. Somewhat under the taiga's: most of this
-    // waterline is ice or the boulders under it, and the gravel is what
+    // The "sand" is FIRN: old snow packed to ice on the softest stretches,
+    // where the front has drawn back and the sea reaches a low ice foot
+    // rather than a wall. Somewhat under the taiga's: most of this
+    // waterline is the wall or the rubble under it, and the firn is what
     // breaks the two up for R21's quilt.
     shore: { sand: 0.85 },
     // A COAST HEMMED IN BY ICE. The pack stands off it most of the year and

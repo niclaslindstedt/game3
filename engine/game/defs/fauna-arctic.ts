@@ -12,7 +12,7 @@
 // THE ICE EDGE, READ FROM THE FRONT OUT. Everything on this coast lives
 // off the ice one way or another. Under it and along it are the fish the
 // whole food web stands on — the polar cod that hides in the cracks of the
-// sheet, the capelin that spawns on the gravel, the char running out of
+// sheet, the capelin that spawns in the shallows, the char running out of
 // the crack in the ice for its few weeks at sea — and the two seals of the
 // fast ice, the ringed seal at its breathing hole and the bearded seal
 // hauled out on a floe; and the bear, which is the one animal in the whole
@@ -60,7 +60,7 @@ export const ARCTIC_FAUNA: readonly FaunaSpec[] = [
     name: "Capelin",
     kind: "fish",
     // Smaller and silver, and inshore: a capelin shoal comes onto the
-    // gravel to spawn in its millions, which is the one time a rider sees
+    // shallows to spawn in its millions, which is the one time a rider sees
     // the water off a beach go dark with fish.
     length: 0.17,
     beam: 0.15,

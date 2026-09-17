@@ -143,8 +143,7 @@ function paint(
     // line: a boulder field stays what it is, and a hill stands bare over
     // the wood. Where the wood starts and where it stops are the coast's
     // own (`floorFrom`, `floorAbove`, `floorTo`): a mangrove stands at the
-    // waterline, and an arctic moraine's tundra stops where the ice wall
-    // starts.
+    // waterline, and an arctic coast's floor is the glacier's own snow.
     if (kind === "bedrock") {
       const inland = -offshore;
       const [above, over] = p.row.floorAbove;

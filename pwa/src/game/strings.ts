@@ -447,7 +447,7 @@ export const STRINGS = {
    * the engine's own id, because the row is a ladder like the others. */
   startCoast: "COAST",
   startCoastHint:
-    "The kind of coast the seed builds — a cold skerry shore of granite and pine, a warm flat one of white sand and mangrove, or a polar one of ice walls and moraine on black water",
+    "The kind of coast the seed builds — a cold skerry shore of granite and pine, a warm flat one of white sand and mangrove, or a polar one of ice walls and bergs on black water",
   coastName: (id: string): string => COAST_NAMES[id] ?? id.toUpperCase(),
   /** THE GAME, as the front door's tiles name it and as the start card's
    * head is titled with it. */

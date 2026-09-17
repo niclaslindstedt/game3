@@ -39,23 +39,21 @@
 //                   water, with aspen and rowan in the gaps
 //   over the top    nothing: bare rock above `TREE_LINE`
 //
-// THE ARCTIC COAST — a polar shore has NO TREES, and its ladder is a few
-// centimetres high: everything on it grows flat to the ground out of the
-// wind, in cushions and mats on the moraine, and what stands up over the
-// rider's head is ICE, not wood.
+// THE ARCTIC COAST — a polar shore has NO TREES and NO STONE, and its
+// ladder is a few centimetres high: everything on it grows flat to the
+// ground out of the wind, in cushions and mats in the firn, and what
+// stands up over the rider's head is ICE, not wood.
 //
-//   in the water    kelp (Laminaria) on the stones under the front
+//   in the water    kelp (Laminaria) on the bed under the front
 //   the tideline    stranded ice — bergy bits and floes the tide left on
-//                   the gravel, the one thing on the shore taller than a
-//                   man — and the moraine's cobbles and blocks
+//                   the firn, the one thing on the shore taller than a man
 //   the wet ground  cotton grass (Eriophorum) in white tufts, and the moss
 //                   mat, thickest along the crack's melt
-//   the moraine     purple saxifrage (Saxifraga oppositifolia) and moss
+//   the firn        purple saxifrage (Saxifraga oppositifolia) and moss
 //                   campion (Silene acaulis) in cushions, polar willow
 //                   (Salix polaris) an inch high, mountain avens (Dryas)
-//                   in mats, the yellow poppy (Papaver) on the gravel
-//   the rock        orange lichen (Xanthoria) on every stone the birds sit
-//                   on, and snow in every hollow the wind cannot reach
+//                   in mats, the yellow poppy (Papaver) on the barest firn
+//   the hollows     snow, wherever the wind cannot reach
 //   over the top    the ice
 //
 // THE MANGROVE COAST — a low warm shore, and its ladder is shorter because

@@ -215,12 +215,14 @@ describe("what makes the three coasts three", () => {
     // biome, and the field that breaks the marl up has to be there.
     expect(mangrove.boulderField).toBeGreaterThan(0);
     expect(mangrove.shore.sand).toBeLessThan(1.5);
-    // The arctic stands higher than the taiga and comes down as a wall on
-    // its rugged stretches — and the wall is a moraine's worth of boulders
-    // and erratics at its foot, the most of any coast.
+    // The arctic stands higher than the taiga and comes down as a wall —
+    // and there is NO ROCK on it: the wall's foot is the widest "boulder"
+    // field of any coast because it is the calved rubble on the apron,
+    // and no erratic at all, because an erratic is a rock by definition.
     expect(arctic.relief).toBeGreaterThan(taiga.relief);
     expect(arctic.climb).toBeLessThan(0.25);
-    expect(arctic.rocks.erratic).toBeGreaterThan(taiga.rocks.erratic);
+    expect(arctic.rocks.erratic).toBe(0);
+    expect(arctic.rocks.boulder).toBeGreaterThan(0);
     expect(arctic.boulderField).toBeGreaterThan(taiga.boulderField);
     expect(arctic.shore.sand).toBeLessThan(taiga.shore.sand);
   });
@@ -464,16 +466,18 @@ describe("what makes the three coasts three", () => {
   });
 
   it("builds a coast a rider can tell from the other two", () => {
-    // The corpus itself: the arctic's water is at the freezing point, its
-    // rocks are mostly the moraine's, and a crack runs inland from every
-    // one of its shores.
+    // The corpus itself: the arctic's water is at the freezing point,
+    // nothing standing in it or on it is rock (no erratic on any seed —
+    // the bergs and the bergy bits are the other kinds), and a crack runs
+    // inland from every one of its shores.
     for (const seed of ARCTIC_SEEDS) {
       const level = arcticFor(seed);
       expect(level.biome).toBe("arctic");
       expect(level.water.temperature).toBeLessThan(6.5);
       expect(level.water.density).toBe(arctic.water.density);
       expect(level.river.length).toBeGreaterThan(10);
-      expect(level.solids.filter((s) => s.kind === "erratic").length).toBeGreaterThan(4);
+      expect(level.solids.filter((s) => s.kind === "erratic")).toHaveLength(0);
+      expect(level.solids.filter((s) => s.kind === "boulder").length).toBeGreaterThan(4);
       expect(level.fauna.length).toBeGreaterThan(6);
     }
   });

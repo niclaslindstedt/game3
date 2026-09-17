@@ -45,9 +45,8 @@ export type ShorePaint = {
    * A northern shore keeps its slabs bare for twenty metres before the
    * pines; a mangrove stands with its feet in the water. And where it
    * STOPS, m over sea level: the tree line on a wooded coast, so the hill
-   * stands bare over the wood — and the top of the moraine on a coast
-   * whose "bedrock" past that height is a wall of ice with nothing
-   * growing on it. */
+   * stands bare over the wood — or, on a coast whose floor is the
+   * glacier's own snow, high enough that the wall's lip is inside it. */
   readonly floor: string;
   readonly floorFrom: number;
   readonly floorAbove: readonly [number, number];
@@ -133,21 +132,23 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     erratic: 0xb3ab94,
   },
   arctic: {
-    // THE "BEDROCK" IS ICE. The classifier calls the glacier's front
-    // bedrock — a face steeper than anything else on any coast — and the
-    // wall is painted the blue-white of old glacier ice, lightening to
-    // snow at its lip (`terrain.ts` lightens bedrock as it climbs, which
-    // is exactly what a snow-covered glacier surface does). The "rock" is
-    // the moraine: the dark wet till and the boulders the ice dropped,
-    // nearly black against the wall.
+    // EVERYTHING ON THIS COAST IS ICE — there is no rock on it. The
+    // classifier calls the glacier's front bedrock — a face steeper than
+    // anything else on any coast — and the wall is painted the blue-white
+    // of old glacier ice, lightening to snow at its lip (`terrain.ts`
+    // lightens bedrock as it climbs, which is exactly what a snow-covered
+    // glacier surface does). The "rock" is the CALVED RUBBLE on the wall's
+    // apron: the blocks the front drops, a shade bluer and greyer than the
+    // wall because they are broken, wet and lying in each other's shadow.
     bedrock: "#d6e6f0",
-    boulder: "#4a4c4a",
-    // The "sand" is the moraine's GRAVEL: grey, coarse, and darker wet.
-    // No white sand and no ochre anywhere on this coast — a warm hex here
-    // is a beach, and this is not a beach.
-    sand: "#8c8a86",
-    sandWet: "#5c5d5b",
-    sandBed: "#767a78",
+    boulder: "#b9d0de",
+    // The "sand" is FIRN: old snow packed toward ice on the low foot the
+    // sea reaches where the front has drawn back — white, and blue-grey
+    // where the sea wets it. No ochre anywhere on this coast: a warm hex
+    // here is a beach, and this is not a beach.
+    sand: "#e6eef3",
+    sandWet: "#a9c4d3",
+    sandBed: "#9db9c9",
     // The bottom off a glacier is cobble and silt, dark blue-grey.
     bed: "#2a3a42",
     bedReach: 30,
@@ -162,14 +163,14 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     bank: "#c8dde9",
     bankStone: "#8ab6cc",
     bankStoneUp: 2,
-    // THE TUNDRA: the ground under nothing, because nothing here has a
-    // trunk. Brown-green moss and lichen over the till, and it takes the
-    // low ground only — every metre of ground over `floorTo` is the
-    // glacier's own surface, and a glacier is ice to its top.
-    floor: "#6e6a56",
+    // THE "FLOOR" IS SNOW: the ground behind the foot is the glacier's
+    // own surface, which is old snow, and nothing here has a trunk to
+    // stand under. The cushions the cover plants are (`flora-defs-arctic`)
+    // are colour IN the snow, not a floor of their own.
+    floor: "#e9f0f4",
     floorFrom: 6,
     floorAbove: [0.4, 2],
-    floorTo: 6,
+    floorTo: 80,
     // THE STANDING ROCKS ARE BERGS. A skerry off this coast is a berg
     // grounded in the shallows and a stack the tallest berg on the level:
     // the same carving as the taiga's granite, in ice — the deep blue
@@ -178,9 +179,10 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     stone: { wet: 0x7fb0c8, body: 0xdbe9f1, lit: 0xf6fafc },
     // A growler awash: pale under the water, the one pale reef in the game.
     reef: 0xa8c8d6,
-    // …and the erratics are the real thing, dark moraine blocks on the
-    // gravel — the one kind of rock here that is actually rock.
-    erratic: 0x5a5854,
+    // …and there are no erratics on this coast (`Biome.rocks.erratic` is
+    // 0): an erratic is a rock, and the row's hex is the rubble's so that
+    // nothing here can ever be painted as one.
+    erratic: 0xb9d0de,
   },
 };
 
