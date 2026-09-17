@@ -88,7 +88,7 @@ because the game half leans on the baseline half:
 | §32 | Headless simulator (scenario, progression, seed, A/B, verdict, no-rebuild tuning); automated player (the bot); bench |
 | §33 | Shells add reach not rules; each shell's own build and checks; generated, drift-tested store metadata — `tauri/` and `native/` are README placeholders |
 | §34 | Session service — N/A, single-player |
-| §35 | Reference device and viewport (1280×720, 390×844); perception rules; accessibility; the mature gate; one identity manifest |
+| §35 | Reference device and viewport (1280×720, 390×844, 844×390); perception rules; accessibility; the mature gate; one identity manifest |
 | §36 | Save versioning, migration fixtures, namespaced storage identity, slots that do not share it — nothing is saved yet |
 | §37 | Input sampled and consumed without loss; the clamped accumulator (`run-loop.ts`); focus loss; the wall clock is not a rule |
 | §38 | A contained rule error; the crash report carries the repro (the `seed`/`craft`/`scene`/`t` URL); the running build says what it is (the HUD's build label) |

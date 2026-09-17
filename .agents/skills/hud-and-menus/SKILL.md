@@ -148,7 +148,8 @@ opens. Keep the probe out of the tree when you are done unless it earns a
 place on the shelf (`lab-tooling`).
 
 Then run `ui-review`'s audit at the reference viewports (desktop landscape
-1280×720 and phone portrait 390×844, and rotation is its own case). A HUD
+1280×720, phone portrait 390×844 and phone LANDSCAPE 844×390 — rotation is
+not a case you have to remember any more, it is the third shot). A HUD
 change is not finished until it has been LOOKED at on a phone-shaped
 viewport — the failure mode here is always overlap, clipping, or a control
 under a thumb that already has a job: the throttle thumb owns the lower
