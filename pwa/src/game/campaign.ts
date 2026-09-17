@@ -30,6 +30,14 @@
 // shape of the thing — see the shore, then go back for the wins it costs to
 // leave it — and it is why a level already cleared is still worth riding.
 //
+// THE TWELVE ARE THE GAME'S ONLY SHORES, not the campaign's alone. RACE,
+// TRICKS and TIME TRIAL pick one of these levels rather than a seed — the
+// same water, the same pinned day, ridden for the record book instead of
+// for points (`menu-levels.tsx`, `new-game.ts`'s `pinnedFor`) — and what
+// they offer is gated on the campaign having OPENED that shore, which is
+// the sibling rally game's rule for its own time trial. A seed of your own
+// is FREE's, and FREE's alone.
+//
 // Two halves, the way `records.ts` is split: everything above the storage
 // line is PURE — a level built, a run booked, a lock read — so
 // `tests/campaign_test.ts` holds the policy without a browser, and the two
@@ -41,9 +49,11 @@ import {
   createGame,
   generateLevel,
   type CraftId,
+  type GameMode,
   type GameState,
   type Level,
   type RunConditions,
+  type RunRules,
   isCraftId,
 } from "@engine";
 
@@ -97,27 +107,77 @@ export function campaignConditions(level: CampaignLevel): RunConditions {
   return { hour: level.hour, season: level.season, weather: level.weather, wind: level.wind };
 }
 
-/** A RUN of the level, stood up for the player on `craft`: the pinned
- * shore under the pinned day, in the level's own mode, with the whole field
- * on the water and nobody able to lean on anybody. THROWS when the
- * generator refuses the seed, which a curated seed never does. */
-export function campaignGame(level: CampaignLevel, craft: CraftId, built?: Level): GameState {
+/** A RUN ON THE PINNED SHORE — the level's own water under the level's own
+ * day, ridden as `mode` on `craft`. THROWS when the generator refuses the
+ * seed, which a curated seed never does.
+ *
+ * THE DAY IS THE LEVEL'S WHATEVER THE RUN IS FOR. A campaign rung and a
+ * time trial down the same shore are a time on the same water, which is the
+ * whole reason these twelve are pinned rather than dealt; the start card's
+ * rows exist for the one mode that measures nothing (`new-game.ts`). */
+export function pinnedGame(
+  level: CampaignLevel,
+  mode: GameMode,
+  craft: CraftId,
+  opts: { limit?: number; built?: Level; rules?: Partial<RunRules> } = {},
+): GameState {
   return createGame({
     seed: level.seed,
-    level: built ?? buildCampaignLevel(level),
+    level: opts.built ?? buildCampaignLevel(level),
     craft,
-    mode: level.mode,
-    limit: (level.minutes ?? 0) * 60,
+    mode,
+    limit: opts.limit ?? 0,
     windSpeed: level.wind,
     hour: level.hour,
     season: level.season,
     weather: level.weather,
+    rules: opts.rules,
+  });
+}
+
+/** A CAMPAIGN run of the level: the pinned shore in the level's own mode,
+ * with the whole field on the water and nobody able to lean on anybody. */
+export function campaignGame(level: CampaignLevel, craft: CraftId, built?: Level): GameState {
+  return pinnedGame(level, level.mode, craft, {
+    limit: (level.minutes ?? 0) * 60,
+    built,
     // The field is there to be RACED AMONG, on every rung: a tricks run
     // has nobody on it by its own rules and gets the race's grid here, and
     // the hulls pass through each other, so a rider going for a flip is
     // never put in the water by somebody else's line.
     rules: { rivals: RACE.rivals, contact: false },
   });
+}
+
+/** WHETHER A PINNED LEVEL CAN BE RIDDEN AS `mode`, which is the whole rule
+ * behind what the RACE, TRICKS and TIME TRIAL cards offer.
+ *
+ * It is a question about the SHORE and not about the run: R35's trick field
+ * is laid at BUILD time, and a seed asked for one is not always the same
+ * shore as the same seed asked for a race (the analyzer rejects a sub-seed
+ * on a tricks level for reasons a race level never has). So a level rides
+ * in the discipline it was curated and digested under, and in no other —
+ * a race shore takes the course modes, a tricks shore takes the ramps. */
+export function fitsMode(level: CampaignLevel, mode: GameMode): boolean {
+  if (mode === "tricks") return level.mode === "tricks";
+  // A FREE ride pins nothing: it is the one mode allowed a seed, a wind off
+  // any quarter and a sea of its own, so there is no pinned shore for it to
+  // be riding (`new-game.ts`'s `freeRides`).
+  if (mode === "free") return false;
+  return level.mode === "race";
+}
+
+/** The pinned level named by an id, where it exists and the mode can ride
+ * it — null on anything else, so a stale stored id is simply not a shore. */
+export function levelForMode(id: string | null, mode: GameMode): CampaignLevel | null {
+  if (id === null) return null;
+  const found = findLevel(id);
+  return found && fitsMode(found.level, mode) ? found.level : null;
+}
+
+/** A SHORE'S levels this mode can ride, in ladder order. */
+export function levelsForMode(shore: CampaignShore, mode: GameMode): CampaignLevel[] {
+  return shore.levels.filter((level) => fitsMode(level, mode));
 }
 
 /* ── THE POINTS ───────────────────────────────────────────────────────── */

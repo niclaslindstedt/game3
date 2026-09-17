@@ -62,7 +62,7 @@ import {
 import { gameFor, type LevelParams } from "./new-game.ts";
 import { recordId, scoresHigher } from "./records.ts";
 import type { GameRenderer } from "./renderer.ts";
-import { recordKeyFor } from "./run-news.ts";
+import { recordKeyFor } from "./new-game.ts";
 import type { Settings } from "./settings.ts";
 
 export type GhostWorld = {

@@ -15,16 +15,16 @@ ladder's `Stop.id` being `String(CONDITION_DAY[rung].wind)` — the id IS the
 answer, which the WAVES row was already doing with `String(rung.hs)`. Both
 controls then write the same field and nothing has to choose.
 
-Two things that shape needs:
-
-- **A figure → rung reader**, and the CARD must show the rung it will actually
-  ride. `conditionsFor` / `seaStateFor` already existed for the dealt mark; the
-  worded row now also displays `windAsRung(stored)`, so a 33 m/s gale set on a
-  free ride does not leave the ladder standing on nothing.
-- **The measured path snaps.** `gameFor` puts the figure back on its ladder for
-  every mode but the free one, so what a worded row says and what the run rides
-  cannot disagree. Without it the loose figure follows the rider into a timed
-  run under a row that cannot state it.
+The shape needs a **figure → rung reader** wherever the figure is READ back as
+a word: `conditionsFor` and `seaRungFor` are those, and they are what the dealt
+mark, a link's `?day=fine` and a level's box on the level card all go through.
 
 The merge then checks a RANGE rather than a list (`inRange(value, FREE_WIND_RANGE)`),
 which also, for free, drops a blob from the build whose wind was a WORD.
+
+**Since the measured modes moved onto the campaign's pinned shores, the start
+card is FREE's alone and only one CONTROL is left** — the fader. What survived
+is the rule above and its reader; the snap-back that used to put a free ride's
+figure on the worded row for a timed run went with the worded row, because a
+measured run now takes its wind from the pinned level and never reads
+`ride.wind` at all.

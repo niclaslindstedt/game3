@@ -10,21 +10,26 @@
 // the eye lands on, the word is what confirms it, and a player learns each
 // one once.
 //
-//   RACE       → the start card, set up for a race: eleven others on the
-//   TRICKS       grid, or the shore with its course taken off it, or the
-//   TIME TRIAL   course against the clock alone. THREE TILES RATHER THAN A
-//                ROW ON THE CARD BEHIND THEM, because the mode is not a
-//                setting on a run — it is which game is being played, and
-//                the three are what this game IS. A door that opens onto a
-//                card and then asks which game you meant is a door that has
-//                not answered anything. RACE keeps the orange the one way
-//                on always had, so a rider who came here to ride is looking
-//                at the tile to press before they have read a word.
-//                Each writes `settings.ride.mode` on the way through, so the
-//                card that follows is titled with the game it is setting up
-//                and its LENGTH row appears for the one mode that has one.
-//                The CAMPAIGN arrives as a tile here on the day
-//                `campaign.ts` stops being a placeholder.
+//   RACE       → the LEVEL card (menu-levels.tsx), set up for that game:
+//   TRICKS       eleven others on the grid, or the shore with its course
+//   TIME TRIAL   taken off it, or the course against the clock alone. THREE
+//                TILES RATHER THAN A ROW ON THE CARD BEHIND THEM, because
+//                the mode is not a setting on a run — it is which game is
+//                being played, and the three are what this game IS. A door
+//                that opens onto a card and then asks which game you meant
+//                is a door that has not answered anything. RACE keeps the
+//                orange the one way on always had, so a rider who came here
+//                to ride is looking at the tile to press before they have
+//                read a word. Each writes `settings.ride.mode` on the way
+//                through, so the card that follows is titled with the game
+//                it is setting up and its LENGTH row appears for the one
+//                mode that has one.
+//   FREE       → the START card (menu-start.tsx) instead, and it is the only
+//                tile that opens it: a seed of your own, a wind off any
+//                quarter and a sea of any size are the knobs of the one mode
+//                where nothing is being measured. The other three ride the
+//                campaign's pinned shores, so that two times down the same
+//                level are two times down the same water.
 //   GALLERY    → the pictures the player took (menu-gallery.tsx), and the
 //                only place one is ever shown. It stands under the three
 //                because nothing gets into it without a run first.
@@ -44,11 +49,12 @@
 // fills and SAYS SO while it is being held — cannot be stumbled into without
 // the player seeing exactly what they are about to open.
 //
-// The pages are a plain tagged union rather than a router: there is no URL
-// to keep in step, and the whole menu is one component tree over one canvas.
+// WHICH page is up is a plain tagged union, and it lives next door
+// (`menu-page.ts`) so the URL reader can name one without reaching a `.tsx`;
+// this file re-exports it, so `MenuPage` still has one spelling.
 
 import { useEffect, useRef, useState } from "preact/hooks";
-import { GAME_MODES, type GameMode, type TrackKind } from "@engine";
+import { GAME_MODES, type GameMode } from "@engine";
 
 import { APP_NAME, REPO_URL } from "../identity.ts";
 import { MarkWave } from "./mark-wave.tsx";
@@ -72,26 +78,9 @@ import { KeysPage } from "./menu-keys.tsx";
 import { OptionsPage } from "./menu-options.tsx";
 import { StartPage } from "./menu-start.tsx";
 import type { RecordBook } from "./records.ts";
+import { LevelsPage } from "./menu-levels.tsx";
+import type { MenuPage } from "./menu-page.ts";
 import { STRINGS } from "./strings.ts";
-
-export type MenuPage =
-  | { page: "root" }
-  /** The campaign's ladder (`menu-campaign.tsx`). */
-  | { page: "campaign" }
-  | { page: "start" }
-  /** The craft card — the last card before the water on every way on. It
-   * carries the campaign level it is choosing a hull FOR when it was
-   * reached from the ladder, so BACK returns there and RIDE stands THAT
-   * level up rather than the start card's shore. */
-  | { page: "craft"; campaign?: string }
-  | { page: "gallery" }
-  | { page: "options" }
-  | { page: "keys" }
-  | { page: "developer" }
-  /** Behind the developer page: every benchmark this machine has scored
-   * (`menu-bench.tsx`). A page rather than a card over the run, because it is
-   * read without one — the comparison is between runs, not inside one. */
-  | { page: "benchHistory" };
 
 /** How often the held tile redraws its fill, ms. Ten a second is a fill that
  * reads as continuous and a hundredth of the work a frame loop would do —
@@ -125,6 +114,15 @@ function VersionStamp() {
       {label} · {sha}
     </a>
   );
+}
+
+/** WHICH CARD STANDS BETWEEN A TILE AND THE CRAFT CARD: the pinned shores
+ * for the three modes that measure something, the seed and the day for the
+ * one that does not. It is `freeRides`' question asked about a mode rather
+ * than about the settings, and it is stated once because BACK out of the
+ * craft card has to give the same answer the tile did. */
+function cardBefore(mode: GameMode): "levels" | "start" {
+  return mode === "free" ? "start" : "levels";
 }
 
 /** The mark each way onto the water is read by, in `GAME_MODES` order. The
@@ -329,7 +327,7 @@ function RootPage({
           unlocked={settings.developer}
           onStart={() => {
             onMode("race");
-            onNavigate({ page: "start" });
+            onNavigate({ page: cardBefore("race") });
           }}
           onUnlock={() => {
             setSaid(true);
@@ -346,7 +344,7 @@ function RootPage({
             data-menu={mode}
             onClick={() => {
               onMode(mode);
-              onNavigate({ page: "start" });
+              onNavigate({ page: cardBefore(mode) });
             }}
           >
             <Glyph name={MODE_GLYPHS[mode]} />
@@ -392,12 +390,13 @@ function RootPage({
   );
 }
 
+export type { MenuPage } from "./menu-page.ts";
+
 export function MainMenu({
   page,
   settings,
   records,
   progress,
-  track,
   onSettings,
   onNavigate,
   onStart,
@@ -406,12 +405,11 @@ export function MainMenu({
 }: {
   page: MenuPage;
   settings: Settings;
-  /** The record book, for the start card's line under the chart. */
+  /** The record book, for the figure on each box of the level card. */
   records: RecordBook;
-  /** The campaign's board (`campaign.ts`), for the ladder's boxes. */
+  /** The campaign's board (`campaign.ts`), for the ladder's boxes — and for
+   * the level card, whose shores are open exactly where the ladder's are. */
   progress: CampaignProgress;
-  /** R29 — the URL's track kind, part of what names a record. */
-  track: TrackKind | undefined;
   onSettings: (settings: Settings) => void;
   onNavigate: (page: MenuPage) => void;
   onStart: () => void;
@@ -438,26 +436,39 @@ export function MainMenu({
           onRide={(level) => onNavigate({ page: "craft", campaign: level.id })}
         />
       )}
+      {page.page === "levels" && (
+        <LevelsPage
+          settings={settings}
+          records={records}
+          progress={progress}
+          onSettings={onSettings}
+          onBack={() => onNavigate({ page: "root" })}
+          onNext={() => onNavigate({ page: "craft" })}
+        />
+      )}
       {page.page === "start" && (
         <StartPage
           settings={settings}
-          records={records}
-          track={track}
           onSettings={onSettings}
           onBack={() => onNavigate({ page: "root" })}
           onNext={() => onNavigate({ page: "craft" })}
         />
       )}
       {/* The second half of the same question, and the end of it: BACK is
-          the start card the rider came through, and RIDE stands the run up
-          from what the two of them agreed. */}
+          the card the rider came through — the ladder, the level card or
+          the start card — and RIDE stands the run up from what the two of
+          them agreed. */}
       {page.page === "craft" && (
         <CraftPage
           settings={settings}
           onSettings={onSettings}
           backLabel={page.campaign === undefined ? undefined : STRINGS.campaign}
           onBack={() =>
-            onNavigate(page.campaign === undefined ? { page: "start" } : { page: "campaign" })
+            onNavigate(
+              page.campaign === undefined
+                ? { page: cardBefore(settings.ride.mode) }
+                : { page: "campaign" },
+            )
           }
           onRide={() => {
             const pinned = page.campaign === undefined ? null : findLevel(page.campaign);

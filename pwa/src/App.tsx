@@ -96,7 +96,7 @@ import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
 import type { FrameCost, GameRenderer } from "./game/renderer.ts";
-import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
+import { fallbackGame, freeRides, gameFor, tryGame } from "./game/new-game.ts";
 import { loadRecords, saveRecords, type RecordBook } from "./game/records.ts";
 import { createGhostRig } from "./game/ghost-run.ts";
 import { createRunClock } from "./game/run-loop.ts";
@@ -632,13 +632,14 @@ export function App() {
         ghost.clear();
         setShellNow("menu");
       },
-      // The way off a load that will not finish. Back to the START card
-      // rather than the front door, because the row that chose the shore
-      // the generator refused is on it — the player is one press from the
-      // next seed along rather than three.
+      // The way off a load that will not finish. Back to the card that CHOSE
+      // the shore the generator refused rather than to the front door — the
+      // level card on a measured run, the start card's seed row on a free
+      // one — so the player is one press from the next shore along rather
+      // than three.
       abandonLoad: () => {
         loader.abandon();
-        setMenuPage({ page: "start" });
+        setMenuPage({ page: freeRides(settingsRef.current) ? "start" : "levels" });
         setShellNow("menu");
       },
     };
@@ -957,7 +958,6 @@ export function App() {
           settings={settings}
           records={records}
           progress={progress}
-          track={params.track}
           onSettings={setSettings}
           onNavigate={setMenuPage}
           onStart={() => startRunRef.current()}

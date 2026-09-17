@@ -63,9 +63,9 @@
 //                  is how the screenshot lab photographs that surface and how
 //                  a report about it is handed on
 //   ?splash=0/1    force the attract card off, or back on
-//   ?menu=start    open the front door ON that page (root | campaign | start |
-//                  craft | options | keys | developer | benchHistory) — how the lab
-//                  photographs a menu surface, and how a link points at one.
+//   ?menu=start    open the front door ON that page (root | campaign | levels |
+//                  start | craft | options | keys | developer | benchHistory) — how
+//                  the lab photographs a menu surface, and how a link points at one.
 //                  The last two let the developer menu out with them: a URL
 //                  that names a page has, by definition, found it
 //   ?update=1      show the new-build button as if a build were waiting, so
@@ -95,7 +95,7 @@ import {
 } from "@engine";
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
-import type { MenuPage } from "./menu-main.tsx";
+import type { MenuPage } from "./menu-page.ts";
 import { isScenarioName, type ScenarioName } from "./scenarios.ts";
 import {
   CONDITIONS,
@@ -278,6 +278,7 @@ export function readParams(search: string): Params {
     menu:
       menu === "start" ||
       menu === "campaign" ||
+      menu === "levels" ||
       menu === "craft" ||
       menu === "gallery" ||
       menu === "options" ||
@@ -314,7 +315,14 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
   if (params.frameRate !== undefined) settings.video.frameRate = params.frameRate;
   if (params.craft !== null) settings.ride.craft = params.craft;
-  if (params.seed !== null) settings.ride.seed = params.seed;
+  // A LINK THAT NAMES A SEED RIDES THAT SEED. The measured modes otherwise
+  // ride one of the campaign's pinned shores (`new-game.ts`'s `pinnedFor`),
+  // and a lab photographing seed 38 as a race must get seed 38 — so naming
+  // one takes the pinned level off as well as writing the row.
+  if (params.seed !== null) {
+    settings.ride.seed = params.seed;
+    settings.ride.level = null;
+  }
   if (params.biome !== undefined) settings.ride.biome = params.biome;
   if (params.mode !== undefined) settings.ride.mode = params.mode;
   if (params.minutes !== undefined) settings.ride.tricksMinutes = params.minutes;

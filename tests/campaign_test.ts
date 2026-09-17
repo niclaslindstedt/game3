@@ -45,8 +45,11 @@ import {
   betterThan,
   continueAt,
   findLevel,
+  fitsMode,
   ladderAfter,
   levelCleared,
+  levelForMode,
+  levelsForMode,
   levelUnlocked,
   levelsRidden,
   medalFor,
@@ -61,6 +64,7 @@ import {
   shoreWon,
   type CampaignProgress,
 } from "../pwa/src/game/campaign.ts";
+import { GAME_MODES } from "@engine";
 
 const [MANGROVE, TAIGA] = SHORES;
 
@@ -397,5 +401,63 @@ describe("a stored board", () => {
     for (const junk of [null, undefined, 4, "board", [], { results: 3, points: "x" }]) {
       expect(mergeProgress(junk)).toEqual({ results: {}, points: {} });
     }
+  });
+});
+
+describe("the pinned shores, offered outside the campaign (fitsMode)", () => {
+  // RACE, TRICKS and TIME TRIAL pick one of these twelve rather than a seed
+  // (`menu-levels.tsx`), so a level has to say which of them may ride it.
+  // It fails silently both ways: a discipline offered a shore that was not
+  // built for it rides a level the campaign's own box never shows, and one
+  // offered nothing at all is a front-door tile that opens onto a hole.
+  it("gives a race shore to the two modes ridden down a course", () => {
+    const race = CAMPAIGN_LEVELS.filter((level) => level.mode === "race");
+    expect(race.length).toBeGreaterThan(0);
+    for (const level of race) {
+      expect(fitsMode(level, "race")).toBe(true);
+      expect(fitsMode(level, "timeTrial")).toBe(true);
+      expect(fitsMode(level, "tricks")).toBe(false);
+    }
+  });
+
+  it("gives a tricks shore to TRICKS alone", () => {
+    // R35's field is laid at BUILD time, so the same seed asked for ramps is
+    // not always the same shore: a tricks rung ridden as a race would be a
+    // different coast under the same name and digest.
+    const tricks = CAMPAIGN_LEVELS.filter((level) => level.mode === "tricks");
+    expect(tricks.length).toBeGreaterThan(0);
+    for (const level of tricks) {
+      expect(fitsMode(level, "tricks")).toBe(true);
+      expect(fitsMode(level, "race")).toBe(false);
+      expect(fitsMode(level, "timeTrial")).toBe(false);
+    }
+  });
+
+  it("pins nothing at all on a FREE ride", () => {
+    // The one mode that asks for a seed, a wind off any quarter and a sea of
+    // its own — there is no pinned shore for it to be riding.
+    for (const level of CAMPAIGN_LEVELS) expect(fitsMode(level, "free")).toBe(false);
+  });
+
+  it("leaves every measured mode something to ride on the first shore", () => {
+    // The warm shore is open on a fresh app, so none of the three tiles can
+    // open onto an empty card.
+    for (const mode of GAME_MODES) {
+      if (mode === "free") continue;
+      expect(levelsForMode(MANGROVE, mode).length).toBeGreaterThan(0);
+      expect(levelsForMode(TAIGA, mode).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("resolves an id only where the mode can ride it", () => {
+    const race = CAMPAIGN_LEVELS.find((level) => level.mode === "race")!;
+    const tricks = CAMPAIGN_LEVELS.find((level) => level.mode === "tricks")!;
+    expect(levelForMode(race.id, "timeTrial")).toBe(race);
+    expect(levelForMode(tricks.id, "tricks")).toBe(tricks);
+    // The three answers that are null: the wrong discipline, an id the
+    // ladder no longer has, and no id at all.
+    expect(levelForMode(race.id, "tricks")).toBeNull();
+    expect(levelForMode("atoll-1", "race")).toBeNull();
+    expect(levelForMode(null, "race")).toBeNull();
   });
 });

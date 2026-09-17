@@ -7,6 +7,13 @@
 // run up: that module owns the SEQUENCING of the work, this one owns what
 // the work is asked to build. Neither knows the other exists.
 //
+// TWO KINDS OF LEVEL COME OUT OF IT. A measured run — a race, a tricks run,
+// a time trial — is ridden on one of the campaign's twelve PINNED shores,
+// chosen on `menu-levels.tsx` and carrying its own day, so nothing on this
+// module's free-ride path is read at all. Everything else builds the seed
+// the settings and the URL between them name: the FREE ride, the attract
+// sea under every card, and every lab's `?seed=` link.
+//
 // Two callers, and the difference between them is the whole reason `tryGame`
 // is here. The attract sea behind every card has to exist for the page to
 // mount at all, so a refusal there falls back. A run the player asked for
@@ -15,6 +22,8 @@
 
 import { createGame, warn, type CraftId, type GameState, type Level } from "@engine";
 
+import { levelForMode, pinnedGame, shoreOf, type CampaignLevel } from "./campaign.ts";
+import type { RecordKey } from "./records.ts";
 import { DEFAULT_SEED, skyForWind, type Settings } from "./settings.ts";
 import type { Params } from "./url-params.ts";
 
@@ -30,10 +39,12 @@ export type LevelParams = Pick<
 >;
 
 /** THE DAY A RUN IS RIDDEN IN — the sky, the season, the hour's name, the
- * wind and the sea outside. On a FREE ride they are the card's rows, in
- * the rider's own figures. On every other mode they are the SHORE'S OWN:
- * a time on a level is a time on the day that level deals, so the rows
- * came off the card, and what is left is the URL's word for the labs. */
+ * wind and the sea outside. On a FREE ride they are the card's rows, in the
+ * rider's own figures. Otherwise they are the SHORE'S OWN: a time on a
+ * level is a time on the day that level deals, so no card offers them, and
+ * what is left is the URL's word for the labs. (A run on a PINNED shore
+ * never reaches here at all — its day is the level's, and `pinnedGame`
+ * states it.) */
 function dayFor(
   s: Settings,
   params: LevelParams,
@@ -56,12 +67,63 @@ function dayFor(
  * already. */
 export type RunOver = { level?: Level; craft?: CraftId };
 
+/** THE PINNED SHORE this run is on, or null where it is choosing its own.
+ *
+ * RACE, TRICKS and TIME TRIAL ride one of the campaign's twelve levels
+ * rather than a seed (`menu-levels.tsx`), so what they are riding is a
+ * LEVEL ID and the day comes with it. Three answers are null: a FREE ride,
+ * which is the mode that picks a seed; an id the ladder no longer has or
+ * that this mode cannot ride (`fitsMode`); and a run with no id at all,
+ * which is a fresh app or a link that named a seed. */
+export function pinnedFor(s: Settings): CampaignLevel | null {
+  return levelForMode(s.ride.level, s.ride.mode);
+}
+
+/** WHAT NAMES THIS RUN'S ROW in the record book: the level as the settings
+ * and the URL stood it up (`records.ts` says what is deliberately left
+ * out). A PINNED SHORE names itself — its coast, its seed and its track are
+ * the level's rather than the rows', which is what makes two riders' times
+ * down the same rung the same figure.
+ *
+ * It sits beside `gameFor` because it is the same question asked twice:
+ * that one turns the settings into the run, this one turns them into the
+ * row the run's figure goes in, and a book keyed off anything the run was
+ * not actually ridden on is a book of figures nobody can compare. */
+export function recordKeyFor(s: Settings, track: RecordKey["track"] | undefined): RecordKey {
+  const pinned = pinnedFor(s);
+  return {
+    mode: s.ride.mode,
+    biome: pinned ? shoreOf(pinned).id : s.ride.biome,
+    seed: pinned ? pinned.seed : (s.ride.seed ?? DEFAULT_SEED),
+    track: pinned ? pinned.track : (track ?? "coast"),
+    speedClass: classFor(s),
+    minutes: s.ride.tricksMinutes,
+  };
+}
+
+/** How long the clock gives this run, seconds — a tricks run's LENGTH row,
+ * and nothing at all for the modes ridden to a finish line. */
+function limitFor(s: Settings): number {
+  return s.ride.mode === "tricks" ? s.ride.tricksMinutes * 60 : 0;
+}
+
 /** Which seed and which sea the settings currently ask for. Called at the
  * moment a run is stood up rather than captured, so a seed changed on the
  * developer page is the seed START rides.
  *
  * THROWS when the generator refuses the seed — see `tryGame`. */
 export function gameFor(s: Settings, params: LevelParams, over?: RunOver): GameState {
+  // A PINNED SHORE ANSWERS EVERYTHING BELOW: the seed, the track, the day
+  // and the sea are the level's own, so none of the rows or the URL's words
+  // are read at all. The field is the MODE's (`MODE_RULES`) rather than the
+  // campaign's, which is the whole difference between this and a rung.
+  const pinned = pinnedFor(s);
+  if (pinned) {
+    return pinnedGame(pinned, s.ride.mode, over?.craft ?? s.ride.craft, {
+      limit: limitFor(s),
+      built: over?.level,
+    });
+  }
   // The WIND row is two things at once: the wind that builds the sea, and
   // the sky that belongs over that wind (R19 keeps the pair honest, and
   // `skyForWind` is where the figure becomes both). Outside a free ride
@@ -78,7 +140,7 @@ export function gameFor(s: Settings, params: LevelParams, over?: RunOver): GameS
     level: over?.level,
     // THE MODE, and the length a tricks run was asked for, seconds.
     mode: s.ride.mode,
-    limit: s.ride.tricksMinutes * 60,
+    limit: limitFor(s),
     // R32 — the CLASS: the hull is derived at it and the COURSE is paced
     // for it, so the same seed in two classes is two different races.
     speedClass: classFor(s),

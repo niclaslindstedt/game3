@@ -117,10 +117,17 @@ const SURFACES = {
   // cleared box looks like is one run away and not something a lab can
   // stand in.
   campaign: { params: { menu: "campaign" }, wait: ".menu-card-campaign", settle: 500 },
-  // The start card settles slowly on purpose: its chart is a whole level
+  // The level card as a FRESH VISIT finds it: the warm shore open with its
+  // boxes, the cold one shut behind the campaign, and no best on any of
+  // them. RACE is the mode a fresh profile is on, so that is what the head
+  // is titled with — the other two are the same card with another word.
+  levels: { params: { menu: "levels" }, wait: ".menu-card-levels", settle: 500 },
+  // The start card is FREE's — the only tile that opens it — so the link
+  // says so; a `?menu=start` in another mode is a card the front door never
+  // shows. It settles slowly on purpose: its chart is a whole level
   // generated in a worker, and the row waits for the arrows to be still
   // before it asks. A short settle photographs "READING THE CHART…".
-  start: { params: { menu: "start" }, wait: ".seed-preview", settle: 2600 },
+  start: { params: { menu: "start", mode: "free" }, wait: ".seed-preview", settle: 2600 },
   // The craft card settles slowly too, and for the opposite reason: its
   // three.js turntable is a dynamic chunk, and the hull is built on the
   // frame after that lands. A short settle photographs an empty pane.

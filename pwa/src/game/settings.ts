@@ -37,6 +37,7 @@ import {
 } from "@engine";
 
 import { CAMERA_MODES, type CameraMode } from "./camera.ts";
+import { CAMPAIGN_LEVELS } from "./campaign-levels.ts";
 import { SCENARIO_NAMES, type ScenarioName } from "./scenarios.ts";
 import {
   DEFAULT_VIDEO,
@@ -128,20 +129,6 @@ export function conditionsFor(windMs: number): Conditions {
   return nearest;
 }
 
-/** A WIND AS THE WORDED CARD CAN SAY IT, m/s: the figure of the rung it
- * stands nearest. {@link seaStateFor} is the same question about the sea.
- *
- * It exists because one field now carries two kinds of answer — a rung the
- * start card pressed, or wherever a FREE ride's fader was left — and a
- * measured run may only ride what its own row can state. So the figure is
- * put back on the ladder for every mode but that one (`new-game.ts`), and
- * the row shows the same rung it will ride. Without it, a 33 m/s gale set on
- * a free ride would follow the rider into a time trial under a WIND row
- * standing on nothing. */
-export function windAsRung(ms: number): number {
-  return CONDITION_DAY[conditionsFor(ms)].wind;
-}
-
 /** THE SKY THAT BELONGS OVER A WIND, off R19's own agreement — the nearest
  * rung's, because the agreement is between a sea and a ceiling and neither
  * of them is quoted to a tenth of a metre per second. It is what the WEATHER
@@ -197,18 +184,18 @@ export type SeaStateId = (typeof SEA_STATES)[number]["id"];
 export const SEA_METRES: readonly number[] = SEA_STATES.map((s) => s.hs);
 
 /**
- * The rung a swell of this height stands in, m.
+ * The rung a swell of this height stands in — the scale's own word for it.
  *
  * BY BAND rather than by the nearest rung, unlike {@link conditionsFor}:
  * these rungs ARE bands on a scale somebody else drew, so a 3.2 m sea is a
  * ROUGH one and there is nothing to decide. A height past the top of the
  * scale is phenomenal, which is what the scale says too.
  */
-export function seaStateFor(hs: number): number {
+export function seaRungFor(hs: number): SeaStateId {
   for (const rung of SEA_STATES) {
-    if (hs <= rung.hs) return rung.hs;
+    if (hs <= rung.hs) return rung.id;
   }
-  return SEA_STATES[SEA_STATES.length - 1].hs;
+  return SEA_STATES[SEA_STATES.length - 1].id;
 }
 
 export type RideSettings = {
@@ -238,9 +225,22 @@ export type RideSettings = {
    * courses, and the class belongs beside the craft rather than under the
    * shore. */
   speedClass: number;
-  /** Which shore. Null is {@link DEFAULT_SEED}, which is what a player who
-   * has not gone looking gets — and therefore what a bug report is about
-   * until somebody says otherwise. */
+  /** WHICH PINNED LEVEL a measured run is ridden on — the id of one of the
+   * campaign's twelve (`campaign-levels.ts`), which is what RACE, TRICKS and
+   * TIME TRIAL choose instead of a seed (`menu-levels.tsx`). Null is no
+   * pinned shore at all: a FREE ride, which asks for a seed and a day of its
+   * own, and a LINK that named a seed, which is how every lab photographs a
+   * shore that is nobody's rung.
+   *
+   * It is stored beside the seed rather than in place of it because the two
+   * are different questions and both rows are still asked — the day the
+   * pinned level pins is its own (`pinnedGame`), and the seed row's day is
+   * the free ride's. */
+  level: string | null;
+  /** Which shore, on a ride that is choosing one. Null is
+   * {@link DEFAULT_SEED}, which is what a player who has not gone looking
+   * gets — and therefore what a bug report is about until somebody says
+   * otherwise. */
   seed: number | null;
   /** Which hour to ride at, named rather than counted: the engine resolves
    * it against the coast's own daylight window (`hourOfDay`). Null rides
@@ -254,12 +254,13 @@ export type RideSettings = {
   /** THE WIND to ride in, m/s at 10 m, and so the sea it builds — see
    * {@link CONDITIONS}. Null rides the shore as it was generated.
    *
-   * A FIGURE rather than one of the three rungs' names, because two rows
-   * write it: the start card's WIND ladder, which presses one of
-   * {@link CONDITION_WINDS}, and FREE's fader, which may stand anywhere on
-   * {@link FREE_WIND_RANGE}. One field, so nothing has to decide which of
-   * two winds a run is ridden in — and the sky the row implies is read off
-   * the figure either way (`skyForWind`). */
+   * A FIGURE rather than one of the three rungs' names, because the row that
+   * writes it is FREE's fader and may stand anywhere on
+   * {@link FREE_WIND_RANGE}; a link may still name a rung by WORD
+   * (`url-params.ts`'s `windParam`) and it resolves to that rung's figure.
+   * One field, so nothing has to decide which of two winds a run is ridden
+   * in — and the sky it implies is read off the figure either way
+   * (`skyForWind`). */
   wind: number | null;
   /** WHICH QUARTER that wind blows from, DEGREES off dead onshore: 0 is
    * straight in off the open water, ±90 along the shore, ±180 off the land
@@ -276,10 +277,10 @@ export type RideSettings = {
    * row worth reading back off a URL is a row somebody can read. */
   windQuarter: number | null;
   /** R36 — HOW BIG THE SEA OUTSIDE IS, m of significant height inside the
-   * engine's own `SWELL_DIAL` — the start card's ladder presses one of
-   * {@link SEA_METRES} and FREE's fader stands anywhere between them, the
-   * way the wind above it works: the groundswell that has piled up past
-   * this coast,
+   * engine's own `SWELL_DIAL` — FREE's fader stands anywhere on it and
+   * {@link SEA_METRES} is the scale a figure is READ on
+   * ({@link seaRungFor}), the way the wind above it works: the groundswell
+   * that has piled up past this coast,
    * which is not the wind's and does not move with the row above. Null
    * rides the swell the shore was dealt. It is the BASELINE and not a
    * ceiling — the open ocean past the level's rim still builds on top of
@@ -432,6 +433,11 @@ export const DEFAULT_SETTINGS: Settings = {
     // STOCK — the roster as the catalog tunes it, and the class every
     // measurement in the docs is quoted at.
     speedClass: 1,
+    // NO PINNED LEVEL until a card picks one. A fresh app stands its
+    // attract sea up on the shore the game ships with, exactly as it did
+    // before the twelve were a way on, and every lab's `?seed=` link still
+    // rides the seed it names.
+    level: null,
     // The shore as it was dealt: its own seed, its own hour, its own wind
     // and its own sky. A generated level is a whole DAY rather than a
     // backdrop — the wind that grew the waves is the wind its sky was dealt
@@ -611,6 +617,12 @@ export function mergeSettings(parsed: unknown): Settings {
   }
   if (typeof ride?.seed === "number" && Number.isInteger(ride.seed) && ride.seed > 0) {
     settings.ride.seed = ride.seed;
+  }
+  // A LEVEL THAT NO LONGER EXISTS IS NOT A LEVEL: the id is checked against
+  // the ladder the same way `mergeProgress` checks a board's rows, so a
+  // level renamed or retired leaves no shore nothing can build.
+  if (CAMPAIGN_LEVELS.some((level) => level.id === ride?.level)) {
+    settings.ride.level = ride?.level as string;
   }
   if (TIMES_OF_DAY.some((id) => id === ride?.time)) settings.ride.time = ride?.time as TimeOfDay;
   if (SEASONS.some((id) => id === ride?.season)) settings.ride.season = ride?.season as Season;
