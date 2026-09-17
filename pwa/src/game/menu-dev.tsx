@@ -38,6 +38,7 @@ import { MenuHead } from "./menu.tsx";
 import {
   Caption,
   FadeRow,
+  type Hint,
   KnobGroup,
   NumberRow,
   ON_OFF,
@@ -117,7 +118,7 @@ export function DeveloperPage({
   onBenchmarkHistory: () => void;
 }) {
   const [said, setSaid] = useState<string | null>(null);
-  const [hint, setHint] = useState<string | null>(null);
+  const [hint, setHint] = useState<Hint | null>(null);
   const dev = settings.dev;
   const setDev = (patch: Partial<Settings["dev"]>): void =>
     onSettings({ ...settings, dev: { ...dev, ...patch } });
@@ -197,7 +198,7 @@ export function DeveloperPage({
           </KnobGroup>
         </div>
       </div>
-      <Caption text={hint} fallback={STRINGS.devCaption} />
+      <Caption hint={hint} fallback={STRINGS.devCaption} />
       {/* THE STOPWATCH, under the rows rather than among them: it is not a
           setting, it is a press that takes the canvas for thirty seconds. */}
       <button type="button" class="menu-item menu-item-dev" onClick={onBenchmark}>

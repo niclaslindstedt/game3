@@ -160,6 +160,18 @@ const SURFACES = {
   // it, so `?paused=1` rides one and holds it — the HUD and the frozen sea
   // under the card are part of the picture, not a backdrop to crop out.
   pause: { params: { paused: "1" }, wait: ".menu-card-pause", settle: 700 },
+  // The pause card's OPTIONS panel, which is the one surface in the game
+  // reached by a PRESS and by no URL: it is a face of the pause card rather
+  // than a page, and a link that opened it would be a link that put a run up
+  // held and one press deeper than the card it is held under. So the row
+  // names the button to press on the way in — the second `.menu-item`, which
+  // is OPTIONS between RESUME and MAIN MENU.
+  pauseOptions: {
+    params: { paused: "1" },
+    press: ".menu-card-pause .menu-items .menu-item:nth-child(2)",
+    wait: ".menu-card-pause-options",
+    settle: 500,
+  },
 };
 
 /** The reference viewports (§35.2) — and the phone is a TOUCHSCREEN, not a
@@ -354,6 +366,12 @@ async function capture(name, params, viewportName, script, surface, options = {}
     if (surface) {
       // A CARD, not a staged frame: what says it is up is the card being in
       // the DOM. See SURFACES for why the ready flag is the wrong question.
+      // A surface reached by a PRESS rather than by a URL waits for the card
+      // it is pressed FROM first, presses it, and then waits for its own.
+      if (surface.press) {
+        await page.waitForSelector(surface.press, { timeout: args.timeout * 1000 });
+        await page.click(surface.press);
+      }
       await page.waitForSelector(surface.wait, { timeout: args.timeout * 1000 });
       await page.waitForTimeout(surface.settle);
     } else {

@@ -60,7 +60,7 @@ the door comes up over the shore the player was just on.
 | Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
 | Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
-| The run held mid-ride: RESUME, its own strip of knobs, MAIN MENU | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
+| The run held mid-ride: RESUME, OPTIONS, MAIN MENU — and the OPTIONS panel behind the middle one | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
 | The app's mark, building | `pwa/src/game/mark-wave.tsx` over `app-mark.ts`'s paths |
 | THE MARKS the cards are read by | `pwa/src/game/menu-glyphs.tsx` — one 24x24 box per idea, stroked in `currentColor`; `make glyphs` is the contact sheet |
 | Every word on every card | `pwa/src/game/strings.ts` (§39.1) — no card carries a literal |
@@ -101,22 +101,41 @@ the door comes up over the shore the player was just on.
   no bindings while `input.ts` carries a fixed table. Each becomes a row the
   day the thing behind it exists — as the picture rows did, once
   `settings-video.ts` gave the renderer a ladder and `renderer.setVideo` a
-  place to read it. The pause card is where this bites hardest: its strip
-  stands over a FROZEN run, so every row on it has to apply to the frame the
-  player is looking at — which is why `settings.ride.camera` reaches the
-  renderer the moment it moves and not only when the next run is stood up.
+  place to read it. The pause card is where this bites hardest: its
+  OPTIONS panel stands over a FROZEN run, so every row on it has to apply to
+  the frame the player is looking at — which is why `settings.ride.camera`
+  reaches the renderer the moment it moves and not only when the next run is
+  stood up.
 - **ONE SILHOUETTE FOR EVERY SETTING, AND NO ROW EXPLAINS ITSELF.** Name,
-  value between two arrows, pips under it (`menu-knobs.tsx`) — a switch is a
-  two-stop ladder and a fader is a ladder drawn as a track, so a player learns
-  one row and can read every page. The sentences go to the ONE caption bar a
-  page owns, which reads whichever row the pointer or the cursor is on: a row
-  that carries its own prose is two lines of HEIGHT, and a column of them is a
-  card that scrolls on a phone.
-- **THE PAUSE CARD CARRIES A STRIP, NOT THE OPTIONS PAGE.** The camera, the
-  HUD and the frame rate read perfectly well over a held frame; a picture row
-  is judged against a sea that is MOVING, and stopping it is the one thing
-  this card does — so those wait for the front door. The strip earns its place
-  twice over by standing between RESUME and the press that ends the run.
+  value between two arrows, and under the value either the pips or a fader's
+  track (`menu-knobs.tsx`) — a switch is a two-stop ladder and a fader is a
+  ladder drawn as a track, so a player learns one row and can read every
+  page. **The value stands on ONE line down the whole column**, faders
+  included: a row that put its reading beside its control instead of over it
+  was the one place the eye had to go looking. The sentences go to the ONE
+  caption bar a page owns, which NAMES the row the pointer or the cursor is
+  on and then says what it does: a row that carries its own prose is two
+  lines of HEIGHT, and a column of them is a card that scrolls on a phone.
+- **A PAGE OF ROWS IS FOUND BY ITS GROUPS, AND A GROUP IS FOUND BY ITS MARK.**
+  One silhouette for every setting is what makes a page readable and also
+  what makes it unscannable — a dozen identical rows is a list to be searched.
+  `KnobGroup` takes a `glyph` for that reason: the mark is the only thing in
+  the column that is not text, so a rider picks the group without reading. The
+  groups are then ordered by what a rider REACHES for, not by subject tidiness
+  — the hands first (OPTIONS opens on CONTROLS ▸ KEY BINDINGS), the machine
+  last (PICTURE).
+- **THE PAUSE CARD CARRIES A PANEL, NOT THE OPTIONS PAGE — AND NOT A STRIP.**
+  The sound, the camera, the HUD and the frame-rate counter read perfectly
+  well over a held frame; a picture row is judged against a sea that is
+  MOVING, and stopping it is the one thing this card does — so those wait for
+  the front door. What the four are NOT is rows on the card itself: nine
+  people in ten open this card for RESUME, and every knob above that press is
+  a knob in the way of it. They live behind one OPTIONS row, which costs the
+  card a single line and still does the strip's second job — standing between
+  RESUME and the press that ends the run. Each face owns its own
+  `data-nav-back` (RESUME on the card, the head's ‹ on the panel) and the
+  backdrop presses whichever is up, so the way out is always one press and
+  always the same step.
 - **The stored blob is merged FIELD BY FIELD and every value is CHECKED**
   against what this build offers (`mergeSettings`). A value off a ladder is
   one the menu has no stop to put the cursor back on, so the player can never
@@ -179,7 +198,7 @@ CHROMIUM_PATH=/opt/pw-browsers/chromium make screenshots SCENE=cruise   # the ru
 npx vitest run tests/menu_system_test.ts
 ```
 
-`--surface splash,menu,start,craft,gallery,options,keys,developer,pause` photographs the cards at both
+`--surface splash,menu,start,craft,gallery,options,keys,developer,pause,pauseOptions` photographs the cards at both
 reference viewports; it waits on the card being in the DOM rather than on
 `window.__SH_READY__`, which is a RUN's flag. Then LOOK, and run `ui-review`'s
 audit at 1280×720 and 390×844.
@@ -192,6 +211,16 @@ which is where two drafts of a craft in profile died — a wedge with a stick
 on it, and the same wedge over a wave, both a horizontal smear at the small
 end. What replaced them stands UP out of the water (the buoy), because a
 vertical against the wave's horizontal is the thing that survives.
+
+**A CARD THAT OUTGREW THE VIEWPORT PHOTOGRAPHS PERFECTLY.** `.menu-card` is
+`max-height: 100%; overflow-y: auto`, so a card a row too tall does not clip,
+does not wrap and does not show in any diff — its last control simply sits
+below the fold, and the lab shoots the top of it either way. Anything that
+adds HEIGHT to a settings card (a group, a heading, a taller row) is measured
+rather than looked at: drive both viewports, read `scrollHeight` against
+`clientHeight` on `.menu-card-*`, and take the numbers BEFORE the change as
+well as after — the phone's OPTIONS and start cards run within twenty pixels
+of an 844-tall window, so "it still fits" is not a thing a session can assume.
 
 **A picture is not the machine.** The surfaces can all photograph correctly
 while the shell is broken — the hold bug above passed every screenshot. Drive

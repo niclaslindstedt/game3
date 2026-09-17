@@ -5,13 +5,12 @@ scope: pwa/src/game/menu-knobs.tsx, pwa/src/game/menu-start.tsx, pwa/src/game/me
 concepts: [options, start-card, pause, layout, viewports, screenshots]
 ---
 
-`.menu-card` is `max-height: 100%; overflow-y: auto`, so a height overrun
-never breaks visibly — the card's bottom just slides past the viewport, which
-reads as a bug and shows in no diff. A label overrun is the same story
-sideways. So `make build && make screenshots ARGS="--surface start"` (or
-`options`) BEFORE the edit as well as after, and read the card's bottom edge
-and every row's left edge. `--surface` needs a value; bare `ARGS=--surface`
-exits non-zero.
+A label overrun is a WIDTH regression and the picture shows it, so `make build
+&& make screenshots ARGS="--surface start"` (or `options`) before the edit as
+well as after, and read every row's left edge. `--surface` needs a value; bare
+`ARGS=--surface` exits non-zero. The HEIGHT budget is the one the picture
+cannot answer — SKILL.md's "a card that outgrew the viewport photographs
+perfectly" says how to measure it instead.
 
 Why one shape for every setting: chips cost WIDTH per answer, so a five-stop
 ladder wraps on any card narrow enough for a phone and the wrap reads as a bug
