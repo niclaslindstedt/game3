@@ -56,6 +56,7 @@ import {
 import { dayLight } from "./sky.ts";
 import { createSpray } from "./spray.ts";
 import { createWake } from "./wake.ts";
+import { createSeaIce, disposeSeaIce } from "./sea-ice.ts";
 import { createTerrain, disposeTerrain } from "./terrain.ts";
 import { waterRings } from "./water-grid.ts";
 import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
@@ -229,6 +230,7 @@ export function createRenderer(
 
   let world: THREE.Group | null = null;
   let terrain: THREE.Group | null = null;
+  let seaIce: THREE.Group | null = null;
   let fauna: Fauna | null = null;
   let birds: Birds | null = null;
   let flora: Flora | null = null;
@@ -293,6 +295,7 @@ export function createRenderer(
       if (world) {
         scene.remove(world);
         if (terrain) disposeTerrain(terrain);
+        if (seaIce) disposeSeaIce(seaIce);
         fauna?.dispose();
         birds?.dispose();
         flora?.dispose();
@@ -300,6 +303,9 @@ export function createRenderer(
       }
       level = state.level;
       terrain = createTerrain(level);
+      // R37 — the winter's sheet, on a freezing coast in its winter and on
+      // no other run: drawn where the engine grounds the hull on it.
+      seaIce = createSeaIce(level);
       gates = createGates(level);
       gates.setLens(bufferSize.y);
       buoys = createBuoys(level);
@@ -327,6 +333,7 @@ export function createRenderer(
       // here is a row in that breakdown; a group added without one is a row
       // silently folded into its parent's.
       terrain.name = "shore";
+      if (seaIce) seaIce.name = "ice";
       flora.group.name = "cover";
       gates.group.name = "gates";
       buoys.group.name = "buoys";
@@ -340,6 +347,7 @@ export function createRenderer(
       world.add(
         terrain,
         rocks,
+        ...(seaIce ? [seaIce] : []),
         flora.group,
         prints,
         gates.group,
@@ -643,6 +651,7 @@ export function createRenderer(
     // cut to the frustum as well, which the fog never does.
     const drawn = DISTANCE_LOOK[video.distance];
     if (terrain) cullByDistance(terrain, pose.x, pose.z, drawn.shore);
+    if (seaIce) cullByDistance(seaIce, pose.x, pose.z, drawn.shore);
     if (mirror.live()) {
       inWater.frustum = mirror.frustum;
       inWater.share = mirror.scale();
@@ -833,6 +842,7 @@ export function createRenderer(
       lamps?.dispose();
       missedGuide.dispose();
       if (terrain) disposeTerrain(terrain);
+      if (seaIce) disposeSeaIce(seaIce);
       renderer.dispose();
     },
   };

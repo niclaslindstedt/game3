@@ -33,7 +33,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the circuit stands off (taiga, mangrove)",
+      help: "which coast the circuit stands off (taiga, mangrove, arctic)",
     },
     pace: { kind: "number", default: 1, help: "R32 speed class; 1 is STOCK" },
     ramp: { kind: "number", default: 1, help: "R33 ramp-width multiple; 1 is STOCK" },
@@ -46,7 +46,7 @@ const args = parseArgs(
     findings: { kind: "number", default: 8, help: "findings to print per seed" },
     json: { kind: "string", help: "write the complete reports to this file" },
   },
-  "usage: npm run score -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove] [--pace k] [--ramp k] [--floor 0..100] [--checks] [--findings n] [--json path]",
+  "usage: npm run score -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove|arctic] [--pace k] [--ramp k] [--floor 0..100] [--checks] [--findings n] [--json path]",
 );
 
 if (!isBiomeId(args.biome)) {

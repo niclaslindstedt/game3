@@ -13,8 +13,10 @@ import { onRampDeck, solidNear } from "../game/collision.ts";
 import { gatePassPoint } from "../game/course.ts";
 import { fieldGradient, sampleField } from "../lib/heightfield.ts";
 import { TUNING } from "../game/defs/tuning.ts";
+import { iceAt } from "../game/ice.ts";
 import { topSpeedOf } from "../game/limits.ts";
 import type { CraftInput, GameState } from "../game/state.ts";
+import { ICE } from "../mapgen/pace.ts";
 import type { Gate } from "../mapgen/types.ts";
 
 export type BotProfile = {
@@ -93,6 +95,10 @@ export type BotProfile = {
    * many seconds, is a shore to turn away from. */
   shoalDepth: number;
   shoalAhead: number;
+  /** R37 — how far short of the sheet's brash, m, the same probe already
+   * counts the ice as a shore: a hull that waits for the rubble to be under
+   * its bow has already left the channel. */
+  iceMargin: number;
 };
 
 export const RIDER_BOT: BotProfile = {
@@ -130,6 +136,7 @@ export const RIDER_BOT: BotProfile = {
   alignedWithin: 0.12,
   shoalDepth: 2.5,
   shoalAhead: 2.6,
+  iceMargin: 8,
 };
 
 /** The speed to arrive at the ramp's hinge with, m/s, so that the centre
@@ -423,7 +430,20 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
     const reach = Math.max(12, c.speed * profile.shoalAhead);
     const px = c.x + Math.sin(c.heading) * reach;
     const pz = c.z + Math.cos(c.heading) * reach;
-    if (-sampleField(state.level.ground, px, pz) < profile.shoalDepth) {
+    // R37 — THE ICE AHEAD is a shore too, and the way off it is not
+    // seaward: the sheet stands on both sides of the icebreaker's channel,
+    // so the bow is turned back down the ice field's own slope, which
+    // runs into the channel from either edge. Read first, because a sheet
+    // lies over water the bed would call deep. `-Infinity` on every run
+    // with no ice, so nothing below moves for it.
+    const ice = state.level.ice;
+    if (ice !== null && iceAt(state.level, px, pz) > -ICE.brash - profile.iceMargin) {
+      const g = fieldGradient(ice, px, pz);
+      if (Math.hypot(g.gx, g.gz) > 1e-6) {
+        const channel = Math.atan2(-g.gx, -g.gz);
+        steer = clamp(angleDiff(c.heading, channel) * profile.steerGain, -1, 1);
+      }
+    } else if (-sampleField(state.level.ground, px, pz) < profile.shoalDepth) {
       const g = fieldGradient(state.level.offshore, px, pz);
       if (Math.hypot(g.gx, g.gz) > 1e-6) {
         const seaward = Math.atan2(g.gx, g.gz);

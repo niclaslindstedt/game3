@@ -382,17 +382,156 @@ const MANGROVE_SEASONS: Record<Season, SeasonLook> = {
   winter: { horizon: [0xe6edf4, 0.1], fog: [0xdfe7ef, 0.08], reach: 1.12, sun: 0.96, mist: 0.9 },
 };
 
+/** THE ARCTIC COAST'S SKIES. The same ladder, keyed on a sun that never
+ * gets high and in two seasons never sets: what is authored here is what a
+ * polar sky does that a northern one does not. The air is the driest and
+ * clearest in the game when it is clear at all, and it is clear less often
+ * than anywhere — a polar coast lives under stratus — and every one of the
+ * three wet words is WHITE: the haze is sea smoke off the open water, the
+ * rain is snow, and the squall is a blizzard, which is a white-out rather
+ * than a black wall. Nothing here is warm; a polar sky that goes gold is a
+ * sunset, and the sun does that on its own. */
+const ARCTIC_LOOKS: Looks = {
+  // Polar air with no water in it: the longest view in the game, the blue
+  // deeper and darker than the taiga's, and the ice on the far shore
+  // standing up hard-edged at the limit of the fog.
+  clear: {
+    grey: 0xffffff,
+    mix: 0,
+    dim: [1, 1],
+    hemi: [1, 1.02],
+    fogNear: [1.18, 1.24],
+    fogFar: [1.18, 1.24],
+    through: [1, 1],
+  },
+  // SEA SMOKE. Air twenty or thirty degrees colder than the water it is
+  // crossing lifts the water's own steam off it in a low white fog that
+  // stands a few metres high over every lead and every stretch of open
+  // sea — the whole coast in it, the wall gone, the buoys arriving out of
+  // white a hundred metres off. The shortest view in the game, and the
+  // light is still bright: the sun is a disc over the top of it.
+  haze: {
+    grey: 0xf4f6f6,
+    mix: 0.5,
+    dim: [0.86, 0.7],
+    hemi: [1.1, 1.18],
+    fogNear: [0.4, 0.26],
+    fogFar: [0.45, 0.3],
+    through: [0.75, 0.5],
+  },
+  // A high sheet over the ice: the same veil as the taiga's, with more of
+  // the sky's light coming off the snow and the sea ice below it, so the
+  // skylight stays high while the disc softens.
+  high: {
+    grey: 0xe4eaef,
+    mix: 0.14,
+    dim: [0.9, 0.72],
+    hemi: [1.08, 1.18],
+    fogNear: [0.92, 0.8],
+    fogFar: [0.94, 0.84],
+    through: [0.8, 0.5],
+  },
+  // THE ORDINARY SKY HERE: a low grey stratus lid, dry, the light flat and
+  // shadowless and the whole picture gone to greys and whites. Lower than
+  // the taiga's — polar stratus hangs a few hundred metres up — and the
+  // rim is nearly the lid's own grey, because there is nothing under it
+  // for daylight to arrive through.
+  overcast: {
+    grey: 0xa4acb4,
+    mix: 0.52,
+    dim: [0.6, 0.36],
+    hemi: [1, 0.84],
+    fogNear: [0.84, 0.68],
+    fogFar: [0.86, 0.7],
+    fogDeck: 0.48,
+    overhead: [0xcdd4da, 0x8e969e],
+    rim: 0x7e8790,
+    rimMix: 0.86,
+    base: [400, 220],
+    relief: [0.06, 0.16],
+    through: [0.22, 0.04],
+  },
+  // SNOW. A white sky as rain is, and whiter: the deck glows, the air
+  // under it is full of snow rather than water, and everything past two
+  // hundred metres is a pale grey suggestion. The distance takes the
+  // deck's own white rather than the blue behind it.
+  rain: {
+    grey: 0xb0b8c0,
+    mix: 0.5,
+    dim: [0.78, 0.48],
+    hemi: [1, 0.8],
+    fogNear: [0.5, 0.34],
+    fogFar: [0.52, 0.36],
+    fogDeck: 0.7,
+    overhead: [0xf4f7fa, 0xa8b0b8],
+    rim: 0x9aa2aa,
+    rimMix: 0.9,
+    base: [260, 140],
+    relief: [0.1, 0.3],
+    through: [0.45, 0],
+  },
+  // A BLIZZARD IS A WHITE-OUT, not a black wall. The taiga's squall is a
+  // front kilometres thick that blacks the sky and lets daylight in under
+  // its rim; a polar blizzard is snow driven off the ice at forty knots,
+  // and the sky and the sea and the wall all go to one grey-white with
+  // no horizon between them. The deck is dark overhead by the ordinary
+  // rule — it is still a squall's cloud — but the rim is the brightest
+  // thing in the picture and the view is a hundred metres.
+  squall: {
+    grey: 0x8a929c,
+    mix: 0.66,
+    dim: [0.4, 0.16],
+    hemi: [0.84, 0.5],
+    fogNear: [0.36, 0.22],
+    fogFar: [0.4, 0.26],
+    fogDeck: 0.78,
+    overhead: [0x4a525c, 0x1e242b],
+    rim: 0xd2d8de,
+    rimMix: 0.6,
+    base: [180, 100],
+    relief: [0.3, 0.55],
+    through: [0, 0],
+  },
+};
+
+/** The arctic's seasons, on its OWN dated days (`Biome.declination`): the
+ * ice going out under the midnight sun, the fog season of high summer, the
+ * sea freezing under the first dark nights, and the sun back over the ice.
+ * The air is cold and dry in every one of them, and what changes is how
+ * much of the sea is open to smoke. */
+const ARCTIC_SEASONS: Record<Season, SeasonLook> = {
+  // Late May: the midnight sun a month old, the fjord ice breaking up, the
+  // hardest and clearest light of the year — and the sun never off the
+  // ice, so the horizon carries the pale gold of a sun that is always low.
+  spring: { horizon: [0xf0e6d8, 0.16], fog: [0xe8eef2, 0.1], reach: 1.1, sun: 0.98, mist: 0.9 },
+  // Late July: the open-water weeks and the fog season — the warmest water
+  // of the year under air that is still cold, visibility under a
+  // kilometre one day in five, the sun a disc in white.
+  summer: { horizon: [0xeef0f0, 0.22], fog: [0xe6eaec, 0.2], reach: 0.84, sun: 0.96, mist: 1.6 },
+  // Late September: the sun ten degrees up at noon and gone at night for
+  // the first time since April, the air cold and blue, the sea starting
+  // to freeze in the bays, and sea smoke on it on every still morning.
+  autumn: { horizon: [0xd8dfe8, 0.28], fog: [0xcfd8e2, 0.24], reach: 0.94, sun: 0.9, mist: 1.3 },
+  // Early March: the sun a fortnight back over the ice, six degrees up at
+  // noon and never higher, a pink-and-blue light on everything with no
+  // warmth in it at all, the air cold enough to fog on its own — and sea
+  // smoke on every lead.
+  winter: { horizon: [0xe4d4de, 0.34], fog: [0xd4dbe6, 0.3], reach: 0.9, sun: 0.82, mist: 1.4 },
+};
+
 /** Every coast's skies and seasons, keyed the way `BIOMES` is: a coast the
  * engine can build without a row here has no sky, and `tests/biome_test.ts`
  * holds the two lists to each other. */
 export const SKY_LOOKS: Readonly<Partial<Record<BiomeId, Looks>>> = {
   taiga: TAIGA_LOOKS,
   mangrove: MANGROVE_LOOKS,
+  arctic: ARCTIC_LOOKS,
 };
 
 export const SEASON_LOOKS: Readonly<Partial<Record<BiomeId, Record<Season, SeasonLook>>>> = {
   taiga: TAIGA_SEASONS,
   mangrove: MANGROVE_SEASONS,
+  arctic: ARCTIC_SEASONS,
 };
 
 /** A coast's skies; throws for one nobody has painted a sky for. */

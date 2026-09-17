@@ -15,7 +15,7 @@
 // the one `level-map.mjs` prints in its table, so "the ramp before G6" is
 // a claim about `J6` on both.
 
-import { sampleField } from "../../engine/index.ts";
+import { ICE, iceAt, sampleField } from "../../engine/index.ts";
 import { createDrawing, textWidth } from "./draw.mjs";
 
 export const TITLE_H = 48;
@@ -47,6 +47,10 @@ const LAND = {
   water: [178, 222, 222],
   unknown: [200, 120, 200],
 };
+
+/** R37 — the winter's sheet and the brash at its edge. */
+const SHEET = [236, 242, 246];
+const BRASH = [190, 214, 226];
 
 /** Depth contours, m: the course rules' floor (R5, 1.5 m) heavier than the
  * chart's own. */
@@ -183,7 +187,14 @@ export function renderLevelMap({ level, scale = 1, title, lines = [] }) {
       const h = sampleField(ground, x, z);
       heights[j * mapW + i] = h;
       let color;
-      if (h < 0) {
+      // R37 — the winter's sheet over the water, with the channel through
+      // it: ice where the field says ice, the brash a strip of pale blue.
+      const ice = h < 0 ? iceAt(level, x, z) : -Infinity;
+      if (ice >= 0) {
+        color = SHEET;
+      } else if (ice >= -ICE.brash) {
+        color = BRASH;
+      } else if (h < 0) {
         color = bathy(-h);
       } else {
         const material = materialAt(x, z);

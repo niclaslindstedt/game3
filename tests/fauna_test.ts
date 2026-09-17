@@ -119,10 +119,10 @@ describe("the catalog", () => {
       // no reason anybody knows and needs no breath to do it.
       if (spec.breach > 0 && spec.kind !== "fish") expect(comesUp, spec.id).toBe(true);
     }
-    // Six animals leave the water: the three dolphins and the humpback,
-    // and only their bulls — and the two FISH that jump, the mullet and
-    // the manta, which need no breath to do it and which nobody has ever
-    // explained.
+    // Seven animals leave the water: the three dolphins, the humpback and
+    // the bowhead, and only their bulls — and the two FISH that jump, the
+    // mullet and the manta, which need no breath to do it and which nobody
+    // has ever explained.
     expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual([
       "whitebeak",
       "humpback",
@@ -130,6 +130,7 @@ describe("the catalog", () => {
       "dolphin",
       "spotted",
       "manta",
+      "bowhead",
     ]);
   });
 
@@ -158,6 +159,7 @@ describe("the catalog", () => {
     expect(FAUNA.filter((f) => rarityOf(f.perKm) === "legendary").map((f) => f.id)).toEqual([
       "humpback",
       "brydes",
+      "bowhead",
     ]);
   });
 

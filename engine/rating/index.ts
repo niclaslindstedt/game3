@@ -39,7 +39,7 @@ import { biomeOf } from "../mapgen/biomes.ts";
 import type { Level, Weather } from "../mapgen/types.ts";
 import { createSea, seaSummary } from "../game/water.ts";
 import { angleDiff, clamp } from "../lib/math.ts";
-import { DECLINATION, sunAt, type Season } from "../lib/solar.ts";
+import { sunAt, type Season } from "../lib/solar.ts";
 
 /** What a level is RIDDEN IN, as opposed to what it is: the three things a
  * campaign level pins that the generator would otherwise deal. Each
@@ -279,7 +279,7 @@ export function rateLevel(level: Level, given: Partial<RunConditions> = {}): Lev
   // THE DAY: the sun where the run starts, and the sky over it.
   const biome = biomeOf(level.biome);
   const sunDeg =
-    (sunAt(conditions.hour, biome.latitude, DECLINATION[conditions.season]).elevation * 180) /
+    (sunAt(conditions.hour, biome.latitude, biome.declination[conditions.season]).elevation * 180) /
     Math.PI;
   const windBand = LEVEL_RULES.wind.speed;
 

@@ -47,6 +47,7 @@ import { smooth } from "../lib/noise.ts";
 import type { Bounds, Level } from "../mapgen/types.ts";
 import { CRAFT } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
+import { iceTopAt } from "./ice.ts";
 import { topSpeedOf } from "./limits.ts";
 
 const O = TUNING.sea.open;
@@ -169,7 +170,12 @@ export function oceanDepth(bed: number, storm: number): number {
 export function bedAt(level: Level, x: number, z: number): number {
   const ground = sampleField(level.ground, x, z);
   const storm = stormAt(level.bounds, x, z);
-  return storm > 0 ? -oceanDepth(-ground, storm) : ground;
+  const bed = storm > 0 ? -oceanDepth(-ground, storm) : ground;
+  // R37 — and in a frozen winter the sheet IS the ground wherever it
+  // stands: over the bed inside the grid and over the storm's floor past
+  // it, since the pack runs to the horizon. `-Infinity` in the channel and
+  // on every run with no ice, so the bed is the bed there.
+  return Math.max(bed, iceTopAt(level, x, z));
 }
 
 /** The MEAN WIND a point feels, m/s at the reference height: the level's own

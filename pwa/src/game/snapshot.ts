@@ -401,7 +401,12 @@ export function takeSnapshot(state: GameState, ghost: GameState | null = null): 
   const wind = windAt(state.wind, Math.max(0, c.y), c.x, c.z);
   const blowsTo = Math.atan2(wind.vx, wind.vz);
   const hour = sunHourAt(state.level, state.t);
-  const sun = sunOver(hour, biomeOf(state.level.biome).latitude, state.level.season);
+  const sun = sunOver(
+    hour,
+    biomeOf(state.level.biome).latitude,
+    state.level.season,
+    state.level.biome,
+  );
   const air = airClock(state);
   const missed = activeMissedCheckpoint(state);
   return {

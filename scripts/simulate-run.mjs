@@ -40,7 +40,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic)",
     },
     track: {
       kind: "string",
@@ -60,7 +60,7 @@ const args = parseArgs(
       help: "the ramp's hand alone, 0..1 — overrides --assist for the deck",
     },
   },
-  "usage: npm run sim -- [--seeds a,b,c] [--biome taiga|mangrove] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1] [--ramp-assist 0..1]",
+  "usage: npm run sim -- [--seeds a,b,c] [--biome taiga|mangrove|arctic] [--track coast|circuit] [--craft id] [--max s] [--json path] [--assist 0..1] [--ramp-assist 0..1]",
 );
 if (!isBiomeId(args.biome)) {
   console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);

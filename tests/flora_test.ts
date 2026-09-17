@@ -20,7 +20,14 @@ import { FLORA_TILE, floraTile, tileSpots } from "../pwa/src/game/flora.ts";
 import { FLORA, TREE_LINE, floraOf } from "../pwa/src/game/flora-defs.ts";
 import { planFlora } from "../pwa/src/game/flora-plan.ts";
 import { FLORA_SCALE, coverReach } from "../pwa/src/game/settings-video.ts";
-import { LEVEL_SEEDS, MANGROVE_SEEDS, levelFor, mangroveFor } from "./support/levels.ts";
+import {
+  ARCTIC_SEEDS,
+  LEVEL_SEEDS,
+  MANGROVE_SEEDS,
+  arcticFor,
+  levelFor,
+  mangroveFor,
+} from "./support/levels.ts";
 
 /** The seeds this file plants. Fewer than the corpus, because planting a
  * shore is tens of thousands of field samples and the rules here are about
@@ -57,6 +64,17 @@ function mangrovePlantFor(seed: number): ReturnType<typeof planFlora> {
   return hit;
 }
 
+/** …and the arctic coast, the same way. */
+const arcticPlanted = new Map<number, ReturnType<typeof planFlora>>();
+function arcticPlantFor(seed: number): ReturnType<typeof planFlora> {
+  let hit = arcticPlanted.get(seed);
+  if (hit === undefined) {
+    hit = planFlora(arcticFor(seed), FLORA_SCALE.lush);
+    arcticPlanted.set(seed, hit);
+  }
+  return hit;
+}
+
 describe("the flora roster", () => {
   it("has a unique id and an ordered height band for every row", () => {
     const ids = new Set<string>();
@@ -80,7 +98,9 @@ describe("the flora roster", () => {
       for (const id of spec.biomes) expect(BIOME_IDS, `${spec.id} on ${id}`).toContain(id);
     }
     // …and each coast has a ladder of its own: something in the water,
-    // something on the sand, something with a trunk.
+    // something on the sand, something standing over the rider's head —
+    // a tree on the two wooded coasts, and on the polar one the ice the
+    // tide left on the gravel, because nothing with a trunk grows there.
     for (const biome of BIOME_IDS) {
       const rows = floraOf(biome);
       expect(
@@ -92,10 +112,32 @@ describe("the flora roster", () => {
         `${biome}: sand`,
       ).toBe(true);
       expect(
-        rows.some((r) => r.look.height.max >= 8),
+        rows.some((r) => r.look.height.max >= 2.5),
+        `${biome}: over the rider's head`,
+      ).toBe(true);
+    }
+    for (const biome of ["taiga", "mangrove"] as const) {
+      expect(
+        floraOf(biome).some((r) => r.look.height.max >= 8),
         `${biome}: a tree`,
       ).toBe(true);
     }
+  });
+
+  it("carries the cushions and the ice a polar shore is actually made of", () => {
+    // Nothing on the polar coast stands knee high but the stranded ice:
+    // the plants are cushions and mats, an inch or two off the firn, and
+    // the one colour on the coast is in them. And NO STONE: the coast is
+    // ice, so no row of it is a cobble.
+    for (const id of ["saxifrage", "campion", "polarwillow", "avens", "mossmat"]) {
+      expect(byId(id).biomes).toEqual(["arctic"]);
+      expect(byId(id).look.height.max, id).toBeLessThan(0.15);
+    }
+    expect(byId("kelp").habitat.ground.max).toBeLessThan(0);
+    expect(byId("strandedice").look.height.max).toBeGreaterThan(2);
+    expect(byId("strandedice").habitat.ground.min).toBeLessThan(0);
+    // The cotton grass takes the crack's melt the reed takes the taiga's bank.
+    expect(byId("cottongrass").habitat.riverside).toBeDefined();
   });
 
   it("carries the mangrove and the palms a warm shore is actually made of", () => {
@@ -160,6 +202,9 @@ describe("planting a shore", () => {
     for (const seed of MANGROVE_SEEDS) {
       mangrovePlantFor(seed).forEach((list, s) => (total[s] += list.length));
     }
+    for (const seed of ARCTIC_SEEDS) {
+      arcticPlantFor(seed).forEach((list, s) => (total[s] += list.length));
+    }
     FLORA.forEach((spec, s) => {
       expect(total[s], `nothing planted anywhere for ${spec.id}`).toBeGreaterThan(0);
     });
@@ -174,6 +219,11 @@ describe("planting a shore", () => {
     for (const seed of MANGROVE_SEEDS) {
       mangrovePlantFor(seed).forEach((list, s) => {
         if (!FLORA[s].biomes.includes("mangrove")) expect(list, FLORA[s].id).toHaveLength(0);
+      });
+    }
+    for (const seed of ARCTIC_SEEDS) {
+      arcticPlantFor(seed).forEach((list, s) => {
+        if (!FLORA[s].biomes.includes("arctic")) expect(list, FLORA[s].id).toHaveLength(0);
       });
     }
   });

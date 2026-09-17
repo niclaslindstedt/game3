@@ -200,7 +200,9 @@ function meetsItself(
  * a coast's quilt along it is a channel, not a river.
  *
  * The head's width is the COAST's (`Biome.river.head`), because the level
- * was built to it; everything else here is the rule book's on every coast.
+ * was built to it, and so is whether it has banks at all
+ * (`Biome.river.banks`: a crack in an ice wall has none to ask for);
+ * everything else here is the rule book's on every coast.
  */
 export function analyzeRiver(level: Level, rep: Report): void {
   const river = level.river;
@@ -210,7 +212,8 @@ export function analyzeRiver(level: Level, rep: Report): void {
   }
   const mouth = river[0];
   const head = river[river.length - 1];
-  const headWidth = R.river.head * biomeOf(level.biome).river.head;
+  const shape = biomeOf(level.biome).river;
+  const headWidth = R.river.head * shape.head;
   const offshoreAt = (x: number, z: number): number => sampleField(level.offshore, x, z);
   const depthAt = (x: number, z: number): number => -sampleField(level.ground, x, z);
   const inland = Math.hypot(head.x - mouth.x, head.z - mouth.z);
@@ -260,7 +263,7 @@ export function analyzeRiver(level: Level, rep: Report): void {
   if (dry) {
     rep.fail("R26", "water", `the river runs out of water ${fmt(inland)} m up`, { at: dry });
   }
-  if (banks > 0 && bank / banks < A.river.bankShare) {
+  if (shape.banks && banks > 0 && bank / banks < A.river.bankShare) {
     rep.fail(
       "R26",
       "bank",

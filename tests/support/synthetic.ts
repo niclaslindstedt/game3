@@ -210,6 +210,8 @@ export function syntheticLevel(opts: SyntheticOptions = {}): Level {
     // a fixture that takes the wind out to isolate the current or stand a
     // hull still gets the flat water it is staging (`createSea`).
     swellAsked: false,
+    // The bench's sea never freezes: a physics test stages water.
+    ice: null,
   };
 }
 

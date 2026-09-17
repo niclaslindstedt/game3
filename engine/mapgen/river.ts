@@ -79,6 +79,18 @@ export type River = {
   readonly bars: readonly Island[];
 };
 
+/** THE CRACK'S DEAD BAND: how far out of the middle the turn noise has to
+ * lie before a kinked walk turns at all. Value noise spends about half its
+ * time inside it, so a crack is straight about half its length and at
+ * full lock the rest — reaches and corners. */
+const KINK_DEAD = 0.35;
+/** RAGGED WALLS: the period the width wanders over, m — a few boat
+ * lengths, so a pocket is a place and not a trend — and the row of the
+ * turn's own noise it is read off, so a ragged river draws no extra
+ * number from the stream. */
+const RAGGED_SCALE = 36;
+const RAGGED_ROW = 1;
+
 /** The tightest circle the meander turns at on this coast, m, and the
  * period it turns over: the rule book's, scaled together by `bend` so the
  * shape is the same shape drawn bigger. */
@@ -218,7 +230,17 @@ export function drawRiver(
     let clean = true;
     while (s < R.river.length.max) {
       const maxTurn = step / bendRadius(widths[widths.length - 1], meander.radius);
-      const turn = (valueNoise(s, 0, meander.scale, turnSeed) - 0.5) * 2 * swing * maxTurn;
+      const raw = (valueNoise(s, 0, meander.scale, turnSeed) - 0.5) * 2;
+      // THE CRACK (`RiverShape.kink`): the same noise read as a SWITCH —
+      // straight while it lies near the middle, full lock past `KINK_DEAD`
+      // of the way out — so the walk is reaches and corners rather than
+      // loops. Branched rather than blended at zero, so a coast without
+      // one walks bit for bit where it always has.
+      const shaped =
+        shape.kink > 0
+          ? raw + (Math.sign(raw) * (Math.abs(raw) > KINK_DEAD ? 1 : 0) - raw) * shape.kink
+          : raw;
+      const turn = shaped * swing * maxTurn;
       // The pull inland. It is what makes the walk a river running out of
       // the country rather than a channel wandering along the coast, and
       // it is weak enough that the meander still owns the shape.
@@ -229,7 +251,21 @@ export function drawRiver(
       s += step;
       points.push({ x, z });
       reached = Math.max(reached, Math.hypot(x - mouth.at.x, z - mouth.at.z));
-      widths.push(widthAt(reached, want));
+      // RAGGED WALLS (`RiverShape.ragged`): the half-width wandering along
+      // the reach on its own short period — the same seed, a row apart in
+      // the noise — over the taper, clipped to the mouth's own ceiling
+      // and never under the head. Branched at zero as the kink is.
+      const tapered = widthAt(reached, want);
+      widths.push(
+        shape.ragged > 0
+          ? clamp(
+              tapered *
+                (1 + (valueNoise(s, RAGGED_ROW, RAGGED_SCALE, turnSeed) - 0.5) * 2 * shape.ragged),
+              head,
+              ceiling,
+            )
+          : tapered,
+      );
       // Past the mouth's own run it is a different watercourse from the
       // race, and it stays one.
       if (s > R.river.mouthRun) {

@@ -19,6 +19,7 @@ import type { SeaStateId } from "./settings.ts";
 const COAST_NAMES: Record<string, string> = {
   taiga: "TAIGA",
   mangrove: "MANGROVE",
+  arctic: "ARCTIC",
 };
 
 /** THE FOUR MODES' words, by the engine's id. */
@@ -446,7 +447,7 @@ export const STRINGS = {
    * the engine's own id, because the row is a ladder like the others. */
   startCoast: "COAST",
   startCoastHint:
-    "The kind of coast the seed builds — a cold skerry shore of granite and pine, or a warm flat one of white sand and mangrove",
+    "The kind of coast the seed builds — a cold skerry shore of granite and pine, a warm flat one of white sand and mangrove, or a polar one of ice walls and bergs on black water",
   coastName: (id: string): string => COAST_NAMES[id] ?? id.toUpperCase(),
   /** THE GAME, as the front door's tiles name it and as the start card's
    * head is titled with it. */
@@ -473,7 +474,7 @@ export const STRINGS = {
     "The hour to start at, set against this coast's own daylight in the season — NIGHT is midnight, and the clock runs on from wherever you start, an hour a minute",
   startSeason: "SEASON",
   startSeasonHint:
-    "The sun's arc: how long the day is, and how dark the night gets — a summer night here never gets past twilight",
+    "The sun's arc: how long the day is, and how dark the night gets — a summer night here never gets past twilight; on the arctic the winter sea is ice, and an icebreaker has cut the course through it",
   /** The wind, which is the sea; then the sky over it. They are separate
    * questions; `menu-start.tsx` owns the two rows. */
   startWind: "WIND",

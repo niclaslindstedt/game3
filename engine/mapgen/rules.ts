@@ -28,8 +28,13 @@
 //       a bay lies low behind its beach — inside `land.reach` (100 m) of
 //       the shore, and past that it STOPS RISING and runs on inland at the
 //       height it reached. Nothing on land stands higher than
-//       `land.maxHeight` (45 m): rounded glacially planed rock, however
-//       high it climbs, and never a cliff.
+//       `land.maxHeight` (45 m) times the coast's own ceiling
+//       (`Biome.ceiling`, one on every coast but a wall of ice): rounded
+//       glacially planed rock, however high it climbs, and never a cliff —
+//       unless the coast IS one, a glacier's front standing sheer out of
+//       the sea, which is the one shore that is allowed over the rule's
+//       roof and the one that comes down as a wall (`Biome.climb`), on an
+//       apron of the rubble it calves onto (`Biome.wall`).
 //   R3  THE SEA BED FALLS AWAY. Depth grows from nothing at the waterline
 //       to `sea.depth` (25 m) at `sea.reach` (250 m) out, and keeps falling
 //       past it to `sea.openDepth` (60 m) by `sea.openReach` (700 m) — the
@@ -92,7 +97,7 @@
 //   R13 THE DAY AND THE WATER. The run STARTS in daylight: the level is
 //       dealt a SEASON, and its hour is SOLAR time drawn from the window in
 //       which the sun stands at least `day.minSun` over the horizon at the
-//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove)
+//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove, 78°N arctic)
 //       in that season, which decides where the sun stands at it and so
 //       what sky the run is under. So a seed can be a sunrise on the water,
 //       a noon, or a sun going down into the sea — and the clock runs on at
@@ -262,6 +267,11 @@
 //       loops are — and whether the mouth carries BARS, the delta's low
 //       islands standing in the mouth's own reach, off the centreline so
 //       the river still runs, clear of the racing line like any island.
+//       And whether it is a MEANDER or a CRACK: a coast may read the
+//       walk's turning as a switch (`kink`) — straight along a joint, full
+//       lock at the next — and let the walls wander (`ragged`), pockets
+//       and pinches over a few boat lengths, which is what a fracture
+//       through ice has and a river's cut bank never does.
 //   R27 THE RIVER RUNS, AND WHAT IS CONSERVED IS THE VOLUME. It carries
 //       `river.discharge` cubic metres a second out of its mouth, times the
 //       coast's own share of it (`Biome.river.discharge`: a northern coast's

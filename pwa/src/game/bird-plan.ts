@@ -61,7 +61,6 @@
 // from above, pitch is NOSE-UP positive, roll right-side-down positive.
 
 import {
-  DECLINATION,
   SOUTH,
   TAU,
   fromEuler,
@@ -308,7 +307,8 @@ function smooth(t: number): number {
  * bell. Read off the same sun the sky is lit by.
  */
 export function activityAt(level: Level, t: number): number {
-  const sun = sunAt(sunHourAt(level, t), biomeOf(level.biome).latitude, DECLINATION[level.season]);
+  const biome = biomeOf(level.biome);
+  const sun = sunAt(sunHourAt(level, t), biome.latitude, biome.declination[level.season]);
   const DAY = 4 * (Math.PI / 180);
   return smooth((sun.elevation - NIGHT_BELOW) / (DAY - NIGHT_BELOW));
 }

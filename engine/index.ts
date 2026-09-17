@@ -187,6 +187,9 @@ export {
   stormAt,
   stormRamp,
 } from "./game/ocean.ts";
+// THE ICE (ice.ts): whether the sea is a sheet on this run, and where the
+// sheet stands over the water (R37).
+export { frozen, iceAt, iceTopAt } from "./game/ice.ts";
 // THE TORNADO (tornado.ts): the wall of weather past the far edge of that
 // ocean, which blows a rider who kept going back toward the start line and
 // throws him into the air the moment a wave lets go of him.

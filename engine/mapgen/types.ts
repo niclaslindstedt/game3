@@ -18,10 +18,10 @@ import type { Heightfield } from "../lib/heightfield.ts";
 import type { Season } from "../lib/solar.ts";
 import type { GeneratorVersion } from "./versions.ts";
 
-/** The BIOMES a shore can belong to. Two are built — the taiga, the coast
- * every rule was written against, and the mangrove, the warm one — and the
- * rest are the names the campaign will need, reserved so an id never
- * changes. A biome is a kind of coast, never a place: nothing in this tree
+/** The BIOMES a shore can belong to. Three are built — the taiga, the coast
+ * every rule was written against, the mangrove, the warm one, and the
+ * arctic, the ice — and the rest are the names the campaign will need,
+ * reserved so an id never changes. A biome is a kind of coast, never a place: nothing in this tree
  * names a country, a sea or a shore that exists. */
 export type BiomeId = "taiga" | "mangrove" | "archipelago" | "fjord" | "atoll" | "delta" | "arctic";
 
@@ -321,6 +321,13 @@ export type Level = {
   readonly river: readonly Vec2[];
   /** R27 — the water in transit down that river and out of its mouth. */
   readonly flow: Flow;
+  /** R37 — THE ICE FIELD, on a coast that freezes: metres INSIDE the
+   * winter's sheet at every cell, negative in the icebreaker's channel
+   * down the racing line and clamped at `ICE.measured` under the sheet.
+   * Null on a coast whose sea never freezes. Whether the sheet is THERE
+   * is the run's season, read through `engine/game/ice.ts` (`frozen`),
+   * never off this field alone. */
+  readonly ice: Heightfield | null;
   /** What swims here (R20), in the order it was placed. Read by the
    * renderer through `faunaPose`; nothing in the physics touches it. */
   readonly fauna: readonly Pod[];

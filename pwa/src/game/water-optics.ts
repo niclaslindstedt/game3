@@ -136,6 +136,35 @@ export const WATER_OPTICS: Readonly<Partial<Record<BiomeId, WaterOptics>>> = {
     window: [0.22, 0.6],
     clarity: 24,
   },
+  arctic: {
+    // POLAR WATER IS BLACK-BLUE, AND MILK WHERE THE ICE MELTS INTO IT. Off
+    // the front the sea is the darkest in the game — cold, salt, nothing
+    // growing in it, the sky over it grey most days — and over the deep
+    // it goes to an ink that is nearly black. What colours the shallows is
+    // not sand but GLACIAL FLOUR: the rock the ice ground to dust, held in
+    // the melt that runs out of the crack and along the foot of the wall,
+    // which scatters blue-white and turns the water off a front a pale
+    // milky turquoise. Bluer than the taiga's green at every depth, and
+    // greyer than the mangrove's turquoise: this is the sea a rider is
+    // cold looking at.
+    shallow: "#9fd0d6",
+    sea: "#2f6b82",
+    deep: "#0b2432",
+    // The milk is a skin off the front and the bed drops away fast under a
+    // glacier: at its deep tone over twenty-five metres.
+    shallowTo: 3,
+    deepTo: 25,
+    // A dark blue-grey bottom: cobble and silt under water with no light
+    // in it.
+    bed: "#0a1a22",
+    // Clear where it is not milky: the open water past the plume reads
+    // to fifteen metres or more in the polar summer — but the plume off
+    // the front cuts that to a metre, and one clarity has to serve both.
+    // Twelve is where a bearded seal at three metres still reads and the
+    // bed under the course is gone.
+    window: [0.3, 0.7],
+    clarity: 12,
+  },
 };
 
 /** The row for a coast; throws for one nobody has drawn the water of, the

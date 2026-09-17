@@ -94,21 +94,47 @@ export function shelfFactor(rugged: number, offshore: number): number {
 
 /** R2 — the land's step: height at `inland` m from the waterline, climbing
  * to `hill` over `reach` m and stopping there. The reach is the rule
- * book's times the coast's `climb`: a coast of steep banks meets its hill
- * sooner and is flat from there. */
+ * book's, shortened by the coast's `climb` where the coast is rugged: a
+ * coast of steep banks meets its hill sooner and is flat from there. */
 export function landHeight(inland: number, hill: number, reach: number = R.land.reach): number {
   return hill * smooth(clamp(inland / reach, 0, 1));
 }
 
+/** THE FOOT OF A WALL: how high the apron stands at the wall's base, m,
+ * over `Biome.wall.apron` metres of plan — a rubble beach a metre and a
+ * half up, which is a slope sand lies at and a boulder field lies at
+ * (R16), and never the slab the classifier would call the wall itself. */
+const APRON_RISE = 1.5;
+
+/** R2, R21 — how much of a stretch is WALL: nothing under the coast's
+ * `wall.from`, all of it from `wall.to` up, smoothed between. The one
+ * ramp the reach's shortening (`climb`), the hill's lift (`headland`) and
+ * the apron are all read off, so a coast's wall starts in one place. On a
+ * coast whose `climb` and `headland` are both 1 and whose apron is 0 the
+ * ramp moves nothing, wherever it runs. */
+function wallAt(biome: Biome, rugged: number): number {
+  const { from, to } = biome.wall;
+  return smooth(clamp((rugged - from) / (to - from), 0, 1));
+}
+
 export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
   const plateau = inBand(rng, R.land.plateau) * biome.relief;
-  // R2's ceiling, held once here rather than trusted to the bands: the
-  // tallest hill the character can raise plus the deepest slab that can
-  // ride on it stays under the rule's maximum, so nothing downstream has to
-  // clamp again.
-  const roof = R.land.maxHeight - R.land.slab.amplitude * R.land.slab.relief.high;
+  // R2's ceiling — the rule's, times the coast's own — held once here
+  // rather than trusted to the bands: the tallest hill the character can
+  // raise plus the deepest slab that can ride on it stays under it, so
+  // nothing downstream has to clamp again. What a rugged stretch climbs to
+  // is the coast's too (`headland`): the taiga's headland is twice its
+  // plateau, an ice front many times the moraine beside it — and the lift
+  // rides the wall's own ramp (`wallAt`), so a stretch that is no wall
+  // stands exactly where it would on a coast without one.
+  const roof = R.land.maxHeight * biome.ceiling - R.land.slab.amplitude * R.land.slab.relief.high;
   const hillAt = (rugged: number): number =>
-    Math.min(plateau * lerp(R.land.hill.low, R.land.hill.high, rugged), roof);
+    Math.min(
+      plateau *
+        lerp(R.land.hill.low, R.land.hill.high, rugged) *
+        lerp(1, biome.headland, wallAt(biome, rugged)),
+      roof,
+    );
   const slabSeed = rng.int(1, 0x7fffffff);
   const bedSeed = rng.int(1, 0x7fffffff);
   const boulderSeed = rng.int(1, 0x7fffffff);
@@ -143,10 +169,17 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
   // level's cells are open sea, and this is the bake's inner loop.
   const shelfEnd = R.sea.shelf.reach + R.sea.shelf.blend;
   // R2 — how far inland this coast's land takes to climb, m: the rule's
-  // reach on the taiga, shorter on a coast that comes down steep. Never
-  // longer, because the offshore field stops measuring past `land.measured`
-  // and R2's own check reads the profile against the full reach.
-  const reach = R.land.reach * Math.min(1, biome.climb);
+  // reach on the taiga, and shorter on a coast that comes down steep — on
+  // its RUGGED stretches (R21). A soft stretch climbs over the whole reach
+  // on every coast, because the character is what separates a wall from
+  // the bay beside it: an ice front stands on the headlands and the
+  // moraine between two fronts is a slope, and a coast that came down as
+  // a wall EVERYWHERE would be one material from end to end and fail R21's
+  // quilt on every seed. Never longer than the rule's, because the
+  // offshore field stops measuring past `land.measured` and R2's own check
+  // reads the profile against the full reach.
+  const climb = Math.min(1, biome.climb);
+  const reachAt = (rugged: number): number => R.land.reach * lerp(1, climb, wallAt(biome, rugged));
   const groundAt = (x: number, z: number, offshore: number): number => {
     if (offshore >= shelfEnd) {
       const grain = (valueNoise(x, z, R.sea.detail.scale, bedSeed) - 0.5) * 2;
@@ -160,7 +193,15 @@ export function createGeology(rng: Rng, biome: Biome, basin: Basin): Geology {
       return bed + grain * R.sea.detail.amplitude * fade;
     }
     const inland = -offshore;
-    const step = landHeight(inland, hillAt(rugged), reach);
+    const reach = reachAt(rugged);
+    // THE APRON (`Biome.wall.apron`): a wall stands on a foot of its own
+    // rubble, level to the water, and climbs from the back of it — so the
+    // waterline in front of a wall is a rubble beach the classifier reads
+    // as one (R16, R21), and the wall behind it stands at its full
+    // height. Nothing on a coast without a wall, where the apron is 0.
+    const apron = biome.wall.apron * wallAt(biome, rugged);
+    const foot = apron > 0 ? APRON_RISE * clamp(inland / apron, 0, 1) : 0;
+    const step = foot + landHeight(Math.max(0, inland - apron), hillAt(rugged), reach);
     // The slabs fade in from the waterline and out at the reach: the
     // window is what keeps the hilltop flat and the shoreline where the
     // polyline put it.

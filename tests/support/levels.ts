@@ -93,3 +93,20 @@ export function mangroveFor(seed: number): Level {
   }
   return hit;
 }
+
+/** THE ARCTIC CORPUS: the third coast, kept apart for the mangrove's
+ * reason — its rows are the ice wall's, the crack's and the sheet's (R37),
+ * and a suite asserting the taiga's pines on it is asserting nothing. */
+export const ARCTIC_SEEDS: readonly number[] = Array.from({ length: 4 }, (_, i) => i * 43 + 7);
+
+const arctics = new Map<number, Level>();
+
+/** The arctic level for a seed, built once. Read-only, as `levelFor`'s is. */
+export function arcticFor(seed: number): Level {
+  let hit = arctics.get(seed);
+  if (hit === undefined) {
+    hit = generateLevel(seed, { biome: "arctic" });
+    arctics.set(seed, hit);
+  }
+  return hit;
+}

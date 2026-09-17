@@ -138,6 +138,10 @@ Ks = √(cg₀ / cg)
 
 Green's law `√√(d₀/d)` is its shallow limit. `Ks` is 1 in deep water and grows in the shallows; the test holds both and that it never falls below 1 on the way in.
 
+## The sea under the ice (R37, `engine/game/ice.ts`)
+
+On a coast that freezes, in its winter, the level is a sheet of ice with an icebreaker's channel down the racing line, and the water a rider meets is the water in that channel. `createSea` asks `frozen(level)` once and lays the two wind bands at `sea.ice.wind` = 0.12 of their height and the swell at `sea.ice.swell` = 0 — a lead fifty metres wide grows the chop that width of water can grow and no more, and no groundswell survives a few kilometres of pack — so the water in the channel lies under the sheet's `ICE.freeboard` = 0.35 m and the ice never has a wave through it. Nothing else about the sea changes: the same seed re-seasoned is the same spectrum at a fraction of the height. The sheet itself is the hull's business, not the water's — `bedAt` reads it as ground — and where it stands is `Level.ice`, laid by the generator off the finished course.
+
 ## Exposure, the shelter, and the two seas (`engine/game/fetch.ts`)
 
 The one measurement everything about the difference between the open sea and a river comes out of. For a level and a wind, `createShelter(level, wind)` bakes four fields:

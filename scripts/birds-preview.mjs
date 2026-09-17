@@ -39,7 +39,11 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     rows: { kind: "string", default: "", help: "only these birds (e.g. gull,tern,eagle)" },
-    biome: { kind: "string", default: "", help: "only one coast's roster (taiga, mangrove)" },
+    biome: {
+      kind: "string",
+      default: "",
+      help: "only one coast's roster (taiga, mangrove, arctic)",
+    },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
     out: { kind: "string", default: join(outDir, "birds.png"), help: "where the sheet is written" },

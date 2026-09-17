@@ -13,6 +13,7 @@
 import type { BiomeId } from "@engine";
 
 import { PALETTE } from "../identity.ts";
+import { TREE_LINE } from "./flora-defs.ts";
 
 export type ShorePaint = {
   /** The smoothed slab: what the classifier calls bedrock. */
@@ -42,10 +43,14 @@ export type ShorePaint = {
   /** The ground under the wood, and where the wood starts: metres inland
    * of the waterline, and the height band over sea level it fades in over.
    * A northern shore keeps its slabs bare for twenty metres before the
-   * pines; a mangrove stands with its feet in the water. */
+   * pines; a mangrove stands with its feet in the water. And where it
+   * STOPS, m over sea level: the tree line on a wooded coast, so the hill
+   * stands bare over the wood — or, on a coast whose floor is the
+   * glacier's own snow, high enough that the wall's lip is inside it. */
   readonly floor: string;
   readonly floorFrom: number;
   readonly floorAbove: readonly [number, number];
+  readonly floorTo: number;
   /** The stone the standing rocks are carved in — the wet band at the
    * water, the face above it, the lit crown — for the sculpted kinds, and
    * the two tones the instanced kinds take: the reef awash and the erratic
@@ -79,6 +84,7 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     floor: PALETTE.pineDark,
     floorFrom: 22,
     floorAbove: [1.2, 3],
+    floorTo: TREE_LINE,
     stone: null,
     // A reef is a dark shape UNDER the water, and it has to stay a shape:
     // the sea bed's own olive taken a step down rather than the near-black
@@ -117,12 +123,66 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     floor: "#4a4633",
     floorFrom: 3,
     floorAbove: [0.25, 1.2],
+    floorTo: TREE_LINE,
     // Limestone: pale, bleached at the crown, dark and green where the sea
     // keeps it wet.
     stone: { wet: 0x5a6152, body: 0xb3ab94, lit: 0xd9d2bb },
     // A coral head or a sandbar awash — pale under the water, not dark.
     reef: 0x9aa088,
     erratic: 0xb3ab94,
+  },
+  arctic: {
+    // EVERYTHING ON THIS COAST IS ICE — there is no rock on it. The
+    // classifier calls the glacier's front bedrock — a face steeper than
+    // anything else on any coast — and the wall is painted the blue-white
+    // of old glacier ice, lightening to snow at its lip (`terrain.ts`
+    // lightens bedrock as it climbs, which is exactly what a snow-covered
+    // glacier surface does). The "rock" is the CALVED RUBBLE on the wall's
+    // apron: the blocks the front drops, a shade bluer and greyer than the
+    // wall because they are broken, wet and lying in each other's shadow.
+    bedrock: "#d6e6f0",
+    boulder: "#b9d0de",
+    // The "sand" is FIRN: old snow packed toward ice on the low foot the
+    // sea reaches where the front has drawn back — white, and blue-grey
+    // where the sea wets it. No ochre anywhere on this coast: a warm hex
+    // here is a beach, and this is not a beach.
+    sand: "#e6eef3",
+    sandWet: "#a9c4d3",
+    sandBed: "#9db9c9",
+    // The bottom off a glacier is cobble and silt, dark blue-grey.
+    bed: "#2a3a42",
+    bedReach: 30,
+    // The wet band on the wall: the ice at the waterline is the BLUEST
+    // thing on the coast, because it is the oldest and the densest and
+    // the sea keeps it polished.
+    wet: "#8ab6cc",
+    // The crack's walls are ice too, and its "bank" is the ice again —
+    // the classifier's bank is soil and grass on a coast that has soil,
+    // and this one has none. The last two metres over the water are the
+    // deep blue of the wall's foot.
+    bank: "#c8dde9",
+    bankStone: "#8ab6cc",
+    bankStoneUp: 2,
+    // THE "FLOOR" IS SNOW: the ground behind the foot is the glacier's
+    // own surface, which is old snow, and nothing here has a trunk to
+    // stand under. The cushions the cover plants are (`flora-defs-arctic`)
+    // are colour IN the snow, not a floor of their own.
+    floor: "#e9f0f4",
+    floorFrom: 6,
+    floorAbove: [0.4, 2],
+    floorTo: 80,
+    // THE STANDING ROCKS ARE BERGS. A skerry off this coast is a berg
+    // grounded in the shallows and a stack the tallest berg on the level:
+    // the same carving as the taiga's granite, in ice — the deep blue
+    // where the sea has it, white above, and lit nearly to paper at the
+    // crown.
+    stone: { wet: 0x7fb0c8, body: 0xdbe9f1, lit: 0xf6fafc },
+    // A growler awash: pale under the water, the one pale reef in the game.
+    reef: 0xa8c8d6,
+    // …and there are no erratics on this coast (`Biome.rocks.erratic` is
+    // 0): an erratic is a rock, and the row's hex is the rubble's so that
+    // nothing here can ever be painted as one.
+    erratic: 0xb9d0de,
   },
 };
 

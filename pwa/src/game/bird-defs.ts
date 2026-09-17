@@ -14,9 +14,9 @@
 // renderer's OWN generator and posed off the engine's OWN clock, so a seed
 // flies the same birds every time without costing the run a single draw.
 //
-// WHY THESE FOURTEEN, over two coasts. Each row says which coasts it lives
-// on (`biomes`), the planner lays only the flocks of the coast it is on,
-// and two birds live on both.
+// WHY THESE THIRTY-THREE, over three coasts. Each row says which coasts
+// it lives on (`biomes`), the planner lays only the flocks of the coast it
+// is on, and a few birds live on more than one.
 //
 // THE TAIGA COAST. The gull, the tern, the cormorant and the eider are the
 // shore's own — what is standing on every skerry and rafting in the lee of
@@ -38,9 +38,24 @@
 // and the cormorant are here too, because they are everywhere. Nothing
 // crosses: a warm coast is where the skeins were going.
 //
+// THE ARCTIC COAST. A polar coast in summer is the loudest coast in the
+// game — the bird cliffs — and in winter the quietest. The glaucous gull
+// is its gull, the ivory gull the ice's own, white to the tips and the one
+// bird that stays out on the pack all winter. The AUKS are the coast: the
+// little auk in whirring flocks of dozens low over the sea, the guillemot
+// in lines off the cliff, the puffin, and the black guillemot in the
+// scree. The kittiwake, the fulmar and the arctic tern are here as on the
+// taiga. The king eider and the long-tailed duck raft on the open water
+// with the brent geese; the skua works the tern colony; the gyrfalcon is
+// the raptor, one to a cliff, and the raven the one bird that is here the
+// whole year round with it. The brent and the snow geese CROSS: south in
+// the autumn ahead of the ice and north in the spring behind it.
+//
 // The look (the paint, the wingtips, the bill) belongs to `bird-shapes.ts`.
 
 import type { BiomeId, Season } from "@engine";
+
+import { ARCTIC_BIRDS } from "./bird-defs-arctic.ts";
 
 /** Every bird in the roster. */
 export type BirdId =
@@ -63,7 +78,20 @@ export type BirdId =
   | "booby"
   | "noddy"
   | "sootytern"
-  | "frigatebird";
+  | "frigatebird"
+  | "glaucous"
+  | "ivorygull"
+  | "littleauk"
+  | "guillemot"
+  | "puffin"
+  | "blackguillemot"
+  | "kingeider"
+  | "longtail"
+  | "brent"
+  | "snowgoose"
+  | "skua"
+  | "gyrfalcon"
+  | "raven";
 
 export type Band = { readonly min: number; readonly max: number };
 
@@ -211,7 +239,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "tern",
     name: "Arctic tern",
-    biomes: ["taiga"],
+    biomes: ["taiga", "arctic"],
     span: 0.8,
     length: 0.35,
     neck: 0.36,
@@ -340,7 +368,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "fulmar",
     name: "Northern fulmar",
-    biomes: ["taiga"],
+    biomes: ["taiga", "arctic"],
     // STIFF WINGS AND NO BEAT: a fulmar shears along the troughs on
     // wings it barely moves, which is the one flight in the roster that
     // reads as the SEA rather than as a bird.
@@ -372,7 +400,7 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "kittiwake",
     name: "Black-legged kittiwake",
-    biomes: ["taiga"],
+    biomes: ["taiga", "arctic"],
     // The gull that is actually a bird of the open sea: smaller and
     // cleaner than the herring gull, and it comes in flocks over bait.
     span: 1.05,
@@ -817,6 +845,7 @@ export const BIRDS: readonly BirdSpec[] = [
     seasons: ["spring", "summer", "autumn", "winter"],
     passes: [],
   },
+  ...ARCTIC_BIRDS,
 ];
 
 /** The rows a coast flies, in roster order. */

@@ -29,7 +29,7 @@
 
 import { createRng, type Rng } from "../lib/prng.ts";
 import { TAU } from "../lib/math.ts";
-import { DECLINATION, SEASONS, daylightWindow } from "../lib/solar.ts";
+import { SEASONS, daylightWindow } from "../lib/solar.ts";
 import { analyzeLevel } from "../analysis/index.ts";
 import { warn } from "../output.ts";
 import { biomeOf } from "./biomes.ts";
@@ -260,10 +260,11 @@ export function generateLevel(seed: number, opts: GenerateOptions = {}): Level {
   const traits = generatorTraits(opts.version);
   const attempts = opts.attempts ?? R.search.attempts;
   // R13 — the hours this coast is in daylight in each season, off its own
-  // latitude. A fact about the place rather than about the attempt, so it
-  // is worked out once, outside the loop and outside the seeded stream.
+  // latitude and its own dating of the year. A fact about the place rather
+  // than about the attempt, so it is worked out once, outside the loop and
+  // outside the seeded stream.
   const daylightIn = SEASONS.map((season) =>
-    daylightWindow(biome.latitude, R.day.minSun, DECLINATION[season]),
+    daylightWindow(biome.latitude, R.day.minSun, biome.declination[season]),
   );
   if (daylightIn.some((w) => !w)) throw new Error(`the sun never rises on the ${biome.id} coast`);
   let lastReason = "no attempt made";
