@@ -14,8 +14,9 @@
 // its geometry is rebuilt a couple of times a second. The transform is on the
 // group, so one attribute moves the whole coast.
 
-import { useRef } from "preact/hooks";
+import { useMemo, useRef } from "preact/hooks";
 
+import { createHudPress, pressHandlers } from "./hud-press.ts";
 import { VIEW } from "./minimap-scene.ts";
 import type { GateMark, HudMinimap } from "./minimap-view.ts";
 import { STRINGS } from "./strings.ts";
@@ -214,6 +215,10 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
   const drawn = useRef(-1);
   const recut = drawn.current !== scene.cut;
   drawn.current = scene.cut;
+  // The way to the pause card on a phone, and a phone reaches for it with the
+  // other thumb still on the bar — so it is pressed through the pointer
+  // events like the two buttons under it (`hud-press.ts`).
+  const press = useMemo(createHudPress, []);
   return (
     // THE MAP IS THE WAY INTO THE PAUSE CARD, which is what makes the card
     // reachable on a phone at all: there is no Escape key there, and a
@@ -226,7 +231,7 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
       class="hud-minimap"
       title={STRINGS.pauseOpen}
       aria-label={STRINGS.pauseOpen}
-      onClick={onOpen}
+      {...pressHandlers(press, onOpen)}
       // A button that keeps the focus keeps the next Enter, and the next
       // Enter is the restart — the same trap the RESET button dodges.
       onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
