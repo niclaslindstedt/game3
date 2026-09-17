@@ -348,12 +348,6 @@ export const STRINGS = {
   splashPress: "PRESS ANY KEY TO START",
 
   /* ── THE MAIN MENU (menu-main.tsx) ─────────────────────────────────── */
-  /** The game's own billing, under the wordmark on the front door. It names
-   * the two COASTS — a cold sheltered skerry coast and a warm flat one —
-   * because that is what the game is, and because a door billed as northern
-   * stands over a mangrove half the time it is up. A kind of coast, never a
-   * place (`tests/biome_test.ts`). */
-  menuTag: "cold skerries, warm shallows",
   /** The four ways onto the water are the front door's mode tiles, and their
    * words are `modeName`'s — a tile and the card it opens must not be able
    * to disagree about which game was pressed. These three are the foot
@@ -368,10 +362,6 @@ export const STRINGS = {
     cleared === 0 ? `${of} SHORES · START HERE` : `${cleared} OF ${of} SHORES CLEARED`,
   /** The way out of every page under the front door. */
   menuBack: "MENU",
-  /** What RACE says while it is being held down — the developer menu is
-   * seven seconds away and the tile says so before it arrives, never after
-   * (menu-hold.ts). */
-  menuHolding: "KEEP HOLDING…",
   menuUnlocked: "DEVELOPER MENU UNLOCKED",
 
   /* ── THE CAMPAIGN (menu-campaign.tsx, app-campaign.ts) ─────────────── */
@@ -432,9 +422,6 @@ export const STRINGS = {
   /** Why a shore is shut HERE — the campaign is the only thing that opens
    * one, and a padlock with no reason on it is just a wall. */
   levelsShoreLocked: "Open this shore in the campaign: win the one before it",
-  /** The line at the foot of the coast step, saying where the shores came
-   * from. */
-  levelsCaption: "THE CAMPAIGN'S OWN SHORES · RIDDEN HERE FOR THE RECORD BOOK",
   /** An open shore with nothing this game can ride — every shore ships both
    * disciplines, so this is the sentence a shore curated one-sided would
    * print rather than an empty grid. */
@@ -531,17 +518,16 @@ export const STRINGS = {
   /* ── THE CRAFT CARD (menu-craft.tsx, craft-picker.tsx) ─────────────── */
   /** The second card's own title. */
   craftTitle: "CRAFT",
-  /** THE CLASS the craft is ridden in. A kart game counts its classes in
-   * engine size; the sport this one is about counts them the way its own
-   * race paddock does — a stock ski, a limited one, an open one — so the
-   * rungs are the classes a rider would actually enter, with a novice
-   * class under them for a first ride. The row moves the whole roster at
-   * once and PACES THE COURSE with it, so a class is a different race
-   * rather than only a faster hull. */
+  /** THE CLASS the craft is ridden in — FREE'S ROW ALONE. A kart game counts
+   * its classes in engine size; the sport this one is about counts them the
+   * way its own race paddock does — a stock ski, a limited one, an open one —
+   * so the rungs are the classes a rider would actually enter, with a novice
+   * class under them for a first ride. The row moves the whole roster at once
+   * and PACES THE COURSE with it, so a class is a different race rather than
+   * only a faster hull; every mode that MEASURES a rider is stock, and the
+   * craft card does not draw the row at all there (`classFor`). */
   classRow: "CLASS",
   className: (id: string): string => CLASS_NAMES[id] ?? id,
-  /** ...and why the row has one chip on it in a tricks run. */
-  classLocked: "STOCK OUTSIDE A FREE RIDE",
   /** The arrows either side of the hull, for a reader who cannot see it. */
   craftPrev: "Previous craft",
   craftNext: "Next craft",

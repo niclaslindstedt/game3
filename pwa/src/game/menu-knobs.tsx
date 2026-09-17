@@ -18,6 +18,11 @@
 // options page fold from a column of switches-with-prose into two columns of
 // rows that fit a 720-tall window with room over.
 //
+// THAT BAR IS NOT ON THE CARD. It is fixed to the foot of the WINDOW, because
+// the card is the scroller: a sentence parked at the bottom of a column taller
+// than the viewport is a sentence nobody reading a row at the top can see. The
+// stylesheet owns the how and the trap that would undo it.
+//
 // Every one of them is a real `<button>` or `<input>`, which is what makes
 // `menu-nav.ts` able to walk a page written tomorrow with nothing to register:
 // `data-nav-steps` marks the pair of arrows as ONE stop on the cursor's walk,
@@ -548,8 +553,14 @@ export function KnobGroup({
 }
 
 /** The page's ONE sentence — the row being looked at, named and then
- * explained, or the page's own line while no row is. Always rendered, even
- * empty, so the card does not change height as the pointer crosses it. */
+ * explained, or the page's own line while no row is.
+ *
+ * It is written here, as the card's last child, and DRAWN at the foot of the
+ * window (`.knob-caption` is fixed): the page that owns the rows is the page
+ * that owns their sentence, and lifting it out of the card in the markup would
+ * mean every surface hoisting its hint state somewhere else to say the same
+ * thing. Out of flow, so it costs the card no height at all — and every page
+ * gives it a standing line, so it is never a blank box over the water. */
 export function Caption({ hint, fallback }: { hint: Hint | null; fallback: string }) {
   return (
     <div class={`knob-caption${hint ? " knob-caption-on" : ""}`} aria-live="polite">

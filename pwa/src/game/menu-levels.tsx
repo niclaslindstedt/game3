@@ -226,7 +226,6 @@ export function LevelsPage({
           next={reachedShore(progress, settings.ride.level)}
           onPick={setShown}
         />
-        <p class="menu-shore-blurb">{STRINGS.levelsCaption}</p>
       </div>
     );
   }
