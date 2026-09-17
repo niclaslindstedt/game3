@@ -201,9 +201,23 @@ export function clipRiders(state: GameState, events: GameEvent[]): void {
  * run was built and then has the field taken off it
  * (`pwa/src/game/ghost-run.ts`).
  *
+ * THE FIELD'S TRAILS COME OFF WITH IT. Every rider's wash stands on the one
+ * sea (`SeaState.washes`, `wash.ts`), so a field lifted off a run that left
+ * its trails behind is eleven wakes nobody is laying any more — water the
+ * hull still feels and every probe still pays to read. What the drop cannot
+ * hand BACK is the water a fielded run was ridden on: eleven wakes are gone
+ * with the eleven hulls that were laying them, and no tape can put them
+ * back. That is not a hole in the ghost — a tape is kept only for the two
+ * modes that ride alone (`ghost-run.ts`) — but it is the reason the drop is
+ * for a run that has not been ridden yet.
+ *
  * Nothing else about the state moves: a run with no field in it is a run
  * nobody can lean on, which is what a ghost is. */
 export function dropField(state: GameState): void {
+  for (const rival of state.rivals) {
+    const at = state.sea.washes.indexOf(rival.run.wash);
+    if (at >= 0) state.sea.washes.splice(at, 1);
+  }
   state.rivals = [];
 }
 
