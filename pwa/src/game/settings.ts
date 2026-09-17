@@ -476,13 +476,6 @@ export const DEFAULT_SEED = 38;
  * the CARD's range and not the engine's. */
 export const SEED_RANGE = { min: 1, max: 999999 } as const;
 
-/** The wind the developer's row may ask for, m/s, and the sea it may ask
- * for, m. Both are the range the model is honest over: past the top of the
- * wind the fetch law is extrapolating, and a sea quoted taller than this
- * over a shore this shallow is breaking before it arrives. */
-export const DEV_WIND_RANGE = { min: 0, max: 30 } as const;
-export const DEV_HS_RANGE = { min: 0, max: 8 } as const;
-
 /**
  * FREE'S OWN TRAVEL — how far its three faders go, and the one place in the
  * app where a row is deliberately allowed past what the generator deals.
@@ -653,22 +646,23 @@ export function mergeSettings(parsed: unknown): Settings {
   if (dev) {
     // A DEVELOPER'S OVERRIDES ARE NOT REMEMBERED — only a developer's
     // TOGGLES are. The difference is whether the page carries a row to turn
-    // the thing off again:
+    // the thing off again, and since THE RUN and THE SEA rows came off the
+    // developer page none of these three does:
     //
-    //   SCENE, WIND, SEA are OVERRIDES. Each is set by a URL alone, each
-    //   silently rewrites every run that follows — a scene STAGES the run
-    //   (`placeRun` stands the craft down the shore and takes the lights off
-    //   in front of it), a wind or a sea replaces the day the generator
-    //   dealt — and each one, being a run the game will not vouch for, also
-    //   stops the finish being written down. None has a row on any card, so
-    //   a rider who picked one up from a link had no way back: kept, they
-    //   re-staged and re-weathered every ride that browser ever started
-    //   again, and left the game silent at the end of all of them. They live
-    //   as long as the URL that asks for them and not one load longer, and a
-    //   blob written before this rule heals on the next visit.
+    //   SCENE, WIND, SEA are OVERRIDES, and are now what that change called
+    //   them — "the repro link's own parameters". Each silently rewrites
+    //   every run that follows: a scene STAGES it (`placeRun` stands the
+    //   craft down the shore and takes the lights off in front of it), a
+    //   wind or a sea replaces the day the generator dealt, and each one,
+    //   being a run the game will not vouch for, stops the finish being
+    //   written into any book. Kept in the store after their rows were gone
+    //   they were a setting with no switch: every ride re-staged and
+    //   re-weathered, for good. So they live as long as the URL that asks
+    //   for them and not one load longer, and a blob written while they were
+    //   still rows heals on the next visit.
     //
-    //   FRAME COST is a TOGGLE: a readout, with its own knob on the page
-    //   that switches it back off, and it changes nothing about the run. It
+    //   FRAME COST is a TOGGLE: a readout, with its own knob still on the
+    //   page to switch it back off, and it changes nothing about the run. It
     //   is remembered, like any other preference.
     if (dev.cost === true) settings.dev.cost = true;
   }
