@@ -27,8 +27,20 @@ corners that reads as a rendering bug and is not one. Shot at 2.4:1 and banded
 at `50% 52%`, the row crops the seam off and keeps the horizon, the shore and
 the near water; shot at 3:1 the seam is in the band.
 
-Two numbers that are pairs, not taste: the row's height (`clamp`ed so the row
-holds about 3:1 at every viewport) and the picture box's 130%, because the box
-aspect is their product and that is what the band is a fraction of. Change one
-and check the other, and `@media (prefers-reduced-motion)` parks the pan at
-HALF the travel so the still frame is the middle of the sweep.
+Two numbers that are pairs, not taste: the row's height and the picture box's
+130%, because the box aspect is their product and that is what the band is a
+fraction of. Change one and check the other, and
+`@media (prefers-reduced-motion)` parks the pan at HALF the travel so the still
+frame is the middle of the sweep.
+
+AND CHECK THE ROW'S ASPECT AT EVERY VIEWPORT, not just the two you had in mind.
+`clamp(5rem, 26vmin, 11rem)` holds about 3:1 on desktop and on a phone held
+upright, and on a phone held SIDEWAYS it does not come close: the card is at
+its widest there while `vmin` is the 390 px of height, so the row goes near
+6:1, the band narrows to a stripe across the middle of the shot, and the shore
+is cropped clean out of a picture whose whole job is to show one. No screenshot
+of the other two viewports says a word about it. The fix is the layout's, not
+the band's — two columns on a shape that is short and wide, which is what the
+front door does at the same viewport — so match `@media (max-height: 30rem) and
+(min-width: 34rem)` on the SHAPE rather than on orientation, because the shape
+is the condition the framing actually has.
