@@ -50,4 +50,15 @@ export const COAST_SHOTS: Record<string, CoastShot> = {
     wind: 7,
     swell: 1.5,
   },
+  arctic: {
+    level: "arctic-1",
+    seed: 38,
+    scene: "cruise",
+    camera: "heli",
+    hour: 1,
+    season: "summer",
+    weather: "clear",
+    wind: 7,
+    swell: 1.5,
+  },
 };

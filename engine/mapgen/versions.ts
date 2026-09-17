@@ -6,7 +6,7 @@
 // the rules ARE the level. Move a gate spacing, a rock's berth, a draw in
 // the seeded stream, and seed 38 stops being the shore that was rated,
 // timed and named — silently, everywhere, at once. The campaign is the one
-// part of the game where that is not acceptable: its twelve shores were
+// part of the game where that is not acceptable: its shores were
 // CURATED, and a ladder that re-rolls under its own levels is a ladder
 // nobody chose — and every best time and every medal on it is a result on
 // a shore that no longer exists.
@@ -81,7 +81,7 @@ export type GeneratorTraits = {
 export const GENERATOR_VERSIONS: readonly GeneratorTraits[] = [
   {
     version: 1,
-    note: "The generator as the campaign's twelve shores were curated on it.",
+    note: "The generator as the campaign's pinned shores were curated on it.",
   },
 ];
 

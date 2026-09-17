@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE CAMPAIGN CARD — two shores, six boxes each, and the table under the
+// THE CAMPAIGN CARD — a row of shores, six boxes each, and the table under the
 // one being looked at.
 //
 // IT IS TWO STEPS: WHICH COAST, then its ladder. The coast is asked on a page

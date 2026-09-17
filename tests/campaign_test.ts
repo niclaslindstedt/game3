@@ -36,6 +36,7 @@ import {
   WEATHER_IDS,
   LEVEL_RULES,
   biomeOf,
+  daylightWindow,
 } from "@engine";
 
 import {
@@ -74,7 +75,7 @@ import {
 } from "../pwa/src/game/campaign.ts";
 import { GAME_MODES } from "@engine";
 
-const [MANGROVE, TAIGA] = SHORES;
+const [MANGROVE, TAIGA, ARCTIC] = SHORES;
 
 /** The field as it stood at a finish: the player at `place`, the rivals in
  * slot order around him. */
@@ -105,8 +106,8 @@ function rideShore(
 }
 
 describe("the ladder as committed", () => {
-  it("is two shores of six, the warm one first, four races and two tricks runs each", () => {
-    expect(SHORES.map((s) => s.id)).toEqual(["mangrove", "taiga"]);
+  it("is three shores of six, the warm one first, four races and two tricks runs each", () => {
+    expect(SHORES.map((s) => s.id)).toEqual(["mangrove", "taiga", "arctic"]);
     for (const shore of SHORES) {
       expect(shore.levels.length).toBe(6);
       expect(shore.levels.filter((l) => l.mode === "race").length).toBe(4);
@@ -120,9 +121,9 @@ describe("the ladder as committed", () => {
         "race",
       ]);
     }
-    expect(CAMPAIGN_LEVELS.length).toBe(12);
-    expect(new Set(CAMPAIGN_LEVELS.map((l) => l.id)).size).toBe(12);
-    expect(new Set(CAMPAIGN_LEVELS.map((l) => l.name)).size).toBe(12);
+    expect(CAMPAIGN_LEVELS.length).toBe(SHORES.length * 6);
+    expect(new Set(CAMPAIGN_LEVELS.map((l) => l.id)).size).toBe(CAMPAIGN_LEVELS.length);
+    expect(new Set(CAMPAIGN_LEVELS.map((l) => l.name)).size).toBe(CAMPAIGN_LEVELS.length);
   });
 
   it("pins a whole day on every level, inside what the generator would deal", () => {
@@ -130,6 +131,24 @@ describe("the ladder as committed", () => {
       const biome = biomeOf(shoreOf(level).id);
       expect(level.hour).toBeGreaterThanOrEqual(0);
       expect(level.hour).toBeLessThan(24);
+      // R13 — A RUN NEVER STARTS IN THE DARK. The generator draws its hour
+      // from inside the coast's own daylight window in the season it deals,
+      // and a pinned hour is a DIFFERENT hour dealt by hand, so nothing in
+      // the engine holds one to that. It is the same rule all the same: the
+      // clock then runs on at an hour a minute, so a last-light start is a
+      // run that rides INTO the night and a start past sunset is one the
+      // rider never sees the coast on. A polar coast in the midnight sun has
+      // no crossings at all and `daylightWindow` hands back nothing, which
+      // is every hour of the clock.
+      const window = daylightWindow(
+        biome.latitude,
+        LEVEL_RULES.day.minSun,
+        biome.declination[level.season],
+      );
+      if (window) {
+        expect(level.hour, `${level.id} starts in the dark`).toBeGreaterThanOrEqual(window.min);
+        expect(level.hour, `${level.id} starts in the dark`).toBeLessThanOrEqual(window.max);
+      }
       expect(biome.weathers, `${level.id} pins a sky its coast never offers`).toContain(
         level.weather,
       );
@@ -156,7 +175,7 @@ describe("the ladder as committed", () => {
 
   it("names no place — a level is named for what it is like", () => {
     // The biome test holds the whole tree to naming no country or sea;
-    // this is the cheaper half for the twelve names a player reads.
+    // this is the cheaper half for the names a player reads.
     for (const level of CAMPAIGN_LEVELS) {
       expect(level.name).not.toMatch(/\b(bay|island|point|cape|sound|strait|harbour|harbor)\b/i);
     }
@@ -292,12 +311,12 @@ describe("how far the campaign has got, as the front door bills it", () => {
     expect(lost.results[race.id]).toBeDefined();
     expect(campaignStanding(lost).cleared).toBe(0);
 
-    // A podium clears it, and the figure is over BOTH shores' twelve — a
+    // A podium clears it, and the figure is over EVERY shore's levels — a
     // door whose count reset when a new shore opened would read as progress
     // being taken away.
     const won = recordRun(EMPTY_PROGRESS, race, { value: 90, craft: "skiff", order: order(1) });
     expect(campaignStanding(won).cleared).toBe(1);
-    expect(campaignStanding(won).of).toBe(MANGROVE.levels.length + TAIGA.levels.length);
+    expect(campaignStanding(won).of).toBe(SHORES.reduce((n, shore) => n + shore.levels.length, 0));
 
     const both = recordRun(won, tricks, {
       value: tricks.medals!.bronze,
@@ -313,8 +332,10 @@ describe("the locks", () => {
     expect(levelUnlocked(MANGROVE, 0, EMPTY_PROGRESS)).toBe(true);
     for (let i = 1; i < 6; i++) expect(levelUnlocked(MANGROVE, i, EMPTY_PROGRESS)).toBe(false);
     expect(shoreUnlocked(MANGROVE, EMPTY_PROGRESS)).toBe(true);
-    expect(shoreUnlocked(TAIGA, EMPTY_PROGRESS)).toBe(false);
-    expect(levelUnlocked(TAIGA, 0, EMPTY_PROGRESS)).toBe(false);
+    for (const shut of SHORES.slice(1)) {
+      expect(shoreUnlocked(shut, EMPTY_PROGRESS), shut.id).toBe(false);
+      expect(levelUnlocked(shut, 0, EMPTY_PROGRESS), shut.id).toBe(false);
+    }
   });
 
   it("opens the next level behind a podium, and not behind a fourth", () => {
@@ -353,6 +374,29 @@ describe("the locks", () => {
     expect(shoreUnlocked(TAIGA, wins)).toBe(true);
     expect(levelUnlocked(TAIGA, 0, wins)).toBe(true);
     expect(levelUnlocked(TAIGA, 1, wins)).toBe(false);
+  });
+
+  it("holds the polar shore behind the COLD one's table, not the warm one's", () => {
+    // The shores are a PREFIX (`shoreUnlocked`), so a shore two along is
+    // two whole tables away and neither of them can be skipped. Worth its
+    // own case because the arithmetic that opens a second shore opens every
+    // shore after it too, and the bug it would hide is the far end of the
+    // campaign standing open on a fresh board.
+    const warm = rideShore(EMPTY_PROGRESS, MANGROVE, 1);
+    expect(shoreUnlocked(TAIGA, warm)).toBe(true);
+    expect(shoreUnlocked(ARCTIC, warm)).toBe(false);
+    expect(levelUnlocked(ARCTIC, 0, warm)).toBe(false);
+    // The cold shore ridden and lost leaves it shut; won, it opens — and
+    // only its first rung.
+    const thirds = rideShore(warm, TAIGA, 3);
+    expect(levelsRidden(TAIGA, thirds)).toBe(6);
+    expect(shoreUnlocked(ARCTIC, thirds)).toBe(false);
+    const cold = rideShore(thirds, TAIGA, 1);
+    expect(shoreWon(TAIGA, cold)).toBe(true);
+    expect(shoreUnlocked(ARCTIC, cold)).toBe(true);
+    expect(levelUnlocked(ARCTIC, 0, cold)).toBe(true);
+    expect(levelUnlocked(ARCTIC, 1, cold)).toBe(false);
+    expect(continueAt(ARCTIC, cold)).toBe(ARCTIC.levels[0]);
   });
 
   it("is not won while a level has never been ridden, however the rest went", () => {
@@ -407,7 +451,11 @@ describe("the locks", () => {
     expect(ladderAfter("mangrove-6", thirds)).toEqual({ kind: "locked", shore: MANGROVE });
     const wins = rideShore(EMPTY_PROGRESS, MANGROVE, 1);
     expect(ladderAfter("mangrove-6", wins)).toEqual({ kind: "next", level: TAIGA.levels[0] });
-    expect(ladderAfter("taiga-6", rideShore(wins, TAIGA, 1))).toEqual({ kind: "end" });
+    // …and the cold shore's table opens the POLAR one rather than ending the
+    // road, which is the whole of what adding a shore does to the ladder.
+    const cold = rideShore(wins, TAIGA, 1);
+    expect(ladderAfter("taiga-6", cold)).toEqual({ kind: "next", level: ARCTIC.levels[0] });
+    expect(ladderAfter("arctic-6", rideShore(cold, ARCTIC, 1))).toEqual({ kind: "end" });
     expect(ladderAfter("nowhere-1", wins)).toEqual({ kind: "end" });
   });
 });
@@ -421,7 +469,12 @@ describe("the developer's locks (unlockShores, lockShores)", () => {
     expect(shoreWon(TAIGA, opened)).toBe(true);
     expect(shoreUnlocked(TAIGA, opened)).toBe(true);
     for (const level of TAIGA.levels) expect(levelCleared(opened, level)).toBe(true);
-    expect(campaignStanding(opened)).toEqual({ cleared: 12, of: 12 });
+    // …and nothing in FRONT of it: the polar shore is a press of its own.
+    expect(shoreWon(ARCTIC, opened)).toBe(false);
+    expect(campaignStanding(opened)).toEqual({
+      cleared: MANGROVE.levels.length + TAIGA.levels.length,
+      of: CAMPAIGN_LEVELS.length,
+    });
   });
 
   it("opens the FIRST shore without touching the one behind it", () => {
@@ -503,7 +556,7 @@ describe("the developer's locks (unlockShores, lockShores)", () => {
   it("goes all the way back, and all the way forward, on null", () => {
     const shut = lockShores(unlockShores(EMPTY_PROGRESS, null), null);
     expect(shut).toEqual(EMPTY_PROGRESS);
-    expect(campaignStanding(shut)).toEqual({ cleared: 0, of: 12 });
+    expect(campaignStanding(shut)).toEqual({ cleared: 0, of: CAMPAIGN_LEVELS.length });
     expect(shoreUnlocked(TAIGA, shut)).toBe(false);
   });
 
@@ -532,21 +585,22 @@ describe("the developer's locks (unlockShores, lockShores)", () => {
 
   it("says which press still has something to do", () => {
     const fresh = unlockRows(EMPTY_PROGRESS);
-    expect(fresh.map((row) => row.won)).toEqual([false, false]);
-    expect(fresh.map((row) => row.shut)).toEqual([true, true]);
-    expect(fresh.map((row) => row.open)).toEqual([true, false]);
+    expect(fresh.map((row) => row.won)).toEqual(SHORES.map(() => false));
+    expect(fresh.map((row) => row.shut)).toEqual(SHORES.map(() => true));
+    expect(fresh.map((row) => row.open)).toEqual(SHORES.map((_s, i) => i === 0));
     expect(fresh[0]).toMatchObject({ cleared: 0, of: MANGROVE.levels.length });
 
     const all = unlockRows(unlockShores(EMPTY_PROGRESS, null));
-    expect(all.map((row) => row.won)).toEqual([true, true]);
-    expect(all.map((row) => row.shut)).toEqual([false, false]);
+    expect(all.map((row) => row.won)).toEqual(SHORES.map(() => true));
+    expect(all.map((row) => row.shut)).toEqual(SHORES.map(() => false));
     expect(all[1].cleared).toBe(TAIGA.levels.length);
 
-    // The FIRST shore won and the second untouched: its own unlock is spent,
-    // the second's is not, and the second's lock has nothing left either.
+    // The FIRST shore won and everything in front of it untouched: its own
+    // unlock is spent, the rest are not, and their locks have nothing left
+    // either.
     const first = unlockRows(unlockShores(EMPTY_PROGRESS, MANGROVE.id));
-    expect(first.map((row) => row.won)).toEqual([true, false]);
-    expect(first.map((row) => row.shut)).toEqual([false, true]);
+    expect(first.map((row) => row.won)).toEqual(SHORES.map((_s, i) => i === 0));
+    expect(first.map((row) => row.shut)).toEqual(SHORES.map((_s, i) => i > 0));
   });
 });
 
@@ -586,7 +640,7 @@ describe("a stored board", () => {
 });
 
 describe("the pinned shores, offered outside the campaign (fitsMode)", () => {
-  // RACE, TRICKS and TIME TRIAL pick one of these twelve rather than a seed
+  // RACE, TRICKS and TIME TRIAL pick one of these rather than a seed
   // (`menu-levels.tsx`), so a level has to say which of them may ride it.
   // It fails silently both ways: a discipline offered a shore that was not
   // built for it rides a level the campaign's own box never shows, and one

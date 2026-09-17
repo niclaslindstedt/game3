@@ -64,7 +64,7 @@ describe("shore layouts", () => {
     // and it re-rolls exactly ONE layout rather than all of them — so the
     // rebuild check would sail past a re-seeded `taiga-3` forever. The stored
     // spec makes that a comparison rather than a build, which is what lets it
-    // cover all twelve for free.
+    // cover every level for free.
     for (const level of LEVELS) {
       const stored = SHORE_ROUTES[level.id];
       expect(stored, level.id).toBeDefined();
@@ -77,9 +77,9 @@ describe("shore layouts", () => {
         // R36 — the groundswell is part of how the course was drawn.
         swell: level.swell,
         // ...and WHICH GENERATOR built it, with the DIGEST of what came out.
-        // This is the cheap half of the staleness check and it covers all
-        // twelve: a level MOVED to a newer generator is new water under an
-        // old picture, and the rebuild below only looks at two of them.
+        // This is the cheap half of the staleness check and it covers every
+        // level: one MOVED to a newer generator is new water under an old
+        // picture, and the rebuild below only looks at one shore of each.
         version: level.version,
         digest: level.digest,
       });
@@ -110,10 +110,10 @@ describe("shore layouts", () => {
   });
 
   it("still matches what the generator builds", () => {
-    // ONE SHORE OF EACH COAST — the first rung of each, which are the two
+    // ONE SHORE OF EACH COAST — the first rung of each, which are the
     // cheapest levels in the campaign. Any change to the generator re-rolls
-    // EVERY layout, so checking two catches it as surely as checking twelve
-    // and keeps twelve `generateLevel` builds off the suite's path.
+    // EVERY layout, so checking one a coast catches it as surely as checking
+    // all of them and keeps the rest of the builds off the suite's path.
     //
     // THIS IS THE CASE THAT NOTICES A GENERATOR CHANGE REACHING THE CAMPAIGN,
     // and it is the enforcement behind the version scheme: the pin in
@@ -193,7 +193,7 @@ describe("coast banners", () => {
     // serve the site off a scheme of their own. A banner addressed from the
     // root would 404 on all three.
     for (const base of ["/", "/preview/", "game://localhost/"]) {
-      expect(coastShot("taiga", base)).toBe(`${base}previews/coast-taiga.jpg`);
+      expect(coastShot("arctic", base)).toBe(`${base}previews/coast-arctic.jpg`);
     }
   });
 

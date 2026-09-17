@@ -25,7 +25,7 @@
 //
 //   CAMPAIGN   → the ladder (menu-campaign.tsx). THE HERO: twice the width
 //                of the rest, the largest mark on the card, and a line of
-//                its own saying how far up the twelve the player has got
+//                its own saying how far up the ladder the player has got
 //                (`campaignStanding`). It is the only tile with something to
 //                ride FOR, and the only one whose face changes between
 //                visits — which is what makes it worth looking at on the

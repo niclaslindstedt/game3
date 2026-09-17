@@ -220,8 +220,16 @@ export function rateLevel(level: Level, given: Partial<RunConditions> = {}): Lev
   const ridden = level.course.length * laps;
   const km = Math.max(0.1, level.course.length / 1000);
 
-  // THE SEA along the line, as the run would grow it from the pinned wind.
-  const sea = createSea(level, level.seed, { from: level.wind.from, speed: conditions.wind });
+  // THE SEA along the line, as the run would grow it from the pinned wind,
+  // and in the SEASON the run is ridden in rather than the one the seed was
+  // dealt — because on a coast that freezes, the season is what decides
+  // whether there is a sea there at all (R37, `frozen`): a winter run is
+  // ridden down a channel cut through a sheet of ice, and a lead grows a
+  // fraction of the wind sea and none of the swell. Laid over the level the
+  // way `createGame` lays it, so the water rated is the water ridden.
+  const inSeason: Level =
+    conditions.season === level.season ? level : { ...level, season: conditions.season };
+  const sea = createSea(inSeason, level.seed, { from: level.wind.from, speed: conditions.wind });
   let hsSum = 0;
   let hsMax = 0;
   let samples = 0;

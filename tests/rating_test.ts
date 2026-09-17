@@ -21,7 +21,7 @@ import {
   type RatingAxes,
 } from "@engine";
 
-import { LEVEL_SEEDS, circuitFor, levelFor } from "./support/levels.ts";
+import { ARCTIC_SEEDS, LEVEL_SEEDS, arcticFor, circuitFor, levelFor } from "./support/levels.ts";
 
 const LEVEL = levelFor(LEVEL_SEEDS[0]);
 
@@ -68,6 +68,27 @@ describe("one level's rating", () => {
     expect(gale.axes.wind).toBe(1);
     expect(gale.stats.hs).toBeGreaterThan(calm.stats.hs);
     expect(gale.axes.sea).toBeGreaterThanOrEqual(calm.axes.sea);
+  });
+
+  it("rates a freezing coast's winter as the channel it is, not the open sea", () => {
+    // R37 — on a coast that freezes, the SEASON is what decides whether
+    // there is a sea there at all: the winter's water is a lead cut through
+    // two metres of ice, which grows a fraction of the wind sea and none of
+    // the swell. The rating is handed the run's conditions, so it has to lay
+    // that season over the level before it builds the sea (`createGame`'s
+    // own move) or it rates water the run never meets — and it rates it
+    // WRONG IN THE DIRECTION THAT MATTERS, reading an ice channel as the
+    // hardest sea on the coast and putting it at the top of a ladder.
+    const polar = arcticFor(ARCTIC_SEEDS[0]);
+    const open = rateLevel(polar, { season: "autumn", wind: 13 });
+    const ice = rateLevel(polar, { season: "winter", wind: 13 });
+    expect(ice.stats.hs).toBeLessThan(open.stats.hs / 2);
+    expect(ice.axes.sea).toBeLessThan(open.axes.sea);
+    // …and a coast that does NOT freeze reads the same sea in either
+    // season, so no taiga or mangrove rung moved for this.
+    const cold = rateLevel(LEVEL, { season: "autumn", wind: 13 });
+    const colder = rateLevel(LEVEL, { season: "winter", wind: 13 });
+    expect(colder.stats.hs).toBe(cold.stats.hs);
   });
 
   it("reads a circuit as longer than a sprint, and a tricks field as more air", () => {

@@ -101,4 +101,34 @@ export const SHORE_ROUTES: Record<string, ShoreRoute> = {
     aspect: 0.6594,
     spec: { seed: 14, track: "coast", tricks: false, swell: 12, version: 1, digest: "2ef01c2b" },
   },
+  "arctic-1": {
+    d: "/wD1EfAd13bUe/rW+ODy6+nz3vjR+sT4vPSn55/kluON5IHoeu1y9mf9Wv9N/j34K+0Z4w/bBc4BwwCzA6cJmBCPHINIYlpRYUdoPW8o",
+    aspect: 0.9111,
+    spec: { seed: 38, track: "coast", tricks: false, swell: 1.5, version: 1, digest: "d7e251ca" },
+  },
+  "arctic-2": {
+    d: "/4vsp7fWrNKhyGZ/XX9Uh0+JSIZDgT50O2kxJy0VKQwlBR4AGQESBgwSCCMGMAVUEKURwg/XC+kF9wD/",
+    aspect: 3.0784,
+    spec: { seed: 46, track: "coast", tricks: true, swell: 2, version: 1, digest: "488334af" },
+  },
+  "arctic-3": {
+    d: "t8ek4prujviA/Xf/af4o6hvjD9oGzQLCALYBpQeVEYEbdSZpXzfEANMF2wvmF+4l9DX6S/5i/3P8hPWU6abZs7jJsNCd6pL1ifqA/Xf/bf8x7R/mF+EP2gbNAbwAsQGlBJoLixt1KmZNSF83xADKAtcI3w/pG/Aq+ED+XP9t/X/6ivWU6abZs7jJsNCh5pbxjviF/Hz+cv9k/DHtJOgT3QnRAsIAtgCrA58Jjxh5KmZNSF83xADFANMF2wvmF+4l9jr8UP9o/nn8hPiP8pnpptmzuMmq2Q==",
+    aspect: 1.2366,
+    spec: { seed: 19, track: "circuit", tricks: false, swell: 4, version: 1, digest: "03e26448" },
+  },
+  "arctic-4": {
+    d: "/1nxVuNZpIObhZCGV8dS40/tSvVD/T3/OP4z+y70Kewl3CLDJoklbyFeHVQWSgtCBTUAHgAQAQA=",
+    aspect: 2.3702,
+    spec: { seed: 2, track: "coast", tricks: false, swell: 1.5, version: 1, digest: "56b98d31" },
+  },
+  "arctic-5": {
+    d: "/wDuB+QO10XdXt+U2p7RpcjezOXM6cnwxfS4+6z+n/+S/of6ffVn3mHbV9ZL0z7TMdUh2RjZC9gA0w==",
+    aspect: 0.5391,
+    spec: { seed: 45, track: "coast", tricks: true, swell: 6, version: 1, digest: "deefc154" },
+  },
+  "arctic-6": {
+    d: "6an7hf8w+SbwGuUQ2wrKA7oApwGYBIsLgRF2G2ktYzJYNlA3RTUxKyYoGikTKw0vBzQCPgBFAVAEVwhdDWIVZzG+O8xK3V3vcf8=",
+    aspect: 0.9551,
+    spec: { seed: 41, track: "coast", tricks: false, swell: 18, version: 1, digest: "ab837aaa" },
+  },
 };

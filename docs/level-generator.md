@@ -289,7 +289,7 @@ A level is a pure function of its seed and its options. The tests hold that firs
 
 ## Generator versions, and what the campaign stands on
 
-A level is generated fresh from its seed, so the rules ARE the level: move a gate spacing, a rock's berth, a draw in the seeded stream, and seed 38 stops being the shore that was rated, timed and named — silently, everywhere, at once. Everywhere but the campaign that is fine; it is what a generator is for. The campaign's twelve shores were CURATED (`pwa/src/game/campaign-levels.ts`), and a ladder that re-rolls under its own levels is a ladder nobody chose — with every best time and every medal on it now a result on a shore that no longer exists.
+A level is generated fresh from its seed, so the rules ARE the level: move a gate spacing, a rock's berth, a draw in the seeded stream, and seed 38 stops being the shore that was rated, timed and named — silently, everywhere, at once. Everywhere but the campaign that is fine; it is what a generator is for. The campaign's pinned shores were CURATED (`pwa/src/game/campaign-levels.ts`), and a ladder that re-rolls under its own levels is a ladder nobody chose — with every best time and every medal on it now a result on a shore that no longer exists.
 
 So each campaign level names the version of the generator it was curated under (`version` on `CampaignLevel`), and that version keeps building it. `engine/mapgen/versions.ts` is the registry; `CURRENT_GENERATOR_VERSION` is the rules as they stand in this tree, and it is what every other way into the generator gets — the start card, the labs, the sweeps, the suite. The version rides on `GenerateOptions` because that is the one object handed to the generator, but it is not a dial: no menu offers it.
 
