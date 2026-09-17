@@ -20,6 +20,9 @@
 // hud.tsx is a layout: the two buttons are the same shape at the same weight,
 // and a rider who has learned one has learned the other.
 
+import { useMemo } from "preact/hooks";
+
+import { createHudPress, pressHandlers } from "./hud-press.ts";
 import { STRINGS } from "./strings.ts";
 
 /** The reset mark: an arrow curling back on itself, which is what this does
@@ -55,8 +58,17 @@ function CameraGlyph() {
 /** The row itself. A button that keeps the focus keeps the next Enter, and
  * the next Enter is the shutter — so both let go of it on mouse-up, which is
  * what stops a press on RESET being repeated by every picture the rider takes
- * afterwards. */
+ * afterwards.
+ *
+ * BOTH ARE PRESSED THROUGH THE POINTER EVENTS (`hud-press.ts`), because these
+ * are the two presses made WHILE THE CRAFT IS MOVING and a moving craft is a
+ * craft with a thumb already on the glass. A second finger is a non-primary
+ * pointer and the browser synthesises no `click` for one: on `onClick` alone
+ * neither of these buttons answers a rider who is holding the bar or the
+ * lever, which is every rider who needs them. */
 export function HudActions({ onReset, onCamera }: { onReset: () => void; onCamera: () => void }) {
+  const resetPress = useMemo(createHudPress, []);
+  const cameraPress = useMemo(createHudPress, []);
   return (
     <div class="hud-action-stack">
       <button
@@ -64,7 +76,7 @@ export function HudActions({ onReset, onCamera }: { onReset: () => void; onCamer
         class="hud-mini hud-mini-icon"
         title={STRINGS.resetTitle}
         aria-label={STRINGS.resetTitle}
-        onClick={onReset}
+        {...pressHandlers(resetPress, onReset)}
         onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
       >
         <ResetGlyph />
@@ -74,7 +86,7 @@ export function HudActions({ onReset, onCamera }: { onReset: () => void; onCamer
         class="hud-mini hud-mini-icon"
         title={STRINGS.cameraTitle}
         aria-label={STRINGS.cameraTitle}
-        onClick={onCamera}
+        {...pressHandlers(cameraPress, onCamera)}
         onMouseUp={(e) => (e.currentTarget as HTMLButtonElement).blur()}
       >
         <CameraGlyph />

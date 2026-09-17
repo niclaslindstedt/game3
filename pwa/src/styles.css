@@ -379,6 +379,10 @@ canvas {
   padding: 0.3rem 0.6rem;
   cursor: pointer;
   text-shadow: none;
+  /* The same as the map's plate above these two: no double-tap wait on a
+     press a rider makes mid-run, and the browser never claims the touch for
+     a gesture of its own halfway through one (`hud-press.ts`). */
+  touch-action: manipulation;
   /* A button that squashes turns its glyph into a smear. */
   flex: none;
 }
@@ -454,6 +458,7 @@ canvas {
   border-radius: 1rem;
   cursor: pointer;
   text-shadow: none;
+  touch-action: manipulation;
   flex: none;
   opacity: 0.7;
   transition:

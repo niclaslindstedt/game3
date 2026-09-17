@@ -46,6 +46,7 @@ import { useEffect, useMemo, useState } from "preact/hooks";
 import { cacheIdForBase } from "../app-pwa.ts";
 import { usePwaUpdate } from "../lib/pwa-update.ts";
 import { shellHost } from "../shell-host.ts";
+import { createHudPress, pressHandlers } from "./hud-press.ts";
 import { STRINGS } from "./strings.ts";
 
 /** How long an armed button waits for its second press before going quiet, ms. */
@@ -85,6 +86,11 @@ export function UpdateButton() {
   });
   const forced = useMemo(updateForced, []);
   const [armed, setArmed] = useState(false);
+  // This mark stands INSIDE the lever's glass on purpose, which makes it the
+  // one press on this screen most likely to be reached for with the other
+  // thumb still down — and a non-primary finger is handed no `click` at all
+  // (`hud-press.ts`). Both halves of the arming need the pointer events.
+  const press = useMemo(createHudPress, []);
 
   useEffect(() => {
     if (!armed) return;
@@ -107,7 +113,7 @@ export function UpdateButton() {
       data-armed={armed ? "" : undefined}
       title={label}
       aria-label={label}
-      onClick={() => {
+      {...pressHandlers(press, () => {
         if (!armed) {
           setArmed(true);
           return;
@@ -117,7 +123,7 @@ export function UpdateButton() {
         // is what the button promised.
         if (pwa.needRefresh) pwa.reload();
         else location.reload();
-      }}
+      })}
     >
       <UpdateGlyph />
       <span class="update-nudge-word" aria-hidden="true">

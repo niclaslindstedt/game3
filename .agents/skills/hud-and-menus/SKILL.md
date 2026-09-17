@@ -51,6 +51,7 @@ here, the keys that walk a card are there.
 | Touch: the HANDLEBAR overlay | `pwa/src/game/hud-touch.tsx`, LEFT half — thumb travel → steer, vertical travel → lean; drawn as a bar that tilts with the thumb |
 | Touch: the THROTTLE LEVER | `hud-touch.tsx`, RIGHT half — the touch anchors at 0, dragging DOWN opens the throttle (full at ~90 px), analogue, held while the finger is down, released on lift; drawn as a lever that follows the thumb |
 | A zone's grip on a finger | the thumb-guard discipline in `hud-touch.tsx`: a touch belongs to the zone it STARTED in until it lifts, whatever it wanders over; a second finger on the same half is ignored, not merged |
+| A BUTTON pressed while a zone is held | `pwa/src/game/hud-press.ts` — `click` is synthesised from the PRIMARY pointer alone, and a ridden craft has that finger spoken for, so every press drawn over a run fires from `pointerup` and swallows the click behind it; `tests/hud_press_test.ts` reads it |
 | The `reset` edge | `CraftInput.reset` is an EDGE — true for one step — and `input-model.ts` is where a held key becomes one |
 
 ## The traps
@@ -95,6 +96,16 @@ here, the keys that walk a card are there.
   a key and a menu row and the two that remain stayed at thirds for it. When
   the two numbers disagree, the ZONE and the comments are the ones to believe:
   the divisor is what gets left behind.
+- **A PRESS DRAWN OVER A RUN IS NEVER WIRED ON `onClick` ALONE.** `click` is an
+  activation event synthesised from the PRIMARY pointer — the first finger on
+  the glass — and on a phone that finger is always the handlebar's or the
+  lever's. Every other finger is non-primary and gets `pointerdown` and
+  `pointerup` and no click at all, so an `onClick` button over a run is dead
+  to exactly the rider who needs it. `hud-press.ts` is the answer and the
+  measurement behind it; a new press joins it. Clearance and `z-index` are a
+  different question (the zone lesson) and neither one is evidence about the
+  other: here the hit test lands, the button hears the touch, and the action
+  never runs.
 - **The build label is §38's "the running build says what it is".** It reads
   `engine/version.ts` and the build's short hash; do not drop it for room.
 - **A new colour on this screen owes the night dressing a ramp.** The HUD dips
