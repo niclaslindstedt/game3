@@ -74,7 +74,21 @@ function throws(
   const apex: number[] = [];
   let peak = 0;
   for (let i = 0; i < TUNING.physicsHz * seconds; i++) {
-    step(game, { steer: 0, throttle: 1, reverse: 0, lean: 0, crouch: 0, reset: false });
+    // Flat out, and OFF THE GAS THE MOMENT THE HULL GOES UNDER. A hull
+    // driven under the storm with the throttle held is the rider's for ten
+    // seconds (`submerged.ts`), inverted as often as not out here, and a
+    // rider who kept the gas on through that would spend a fifth of the
+    // ride under water measuring nothing; letting go brings the hull up a
+    // second later, which is what a rider does and what keeps the sample a
+    // sample of the column.
+    step(game, {
+      steer: 0,
+      throttle: c.under ? 0 : 1,
+      reverse: 0,
+      lean: 0,
+      crouch: 0,
+      reset: false,
+    });
     if (c.airborne) {
       const water = surfaceAt(game.sea, level, c.x, c.z, game.t).height;
       peak = Math.max(peak, c.y - water);
@@ -425,30 +439,34 @@ describe("what the tornado does to a rider", () => {
   const b = level.bounds;
   const far = TORNADO_EDGE + BAND + 1_200;
 
-  it("throws him twenty metres and more, and every craft in the roster fifteen", () => {
+  it("throws every craft in the roster past ten metres, and the roster past twenty", () => {
     // WHY THE RIDE IS LONGER HERE THAN ANYWHERE ELSE IN THE FILE. This is the
     // one claim in the file read off the TOP of the sample rather than its
     // middle, and a maximum converges far more slowly than a median does: how
     // high the biggest throw of a ride was is a question about the luckiest
     // wave the column caught the hull on, so a short ride answers it with
-    // whatever the sea happened to deal. Two minutes lands a hull about ten
-    // flights, and ten flights put the roster's weakest within a metre or two
-    // of its bar in either direction — which makes a tight assertion a coin
-    // toss that any change to the sea re-flips: the wash the hull lays in
-    // the water (`wash.ts`) moved the dart's best throw on this seed from
-    // twenty metres to eighteen, with twelve minutes of riding leaving it
-    // there, while the otter's went up by a third. Six minutes is where the
-    // estimate stops moving, so the bar the WEAKEST hull is held to sits
-    // clear of the sample's spread, and the twenty-metre claim is the
-    // roster's — the tornado throws SOMEBODY that high, every time.
-    let best = 0;
+    // whatever the sea happened to deal. Two minutes lands a hull a handful
+    // of flights, and that puts a hull's best within metres of any bar in
+    // either direction — which makes a per-craft bar a coin toss that any
+    // change to the sea re-flips: the wash the hull lays in the water
+    // (`wash.ts`) moved the dart's best throw on this seed from twenty
+    // metres to eighteen while the otter's went up by a third, and the
+    // rider's spell under the water (`submerged.ts`) roughly halved every
+    // craft's flights past ten metres. Measured as a DISTRIBUTION over five
+    // seeds at four minutes (the `craft-physics` lessons say how), the
+    // roster's best throws run 29 m mean on the skiff down to 17 on the
+    // dart, whose best clears twenty on one seed in five — so the bar the
+    // roster as a whole is held to is twenty, and every craft to ten. Six
+    // minutes is where the estimate stops moving, so the margin is the
+    // tornado's and not the sample's.
+    let roster = 0;
     for (const craft of CRAFT) {
       const { apex } = throws(level, craft.id, 400, b.maxZ + far, 360);
       expect(apex.length).toBeGreaterThan(0);
-      expect(Math.max(...apex), craft.id).toBeGreaterThan(15);
-      best = Math.max(best, ...apex);
+      expect(Math.max(...apex), craft.id).toBeGreaterThan(10);
+      roster = Math.max(roster, ...apex);
     }
-    expect(best).toBeGreaterThan(20);
+    expect(roster).toBeGreaterThan(20);
   });
 
   it("throws him to a bounded height, and holds him up for seconds and not a minute", () => {
@@ -465,12 +483,15 @@ describe("what the tornado does to a rider", () => {
     // Five minutes a hull rather than two. What is read below are
     // PERCENTILES, and a percentile is only as good as the sample under it:
     // at two minutes the shore column landed the roster right on the
-    // twenty-flight bar, so any change to the wind that cost it one flight
-    // failed the case without saying anything about the tornado; three
-    // minutes cleared it until the wash the hull lays in the water
-    // (`wash.ts`) re-dealt the shore column fifteen flights. The extra
-    // minutes put both columns clear of the bar again, which is a claim
-    // about the sample and not about the tornado.
+    // flight bar, so any change to the wind that cost it one flight failed
+    // the case without saying anything about the tornado; three minutes
+    // cleared it until the wash the hull lays in the water (`wash.ts`)
+    // re-dealt the shore column fifteen flights. A hull out there is thrown
+    // past ten metres about five times in four minutes (the distribution
+    // above), so five minutes a hull over the roster puts both columns past
+    // a dozen — enough flights for a median and a ninetieth percentile to
+    // mean something, and the bar is a floor under that sample rather than
+    // a claim about the column.
     const SECONDS = 300;
     for (const craft of CRAFT) {
       const out = throws(level, craft.id, 400, b.maxZ + far, SECONDS);
@@ -480,8 +501,8 @@ describe("what the tornado does to a rider", () => {
       shore.push(...along.air);
       shoreApex.push(...along.apex);
     }
-    expect(ocean.length).toBeGreaterThan(20);
-    expect(shore.length).toBeGreaterThan(20);
+    expect(ocean.length).toBeGreaterThan(10);
+    expect(shore.length).toBeGreaterThan(10);
     // THE HEIGHT IS THE BOUND, and it is the one that does not move when the
     // sea does: twenty-odd metres at the ninetieth percentile, on both
     // columns, whatever the storm under them is shaped like.

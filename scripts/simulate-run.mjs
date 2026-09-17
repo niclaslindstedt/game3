@@ -93,6 +93,7 @@ console.log(
     pad("score", 7),
     pad("lnch", 4),
     pad("dive", 4),
+    pad("undr", 5),
     pad("hit", 4),
     pad("grnd", 4),
     pad("rst", 4),
@@ -127,6 +128,7 @@ for (const seed of seeds) {
         pad(r.score, 7),
         pad(r.launches, 4),
         pad(r.dives, 4),
+        pad(r.underTime.toFixed(1), 5),
         pad(r.hits, 4),
         pad(r.groundings, 4),
         pad(r.resets, 4),
@@ -155,6 +157,7 @@ for (const craft of crafts) {
       `air ${(sum((r) => r.airTime) / own.length).toFixed(1)} s/run · ` +
       `score ${Math.round(sum((r) => r.score) / own.length)}/run · ` +
       `launches ${sum((r) => r.launches)} · dives ${sum((r) => r.dives)} · ` +
+      `under ${sum((r) => r.underTime).toFixed(1)} s · float-ups ${sum((r) => r.floatUps)} · ` +
       `hits ${sum((r) => r.hits)} · groundings ${sum((r) => r.groundings)} · ` +
       `resets ${sum((r) => r.resets)} · missed ${sum((r) => r.gatesMissed)}`,
   );

@@ -276,9 +276,14 @@ is made on flat water or not at all.
   these looks like a sign bug from the symptom, so check them before tuning.
   - *A body torque about axis `a` swings a fixed WORLD direction the other
     way round it.* Anything steering toward an attitude works on
-    `unrotate(q, worldUp)`, and the axis that carries the vector onto its
-    target, `n = upBody × target`, is the NEGATIVE of the torque axis. Apply
-    `+n` and every correction drives the attitude further off: `landingAssist`
+    `upB = unrotate(q, worldUp)` — the WORLD's up as the body sees it — and
+    the axis that carries THAT vector onto the body's own target,
+    `n = upB × target`, is the NEGATIVE of the torque axis. (Written the
+    other way round, carrying the body's own up `(0, 1, 0)` onto the world
+    target read in the body, the cross product flips and the torque is
+    `+n` — the float-up's first draft was benched into that and back out.)
+    Apply the wrong sign and every correction drives the attitude further
+    off: `landingAssist`
     shipped this way for one round and came back WORSE than no assist (bad
     landings 68 % → 79 %, capsizes nearly doubled), because a hand that rights
     a hull on its side is, mirrored, one that rolls it the rest of the way

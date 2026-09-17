@@ -27,7 +27,7 @@ import { followingSeaAssist, landingAssist, rampAssist } from "./assist.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { aeroForces, type AeroResult } from "./flight.ts";
-import { submergedControl, submergedShare } from "./submerged.ts";
+import { floatUpStep, stepUnder, submergedShare, underwaterForces } from "./submerged.ts";
 import {
   hullForces,
   hullProbes,
@@ -201,6 +201,13 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.airborne = false;
     c.airTime = 0;
     c.capsizedFor = 0;
+    // A hull the rider is climbing back onto is out of any spell and owed
+    // no float-up: the capsize's righting is the hand now.
+    c.under = false;
+    c.underTime = 0;
+    c.gasOff = 0;
+    c.floatUp = false;
+    c.floatUpFor = 0;
     return;
   }
   // HOW MUCH OF THE HULL'S WAY IS STILL FORWARDS, 1 down to 0 — what the
@@ -238,8 +245,16 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // nothing to stand against without it. The thresholds are what keep it
   // deliberate: every lean-back the ride already uses sits under them.
   // A rider cannot be folded down and stood up at once, so the tuck wins.
+  //
+  // ...AND THE WATER FOLDS HIM DOWN ITSELF. A rider whose deck has gone
+  // under (`CraftState.under`, `submerged.ts`) is down behind the bars
+  // whatever he asked for — there is nothing else to be, in a wall of water
+  // at twenty metres a second — and he comes back up on the tuck's own lag
+  // once the hull is out. It is what the body under the water is drawn
+  // as, and what the water's drag on him reads (`riderDrag`).
   {
-    c.crouch += (clamp(input.crouch, 0, 1) - c.crouch) * (1 - Math.exp(-dt / T.tuck.lag));
+    const tuck = Math.max(clamp(input.crouch, 0, 1), c.under ? 1 : 0);
+    c.crouch += (tuck - c.crouch) * (1 - Math.exp(-dt / T.tuck.lag));
     // ...and the hull has to be UNDER him. A rider cannot stand up on a
     // craft that is not carrying him — off a crest, mid-flight, or with
     // the bottom unloaded there is nothing to push against — so the stand
@@ -379,17 +394,20 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     tbx -= c.stand * T.stand.hoist * I.x * upright;
   }
 
+  // HOW FAR UNDER THE HULL IS (`submerged.ts`), read once here because
+  // four things branch on it: the sponsons, the engine, the rider's own
+  // hands, and whether being upside down means anything at all.
+  const under = submergedShare(hull.bottomUnder, hull.deckFill);
+
   // THE SPONSONS: the outside one planes on the water the hull is being
   // pushed across and banks it INTO the turn. A push to the right (the
   // water turning the hull right) rolls the right side down, which in
   // right-handed body axes is a negative z torque. How deep they are set
-  // is the craft's own (`sponsonBite`).
-  tbz -= hull.lateral * T.hull.sponsonLever * spec.cog.y * spec.sponsonBite;
-
-  // HOW FAR UNDER THE HULL IS (`submerged.ts`), read once here because
-  // three things below branch on it: the engine, the rider's own hands,
-  // and whether being upside down means anything at all.
-  const under = submergedShare(hull.bottomUnder, hull.deckFill);
+  // is the craft's own (`sponsonBite`). A sponson PLANES, so it fades
+  // with the hull going under, as the chines' bank does (`hull.ts`): a
+  // submerged hull rising heeled has a sideways flow over its bottom and
+  // nothing to plane on, and banking into it rolled the hull over.
+  tbz -= hull.lateral * T.hull.sponsonLever * spec.cog.y * spec.sponsonBite * (1 - under);
 
   // THE PUMP: the intake is fed while the transom station is wet, and the
   // engine is cut when the craft is CAPSIZED — which stands in for the
@@ -638,13 +656,29 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     tbz += aero.tz;
   }
 
-  // ...AND THE OTHER END OF THE SAME CROSSING (`submerged.ts`). The air
-  // hands the rider's bars back as the hull wets; the water takes them on
-  // as it goes under, so there is no attitude in which he has been handed
-  // nothing. It is the whole of what stops a buried bow from becoming a
-  // capsize, and the whole of what lets one be ridden back out.
+  // ...AND THE OTHER END OF THE SAME CROSSING (`underwaterForces`). The
+  // air hands the rider's bars back as the hull wets; the water takes them
+  // on as it goes under, with his own body's drag beside them — the brake
+  // and the nose-up couple a bury really is — so there is no attitude in
+  // which he has been handed nothing, until his time down there is out
+  // (`CraftState.floatUp`) and the hull is turned up for him instead.
   if (under > 0) {
-    submergedControl(spec, under, input.steer, input.lean, c.crouch, I, aero);
+    underwaterForces(
+      spec,
+      c,
+      under,
+      input.steer,
+      input.lean,
+      I,
+      density,
+      c.vx - hull.waterVx,
+      c.vy - hull.waterVy,
+      c.vz - hull.waterVz,
+      aero,
+    );
+    fx += aero.fx;
+    fy += aero.fy;
+    fz += aero.fz;
     tbx += aero.tx;
     tby += aero.ty;
     tbz += aero.tz;
@@ -778,7 +812,11 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   c.x += c.vx * dt;
   c.y += c.vy * dt;
   c.z += c.vz * dt;
-  c.q = integrate(c.q, c.wx, c.wy, c.wz, dt);
+  // THE FLOAT-UP has the orientation AND the height while it holds
+  // (`submerged.ts`, `floatUpStep`): the capsize's righting on the other
+  // side of the surface, with the way along left to the physics.
+  if (c.floatUp) floatUpStep(c, restY(spec, density) + waterY, dt);
+  else c.q = integrate(c.q, c.wx, c.wy, c.wz, dt);
 
   // THE ROCKS, as an impulse on the new pose.
   clipSolids(level, spec, c, state.t, events);
@@ -847,6 +885,22 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
     c.airTime = 0;
   }
 
+  // THE SPELL UNDER THE WATER — the flight's bookkeeping on the other side
+  // of the surface (`submerged.ts`, `stepUnder`): the latch on the share,
+  // the clock from the moment the deck went under, the gas clock the
+  // float-up is timed against, and the events at either end. The throttle
+  // it reads is the lever as ASKED, not as the engine got it: letting go
+  // of the gas is the rider's decision, and it is the same decision with
+  // the intake out.
+  stepUnder(
+    c,
+    under,
+    rotate(c.q, { x: 0, y: 1, z: 0 }).y,
+    clamp(input.throttle, 0, 1),
+    state.t,
+    events,
+  );
+
   // THE TWO STROKES — the pump on the bars hauled back and the whip on the
   // bars thrown over, both read off the SHAPE of their input rather than
   // its value (`strokes.ts`, which owns every rule and the measurements
@@ -898,12 +952,18 @@ export function stepCraft(state: GameState, input: CraftInput, events: GameEvent
   // under it for `capsize.after` seconds is over for good — a PWC does
   // not self-right — and the rider climbs back on and rights it.
   //
-  // It needs no exemption for a hull that has gone UNDER: a bow driven in
-  // at pace keeps its deck up (`up.y` stays above 0.9 through the whole
-  // bury, measured over the roster on the air gate's own dive), so a dive
-  // never started this clock in the first place. What reaches `up.y < 0`
-  // is a hull that has been rolled, and that is over however deep it is.
-  if (up.y < 0 && !airborne) {
+  // NOT UNDER THE WATER. A hull that has gone under is the rider's for as
+  // long as `submerged.ts` gives him, whichever way up it is — a bow driven
+  // in at pace takes the hull past vertical in a fifth of a second and he
+  // still has the bars and the jet to bring it back — and the float-up is
+  // what ends a spell that went wrong. What this clock is for is a hull on
+  // its back ON the surface, which is over.
+  // ...NOR WHILE THE FLOAT-UP HAS IT: a hull that came out of a dive on
+  // its back is being turned over by the hand, which the water lets it do
+  // at about a radian a second, and a clock that fired first would make
+  // every dive a capsize after all. The hand is bounded (`holdUp`), so a
+  // hull it cannot right is this clock's again.
+  if (up.y < 0 && !airborne && !c.under && !c.floatUp) {
     c.capsizedFor += dt;
     if (c.capsizedFor >= T.capsize.after) {
       events.push({ kind: "capsize", t: state.t, speed: c.speed });

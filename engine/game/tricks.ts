@@ -6,15 +6,18 @@
 // and nothing is yours until you are back on the water with the craft under
 // you. Fall off it and the lot goes.
 //
-// FOUR THINGS ARE SCORED, because four are reachable: the time the hull
+// FIVE THINGS ARE SCORED, because five are reachable: the time the hull
 // spends off the water, the revolutions it turns nose-over-tail while it is
 // up there (THE PUMP throws one: `TUNING.flight.pump`), the revolutions it
-// turns about its own length (THE WHIP: `TUNING.flight.whip`), and the
-// flight itself as an element beside any of them. A hull on its tail and a
-// trick taken off a buoy are the same machinery with another term in it —
-// `TrickState` is shaped for them and this module is where they land.
+// turns about its own length (THE WHIP: `TUNING.flight.whip`), the flight
+// itself as an element beside any of them — and THE TIME IT SPENDS UNDER
+// THE WATER (`submerged.ts`), which is the air's mirror on the other side
+// of the surface and paid by the same rule, with the SUBMARINE the element
+// a clean surfacing wins. A hull on its tail and a trick taken off a buoy
+// are the same machinery with another term in it — `TrickState` is shaped
+// for them and this module is where they land.
 //
-// THE FOUR RULES, and the reason each is the shape it is:
+// THE FIVE RULES, and the reason each is the shape it is:
 //
 // 1. AIR TIME PAYS BY THE SECOND, AT A RATE THAT RISES WITH THE FLIGHT.
 //    The rate is logarithmic in how long the hull has been up
@@ -54,12 +57,29 @@
 //
 // 4. NOTHING IS BANKED UNTIL THE COMBO CLOSES. The base and the multiplier
 //    ride together for as long as the rider keeps the run alive: while the
-//    hull is up, and for `linkWindow` seconds after it comes down, so one
-//    landing straight into the next launch is ONE combo at one multiplier
-//    rather than two small ones. The window running out banks
-//    `base × mult` into the run's score. Going over the bars — a capsize, a
-//    bow buried on the landing, or the rider putting himself back at a gate
-//    — banks nothing at all.
+//    hull is up, while it is UNDER, and for `linkWindow` seconds after it
+//    is back on the water, so one landing straight into the next launch is
+//    ONE combo at one multiplier rather than two small ones. The window
+//    running out banks `base × mult` into the run's score. Going over the
+//    bars — a capsize, the water bringing the hull up for him (the
+//    float-up), or the rider putting himself back at a gate — banks
+//    nothing at all.
+//
+// 5. THE WATER PAYS LIKE THE AIR, AND A CLEAN SURFACING IS A TRICK. A hull
+//    under the water (`CraftState.under`) ticks the same by-the-second
+//    rate the air does, on its own clock, from the same half-second line
+//    (`submerged.counts`) — a deck swallowed by a wave is a wave. Come back
+//    out UNDER THE RIDER — the right way up, before the float-up has to
+//    bring it up — after `diveElement` of it, and that is the SUBMARINE:
+//    one step of multiplier and nothing on the base, because the seconds
+//    are already paid, exactly as the air's rung is. Unlike the air it is
+//    credited on its own, because a hull that came up clean was RIDDEN up
+//    and a plain jump is not ridden. It SELLS THE AIR too: a flight that
+//    ends in a dive keeps its rung in hand through the water, so a jump
+//    dived into and ridden back out of is the air and the submarine in one
+//    combo. A bow merely buried on a landing (`dive`) is no longer a bail:
+//    it is the start of something, or it is nothing, and the float-up says
+//    which.
 //
 // The engine only ever says what happened: `trick`, `combo` and `bail`
 // events carry the beat a presentation pulses on, and `TrickState` carries
@@ -217,6 +237,19 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
     if (events[i].kind === "launch") k.flight += 1;
   }
 
+  // THE SUBMARINE (rule 5): a spell that ended under the rider, after long
+  // enough to be one. Read off the craft's own `surface` rather than a
+  // state edge of this module's, for the reason the flights are counted
+  // off `launch` — and read BEFORE the water's branch below, which on this
+  // same step sees a hull back on the water and lets the air's rung go:
+  // the rung has to be sold while it is still in hand.
+  for (let i = 0; i < events.length; i++) {
+    const e = events[i];
+    if (e.kind === "surface" && e.clean && e.underTime >= T.diveElement) {
+      win(state, events, "submarine", 1, 0);
+    }
+  }
+
   if (c.airborne) {
     // HOW FAR THE HULL HAS GONE OVER, rad, on each of the two axes a rider
     // can turn it about — nose-up positive for the flip (−wx), right side
@@ -258,22 +291,41 @@ export function stepTricks(state: GameState, events: GameEvent[]): void {
     k.spins = 0;
     k.roll = 0;
     k.rolls = 0;
-    k.aired = false;
-    if (k.base > 0) {
-      k.link -= dt;
-      if (k.link <= 0) bank(state, events);
+    if (c.under) {
+      // UNDER THE WATER (rule 5): the same rate on the spell's own clock,
+      // and the combo held open the way a flight holds it. `aired` is
+      // kept — the air a rider dived out of is still his to sell. Nothing
+      // ticks once the float-up has the hull: those seconds are the
+      // water's, and the bail below has already had the combo.
+      if (c.underTime > TUNING.submerged.counts && !c.floatUp) {
+        k.base += airPointsPerSecond(c.underTime) * dt;
+        k.link = T.linkWindow;
+      }
+    } else {
+      // The air stays in hand for the half second it takes to know whether
+      // the landing was a dive (`submerged.counts`): a hull goes in, is on
+      // the water for a few steps, and only then is under, and a rung
+      // cleared in between could never be sold through the water. Nothing
+      // else can sell it in that half second — a revolution takes longer.
+      if (c.landing > TUNING.submerged.counts) k.aired = false;
+      if (k.base > 0) {
+        k.link -= dt;
+        if (k.link <= 0) bank(state, events);
+      }
     }
   }
 
-  // GOING OVER THE BARS. A capsize is the hull on its back; a dive is the
-  // bow buried on the landing, which is the same mistake made at the other
-  // end of the flight. Both arrive a step or more after the water, inside
-  // the link window, which is exactly the combo they should take with them.
-  // A `hit` is not one of them: a hull glancing off a skerry is still under
-  // its rider, and the run goes on.
+  // GOING OVER THE BARS. A capsize is the hull on its back; a float-up is
+  // the water bringing up a hull the rider could not, which is the same
+  // loss made under the surface. Both arrive inside the link window, which
+  // is exactly the combo they should take with them. A `hit` is not one of
+  // them: a hull glancing off a skerry is still under its rider, and the
+  // run goes on. Nor is a `dive` — a bow buried on the landing is the
+  // start of a spell the rider may yet ride out of, and the float-up says
+  // when he did not.
   for (let i = 0; i < events.length; i++) {
     const kind = events[i].kind;
-    if (kind === "capsize" || kind === "dive") {
+    if (kind === "capsize" || kind === "floatUp") {
       bail(state, events);
       return;
     }

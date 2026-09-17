@@ -7,17 +7,21 @@
 // that implements it. Tweak here, verify with `npm run sim` and the
 // craft/flight/buoyancy tests; the render layer never reads these directly.
 //
-// Four blocks are stated NEXT DOOR and folded in below under the names
+// Six blocks are stated NEXT DOOR and folded in below under the names
 // the repo already spells them by: the arcade assist (`defs/assist.ts` →
 // `TUNING.assist`), the only group in here that models nothing; the sea and
-// the wind (`defs/sea.ts` → `TUNING.sea`, `TUNING.wind`); and the air over
-// them with the rider's two strokes in it (`defs/flight.ts` →
-// `TUNING.tuck`, `TUNING.flight`). Each is one subject with one owner and
-// one lab, and moving them is what keeps this file under the §20.5 cap.
+// the wind (`defs/sea.ts` → `TUNING.sea`, `TUNING.wind`); the wash a hull
+// leaves in that sea (`defs/wash.ts` → `TUNING.wash`); the air over them
+// with the rider's two strokes in it (`defs/flight.ts` → `TUNING.tuck`,
+// `TUNING.flight`); and the water under them, with the rider's spell in it
+// (`defs/submerged.ts` → `TUNING.submerged`). Each is one subject with one
+// owner and one lab, and moving them is what keeps this file under the
+// §20.5 cap.
 
 import { ASSIST } from "./assist.ts";
 import { FLIGHT, TUCK } from "./flight.ts";
 import { SEA, WIND } from "./sea.ts";
+import { SUBMERGED } from "./submerged.ts";
 import { WASH } from "./wash.ts";
 
 /** The clock the whole engine runs on — see `TUNING.physicsHz`. Named out
@@ -720,44 +724,23 @@ export const TUNING = {
      * and multiplies nothing, and the moment a rider turns something in it
      * the air he turned it in is worth a rung as well. */
     airElement: 0.5,
+    /** ...AND THE WATER AS ONE: how long a spell under the surface has to
+     * last, s, for surfacing from it under the rider to be the SUBMARINE
+     * and buy a step of multiplier (`tricks.ts`, rule 5). A second rather
+     * than the air's half: the seconds are paid from `submerged.counts`
+     * like the air's are, but the element is credited on its own where
+     * the air's is not, so the bar for NAMING it stands a little higher —
+     * a bow that went under a wave and popped straight back out is a
+     * wave, and a hull held under for a second was held there. */
+    diveElement: 1,
   },
 
-  /** THE HULL UNDER THE WATER (`submerged.ts`) — what the rider still
-   * commands once it has gone under. Every dial is an angular
-   * ACCELERATION, rad/s², at a full input and a full share, the way
-   * `stand.hoist` is and for the same reason: the roster's inertia spans
-   * three times over, and what this describes is the rider rather than any
-   * one hull. Scaled by the craft's own `riderAuthority` on top. */
-  submerged: {
-    /** The regime itself has no threshold to set: it is the product of the
-     * hull's own two readings (`submergedShare` — the whole bottom under,
-     * times the water over the deck), which is 0 at rest on every craft
-     * and 1 only when the hull has left the surface. What is dialled here
-     * is what the rider does with it.
-     *
-     * His pitch: the bars hauled back, with the whole hull as the lever
-     * and the water to push it against. Bigger than the air's
-     * (`flight.leanTorque` is about 1.7 rad/s2 on the skiff) and smaller
-     * than a full stand's (`stand.hoist`, 4.6) - he is holding on rather
-     * than standing on it, but he is holding on to something solid. This
-     * is the dial the trick is made of: nose-down and under, lean back and
-     * the jet that was driving him deeper is driving him out. */
-    lean: 3.8,
-    /** His roll - enough to bring a hull that went in on one chine back
-     * level before the surface decides it capsized - and his yaw, which is
-     * modest because the nozzle is still working down there and owns most
-     * of it. */
-    roll: 2.4,
-    yaw: 0.6,
-    /** How much of the DECK's sealed volume (`hull.deckShare`) is still
-     * float once the hull is fully under, 0..1 (`floodedDeck`). The rest
-     * of it is the footwells, the seat and the engine bay's hatch, all of
-     * which have water over them rather than air under them the moment the
-     * deck is a metre down. At 1 the hull is thrown back out by about three
-     * times its own weight and a bury lasts three tenths of a second,
-     * which is not a dive. */
-    deckSealed: 0.3,
-  },
+  /** THE HULL UNDER THE WATER — the rider's authority down there, the
+   * spell and its clock, the float-up and the water the hull turns,
+   * stated in `defs/submerged.ts` beside this file (`submerged.ts`); the
+   * split is the §20.5 cap, and every reader still spells it
+   * `TUNING.submerged`. */
+  submerged: SUBMERGED,
 
   /** THE ARCADE ASSIST — the help the rider is given, stated in
    * `defs/assist.ts` beside this file rather than in it. Two hands on

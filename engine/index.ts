@@ -83,7 +83,16 @@ export { followingSeaAssist, landingAssist, rampAssist, timeToWater } from "./ga
 export { aeroForces, type AeroResult } from "./game/flight.ts";
 // THE HULL UNDER THE WATER (game/submerged.ts): the regime, what the rider
 // still commands in it, and what the deck's float does once it is under.
-export { floodedDeck, submergedControl, submergedShare } from "./game/submerged.ts";
+export {
+  floatUpPose,
+  floatUpStep,
+  floodedDeck,
+  riderDrag,
+  stepUnder,
+  submergedControl,
+  underwaterForces,
+  submergedShare,
+} from "./game/submerged.ts";
 export {
   FAUNA,
   FAUNA_IDS,

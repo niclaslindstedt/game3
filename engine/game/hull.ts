@@ -479,7 +479,8 @@ export function hullForces(
   // How much of the deck's float has flooded, from how far under the hull
   // is — one number for the whole hull, read after the first pass has
   // measured both halves of it (`submerged.ts`).
-  const deckFloat = floodedDeck(submergedShare(out.bottomUnder, out.deckFill));
+  const under = submergedShare(out.bottomUnder, out.deckFill);
+  const deckFloat = floodedDeck(under);
   const wetLen = wettedLength(spec, out.transomDepth, out.bowDepth);
   out.wettedLength = wetLen;
   // An inverted hull's bottom is in the air: no planing lift.
@@ -645,9 +646,15 @@ export function hullForces(
     // of tan(deadrise) per unit of lateral. Lifting the outer chine rolls
     // the hull INTO the turn, which is what a PWC does and a keel-level
     // lateral force alone would do the opposite of.
+    //
+    // ...ON THE SURFACE. It fades with the hull going under (`submerged.ts`),
+    // where a chine lifted by the flow has nothing to lift the hull
+    // against: a submerged hull RISING while heeled has a sideways flow
+    // over its bottom, and banking into that rolled it onto its back from
+    // thirty degrees in under a second, with nobody able to hold it.
     let bank = 0;
     if (p.kind === "chine" && p.side === Math.sign(uRight)) {
-      bank = Math.abs(fRight) * tanDeadrise * H.chineBank;
+      bank = Math.abs(fRight) * tanDeadrise * H.chineBank * (1 - under);
     }
     // The planing lift this probe's patch earns at its own flow angle.
     let lift = 0;

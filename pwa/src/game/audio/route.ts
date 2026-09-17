@@ -167,6 +167,20 @@ export function soundForEvent(event: GameEvent): { id: string; shape?: PlayShape
     case "capsize":
       return { id: "capsize" };
 
+    // THE SPELL UNDER THE WATER. Going under is the bow's own splash, sized
+    // by how deep the hull already is; coming back out under the rider is
+    // a soft landing — the hull meeting the surface from below; and the
+    // float-up is the capsize's sound with the edge taken off, because it
+    // is the same loss without the wait on its back.
+    case "submerge": {
+      const deep = ramp(event.depth, 0.5, 2.5);
+      return { id: "dive", shape: { gain: 0.6 + 0.5 * deep, pitch: 0.95 - 0.15 * deep } };
+    }
+    case "surface":
+      return { id: "land_soft", shape: { gain: 0.6, pitch: 1.05 } };
+    case "floatUp":
+      return { id: "capsize", shape: { gain: 0.7 } };
+
     case "reset":
       return { id: "reset" };
 

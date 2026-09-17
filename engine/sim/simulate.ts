@@ -65,6 +65,11 @@ export type RunReport = {
   bestCombo: number;
   launches: number;
   dives: number;
+  /** Seconds UNDER THE WATER — the spells that counted (`submerged.counts`),
+   * summed whole, on the air's own rule — and how many of them ended with
+   * the water bringing the hull up (`floatUp`) rather than the rider. */
+  underTime: number;
+  floatUps: number;
   hits: number;
   groundings: number;
   resets: number;
@@ -118,6 +123,8 @@ export function simulateStage(options: SimOptions): RunReport {
   let airTime = 0;
   let launches = 0;
   let dives = 0;
+  let underTime = 0;
+  let floatUps = 0;
   let hits = 0;
   let groundings = 0;
   let resets = 0;
@@ -135,6 +142,8 @@ export function simulateStage(options: SimOptions): RunReport {
       events.push(e);
       if (e.kind === "launch") launches += 1;
       else if (e.kind === "dive") dives += 1;
+      else if (e.kind === "surface") underTime += e.underTime;
+      else if (e.kind === "floatUp") floatUps += 1;
       else if (e.kind === "hit") hits += 1;
       else if (e.kind === "ground") groundings += 1;
       else if (e.kind === "reset") resets += 1;
@@ -174,6 +183,8 @@ export function simulateStage(options: SimOptions): RunReport {
     bestCombo,
     launches,
     dives,
+    underTime,
+    floatUps,
     hits,
     groundings,
     resets,

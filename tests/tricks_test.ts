@@ -16,6 +16,7 @@ import {
   createGame,
   placeRun,
   step,
+  topSpeedOf,
   type CraftInput,
   type GameEvent,
   type GameState,
@@ -23,7 +24,7 @@ import {
 
 import { syntheticLevel } from "./support/synthetic.ts";
 
-const FLAT = syntheticLevel({ windSpeed: 0, noSolids: true });
+const FLAT = syntheticLevel({ windSpeed: 0, noSolids: true, depth: 30 });
 const COAST: CraftInput = { steer: 0, throttle: 0, reverse: 0, lean: 0, crouch: 0, reset: false };
 
 function game(): GameState {
@@ -429,30 +430,32 @@ describe("the combo", () => {
   });
 
   it("is lost on a bail, and the run's banked score is not", () => {
-    const state = game();
+    // The bare physics, because the arcade's hand on a landing is what
+    // keeps the second flight below from becoming the dive it has to be.
+    const state = createGame({ seed: 1, craft: "skiff", level: FLAT, assist: 0, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: 15, height: 1.5, vy: 8 });
     ride(state, 6);
     const banked = state.tricks.score;
     expect(banked).toBeGreaterThan(0);
     // A second flight, thrown away by going over the bars at the end of it:
-    // launched with the nose already dropping, it comes down bow-first and
-    // buries it, which is a `dive` and so a bail.
+    // it comes down nose-first at pace with nobody on the bars, buries the
+    // bow, goes under and corks out on its back, and the water brings it
+    // up (`floatUp`) — which is the bail.
     //
-    // A DIVE rather than a capsize, and it has to be: `capsize.after` = 1.5 s
-    // is longer than the `tricks.linkWindow` = 1 s a combo stays open for
-    // once the hull is down, so a hull rolled onto its back always banks
-    // before it is declared over. The dive is the half of "over the bars"
-    // that can actually reach an open combo.
+    // A FLOAT-UP rather than a capsize, and it has to be: `capsize.after` =
+    // 1.5 s is longer than the `tricks.linkWindow` = 1 s a combo stays open
+    // for once the hull is down, so a hull rolled onto its back always
+    // banks before it is declared over. The float-up is the half of "over
+    // the bars" that can actually reach an open combo.
     placeRun(state, {
       x: 100,
       z: 200,
       heading: Math.PI / 2,
-      speed: 20,
-      height: 1.5,
-      vy: 10,
-      pitchRate: -1.2,
+      speed: topSpeedOf(state.craft.spec) * 0.9,
+      height: 3,
+      pitch: -0.6,
     });
-    ride(state, 1.4);
+    ride(state, 0.5);
     expect(state.tricks.base).toBeGreaterThan(0);
     const events = ride(state, 12);
     const bailed = events.find((e) => e.kind === "bail");
@@ -472,5 +475,92 @@ describe("the combo", () => {
     expect(state.events.some((e) => e.kind === "bail")).toBe(true);
     expect(state.tricks.base).toBe(0);
     expect(state.tricks.score).toBe(0);
+  });
+});
+
+describe("the water", () => {
+  const GAS: CraftInput = { ...COAST, throttle: 1 };
+
+  /** Nose down into calm water from a height at nine tenths of the top
+   * speed, and then whatever `input` says — the app's `dive` scenario, with
+   * the rider's answer scripted. */
+  function submarine(
+    craft: "skiff" | "dart" | "marlin" | "otter",
+    seconds: number,
+    input: (state: GameState) => CraftInput,
+    pitch = -0.6,
+    height = 3,
+  ): { state: GameState; events: GameEvent[]; baseUnder: number } {
+    // The bare physics: the arcade's hand on a landing is exactly what
+    // keeps a nose-down entry from becoming a dive, and the dive is the
+    // subject.
+    const state = createGame({ seed: 1, craft, level: FLAT, assist: 0, quiet: true });
+    const top = topSpeedOf(state.craft.spec);
+    placeRun(state, { x: 100, z: 200, heading: Math.PI / 2, speed: top * 0.9, height, pitch });
+    let baseUnder = 0;
+    const events = ride(state, seconds, (s) => {
+      if (s.craft.under && s.craft.underTime > TUNING.submerged.counts) {
+        baseUnder = Math.max(baseUnder, s.tricks.base);
+      }
+      return input(s);
+    });
+    return { state, events, baseUnder };
+  }
+
+  it("ticks like the air while the hull is under, and holds the combo open", () => {
+    // The stand-up on the gas with no lean drives itself along under the
+    // surface for seconds and rides back out clean.
+    const { state, events, baseUnder } = submarine("dart", 7, () => GAS);
+    const out = events.find((e) => e.kind === "surface");
+    expect(out?.kind === "surface" && out.clean).toBe(true);
+    expect(out?.kind === "surface" && out.underTime).toBeGreaterThan(TUNING.tricks.diveElement);
+    expect(baseUnder).toBeGreaterThan(0);
+    // The spell's seconds are what the purse is made of: the base at the
+    // surfacing is at least the rate integrated over the spell past the line.
+    expect(events.some((e) => e.kind === "bail")).toBe(false);
+    expect(state.tricks.score).toBeGreaterThan(0);
+  });
+
+  it("pays the SUBMARINE on a clean surfacing — a rung and no base, like the air's own", () => {
+    const { events } = submarine("dart", 7, () => GAS);
+    const won = events.filter((e) => e.kind === "trick");
+    const sub = won.find((e) => e.kind === "trick" && e.trick === "submarine");
+    expect(sub).toBeDefined();
+    if (sub?.kind !== "trick") return;
+    expect(sub.points).toBe(0);
+    expect(sub.spins).toBe(1);
+    // THE AIR SELLS THROUGH THE DIVE: the flight it fell out of lasted past
+    // `airElement`, and a jump dived into and ridden out of is the air and
+    // the submarine in one combo, in that order.
+    expect(won[0]?.kind === "trick" && won[0].trick).toBe("air");
+    expect(sub.mult).toBe(3);
+    const combo = events.find((e) => e.kind === "combo");
+    expect(combo?.kind === "combo" && combo.mult).toBe(3);
+  });
+
+  it("bails when the water has to bring the hull up, and not on the bow going in", () => {
+    // Nobody on the bars: the hull corks out on its back and is floated
+    // up, and everything riding on the combo goes with it.
+    const coast = submarine("skiff", 6, () => COAST);
+    expect(coast.events.some((e) => e.kind === "dive")).toBe(true);
+    const up = coast.events.findIndex((e) => e.kind === "floatUp");
+    const bail = coast.events.findIndex((e) => e.kind === "bail");
+    expect(up).toBeGreaterThanOrEqual(0);
+    expect(bail).toBeGreaterThan(up);
+    expect(coast.events.some((e) => e.kind === "combo")).toBe(false);
+    // The same bow buried, ridden out with the lean back: no bail, and the
+    // flight that went in banks as a combo. Seven seconds, not six: the
+    // marlin is out at about five, and the combo closes a link window
+    // after that.
+    const ridden = submarine(
+      "marlin",
+      7,
+      (s) => ({ ...GAS, lean: s.craft.under || s.craft.pitch < -0.3 ? 1 : 0 }),
+      -0.9,
+      4,
+    );
+    expect(ridden.events.some((e) => e.kind === "dive")).toBe(true);
+    expect(ridden.events.some((e) => e.kind === "bail")).toBe(false);
+    expect(ridden.events.some((e) => e.kind === "combo")).toBe(true);
   });
 });
