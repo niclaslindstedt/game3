@@ -184,6 +184,26 @@ export function clipRiders(state: GameState, events: GameEvent[]): void {
   }
 }
 
+/** TAKE THE FIELD OFF A RUN THAT WAS DEALT ONE, leaving everything the grid
+ * decided exactly where it left it: the player's hull on its slot, and the
+ * run's random stream past the draws `createRivals` made.
+ *
+ * That last part is the whole point of the call. A rival costs nothing
+ * random once it is standing — the bot decides, `stepRun` draws nothing —
+ * but the grid deals a rider's weight and a pace off `state.rng` for every
+ * one of them, so the same run built with `rivals: 0` has its wind gusting
+ * off a stream twenty-two draws further back and rides different water from
+ * its first step. A GHOST is the recorded run ridden again and must not pay
+ * for eleven hulls of physics to be a picture, so it is built the way the
+ * run was built and then has the field taken off it
+ * (`pwa/src/game/ghost-run.ts`).
+ *
+ * Nothing else about the state moves: a run with no field in it is a run
+ * nobody can lean on, which is what a ghost is. */
+export function dropField(state: GameState): void {
+  state.rivals = [];
+}
+
 /** HOW FAR DOWN THE COURSE A RUN IS, in gates and a share of the leg to
  * the next: what the standings are ordered on while nobody has finished.
  * The share is one less the distance still to the gate over the leg's own

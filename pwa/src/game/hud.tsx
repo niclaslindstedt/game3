@@ -170,6 +170,22 @@ export function Hud({
               <span class="hud-chip-sub">{STRINGS.gatesLabel}</span>
             </div>
           ) : null}
+          {/* THE GAP TO THE GHOST (`ghost-run.ts`), where one is out there —
+              which is a tricks run or a time trial, and never a race, where
+              the place chip beside it is already the answer to the same
+              question. Points or seconds by the run's own currency, and the
+              colour is the whole reading at a glance: up on it or down on
+              it. Null until there is something honest to say, which down a
+              course is the first gate both have crossed. */}
+          {snap.ghostGap !== null ? (
+            <div
+              class={`hud-chip hud-ghost ${snap.ghostGap < 0 ? "hud-ghost-down" : ""}`}
+              title={STRINGS.ghostTitle}
+            >
+              <span>{STRINGS.ghostGap(snap.ghostGap, snap.courseOn)}</span>
+              <span class="hud-chip-sub">{STRINGS.ghostLabel}</span>
+            </div>
+          ) : null}
         </div>
         <div class="hud-top-row">
           <div class="hud-chip hud-sun" title={STRINGS.sunClockLabel(snap.daylight)}>

@@ -266,6 +266,19 @@ export type HudSnapshot = {
   mult: number;
   comboPhase: "live" | "banked" | "bailed";
   comboParts: readonly TrickPart[];
+  /** HOW THE RIDER STANDS AGAINST THE GHOST (`ghost-run.ts`), or null where
+   * there is none on the water. POSITIVE IS AHEAD, in whichever currency
+   * the run is being ridden for: points on a tricks run, seconds down a
+   * course. The HUD tells the two apart by `courseOn` and nothing here
+   * carries a unit.
+   *
+   * The two are measured differently because they have to be. A SCORE is a
+   * total and both totals exist at every instant, so the points gap is
+   * live. A TIME is only a fact at a gate: the pair are not level with each
+   * other anywhere between two buoys, so the gap is read at the last gate
+   * BOTH have crossed and holds there until the next one — which is how a
+   * split has always been read, and the only honest reading of it. */
+  ghostGap: number | null;
   seed: number;
   craft: CraftId;
   /** The minimap for this frame — the coast around the craft, the gates on
@@ -349,7 +362,24 @@ function comboTile(
   return { combo: 0, mult: 1, comboPhase: "live", comboParts: [] };
 }
 
-export function takeSnapshot(state: GameState): HudSnapshot {
+/** The gap to the ghost — see `HudSnapshot.ghostGap`. Null with no ghost on
+ * the water, and null down a course until both have crossed the same gate. */
+function ghostGap(state: GameState, ghost: GameState | null): number | null {
+  if (!ghost) return null;
+  if (!state.rules.course) return state.tricks.score - ghost.tricks.score;
+  const mine = state.progress.splits;
+  const theirs = ghost.progress.splits;
+  let gap: number | null = null;
+  // Every gate rather than up to the first blank one: a gate skipped past
+  // and charged for is never given a split, and a run that stopped reading
+  // its gap at the one buoy it missed would be a readout that quietly died.
+  for (let i = 0; i < mine.length && i < theirs.length; i++) {
+    if (Number.isFinite(mine[i]) && Number.isFinite(theirs[i])) gap = theirs[i] - mine[i];
+  }
+  return gap;
+}
+
+export function takeSnapshot(state: GameState, ghost: GameState | null = null): HudSnapshot {
   const c = state.craft;
   const p = state.progress;
   const wind = windAt(state.wind, Math.max(0, c.y), c.x, c.z);
@@ -408,6 +438,7 @@ export function takeSnapshot(state: GameState): HudSnapshot {
     airTime: air.time,
     airGrow: air.grow,
     airRecord: air.record,
+    ghostGap: ghostGap(state, ghost),
     seed: state.seed,
     craft: c.spec.id,
     minimap: buildMinimap(state),

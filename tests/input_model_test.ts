@@ -200,8 +200,11 @@ describe("sampleInput", () => {
       sampleInput(model, { ...NO_KEYS, right: true, leanBack: true }, neutralTouch(), DT, false);
     const touch = { ...neutralTouch(), bar: true, steer: -0.3, lean: -0.5 };
     const input = sampleInput(model, { ...NO_KEYS, right: true, leanBack: true }, touch, DT, false);
-    expect(input.steer).toBeCloseTo(0.3, 9);
-    expect(input.lean).toBe(-0.5);
+    // To within the grid every axis leaves here on (`ghost.ts`'s `snapInput`,
+    // applied by `sampleInput`): the thumb's figure, rounded to the nearest
+    // 1/127 of full travel, which is finer than the bar can be read to.
+    expect(input.steer).toBeCloseTo(0.3, 2);
+    expect(input.lean).toBeCloseTo(-0.5, 2);
   });
 
   it("takes the deeper of the throttle key and the lever", () => {

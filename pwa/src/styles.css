@@ -1777,6 +1777,18 @@ canvas {
   animation: hud-score-bank 340ms cubic-bezier(0.2, 1.4, 0.4, 1);
 }
 
+/* THE GAP TO THE GHOST. The two tones the news column already speaks in, so
+   up and down read the same way here as they do there — and the colour is on
+   the FIGURE alone: the caption under it says what the number is about and
+   would only be shouting the same thing twice. */
+.hud-ghost > span:first-child {
+  color: var(--hud-good);
+}
+
+.hud-ghost-down > span:first-child {
+  color: var(--hud-bad);
+}
+
 /* THE LIGHTS. Dead centre, as big as the frame allows, and each one arrives
    with a punch and fades as its second runs out — the same beat the sound
    makes. Nothing is under the pointer here: the whole box lets presses
