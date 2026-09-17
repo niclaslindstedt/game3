@@ -78,10 +78,15 @@ function snap(v: number, steps: number): number {
   return index === 0 ? 0 : index / steps;
 }
 
-/** ONE STEP'S CONTROLS, ON THE GRID THE TAPE WRITES. Applied at the one
- * place the player's input is produced, so the engine and the recording can
- * never come to disagree. The bot's input never passes through here and
- * does not need to: nothing records a bot. */
+/** ONE STEP'S CONTROLS, ON THE GRID THE TAPE WRITES. Applied where the
+ * player's input is produced AND again at the one place the engine is handed
+ * an input at all (`App.tsx`'s `stepOnce`), so the engine and the recording
+ * can never come to disagree whoever was riding. The second is what covers
+ * the BOT and a scenario's script: a recorded run's first steps are the bot's
+ * while the loading card is still up, and `run.ts` throws those away only for
+ * as long as the lights are on. Applying it twice is free — a value already
+ * on the grid snaps to itself — and the grid is finer than any decision any
+ * of the three makes, so nothing about the riding moves. */
 export function snapInput(input: CraftInput): CraftInput {
   input.steer = snap(clamp(input.steer, -1, 1), STEER_STEPS);
   input.lean = snap(clamp(input.lean, -1, 1), STEER_STEPS);
@@ -90,6 +95,25 @@ export function snapInput(input: CraftInput): CraftInput {
   input.crouch = snap(clamp(input.crouch, 0, 1), LEVER_STEPS);
   return input;
 }
+
+/** ONE RUN'S CONTROLS AND NOTHING ELSE: how many steps it runs for, and one
+ * RLE'd, base64'd byte per step per axis. Stated apart from the ghost it was
+ * cut for because a REPLAY is the same tape (`replay.ts`) — the controls the
+ * engine was handed — with the world it was handed them in written beside it
+ * rather than the record it beat. One codec, two readers; a second copy of
+ * the encoding would be a ghost and a replay that drift apart on the day an
+ * axis is added. */
+export type ControlTape = {
+  /** Steps on the tape: the whole run from the engine's first step, the
+   * lights included, so two runs advance together. */
+  steps: number;
+  steer: string;
+  lean: string;
+  throttle: string;
+  reverse: string;
+  crouch: string;
+  flags: string;
+};
 
 /** WHAT NAMES THE WATER a tape was cut on — see this file's header. */
 export type GhostStage = {
@@ -102,24 +126,15 @@ export type GhostStage = {
   limit: number;
 };
 
-export type GhostRun = GhostStage & {
-  format: number;
-  /** The hull the figure was set on — the ghost rides its own, not yours. */
-  craft: CraftId;
-  /** The figure the run set, in the mode's own currency: seconds down a
-   * course, points off a tricks field. */
-  value: number;
-  /** Steps on the tape: the whole run from the engine's first step, the
-   * lights included, so the two runs advance together. */
-  steps: number;
-  /** One RLE'd, base64'd byte per step, per control. */
-  steer: string;
-  lean: string;
-  throttle: string;
-  reverse: string;
-  crouch: string;
-  flags: string;
-};
+export type GhostRun = GhostStage &
+  ControlTape & {
+    format: number;
+    /** The hull the figure was set on — the ghost rides its own, not yours. */
+    craft: CraftId;
+    /** The figure the run set, in the mode's own currency: seconds down a
+     * course, points off a tricks field. */
+    value: number;
+  };
 
 const FLAG_RESET = 1;
 
@@ -181,16 +196,18 @@ export function decodeStream(text: string, steps: number): Uint8Array {
   return out;
 }
 
-export type GhostRecorder = {
+export type ControlRecorder = {
   /** Write down the controls a step was ridden on. Called with the input
    * the engine ACTUALLY received, never the one that produced it. */
   record: (input: CraftInput) => void;
   steps: () => number;
-  /** Seal the tape into a run worth keeping. */
-  seal: (stage: GhostStage, craft: CraftId, value: number) => GhostRun;
+  /** The tape as it stands. Callable mid-run and callable twice: a replay
+   * of a run somebody stopped half way down is sealed where they stopped
+   * (`replay.ts`), and the run behind it carries on being recorded. */
+  seal: () => ControlTape;
 };
 
-export function createGhostRecorder(): GhostRecorder {
+export function createControlRecorder(): ControlRecorder {
   const steer: number[] = [];
   const lean: number[] = [];
   const throttle: number[] = [];
@@ -207,11 +224,7 @@ export function createGhostRecorder(): GhostRecorder {
       flags.push(input.reset ? FLAG_RESET : 0);
     },
     steps: () => steer.length,
-    seal: (stage, craft, value) => ({
-      ...stage,
-      format: GHOST_FORMAT,
-      craft,
-      value,
+    seal: () => ({
       steps: steer.length,
       steer: encodeStream(steer),
       lean: encodeStream(lean),
@@ -219,6 +232,25 @@ export function createGhostRecorder(): GhostRecorder {
       reverse: encodeStream(reverse),
       crouch: encodeStream(crouch),
       flags: encodeStream(flags),
+    }),
+  };
+}
+
+export type GhostRecorder = ControlRecorder & {
+  /** Seal the tape into a run worth keeping. */
+  sealGhost: (stage: GhostStage, craft: CraftId, value: number) => GhostRun;
+};
+
+export function createGhostRecorder(): GhostRecorder {
+  const tape = createControlRecorder();
+  return {
+    ...tape,
+    sealGhost: (stage, craft, value) => ({
+      ...stage,
+      format: GHOST_FORMAT,
+      craft,
+      value,
+      ...tape.seal(),
     }),
   };
 }
@@ -232,14 +264,16 @@ export type GhostTape = {
   at: (step: number) => CraftInput;
 };
 
-export function readGhost(run: GhostRun): GhostTape {
-  const steps = run.steps;
-  const steer = decodeStream(run.steer, steps);
-  const lean = decodeStream(run.lean, steps);
-  const throttle = decodeStream(run.throttle, steps);
-  const reverse = decodeStream(run.reverse, steps);
-  const crouch = decodeStream(run.crouch, steps);
-  const flags = decodeStream(run.flags, steps);
+/** Put a tape back on the water. Reads a `ControlTape`, so a ghost and a
+ * replay are driven by the very same reader. */
+export function readControls(tape: ControlTape): GhostTape {
+  const steps = tape.steps;
+  const steer = decodeStream(tape.steer, steps);
+  const lean = decodeStream(tape.lean, steps);
+  const throttle = decodeStream(tape.throttle, steps);
+  const reverse = decodeStream(tape.reverse, steps);
+  const crouch = decodeStream(tape.crouch, steps);
+  const flags = decodeStream(tape.flags, steps);
   const input: CraftInput = { ...NEUTRAL_INPUT };
   return {
     steps,

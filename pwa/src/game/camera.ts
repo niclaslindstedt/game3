@@ -61,6 +61,8 @@ import { angleDiff, rotate, type GameState } from "@engine";
 import { createSprung } from "../lib/sprung.ts";
 import { clamp } from "../lib/util.ts";
 import { createViewChange } from "./camera-change.ts";
+import { createTvCamera } from "./camera-tv.ts";
+import type { ReplayShot } from "./replay-shots.ts";
 import {
   CHASE_RIGS,
   EYE_RIGS,
@@ -71,10 +73,15 @@ import {
   type EyeRig,
 } from "./camera-rigs.ts";
 
-export type CameraMode = EyeCamera | ChaseCamera;
+export type CameraMode = EyeCamera | ChaseCamera | "tv";
 /** The modes the camera key walks, in the order it walks them — the same
  * handlebars-backwards ladder the options card lists, so the key and the
- * setting never disagree about what "the next camera" means. */
+ * setting never disagree about what "the next camera" means.
+ *
+ * THE TV CAM IS NOT ON IT. It frames the moment the craft is arriving at
+ * rather than the water ahead of him, and it cuts — see `camera-tv.ts` for
+ * why nobody may ride from it. A REPLAY walks the ladder plus that one rung
+ * (`WATCHING_MODES`), which is the only place it can be reached. */
 export const CAMERA_MODES: readonly CameraMode[] = [
   "bow",
   "nose",
@@ -84,6 +91,10 @@ export const CAMERA_MODES: readonly CameraMode[] = [
   "heli",
   "drone",
 ];
+
+/** ...and the ladder a RECORDING is watched on: the same seven, opened on the
+ * broadcast. Stated beside the play ladder so the two can never come apart. */
+export const WATCHING_MODES: readonly CameraMode[] = ["tv", ...CAMERA_MODES];
 
 /** Where the lens stands, what it looks at, and how wide it is. `fov` is
  * the DESIGN (landscape) vertical field, deg — the renderer widens it for a
@@ -167,12 +178,33 @@ export type CameraRig = {
    * worth keeping across a teleport, and none worth FLYING across one, so
    * this abandons a hand-over in flight too. */
   restand: () => void;
+  /** THE MOMENT THE BROADCAST IS ON, pushed by whoever is watching a
+   * recording (`replay.ts`), and null for the stretches between them. Read by
+   * the `tv` rung alone: with a shot it stands a lens on the water, and
+   * without one it IS the chase boom — which is the whole of the edit, since
+   * a broadcast does not leave a rider on a tripod for a whole race.
+   *
+   * Set on any other rung it is simply never read, which is what a replay
+   * walked back onto the ordinary ladder wants. */
+  setShot: (shot: ReplayShot | null) => void;
+  /** WHICH LADDER THE CAMERA KEY WALKS. `CAMERA_MODES` while somebody is
+   * riding, and `WATCHING_MODES` — the same rungs with the broadcast at the
+   * head of them — while a recording is being watched. One list at a time, so
+   * a key press can never land on a rung the surface it is on has no business
+   * offering. */
+  setLadder: (modes: readonly CameraMode[]) => void;
 };
 
 export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
   let mode: CameraMode = initial;
+  let ladder: readonly CameraMode[] = CAMERA_MODES;
   let restand = true;
   const change = createViewChange();
+  const tv = createTvCamera();
+  /** The moment the broadcast is on, and whether the last frame was drawn
+   * from a stand — the second is what turns the hand-back into a FLIGHT. */
+  let shot: ReplayShot | null = null;
+  let onStand = false;
   // The outside rigs' eased quantities.
   let yaw = 0;
   let slip = 0;
@@ -395,12 +427,40 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     if (drawn) change.start(pose, shown);
     mode = next;
     restand = true;
+    // A rung walked away from mid-shot leaves a stand nobody is standing on,
+    // and walking back onto `tv` must land as a fresh cut rather than easing
+    // the lens across the water from wherever it last stood.
+    tv.drop();
+    onStand = false;
   };
 
   return {
     update: (state, dt, surfaceY) => {
-      if (isEyeCamera(mode)) eye(EYE_RIGS[mode], state, dt);
-      else chase(CHASE_RIGS[mode], state, dt, surfaceY);
+      // THE BROADCAST IS TWO CAMERAS, and the asymmetry between the two edits
+      // is the whole of it. GOING to a stand is a CUT: the point of the edit
+      // is that the next thing on screen is ALREADY the moment, framed and
+      // waiting, with the craft arriving into it — a flight there would spend
+      // the approach travelling, and the approach is the shot. COMING BACK is
+      // a MOVE: both frames are of the same craft a second apart, so a cut
+      // says nothing except that the picture has been replaced, and it lands
+      // on the beat that should least be interrupted. Flown, the lens leaves
+      // the operator and closes on the craft it was watching, arriving on the
+      // boom — the shot becomes the ride, and `camera-change.ts` already
+      // carries a lens onto a rig's written pose for exactly this shape.
+      // ...and a moment with nowhere on the water to stand a lens keeps the
+      // boom too (`camera-tv.ts`), which is why this asks the camera rather
+      // than assuming a shot is a stand.
+      const broadcast =
+        mode === "tv" && shot !== null && tv.update(pose, shot, state, dt, surfaceY);
+      if (!broadcast) {
+        if (onStand && drawn) {
+          change.start(pose, shown);
+          restand = true;
+        }
+        if (isEyeCamera(mode)) eye(EYE_RIGS[mode], state, dt);
+        else chase(CHASE_RIGS[mode === "tv" ? "chase" : mode], state, dt, surfaceY);
+      }
+      onStand = broadcast;
       if (change.flying()) {
         change.fly(pose, state.craft, dt);
         const floor = surfaceY(pose.x, pose.z) + CHANGE_CLEARANCE;
@@ -421,14 +481,25 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     setFit: (next) => {
       fit = next;
     },
+    setShot: (next) => {
+      shot = next;
+    },
+    setLadder: (modes) => {
+      ladder = modes;
+    },
     cycle: () => {
-      const i = CAMERA_MODES.indexOf(mode);
-      walkTo(CAMERA_MODES[(i + 1) % CAMERA_MODES.length]);
+      // A rung the live ladder does not carry reads as -1 and so walks to its
+      // head, which is the honest answer: the key was pressed on a camera
+      // this surface does not offer, and the first rung is where it belongs.
+      const i = ladder.indexOf(mode);
+      walkTo(ladder[(i + 1) % ladder.length]);
       return mode;
     },
     restand: () => {
       restand = true;
       change.cancel();
+      tv.drop();
+      onStand = false;
     },
   };
 }

@@ -799,6 +799,9 @@ describe("the water bed (audio/water-voice.ts)", () => {
 
 describe("the listener (audio/listener.ts)", () => {
   it("has a row per rung of the ladder, every column a sane multiplier", () => {
+    // Seven rungs the camera key walks, plus the BROADCAST — a seat nobody
+    // sits in, reachable in a replay alone (`camera-tv.ts`), and still a row
+    // here because the ear has to be somewhere while it has the frame.
     expect(Object.keys(LISTENERS).sort()).toEqual([
       "bow",
       "chase",
@@ -807,6 +810,7 @@ describe("the listener (audio/listener.ts)", () => {
       "far",
       "heli",
       "nose",
+      "tv",
     ]);
     for (const [view, ear] of Object.entries(LISTENERS)) {
       for (const [k, v] of Object.entries(ear)) {

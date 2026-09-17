@@ -1895,6 +1895,150 @@ canvas {
   color: var(--hud-info);
 }
 
+/* ── THE REPLAY BAR ──────────────────────────────────────────────────────
+   The strip over a run being WATCHED (hud-replay.tsx). Top centre, between
+   the two corners the HUD already owns — the clock on the left, the map and
+   the place on the right — and never wider than the gap between them: it
+   gives up its own lines before it reaches either, because the readouts are
+   reading the recording and are part of what is being watched.
+
+   `pointer-events` is claimed on the bar alone rather than on `.hud`, the way
+   every other pressable thing over the water claims it. */
+.hud-replay {
+  position: absolute;
+  /* `.hud` is transparent to the pointer; everything pressable over the
+     water claims it back for itself. */
+  pointer-events: auto;
+  top: max(0.6rem, env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
+  max-width: min(44vw, 30rem);
+  padding: 0.55rem 1.1rem;
+  background: rgb(var(--hud-plate) / 74%);
+  border: 2px solid var(--hud-edge);
+  border-radius: 0.6rem;
+  text-align: center;
+}
+
+/* THE BAR'S OWN LAYER (App.tsx): a second `.hud` over the first, carrying
+   nothing but the bar. It exists so the HUD switch cannot take away the only
+   way out of a recording — the same exemption the new-build notice has. */
+.hud-replay-layer {
+  z-index: 2;
+}
+
+.hud-replay-text {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.15rem;
+  min-width: 0;
+}
+
+.hud-replay-label {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: clamp(0.6rem, 1.7vmin, 0.78rem);
+  font-weight: 700;
+  letter-spacing: 0.22em;
+  color: var(--hud-info);
+}
+
+/* THE PICTURE IS RUNNING SLOW, said in a word. Slow motion belongs to the
+   shot rather than to a setting (replay-shots.ts), so without this a rider
+   reads a third-speed backflip as a machine dropping frames. It pulses, which
+   is the one animation on this bar: a static word beside a static label reads
+   as part of the label. */
+.hud-replay-slow {
+  padding: 0.1rem 0.4rem;
+  border-radius: 0.3rem;
+  background: rgb(242 140 40 / 82%);
+  color: rgb(8 42 56);
+  animation: hud-replay-slow 1.1s ease-in-out infinite;
+}
+
+@keyframes hud-replay-slow {
+  0%,
+  100% {
+    opacity: 1;
+  }
+
+  50% {
+    opacity: 0.55;
+  }
+}
+
+.hud-replay-title {
+  font-size: clamp(0.95rem, 3vmin, 1.35rem);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+.hud-replay-line {
+  font-size: clamp(0.65rem, 1.9vmin, 0.85rem);
+  color: var(--hud-info);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* HOW FAR THROUGH, as a rule. Scaled rather than sized, so the frame it moves
+   on costs no layout. */
+.hud-replay-bar {
+  width: 100%;
+  height: 3px;
+  margin-top: 0.3rem;
+  border-radius: 2px;
+  background: rgb(242 247 248 / 22%);
+  overflow: hidden;
+}
+
+.hud-replay-fill {
+  height: 100%;
+  background: var(--buoy);
+  transform-origin: left center;
+}
+
+.hud-replay-acts {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.hud-replay-note {
+  font-size: clamp(0.58rem, 1.6vmin, 0.72rem);
+  color: var(--hud-info);
+  white-space: nowrap;
+}
+
+/* The plate's own offer at the finish, which is a press on a card and not a
+   press made mid-ride: it wants room above it rather than a thumb zone. */
+.hud-result-replay {
+  margin-top: 0.5rem;
+}
+
+/* A phone held upright has no room between the corners for either, so the
+   note goes and the bar takes what is left. */
+@media (max-aspect-ratio: 1 / 1) {
+  .hud-replay {
+    max-width: min(76vw, 26rem);
+  }
+
+  .hud-replay-note {
+    display: none;
+  }
+}
+
 /* ── THE TOUCH CONTROLS ──────────────────────────────────────────────────
    The two thumb zones: the lower 60% of the screen at most, split down the
    middle. The bar or the lever anchors wherever the thumb lands in its zone.
@@ -3142,6 +3286,23 @@ canvas {
 
 .menu-item-name {
   position: relative;
+}
+
+/* WHAT A ROW COSTS, said on the row. Only WATCH REPLAY carries one today
+   (menu-pause.tsx): watching a recording ends the run it is a recording of,
+   and a press whose price is only learned afterwards is a press nobody should
+   have been offered. Under the word, at a size that reads as a footnote
+   rather than as a second row — it is a qualifier on the press above it, not
+   another thing to choose between. */
+.menu-item-note {
+  display: block;
+  position: relative;
+  margin-top: 0.2rem;
+  font-size: 0.66rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-indent: 0;
+  opacity: 0.72;
 }
 
 /* The receipt for a hold that landed, said once on the visit it landed. */

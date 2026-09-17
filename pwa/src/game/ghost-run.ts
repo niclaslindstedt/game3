@@ -56,7 +56,7 @@ import { campaignGame, type CampaignLevel } from "./campaign.ts";
 import {
   createGhostRecorder,
   loadGhost,
-  readGhost,
+  readControls,
   saveGhost,
   type GhostRecorder,
   type GhostStage,
@@ -177,7 +177,7 @@ export function createGhostRig(world: GhostWorld): GhostRig {
       : gameFor(s, world.params, { level: state.level, craft: saved.craft });
     dropField(run);
     ghost = run;
-    tape = readGhost(saved);
+    tape = readControls(saved);
     at = 0;
     world.renderer.setGhost(run);
   };
@@ -200,7 +200,7 @@ export function createGhostRig(world: GhostWorld): GhostRig {
       if (!written || !stage || mine === null) return;
       if (!Number.isFinite(value) || value <= 0) return;
       if (best !== null && !(higher ? value > best : value < best)) return;
-      saveGhost(written.seal(stage, mine, value));
+      saveGhost(written.sealGhost(stage, mine, value));
       best = value;
     },
   };

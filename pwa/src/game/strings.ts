@@ -6,7 +6,7 @@
 // templates — functions of their parameters — never concatenations at the
 // call site (§39.2). Developer diagnostics are deliberately not here.
 
-import type { GameMode, TrickKind, TrickPart } from "@engine";
+import { craftById, type CraftId, type GameMode, type TrickKind, type TrickPart } from "@engine";
 
 import { formatScore, formatTime, ordinal } from "../lib/util.ts";
 import type { SeaStateId } from "./settings.ts";
@@ -694,6 +694,10 @@ export const STRINGS = {
   cameraFar: "FAR",
   cameraHeli: "HELI",
   cameraDrone: "DRONE",
+  /** The broadcast, which no OPTIONS row offers and no run may be ridden
+   * from — the camera key reaches it in a REPLAY and nowhere else
+   * (`camera-tv.ts`). */
+  cameraTv: "TV",
 
   /* ── THE KEYBOARD PAGE (menu-keys.tsx, settings-input.ts) ──────────── */
   /** One word per action, and every one of them says what the CRAFT does
@@ -867,6 +871,43 @@ export const STRINGS = {
   /** What the minimap does when it is pressed — the way into the card on a
    * screen with no Escape key to press. */
   pauseOpen: "Pause (Esc)",
+  /** WATCHING THE RUN SO FAR, off the pause card. The row says what it COSTS
+   * on the row itself rather than behind a confirmation: a recording is
+   * watched instead of the run, not as well as it, and a player who finds
+   * that out afterwards has lost a race to a menu. */
+  pauseReplay: "WATCH REPLAY",
+  pauseReplayNote: "ends this run",
+
+  /* ── A RUN BEING WATCHED (hud-replay.tsx, replay.ts) ─────────────────── */
+  /** The strip over a recording: what it is, what it was ridden in, and how
+   * it went. `value` is null on a run nobody finished — which is every
+   * recording cut off the pause card. */
+  replayLabel: "REPLAY",
+  replayTitle: (bill: { name: string | null; seed: number }): string =>
+    bill.name ? bill.name.toUpperCase() : `SEED ${bill.seed}`,
+  replayLine: (bill: { mode: GameMode; craft: CraftId; value: number | null }): string =>
+    [
+      MODE_NAMES[bill.mode],
+      // The hull's NAME, the way the pause card bills a held run — the id is
+      // what the tape carries and not what anybody calls it.
+      craftById(bill.craft).name.toUpperCase(),
+      bill.value === null
+        ? STRINGS.replayUnfinished
+        : bill.mode === "tricks"
+          ? STRINGS.resultScore(bill.value)
+          : formatTime(bill.value),
+    ].join(" · "),
+  /** A recording of a run that never reached the line. It states the one
+   * fact it has rather than naming a cause: a tape is cut short by a rider
+   * who retired, by one who ran out of shore, and by one who simply wanted
+   * to see the gate they lost it at — three different things, and the bar
+   * cannot tell which of them it is looking at. */
+  replayUnfinished: "UNFINISHED",
+  /** The way out, and the one line of help under the bar. */
+  replayExit: "EXIT",
+  replayNote: "C for the camera · ESC to leave",
+  /** The mark over the frame while the picture is running slow. */
+  replaySlow: "SLOW",
 
   /* ── THE SHUTTER AND THE GALLERY (screenshots.ts, menu-gallery.tsx) ── */
   /** The one line of context a picture carries — the same two words the

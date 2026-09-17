@@ -130,6 +130,26 @@ export const LISTENERS: Record<CameraMode, Listener> = {
     events: 0.7,
     muffle: 0.85,
   },
+  // THE BROADCAST LENS (`camera-tv.ts`), which is a seat nobody is sitting
+  // in: a camera stood off on the water while the craft comes past it. So it
+  // is the sea's own row — the swell and the surf at the top of the scale,
+  // because a lens at sea level is IN it — with the machinery well down and
+  // the rider's own wind at almost nothing, since there is no rider here to
+  // have any. The one-shots stay loud: a hull going over, a slam, a rival
+  // met, are what the shot was cut for, and a broadcast puts a microphone on
+  // exactly those. Between the shots the picture is on the boom and this row
+  // is not read at all.
+  tv: {
+    engine: 0.5,
+    exhaust: 0.8,
+    pump: 0.6,
+    tone: 0.75,
+    hull: 0.9,
+    wind: 0.15,
+    sea: 1.45,
+    events: 1.15,
+    muffle: 0.95,
+  },
 };
 
 /** The mix for a camera, or the chase view's for anything that is not on

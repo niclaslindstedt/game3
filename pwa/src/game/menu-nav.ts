@@ -28,8 +28,14 @@ import { pickNeighbour, type NavDir, type NavRect } from "./menu-cursor.ts";
 /** The menu surfaces, MOST MODAL FIRST. The first one on screen owns the
  * cursor — a menu page sits over the sea, and the attract card sits under
  * both because it is the one surface that is never up at the same time as
- * anything else. */
-const ROOTS = [".menu-card", ".hud-card", ".splash"];
+ * anything else.
+ *
+ * A RECORDING'S BAR (`hud-replay.tsx`) is on this list so Escape and a pad's
+ * back button leave a replay the way they leave any card: its EXIT carries
+ * `data-nav-back` and this is what finds it. Under `.hud-card`, because the
+ * plate the game puts up when the TAB goes away can stand over a recording
+ * and is the thing to answer when it does. */
+const ROOTS = [".menu-card", ".hud-card", ".hud-replay", ".splash"];
 
 /** What the cursor may land on. Everything the menus are built from is a
  * button; the rest of the list is there so a surface that grows a real

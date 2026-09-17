@@ -79,6 +79,8 @@ import {
   hudOver,
   playerRides,
   simulates,
+  soundsLive,
+  watching,
 } from "../pwa/src/game/shell.ts";
 import {
   SPLASH_MIN_MS,
@@ -300,6 +302,32 @@ describe("which surface is up, and what follows from it (shell.ts)", () => {
   it("lets the pause card be reached from a RUN and from nowhere else", () => {
     expect(canPause("run")).toBe(true);
     for (const shell of SHELLS.filter((s) => s !== "run")) expect(canPause(shell)).toBe(false);
+  });
+
+  it("makes a RECORDING a run nobody is riding rather than a flag on one", () => {
+    // The whole of what the surface means (`replay.ts`): the engine steps,
+    // the app draws and the readouts are over it — they are reading the
+    // recording, and the recording IS the run — while nobody's hands are on
+    // the craft and the pause card is not offered, because a recording has
+    // nothing to lose by being left.
+    expect(watching("replay")).toBe(true);
+    for (const shell of SHELLS.filter((s) => s !== "replay")) expect(watching(shell)).toBe(false);
+    expect(simulates("replay")).toBe(true);
+    expect(appDraws("replay")).toBe(true);
+    expect(hudOver("replay")).toBe(true);
+    expect(playerRides("replay")).toBe(false);
+    expect(canPause("replay")).toBe(false);
+  });
+
+  it("gives the full mix to a run being RIDDEN and to one being WATCHED, and ducks the rest", () => {
+    // Not the opposite of `playerRides`: nobody is riding a replay and yet
+    // everything a player would hear is still on — it is the run, an hour
+    // later. Every card is the game talking over the sea instead.
+    expect(soundsLive("run")).toBe(true);
+    expect(soundsLive("replay")).toBe(true);
+    for (const shell of SHELLS.filter((s) => s !== "run" && s !== "replay")) {
+      expect(soundsLive(shell)).toBe(false);
+    }
   });
 });
 
