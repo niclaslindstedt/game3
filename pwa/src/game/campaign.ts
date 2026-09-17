@@ -30,7 +30,7 @@
 // shape of the thing — see the shore, then go back for the wins it costs to
 // leave it — and it is why a level already cleared is still worth riding.
 //
-// THE TWELVE ARE THE GAME'S ONLY SHORES, not the campaign's alone. RACE,
+// THE PINNED SHORES ARE THE GAME'S ONLY SHORES, not the campaign's alone. RACE,
 // TRICKS and TIME TRIAL pick one of these levels rather than a seed — the
 // same water, the same pinned day, ridden for the record book instead of
 // for points (`menu-levels.tsx`, `new-game.ts`'s `pinnedFor`) — and what
@@ -113,7 +113,7 @@ export function campaignConditions(level: CampaignLevel): RunConditions {
  *
  * THE DAY IS THE LEVEL'S WHATEVER THE RUN IS FOR. A campaign rung and a
  * time trial down the same shore are a time on the same water, which is the
- * whole reason these twelve are pinned rather than dealt; the start card's
+ * whole reason these are pinned rather than dealt; the start card's
  * rows exist for the one mode that measures nothing (`new-game.ts`). */
 export function pinnedGame(
   level: CampaignLevel,

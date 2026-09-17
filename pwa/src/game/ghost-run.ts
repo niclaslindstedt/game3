@@ -15,9 +15,9 @@
 // not two runs down the same shore). Neither keeps a tape.
 //
 // EVERY RUN WITH A GHOST IS ON A PINNED SHORE. The three measured modes ride
-// the campaign's twelve levels rather than a seed anybody dials
+// the campaign's pinned levels rather than a seed anybody dials
 // (`new-game.ts`'s `pinnedFor`, `menu-levels.tsx`), so a ghost never has to
-// ask what water a run is on: it is one of the twelve, under that level's
+// ask what water a run is on: it is one of the pinned levels, under that level's
 // own day, and a tape is keyed by the LEVEL. Which is the whole reason the
 // feature is worth having — two runs down one rung are two runs down the
 // same water by construction.
@@ -115,7 +115,7 @@ export type GhostRig = {
   state: () => GameState | null;
 };
 
-/** EVERY STAGE A RUN ON THIS BUILD COULD BE KEYED TO: the twelve pinned
+/** EVERY STAGE A RUN ON THIS BUILD COULD BE KEYED TO: every pinned
  * levels, each in the modes its own discipline lets it ride (`fitsMode`).
  * What the store holds outside this set is a tape for water the game no
  * longer has, and the rig sweeps it on the way up. */

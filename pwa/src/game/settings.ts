@@ -226,7 +226,7 @@ export type RideSettings = {
    * shore. */
   speedClass: number;
   /** WHICH PINNED LEVEL a measured run is ridden on — the id of one of the
-   * campaign's twelve (`campaign-levels.ts`), which is what RACE, TRICKS and
+   * campaign's pinned shores (`campaign-levels.ts`), which is what RACE, TRICKS and
    * TIME TRIAL choose instead of a seed (`menu-levels.tsx`). Null is no
    * pinned shore at all: a FREE ride, which asks for a seed and a day of its
    * own, and a LINK that named a seed, which is how every lab photographs a
@@ -435,7 +435,7 @@ export const DEFAULT_SETTINGS: Settings = {
     speedClass: 1,
     // NO PINNED LEVEL until a card picks one. A fresh app stands its
     // attract sea up on the shore the game ships with, exactly as it did
-    // before the twelve were a way on, and every lab's `?seed=` link still
+    // before the pinned shores were a way on, and every lab's `?seed=` link still
     // rides the seed it names.
     level: null,
     // The shore as it was dealt: its own seed, its own hour, its own wind

@@ -8,7 +8,7 @@
 // the work is asked to build. Neither knows the other exists.
 //
 // TWO KINDS OF LEVEL COME OUT OF IT. A measured run — a race, a tricks run,
-// a time trial — is ridden on one of the campaign's twelve PINNED shores,
+// a time trial — is ridden on one of the campaign's PINNED shores,
 // chosen on `menu-levels.tsx` and carrying its own day, so nothing on this
 // module's free-ride path is read at all. Everything else builds the seed
 // the settings and the URL between them name: the FREE ride, the attract
@@ -69,7 +69,7 @@ export type RunOver = { level?: Level; craft?: CraftId };
 
 /** THE PINNED SHORE this run is on, or null where it is choosing its own.
  *
- * RACE, TRICKS and TIME TRIAL ride one of the campaign's twelve levels
+ * RACE, TRICKS and TIME TRIAL ride one of the campaign's pinned levels
  * rather than a seed (`menu-levels.tsx`), so what they are riding is a
  * LEVEL ID and the day comes with it. Three answers are null: a FREE ride,
  * which is the mode that picks a seed; an id the ladder no longer has or

@@ -7,7 +7,7 @@
 //
 // EVERY LEVEL NAMES THE GENERATOR THAT BUILT IT (`engine/mapgen/versions.ts`)
 // and carries the DIGEST of the shore that came out, and both are written
-// out twelve times rather than shared from a constant on purpose: a shared
+// out on every level rather than shared from a constant on purpose: a shared
 // version is a single edit that re-rolls the whole campaign, which is the
 // implicit move the field exists to make impossible, and a digest is a
 // claim about ONE shore. `tests/generator_version_test.ts` rebuilds every
@@ -21,7 +21,7 @@
 // the light, the shape of the ask. A biome is a kind of coast and nothing
 // in this tree names a place (`tests/biome_test.ts`).
 //
-// THE RUNG ORDER is the same on both shores — a race, a tricks run, a
+// THE RUNG ORDER is the same on every shore — a race, a tricks run, a
 // lapped circuit, a race, a tricks run, the finale — so the second
 // discipline is met second rather than fifth, the loop is inside the climb
 // rather than bolted on the end, and every rung asks more than the one
@@ -32,13 +32,18 @@
 // rating module's header states: climb without a wall, no two rungs the
 // same shore twice, every kind of ask led on somewhere.
 //
-// THE MEDALS on a tricks level are read off the bot's own afternoon (the
-// roster ridden through `simulateStage` on the pinned shore under the
-// pinned day — `tests/campaign_test.ts` quotes the run): the bot never
-// flips, so its total is its air time priced, and bronze stands a little
-// over the roster's median. Silver is about a flip a jump on top of that,
-// gold two — the multiplier a revolution buys (`engine/game/tricks.ts`)
-// is what stretches the ladder, not more air.
+// THE MEDALS on a tricks level are set against the bot's own afternoon —
+// the roster ridden by the bot on the pinned shore under the pinned day,
+// which is what the curation loop measures (`tests/campaign_test.ts`
+// quotes the run). The bot never flips, so its total is very nearly its
+// air time priced, and BRONZE STANDS WELL UNDER THE ROSTER'S MEDIAN,
+// about a fifth of it: a medal is the DOOR to the next rung and nothing
+// else, while what the rung PAYS is the podium it is placed on, and a door
+// a rider has to out-ride eleven machines to get through would be the lock
+// twice. From there the ladder is 1 : 3 : 6 on every level in the
+// campaign — silver about a flip a jump on top of bronze, gold two —
+// because the multiplier a revolution buys (`engine/game/tricks.ts`) is
+// what stretches the ask, not more air.
 
 import type { GeneratorVersion, Season, TrackKind, Weather } from "@engine";
 
@@ -88,7 +93,7 @@ export type CampaignLevel = {
 };
 
 export type CampaignShore = {
-  id: "mangrove" | "taiga";
+  id: "mangrove" | "taiga" | "arctic";
   name: string;
   blurb: string;
   levels: readonly CampaignLevel[];
@@ -306,8 +311,118 @@ const TAIGA: CampaignShore = {
   ],
 };
 
-/** The shores in the order the campaign walks them: the warm one first. */
-export const SHORES: readonly CampaignShore[] = [MANGROVE, TAIGA];
+/** THE POLAR SHORE — the third, behind the cold one's table: black water at
+ * the freezing point under a wall of glacier ice, bergs grounded off the
+ * front where the taiga has skerries, a midnight sun to open on and a
+ * blizzard to close on — and, in the middle of it, the one thing no other
+ * coast can put under a run: a sea frozen over, with a channel cut down the
+ * course (R37). */
+const ARCTIC: CampaignShore = {
+  id: "arctic",
+  name: "Arctic",
+  blurb: "Glacier ice, black water, and a sea that freezes",
+  levels: [
+    {
+      id: "arctic-1",
+      name: "Midnight Sun",
+      blurb: "Grounded bergs either side of a flat line, the sun still up at one",
+      seed: 38,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "d7e251ca",
+      hour: 1,
+      season: "summer",
+      weather: "clear",
+      wind: 7,
+      swell: 1.5,
+    },
+    {
+      id: "arctic-2",
+      name: "Sea Smoke",
+      blurb: "Two minutes of kickers in the fog that stands over every lead",
+      seed: 46,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "488334af",
+      hour: 2,
+      season: "summer",
+      weather: "haze",
+      wind: 8,
+      swell: 2,
+      minutes: 2,
+      medals: { bronze: 700, silver: 2100, gold: 4200 },
+    },
+    {
+      id: "arctic-3",
+      name: "Floe Laps",
+      blurb: "Three laps out past the front, under a high spring sheet",
+      seed: 19,
+      mode: "race",
+      track: "circuit",
+      laps: 3,
+      version: 1,
+      digest: "03e26448",
+      hour: 3,
+      season: "spring",
+      weather: "high",
+      wind: 9,
+      swell: 4,
+    },
+    {
+      id: "arctic-4",
+      name: "Narrow Lead",
+      blurb: "The sea frozen over, and the tightest line on the coast cut through it",
+      seed: 2,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "56b98d31",
+      hour: 15,
+      season: "winter",
+      weather: "overcast",
+      wind: 13,
+      swell: 1.5,
+    },
+    {
+      id: "arctic-5",
+      name: "Snow Kickers",
+      blurb: "Four minutes of ramps in the snow, with the sun going down for the year",
+      seed: 45,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "deefc154",
+      hour: 16,
+      season: "autumn",
+      weather: "rain",
+      wind: 12,
+      swell: 6,
+      minutes: 4,
+      medals: { bronze: 1200, silver: 3600, gold: 7200 },
+    },
+    {
+      id: "arctic-6",
+      name: "White Out",
+      blurb: "Nine metres of black water, growlers on the line, and a blizzard at last light",
+      seed: 41,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "ab837aaa",
+      hour: 17,
+      season: "autumn",
+      weather: "squall",
+      wind: 14,
+      swell: 18,
+    },
+  ],
+};
+
+/** The shores in the order the campaign walks them: the warm one first, the
+ * cold one behind its table, the polar one behind the cold one's. */
+export const SHORES: readonly CampaignShore[] = [MANGROVE, TAIGA, ARCTIC];
 
 /** Every level, in ladder order. */
 export const CAMPAIGN_LEVELS: readonly CampaignLevel[] = SHORES.flatMap((s) => s.levels);

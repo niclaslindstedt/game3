@@ -2,7 +2,7 @@
 // THE LEVEL CARD — which of the pinned shores a RACE, a TRICKS run or a
 // TIME TRIAL is ridden on.
 //
-// THE GAME HAS TWELVE SHORES AND THEY ARE THE CAMPAIGN'S. A measured run is
+// THE GAME'S SHORES ARE THE CAMPAIGN'S, all of them. A measured run is
 // only worth measuring against somebody else's if the two were ridden down
 // the same water, and a seed dialled on a card is a shore nobody else has
 // ever seen — so the three modes that keep a record book pick a LEVEL here,

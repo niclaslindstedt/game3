@@ -1,12 +1,13 @@
 ---
 name: campaign
-description: "Use when working on THE CAMPAIGN — the twelve pinned levels and the ladder they make: adding, moving or re-naming a level in `pwa/src/game/campaign-levels.ts`, changing what a finish pays or what a lock asks for (`campaign.ts`), the card (`menu-campaign.tsx`), the plate at the end of a campaign run, or a generator change that has moved a pinned shore (the version contract in `engine/mapgen/versions.ts`). Owns the curation loop — `make rate CAMPAIGN=1`, `make difficulty CAMPAIGN=1`, the sim on the level — and the rule that a pinned shore's digest is rewritten only for a level deliberately moved. Not whether a level is any GOOD in the first place (`level-rating`), and not the card's chrome (`menu-system`)."
+description: "Use when working on THE CAMPAIGN — the pinned levels and the ladder they make: adding, moving or re-naming a level in `pwa/src/game/campaign-levels.ts`, changing what a finish pays or what a lock asks for (`campaign.ts`), the card (`menu-campaign.tsx`), the plate at the end of a campaign run, or a generator change that has moved a pinned shore (the version contract in `engine/mapgen/versions.ts`). Owns the curation loop — `make rate CAMPAIGN=1`, `make difficulty CAMPAIGN=1`, the sim on the level — and the rule that a pinned shore's digest is rewritten only for a level deliberately moved. Not whether a level is any GOOD in the first place (`level-rating`), and not the card's chrome (`menu-system`)."
 ---
 
-# The campaign: twelve shores, ridden for points
+# The campaign: the pinned shores, ridden for points
 
 The campaign is the sibling rally game's championship retyped for water:
-two SHORES (the warm mangrove coast, then the cold taiga), six LEVELS each,
+three SHORES (the warm mangrove coast, then the cold taiga, then the polar
+arctic), six LEVELS each,
 every level a SEED on a generator VERSION under a pinned DAY, ridden against
 the race's grid with hull contact off, paying the podium three, two and one
 for the whole field. The next level opens behind a podium (a MEDAL on a
@@ -24,7 +25,7 @@ itself.
 
 | Thing                                                     | File                                          |
 | --------------------------------------------------------- | --------------------------------------------- |
-| The twelve levels: seed, version, digest, day, medals     | `pwa/src/game/campaign-levels.ts`             |
+| The levels: seed, version, digest, day, medals            | `pwa/src/game/campaign-levels.ts`             |
 | The policy: building a level, standing a run up, the points, the locks, the table, the stored board | `pwa/src/game/campaign.ts` (storage-free above the line) |
 | The card: the shores, the six boxes, the table            | `pwa/src/game/menu-campaign.tsx`              |
 | The plate at the end of a campaign run                    | `run-news.ts`'s `campaignResultFor`           |
@@ -51,13 +52,30 @@ itself.
 cost nothing that has to be re-verified and carry a third of the index
 (`RATING.weight`), so when two rungs sit level, move the day before the
 seed: a seed change re-rolls the shore, the sheet, the sim time and the
-name. Both shores' finales are their darkest and windiest levels for that
-reason.
+name. Every shore's finale is its darkest and windiest level for that
+reason. And a pinned hour is held to R13 the way a dealt one is —
+`daylightWindow` for the coast and the season, so a run never STARTS in
+the dark (`tests/campaign_test.ts`). A polar coast in the midnight sun has
+no window at all, and every hour of its clock is legal.
 
-**The medals are read off the bot.** Run the tricks level through the sim
-on every craft; bronze stands a little over the roster's median score
-(the bot never flips, so its total is air time priced), silver about a
-flip a jump on top, gold two. Write the run's numbers in the PR.
+**The medals are set against the bot.** Ride the tricks level with the bot
+on every craft, UNDER ITS PINNED DAY — which `npm run sim` cannot do
+(`simulateStage` takes no hour, no season, no sky and no mode), so it is a
+scratch probe over `campaignGame`. Bronze stands about a FIFTH of the
+roster's median score (the bot never flips, so its total is air time
+priced), and from there the ladder is 1 : 3 : 6 on every level in the
+campaign. A medal is the DOOR to the next rung while the podium is what
+the rung pays, so a door a rider had to out-ride eleven machines to get
+through would be the lock twice. Write the four scores in the PR.
+
+**A coast that FREEZES rates on the season the run pins, not the one the
+seed was dealt** — `rateLevel` lays the run's season over the level before
+it builds the sea, the way `createGame` does. On the arctic that is the
+difference between an open sea and a channel cut through two metres of ice
+(R37): the sea axis collapses to a lead's chop, so a winter rung reads
+about 0.05 lower on the index than the same shore in autumn. The index has
+no term for the channel itself, so `make difficulty` and `make level
+BIOME=arctic ARGS=--season=winter` are what actually judge one.
 
 **A level is named for what it is like, never for where it is** — the
 water, the light, the shape of the ask. `tests/campaign_test.ts` refuses
@@ -67,7 +85,7 @@ the obvious place words, and `tests/biome_test.ts` holds the tree.
 
 Every level names the generator version it was curated under and carries
 the digest of the shore that came out. `tests/generator_version_test.ts`
-rebuilds all twelve and compares. When it goes red there are exactly two
+rebuilds every one and compares. When it goes red there are exactly two
 cases, with opposite fixes:
 
 - **You moved the level** (a new seed, a new swell, a new track, a
@@ -78,7 +96,7 @@ cases, with opposite fixes:
   old row as an optional trait read through `generatorTraits(opts.version)`
   at the one place it differs, and leave the level where it stands — or
   move it onto the new version as a curation, one level at a time. Bumping
-  all twelve because the suite went red is the implicit re-roll the scheme
+  every level because the suite went red is the implicit re-roll the scheme
   exists to prevent, and it wipes every player's board.
 
 And **delete a version nothing names any more**, row and trait branches
@@ -88,7 +106,7 @@ together — the test refuses a museum.
 
 - `make rate CAMPAIGN=1` and `make difficulty CAMPAIGN=1` in the PR, and
   the sim on any level that moved.
-- `docs/getting-started.md`'s campaign paragraph names the twelve levels;
+- `docs/getting-started.md`'s campaign paragraph names every level;
   a renamed level is renamed there.
 - A new word on the card goes in `strings.ts`; a new mark in
   `menu-glyphs.tsx` and on `make glyphs`'s sheet.

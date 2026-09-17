@@ -2865,7 +2865,7 @@ canvas {
    useful thing a front door can do for somebody who has just arrived.
 
    It is also the only tile whose FACE CHANGES between visits: the line under
-   the name is how far up the twelve the player has got (`campaignStanding`).
+   the name is how far up the ladder the player has got (`campaignStanding`).
    That is what stops the door being furniture — a card that says exactly the
    same thing on the fortieth visit as on the first is a card nobody reads
    twice, and no amount of decoration fixes it.
