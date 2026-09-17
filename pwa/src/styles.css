@@ -1840,15 +1840,42 @@ canvas {
   }
 }
 
-/* THE RESULT PLATE — the tab-away card's plate with one more line on it,
-   and a gold rim on the day the book gains a row. */
+/* THE RESULT PLATE — the tab-away card's plate with the finish's own lines on
+   it and a row of presses under them (hud-result.tsx), and a gold rim on the
+   day the book gains a row.
+
+   ITS OWN LAYER, over the HUD and under every card: the presses on it are the
+   only ways off a finished run, so they are never behind a readout — and the
+   pause card, which offers the same three in its own words, stands over the
+   top of it (`.menu` sits higher still). */
+.hud-result-layer {
+  z-index: 2;
+}
+
 .hud-result {
   min-width: min(20rem, 80vw);
+  /* ...and a gutter it may never cross. The row of presses is the widest
+     thing on the card, so without a ceiling it runs to both edges of a phone
+     held upright and the plate stops reading as a card at all. */
+  max-width: min(34rem, calc(100vw - 2rem));
   animation: hud-air-in 420ms ease-out;
 }
 
-.hud-result-record {
+/* THE GOLD RIM on the day the book gains a row. Qualified with `.hud-card`,
+   which it is never seen without, because `.hud-card`'s own `border`
+   SHORTHAND is declared further down this file: at equal specificity the
+   later rule wins, so the bare `.hud-result-record` this used to be never
+   painted a single card. The same trap as two box-shadows at equal
+   specificity. */
+.hud-card.hud-result-record {
   border-color: var(--hud-good);
+}
+
+/* The eyebrow: what happened, over what it was worth. Quiet and wide — it is
+   the one line on the card the rider does not have to read twice. */
+.hud-result-label {
+  letter-spacing: 0.18em;
+  opacity: 0.8;
 }
 
 .hud-result-best {
@@ -2021,10 +2048,25 @@ canvas {
   white-space: nowrap;
 }
 
-/* The plate's own offer at the finish, which is a press on a card and not a
-   press made mid-ride: it wants room above it rather than a thumb zone. */
-.hud-result-replay {
-  margin-top: 0.5rem;
+/* THE WAYS ON, at the foot of the finish plate: presses made on a card rather
+   than mid-ride, so they want room above them rather than a thumb zone. They
+   WRAP — three words side by side is more than a phone held upright can take
+   on one line, and a row that overflowed instead would put the door off the
+   edge of the card. */
+.hud-result-acts {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin-top: 0.6rem;
+}
+
+/* Bigger than a mid-run press, because it is read before it is hit: a plate
+   the rider has stopped at is not the corner of the screen. */
+.hud-result-act {
+  font-size: clamp(0.72rem, 2.2vmin, 1rem);
+  padding: 0.45rem 0.9rem;
 }
 
 /* A phone held upright has no room between the corners for either, so the

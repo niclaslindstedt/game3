@@ -26,7 +26,7 @@ import { fieldOrder, type GameState, type TrackKind } from "@engine";
 
 import { recordRun, type CampaignLevel, type CampaignProgress } from "./campaign.ts";
 import type { GhostRig } from "./ghost-run.ts";
-import type { HudResult } from "./hud.tsx";
+import type { HudResult } from "./hud-result.tsx";
 import { bestFor, noteRecord, type RecordBook } from "./records.ts";
 import { recordKeyFor } from "./new-game.ts";
 import { campaignResultFor, resultFor } from "./run-news.ts";

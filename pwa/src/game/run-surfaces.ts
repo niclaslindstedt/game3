@@ -1,13 +1,15 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE FIVE WAYS A RUN IS LEFT AND COME BACK TO, in one place.
+// THE SIX WAYS A RUN IS LEFT AND COME BACK TO, in one place.
 //
-// A surface change is the whole of what each of these is (`shell.ts`): the
+// A surface change is the whole of what five of these are (`shell.ts`): the
 // frame loop reads the surface and decides who rides the craft, whether the
-// engine steps at all and what is drawn over it, so none of these tears
-// anything down and none of them builds anything. What they own is the
-// bookkeeping AROUND the change — the card the front door opens on, the ghost
-// taken off the water, the recording cut or dropped — which is the part that
-// used to be five comments deep inside the frame loop.
+// engine steps at all and what is drawn over it, so none of those tears
+// anything down. What they own is the bookkeeping AROUND the change — the
+// card the front door opens on, the ghost taken off the water, the recording
+// cut or dropped — which is the part that used to be five comments deep
+// inside the frame loop. RESTART is the odd one out and is here anyway,
+// because it is the same question asked of the same run: the rider is done
+// with the one he is on.
 //
 //   PAUSE    the run HELD where it stands, the one surface that freezes.
 //   RESUME   back to the water, on the very frame it was left on.
@@ -17,6 +19,10 @@
 //   MENU     out to the front door. Nothing is torn down: the same craft
 //            carries on under the bot, which is what keeps the water moving
 //            under the menu.
+//   RESTART  the run again from the line, on the shore it is already on —
+//            the B key's own line, and the finish plate's first press. The
+//            one of the six that STANDS something: a fresh state on the same
+//            settings, which is the loop's (`restand`).
 //   ABANDON  off a load that will not finish.
 //
 // WHY WATCH AND MENU ARE THE SAME KIND OF THING, and why they share this
@@ -48,6 +54,9 @@ export type RunSurfaceWorld = {
   unfreeze: () => void;
   /** The run clock, resumed by every press that puts a run back in motion. */
   resumeClock: () => void;
+  /** A fresh run stood on the settings as they stand — the loop's, because
+   * the engine state and the world behind it are `App.tsx`'s. */
+  restand: () => void;
   /** Whether the run under the HUD is a campaign rung, and the way to say it
    * no longer is: out of one, the door opens on the ladder rather than the
    * root, and what was ridden stops being the campaign's. */
@@ -65,6 +74,7 @@ export type RunSurfaces = {
   pause: () => void;
   resume: () => void;
   toMenu: () => void;
+  restart: () => void;
   abandonLoad: () => void;
   watch: () => void;
 };
@@ -119,6 +129,16 @@ export function createRunSurfaces(world: RunSurfaceWorld): RunSurfaces {
       // the one thing that must never be missed is the ladder.
       world.replays.clear();
       world.setShell("menu");
+    },
+    // THE RUN AGAIN, from the line. The ghost is NOT taken off the water the
+    // way it is on the four presses that end a run — the rider is about to
+    // ride the same shore again, and `restand` arms it for the run it is
+    // standing. Everything else is `endRun`'s: the held frame let go of, and
+    // the clock running behind the fresh state.
+    restart: () => {
+      world.unfreeze();
+      world.restand();
+      world.resumeClock();
     },
     // The way off a load that will not finish. Back to the card that CHOSE
     // the shore the generator refused rather than to the front door — the

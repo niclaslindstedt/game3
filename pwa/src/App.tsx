@@ -77,7 +77,8 @@ import { onShellCommand } from "./shell-host.ts";
 import { createRunAudio, setAudioVolumes, unlockAudio } from "./game/audio/index.ts";
 import { FPS_UNKNOWN, createFrameGate, smoothFps } from "./game/frame-rate.ts";
 import { runRumble, setRumble } from "./game/haptics.ts";
-import { Hud, hasTouch, type HudFlash, type HudResult } from "./game/hud.tsx";
+import { Hud, hasTouch, type HudFlash } from "./game/hud.tsx";
+import { ResultPlate, type HudResult } from "./game/hud-result.tsx";
 import { flashFor, shotLabel } from "./game/run-news.ts";
 import {
   campaignGame,
@@ -228,13 +229,15 @@ export function App() {
   const startRunRef = useRef<(campaign?: CampaignLevel) => void>(() => {});
   /** ...and the same for the presses that move a RUN between surfaces: the
    * minimap and Escape put the pause card up, and the card takes it down
-   * again — back to the water, out to a recording of it, or out to the front
-   * door. What each one MEANS is `run-surfaces.ts`'s; the loop owns the run,
-   * so it owns the closures they are built over. */
+   * again — back to the water, out to a recording of it, round again from the
+   * line, or out to the front door; the finish plate presses the same three
+   * the card does. What each one MEANS is `run-surfaces.ts`'s; the loop owns
+   * the run, so it owns the closures they are built over. */
   const runRef = useRef<RunSurfaces>({
     pause: () => {},
     resume: () => {},
     toMenu: () => {},
+    restart: () => {},
     abandonLoad: () => {},
     watch: () => {},
   });
@@ -638,9 +641,9 @@ export function App() {
     const walk = walkCardsOnKeys(nav, () => shellRef.current !== "run");
 
     /* ── THE WAYS A RUN IS LEFT ──────────────────────────────────────────
-       `run-surfaces.ts` owns all five — the pause card up and down, the run
-       watched back, the front door, and giving up on a load. What only this
-       loop can give them is handed over below. */
+       `run-surfaces.ts` owns all six — the pause card up and down, the run
+       watched back, the run again from the line, the front door, and giving
+       up on a load. What only this loop can give them is handed over below. */
     runRef.current = createRunSurfaces({
       settings: () => settingsRef.current,
       shell: () => shellRef.current,
@@ -649,6 +652,7 @@ export function App() {
         frozen = false;
       },
       resumeClock: () => clock.resume(),
+      restand: () => stand(settingsRef.current.dev.scene, 0),
       onCampaign: () => ridingRef.current !== null,
       leaveCampaign: () => {
         ridingRef.current = null;
@@ -669,11 +673,6 @@ export function App() {
       leaveBench: () => benchRef.current.leave(),
       shoot: shots.take,
       toggleHud: () => setSettings((s) => ({ ...s, hud: { ...s.hud, on: !s.hud.on } })),
-      restart: () => {
-        frozen = false;
-        stand(settingsRef.current.dev.scene, 0);
-        clock.resume();
-      },
     });
     input.onAction(act);
 
@@ -904,8 +903,6 @@ export function App() {
           touch={touch}
           input={inputRef.current!}
           away={away}
-          result={result}
-          onReplay={canReplay ? () => runRef.current.watch() : null}
           fps={settings.hud.fps ? fps : null}
           cost={cost}
           onReset={() => inputRef.current?.requestReset()}
@@ -913,19 +910,17 @@ export function App() {
           onPause={() => runRef.current.pause()}
         />
       )}
-      {/* THE NEW-BUILD NOTICE IS NOT A READOUT, so the HUD's own switch does
-          not reach it: a setting worded "the readouts over the water" must
-          not quietly turn off the one thing the app ever says on its own
-          initiative. With the HUD up it rides in the top bar where
-          `update-button.tsx` argues it belongs — the foot of the news
-          column, hard in the bottom-right corner; everywhere else — the HUD
-          switched off, and THE FRONT DOOR, which is the surface a player is
-          most likely to be looking at when a deploy lands — it stands in the
-          same corner, in the same chrome, on its own. The attract and
-          loading cards are the app covering its own screen, so the notice
-          waits for whatever is under them (styles.css keeps it below both).
-          It draws itself or it draws nothing, so on nearly every day this is
-          an empty box. */}
+      {/* THREE LAYERS OVER THE WATER ARE NOT READOUTS, so the HUD's own
+          switch reaches none of them: a setting worded "the readouts over the
+          water" must not take away the one thing the app says on its own
+          initiative, the only way out of a recording, or the only ways off a
+          finished run. Each is its own layer, drawn whether or not the
+          instruments under it are. THE NEW-BUILD NOTICE rides the HUD's own
+          news column with the HUD up and stands alone in that same corner
+          without it — `update-button.tsx` argues both, and this is only the
+          condition: the attract and loading cards are the app covering its
+          own screen, so the notice waits for whatever is under them. It draws
+          itself or it draws nothing, so most days this is an empty box. */}
       {!hudUp && (hudOver(shell) || shell === "menu") && (
         <div class={shell === "menu" ? "hud hud-over-card" : "hud"}>
           <div class="hud-right">
@@ -933,16 +928,22 @@ export function App() {
           </div>
         </div>
       )}
-      {/* THE BAR OVER A RECORDING. OUTSIDE the HUD's own switch, for the
-          reason the new-build notice is: a setting worded "the readouts over
-          the water" must not be able to take away the only way out of a
-          replay. Its own layer, so it stands whether or not the instruments
-          under it are drawn. */}
+      {/* THE BAR OVER A RECORDING (hud-replay.tsx). */}
       {replayBar && (
         <div class="hud hud-replay-layer">
           <ReplayBar {...replayBar} />
         </div>
       )}
+      {/* THE PLATE OVER A FINISHED RUN (hud-result.tsx): the craft coasts
+          from the line on, so its three presses are all the rider has left.
+          Down under the pause card, which offers the same three, and with the
+          tab away. */}
+      <ResultPlate
+        result={shell === "run" && !away ? result : null}
+        touch={touch}
+        replay={canReplay}
+        surfaces={runRef.current}
+      />
       {/* THE RUN, HELD. Over the HUD and over the frozen frame, wearing the
           front door's own chrome — it is the same game asking the same kind
           of question, and one card look beats two. */}
