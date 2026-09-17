@@ -27,6 +27,20 @@
 // its `top` is a height above the water like every other solid's, but it
 // stands on a beach that may be a metre up, so its foot is looked up in the
 // level's own heightfield and the block drawn from there.
+//
+// EVERY ONE OF THEM IS HUNG OFF ITS CROWN, because `Solid.top` is the one
+// thing the rider and the hull have to agree about: it is the height the
+// engine collides against (`solidSurfaceAt`), and it is the height the eye
+// judges a rock by — whether it breaks the surface. The sculpted kinds hold
+// it by construction (`carveRock` puts the apex on `top` exactly, and says
+// so); the instanced ones are lathe-free lumps, so each states its own
+// half-height and is centred a half-height DOWN from `top` rather than at a
+// share of its radius that was picked for how squat it looks. It used to be
+// the latter, and the difference is not cosmetic: a boulder came out up to
+// 0.87 m taller than the rock the hull meets, so one rock in eight on a
+// taiga coast stood clearly out of the water while the thing the hull
+// collided with was under it — a rock you can see, aim at, and ride
+// straight through.
 
 import * as THREE from "three";
 import { TAU, hash2, sampleField, type Level, type Solid } from "@engine";
@@ -124,6 +138,16 @@ function sculpted(level: Level, kind: keyof typeof ROCK_FORMS): THREE.Mesh | nul
   );
 }
 
+/** How far a unit lump reaches above its own origin — 1 for a sphere, but
+ * 0.851 for an icosahedron, whose twelve vertices sit on the sphere and
+ * none of them at the pole. Asked of the geometry rather than written down:
+ * getting it wrong is invisible in the code and reads on the water as a
+ * rock that is not the height the engine says it is. */
+function apexOf(geometry: THREE.BufferGeometry): number {
+  geometry.computeBoundingBox();
+  return geometry.boundingBox?.max.y ?? 1;
+}
+
 export function createRocks(level: Level): THREE.Group {
   const group = new THREE.Group();
   const paint = shorePaintOf(level.biome);
@@ -136,15 +160,17 @@ export function createRocks(level: Level): THREE.Group {
     const mesh = sculpted(level, kind);
     if (mesh) group.add(mesh);
   }
-  // A boulder: a squashed low-poly sphere.
+  // A boulder: a squashed low-poly sphere, its crown on the solid's `top`.
   const lump = new THREE.SphereGeometry(1, 6, 4);
+  const lumpApex = apexOf(lump);
   group.add(
     instanced(
       lump,
       by("boulder"),
       (s) => {
-        pos.y = s.top - s.r * 0.55;
-        scale.set(s.r, s.r * 0.8, s.r * 0.9);
+        const half = s.r * 0.8;
+        pos.y = s.top - half * lumpApex;
+        scale.set(s.r, half, s.r * 0.9);
       },
       BOULDER,
       level.seed,
@@ -152,31 +178,38 @@ export function createRocks(level: Level): THREE.Group {
   );
   // An erratic: an angular block, faceted rather than rounded, rooted in
   // the ground it was dropped on rather than hung off sea level.
+  const block = new THREE.IcosahedronGeometry(1, 0);
+  const blockApex = apexOf(block);
   group.add(
     instanced(
-      new THREE.IcosahedronGeometry(1, 0),
+      block,
       by("erratic"),
       (s) => {
         // Buried a third of its radius, so it sits IN the beach rather than
-        // balancing on it, and the ground never shows under its rim.
+        // balancing on it, and the ground never shows under its rim — and
+        // spanning exactly foot to `top`, so the block stands as tall as
+        // the solid says whatever the beach under it is doing.
         const foot = sampleField(level.ground, s.x, s.z) - s.r * 0.35;
         const h = Math.max(0.4, s.top - foot);
-        pos.y = foot + h / 2;
-        scale.set(s.r, h / 2, s.r * 0.88);
+        pos.y = s.top - h / 2;
+        scale.set(s.r, h / 2 / blockApex, s.r * 0.88);
       },
       ERRATIC,
       level.seed,
       0.22,
     ),
   );
-  // A reef: flatter still, and under the surface.
+  // A reef: flatter still, and under the surface — where the water's own
+  // shallow tint is the only thing that gives it away, so how deep its
+  // crown is drawn IS how the rider reads it.
   group.add(
     instanced(
       lump,
       by("reef"),
       (s) => {
-        pos.y = s.top - s.r * 0.5;
-        scale.set(s.r * 1.1, s.r * 0.55, s.r);
+        const half = s.r * 0.55;
+        pos.y = s.top - half * lumpApex;
+        scale.set(s.r * 1.1, half, s.r);
       },
       REEF,
       level.seed,

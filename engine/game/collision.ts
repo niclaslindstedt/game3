@@ -17,7 +17,10 @@
 //   sea has undercut them, sheer at the waterline, rounding over toward a
 //   crown `solidCrown` of that width — the shape the ice left and the shape
 //   the renderer carves. They are resolved in two places, and that split is
-//   what lets a hull get up ONTO one. Their FLANK is the WALL: an impulse
+//   what lets a hull get up ONTO one. WHICH of the two a rock gives you is
+//   read off how far the keel is under its crown, against `solidWallBelow`
+//   — a band narrower than any hull's draft on the plane, so a rock that
+//   BREAKS THE SURFACE is a wall and a rock awash is a road. Their FLANK is the WALL: an impulse
 //   at the hull's own keel probes, pushed out along the radial — never with
 //   any lift in it — the closing speed reversed by the restitution and most
 //   of the slide kept, with the offset from the centre of gravity turning
@@ -404,7 +407,14 @@ export function clipSolids(
       // Over the crown: the keel either clears the rock outright, or is
       // near enough the top that it is RIDING it — held up by the crown
       // in `contactForces` — rather than buried in the flank.
-      if (py > solid.top - C.solidRideBelow) continue;
+      //
+      // The band is `solidWallBelow` and NOT the crown's own reach: that
+      // one is sized for a landing caught from above, and a keel is only
+      // ever 0.16–0.25 m under the surface on the plane, so spending the
+      // crown's band here exempts every rock standing less than half a
+      // metre out of the water from the wall — rock that is not a step a
+      // planing bow mounts but a wall buried in the bottom of the hull.
+      if (py > solid.top - C.solidWallBelow) continue;
       const dx = px - solid.x;
       const dz = pz - solid.z;
       const dist = Math.hypot(dx, dz);

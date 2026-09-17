@@ -882,20 +882,49 @@ export const TUNING = {
      * every low skerry a launch ramp a hull leaves at ten metres a second
      * rather than a rock it rides over. */
     solidTaper: 1.7,
-    /** How far below a rock's top a keel may be and still be RIDING it, m.
-     * Within this the shallowest way out of the rock is UP, so the hull is
-     * carried by the crown — a rock awash shoved under the bottom, a hull
-     * that flew onto a skerry, a reef scraped over. Deeper than this the
-     * way out is sideways, which is the flank stopping a hull that ran
-     * square into something standing out of the water. The band is the
-     * rounded shoulder of the stone plus the wedge of a planing bow: the
-     * step a hull at speed genuinely mounts rather than strikes. */
+    /** How far below a rock's top a probe may be and still be CARRIED by
+     * its crown, m — the crown's reach in `contactForces`. Within this the
+     * shallowest way out of the stone is UP, so the hull is held up rather
+     * than stopped: a rock awash shoved under the bottom, a hull that flew
+     * onto a skerry, a reef scraped over. It is generous on purpose, and
+     * the reason is the LANDING: a hull dropping onto a crown covers a
+     * tenth of a metre a step, so a narrow band is a band a fast descent
+     * steps clean through — and what catches it on the other side is the
+     * flank, which would squirt it off the rock sideways. */
     solidRideBelow: 0.55,
+    /** ...and how far below that top the KEEL has to be before the stone
+     * is a WALL, m — the flank's stand-down in `clipSolids`. A SECOND,
+     * much smaller number, because the two ask opposite things of the same
+     * band: the crown's reach wants to be deep so a landing is caught, and
+     * this one wants to be shallow, because it is what decides whether a
+     * rock a rider can SEE stops them.
+     *
+     * It is sized against the DRAFT rather than against the stone: every
+     * hull in the catalog floats with 0.16–0.25 m of keel under the
+     * surface on the plane, so a band wider than that exempts rock
+     * standing clear of the water — rock that is not a step a bow can
+     * mount but a wall buried in the bottom of the hull. Measured on the
+     * bearing sweep, 0.55 did exactly that: a stone 0.2 m proud stopped
+     * nothing from any bearing and threw the hull two metres up and over
+     * onto its back instead, and one 0.35 m proud stopped half the
+     * bearings and launched the other half. Under every planing draft and
+     * over zero is the whole of the rule: a rock that breaks the surface
+     * is a wall, a rock awash is a road. */
+    solidWallBelow: 0.25,
     /** ...and the most the crown may then push back on one probe, N —
      * `rampDeckCap`'s job on the other surface a hull lands on top of. A
      * hull dropped onto a rock from a jump is a landing, and this is what
-     * holds it to one rather than to a launch. */
-    solidTopCap: 20_000,
+     * holds it to one rather than to a launch.
+     *
+     * It also has to be enough to STOP that landing inside the flank's
+     * stand-down (`solidWallBelow`), because a keel that sinks past it is
+     * a keel the flank then squirts off the rock sideways. Measured on an
+     * 8 m drop onto a crown, the worst a ramp on this coast can hand a
+     * rider: at 20 kN the hull bottomed out 0.4 m into the stone and three
+     * craft of four slid off, and at 40 kN all four stay up on it at every
+     * height of rock. 80 kN lands in the same place, so this is where it
+     * saturates rather than where it was picked. */
+    solidTopCap: 40_000,
     /** The closing speed a `hit` is worth reporting from, m/s, and the
      * cooldown between reports, s. */
     hitSpeed: 1,
