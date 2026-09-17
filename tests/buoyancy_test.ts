@@ -114,6 +114,30 @@ describe("stability", () => {
     });
   }
 
+  // THE ANGLE OF VANISHING STABILITY, bracketed. The righting arm the deck
+  // probes give the hull is positive up to about 90° of heel and negative
+  // past it (a boat's GZ curve, and a personal watercraft's crosses early
+  // because the sealed deck it floats on inverted is nearly as wide as the
+  // bottom it floats on upright). So there are TWO stable attitudes, not
+  // one, and which of them a hull ends in is decided by which side of that
+  // crossing it is on — never by a rule written on top of the physics. The
+  // heels above hold the near side; this holds the far one.
+  for (const [id] of heels) {
+    it(`${id} does not come back from past its beam ends`, () => {
+      const state = createGame({ seed: 1, craft: id as "skiff", level: STILL, quiet: true });
+      placeRun(state, { x: 100, z: 200, heading: 0, roll: 1.9 });
+      const events: string[] = [];
+      for (let i = 0; i < 12 * TUNING.physicsHz; i++) {
+        step(state, NEUTRAL_INPUT);
+        for (const e of state.events) events.push(e.kind);
+      }
+      // It goes over on its own and the rider has to swim it round: the
+      // capsize fires, which is the engine saying the hull was not coming
+      // back by itself.
+      expect(events.filter((k) => k === "capsize").length).toBe(1);
+    });
+  }
+
   it("an inverted hull floats, and the rider rights it after a moment", () => {
     const state = createGame({ seed: 1, craft: "skiff", level: STILL, quiet: true });
     placeRun(state, { x: 100, z: 200, heading: 0, roll: Math.PI - 0.05 });

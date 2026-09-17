@@ -207,7 +207,24 @@ export type CraftSpec = {
   /** The rider as a point mass, kg, this high above the centre of gravity,
    * m. The physics carries the point; the app draws a figure on the saddle
    * from its own anthropometrics (`pwa/src/game/rider-pose.ts`) and leans
-   * it where this mass went. */
+   * it where this mass went.
+   *
+   * SEVENTY KILOS ON EVERY ROW, and the same rider on every craft is the
+   * point: what separates these four is meant to be the machines, and a
+   * roster whose riders weigh different amounts hands the light hull a
+   * light rider and doubles a difference the catalog already states. The
+   * height is the craft's own, because a man standing on a stand-up
+   * genuinely is half a metre higher than one sat over a tourer's pump,
+   * and that is the mass that decides how hard each hull is to hold on
+   * its ear.
+   *
+   * `cog.y` is the combined CoG of hull-plus-rider, so the two masses are
+   * placed either side of it (`craft.ts`): the rider `riderHeight` above,
+   * the hull the distance below that balances him. Gravity therefore
+   * makes no net moment about the CoG — a rigid body's never does — and
+   * what the rider's weight actually buys is the INERTIA it adds off-axis
+   * (`hull.ts`'s `inertia`), the water it displaces, and the moment his
+   * shift makes when he moves (`TUNING.rider`). */
   riderMass: number;
   riderHeight: number;
   /** Expected flat-water top speed, km/h, and 0–50 km/h time, s. */
@@ -293,7 +310,7 @@ export const CRAFT: readonly CraftSpec[] = [
     cdA: 0.75,
     cdASide: 1.9,
     lateralCd: 1.25,
-    riderMass: 80,
+    riderMass: 70,
     riderHeight: 0.55,
     topSpeed: 95,
     accel0to50: 2.0,
@@ -356,7 +373,7 @@ export const CRAFT: readonly CraftSpec[] = [
     cdA: 0.7,
     cdASide: 2.1,
     lateralCd: 1.35,
-    riderMass: 82,
+    riderMass: 70,
     riderHeight: 0.58,
     topSpeed: 108,
     accel0to50: 2.2,
@@ -412,7 +429,7 @@ export const CRAFT: readonly CraftSpec[] = [
     cdA: 0.95,
     cdASide: 2.4,
     lateralCd: 1.15,
-    riderMass: 85,
+    riderMass: 70,
     riderHeight: 0.6,
     topSpeed: 91,
     accel0to50: 2.4,
@@ -466,7 +483,7 @@ export const CRAFT: readonly CraftSpec[] = [
     cdA: 0.8,
     cdASide: 1.6,
     lateralCd: 1.05,
-    riderMass: 78,
+    riderMass: 70,
     riderHeight: 0.95,
     topSpeed: 78,
     accel0to50: 2.25,
