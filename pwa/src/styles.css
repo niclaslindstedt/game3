@@ -5409,18 +5409,32 @@ button.knob-read:focus-visible {
   opacity: 0.7;
 }
 
+/* THE COAST STEP — one row a shore, each the full width of the card with a
+   render of the place behind it (`menu-shores.tsx`). Every row is the
+   tallest row's height (`grid-auto-rows: 1fr`), and that is not tidiness:
+   the banner behind a row is cropped to it by `object-fit: cover`, so it is
+   the ROW'S HEIGHT that decides how much coast a row shows, and rows of two
+   heights are two banners at two zooms. */
 .menu-shores {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-auto-rows: 1fr;
   gap: 0.5rem;
 }
 
+/* The row itself. Its height is held at about three times its width at every
+   viewport either card is read at — see `.menu-shore-shot` for why the ratio
+   is load-bearing rather than taste. */
 .menu-shore {
+  position: relative;
+  overflow: hidden;
   display: flex;
   flex-direction: column;
-  gap: 0.25rem;
-  padding: 0.6rem 0.8rem;
+  justify-content: center;
+  gap: 0.2rem;
+  min-height: clamp(5rem, 26vmin, 11rem);
+  padding: 0.7rem 1rem;
   border: 2px solid rgb(242 247 248 / 22%);
+  border-left: 6px solid var(--buoy);
   border-radius: 0.55rem;
   background: rgb(8 42 56 / 55%);
   color: var(--hud-ink);
@@ -5429,38 +5443,160 @@ button.knob-read:focus-visible {
   text-transform: uppercase;
   cursor: pointer;
   touch-action: manipulation;
+  /* The row's words sit on a photograph now rather than on a flat panel, so
+     they get back the edge the rest of the menu does without: over sunlit
+     turquoise, white text with no shadow disappears. */
+  text-shadow: 0 1px 3px rgb(0 0 0 / 70%);
 }
 
-.menu-shore-shown {
-  border-color: var(--buoy);
-  background: rgb(27 111 138 / 70%);
+/* THE COAST behind a shore row — `make coasts`, 2.4:1, shot by the game.
+
+   IT IS WIDER THAN THE ROW ON PURPOSE, and the 30% that hangs off the edge IS
+   the travel: a picture cut to the shape of the hole it sits in has nowhere
+   to slide to. The two numbers are a pair with the shot's own shape. The row
+   is about 3:1; a box 130% of its width is about 4.3:1; the banner is shot at
+   2.4:1, so `object-fit: cover` fills that box by WIDTH and chooses a BAND of
+   the picture's height — which is why `object-position` below is the rule
+   that decides what a row shows, and why widening this without reshooting
+   simply takes a thinner slice. */
+.menu-shore-shot {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 0;
+  width: 130%;
+  max-width: none;
+  height: 100%;
+  object-fit: cover;
+  /* The band: the horizon, the shore standing on it and the near water under
+     it. Above centre because the sky is the same wash on both coasts and the
+     WATER is what tells them apart — and because the top corners of a 100°
+     frame are looking past where even the top DISTANCE stop draws. */
+  object-position: 50% 52%;
+  filter: brightness(0.72) saturate(1.05);
+  pointer-events: none;
+  /* Slow enough to be scenery rather than an animation — a menu row that
+     visibly moves while you read it is a menu row you cannot read. A full
+     sweep takes most of a minute, and `alternate` walks it back instead of
+     snapping to the start, which would be the one frame the eye does catch.
+     Both rows are on the same clock with no per-row delay: `ease-in-out` is
+     near-still at the ends and quickest through the middle, so two rows
+     offset in the cycle are moving at visibly different speeds at every
+     instant, and the card reads as one coast panning past another. */
+  animation: coast-pan 54s ease-in-out infinite alternate;
+}
+
+/* The travel: the whole overhang, 30% of the ROW's width — stated against the
+   IMAGE's own width, because that is what a percentage in `translate`
+   resolves against (30/130 of it). */
+@keyframes coast-pan {
+  from {
+    transform: translateX(0);
+  }
+
+  to {
+    transform: translateX(-23.08%);
+  }
+}
+
+/* Motion is decoration here: the banner says which coast this is whether or
+   not it moves, so a reader who has asked for less of it loses nothing. Said
+   at the same weight as the rule it overrules — a bare class loses to a
+   two-class animator silently, and being later in the file does not save it. */
+@media (prefers-reduced-motion: reduce) {
+  .menu-shore-shot {
+    animation: none;
+    /* Parked halfway, so the still frame is the middle of the pan rather than
+       the edge nobody composed for. */
+    transform: translateX(-11.54%);
+  }
+}
+
+/* THE SCRIM. The row's words all sit down its left-hand side, and that is the
+   half a landscape cannot be trusted in: sunlit sand and a white name are the
+   same colour. So the picture is darkened where the text is and left alone
+   where it is not, which buys the coast a brightness a flat wash over the
+   whole row could never be given. */
+.menu-shore::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  background: linear-gradient(
+    90deg,
+    rgb(8 42 56 / 88%) 0%,
+    rgb(8 42 56 / 70%) 38%,
+    rgb(8 42 56 / 18%) 78%,
+    rgb(8 42 56 / 6%) 100%
+  );
+  pointer-events: none;
+}
+
+/* Everything the row says stands over the picture and its scrim. */
+.menu-shore > :not(.menu-shore-shot) {
+  position: relative;
+  z-index: 1;
 }
 
 .menu-shore:hover,
 .menu-shore:focus-visible,
 .menu-shore.nav-cursor {
   border-color: var(--buoy);
+  background: rgb(27 111 138 / 40%);
   outline: none;
 }
 
+.menu-shore:hover .menu-shore-shot,
+.menu-shore:focus-visible .menu-shore-shot,
+.menu-shore.nav-cursor .menu-shore-shot {
+  filter: brightness(0.88) saturate(1.1);
+}
+
+/* A shore still behind the one before it: the row is a wall with the reason
+   written on it, not a button — shown all the same, because what is on the
+   other side of the padlock is the reason to go through it. */
 .menu-shore-locked {
-  color: rgb(242 247 248 / 55%);
+  border-left-color: rgb(242 247 248 / 30%);
+  color: rgb(242 247 248 / 62%);
+  cursor: default;
+}
+
+.menu-shore-locked .menu-shore-shot {
+  filter: brightness(0.4) saturate(0.45);
+}
+
+/* What a shut row asks for is a WALL, not a way on — so its third line drops
+   the buoy's yellow, which on every other row means "press this". */
+.menu-shore-locked .menu-shore-line {
+  color: inherit;
+  opacity: 0.85;
 }
 
 .menu-shore-name {
   display: flex;
   align-items: center;
   gap: 0.4rem;
-  font-size: 1rem;
+  font-size: clamp(1rem, 4vmin, 1.4rem);
   font-weight: 700;
   letter-spacing: 0.14em;
 }
 
-.menu-shore-line {
-  font-size: 0.66rem;
-  letter-spacing: 0.1em;
+/* What the coast is like, in the shore's own words. Sentence case in the
+   data, so it is left alone rather than shouted at. */
+.menu-shore-blurb-row {
+  font-size: clamp(0.62rem, 2vmin, 0.78rem);
+  letter-spacing: 0.08em;
+  text-transform: none;
   opacity: 0.85;
   text-wrap: balance;
+}
+
+.menu-shore-line {
+  font-size: clamp(0.6rem, 1.9vmin, 0.72rem);
+  letter-spacing: 0.12em;
+  color: var(--buoy);
+  opacity: 0.95;
 }
 
 .menu-shore-blurb {
@@ -5484,6 +5620,10 @@ button.knob-read:focus-visible {
 
 .menu-level {
   position: relative;
+  /* The layout drawn behind the box bleeds off its right edge on purpose
+     (`.menu-level-route`), so the box has to be the thing that clips it —
+     without this a line long in one axis runs out across the card. */
+  overflow: hidden;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -5499,6 +5639,45 @@ button.knob-read:focus-visible {
   letter-spacing: 0.1em;
   text-align: left;
   text-transform: uppercase;
+}
+
+/* THE LEVEL'S OWN WATER, drawn behind what the box says about it — the whole
+   racing line, so six boxes read as six different rides before a word on any
+   of them has been read (`menu-shores.tsx`'s `CourseMap`).
+
+   It hangs to the RIGHT and is allowed to run off that edge. Centred, the
+   line sits squarely under the level's name and fights it; pushed out, the
+   text keeps a clean left column and the ride still reads as a ride. The
+   colour is `currentColor` from the box, so the open box's ink and the shut
+   box's grey both arrive without a second palette — and it costs the grid no
+   height at all, because it is underneath rather than beside. */
+.menu-level-route {
+  position: absolute;
+  top: 8%;
+  right: -6%;
+  bottom: 8%;
+  width: 58%;
+  z-index: 0;
+  opacity: 0.17;
+  pointer-events: none;
+}
+
+.menu-level-open:hover .menu-level-route,
+.menu-level-open:focus-visible .menu-level-route,
+.menu-level-open.nav-cursor .menu-level-route {
+  opacity: 0.34;
+}
+
+/* A shut level still shows its water — the shape of what is behind the
+   padlock — but fainter, and the padlock keeps the middle of the box. */
+.menu-level-locked .menu-level-route {
+  opacity: 0.13;
+}
+
+/* Everything the box says stands over the line. */
+.menu-level > :not(.menu-level-route) {
+  position: relative;
+  z-index: 1;
 }
 
 .menu-level-open {

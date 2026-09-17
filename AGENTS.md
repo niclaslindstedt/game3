@@ -18,6 +18,7 @@ make lint         # eslint + typecheck, zero warnings
 make fmt          # prettier in place; fmt-check is what CI runs
 make hooks        # install pre-commit + commit-msg hooks
 make icons        # regenerate icons/favicon from the app mark
+make previews     # the cards' pictures: the layouts (routes) and the coast banners (coasts)
 make tauri-test   # the desktop shell's decision layer (Rust; needs no GUI libraries)
 make native-typecheck  # the store shell's own tsc (its tree is installed on its own)
 ```
@@ -57,7 +58,8 @@ This project is tuned by measuring and LOOKING, not guessing. Each lab below is 
 | The shutter, the roll, the gallery                      | `screenshots ARGS="--surface gallery"`, and a run photographed by hand | `menu-system` |
 | The sky, the light, the clouds, the night, the weather  | `sky`, `screenshots`           | `atmosphere`                                   |
 | The desktop app, the store app, the seam with the page  | `tauri-test`, `native-typecheck`, the three seam tests | `platform-shells`      |
-| A campaign level: a seed pinned, a rung moved, a day or a medal set | `rate CAMPAIGN=1`, `difficulty CAMPAIGN=1`, `sim` on the level | `campaign`, `level-rating` |
+| A campaign level: a seed pinned, a rung moved, a day or a medal set | `rate CAMPAIGN=1`, `difficulty CAMPAIGN=1`, `sim` on the level, then `previews` | `campaign`, `level-rating` |
+| WHAT THE CARDS SHOW OF A SHORE before it is ridden: a layout on a box, a coast behind a row | `previews` (`routes` then `coasts`), then `screenshots ARGS="--surface campaign"` and `--surface levels` | `campaign`, `menu-system` |
 | The rating's axes and scales, the ladder scorer          | `rate COUNT=48 ARGS=--stats` (both coasts, races, tricks and circuits) | `level-rating`             |
 | A lab, a preview, a script under `scripts/`             | the tool's own `--help`, then the lab it registers | `lab-tooling`              |
 | Does it LOOK and READ right at speed                    | `screenshots`                  | `playtest`, `game-feel`                        |
@@ -123,6 +125,8 @@ What IS generated is generated, and **a generated artifact is never hand-edited*
 | `pwa/dist/` (the site, the service worker, its manifest) | `make build`                  | nothing in CI — see `docs/spec-conformance.md` §11.4, §23.9 |
 | Icons, favicon                                           | `make icons`                  | `tests/app_mark_test.ts` holds the SVG to `app-mark.ts`; `tests/identity_test.ts` the palette |
 | Every lab picture under `previews/`                      | its lab target (labs table)   | gitignored                                      |
+| `pwa/src/game/shore-routes.ts` — the level boxes' layouts | `make routes`                 | `tests/shore_preview_test.ts` rebuilds a shore of each coast and compares the bytes |
+| `pwa/public/previews/coast-*.jpg`, `coast-shots.ts`      | `make coasts`                 | `tests/shore_preview_test.ts` holds the receipt to `campaign-levels.ts` |
 | `CHANGELOG.md`                                           | the release workflow          | `tests/changeset_test.ts`, the pre-commit hook  |
 | `engine/version.ts` + the `package.json` versions        | `scripts/update-versions.sh`  | the release workflow                            |
 
@@ -170,6 +174,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | THE CAMPAIGN'S LEVELS: the twelve pinned seeds, their versions and digests, their days, their medals | `pwa/src/game/campaign-levels.ts` — curated with `make rate CAMPAIGN=1` and `make difficulty CAMPAIGN=1` | `campaign`           |
 | THE CAMPAIGN'S POLICY: a level built and stood up, the points, the locks, the table, the board — and WHICH MODE may ride which pinned shore (`fitsMode`) | `pwa/src/game/campaign.ts` (storage-free; `tests/campaign_test.ts` reads it) | `campaign`           |
 | The campaign card: the shores, the boxes, the table   | `pwa/src/game/menu-campaign.tsx`; the finish's plate is `run-news.ts`'s `campaignResultFor` | `campaign`, `menu-system` |
+| WHAT A SHORE LOOKS LIKE ON A CARD: the coast rows both cards open on, and the layout drawn behind every level box | `pwa/src/game/menu-shores.tsx` (the two components), `shore-preview.ts` (the format, both halves), `shore-routes.ts` + `coast-shots.ts` (generated) | `menu-system`, `campaign` |
 | The bot rider                                         | `engine/sim/bot.ts`                                           | `bot-improvement`    |
 | Measuring balance                                     | `engine/sim/simulate.ts`, `scripts/simulate-run.mjs`          | `simulate-run`       |
 | A whole new gameplay system                           | engine first, then `pwa/`                                     | `engine-system`      |
@@ -370,8 +375,8 @@ Each of these is the one place an answer is written down. Anything that needs it
 | A sound, a bed, a column in the listener     | `docs/audio.md`, then `make audition` (and its `--meter` table in the PR)                              |
 | The sky, the clouds, the night, the weather  | the sky bullet in `docs/architecture.md`, then `make sky` (both sheets in the PR)                      |
 | A shell's tree, a bridge, a build knob       | `docs/platforms.md`, `tauri/README.md` or `native/README.md`, `docs/configuration.md`'s environment rows |
-| A campaign level (`campaign-levels.ts`)      | `make rate CAMPAIGN=1` and `make difficulty CAMPAIGN=1` (both in the PR), `npm run sim` on the level, the digest rewritten only for a level deliberately moved; `docs/getting-started.md`'s campaign paragraph if a name changed |
-| A generator change that moves what a seed builds | a row in `engine/mapgen/versions.ts` (the old behaviour as a trait), `docs/level-generator.md`'s versions section — never a regenerated digest |
+| A campaign level (`campaign-levels.ts`)      | `make rate CAMPAIGN=1` and `make difficulty CAMPAIGN=1` (both in the PR), `npm run sim` on the level, `make previews` (its layout and, for a shore's FIRST level, that coast's banner), the digest rewritten only for a level deliberately moved; `docs/getting-started.md`'s campaign paragraph if a name changed |
+| A generator change that moves what a seed builds | a row in `engine/mapgen/versions.ts` (the old behaviour as a trait), `docs/level-generator.md`'s versions section — never a regenerated digest. A level DELIBERATELY moved onto the new version owes `make previews` with it |
 | A skill added, renamed or retired            | this file's Skills section, `.agents/skills/README.md`, the `maintenance` registry for an `update-*` — `tests/skills_test.ts` holds all three |
 
 ## Parity and cross-cutting rules

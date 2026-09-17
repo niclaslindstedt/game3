@@ -431,8 +431,13 @@ export const STRINGS = {
   /** Why a shore is shut HERE — the campaign is the only thing that opens
    * one, and a padlock with no reason on it is just a wall. */
   levelsShoreLocked: "Open this shore in the campaign: win the one before it",
-  /** The line at the foot of the card, saying where the shores came from. */
+  /** The line at the foot of the coast step, saying where the shores came
+   * from. */
   levelsCaption: "THE CAMPAIGN'S OWN SHORES · RIDDEN HERE FOR THE RECORD BOOK",
+  /** An open shore with nothing this game can ride — every shore ships both
+   * disciplines, so this is the sentence a shore curated one-sided would
+   * print rather than an empty grid. */
+  levelsShoreNone: "Nothing on this shore rides in this game yet",
   /** A box nobody has ridden yet. Short: it stands in a box three to a row. */
   levelsNoBest: "NO BEST YET",
 

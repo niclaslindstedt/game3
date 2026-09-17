@@ -2,8 +2,16 @@
 // THE CAMPAIGN CARD — two shores, six boxes each, and the table under the
 // one being looked at.
 //
-// The card is one column: the shore's banner (its name, how far the table
-// has got, or a padlock and why), the six boxes in a grid, then the table.
+// IT IS TWO STEPS: WHICH COAST, then its ladder. The coast is asked on a page
+// of its own (`menu-shores.tsx`) — a row the width of the card, with a
+// photograph of the place behind it — because a shore is a PLACE and a tab
+// two words wide could never say so; and the boxes under it then get the
+// height the tabs were spending. CONTINUE stays in the head of the coast
+// step all the same: it is the press that walks a returning player back into
+// the rung they stopped on, and making them choose a coast first to find it
+// would be the one press the card exists to save.
+//
+// The card is one column: the six boxes in a grid, then the table.
 // A BOX is a number, a name, what the level is (a race over a distance or
 // laps, a tricks run over minutes) and what has been got out of it — the
 // best place and the points it pays, the best figure, the medal — with the
@@ -16,8 +24,8 @@
 // walks INTO the campaign rather than back to the first box every time.
 //
 // Which shore is being looked at is the card's own state and nothing the
-// game remembers: it opens on the furthest shore the campaign has reached,
-// which is where a returning player wants to be.
+// game remembers: the coast step marks the furthest shore the campaign has
+// reached, which is where a returning player wants to be.
 
 import { RACE } from "@engine";
 import { useState } from "preact/hooks";
@@ -42,6 +50,7 @@ import {
 import { MenuHead } from "./menu.tsx";
 import { Glyph } from "./menu-glyphs.tsx";
 import { dayLine } from "./menu-levels.tsx";
+import { CourseMap, ShoreList } from "./menu-shores.tsx";
 import { STRINGS } from "./strings.ts";
 
 /** A level's billing without building it: laps on a circuit, minutes on a
@@ -78,6 +87,7 @@ function LevelBox({
         title={hint}
         aria-label={`${index + 1}, locked — ${hint}`}
       >
+        <CourseMap levelId={level.id} />
         <span class="menu-level-no">{index + 1}</span>
         <Glyph name="lock" className="menu-level-lock" />
       </div>
@@ -95,6 +105,7 @@ function LevelBox({
       data-nav-focus={next ? "" : undefined}
       onClick={onRide}
     >
+      <CourseMap levelId={level.id} />
       <span class="menu-level-head">
         <span class="menu-level-no">{index + 1}</span>
         <Glyph name={level.mode === "tricks" ? "air" : "flag"} className="menu-level-mode" />
@@ -154,58 +165,23 @@ function ShoreTable({ shore, progress }: { shore: CampaignShore; progress: Campa
   );
 }
 
-/** The shore banners across the top: a press each, the one being looked at
- * lit, a shut one wearing its padlock. */
-function ShoreTabs({
-  shown,
-  progress,
-  onShow,
-}: {
-  shown: CampaignShore;
-  progress: CampaignProgress;
-  onShow: (shore: CampaignShore) => void;
-}) {
-  return (
-    <div class="menu-shores">
-      {SHORES.map((shore) => {
-        const open = shoreUnlocked(shore, progress);
-        const won = shoreWon(shore, progress);
-        return (
-          <button
-            key={shore.id}
-            type="button"
-            class={`menu-shore${shore === shown ? " menu-shore-shown" : ""}${open ? "" : " menu-shore-locked"}`}
-            title={open ? shore.blurb : STRINGS.campaignShoreLocked}
-            aria-pressed={shore === shown}
-            onClick={() => onShow(shore)}
-          >
-            <span class="menu-shore-name">
-              {!open && <Glyph name="lock" />}
-              {STRINGS.coastName(shore.id)}
-            </span>
-            <span class="menu-shore-line">
-              {open
-                ? won
-                  ? STRINGS.campaignShoreWon
-                  : STRINGS.campaignShoreLine(
-                      levelsRidden(shore, progress),
-                      shore.levels.length,
-                      playerStanding(shore, progress).place,
-                    )
-                : STRINGS.campaignShoreShut}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The furthest shore the campaign has opened — where the card opens. */
+/** The furthest shore the campaign has opened — where the coast step puts
+ * the cursor, and the shore CONTINUE walks back into. */
 function reachedShore(progress: CampaignProgress): CampaignShore {
   let reached = SHORES[0];
   for (const shore of SHORES) if (shoreUnlocked(shore, progress)) reached = shore;
   return reached;
+}
+
+/** What a shore's row says it has given up so far: won outright, how far its
+ * table has got, or what opens it. */
+function shoreLine(shore: CampaignShore, progress: CampaignProgress): string {
+  if (shoreWon(shore, progress)) return STRINGS.campaignShoreWon;
+  return STRINGS.campaignShoreLine(
+    levelsRidden(shore, progress),
+    shore.levels.length,
+    playerStanding(shore, progress).place,
+  );
 }
 
 export function CampaignPage({
@@ -218,28 +194,53 @@ export function CampaignPage({
   /** Stand the level up — the craft card comes first, then the water. */
   onRide: (level: CampaignLevel) => void;
 }) {
-  const [shown, setShown] = useState<CampaignShore>(() => reachedShore(progress));
-  const next = continueAt(shown, progress);
+  // WHICH STEP THE CARD IS ON: null is the coast, a shore is its ladder.
+  const [shown, setShown] = useState<CampaignShore | null>(null);
+  const reached = reachedShore(progress);
+  const next = continueAt(shown ?? reached, progress);
+  const ride = next ? (
+    <button
+      type="button"
+      class="menu-item menu-item-start menu-head-go"
+      data-menu="ride"
+      onClick={() => onRide(next)}
+    >
+      <span class="menu-item-name">{STRINGS.campaignRide}</span>
+    </button>
+  ) : undefined;
+
+  // THE COAST STEP — and CONTINUE still in its head, standing on the rung
+  // the furthest shore has reached. See the file's header.
+  if (shown === null) {
+    return (
+      <div class="menu-card menu-card-campaign">
+        <MenuHead
+          back={onBack}
+          backLabel={STRINGS.menuBack}
+          title={STRINGS.campaign}
+          action={ride}
+        />
+        <ShoreList
+          open={(shore) => shoreUnlocked(shore, progress)}
+          hint={() => STRINGS.campaignShoreLocked}
+          line={(shore) => shoreLine(shore, progress)}
+          next={reached}
+          onPick={setShown}
+        />
+      </div>
+    );
+  }
+
   return (
     <div class="menu-card menu-card-campaign">
+      {/* BACK steps within the card before it leaves it — the level card's
+          own rule, and the same two presses in reverse. */}
       <MenuHead
-        back={onBack}
-        backLabel={STRINGS.menuBack}
-        title={STRINGS.campaign}
-        action={
-          next ? (
-            <button
-              type="button"
-              class="menu-item menu-item-start menu-head-go"
-              data-menu="ride"
-              onClick={() => onRide(next)}
-            >
-              <span class="menu-item-name">{STRINGS.campaignRide}</span>
-            </button>
-          ) : undefined
-        }
+        back={() => setShown(null)}
+        backLabel={STRINGS.campaign}
+        title={STRINGS.coastName(shown.id)}
+        action={ride}
       />
-      <ShoreTabs shown={shown} progress={progress} onShow={setShown} />
       <p class="menu-shore-blurb">{shown.blurb}</p>
       <div class="menu-levels">
         {shown.levels.map((level, index) => (

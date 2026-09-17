@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
 
 build:
 	npm run build
@@ -112,6 +112,32 @@ analyze:
 rate:
 	npm run rate -- $(if $(SEED),--seed $(SEED),) $(if $(SEEDS),--seeds $(SEEDS),) $(if $(COUNT),--count $(COUNT),) \
 		$(if $(BIOME),--biome $(BIOME),) $(if $(TRACK),--track $(TRACK),) $(if $(CAMPAIGN),--campaign,) $(ARGS)
+
+# THE CAMPAIGN CARDS' PREVIEWS: what a level box and a shore row show of
+# the water and the coast before either is ridden. Both halves are built
+# from the game and COMMITTED, because deriving one costs a second or more
+# a level and a card cannot spend that while somebody is looking at it.
+# Re-run after any generator change that moves a pinned shore — a stale
+# preview is a picture of water nobody rides any more.
+previews: routes coasts
+
+# The level boxes' layouts: every pinned shore's racing line, simplified and
+# quantised into pwa/src/game/shore-routes.ts (a couple of KB for the whole
+# campaign) and stroked as an SVG path by the card. Pure Node, ~20 s.
+routes:
+	npm run routes -- $(ARGS)
+
+# The shore rows' banners: a REAL RENDER of each coast, taken by the game
+# from a camera over its first pinned level, into pwa/public/previews/. A
+# shore is six levels, so it gets a photograph of the coast rather than a
+# map of any one of them. Needs a built pwa/dist (`make build` first) and
+# the same Chromium as `make screenshots`. `SCENE=` picks the moment it is
+# photographed at, `CAMERA=` the rung it is seen from; `OUT=previews` puts
+# a set somewhere to compare instead of somewhere to ship.
+# `make coasts` · `make coasts SCENE=offshore CAMERA=drone OUT=previews`
+coasts:
+	npm run coasts -- $(if $(SCENE),--scene $(SCENE),) $(if $(CAMERA),--camera $(CAMERA),) \
+		$(if $(OUT),--out $(OUT),) $(ARGS)
 
 # THE DIFFICULTY SCHEMATIC: one level from above with what makes it HARD
 # drawn over it — the line coloured by how tight each corner is, the sea
