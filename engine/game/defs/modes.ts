@@ -23,17 +23,25 @@
 //   TIME TRIAL  the race with the field taken off: the course, the clock,
 //               the lights, nobody else on the water.
 //   FREE        the water with nothing asked of the rider: the course still
-//               stands and the tricks still count, but there are no lights,
-//               no buzzer and nobody else out there. It is the OPEN rules
-//               with a door on them — which is the point of it, and why it
-//               is the one mode whose rules row is `OPEN_RULES` itself
-//               rather than a bundle of its own.
+//               stands and the tricks still count, but there is no buzzer
+//               and nobody else out there. It is the OPEN rules with a door
+//               on them — and with the LIGHTS in front of them, which is the
+//               one thing it does not take from them.
+//
+// EVERY MODE COUNTS DOWN (`COUNTDOWN`). The lights are not the race's
+// furniture, they are how the game hands a rider the throttle: three seconds
+// in which the sea is already running, the engine is already idling and
+// nothing is steered, so a run begins with the rider looking at the water
+// rather than already behind it. A mode that dropped them would be a mode
+// that started while the shore was still arriving.
 //
 // OPEN is those same rules with no mode named at all — what a run is dealt
 // when nothing asks for one, which is what the sim, the labs and the tests
-// ride, because a measurement wants the whole engine under it and no lights
-// in front of it. FREE is not a second copy of them: a rider chose them, and
-// a mode is how the app says so.
+// ride, because a measurement wants the whole engine under it and NO lights
+// in front of it: three seconds of held throttle at the head of every
+// simulated run is three seconds every digest would have to carry. That one
+// difference is why FREE is a bundle of its own rather than `OPEN_RULES`
+// itself — the rider gets the lights, the measurement does not.
 //
 // WHAT FREE IS FOR IS THE WATER, NOT THE RULES. Every other mode asks the
 // rider to be measured, so the day it is measured on has to be a day the
@@ -81,8 +89,16 @@ export type RunRules = {
   limit: number;
 };
 
-/** The engine's own rules, dealt when no mode is asked for — see the
- * header. */
+/** THE LIGHTS, s — three, counted down one a second, then GO. Every mode a
+ * rider can choose is held by them (`MODE_RULES`), so they are stated here
+ * rather than inside any one mode's numbers. The only run that gets none is
+ * the one nobody is watching: `OPEN_RULES`. */
+export const COUNTDOWN = 3;
+
+/** The engine's own rules, dealt when no mode is asked for — see the header.
+ * No lights, because a measurement is not a rider being handed a throttle:
+ * every simulated run would otherwise open on three seconds of held bars,
+ * and every digest would carry them. */
 export const OPEN_RULES: RunRules = {
   course: true,
   tricks: true,
@@ -98,8 +114,6 @@ export const RACE = {
   /** The field: how many other riders stand on the grid. Eleven, so the
    * whole grid is a round dozen. */
   rivals: 11,
-  /** The lights, s. Three, counted down one a second, then GO. */
-  countdown: 3,
   /** THE GRID: how many abreast a row stands, how far apart across the row
    * the lanes are, m, and how far behind each other the rows stand, m. A
    * runabout is under 1.3 m across the sponsons and about 3 m long, so a
@@ -240,7 +254,7 @@ export const MODE_RULES: Record<GameMode, RunRules> = {
     tricks: false,
     rivals: RACE.rivals,
     contact: true,
-    countdown: RACE.countdown,
+    countdown: COUNTDOWN,
     limit: 0,
   },
   tricks: {
@@ -248,7 +262,7 @@ export const MODE_RULES: Record<GameMode, RunRules> = {
     tricks: true,
     rivals: 0,
     contact: true,
-    countdown: RACE.countdown,
+    countdown: COUNTDOWN,
     limit: TRICK_LIMITS[0],
   },
   timeTrial: {
@@ -256,10 +270,12 @@ export const MODE_RULES: Record<GameMode, RunRules> = {
     tricks: false,
     rivals: 0,
     contact: true,
-    countdown: RACE.countdown,
+    countdown: COUNTDOWN,
     limit: 0,
   },
-  // The open rules, named — see the header. Stated as the object itself
-  // rather than copied out, so the two can never come to disagree.
-  free: OPEN_RULES,
+  // The open rules with the LIGHTS in front of them — the one thing a rider
+  // gets that a measurement does not, and the whole of why this is a row
+  // rather than `OPEN_RULES` itself. Spread rather than copied out, so
+  // everything else about free still cannot come to disagree with them.
+  free: { ...OPEN_RULES, countdown: COUNTDOWN },
 };

@@ -19,6 +19,7 @@
 
 import { describe, expect, it } from "vitest";
 import {
+  COUNTDOWN,
   RACE,
   TUNING,
   biomeOf,
@@ -537,7 +538,7 @@ describe("how far out he is", () => {
 describe("what the HUD reads of the mode", () => {
   it("shows the lights while they hold, GO for a moment after, and nothing on the open rules", () => {
     const race = createGame({ seed: 1, level: FLAT, mode: "timeTrial", quiet: true });
-    expect(takeSnapshot(race).countdown).toBe(RACE.countdown);
+    expect(takeSnapshot(race).countdown).toBe(COUNTDOWN);
     expect(takeSnapshot(race).go).toBe(false);
     for (let i = 0; i < 1.2 * TUNING.physicsHz; i++) step(race, COAST);
     expect(takeSnapshot(race).countdown).toBe(2);
@@ -561,7 +562,7 @@ describe("what the HUD reads of the mode", () => {
       rules: { limit: 30 },
       quiet: true,
     });
-    expect(takeSnapshot(state).countdown).toBe(RACE.countdown);
+    expect(takeSnapshot(state).countdown).toBe(COUNTDOWN);
     expect(takeSnapshot(state).left).toBe(30);
     while (state.phase === "countdown") step(state, COAST);
     const before = takeSnapshot(state).left!;

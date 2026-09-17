@@ -22,9 +22,11 @@ export {
 
 // The simulation.
 export { createGame, freshCraft, rulesFor, step, type CreateGameOptions } from "./game/step.ts";
-// THE FOUR MODES (game/defs/modes.ts): what each switches on, the open
-// rules a measurement rides, and the race's own numbers.
+// THE FOUR MODES (game/defs/modes.ts): what each switches on, the lights
+// every one of them is held by, the open rules a measurement rides, and the
+// race's own numbers.
 export {
+  COUNTDOWN,
   GAME_MODES,
   MODE_RULES,
   OPEN_RULES,
