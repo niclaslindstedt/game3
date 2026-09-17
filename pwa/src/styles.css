@@ -2644,6 +2644,23 @@ canvas {
   background: rgb(8 42 56 / 42%);
 }
 
+/* A CARD WITH A CAPTION STOPS ABOVE IT. The bar is fixed to the foot of the
+   window and the card is `max-height: 100%` of this box, so without a strip
+   reserved here a card tall enough to scroll ends UNDER the bar and its last
+   row is clipped by the one element that exists to explain a row.
+
+   Reserved on the page rather than inside the card, because padding inside a
+   scroller is dead space at the bottom of every card SHORT enough not to
+   scroll — which is most of them. Taken off the box the card is centred in, a
+   short card simply sits a few pixels higher and nothing reads as a gap.
+
+   `3.2rem` is the bar at its two-line worst plus the gap it stands off the
+   foot on. It wraps to three lines only on a phone held upright, and no card
+   fills that viewport: the tallest of them is OPTIONS at 763 px of 844. */
+.menu:has(.knob-caption) {
+  padding-bottom: calc(max(1rem, env(safe-area-inset-bottom)) + 3.2rem);
+}
+
 .menu-card {
   display: flex;
   flex-direction: column;
@@ -2736,13 +2753,6 @@ canvas {
   text-shadow: 0 3px 0 var(--hud-shadow);
 }
 
-.menu-brand-tag {
-  font-size: 0.72rem;
-  letter-spacing: 0.24em;
-  text-indent: 0.24em;
-  color: var(--hud-info);
-}
-
 /* EVERY MARK FROM menu-glyphs.tsx. Sized in `em`, so a glyph is whatever the
    control it sits in is: one rule, and a mark that never has to be re-sized
    when the text around it moves. */
@@ -2816,8 +2826,9 @@ canvas {
   touch-action: manipulation;
 }
 
-/* The mark, over RACE's hold fill rather than under it — `position` is what
-   gives it a stacking context of its own, exactly as the label below has. */
+/* The mark, over the hero's travelling sheen rather than under it —
+   `position` is what gives it a stacking context of its own, exactly as the
+   label below has. */
 .menu-tile .menu-glyph {
   position: relative;
   width: 2.3em;
@@ -3021,24 +3032,6 @@ canvas {
   color: var(--hud-info);
 }
 
-/* THE HOLD, drawn as the tile filling (`menu-hold.ts`). Scaled from the left
-   rather than sized, so the fraction the component computes is the fraction
-   on screen with no layout in between. Under the mark and the label, which is
-   why both need a stacking context of their own above it. */
-.menu-tile-hold {
-  position: absolute;
-  inset: 0;
-  transform-origin: left center;
-  background: rgb(242 247 248 / 30%);
-  pointer-events: none;
-}
-
-/* Being held past the point where the tile says so. The label has already
-   changed by now (STRINGS.menuHolding); this is the tile agreeing with it. */
-.menu-tile-holding {
-  border-color: var(--foam);
-}
-
 /* ── THE DOOR ARRIVING, AND THE ONE THING ON IT THAT MOVES ─────────────────
    The tiles come up in sequence rather than all at once — the arcade's own
    entrance, and the difference between a card that APPEARS and a card that
@@ -3166,10 +3159,6 @@ canvas {
 
   .menu-brand-name {
     font-size: 1.5rem;
-  }
-
-  .menu-brand-tag {
-    font-size: 0.62rem;
   }
 
   /* The hero's two columns are narrower than the modes' two, so the lit
@@ -3776,40 +3765,65 @@ button.knob-read:focus-visible {
   color: var(--hud-info);
 }
 
-/* The page's one sentence. A floor of TWO ROWS so the card does not change
-   height as the pointer crosses it, and the accent down its edge comes on with
-   the text, so an empty bar reads as a rest and not a hole.
+/* THE PAGE'S ONE SENTENCE, AND IT DOES NOT STAND ON THE PAGE. It is fixed to
+   the foot of the WINDOW — outside the card as far as the eye is concerned,
+   even though it is still the card's own element.
 
-   THE PADDING IS PART OF THE RESERVATION, because the box is `border-box`.
-   `2.7em` is two lines of TEXT and not two rows of CAPTION: the 0.7rem of
-   padding comes out of it and what is left holds one line. So the numbers the
-   reservation is made of are each stated once and summed — change the padding
-   or the leading and the floor follows. Every sentence on every one of these
-   cards fits two rows at the widths this rule covers.
+   IT HAS TO BE, because `.menu-card` IS THE SCROLLER. A caption parked at the
+   bottom of a column of rows is at the bottom of a column that is taller than
+   the viewport on every page worth having one: the row being read is up at the
+   top under the pointer, and the sentence explaining it is off the bottom of
+   the screen. Reading a card then meant scrolling to the sentence and losing
+   the row, or hovering the row and reading nothing — which is the caption
+   doing nothing at all on the pages that need it most.
 
-   A floor set short is invisible in a picture: the lab shoots the SETTLED
-   card, and a caption only changes height while the pointer is moving. Measure
-   it instead — raise each row's hint and read `.menu-card`'s own height, which
-   must not move. */
+   Fixed is safe here rather than lucky: `position: fixed` inside a scroller is
+   laid out against the viewport and clipped by nothing, UNLESS an ancestor
+   carries a transform, a filter, `perspective`, `contain` or `will-change`.
+   Nothing between this and the root does — `.menu` is a plain absolute box and
+   the transforms on these pages are all on buttons. Put one on `.menu-card`
+   and the bar silently goes back to being clipped by the card.
+
+   NO POINTER EVENTS, ever. It lies over the foot of whatever card is up, and a
+   bar that swallowed a press would be a bar that ate the last row of a column
+   it exists to describe.
+
+   It carries its own ground now that it is not on the card's: the same wash
+   the card uses, so it reads as part of the same object without being inside
+   it. There is no height reservation left to get wrong — it grows UPWARD off a
+   fixed foot, so a sentence that wraps to three rows moves nothing. */
 .knob-caption {
   --caption-line: 1.35;
-  --caption-pad: 0.35rem;
-  min-height: calc(2 * var(--caption-line) * 1em + 2 * var(--caption-pad));
+  --caption-pad: 0.45rem;
+  position: fixed;
+  left: 50%;
+  bottom: max(0.6rem, env(safe-area-inset-bottom));
+  z-index: 1600;
+  transform: translateX(-50%);
+  width: min(44rem, calc(100vw - 2rem));
+  pointer-events: none;
   font-size: 0.64rem;
   font-weight: 500;
   letter-spacing: 0.02em;
   line-height: var(--caption-line);
   text-transform: none;
+  text-align: center;
   color: var(--hud-info);
-  opacity: 0.6;
-  padding: var(--caption-pad) 0.6rem;
-  border-left: 3px solid rgb(242 247 248 / 25%);
+  opacity: 0.72;
+  padding: var(--caption-pad) 0.8rem;
+  border-radius: 0.5rem;
+  background: rgb(8 42 56 / 82%);
+  border: 1px solid rgb(242 247 248 / 18%);
   transition: opacity 120ms ease;
 }
 
+/* THE BAR IS NEVER EMPTY — every page gives it a standing line of its own, and
+   that line is what it carries while no row is being read. So the two states
+   are quiet and lit rather than absent and present: the sentence brightens and
+   its edge takes the buoy colour the moment it is answering a row. */
 .knob-caption-on {
   opacity: 0.95;
-  border-left-color: var(--buoy);
+  border-color: rgb(242 140 40 / 45%);
 }
 
 /* THE ROW'S OWN NAME, LEADING THE SENTENCE. A caption is read out of the
@@ -3989,14 +4003,10 @@ button.knob-read:focus-visible {
     padding-left: 0.5rem;
   }
 
-  /* No reservation on a phone, where it buys nothing: a card this narrow wraps
-     the longest sentences to three and four rows, so the caption moves under
-     any floor short enough to be worth having — and the height is wanted by
-     the rows above, on a start card already standing 803 px tall in an 844 px
-     window. */
+  /* Tighter on a phone, where the bar wraps the longest sentences to three and
+     four rows and every one of them is over the card rather than in it. */
   .knob-caption {
-    min-height: 0;
-    padding: 0.3rem 0.5rem;
+    padding: 0.35rem 0.6rem;
   }
 }
 
@@ -4494,14 +4504,6 @@ button.knob-read:focus-visible {
   border-color: var(--sea);
   background: var(--sea);
   color: #fff;
-}
-
-/* The word beside the one chip a tricks run leaves on the row. */
-.craft-class-note {
-  font-size: clamp(0.5rem, 1.9vmin, 0.62rem);
-  letter-spacing: 0.1em;
-  color: var(--hud-info);
-  opacity: 0.8;
 }
 
 .craft-blurb {

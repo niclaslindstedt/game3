@@ -3,21 +3,20 @@
 // START row, which starts a run on a press and lets the developer menu out
 // on a seven-second hold (`DEV_HOLD_MS` in settings.ts).
 //
-// The whole thing is a fraction and two rules, and both rules are about
-// honesty rather than about timing:
+// IT FIRES SILENTLY, ON PURPOSE. The tile does not fill and does not change
+// its word while it is held: the developer menu is meant to be found by
+// somebody who knows where to press, and a row that advertises itself to
+// everybody who rests a thumb on START is not hidden. The DEVELOPER chip
+// appearing is the whole of what the player is told.
 //
-//   IT SAYS SO WHILE IT IS HAPPENING. A hold that fired silently would be a
-//   button that sometimes does something else, which is a bug as far as
-//   anybody holding it is concerned. So the fraction is drawn — the row
-//   fills as the hold runs — and a finger that is a second from unlocking
-//   something can see that it is.
+// What is left is one rule, and it is about honesty rather than about timing:
 //
 //   A COMPLETED HOLD IS NOT ALSO A PRESS. The pointer that unlocks the
 //   developer menu lifts off a button whose ordinary job is to start a run,
 //   and starting one on the way out would throw away the thing the player
 //   just spent seven seconds asking for.
 //
-// THAT SECOND RULE IS WHY `armed` OUTLIVES THE RELEASE, and it is the whole
+// THAT RULE IS WHY `armed` OUTLIVES THE RELEASE, and it is the whole
 // subtlety here. A lifted finger is three events — `pointerup`, then a
 // `click` — and it is the CLICK that would start the run, so a hold cleared
 // on the release has already stopped suppressing anything by the time the
@@ -33,9 +32,9 @@
 // under the finger. `menu-main.tsx` carries the clock that spends a hold
 // nothing ever came for, and the reasoning for it.
 //
-// DOM-free, so the root suite reads the ramp without a browser
-// (`tests/menu_hold_test.ts`); the component next door owns the pointer
-// events and the frame that redraws the fill.
+// DOM-free, so the root suite reads the whole state machine without a browser
+// (`tests/menu_system_test.ts`); the component next door owns the pointer
+// events and the one timer that asks whether the hold has run its length.
 
 /** A hold in progress, or the absence of one. */
 export type HoldState = {
@@ -44,25 +43,16 @@ export type HoldState = {
   from: number | null;
   /** True once the hold has run its length and fired, and still true across
    * the release, until `takePress` spends it on the one click that release
-   * produces — see the header's second rule. */
+   * produces — see the header's rule. */
   armed: boolean;
 };
 
 export const NO_HOLD: HoldState = { from: null, armed: false };
 
-/** How far through the hold is, 0–1. Zero when nothing is held, which is
- * also what the row draws when a finger has only just landed — so a press
- * never flashes a sliver of fill on its way past. */
-export function holdProgress(hold: HoldState, now: number, lengthMs: number): number {
-  if (hold.from === null) return 0;
-  if (hold.armed) return 1;
-  const at = (now - hold.from) / lengthMs;
-  return at < 0 ? 0 : at > 1 ? 1 : at;
-}
-
 /** The hold one moment on, given the clock. Returns the same object when
- * nothing changed, so a component can bail out of a re-render on the frames
- * where the fraction has not moved enough to matter. */
+ * nothing has changed, so a caller that asks early — a timer fired a
+ * millisecond short, a clock the browser throttled — can tell 'not yet' from
+ * 'fired' by identity and re-render nothing. */
 export function tickHold(hold: HoldState, now: number, lengthMs: number): HoldState {
   if (hold.from === null || hold.armed) return hold;
   if (now - hold.from < lengthMs) return hold;
@@ -72,8 +62,8 @@ export function tickHold(hold: HoldState, now: number, lengthMs: number): HoldSt
 /**
  * Letting go — the finger lifted, or dragged off the row.
  *
- * The fraction stops, and `armed` SURVIVES: the click this release is about
- * to produce is the one it has to swallow. See the header.
+ * The clock stops, and `armed` SURVIVES: the click this release is about to
+ * produce is the one it has to swallow. See the header.
  */
 export function releaseHold(hold: HoldState): HoldState {
   return hold.armed ? { from: null, armed: true } : NO_HOLD;

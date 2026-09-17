@@ -65,10 +65,13 @@
 // second door to keep in step.
 //
 // The hold is on RACE and not on the wordmark or a corner because a secret
-// nobody can be told about is a secret nobody finds. "Hold the button you
-// already press" is one sentence long, needs no diagram, and — since the tile
-// fills and SAYS SO while it is being held — cannot be stumbled into without
-// the player seeing exactly what they are about to open.
+// nobody can be told about is a secret nobody finds: "hold the button you
+// already press" is one sentence long and needs no diagram. THE TILE SAYS
+// NOTHING WHILE IT IS HELD — no fill, no change of word. A door meant to stay
+// hidden cannot advertise itself to everybody who rests a thumb on START, so
+// the only way through it is knowing where to press; the DEVELOPER chip
+// appearing is the whole of the answer, and `menu-said` below is the moment's
+// one.
 //
 // WHICH page is up is a plain tagged union, and it lives next door
 // (`menu-page.ts`) so the URL reader can name one without reaching a `.tsx`;
@@ -80,14 +83,7 @@ import { GAME_MODES, type GameMode } from "@engine";
 import { APP_NAME, REPO_URL } from "../identity.ts";
 import { MarkWave } from "./mark-wave.tsx";
 import { DEV_HOLD_MS, type Settings } from "./settings.ts";
-import {
-  NO_HOLD,
-  holdProgress,
-  releaseHold,
-  takePress,
-  tickHold,
-  type HoldState,
-} from "./menu-hold.ts";
+import { NO_HOLD, releaseHold, takePress, tickHold, type HoldState } from "./menu-hold.ts";
 import {
   campaignStanding,
   findLevel,
@@ -107,18 +103,6 @@ import type { RecordBook } from "./records.ts";
 import { LevelsPage } from "./menu-levels.tsx";
 import type { MenuPage } from "./menu-page.ts";
 import { STRINGS } from "./strings.ts";
-
-/** How often the held tile redraws its fill, ms. Ten a second is a fill that
- * reads as continuous and a hundredth of the work a frame loop would do —
- * and the main thread is idle during a hold, so there is nothing here for a
- * compositor animation to buy. The bar the LOADING card draws is the other
- * case, and it is a transform for exactly that reason. */
-const HOLD_TICK_MS = 100;
-
-/** How far into the hold the tile starts saying what is about to happen. Late
- * enough that an ordinary press never sees it, early enough that nobody
- * reaches seven seconds without having been told where they are going. */
-const HOLD_SAYS_AT = 0.15;
 
 /** The build, bottom right, linking to the exact commit it was cut from. A
  * build with no commit behind it (a working tree, `git` unavailable) says so
@@ -189,7 +173,6 @@ function HoldTile({
   onUnlock: () => void;
 }) {
   const [hold, setHold] = useState<HoldState>(NO_HOLD);
-  const [at, setAt] = useState(0);
   // The hold as the CLICK will read it. `hold` is state, and a click arrives
   // in the same task as the release that ended it — before the render that
   // would have shown it — so the decision is taken off a ref written
@@ -200,26 +183,31 @@ function HoldTile({
     setHold(next);
   };
 
+  // ONE TIMER FOR THE WHOLE HOLD, not a tick a tenth of a second. Nothing is
+  // drawn while the finger is down, so there is no fraction to redraw and the
+  // only moment that matters is the one the hold completes at — which is a
+  // known time away. `tickHold` is still what decides it: the rule lives in
+  // the DOM-free module the tests read, and this only says when to ask.
   useEffect(() => {
     if (hold.from === null || hold.armed) return;
-    const timer = window.setInterval(() => {
-      const now = performance.now();
-      setAt(holdProgress(hold, now, DEV_HOLD_MS));
-      const next = tickHold(hold, now, DEV_HOLD_MS);
-      if (next === hold) return;
-      put(next);
-      setAt(1);
-      onUnlock();
-    }, HOLD_TICK_MS);
-    return () => window.clearInterval(timer);
-    // `onUnlock` is a fresh closure each render and would restart the
-    // interval; the hold itself is the only thing this should answer to.
+    const left = DEV_HOLD_MS - (performance.now() - hold.from);
+    const timer = window.setTimeout(
+      () => {
+        const next = tickHold(hold, performance.now(), DEV_HOLD_MS);
+        if (next === hold) return;
+        put(next);
+        onUnlock();
+      },
+      left > 0 ? left : 0,
+    );
+    return () => window.clearTimeout(timer);
+    // `onUnlock` is a fresh closure each render and would restart the timer;
+    // the hold itself is the only thing this should answer to.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hold]);
 
   const begin = (): void => {
     if (hold.from !== null) return;
-    setAt(0);
     put({ from: performance.now(), armed: false });
   };
   // Letting go — including dragging the finger off the tile, which is how a
@@ -229,7 +217,6 @@ function HoldTile({
   const end = (): void => {
     const released = releaseHold(holdRef.current);
     put(released);
-    setAt(0);
     // ...AND IF NO CLICK EVER COMES FOR IT, IT IS SPENT ANYWAY, one task
     // later. This is not belt and braces; it is the case that actually
     // happens. A browser only raises `click` when the press and the release
@@ -261,11 +248,10 @@ function HoldTile({
   // button again. Leaving it armed would mean every long press on the way
   // into a run re-running a thing that has already happened.
   const holds = !unlocked;
-  const saying = at >= HOLD_SAYS_AT;
   return (
     <button
       type="button"
-      class={`menu-tile menu-tile-mode${saying ? " menu-tile-holding" : ""}`}
+      class="menu-tile menu-tile-mode"
       data-menu="race"
       // Only BEGINNING is gated on there being something left to unlock.
       // The enders are always bound: a hold that armed on the last press has
@@ -290,12 +276,8 @@ function HoldTile({
       }}
       onClick={press}
     >
-      {/* The fill, behind the mark and the label: the tile itself is the
-          progress bar, so what is filling and what is being held are the
-          same object. */}
-      <span class="menu-tile-hold" style={{ transform: `scaleX(${at})` }} aria-hidden="true" />
       <Glyph name={glyph} />
-      <span class="menu-tile-name">{saying ? STRINGS.menuHolding : label}</span>
+      <span class="menu-tile-name">{label}</span>
     </button>
   );
 }
@@ -322,15 +304,16 @@ function RootPage({
   const standing = campaignStanding(progress);
   return (
     <div class="menu-card menu-card-root">
+      {/* THE NAME, AND NOTHING UNDER IT. The billing that stood here named
+          the coasts, which is a line that goes stale every time the game
+          grows one — and the mark centres properly on a single row, rather
+          than sitting visibly low against a block a tagline had dragged down
+          a line. */}
       <div class="menu-brand">
-        {/* The mark rides with the NAME, not with the name and its billing:
-            paired with the whole block it sits visibly low, because the
-            tagline under it drags the centre it is aligned to down a line. */}
         <div class="menu-brand-line">
           <MarkWave lay="once" className="menu-brand-mark" />
           <span class="menu-brand-name">{APP_NAME.toUpperCase()}</span>
         </div>
-        <span class="menu-brand-tag">{STRINGS.menuTag}</span>
       </div>
       {/* THE WAYS ONTO THE WATER — the hero first, then the four modes. The
           two tiers are one grid rather than two blocks, so the hero spanning
@@ -506,6 +489,7 @@ export function MainMenu({
         <CraftPage
           settings={settings}
           onSettings={onSettings}
+          campaign={page.campaign !== undefined}
           backLabel={page.campaign === undefined ? undefined : STRINGS.campaign}
           onBack={() =>
             onNavigate(

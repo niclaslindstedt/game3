@@ -40,13 +40,7 @@ import {
   type KeyAction,
 } from "../pwa/src/game/settings-input.ts";
 import { pickNeighbour, type NavRect } from "../pwa/src/game/menu-cursor.ts";
-import {
-  NO_HOLD,
-  holdProgress,
-  releaseHold,
-  takePress,
-  tickHold,
-} from "../pwa/src/game/menu-hold.ts";
+import { NO_HOLD, releaseHold, takePress, tickHold } from "../pwa/src/game/menu-hold.ts";
 import {
   advanceLoad,
   createLoad,
@@ -165,14 +159,7 @@ describe("the hold that unlocks the developer menu (menu-hold.ts)", () => {
   const held = (fromMs: number) => ({ from: fromMs, armed: false });
 
   it("is nothing at all until a finger is down", () => {
-    expect(holdProgress(NO_HOLD, 5_000, DEV_HOLD_MS)).toBe(0);
     expect(tickHold(NO_HOLD, 5_000, DEV_HOLD_MS)).toBe(NO_HOLD);
-  });
-
-  it("runs the fraction from nothing to full over its length", () => {
-    expect(holdProgress(held(0), 0, DEV_HOLD_MS)).toBe(0);
-    expect(holdProgress(held(0), DEV_HOLD_MS / 2, DEV_HOLD_MS)).toBeCloseTo(0.5, 6);
-    expect(holdProgress(held(0), DEV_HOLD_MS * 2, DEV_HOLD_MS)).toBe(1);
   });
 
   it("arms only once the whole length has been held", () => {
@@ -212,10 +199,12 @@ describe("the hold that unlocks the developer menu (menu-hold.ts)", () => {
     expect(takePress(after.hold).press).toBe(true);
   });
 
-  it("holds the fraction at full once armed, whatever the clock says next", () => {
+  it("stays armed whatever the clock says next, and re-renders nothing", () => {
     const armed = tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS);
-    expect(holdProgress(armed, 0, DEV_HOLD_MS)).toBe(1);
+    // The SAME object back, which is how the component tells 'nothing
+    // happened' from 'it fired' without a second piece of state.
     expect(tickHold(armed, DEV_HOLD_MS * 9, DEV_HOLD_MS)).toBe(armed);
+    expect(tickHold(held(0), DEV_HOLD_MS - 1, DEV_HOLD_MS)).toEqual(held(0));
   });
 });
 

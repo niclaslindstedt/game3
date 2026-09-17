@@ -122,12 +122,19 @@ function CraftReadings({ craft, speedClass }: { craft: CraftId; speedClass: numb
 export function CraftPage({
   settings,
   onSettings,
+  campaign = false,
   backLabel,
   onBack,
   onRide,
 }: {
   settings: Settings;
   onSettings: (settings: Settings) => void;
+  /** True when this card was walked into from the CAMPAIGN's ladder rather
+   * than from a mode tile. A campaign run is stood up from its level's own
+   * table (`campaignGame`) and never reads `settings.ride.mode`, so the
+   * stored mode says nothing about it — and a class ladder offered here
+   * would be a ladder that moved nothing. */
+  campaign?: boolean;
   /** What the way back is called when it is not the start card — the
    * campaign's ladder, which names its own level rather than a mode. */
   backLabel?: string;
@@ -138,12 +145,15 @@ export function CraftPage({
 }) {
   const craft = settings.ride.craft;
   const spec = craftById(craft);
-  // The class the run WILL be ridden at — the rider's own on a free ride,
-  // stock in every mode that measures one (`new-game.ts` says why). The
-  // sheet beside the hull reads the same answer, so it says what the water
-  // does.
-  const speedClass = classFor(settings);
-  const classLocked = !freeRides(settings);
+  // WHETHER THERE IS A CLASS TO CHOOSE AT ALL. Only a FREE ride has one
+  // (`classFor` in new-game.ts says why: every measured mode is stock, and a
+  // campaign run takes its class from the level's own table), and a row with
+  // a single dead chip on it is a control that teaches a rider the game has
+  // classes and then refuses them. So the row is FREE's, or it is not drawn.
+  const picksClass = freeRides(settings) && !campaign;
+  // The class the run WILL be ridden at. The sheet beside the hull reads the
+  // same answer, so it says what the water does.
+  const speedClass = picksClass ? classFor(settings) : 1;
   return (
     <div class="menu-card menu-card-craft">
       {/* BACK is the start card, and the start card is now titled with the
@@ -178,28 +188,17 @@ export function CraftPage({
         </div>
         <CraftReadings craft={craft} speedClass={speedClass} />
       </div>
-      {/* THE CLASS — the one row on this card, under the hull it applies
-          to. It moves the whole roster together rather than this craft
-          alone, and it PACES THE COURSE with it, so the rungs are a
-          different race and not only a faster ski. */}
-      <div class="craft-class" role="radiogroup" aria-label={STRINGS.classRow}>
-        <span class="craft-class-label">{STRINGS.classRow}</span>
-        {/* STOCK in every mode that MEASURES the rider: a time and a score
-            are compared across riders, and a class that paces the course
-            and derives a faster hull would make this row the figure. The
-            row stays, with one chip on it and a word saying why, rather
-            than vanishing — a row that comes and goes with the mode reads
-            as a bug. */}
-        {classLocked ? (
-          <>
-            <span class="craft-class-chip is-on" aria-disabled="true">
-              {STRINGS.className("1")}
-            </span>
-            <span class="craft-class-note">{STRINGS.classLocked}</span>
-          </>
-        ) : null}
-        {!classLocked &&
-          CLASS_BAND.map((k) => (
+      {/* THE CLASS — FREE'S ROW ALONE, and the only row on this card. It
+          moves the whole roster together rather than this craft alone, and
+          it PACES THE COURSE with it, so the rungs are a different race and
+          not only a faster ski. Every other way in is measured and therefore
+          stock, and there the card simply has no row: the readings beside the
+          hull are already the stock ones, so nothing is hidden by leaving it
+          out — only a chip nobody could press. */}
+      {picksClass && (
+        <div class="craft-class" role="radiogroup" aria-label={STRINGS.classRow}>
+          <span class="craft-class-label">{STRINGS.classRow}</span>
+          {CLASS_BAND.map((k) => (
             <button
               key={k}
               type="button"
@@ -211,7 +210,8 @@ export function CraftPage({
               {STRINGS.className(String(k))}
             </button>
           ))}
-      </div>
+        </div>
+      )}
       {/* The press that rides, wearing the front door's own START weight and
           marked as this surface's `next` — so a controller that walked in
           here gets on the water without hunting for it. */}
