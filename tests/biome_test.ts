@@ -251,13 +251,48 @@ describe("what makes the three coasts three", () => {
     for (const w of walls) expect(w).toBeGreaterThan(1);
     for (const s of slabs) expect(s).toBeLessThan(1.5);
     expect(Math.max(...walls)).toBeGreaterThan(2);
-    // …and the wall stands well over the taiga's hills on the corpus,
-    // which is what "a wall thirty metres high" costs to claim.
+    // …and the wall stands over the rock coasts' own roof, which is what
+    // "a glacier's front" costs to claim: R2's ceiling is the coast's
+    // (`Biome.ceiling`), one everywhere but here.
+    expect(arctic.ceiling).toBeGreaterThan(1);
+    expect(taiga.ceiling).toBe(1);
+    expect(mangrove.ceiling).toBe(1);
     const tallest = Math.max(
       ...ARCTIC_SEEDS.map((s) => arcticFor(s).ground.data.reduce((a, b) => Math.max(a, b), 0)),
     );
-    expect(tallest).toBeGreaterThan(30);
-    expect(tallest).toBeLessThanOrEqual(R.land.maxHeight + 1);
+    expect(tallest).toBeGreaterThan(R.land.maxHeight);
+    expect(tallest).toBeLessThanOrEqual(R.land.maxHeight * arctic.ceiling + 1);
+    // THE WALL AT THE WATERLINE, BESIDE THE COURSE: on every seed the
+    // ground within thirty metres of the sea and within reach of the line
+    // the rider is on somewhere stands forty metres up — the front, on its
+    // apron — where the taiga's never stands twenty anywhere. Measured
+    // beside the course rather than anywhere on the level, because a wall
+    // on the far bank of the river's head is a wall nobody sees.
+    const atWater = (level: Level, besideCourse: boolean): number => {
+      let most = 0;
+      const { ground: g, offshore } = level;
+      const path = level.course.path;
+      for (let i = 0; i < g.data.length; i++) {
+        const inland = -offshore.data[i];
+        if (!(inland > 0 && inland <= 30)) continue;
+        if (besideCourse) {
+          const x = g.originX + (i % g.cols) * g.cell;
+          const z = g.originZ + Math.floor(i / g.cols) * g.cell;
+          if (!path.some((p) => Math.hypot(p.x - x, p.z - z) < 140)) continue;
+        }
+        most = Math.max(most, g.data[i]);
+      }
+      return most;
+    };
+    for (const s of ARCTIC_SEEDS)
+      expect(atWater(arcticFor(s), true), `seed ${s}`).toBeGreaterThan(40);
+    for (const s of LEVEL_SEEDS.slice(0, 4)) expect(atWater(levelFor(s), false)).toBeLessThan(20);
+    // …and the wall is the coast's ORDINARY shore, standing on its apron:
+    // the taiga's ramp moves nothing and its apron is nothing.
+    expect(arctic.wall.to).toBeLessThan(taiga.wall.from + 0.2);
+    expect(arctic.wall.apron).toBeGreaterThan(8);
+    expect(taiga.wall.apron).toBe(0);
+    expect(mangrove.wall.apron).toBe(0);
   });
 
   it("is the sea: a sheltered skerry coast against an open swell-swept one against the pack", () => {
@@ -301,9 +336,17 @@ describe("what makes the three coasts three", () => {
       bend: 1,
       discharge: 1,
       banks: true,
+      kink: 0,
+      ragged: 0,
       bars: null,
     });
     expect(mangrove.river.banks).toBe(true);
+    expect(mangrove.river.kink).toBe(0);
+    expect(mangrove.river.ragged).toBe(0);
+    // …and the arctic's is a CRACK: reaches and corners, ragged walls.
+    expect(arctic.river.kink).toBe(1);
+    expect(arctic.river.ragged).toBeGreaterThan(0.3);
+    expect(arctic.river.bend).toBeLessThan(1);
     expect(mangrove.river.mouth).toBeGreaterThan(1);
     expect(mangrove.river.taper).toBeLessThan(1);
     expect(mangrove.river.bend).toBeGreaterThan(1);

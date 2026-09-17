@@ -76,6 +76,19 @@ export type RiverShape = {
    * the coast's own material, the classifier never calls them bank, and
    * the analysis does not ask for one. */
   readonly banks: boolean;
+  /** A CRACK RATHER THAN A MEANDER (R26): how much of the walk's turning
+   * is bang-bang — straight reaches joined by corners at the channel's
+   * tightest circle, the way a fracture runs along its joints — against
+   * the smooth swing a river that cut its own valley has. 0 is the
+   * meander, every other coast's; 1 is all of it, and with `bend` small
+   * the corners close to the plan of a crack. */
+  readonly kink: number;
+  /** RAGGED WALLS (R26): how far the water's half-width wanders along the
+   * reach, as a share of itself — pockets and pinches in the walls, on a
+   * short period, over the taper. 0 on a coast whose river's banks are
+   * the smooth cut of its own water. Never widens the mouth past R1's
+   * ceiling: the wander is clipped to it. */
+  readonly ragged: number;
   /** THE BARS: low islands standing in the mouth's own reach — a delta.
    * `count` of them, each `r` metres across (mean plan radius, warped like
    * any island), `reach` metres up the river from the mouth in walked
@@ -114,8 +127,21 @@ export type Biome = {
   readonly declination: Record<Season, number>;
   /** Multiplier on `LEVEL_RULES.land.plateau` — how high this coast's land
    * stands against the rule book's band (1 is the taiga's). Held under
-   * `land.maxHeight` whatever it is. */
+   * the coast's ceiling whatever it is. */
   readonly relief: number;
+  /** THE COAST'S CEILING (R2): a multiple of `LEVEL_RULES.land.maxHeight`
+   * nothing on this coast stands higher than. One on every coast whose
+   * land is rock — the rule's forty-five metres is a headland's — and over
+   * one on the one coast whose shore is a glacier's front: a tidewater ice
+   * cliff runs thirty to seventy metres, and a coast held to the rock's
+   * roof stood its walls at half that. */
+  readonly ceiling: number;
+  /** Multiplier on `LEVEL_RULES.land.hill.high` — how much taller than
+   * the plateau a RUGGED stretch stands, over the rule book's own two
+   * (R2, R21). One on the taiga; over one on a coast whose headlands are
+   * something else entirely from its bays, so the soft stretches keep the
+   * rule's low moraine while the rugged ones climb to the ceiling. */
+  readonly headland: number;
   /** HOW STEEPLY THE LAND COMES DOWN TO THE WATER: the share of
    * `LEVEL_RULES.land.reach` over which the shore climbs to its hill
    * (R2) on the most RUGGED stretch of the coast. 1 is the taiga's low rise
@@ -130,6 +156,26 @@ export type Biome = {
    * this is the landscape: low and gentle, low and steep, high and gentle,
    * high and steep are four different coasts. */
   readonly climb: number;
+  /** WHERE ON THE CHARACTER THE WALL STARTS AND WHERE IT IS WHOLE (R2,
+   * R21), and THE FOOT IT STANDS ON. `climb` and `headland` are applied
+   * over one ramp: nothing under `from`, all of it from `to` up, smoothed
+   * between. The taiga's ramp runs from a third of the way up the
+   * character to the top — its `climb` is 1 and its `headland` 1, so the
+   * ramp moves nothing, and it is stated so a coast without a wall stands
+   * exactly where it always has. A wall coast pulls both ends down, so
+   * the wall is the coast's ordinary shore and the moraine slope the
+   * exception — and can, because of the APRON: a wall does not come out
+   * of the water at the waterline cell but `apron` metres behind it, on a
+   * foot of the rubble it has dropped, which is what a calving front
+   * stands on and what lets the classifier read the foot off its own
+   * slope (R16) — a boulder field, or sand on the softest stretch —
+   * rather than calling every wall's foot bedrock and running R21's
+   * quilt out. Zero apron on a coast with no wall. */
+  readonly wall: {
+    readonly from: number;
+    readonly to: number;
+    readonly apron: number;
+  };
   /** What this coast's RIVER is like (R26, R27). */
   readonly river: RiverShape;
   /** Multipliers on `LEVEL_RULES.solids.<kind>.perKm`. */
@@ -217,7 +263,10 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     latitude: 62,
     declination: DECLINATION,
     relief: 1,
+    ceiling: 1,
+    headland: 1,
     climb: 1,
+    wall: { from: 0.35, to: 1, apron: 0 },
     // A skerry coast's river is a ROCK CHANNEL: it leaves through the one
     // gap the ice left in the granite, no wider than the race's own water,
     // closes fast to a creek between slabs, bends tight, and carries a
@@ -225,7 +274,17 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // coasts. No delta: there is no sediment to build one from, and the
     // mouth is a sound, not a fan. The rule book's own numbers, which is
     // what the ones mean.
-    river: { mouth: 1, head: 1, taper: 1, bend: 1, discharge: 1, banks: true, bars: null },
+    river: {
+      mouth: 1,
+      head: 1,
+      taper: 1,
+      bend: 1,
+      discharge: 1,
+      banks: true,
+      kink: 0,
+      ragged: 0,
+      bars: null,
+    },
     rocks: { skerry: 1, boulder: 1, reef: 1, erratic: 1, stack: 1 },
     boulderField: 1,
     beaches: true,
@@ -298,9 +357,12 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // Nothing stands higher than a dune. A third of the taiga's plateau
     // puts the tallest ground on the coast a few metres over the water.
     relief: 0.3,
+    ceiling: 1,
+    headland: 1,
     // …and it rises to that over the whole reach: a beach, a dune, the
     // flat behind it. Nothing on this coast stands up out of the water.
     climb: 1,
+    wall: { from: 0.35, to: 1, apron: 0 },
     // A flat coast's river is an ESTUARY. It comes out through a mouth
     // opened wider than the channel behind it, holds its width a long way
     // up the country before it closes — a lowland river loses its
@@ -318,6 +380,8 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
       bend: 1.5,
       discharge: 0.35,
       banks: true,
+      kink: 0,
+      ragged: 0,
       bars: {
         count: { min: 2, max: 4 },
         r: { min: 7, max: 16 },
@@ -426,18 +490,25 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // dealt any hour of the clock); the two winter rows give a six-hour
     // day and a night eighteen degrees under.
     declination: { spring: 21.0, summer: 20.0, autumn: -2.0, winter: -6.5 },
-    // THE ICE WALL. A tidewater glacier's front stands twelve to sixty
-    // metres above the water (the big outlet fronts run to eighty), and
-    // the rule book's `land.maxHeight` is 45 m, so the wall is written to
-    // reach that ceiling: near twice the taiga's plateau puts a rugged
-    // stretch's hill at the roof on most draws and thirty metres on the
-    // rest. Not more, because the soft stretches (R21) keep their share of
-    // the same plateau and those are the coast's other half — a low
-    // moraine of gravel and boulders between one front and the next, a
-    // few metres over the water — and a relief that put the bays at the
-    // taiga's headland heights made every one of them a slope the
-    // classifier calls bedrock, and the coast one material.
+    // THE ICE WALL. A tidewater glacier's front stands thirty to seventy
+    // metres above the water — the modelled stable cliff is sixty-five to
+    // seventy-seven, the big outlet fronts run to eighty and the tallest
+    // to two hundred — and the rule book's `land.maxHeight` is a rock
+    // headland's 45 m, so this coast carries its own CEILING: half as much
+    // again, sixty-seven metres, which is where the front stands on most
+    // draws. Getting there is the HEADLAND factor rather than the relief:
+    // the relief is near twice the taiga's plateau and no more, because
+    // the soft stretches (R21) keep their share of the same plateau and
+    // those are the coast's other half — a low moraine of gravel and
+    // boulders between one front and the next, a few metres over the
+    // water — and a relief that put the bays at a headland's height made
+    // every one of them a slope the classifier calls bedrock, and the
+    // coast one material. Trebling what a rugged stretch climbs to instead
+    // lifts the fronts alone, over the wall's own ramp (`wall`), so the
+    // soft bays stand where they did and the front stands at the ceiling.
     relief: 1.8,
+    ceiling: 1.5,
+    headland: 3,
     // …and on a rugged stretch it comes down as a WALL. The whole climb is
     // met over a sixteenth of the taiga's reach — six metres of plan for
     // forty of height — which is as near vertical as a heightfield with a
@@ -449,6 +520,17 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // between one front and the next, where the gravel and the boulder
     // fields are, and where a rider can actually get out of the water.
     climb: 0.06,
+    // …and it is the ORDINARY shore of this coast, not its headlands: the
+    // wall starts a quarter of the way up the character and is whole by
+    // the middle of it, so only the softest bays are the moraine slopes
+    // where the gravel and the sand are. It can be, because the wall
+    // stands on an APRON: fourteen metres of the rubble it calves onto,
+    // level to the water, so the waterline reads as the boulder field it
+    // is (R16) and the quilt (R21) is the field's to break rather than the
+    // slope's. A wall without one was bedrock from its foot to its lip,
+    // and to keep the quilt the coast had to keep two stretches in three
+    // as low moraine — which put the front on one seed's course in four.
+    wall: { from: 0.25, to: 0.5, apron: 14 },
     // A CRACK IN THE ICE, where the taiga has a river. A rift in an ice
     // front holds its width for most of its length — the walls are
     // parallel sheer ice, tens of metres apart, and the crack pinches to
@@ -462,7 +544,23 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
     // wall's own ice, so the classifier never calls them bank and R26 does
     // not ask it to (`banks`). No bars either: ice drops no sediment to
     // build one from.
-    river: { mouth: 1, head: 1, taper: 0.55, bend: 1, discharge: 0.2, banks: false, bars: null },
+    river: {
+      mouth: 1,
+      head: 1,
+      taper: 0.55,
+      // Half the taiga's circle, and the walk's turning all bang-bang: a
+      // crack runs straight along a joint and turns at the next one, so
+      // the plan is reaches and corners rather than loops — and its walls
+      // wander by nearly half their width over a few boat lengths, the
+      // pockets and pinches a fracture through ice has and a river's cut
+      // bank never does.
+      bend: 0.5,
+      discharge: 0.2,
+      banks: false,
+      kink: 1,
+      ragged: 0.45,
+      bars: null,
+    },
     // WHAT STANDS IN THIS WATER IS ICE. A skerry on this coast is a berg
     // grounded off the front, a reef a growler awash, a stack the tallest
     // berg on the level — all of them carved by the same placer in the

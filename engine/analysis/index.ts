@@ -254,8 +254,10 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       if (off >= A.sea.waterline && h >= 0) dryAtSea++;
     }
   }
-  if (maxLand > R.land.maxHeight + A.land.tolerance) {
-    rep.fail("R2", "height", `land stands ${fmt(maxLand)} m high (rule ${R.land.maxHeight} m)`, {
+  // R2's roof is the rule's times the coast's own (`Biome.ceiling`).
+  const roof = R.land.maxHeight * biomeOf(level.biome).ceiling;
+  if (maxLand > roof + A.land.tolerance) {
+    rep.fail("R2", "height", `land stands ${fmt(maxLand)} m high (rule ${fmt(roof)} m)`, {
       value: maxLand,
     });
   }

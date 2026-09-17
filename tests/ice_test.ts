@@ -172,9 +172,13 @@ describe("R37 — the sheet as the hull meets it", () => {
     );
     expect(bedAt(summer(level), under.x, under.z)).toBeLessThan(-1);
     // Out past the level's box the pack runs on: the storm's floor is under
-    // the ice out there too. Straight out to sea from the line, so the
-    // point is over the ocean and not over a corner the coast reached.
-    const out = { x: a.x + nx * side * 1500, z: a.z + nz * side * 1500 };
+    // the ice out there too. Straight out to sea from the line — along the
+    // level's own bearing to the open water, not the gate's normal, which
+    // on a coast that wraps round the line can point at the far shore —
+    // so the point is over the ocean and not over land the coast reached.
+    const sx = Math.sin(level.seaHeading);
+    const sz = Math.cos(level.seaHeading);
+    const out = { x: a.x + sx * 1500, z: a.z + sz * 1500 };
     expect(bedAt(level, out.x, out.z)).toBeCloseTo(ICE.freeboard, 6);
     expect(bedAt(summer(level), out.x, out.z)).toBeLessThan(-10);
     // …and the channel's bed is the summer's.
