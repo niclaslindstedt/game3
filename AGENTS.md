@@ -444,7 +444,7 @@ Skills live in `.agents/skills/` (`.claude/skills` and `.gemini/skills` symlink 
 - **`lab-tooling`** — how a lab or a script is built here: the `scripts/lib/` shelf, pure-Node versus browser-driven, the harness-page pattern, the URL contract, and registering a tool. Load it BEFORE writing a one-off script.
 - **`hud-and-menus`** — the HUD's readouts, the handlebar and the throttle lever, the keys — what is drawn over a RUN.
 - **`menu-system`** — the shell around a run: the attract card, the front door, the start card and the craft card after it, options, the developer page behind the seven-second hold, the loading card, the pause card that holds a run mid-ride, and the settings they read and write.
-- **`ui-review`** — the fit-and-finish sweep at the reference viewports (1280×720, 390×844).
+- **`ui-review`** — the fit-and-finish sweep at the reference viewports (1280×720, 390×844, and 844×390 — the phone on its side, which is the only one that reaches the landscape rules).
 - **`playtest`** — staged moments photographed in the built app: `make screenshots SCENE=`.
 - **`test-scenario`** — exact situations: the synthetic level, `placeRun`, scripted inputs, `scenarios.ts` read three ways.
 - **`debug-game`** — deterministic repros, classifying by layer, the failing test first.

@@ -2,9 +2,12 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // SCREENSHOTS of the real build: serves pwa/dist, opens the app in
 // headless Chromium at a staged moment, waits for the app to say the
-// frame is ready, and captures it at the two reference viewports (§35.2)
-// — desktop landscape 1280×720 and phone portrait 390×844 at 2× — into
-// the gitignored previews/. The closing step of every gameplay change:
+// frame is ready, and captures it at the three reference viewports (§35.2)
+// — desktop landscape 1280×720, phone portrait 390×844 and phone LANDSCAPE
+// 844×390, the last two at 2× — into the gitignored previews/. The third is
+// the one the game is actually held at and the only one that reaches the
+// `(orientation: landscape) and (max-height: 34rem)` rules, so a layout
+// judged on the other two has not been judged where it is played. The closing step of every gameplay change:
 // the sim gives numbers, the ride lab gives a diagram, this gives the
 // thing the player receives.
 //
@@ -301,7 +304,14 @@ const args = parseArgs(
     distance: { kind: "string", help: "the DISTANCE row: low, medium, high" },
     see: { kind: "string", help: "see into the water: 1 or 0" },
     fps: { kind: "string", help: "the FRAME RATE row: 30, 60, max" },
-    viewport: { kind: "string", default: "all", help: "desktop, phone or all" },
+    // Derived from the table rather than spelled again, the way `--surface`
+    // and `--scene` are: a hardcoded list here is a flag whose third
+    // viewport exists and cannot be found.
+    viewport: {
+      kind: "string",
+      default: "all",
+      help: `${Object.keys(VIEWPORTS).join(", ")} or all`,
+    },
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
