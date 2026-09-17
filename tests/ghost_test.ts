@@ -168,14 +168,25 @@ describe("the run, ridden again", () => {
     }
   });
 
-  it("rides the same water when the run had a FIELD and the ghost has none", () => {
+  it("rides the run's own stream when the run had a FIELD and the ghost has none", () => {
     // The `dropField` contract (`engine/game/rivals.ts`), which is the whole
     // reason a ghost is built the way its run was built. The grid deals a
     // rider's weight and a pace off the run's own stream for every rival, so
     // a ghost stood up with `rivals: 0` would have its wind gusting off a
     // stream twenty-two draws further along.
+    //
+    // The one thing the drop cannot hand back is the WATER: every rider's
+    // wash stands on the one sea (`engine/game/wash.ts`), and eleven wakes
+    // go with the eleven hulls. So the run this is read against is a fielded
+    // one whose trails are lifted off the sea by hand before it is ridden —
+    // leaving the STREAM as the only thing that can still put the two runs
+    // apart, which is what this case is about. Nothing ships a ghost of a
+    // race: a tape is kept only for the two modes that ride alone
+    // (`pwa/src/game/ghost-run.ts`).
     const raced = { ...options, rules: { rivals: 11, contact: false } };
     const ridden = createGame(raced);
+    ridden.sea.washes.length = 0;
+    ridden.sea.washes.push(ridden.wash);
     const recorder = createGhostRecorder();
     for (let i = 0; i < STEPS; i++) {
       const driven = scripted(i);
@@ -187,6 +198,9 @@ describe("the run, ridden again", () => {
     const ghost = createGame(raced);
     dropField(ghost);
     expect(ghost.rivals).toHaveLength(0);
+    // …and the field's wakes came off the sea with the field, so what is
+    // left in the water is the rider's own trail and nothing else.
+    expect(ghost.sea.washes).toEqual([ghost.wash]);
     for (let i = 0; i < STEPS; i++) step(ghost, tape.at(i));
     expect(pose(ghost)).toEqual(pose(ridden));
 
