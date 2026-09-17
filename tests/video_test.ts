@@ -51,6 +51,8 @@ import {
   WATER_PRESETS,
   coverReach,
   detailOf,
+  SAMPLES_UNDER_RATIO,
+  pictureSamples,
 } from "../pwa/src/game/settings-video.ts";
 import {
   PROBE_HEADROOM,
@@ -742,5 +744,26 @@ describe("the first-visit probe (video-probe.ts)", () => {
       expect(videoUntouched(touched)).toBe(false);
       expect(promoteVideo(touched)).toBe(touched);
     }
+  });
+});
+
+describe("how many samples the picture is drawn with", () => {
+  it("is four on a screen where the jaggies are the picture, none on a dense one", () => {
+    // The samples are on the grade's own off-screen target, not on the
+    // canvas, but the decision is the same one three's `antialias` flag
+    // used to make — and it is made off the DEVICE, because the buffer is
+    // allocated with the target and no row can re-make it mid-run.
+    expect(pictureSamples(1)).toBe(4);
+    expect(pictureSamples(1.5)).toBe(4);
+    expect(pictureSamples(SAMPLES_UNDER_RATIO)).toBe(0);
+    expect(pictureSamples(3)).toBe(0);
+  });
+
+  it("asks for samples when the device will not say what it is", () => {
+    // A context with no `devicePixelRatio` is a harness or a very old
+    // browser, and the safe read of an unknown screen is the sparse one:
+    // an unnecessary multisample buffer costs bandwidth, a missing one on a
+    // 1x display is a picture full of stairs.
+    expect(pictureSamples(undefined)).toBe(4);
   });
 });

@@ -611,6 +611,30 @@ export const RESOLUTION_SCALE: Record<ResolutionLevel, number> = {
   high: 1,
 };
 
+/** HOW DENSE A SCREEN STOPS BEING WORTH MULTISAMPLING.
+ *
+ * The samples are not on the canvas — every edge in the picture is drawn into
+ * the grade's own off-screen target (`grade-pass.ts`), so this is that
+ * target's sample count rather than a context flag. It is read off the
+ * DEVICE and not off a row, because a multisample buffer is allocated once
+ * with the target and a row the player moves mid-run cannot re-make it —
+ * and because the answer is a property of the screen: at three device pixels
+ * to the CSS pixel the buffer is four samples of every fragment resolved
+ * once a frame, pure bandwidth on a tile GPU with no fan, spent on an edge
+ * nobody can see. On a 1× display the jaggies ARE the picture, and there are
+ * a quarter as many pixels to pay for them over. */
+export const SAMPLES_UNDER_RATIO = 2;
+
+/** …how many samples the picture is drawn with on the device the page is on:
+ * four under that ratio and none at or over it. Four is where multisampling
+ * stops being worth its bandwidth and is what a browser's own
+ * `antialias: true` asks for. */
+export function pictureSamples(
+  ratio = (globalThis as { devicePixelRatio?: number }).devicePixelRatio,
+): number {
+  return typeof ratio === "number" && ratio >= SAMPLES_UNDER_RATIO ? 0 : 4;
+}
+
 /** Spawn-rate multiplier per spray stop; `off` also takes the sheets, the tail
  * and the foam patches out entirely. */
 export const SPRAY_SCALE: Record<SprayLevel, number> = {
