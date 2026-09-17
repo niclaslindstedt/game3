@@ -73,6 +73,21 @@ transition into it.
   `onGround`. Never special-case a KIND in `collision.ts`: which half a
   rock gives you is read off `top` and the hull's height, one rule off the
   data.
+- **THE DRAWN ROCK IS THE ROCK.** `Solid.top` is the one thing the rider and
+  the hull have to agree about — the engine collides against it
+  (`solidSurfaceAt`) and the eye judges a rock by it (does it break the
+  surface?) — so every mesh in `pwa/src/game/rocks.ts` is hung off its
+  CROWN. The sculpted kinds hold it by construction (`carveRock` puts the
+  apex on `top` exactly); the instanced lumps must be centred a half-height
+  DOWN from `top`, times the unit geometry's own apex — 1 for a sphere but
+  0.851 for an icosahedron, whose vertices sit on the sphere and none at the
+  pole. Getting it wrong is invisible in the code and reads on the water as
+  "the rocks are not collidable": a boulder centred at a share of its RADIUS
+  came out up to 0.87 m taller than the solid, so one rock in eight on a
+  taiga coast stood clearly out of the water with the thing the hull meets
+  under it. **When a contact is reported missing, check the drawn height
+  before tuning the contact** — half the time nothing is wrong with
+  `collision.ts` at all.
 - **A rock the hull can get OVER is a rock whose surface is near its keel.**
   `Solid.top` is the crown's height above sea level; a probe above the
   stone's surface at its own plan point does not touch it at all. That is

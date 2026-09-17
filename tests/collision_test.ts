@@ -118,7 +118,7 @@ describe("solids", () => {
   it("rides over a rock awash instead of stopping dead on it", () => {
     const level = {
       ...LEVEL,
-      solids: [{ id: "awash", kind: "boulder" as const, x: 250, z: 200, r: 3, top: 0.2 }],
+      solids: [{ id: "awash", kind: "boulder" as const, x: 250, z: 200, r: 3, top: 0 }],
     };
     const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
     placeRun(state, { x: 205, z: 200, heading: Math.PI / 2, speed: 22 });
@@ -127,6 +127,28 @@ describe("solids", () => {
     expect(state.craft.x).toBeGreaterThan(280);
     expect(state.craft.speed).toBeGreaterThan(15);
     expect(events.some((e) => e.kind === "hit")).toBe(false);
+  });
+
+  it("a rock that breaks the surface at all is a wall, not a ramp", () => {
+    // THE LINE IS THE WATERLINE. A stone standing a hand's breadth proud is
+    // already deeper into the hull than the hull draws, so there is nothing
+    // for a planing bow to mount: it is met at the flank like any other
+    // rock. Below this the crown carried it — and carrying a hull over a
+    // step that deep threw it metres into the air and onto its back.
+    for (const top of [0.1, 0.2, 0.35]) {
+      const level = {
+        ...LEVEL,
+        solids: [{ id: "proud", kind: "boulder" as const, x: 250, z: 200, r: 3, top }],
+      };
+      const state = createGame({ seed: 1, craft: "skiff", level, quiet: true });
+      placeRun(state, { x: 210, z: 200, heading: Math.PI / 2, speed: 22 });
+      const events = ride(state, 4, FULL);
+      expect(events.some((e) => e.kind === "hit")).toBe(true);
+      // Stopped at its near edge rather than carried over the top of it:
+      // with the crown's band spent here instead, the hull cleared the
+      // rock without a `hit` at all and was still making way 50 m past it.
+      expect(state.craft.x).toBeLessThan(250);
+    }
   });
 
   it("a hull that lands on a skerry stays up on it", () => {
