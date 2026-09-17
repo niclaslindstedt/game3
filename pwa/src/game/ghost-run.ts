@@ -28,7 +28,10 @@
 // built with `rivals: 0` would have its wind gusting off a stream twenty-two
 // draws further along and would ride different water from its first step.
 // Built the same way and emptied, it costs ONE hull of physics and rides the
-// very sea the recording was cut on.
+// very sea the recording was cut on — which holds here because the two modes
+// that keep a tape ride alone. A field also lays WASH on the player's own sea
+// (`engine/game/wash.ts`), and that water is gone with the hulls that were
+// laying it: one more reason a race keeps no tape.
 //
 // WHAT THE TAPE IS WORTH KEEPING FOR is decided at the finish: the run that
 // BEAT the figure on file, or any run at all where there is no readable tape
