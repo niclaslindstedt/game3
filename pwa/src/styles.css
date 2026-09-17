@@ -5079,9 +5079,24 @@ button.knob-read:focus-visible {
    carries its state — lit and open, grey and shut, ringed where the campaign
    would pick next — because at a glance across six boxes the frame is what
    the eye counts; what is inside is only what is specific to the level. */
-.menu-card-campaign {
+.menu-card-campaign,
+.menu-card-levels {
   width: min(40rem, 100%);
   text-align: left;
+}
+
+/* Where a card has nothing to offer yet — the level card with every shore
+   still shut. It says what opens one rather than leaving a hole. */
+.menu-empty {
+  margin: 0;
+  padding: 1.2rem 0.8rem;
+  border: 2px dashed rgb(242 247 248 / 26%);
+  border-radius: 0.55rem;
+  font-size: 0.72rem;
+  letter-spacing: 0.1em;
+  text-align: center;
+  text-transform: uppercase;
+  opacity: 0.7;
 }
 
 .menu-shores {

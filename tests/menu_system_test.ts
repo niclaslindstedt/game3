@@ -8,6 +8,12 @@
 // These are the payload modules the `hud-and-menus` split exists for. Each
 // component next door does nothing but render what one of these returns, so
 // a rule proved here is a rule the surface cannot get wrong on its own.
+//
+// ...and one thing that is not DOM-free at all: the run a card actually
+// stands up. The three measured modes ride one of the campaign's PINNED
+// shores rather than a seed, and the only honest test of that is to build
+// one and look at what came out — which is why the last block in this file
+// generates levels and the rest of it does not.
 import {
   BIOME_IDS,
   CLASS_BAND,
@@ -56,12 +62,16 @@ import {
   DEV_HOLD_MS,
   TRICK_MINUTES,
   conditionsFor,
-  seaStateFor,
+  seaRungFor,
   SEA_METRES,
+  SEA_STATES,
   freshSettings,
   mergeSettings,
 } from "../pwa/src/game/settings.ts";
 import { WATER_PRESETS } from "../pwa/src/game/settings-video.ts";
+import { CAMPAIGN_LEVELS, shoreOf } from "../pwa/src/game/campaign.ts";
+import { gameFor, pinnedFor, recordKeyFor } from "../pwa/src/game/new-game.ts";
+import { readParams, settingsFor } from "../pwa/src/game/url-params.ts";
 import {
   SHELLS,
   appDraws,
@@ -499,7 +509,7 @@ describe("standing a run up (run-loader.ts)", () => {
   });
 });
 
-describe("the wind a seed deals, as one of the card's three rungs (conditionsFor)", () => {
+describe("the wind a level was dealt, as one of the scale's three rungs (conditionsFor)", () => {
   it("names the rung a wind is standing exactly on", () => {
     for (const rung of CONDITIONS) expect(conditionsFor(CONDITION_DAY[rung].wind)).toBe(rung);
   });
@@ -517,18 +527,18 @@ describe("the wind a seed deals, as one of the card's three rungs (conditionsFor
     expect(conditionsFor(8)).toBe("fine");
   });
 
-  it("leaves no wind with nothing marked", () => {
-    // The row always has a chip to stand on: a mark that vanished on some
-    // seeds would read as a broken row rather than as an unusual wind.
+  it("leaves no wind with no word for it", () => {
+    // Every wind has a rung: a box whose day line lost a word on some seeds
+    // would read as a broken card rather than as an unusual wind.
     for (let ms = 0; ms <= 40; ms += 0.5) expect(CONDITIONS).toContain(conditionsFor(ms));
   });
 });
 
-describe("R36 — the swell a seed deals, as a rung of the WAVES row (seaStateFor)", () => {
+describe("R36 — a swell as a rung of the Douglas scale (seaRungFor)", () => {
   it("is exactly the dial the engine offers, end to end", () => {
-    // The row's ladder and R36's band are one thing quoted twice: the row
-    // may not offer a sea the generator would refuse to build, and it may
-    // not stop short of one it would.
+    // The scale and R36's band are one thing quoted twice: the ladder may
+    // not stop short of a sea the generator can deal, and FREE's fader runs
+    // the whole of it.
     expect(SEA_METRES[0]).toBe(SWELL_DIAL.min);
     expect(SEA_METRES[SEA_METRES.length - 1]).toBe(SWELL_DIAL.max);
     expect([...SEA_METRES]).toEqual([...SEA_METRES].sort((a, b) => a - b));
@@ -536,25 +546,26 @@ describe("R36 — the swell a seed deals, as a rung of the WAVES row (seaStateFo
   });
 
   it("names the rung a swell is standing exactly on", () => {
-    for (const hs of SEA_METRES) expect(seaStateFor(hs)).toBe(hs);
+    for (const rung of SEA_STATES) expect(seaRungFor(rung.hs)).toBe(rung.id);
   });
 
   it("puts a dealt height in its own BAND, not at the nearest rung", () => {
     // The rungs ARE the Douglas scale's bands, so a 3.2 m sea is a ROUGH
-    // one and there is nothing to decide — where the WIND row, whose rungs
-    // are three winds somebody picked, has to take the nearest.
-    expect(seaStateFor(1)).toBe(1);
-    expect(seaStateFor(1.01)).toBe(2.5);
-    expect(seaStateFor(3.2)).toBe(4);
-    expect(seaStateFor(8.9)).toBe(9);
-    expect(seaStateFor(9.1)).toBe(14);
+    // one and there is nothing to decide — where the WIND scale, whose
+    // rungs are three winds somebody picked, has to take the nearest.
+    expect(seaRungFor(1)).toBe("slight");
+    expect(seaRungFor(1.01)).toBe("moderate");
+    expect(seaRungFor(3.2)).toBe("rough");
+    expect(seaRungFor(8.9)).toBe("high");
+    expect(seaRungFor(9.1)).toBe("veryHigh");
   });
 
-  it("leaves no swell with nothing marked", () => {
-    // The row always has a rung to stand on — including under the dial's
-    // floor and over its ceiling, which the generator cannot deal but a
-    // stored blob or a link could still carry.
-    for (let hs = 0; hs <= 30; hs += 0.25) expect(SEA_METRES).toContain(seaStateFor(hs));
+  it("leaves no swell with no word for it", () => {
+    // Every height has a rung — including under the dial's floor and over
+    // its ceiling, which the generator cannot deal but a stored blob or a
+    // link could still carry.
+    const ids = SEA_STATES.map((rung) => rung.id);
+    for (let hs = 0; hs <= 30; hs += 0.25) expect(ids).toContain(seaRungFor(hs));
   });
 });
 
@@ -611,6 +622,10 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       biome: "taiga",
       craft: "dart",
       camera: "nose",
+      // Not in the blob: a blob from before the measured modes rode the
+      // campaign's pinned shores names no level, which is the seed row's
+      // own shore and every lab's link.
+      level: null,
       seed: 12,
       time: "sunset",
       // Not in the blob, so the shore's own — a blob from before the row
@@ -1007,5 +1022,96 @@ describe("the key bindings", () => {
     expect(mergeSettings({ keys: { restart: [] } }).keys.restart).toEqual([]);
     expect(mergeSettings({ keys: "wasd" }).keys).toEqual(DEFAULT_KEYS);
     expect(mergeSettings({ hud: { on: false } }).keys).toEqual(DEFAULT_KEYS);
+  });
+});
+
+describe("a measured run rides a PINNED shore rather than a seed (new-game.ts)", () => {
+  const RACE_LEVEL = CAMPAIGN_LEVELS.find((level) => level.mode === "race")!;
+  const TRICKS_LEVEL = CAMPAIGN_LEVELS.find((level) => level.mode === "tricks")!;
+  const rides = (patch: Partial<(typeof DEFAULT_SETTINGS)["ride"]>) => ({
+    ...DEFAULT_SETTINGS,
+    ride: { ...DEFAULT_SETTINGS.ride, ...patch },
+  });
+  /** A link that names nothing, which is how a run stood up from a card
+   * arrives: every override undefined. */
+  const NO_LINK = readParams("");
+
+  it("pins nothing until a card has picked one, so a fresh app rides its own seed", () => {
+    expect(DEFAULT_SETTINGS.ride.level).toBeNull();
+    expect(pinnedFor(DEFAULT_SETTINGS)).toBeNull();
+  });
+
+  it("pins nothing on a FREE ride, whatever the last card left stored", () => {
+    // FREE is the one mode with a seed row and three faders; a level id left
+    // over from a race must not follow the rider onto it.
+    expect(pinnedFor(rides({ mode: "free", level: RACE_LEVEL.id }))).toBeNull();
+  });
+
+  it("drops an id the mode cannot ride", () => {
+    expect(pinnedFor(rides({ mode: "race", level: TRICKS_LEVEL.id }))).toBeNull();
+    expect(pinnedFor(rides({ mode: "tricks", level: RACE_LEVEL.id }))).toBeNull();
+    expect(pinnedFor(rides({ mode: "timeTrial", level: RACE_LEVEL.id }))).toBe(RACE_LEVEL);
+  });
+
+  it("stands a TIME TRIAL up on the pinned shore's own day, with nobody on it", () => {
+    const state = gameFor(rides({ mode: "timeTrial", level: RACE_LEVEL.id }), NO_LINK);
+    // The DAY is the level's and not the settings': that is what makes two
+    // riders' times down this rung the same figure.
+    expect(state.seed).toBe(RACE_LEVEL.seed);
+    expect(state.level.biome).toBe(shoreOf(RACE_LEVEL).id);
+    expect(state.level.track).toBe(RACE_LEVEL.track);
+    expect(state.level.season).toBe(RACE_LEVEL.season);
+    expect(state.level.weather).toBe(RACE_LEVEL.weather);
+    // ...and the FIELD is the MODE's rather than the campaign's: a time
+    // trial is the course against the clock alone.
+    expect(state.rivals).toHaveLength(0);
+    expect(state.rules.course).toBe(true);
+  });
+
+  it("stands a RACE up on the same shore with the grid on it", () => {
+    const state = gameFor(rides({ mode: "race", level: RACE_LEVEL.id }), NO_LINK);
+    expect(state.rivals.length).toBeGreaterThan(0);
+    expect(state.level.tricks).toBe(false);
+  });
+
+  it("stands a TRICKS run up on a tricks shore, for the length the row asks", () => {
+    const minutes = TRICK_MINUTES[TRICK_MINUTES.length - 1];
+    const state = gameFor(
+      rides({ mode: "tricks", level: TRICKS_LEVEL.id, tricksMinutes: minutes }),
+      NO_LINK,
+    );
+    // R35's field is on it — the whole reason a tricks rung is its own shore.
+    expect(state.level.tricks).toBe(true);
+    expect(state.level.ramps.length).toBeGreaterThan(0);
+    // The LENGTH is the card's row, not the rung's: outside the campaign it
+    // is a real choice, and the record book keys on it.
+    expect(state.rules.limit).toBe(minutes * 60);
+  });
+
+  it("names the record book's row after the LEVEL, not after the seed row", () => {
+    // The seed row is a free ride's and may be standing anywhere; a row on a
+    // pinned shore has to be the shore's own identity or two riders' times
+    // land in two different rows.
+    const s = rides({ mode: "race", level: RACE_LEVEL.id, seed: 999, biome: "taiga" });
+    const key = recordKeyFor(s, "circuit");
+    expect(key.seed).toBe(RACE_LEVEL.seed);
+    expect(key.biome).toBe(shoreOf(RACE_LEVEL).id);
+    expect(key.track).toBe(RACE_LEVEL.track);
+  });
+
+  it("stands aside for a LINK that names a seed", () => {
+    // Every lab photographs a shore by number, and a `?seed=` that quietly
+    // rode a campaign rung instead would photograph the wrong coast.
+    const stored = rides({ mode: "race", level: RACE_LEVEL.id });
+    const laid = settingsFor(stored, readParams("?seed=38"));
+    expect(laid.ride.level).toBeNull();
+    expect(laid.ride.seed).toBe(38);
+    expect(pinnedFor(laid)).toBeNull();
+  });
+
+  it("keeps a stored level the ladder still has, and drops one it does not", () => {
+    expect(mergeSettings({ ride: { level: RACE_LEVEL.id } }).ride.level).toBe(RACE_LEVEL.id);
+    expect(mergeSettings({ ride: { level: "atoll-1" } }).ride.level).toBeNull();
+    expect(mergeSettings({ ride: { level: 7 } }).ride.level).toBeNull();
   });
 });

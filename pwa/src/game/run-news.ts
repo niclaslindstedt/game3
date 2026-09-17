@@ -20,9 +20,8 @@ import {
   type CampaignLevel,
   type CampaignProgress,
 } from "./campaign.ts";
-import { classFor } from "./new-game.ts";
-import { keepsRecords, scoresHigher, type RecordKey } from "./records.ts";
-import { DEFAULT_SEED, type Settings } from "./settings.ts";
+import { keepsRecords, scoresHigher } from "./records.ts";
+import type { Settings } from "./settings.ts";
 import { STRINGS } from "./strings.ts";
 
 /** The line an event earns in the news column, or null for the ones the
@@ -97,20 +96,6 @@ export function flashFor(
  * of the file's name (`game/screenshots.ts`). */
 export function shotLabel(state: GameState): string {
   return STRINGS.shotLabel(state.seed, craftById(state.craft.spec.id).name);
-}
-
-/** What names this run's row in the record book: the level as the settings
- * and the URL stood it up (`records.ts` says what is deliberately left
- * out). */
-export function recordKeyFor(s: Settings, track: RecordKey["track"] | undefined): RecordKey {
-  return {
-    mode: s.ride.mode,
-    biome: s.ride.biome,
-    seed: s.ride.seed ?? DEFAULT_SEED,
-    track: track ?? "coast",
-    speedClass: classFor(s),
-    minutes: s.ride.tricksMinutes,
-  };
 }
 
 /** THE RESULT, composed: the run's figure in the mode's own currency, and

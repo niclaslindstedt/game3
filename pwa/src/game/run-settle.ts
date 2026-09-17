@@ -28,7 +28,8 @@ import { recordRun, type CampaignLevel, type CampaignProgress } from "./campaign
 import type { GhostRig } from "./ghost-run.ts";
 import type { HudResult } from "./hud.tsx";
 import { bestFor, noteRecord, type RecordBook } from "./records.ts";
-import { campaignResultFor, recordKeyFor, resultFor } from "./run-news.ts";
+import { recordKeyFor } from "./new-game.ts";
+import { campaignResultFor, resultFor } from "./run-news.ts";
 import type { Settings } from "./settings.ts";
 
 /** A box the app writes through as well as into — a React ref. Written

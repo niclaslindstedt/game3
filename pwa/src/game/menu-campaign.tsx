@@ -41,22 +41,8 @@ import {
 } from "./campaign.ts";
 import { MenuHead } from "./menu.tsx";
 import { Glyph } from "./menu-glyphs.tsx";
+import { dayLine } from "./menu-levels.tsx";
 import { STRINGS } from "./strings.ts";
-
-const SEASON_WORDS: Record<string, string> = {
-  spring: STRINGS.seasonSpring,
-  summer: STRINGS.seasonSummer,
-  autumn: STRINGS.seasonAutumn,
-  winter: STRINGS.seasonWinter,
-};
-const SKY_WORDS: Record<string, string> = {
-  clear: STRINGS.skyClear,
-  haze: STRINGS.skyHaze,
-  high: STRINGS.skyHigh,
-  overcast: STRINGS.skyOvercast,
-  rain: STRINGS.skyRain,
-  squall: STRINGS.skySquall,
-};
 
 /** A level's billing without building it: laps on a circuit, minutes on a
  * tricks run, otherwise the mode's word. The distance is the shore's own
@@ -67,16 +53,6 @@ function billing(level: CampaignLevel): string {
   if (level.laps !== undefined)
     return `${STRINGS.modeName("race")} · ${STRINGS.campaignLaps(level.laps)}`;
   return STRINGS.modeName("race");
-}
-
-function dayLine(level: CampaignLevel): string {
-  return STRINGS.campaignDay(
-    level.hour,
-    SEASON_WORDS[level.season] ?? level.season,
-    SKY_WORDS[level.weather] ?? level.weather,
-    level.wind,
-    level.swell,
-  );
 }
 
 function LevelBox({

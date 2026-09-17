@@ -378,9 +378,12 @@ export const STRINGS = {
   /** The box's billing: how long the level is, in its own currency. */
   campaignLaps: (laps: number): string => `${laps} LAPS`,
   campaignKm: (km: number): string => `${km.toFixed(1)} KM`,
-  /** THE DAY a level pins, on one line under its name. */
-  campaignDay: (hour: number, season: string, sky: string, wind: number, swell: number): string =>
-    `${formatHour(hour)} · ${season} · ${sky} · ${wind.toFixed(0)} M/S · ${swell.toFixed(1)} M SWELL`,
+  /** THE DAY a level pins, on one line under its name — the hour, the
+   * season, the sky, and then the two seas in the scales' own words
+   * (`conditionsFor`, `seaRungFor`), because BRISK 9 M/S says what the
+   * figure alone does not. */
+  campaignDay: (hour: number, season: string, sky: string, wind: string, sea: string): string =>
+    `${formatHour(hour)} · ${season} · ${sky} · ${wind} · ${sea}`,
   /** What a medal costs, on a tricks box. */
   medalName: (medal: string): string => MEDAL_NAMES[medal] ?? medal.toUpperCase(),
   campaignMedalCost: (medal: string, points: number): string =>
@@ -407,6 +410,18 @@ export const STRINGS = {
   resultShoreWon: (shore: string): string => `${shore.toUpperCase()} WON`,
   resultCampaignEnd: "THE CAMPAIGN IS YOURS",
 
+  /* ── THE LEVEL CARD (menu-levels.tsx) ─────────────────────────────── */
+  /** A shore's banner on the level card: how many of its levels this game
+   * can be ridden on (`fitsMode`). */
+  levelsShoreCount: (n: number): string => `${n} ${n === 1 ? "LEVEL" : "LEVELS"}`,
+  /** Why a shore is shut HERE — the campaign is the only thing that opens
+   * one, and a padlock with no reason on it is just a wall. */
+  levelsShoreLocked: "Open this shore in the campaign: win the one before it",
+  /** The line at the foot of the card, saying where the shores came from. */
+  levelsCaption: "THE CAMPAIGN'S OWN SHORES · RIDDEN HERE FOR THE RECORD BOOK",
+  /** A box nobody has ridden yet. Short: it stands in a box three to a row. */
+  levelsNoBest: "NO BEST YET",
+
   /* ── THE START CARD (menu-start.tsx, seed-preview.tsx) ─────────────── */
   /** Which coast the shore is built on — the biome. One word a rung, off
    * the engine's own id, because the row is a ladder like the others. */
@@ -421,14 +436,12 @@ export const STRINGS = {
   startMinutes: "LENGTH",
   startMinutesHint: "How long the clock gives you before the buzzer",
   minutes: (n: number): string => `${n} MIN`,
-  /** THE BEST THIS SHORE HAS SEEN, under the chart: the record in the
-   * mode's own currency and the hull that set it, or the line that says
-   * there is none yet. */
+  /** THE BEST A SHORE HAS SEEN, on its box on the level card: the record in
+   * the mode's own currency and the hull that set it. */
   startBestTime: (seconds: number, craft: string): string =>
     `BEST ${formatTime(seconds)} · ${craft.toUpperCase()}`,
   startBestScore: (points: number, craft: string): string =>
     `BEST ${formatScore(points)} PTS · ${craft.toUpperCase()}`,
-  startBestNone: "NO BEST YET ON THIS SHORE",
   /** ...and the line that stands there on a FREE ride, which keeps no book
    * at all (`records.ts`). It says WHY rather than saying nothing: a blank
    * where every other card has a figure reads as a card that has not
@@ -443,14 +456,11 @@ export const STRINGS = {
   startSeasonHint:
     "The sun's arc: how long the day is, and how dark the night gets — a summer night here never gets past twilight",
   /** The wind, which is the sea; then the sky over it. They are separate
-   * questions; `menu-start.tsx` owns the two-row control. */
+   * questions; `menu-start.tsx` owns the two rows. */
   startWind: "WIND",
-  startWindHint: "The wind, and so the sea it builds — the fetch law turns one into the other",
   /** R36 — the sea that came in off the ocean, which the wind row does not
    * build and cannot ask for. */
   startWaves: "WAVES",
-  startWavesHint:
-    "How big the swell out past the coast is — somebody else's weather, days old, so it owes the wind nothing. Ride out to sea and it still grows",
   /* ── FREE'S OWN ROWS (menu-start.tsx, in the free ride alone) ──────── */
   /** The same three questions the rows above ask in words, asked as
    * FIGURES — and one the other cards never ask at all. */
@@ -488,13 +498,9 @@ export const STRINGS = {
   startWeatherHint:
     "The sky over it. Left alone it is the one the wind implies, which is R19's own agreement",
   /** What the mark on a value means: this is the answer the shore came with,
-   * and the one that rides while the row is left alone. */
+   * and the one that rides while the row is left alone. It is explained once
+   * at the foot of the card (`freeCaption`) rather than on every row. */
   startDealt: "Dealt by this seed",
-  /** The card's own line under the rows, which is where the mark is
-   * explained: a dot on three of four rows needs saying once, not four
-   * times. */
-  startCaption:
-    "A race, a time trial and a tricks run ride the day this shore was dealt — the same water for everybody",
   /** The way on from the start card — the craft, and RIDE with it. One word,
    * because it stands in the head's corner rather than across the card's
    * foot, and the card it opens is titled CRAFT. */
@@ -542,6 +548,9 @@ export const STRINGS = {
   windCalm: "CALM",
   windBrisk: "BRISK",
   windStorm: "STORM",
+  /** A wind as a box reads it: the rung's word and the figure it stands
+   * on, since a rider knows one of the two and learns the other. */
+  windAt: (word: string, ms: number): string => `${word} ${ms.toFixed(0)} M/S`,
   /** The seas, smallest first — the Douglas scale's own words for its own
    * bands, which is why they are these words and not prettier ones. Each is
    * shown with the metres it stands for, because a rider who has never met
