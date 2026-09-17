@@ -420,7 +420,6 @@ export function App() {
      * sealed by the finish below. */
     const ghost = createGhostRig({
       renderer,
-      params,
       settings: () => settingsRef.current,
       rides: () => playerRides(shellRef.current) && scenario === null,
     });
@@ -510,7 +509,7 @@ export function App() {
       // The ghost goes with the run it was armed for — and a new one is
       // armed here only where the player is about to ride: the sea behind a
       // card is the bot's, and nobody records a bot.
-      ghost.arm(state, ridingRef.current, playerRides(shellRef.current));
+      ghost.arm(state, playerRides(shellRef.current));
       replays.arm(state, ridingRef.current, playerRides(shellRef.current) && scenario === null);
       live.length = 0;
       setResult(null);
@@ -548,7 +547,7 @@ export function App() {
     // A link that boots straight onto the water is a run somebody is riding,
     // so it gets its ghost too — armed here rather than in `stand` above,
     // which ran before there was a surface to ask about.
-    ghost.arm(state, null, playerRides(shellRef.current));
+    ghost.arm(state, playerRides(shellRef.current));
     replays.arm(state, null, playerRides(shellRef.current) && scenario === null);
 
     /* ── STANDING A RUN UP ───────────────────────────────────────────────
@@ -596,7 +595,7 @@ export function App() {
           // Armed on the step that BUILT the shore, so the ghost's own run is
           // stood up on the level object beside it rather than on a second
           // build of the same seed.
-          ghost.arm(game, campaign ?? null, true);
+          ghost.arm(game, true);
           replays.arm(game, campaign ?? null, true);
           if (s.dev.scene) {
             scenario = stageScenario(game, s.dev.scene);

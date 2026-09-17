@@ -24,7 +24,9 @@ import {
   createGhostRecorder,
   decodeStream,
   encodeStream,
+  forgetStrayGhosts,
   ghostMatches,
+  ghostStage,
   readControls,
   readsAsGhost,
   snapInput,
@@ -32,9 +34,11 @@ import {
   type GhostStage,
 } from "../pwa/src/game/ghost.ts";
 
+import { CAMPAIGN_LEVELS } from "../pwa/src/game/campaign.ts";
+
 import { syntheticLevel } from "./support/synthetic.ts";
 
-const STAGE: GhostStage = { id: "c/mangrove-2", digest: "deadbeef", limit: 120 };
+const STAGE: GhostStage = { id: "tricks/mangrove-2", digest: "deadbeef", limit: 120 };
 
 /** A varied afternoon at the bars: every axis moving on its own period, the
  * brake jabbed, the tuck walked in and out, and one reset banked partway
@@ -103,6 +107,36 @@ describe("the stream", () => {
   });
 });
 
+describe("which water a tape is keyed to", () => {
+  const RACE_LEVEL = CAMPAIGN_LEVELS.filter((l) => l.mode === "race")[0];
+  const TRICK_LEVEL = CAMPAIGN_LEVELS.filter((l) => l.mode === "tricks")[0];
+
+  it("is a PINNED level, and a run on no pinned shore keeps nothing", () => {
+    // A free ride and a lab's `?seed=` link are the runs with no level under
+    // them (`new-game.ts`'s `pinnedFor`), and neither keeps a tape.
+    expect(ghostStage(null, "timeTrial", 0)).toBeNull();
+    expect(ghostStage(RACE_LEVEL, "timeTrial", 0)).toEqual({
+      id: `timeTrial/${RACE_LEVEL.id}`,
+      // Read off the row rather than hashed off the shore: a campaign
+      // digest moves exactly when the shore under the rung does.
+      digest: RACE_LEVEL.digest,
+      limit: 0,
+    });
+  });
+
+  it("carries the LENGTH, so two tricks runs of different lengths are two tapes", () => {
+    expect(ghostStage(TRICK_LEVEL, "tricks", 120)?.limit).toBe(120);
+    expect(ghostStage(TRICK_LEVEL, "tricks", 240)?.limit).toBe(240);
+  });
+
+  it("keeps none for the two modes with nothing to be a ghost of", () => {
+    // A RACE has eleven riders to be measured against; a FREE ride measures
+    // nothing at all (`records.ts`'s `keepsRecords`).
+    expect(ghostStage(RACE_LEVEL, "race", 0)).toBeNull();
+    expect(ghostStage(RACE_LEVEL, "free", 0)).toBeNull();
+  });
+});
+
 describe("what a tape is allowed back onto the water for", () => {
   const run = createGhostRecorder().sealGhost(STAGE, "skiff", 12.5);
 
@@ -126,6 +160,51 @@ describe("what a tape is allowed back onto the water for", () => {
     expect(readsAsGhost({ ...good, steps: 1.5 })).toBe(false);
     expect(readsAsGhost({ ...good, value: Number.NaN })).toBe(false);
     expect(readsAsGhost({ ...good, steer: 12 })).toBe(false);
+  });
+});
+
+describe("the tapes the store is allowed to keep", () => {
+  /** The browser's store, as much of it as the sweep reads. */
+  function fakeStore(keys: readonly string[]): { store: Storage; left: () => string[] } {
+    const held = new Map(keys.map((key) => [key, "x"]));
+    const store = {
+      get length() {
+        return held.size;
+      },
+      key: (i: number) => [...held.keys()][i] ?? null,
+      getItem: (k: string) => held.get(k) ?? null,
+      setItem: (k: string, v: string) => void held.set(k, v),
+      removeItem: (k: string) => void held.delete(k),
+      clear: () => held.clear(),
+    } as Storage;
+    return { store, left: () => [...held.keys()] };
+  }
+
+  it("drops every tape it cannot name and touches nothing else", () => {
+    const { store, left } = fakeStore([
+      "sea-haven-settings",
+      "sea-haven-ghost:tricks/mangrove-2",
+      // Two keys an older build wrote: one under a scheme this one does not
+      // read, one for a level that is no longer on the ladder. Adjacent on
+      // purpose — removing inside the walk would skip the second.
+      "sea-haven-ghost:c/mangrove-2",
+      "sea-haven-ghost:b/tricks/taiga/38/coast/1/2",
+      "sea-haven-ghost:timeTrial/gone-9",
+      "sea-haven-records",
+    ]);
+    const was = globalThis.localStorage;
+    Object.defineProperty(globalThis, "localStorage", { value: store, configurable: true });
+    try {
+      forgetStrayGhosts(new Set(["tricks/mangrove-2"]));
+    } finally {
+      if (was === undefined) delete (globalThis as { localStorage?: Storage }).localStorage;
+      else Object.defineProperty(globalThis, "localStorage", { value: was, configurable: true });
+    }
+    expect(left()).toEqual([
+      "sea-haven-settings",
+      "sea-haven-ghost:tricks/mangrove-2",
+      "sea-haven-records",
+    ]);
   });
 });
 
@@ -169,10 +248,10 @@ describe("the run, ridden again", () => {
   });
 
   it("rides the run's own stream when the run had a FIELD and the ghost has none", () => {
-    // The `dropField` contract (`engine/game/rivals.ts`), which is the whole
-    // reason a ghost is built the way its run was built. The grid deals a
-    // rider's weight and a pace off the run's own stream for every rival, so
-    // a ghost stood up with `rivals: 0` would have its wind gusting off a
+    // The `dropField` contract (`engine/game/rivals.ts`), which is what a
+    // ghost built the way its run was built used to stand on. The grid deals
+    // a rider's weight and a pace off the run's own stream for every rival,
+    // so a ghost stood up with `rivals: 0` would have its wind gusting off a
     // stream twenty-two draws further along.
     //
     // The one thing the drop cannot hand back is the WATER: every rider's
@@ -180,9 +259,9 @@ describe("the run, ridden again", () => {
     // go with the eleven hulls. So the run this is read against is a fielded
     // one whose trails are lifted off the sea by hand before it is ridden —
     // leaving the STREAM as the only thing that can still put the two runs
-    // apart, which is what this case is about. Nothing ships a ghost of a
-    // race: a tape is kept only for the two modes that ride alone
-    // (`pwa/src/game/ghost-run.ts`).
+    // apart, which is what this case is about. The case below is the other
+    // half, and between them they are why nothing ships a ghost of a fielded
+    // run (`pwa/src/game/ghost-run.ts`).
     const raced = { ...options, rules: { rivals: 11, contact: false } };
     const ridden = createGame(raced);
     ridden.sea.washes.length = 0;
@@ -210,6 +289,33 @@ describe("the run, ridden again", () => {
     const unfielded = createGame({ ...options, rules: { rivals: 0 } });
     for (let i = 0; i < STEPS; i++) step(unfielded, tape.at(i));
     expect(pose(unfielded)).not.toEqual(pose(ridden));
+  });
+
+  it("cannot be ridden again once the field has LEFT WAKE in the water, which is why a run with one keeps no tape", () => {
+    // The other half, and the rule the rig is built on (`ghost-run.ts`): a
+    // run with rivals on it keeps nothing. The case above lifts the field's
+    // trails off the RECORDING by hand so that the stream is the only
+    // variable; here the recording is ridden the way a real one is, through
+    // eleven wakes, and `dropField` — washes and all — cannot hand those
+    // back. On a campaign tricks rung the hull is metres off the line inside
+    // ten seconds and most of a kilometre off by the buzzer.
+    const raced = { ...options, rules: { rivals: 11, contact: false } };
+    const ridden = createGame(raced);
+    expect(ridden.sea.washes.length).toBeGreaterThan(1);
+    const recorder = createGhostRecorder();
+    for (let i = 0; i < STEPS; i++) {
+      const driven = scripted(i);
+      recorder.record(driven);
+      step(ridden, driven);
+    }
+    const tape = readControls(recorder.sealGhost(STAGE, "skiff", 1));
+
+    // Built the very same way — so the grid's own draws off the run's stream
+    // have been made and the wind gusts in step — and then dropped properly.
+    const emptied = createGame(raced);
+    dropField(emptied);
+    for (let i = 0; i < STEPS; i++) step(emptied, tape.at(i));
+    expect(pose(emptied)).not.toEqual(pose(ridden));
   });
 
   it("holds still at the end of the tape rather than riding on", () => {
