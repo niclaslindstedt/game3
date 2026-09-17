@@ -112,16 +112,24 @@ const SCENE_AT = { coast: 2, drift: 8, missed: 2.5, net: 4 };
 const SURFACES = {
   splash: { params: { splash: "1" }, wait: ".splash-title", settle: 900 },
   menu: { params: { menu: "root" }, wait: ".menu-card-root", settle: 1000 },
-  // The campaign's ladder as a FRESH VISIT finds it: the first shore open,
-  // its first box ringed, the rest shut and the table all level. What a
-  // cleared box looks like is one run away and not something a lab can
-  // stand in.
-  campaign: { params: { menu: "campaign" }, wait: ".menu-card-campaign", settle: 500 },
-  // The level card as a FRESH VISIT finds it: the warm shore open with its
-  // boxes, the cold one shut behind the campaign, and no best on any of
-  // them. RACE is the mode a fresh profile is on, so that is what the head
-  // is titled with — the other two are the same card with another word.
-  levels: { params: { menu: "levels" }, wait: ".menu-card-levels", settle: 500 },
+  // The campaign's COAST STEP as a FRESH VISIT finds it: the warm shore's
+  // banner open, the cold one shut behind it, and CONTINUE standing on the
+  // first rung. The LADDER behind it is one press past a `?menu=` and so is
+  // not photographable from here — see the note under `levels`.
+  campaign: { params: { menu: "campaign" }, wait: ".menu-shore", settle: 900 },
+  // The level card's COAST STEP as a FRESH VISIT finds it: the warm shore's
+  // banner open, the cold one shut behind the campaign. RACE is the mode a
+  // fresh profile is on, so that is what the head is titled with — the other
+  // two are the same card with another word.
+  //
+  // THE GRID BEHIND IT IS NOT REACHABLE BY URL, deliberately: a shore is one
+  // press past this card and a parameter for it would be a second way to
+  // spell the same state. A lab that wants the boxes drives the press —
+  // `page.evaluate` on `button.menu-shore`, never `.click()`, because a card
+  // Preact re-renders every frame never settles for the actionability check.
+  // The settle is longer than a plain card's for both rows: each carries a
+  // JPEG banner and a pan that starts when it decodes.
+  levels: { params: { menu: "levels" }, wait: ".menu-shore", settle: 900 },
   // The start card is FREE's — the only tile that opens it — so the link
   // says so; a `?menu=start` in another mode is a card the front door never
   // shows. It settles slowly on purpose: its chart is a whole level

@@ -21,12 +21,20 @@
 // for ramps is not always the same shore — riding a race rung "as tricks"
 // would be riding a shore the campaign's own box never shows.
 //
+// THE CARD IS TWO STEPS, the ladder's own: WHICH COAST, then which water on
+// it. The coast is asked on a page of its own (`menu-shores.tsx`) because it
+// is asked once a visit and the answer is a PLACE — a row wide enough to
+// carry a photograph of it says more than a tab ever did — and the grid
+// under it then gets the height the tabs were spending. BACK steps within
+// the card before it leaves it, so a pad walks out the way it walked in.
+//
 // The card is the campaign ladder's own silhouette and wears its classes
 // (`.menu-shores`, `.menu-levels`, `.menu-level*` in styles.css), because a
-// shore should look like itself wherever it is offered. What is INSIDE a
-// box differs and is each card's own: the ladder shows what a rung paid —
-// the points, the place, the medal — and this shows what the run would BE
-// and the best it has ever been ridden in.
+// shore should look like itself wherever it is offered — the coast rows and
+// the layout drawn behind each box included. What is INSIDE a box differs
+// and is each card's own: the ladder shows what a rung paid — the points,
+// the place, the medal — and this shows what the run would BE and the best
+// it has ever been ridden in.
 
 import { type GameMode } from "@engine";
 import { useState } from "preact/hooks";
@@ -42,6 +50,7 @@ import {
 } from "./campaign.ts";
 import { Glyph } from "./menu-glyphs.tsx";
 import { StepRow, type Stop } from "./menu-knobs.tsx";
+import { CourseMap, ShoreList } from "./menu-shores.tsx";
 import { MenuHead } from "./menu.tsx";
 import { classFor } from "./new-game.ts";
 import { bestFor, scoresHigher, type RecordBook } from "./records.ts";
@@ -130,6 +139,7 @@ function LevelBox({
       data-nav-focus={chosen ? "" : undefined}
       onClick={onPick}
     >
+      <CourseMap levelId={level.id} />
       <span class="menu-level-head">
         <Glyph name={mode === "tricks" ? "air" : "flag"} className="menu-level-mode" />
         <span class="menu-level-billing">{billing(level, mode, minutes)}</span>
@@ -145,51 +155,13 @@ function LevelBox({
   );
 }
 
-/** The shore banners across the top: a press each, the one being looked at
- * lit, a shut one wearing its padlock and saying what opens it. */
-function ShoreTabs({
-  shown,
-  mode,
-  progress,
-  onShow,
-}: {
-  shown: CampaignShore;
-  mode: GameMode;
-  progress: CampaignProgress;
-  onShow: (shore: CampaignShore) => void;
-}) {
-  return (
-    <div class="menu-shores">
-      {SHORES.map((shore) => {
-        const open = shoreUnlocked(shore, progress);
-        return (
-          <button
-            key={shore.id}
-            type="button"
-            class={`menu-shore${shore === shown ? " menu-shore-shown" : ""}${open ? "" : " menu-shore-locked"}`}
-            title={open ? shore.blurb : STRINGS.levelsShoreLocked}
-            aria-pressed={shore === shown}
-            onClick={() => onShow(shore)}
-          >
-            <span class="menu-shore-name">
-              {!open && <Glyph name="lock" />}
-              {STRINGS.coastName(shore.id)}
-            </span>
-            <span class="menu-shore-line">
-              {open
-                ? STRINGS.levelsShoreCount(levelsForMode(shore, mode).length)
-                : STRINGS.campaignShoreShut}
-            </span>
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-/** The furthest shore the campaign has opened — where the card opens, the
- * same rule the ladder's own tabs follow. */
-function reachedShore(progress: CampaignProgress): CampaignShore {
+/** The furthest shore the campaign has opened — where the cursor lands on
+ * the coast step, and what START takes from it. The shore the settings
+ * already stand on wins where it is still open, so a card reopened is a card
+ * pointing back where it was left. */
+function reachedShore(progress: CampaignProgress, level: string | null): CampaignShore {
+  const stored = SHORES.find((s) => s.levels.some((l) => l.id === level));
+  if (stored && shoreUnlocked(stored, progress)) return stored;
   let reached = SHORES[0];
   for (const shore of SHORES) if (shoreUnlocked(shore, progress)) reached = shore;
   return reached;
@@ -215,13 +187,12 @@ export function LevelsPage({
   onNext: () => void;
 }) {
   const mode = settings.ride.mode;
-  const [shown, setShown] = useState<CampaignShore>(() => reachedShore(progress));
+  // WHICH STEP THE CARD IS ON: null is the coast, a shore is its water. The
+  // card opens on the coast every time rather than on the one last ridden —
+  // the picture is most of what the step is for, and a card that skips it
+  // for a returning player is a card that shows it to nobody twice.
+  const [shown, setShown] = useState<CampaignShore | null>(null);
   const minutes = settings.ride.tricksMinutes;
-  const open = shoreUnlocked(shown, progress) ? levelsForMode(shown, mode) : [];
-  // WHICH BOX THE CARD WOULD RIDE: the one the settings already stand on
-  // where it is here and open, and otherwise the first of them. Never null
-  // while a shore is open, so the head always has a way on.
-  const chosen = open.find((level) => level.id === settings.ride.level) ?? open[0] ?? null;
 
   const pick = (level: CampaignLevel): void => {
     onSettings({ ...settings, ride: { ...settings.ride, level: level.id } });
@@ -242,12 +213,38 @@ export function LevelsPage({
       : STRINGS.startBestTime(row.value, row.craft);
   };
 
+  // THE COAST STEP. No way ON in the head: nothing is chosen yet, and the
+  // marked row is what a pad's START presses.
+  if (shown === null) {
+    return (
+      <div class="menu-card menu-card-levels">
+        <MenuHead back={onBack} backLabel={STRINGS.menuBack} title={STRINGS.modeName(mode)} />
+        <ShoreList
+          open={(shore) => shoreUnlocked(shore, progress)}
+          hint={() => STRINGS.levelsShoreLocked}
+          line={(shore) => STRINGS.levelsShoreCount(levelsForMode(shore, mode).length)}
+          next={reachedShore(progress, settings.ride.level)}
+          onPick={setShown}
+        />
+        <p class="menu-shore-blurb">{STRINGS.levelsCaption}</p>
+      </div>
+    );
+  }
+
+  const open = levelsForMode(shown, mode);
+  // WHICH BOX THE CARD WOULD RIDE: the one the settings already stand on
+  // where it is here and open, and otherwise the first of them. Never null
+  // while a shore has water for this mode, so the head always has a way on.
+  const chosen = open.find((level) => level.id === settings.ride.level) ?? open[0] ?? null;
+
   return (
     <div class="menu-card menu-card-levels">
+      {/* BACK steps within the card before it leaves it, so a pad's way out
+          walks the same two presses it came in on. */}
       <MenuHead
-        back={onBack}
-        backLabel={STRINGS.menuBack}
-        title={STRINGS.modeName(mode)}
+        back={() => setShown(null)}
+        backLabel={STRINGS.modeName(mode)}
+        title={STRINGS.coastName(shown.id)}
         action={
           chosen ? (
             <button
@@ -261,8 +258,7 @@ export function LevelsPage({
           ) : undefined
         }
       />
-      <ShoreTabs shown={shown} mode={mode} progress={progress} onShow={setShown} />
-      {/* THE ONE ROW THAT IS NOT A SHORE, and only one mode has it: how many
+      {/* THE ONE ROW THAT IS NOT A LEVEL, and only one mode has it: how many
           minutes the buzzer is set for. It stands above the boxes because it
           is part of what every box on the card would be, and it is on the
           boxes' own billing for the same reason. */}
@@ -280,7 +276,7 @@ export function LevelsPage({
         </div>
       )}
       {open.length === 0 ? (
-        <p class="menu-empty">{STRINGS.levelsShoreLocked}</p>
+        <p class="menu-empty">{STRINGS.levelsShoreNone}</p>
       ) : (
         <div class="menu-levels">
           {open.map((level) => (
@@ -296,7 +292,6 @@ export function LevelsPage({
           ))}
         </div>
       )}
-      <p class="menu-shore-blurb">{STRINGS.levelsCaption}</p>
     </div>
   );
 }
