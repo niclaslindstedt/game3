@@ -37,7 +37,8 @@ import { hudOver, watching, type Shell } from "./shell.ts";
 export type RunActionWorld = {
   shell: () => Shell;
   camera: CameraRig;
-  /** The five ways a run is left and come back to (`run-surfaces.ts`). */
+  /** The six ways a run is left and come back to (`run-surfaces.ts`) — the
+   * pause card up, and the run again from the line. */
   surfaces: RunSurfaces;
   /** Out of the benchmark, which owns the canvas while one is up. */
   leaveBench: () => void;
@@ -47,8 +48,6 @@ export type RunActionWorld = {
    * the pause card's own row write, so a screen cleared for a wave is still
    * clear next run. */
   toggleHud: () => void;
-  /** The run again from the line, on the shore it is on. */
-  restart: () => void;
 };
 
 export function createRunActions(world: RunActionWorld): (action: InputAction) => void {
@@ -79,7 +78,7 @@ export function createRunActions(world: RunActionWorld): (action: InputAction) =
       return;
     }
     if (shell !== "run") return;
-    if (action === "restart") world.restart();
+    if (action === "restart") world.surfaces.restart();
     else if (action === "camera") world.camera.cycle();
   };
 }

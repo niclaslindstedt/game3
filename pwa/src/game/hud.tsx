@@ -60,17 +60,6 @@ export type HudFlash = {
   tone: "good" | "bad" | "info";
 };
 
-/** THE RESULT PLATE, over a finished run: the headline in the mode's own
- * currency (a place, a time, a score), a second line under it (the time
- * behind a place, the standing best behind a figure), and whether the run
- * is the best this shore has seen. Composed by the app, which is the one
- * thing that knows the record book (`records.ts`); the HUD draws it. */
-export type HudResult = {
-  headline: string;
-  detail: string | null;
-  record: boolean;
-};
-
 /** Whether the device has a touchscreen to put the thumb zones on. A
  * laptop with one reports it and gets them; a desktop does not. */
 export function hasTouch(): boolean {
@@ -83,8 +72,6 @@ export function Hud({
   touch,
   input,
   away,
-  result,
-  onReplay,
   fps,
   cost,
   onReset,
@@ -93,11 +80,6 @@ export function Hud({
 }: {
   snap: HudSnapshot;
   flashes: HudFlash[];
-  /** The run's result, once it has one — null while it is being ridden. */
-  result: HudResult | null;
-  /** Watch the run that has just finished (`replay.ts`), or null where there
-   * is no recording to watch. */
-  onReplay: (() => void) | null;
   /** Draw the thumb zones. */
   touch: boolean;
   input: InputManager;
@@ -461,30 +443,10 @@ export function Hud({
         </a>
       </div>
 
-      {/* THE RESULT, once there is one: the run's figure in its own
-          currency, where it stood, and whether the book has a new row. It
-          shares the tab-away card's plate because it is the same kind of
-          thing — the game stopping to say one line — and it stays until the
-          rider rides again or leaves. */}
-      {result && !away && (
-        <div class="hud-center">
-          <div class={`hud-card hud-result${result.record ? " hud-result-record" : ""}`}>
-            <span class="hud-card-title">{result.headline}</span>
-            {result.detail && <span class="hud-card-note">{result.detail}</span>}
-            {result.record && <span class="hud-result-best">{STRINGS.resultNewBest}</span>}
-            {/* WATCHING IT BACK, offered where a rider is most likely to want
-                it: the beat they have just seen how it went. Absent on a run
-                that keeps no recording — a free ride, a staged scene — so the
-                plate never offers a press that would do nothing. */}
-            {onReplay && (
-              <button type="button" class="hud-mini hud-result-replay" onClick={onReplay}>
-                {STRINGS.pauseReplay}
-              </button>
-            )}
-            {!touch && <span class="hud-card-note hud-result-note">{STRINGS.resultNote}</span>}
-          </div>
-        </div>
-      )}
+      {/* THE RESULT PLATE IS NOT A READOUT and is not drawn here: it carries
+          the only ways off a finished run, so it stands in a layer of its own
+          outside this switch (`hud-result.tsx`, App.tsx) — the same rule the
+          replay bar and the new-build notice are kept by. */}
 
       {away && (
         <div class="hud-center">

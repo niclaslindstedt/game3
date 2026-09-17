@@ -10,7 +10,8 @@
 import { TUNING, craftById, type GameEvent, type GameState } from "@engine";
 
 import { formatTime } from "../lib/util.ts";
-import type { HudFlash, HudResult } from "./hud.tsx";
+import type { HudFlash } from "./hud.tsx";
+import type { HudResult } from "./hud-result.tsx";
 import {
   PODIUM,
   findLevel,

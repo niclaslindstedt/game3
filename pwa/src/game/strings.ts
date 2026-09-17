@@ -196,9 +196,16 @@ export const STRINGS = {
   bump: "BUMP",
   /** THE BUZZER on a timed run, in the news column. */
   timeUp: "TIME UP",
-  /** THE RESULT PLATE, over a finished run: what the run was worth in the
-   * mode's own currency, where it stood, and whether it is the best this
-   * shore has seen. */
+  /** THE RESULT PLATE, over a finished run (`hud-result.tsx`): what
+   * HAPPENED, then what the run was worth in the mode's own currency, where
+   * it stood, and whether it is the best this shore has seen.
+   *
+   * The first line exists because the figure alone did not say that the run
+   * was over — a coasting craft under a time reads as a machine that has
+   * stopped answering, which is how the plate came to be reported as a
+   * freeze. One word for every mode: a race, a tricks run caught by the
+   * buzzer and a free ride down the course all end here. */
+  resultTitle: "RUN FINISHED",
   resultRace: (place: number, of: number): string => `${ordinal(place)} OF ${of}`,
   resultTime: (seconds: number): string => formatTime(seconds),
   resultScore: (points: number): string => `${formatScore(points)} PTS`,
@@ -209,8 +216,16 @@ export const STRINGS = {
    * ride, whose weather is the rider's own, so no two runs down the same
    * shore are the same run (`records.ts`). */
   resultFree: "FREE RIDE · NOT KEPT",
-  /** ...and the way on, for a keyboard. */
-  resultNote: "B rides again · ESC for the menu",
+  /** THE WAYS ON, as the plate's own presses. RIDE AGAIN is the B key's own
+   * line and the door is the pause card's, so both wear the words those
+   * already wear (`pauseMainMenu`, `pauseReplay`) — a second way to reach a
+   * button, never a second button. */
+  resultAgain: "RIDE AGAIN",
+  /** ...and the keys behind them, for a player whose hands are on a
+   * keyboard. The card is walked by the pointer over a run — the cursor
+   * belongs to the cards, and a run is not one — so this is how the two
+   * presses are reached without one. */
+  resultNote: "B rides again · ESC holds the run",
   /** R30 — which lap of how many, on a circuit. Nothing to read on a coast
    * sprint, which is one pass of one course, so the HUD leaves it out. */
   laps: (lap: number, total: number): string => `${lap} / ${total}`,
