@@ -8,6 +8,8 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  COUNTDOWN,
+  GAME_MODES,
   MODE_RULES,
   OPEN_RULES,
   RACE,
@@ -77,23 +79,37 @@ describe("the rules a run is dealt", () => {
     expect(MODE_RULES.tricks.course).toBe(false);
     expect(MODE_RULES.tricks.tricks).toBe(true);
     expect(MODE_RULES.tricks.rivals).toBe(0);
-    expect(MODE_RULES.tricks.countdown).toBe(RACE.countdown);
+    expect(MODE_RULES.tricks.countdown).toBe(COUNTDOWN);
     expect(MODE_RULES.tricks.limit).toBe(TRICK_LIMITS[0]);
   });
 
-  it("deal a FREE ride the open rules — the same water, with a door on it", () => {
-    // Free is not a fourth bundle of rules: it IS `OPEN_RULES`, which is what
-    // keeps the mode a rider chooses and the rules a measurement rides from
-    // ever drifting apart. The course still counts (there are gates to take
-    // and a finish to cross), the tricks still score, and nothing holds the
-    // rider at the start or ends the run on a buzzer.
-    expect(MODE_RULES.free).toBe(OPEN_RULES);
-    expect(rulesFor({ mode: "free" })).toEqual(OPEN_RULES);
+  it("deal a FREE ride the open rules with the LIGHTS in front of them", () => {
+    // Free is the open rules with one thing added: a rider is counted in like
+    // a rider in any other mode. Everything ELSE about it is still
+    // `OPEN_RULES` by construction, which is what keeps the mode a rider
+    // chooses and the rules a measurement rides from drifting apart — the
+    // course still counts (there are gates to take and a finish to cross),
+    // the tricks still score, and nothing ends the run on a buzzer.
+    expect(MODE_RULES.free).toEqual({ ...OPEN_RULES, countdown: COUNTDOWN });
+    expect(rulesFor({ mode: "free" })).toEqual({ ...OPEN_RULES, countdown: COUNTDOWN });
     const state = createGame({ seed: 1, level: FLAT, mode: "free", quiet: true });
-    expect(state.phase).toBe("running");
+    expect(state.phase).toBe("countdown");
     expect(state.rivals).toEqual([]);
     expect(state.rules.course).toBe(true);
     expect(state.rules.tricks).toBe(true);
+    expect(state.rules.limit).toBe(0);
+  });
+
+  it("hold EVERY mode a rider can choose at the same three lights", () => {
+    // The regression this pins: a mode shipped without a countdown is a run
+    // that starts before its rider has looked at the water. The open rules
+    // are the one exception, and they are not a mode.
+    for (const mode of GAME_MODES) {
+      expect(MODE_RULES[mode].countdown).toBe(COUNTDOWN);
+      const state = createGame({ seed: 1, level: FLAT, mode, quiet: true });
+      expect(state.phase).toBe("countdown");
+      expect(state.countdown).toBe(COUNTDOWN);
+    }
   });
 
   it("take a tricks run's length off the ladder, and nothing off it", () => {
@@ -115,8 +131,8 @@ describe("the lights", () => {
   it("hold the clock and the throttle, count down, and let go on GO", () => {
     const state = createGame({ seed: 1, level: FLAT, mode: "timeTrial", quiet: true });
     expect(state.phase).toBe("countdown");
-    expect(state.countdown).toBe(RACE.countdown);
-    const events = ride(state, RACE.countdown - 0.1, () => FLAT_OUT);
+    expect(state.countdown).toBe(COUNTDOWN);
+    const events = ride(state, COUNTDOWN - 0.1, () => FLAT_OUT);
     expect(state.phase).toBe("countdown");
     expect(state.progress.time).toBe(0);
     expect(state.craft.speed).toBeLessThan(0.2);
@@ -132,7 +148,7 @@ describe("the lights", () => {
     expect(state.progress.time).toBeGreaterThan(1.5);
     expect(state.craft.speed).toBeGreaterThan(3);
     // ...and the sea did not wait: the world's clock ran through them.
-    expect(state.t).toBeGreaterThan(RACE.countdown + 1.5);
+    expect(state.t).toBeGreaterThan(COUNTDOWN + 1.5);
   });
 
   it("are put out by a moment stood: a staged scene is never under them", () => {
@@ -195,7 +211,7 @@ describe("a tricks run", () => {
       quiet: true,
     });
     expect(state.phase).toBe("countdown");
-    expect(state.countdown).toBe(RACE.countdown);
+    expect(state.countdown).toBe(COUNTDOWN);
     // Straight down the row of buoys at speed: on the open rules that is
     // gate after gate; here it is water.
     placeRun(state, { x: 60, z: 40, heading: Math.PI / 2, speed: 20 });
@@ -296,7 +312,7 @@ describe("the grid", () => {
     // field against the ground swings the whole grid the same way at the same
     // rate.
     const state = createGame({ seed: 38, mode: "race", quiet: true });
-    ride(state, RACE.countdown - 0.2, () => COAST);
+    ride(state, COUNTDOWN - 0.2, () => COAST);
     expect(state.phase).toBe("countdown");
     for (const c of [state.craft, ...state.rivals.map((r) => r.run.craft)]) {
       const water = surfaceAt(state.sea, state.level, c.x, c.z, state.t);
@@ -371,7 +387,7 @@ describe("a race", () => {
       expect(r.pace).toBeLessThanOrEqual(RACE.paceBand.max);
     }
     const before = state.rivals.map((r) => r.run.craft.x);
-    ride(state, RACE.countdown + 8, (s) => botInput(s));
+    ride(state, COUNTDOWN + 8, (s) => botInput(s));
     expect(state.phase).toBe("running");
     state.rivals.forEach((r, i) => {
       expect(r.run.craft.x - before[i], `rival ${i}`).toBeGreaterThan(40);
@@ -392,8 +408,8 @@ describe("a race", () => {
   it("is the same race twice from the same seed", () => {
     const a = createGame({ seed: 3, level: FLAT, mode: "race", quiet: true });
     const b = createGame({ seed: 3, level: FLAT, mode: "race", quiet: true });
-    ride(a, RACE.countdown + 6, (s) => botInput(s));
-    ride(b, RACE.countdown + 6, (s) => botInput(s));
+    ride(a, COUNTDOWN + 6, (s) => botInput(s));
+    ride(b, COUNTDOWN + 6, (s) => botInput(s));
     expect(a.rivals.map((r) => [r.pace, r.run.craft.x, r.run.craft.z])).toEqual(
       b.rivals.map((r) => [r.pace, r.run.craft.x, r.run.craft.z]),
     );
