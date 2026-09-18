@@ -86,7 +86,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove, arctic)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic, karst)",
     },
     wind: { kind: "number", help: "override the wind speed, m/s" },
     from: { kind: "number", help: "override the wind's from-direction, degrees" },
@@ -107,7 +107,7 @@ const args = parseArgs(
     },
     out: { kind: "string", help: "file name under previews/ (no extension)" },
   },
-  "usage: npm run surf -- --seed n [--biome taiga|mangrove|arctic] [--wind m/s] [--from deg] [--hs m [--tp s]] [--swell m] [--reach m] [--record s] [--stats s] [--ride m/s] [--out name]",
+  "usage: npm run surf -- --seed n [--biome taiga|mangrove|arctic|karst] [--wind m/s] [--from deg] [--hs m [--tp s]] [--swell m] [--reach m] [--record s] [--stats s] [--ride m/s] [--out name]",
 );
 
 if (!isBiomeId(args.biome)) {

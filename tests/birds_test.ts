@@ -42,7 +42,9 @@ import {
   ARCTIC_SEEDS,
   LEVEL_SEEDS,
   MANGROVE_SEEDS,
+  KARST_SEEDS,
   arcticFor,
+  karstFor,
   levelFor,
   mangroveFor,
 } from "./support/levels.ts";
@@ -134,8 +136,8 @@ describe("the roster", () => {
     expect(birdById("eagle").flock.max).toBe(1);
     expect(birdById("gull").home).toBe("skerry");
     // The terns, the gannet and its warm-coast twin, the pelican and the
-    // osprey are the birds that fish from the air, and the cormorant the
-    // one that dries its wings.
+    // osprey are the birds that fish from the air, and the cormorant and
+    // the shag the ones that dry their wings.
     expect(BIRDS.filter((b) => b.dive > 0).map((b) => b.id)).toEqual([
       "tern",
       "gannet",
@@ -143,8 +145,9 @@ describe("the roster", () => {
       "osprey",
       "booby",
       "noddy",
+      "commontern",
     ]);
-    expect(BIRDS.filter((b) => b.dries).map((b) => b.id)).toEqual(["cormorant"]);
+    expect(BIRDS.filter((b) => b.dries).map((b) => b.id)).toEqual(["cormorant", "shag"]);
   });
 
   it("gives the open sea a roster of its own, on both coasts", () => {
@@ -202,6 +205,13 @@ describe("the roster", () => {
     for (const id of ["littleauk", "guillemot", "puffin", "blackguillemot", "ivorygull"] as const) {
       expect(birdById(id).biomes, id).toEqual(["arctic"]);
     }
+    // The shearwaters, the swifts and the vulture are the karst's alone;
+    // its falcon lives on a cliff, and the crane crosses two coasts.
+    for (const id of ["shearwater", "yelkouan", "swift", "griffon", "eleonora"] as const) {
+      expect(birdById(id).biomes, id).toEqual(["karst"]);
+    }
+    expect(birdById("eleonora").home).toBe("skerry");
+    expect(birdById("crane").biomes).toEqual(["taiga", "karst"]);
   });
 
   it("flies the big birds slow and the small ones fast", () => {
@@ -317,6 +327,22 @@ describe("the flocks a level carries", () => {
       expect(planBirds({ ...level, season: "autumn" }).crossers.length).toBeGreaterThan(0);
     }
     expect(arcticFlocks / ARCTIC_SEEDS.length).toBeGreaterThan(3);
+    // …and the karst flies its own, the shearwaters out over the deep,
+    // the storks and the cranes going over in the spring and the autumn.
+    let karstFlocks = 0;
+    let offshore = 0;
+    for (const seed of KARST_SEEDS) {
+      const level = karstFor(seed);
+      const plan = planBirds(level);
+      for (const flock of plan.flocks) {
+        expect(birdById(flock.species).biomes, flock.species).toContain("karst");
+        if (birdById(flock.species).sea) offshore++;
+      }
+      karstFlocks += plan.flocks.length;
+      expect(planBirds({ ...level, season: "spring" }).crossers.length).toBeGreaterThan(0);
+    }
+    expect(karstFlocks / KARST_SEEDS.length).toBeGreaterThan(3);
+    expect(offshore).toBeGreaterThan(0);
   });
 
   it("plans the same birds twice for the same seed", () => {

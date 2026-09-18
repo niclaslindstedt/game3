@@ -240,7 +240,10 @@ const args = parseArgs(
       help: `a menu surface instead of a scene (${Object.keys(SURFACES).join(", ")}, all)`,
     },
     seed: { kind: "number", default: 38, help: "level seed" },
-    biome: { kind: "string", help: "which coast the seed is built on (taiga, mangrove, arctic)" },
+    biome: {
+      kind: "string",
+      help: "which coast the seed is built on (taiga, mangrove, arctic, karst)",
+    },
     track: { kind: "string", help: "circuit — a lap out at sea (R29) instead of a coast sprint" },
     mode: {
       kind: "string",
@@ -315,7 +318,7 @@ const args = parseArgs(
     timeout: { kind: "number", default: 30, help: "seconds to wait for window.__SH_READY__" },
   },
   "usage: node scripts/screenshot.mjs [--scene name | --all | --surface name | --drive W:4] " +
-    "[--seed n] [--biome taiga|mangrove|arctic] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--day m/s] [--hs m] [--waves m] [--hour h] [--season s] [--weather w] " +
+    "[--seed n] [--biome taiga|mangrove|arctic|karst] [--mode m] [--minutes n] [--craft id] [--t s] [--update] [--wind m/s] [--day m/s] [--hs m] [--waves m] [--hour h] [--season s] [--weather w] " +
     "[--camera c] [--details] [--water l] [--res l] [--detail l] [--distance l] [--see 0|1] [--fps f] " +
     "[--viewport v] [--timeout s]",
 );

@@ -61,7 +61,11 @@ const args = parseArgs(
   process.argv.slice(2),
   {
     seed: { kind: "number", default: 38, help: "the seed to draw" },
-    biome: { kind: "string", default: "taiga", help: "which coast (taiga, mangrove, arctic)" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast (taiga, mangrove, arctic, karst)",
+    },
     track: { kind: "string", default: "coast", help: "coast (a shore sprint) or circuit (a lap)" },
     tricks: { kind: "flag", help: "build it as a TRICKS run (R35's line of ramps)" },
     swell: { kind: "number", help: "build it under this groundswell, m (R36)" },
@@ -73,7 +77,7 @@ const args = parseArgs(
     campaign: { kind: "flag", help: "draw every committed campaign level instead" },
     out: { kind: "string", help: "file name under previews/ (one level only)" },
   },
-  "usage: npm run difficulty -- [--seed n] [--biome taiga|mangrove|arctic] [--track coast|circuit] [--tricks] [--swell m] [--hour h] [--season s] [--weather w] [--wind m/s] [--scale px/m] [--campaign] [--out name]",
+  "usage: npm run difficulty -- [--seed n] [--biome taiga|mangrove|arctic|karst] [--track coast|circuit] [--tricks] [--swell m] [--hour h] [--season s] [--weather w] [--wind m/s] [--scale px/m] [--campaign] [--out name]",
 );
 
 if (!isBiomeId(args.biome)) {

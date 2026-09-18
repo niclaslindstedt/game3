@@ -583,4 +583,177 @@ export const STYLES: Readonly<Record<FaunaId, FaunaStyle>> = {
     bend: 0.04,
     waves: 1.4,
   },
+  // ── The karst coast ───────────────────────────────────────────────────
+  // A clear sea's fish: blue-backed and silver, seen further down than
+  // anywhere else because the water lets them be.
+  sardine: {
+    back: 0x2e4a60,
+    belly: 0xe0e6ea,
+    height: 0.24,
+    dorsal: 0.05,
+    pectoral: 0.07,
+    tail: 0.24,
+    bend: 0.1,
+    waves: 3.4,
+  },
+  seabream: {
+    // Deep-bodied and silver-grey, the deepest fish for its length in the
+    // catalog: from above a bream is an oval.
+    back: 0x5a6668,
+    belly: 0xd8dcd8,
+    fin: 0x6a7070,
+    height: 0.42,
+    dorsal: 0.1,
+    pectoral: 0.09,
+    tail: 0.26,
+    bend: 0.08,
+    waves: 3,
+  },
+  seabass: {
+    back: 0x4a5a5c,
+    belly: 0xdadedc,
+    height: 0.24,
+    dorsal: 0.09,
+    pectoral: 0.09,
+    tail: 0.26,
+    bend: 0.09,
+    waves: 3,
+  },
+  garfish: {
+    // GREEN — a garfish's back is a bottle green over a silver flank, and
+    // its bones are green too, which nobody believes until they see it —
+    // and nearly no fin: a needle with a small forked tail.
+    back: 0x2e6a48,
+    belly: 0xd4e0d4,
+    height: 0.06,
+    dorsal: 0.03,
+    pectoral: 0.04,
+    tail: 0.12,
+    bend: 0.08,
+    waves: 3.2,
+  },
+  dentex: {
+    // Silver-pink over blue-grey, the big head and the deep shoulder:
+    // a bream built like a predator.
+    back: 0x6a6a78,
+    belly: 0xe0d4d0,
+    fin: 0x8a7a80,
+    height: 0.36,
+    dorsal: 0.1,
+    pectoral: 0.11,
+    tail: 0.28,
+    bend: 0.08,
+    waves: 2.8,
+  },
+  amberjack: {
+    // Bronze over silver, with the dark band through the eye that names
+    // it, and a deeply forked tail.
+    back: 0x6a5e44,
+    belly: 0xdcd8c8,
+    fin: 0x7a6a48,
+    height: 0.24,
+    dorsal: 0.08,
+    pectoral: 0.1,
+    tail: 0.3,
+    bend: 0.08,
+    waves: 2.6,
+  },
+  striped: {
+    // Dark blue-grey cape, a pale flank, and the stripe from the eye to
+    // the tail that names it — a saddle behind the fin is the nearest
+    // the builder gets to the cape's dip, and it is what a school of them
+    // reads as from above: dark crescents with a pale notch.
+    back: 0x3a4658,
+    belly: 0xe8ecee,
+    height: 0.2,
+    dorsal: 0.15,
+    pectoral: 0.13,
+    tail: 0.26,
+    saddle: true,
+    bend: 0.08,
+    waves: 2.8,
+  },
+  bluefin: {
+    // STEEL BLUE OVER SILVER, and the roundest big fish there is: a tuna
+    // is a barrel with a sickle tail, the pectorals short and the fin a
+    // scythe. The tail span is the widest of any fish here, and the beat
+    // is all tail — a tuna's body hardly bends.
+    back: 0x1e3a5a,
+    belly: 0xe4e8ec,
+    fin: 0x4a5a6a,
+    height: 0.3,
+    dorsal: 0.1,
+    pectoral: 0.08,
+    tail: 0.32,
+    bend: 0.05,
+    waves: 2,
+  },
+  sunfish: {
+    // A GREY DISC. Slate grey all over, no tail worth the name, and the
+    // "dorsal" and "pectoral" are the two great fins top and bottom that
+    // it sculls with — from above a sunfish lying on its side is an oval
+    // plate with a fin sticking out of each end. It does not wave.
+    back: 0x6a6e70,
+    belly: 0x9a9ea0,
+    height: 0.12,
+    dorsal: 0.3,
+    pectoral: 0.06,
+    tail: 0.1,
+    bend: 0.02,
+    waves: 0.8,
+  },
+  swordfish: {
+    // Bronze-purple over silver, the tallest sickle of a dorsal for its
+    // length after the hammerhead's, and a crescent tail: the two things
+    // that stand out of the water on a basking run.
+    back: 0x4a3e58,
+    belly: 0xd8d4d8,
+    fin: 0x3a3048,
+    height: 0.18,
+    dorsal: 0.18,
+    pectoral: 0.12,
+    tail: 0.3,
+    bend: 0.06,
+    waves: 2.2,
+  },
+  blueshark: {
+    // INDIGO — the bluest animal in the sea — over a white belly, with
+    // the longest pectorals of any shark for its size and a slender body:
+    // from above a blue shark is a dark blue cross.
+    back: 0x2a4a8a,
+    belly: 0xecf0f2,
+    height: 0.18,
+    dorsal: 0.1,
+    pectoral: 0.26,
+    tail: 0.28,
+    bend: 0.07,
+    waves: 2.4,
+  },
+  monkseal: {
+    // Dark brown, paler on the belly, a broad round back and NO FIN — the
+    // grey seal's field mark on a coast a rider expects no seal at all.
+    back: 0x4a3e34,
+    belly: 0xb8aa98,
+    height: 0.34,
+    dorsal: 0,
+    pectoral: 0.13,
+    tail: 0.16,
+    bend: 0.05,
+    waves: 1.8,
+  },
+  finwhale: {
+    // A long, slender grey-brown rorqual with a small hooked fin far back
+    // and the flat low roll of a rorqual — the pale chevron behind the
+    // head is the marking, and it is on the back where the camera can
+    // see it, so the saddle stands in for it.
+    back: 0x3a3e42,
+    belly: 0xd4d8d6,
+    height: 0.18,
+    dorsal: 0.04,
+    pectoral: 0.1,
+    tail: 0.24,
+    saddle: true,
+    bend: 0.04,
+    waves: 1.4,
+  },
 };

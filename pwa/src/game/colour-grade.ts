@@ -186,6 +186,36 @@ export const COLOUR_GRADES: Readonly<Partial<Record<BiomeId, ColourGrade>>> = {
     glow: "#e6f0f8",
     split: [0.26, 0.14],
   },
+  karst: {
+    // A LIMESTONE COAST UNDER A DRY SUN, GRADED THE WAY A SUMMER ON A
+    // BLUE SEA IS PHOTOGRAPHED: hard light, white rock, and a sea so blue
+    // it looks printed. The picture is punchy — the air here is the driest
+    // of the four coasts when the north wind has been through it, and dry
+    // air has nothing in it to lift a shadow with — and the split is what
+    // makes it: warm stone in the highlights and ULTRAMARINE in the
+    // shadows, which is the colour of the deep water and of the shade
+    // under every pine, pulling opposite ways. The mangrove's split runs
+    // gold against teal, a green-blue; this one runs gold against a true
+    // blue, and that one hue is most of what tells the two warm coasts
+    // apart on a screen.
+    contrast: 1.06,
+    // Blacks nearly on the floor: a whisper of lift for the haze of a hot
+    // afternoon, and no more — the clean shadow under a limestone ledge
+    // is what the white above it is read against.
+    lift: 0.006,
+    // Up: the sea is the point of this coast and it has to look the
+    // colour it is. Held under the mangrove's, because the rock is white
+    // and a saturation that fights white stone puts a yellow cast on it.
+    saturation: 1.1,
+    // Barely warm — a touch off the blue so the limestone reads as stone
+    // rather than as snow.
+    tint: "#fbf8f1",
+    // Ultramarine under everything the sun missed.
+    shade: "#1e4f8f",
+    // …and a limestone gold on everything it hit.
+    glow: "#ffd79a",
+    split: [0.24, 0.2],
+  },
 };
 
 /** The row for a coast; throws for one nobody has graded, the way

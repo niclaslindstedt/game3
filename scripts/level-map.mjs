@@ -63,7 +63,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove, arctic)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic, karst)",
     },
     scale: { kind: "number", default: 1, help: "pixels per metre" },
     craft: { kind: "string", default: "skiff", help: "hull the launch speeds are quoted for" },
@@ -97,7 +97,7 @@ const args = parseArgs(
     out: { kind: "string", help: "file name under previews/ (no extension)" },
     json: { kind: "flag", help: "also print the listing as JSON" },
   },
-  "usage: npm run level -- --seed n [--biome taiga|mangrove|arctic] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--swell m] [--season s] [--scale px/m] [--craft id] [--out name] [--json]",
+  "usage: npm run level -- --seed n [--biome taiga|mangrove|arctic|karst] [--track coast|circuit] [--pace k] [--ramp k] [--tricks] [--swell m] [--season s] [--scale px/m] [--craft id] [--out name] [--json]",
 );
 if (!CRAFT_IDS.includes(args.craft)) {
   console.error(`unknown craft "${args.craft}" (${CRAFT_IDS.join(", ")})`);

@@ -119,10 +119,10 @@ describe("the catalog", () => {
       // no reason anybody knows and needs no breath to do it.
       if (spec.breach > 0 && spec.kind !== "fish") expect(comesUp, spec.id).toBe(true);
     }
-    // Seven animals leave the water: the three dolphins, the humpback and
-    // the bowhead, and only their bulls — and the two FISH that jump, the
-    // mullet and the manta, which need no breath to do it and which nobody
-    // has ever explained.
+    // Ten animals leave the water: the four dolphins, the humpback and
+    // the bowhead, and only their bulls — and the four FISH that jump, the
+    // mullet, the manta, the garfish and the bluefin, which need no breath
+    // to do it and which nobody has ever explained.
     expect(FAUNA.filter((f) => f.breach > 0).map((f) => f.id)).toEqual([
       "whitebeak",
       "humpback",
@@ -131,6 +131,9 @@ describe("the catalog", () => {
       "spotted",
       "manta",
       "bowhead",
+      "garfish",
+      "striped",
+      "bluefin",
     ]);
   });
 
@@ -148,8 +151,9 @@ describe("the catalog", () => {
     expect(new Set(FAUNA.map((f) => rarityOf(f.perKm))).size).toBeGreaterThanOrEqual(4);
     expect(rarityOf(faunaById("herring").perKm)).toBe("common");
     expect(rarityOf(faunaById("humpback").perKm)).toBe("legendary");
-    // Every rung is earned by something, and the top one only by the two
-    // great whales — a word nothing earns is a word that means nothing.
+    // Every rung is earned by something, and the top one only by the four
+    // great whales and the one animal rarer than a whale — a word nothing
+    // earns is a word that means nothing.
     for (const word of ["common", "uncommon", "scarce", "rare", "legendary"]) {
       expect(
         FAUNA.some((f) => rarityOf(f.perKm) === word),
@@ -160,6 +164,8 @@ describe("the catalog", () => {
       "humpback",
       "brydes",
       "bowhead",
+      "monkseal",
+      "finwhale",
     ]);
   });
 

@@ -42,7 +42,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "",
-      help: "only one coast's roster (taiga, mangrove, arctic)",
+      help: "only one coast's roster (taiga, mangrove, arctic, karst)",
     },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },

@@ -83,6 +83,85 @@ export const BIRD_BANK: SoundBank = {
     ],
   },
 
+  swift_scream: {
+    description:
+      "A swift's scream: a thin, high, driven sawtooth held nearly level " +
+      "and then dropping a little at the end, with a rasp of noise on it " +
+      "— the shrillest, quickest voice in the bank, and a party of them " +
+      "round a cliff on a summer evening is the karst coast's own sound.",
+    voices: [
+      {
+        call: "tone",
+        type: "sawtooth",
+        from: 3600,
+        to: 3100,
+        durationMs: 260,
+        volume: 0.014,
+        drive: 0.5,
+        attackMs: 10,
+        holdMs: 120,
+        vibrato: { rateHz: 14, depthCents: 40, delayMs: 30 },
+        filter: { type: "bandpass", frequency: 4000, to: 3300, q: 3 },
+        echo: 0.1,
+      },
+      {
+        call: "noise",
+        durationMs: 180,
+        volume: 0.006,
+        attackMs: 8,
+        delayMs: 30,
+        filter: { type: "bandpass", frequency: 4200, to: 3400, q: 2.5 },
+      },
+    ],
+  },
+
+  crow_caw: {
+    description:
+      "A hooded crow's 'kraa': a hoarse, low, driven sawtooth through a " +
+      "nasal band with a burst of noise on the front of it for the rasp, " +
+      "twice — the one voice on any coast that is not a sea bird's, off " +
+      "the tideline and the rocks; on the echo bus so it comes off the " +
+      "cliff.",
+    voices: [
+      {
+        call: "tone",
+        type: "sawtooth",
+        from: 720,
+        to: 560,
+        durationMs: 300,
+        volume: 0.022,
+        drive: 0.6,
+        attackMs: 12,
+        holdMs: 120,
+        vibrato: { rateHz: 24, depthCents: 60, delayMs: 0 },
+        filter: { type: "bandpass", frequency: 1300, to: 1000, q: 1.8 },
+        echo: 0.16,
+      },
+      {
+        call: "noise",
+        durationMs: 120,
+        volume: 0.008,
+        attackMs: 6,
+        filter: { type: "bandpass", frequency: 1600, q: 1.6 },
+      },
+      {
+        call: "tone",
+        type: "sawtooth",
+        from: 700,
+        to: 540,
+        durationMs: 280,
+        volume: 0.02,
+        drive: 0.6,
+        attackMs: 12,
+        holdMs: 100,
+        delayMs: 420,
+        vibrato: { rateHz: 24, depthCents: 60, delayMs: 0 },
+        filter: { type: "bandpass", frequency: 1250, to: 950, q: 1.8 },
+        echo: 0.14,
+      },
+    ],
+  },
+
   eider_coo: {
     description:
       "A drake eider's 'ah-OOO' off a raft: a soft low sine swelling and " +

@@ -3,7 +3,7 @@
 Levels are built by a rules engine (`engine/mapgen/`), not authored by hand. A level is a stretch of SHORE and the water beside it — the ground as a heightfield against sea level, the shoreline itself, the rocks standing in the water, the race course laid along the shore, and the conditions the run is ridden in — and every one of them is a pure function of the seed. The design splits into files with one job each:
 
 - **`rules.ts` — the rule book.** Every constraint and every vocabulary number lives here as data: how far from the shore the course may run, how deep the water under it must be, how the gates are spaced, what a ramp is, what the land and the sea bed may do, how the rocks stand, what the wind and the day may be. The generator BUILDS to these numbers, the analysis HOLDS the finished level to the same numbers, and the tests assert directly against them. Tuning the generator means editing this file.
-- **`biomes.ts` — the coasts.** What a level is built ON, as rows: the water's density and temperature band, how far north it lies, how high the land stands and how steeply it comes down to the water (`relief`, `climb`), what its RIVER is like (`river`: how wide the mouth opens, how slowly the width closes, how big the loops are, how much water comes down it, and whether the mouth carries the bars of a delta — the taiga's rock channel and the mangrove's estuary are the same rule book at two rows), how thickly the rocks lie, how much of the waterline is beach, how big a sea its wind grows and how much swell reaches it, which skies it can be under and what swims in it. Seven ids are reserved so a campaign location never changes its name; three rows are built — the taiga's, a cold sheltered skerry coast; the mangrove's, a warm flat coast of white sand and turquoise water; and the arctic's, a wall of glacier ice over black water at the freezing point, with a crack in the ice for its river and a sheet of ice on its sea in winter (R37) — and asking for another throws. Each row also dates its own year (`declination`): the seasons are meteorological and so belong to a place, and a polar coast's winter is the weeks the sun is back over the ice rather than a November it has no sun in. A biome is a kind of coast, never a place.
+- **`biomes.ts` — the coasts.** What a level is built ON, as rows: the water's density and temperature band, how far north it lies, how high the land stands and how steeply it comes down to the water (`relief`, `climb`), what its RIVER is like (`river`: how wide the mouth opens, how slowly the width closes, how big the loops are, how much water comes down it, and whether the mouth carries the bars of a delta — the taiga's rock channel and the mangrove's estuary are the same rule book at two rows), how thickly the rocks lie, how much of the waterline is beach, how big a sea its wind grows and how much swell reaches it, which skies it can be under and what swims in it. Eight ids are reserved so a campaign location never changes its name; four rows are built — the taiga's, a cold sheltered skerry coast; the mangrove's, a warm flat coast of white sand and turquoise water; the arctic's, a wall of glacier ice over black water at the freezing point, with a crack in the ice for its river and a sheet of ice on its sea in winter (R37); and the karst's, a warm-temperate limestone coast standing high and steep over the clearest, bluest water in the game, with white pebble coves in its bays, more islets and reefs off it than any coast, a gorge for its river and a wind sea that comes off the land — and asking for another throws. Each row also dates its own year (`declination`): the seasons are meteorological and so belong to a place, and a polar coast's winter is the weeks the sun is back over the ice rather than a November it has no sun in. A biome is a kind of coast, never a place.
 - **`shore.ts` — the one line everything is measured from.** The coast is a smooth, single-valued offset from a straight base line heading north-east, so "along the shore" and "out from it" are coordinates a search can walk in. The polyline the level publishes is that function sampled every ten metres, and `distanceAt` — the signed distance to it, positive at sea — is what `Level.offshore` is baked from.
 - **`geology.ts` — the ground, and the rocks on it.** The sea bed's profile and the shelves in the bays, the land's step up to its plateau and the bedrock slabs riding on it, all analytic in the shore's distance; and the placer that lays skerries, boulders and reefs off the course.
 - **`course.ts` — the search.** The path drawn station by station along the shore, pushed seaward until the water under it is deep enough, the gates measured out along it, the straights the air gates need, and the keep-out the placer reads. It also states, once, what a `Ramp`'s anchor means.
@@ -31,7 +31,7 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 - **R10** THE COURSE IS A SPRINT. Its length — the path from the start to the finish gate — lands inside `course.length` (1.2–2.0 km).
 - **R11** THE START IS BEHIND THE FIRST GATE. The run begins `start.behind` (40 m) before gate 1 on the path, facing it, and the path is straight from the start to that gate.
 - **R12** THE WIND BLOWS OFF THE SEA, ALWAYS. The mean wind is `wind.speed` m/s, from a compass direction within `wind.seaward` of the direction the open sea lies in — NEVER off the land. The band is under a right angle at both ends, so the wind drives at the coast on every seed: a wind blowing out to sea is a shore with no waves against it, which is the one sea this game has no use for. What it buys is R28 — with the ocean upwind of the whole coast, the sea reaches every metre of it.
-- **R13** THE DAY AND THE WATER. The run STARTS in daylight: the level is dealt a SEASON, and its hour is SOLAR time drawn from the window in which the sun stands at least `day.minSun` over the horizon at the coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove, 78°N arctic) in that season, which decides where the sun stands at it and so what sky the run is under. So a seed can be a sunrise on the water, a noon, or a sun going down into the sea — and the clock runs on at an hour a minute (`sunHourAt`), so a run begun at sunset rides into the twilight and then the night, and how dark that night gets is the season's and the coast's: a taiga midsummer never gets past twilight, a September night is black under the moon, and every mangrove night is. The water's temperature comes from the biome's band for the season and its density is the biome's (brackish on the taiga coast, full salt on the mangrove).
+- **R13** THE DAY AND THE WATER. The run STARTS in daylight: the level is dealt a SEASON, and its hour is SOLAR time drawn from the window in which the sun stands at least `day.minSun` over the horizon at the coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove, 78°N arctic, 43.5°N karst) in that season, which decides where the sun stands at it and so what sky the run is under. So a seed can be a sunrise on the water, a noon, or a sun going down into the sea — and the clock runs on at an hour a minute (`sunHourAt`), so a run begun at sunset rides into the twilight and then the night, and how dark that night gets is the season's and the coast's: a taiga midsummer never gets past twilight, a September night is black under the moon, and every mangrove night is. The water's temperature comes from the biome's band for the season and its density is the biome's (brackish on the taiga coast, full salt on the mangrove and the arctic, saltier still on the karst — an enclosed sea in a dry climate).
 - **R14** THE GRID. Both heightfields sit on `grid.cell` (4 m) cells over the course's own extent padded `bounds.sea` metres on the seaward sides and `bounds.land` metres on the landward ones, and the level's bounds ARE the grid's.
 - **R15** THE WATER IS A BASIN AROUND THE ROUTE. Three things make it and one is cut back out of them. The CORRIDOR: water within the route's own half-width of the line (`route.corridor`), so every metre of the race stands inside R1's band over R5's water by construction rather than by a search. The OPEN SEA: everything past a straight edge cut `sea.line.edge` metres short of the route's most seaward point, which is where the fetch the waves are built from comes from. And the ISLANDS: `island.count` blobs cut OUT of the water, standing `island.clear` clear of the route, which are the rock a course goes round rather than past. What comes out is ONE SIGNED FIELD — metres from the water's edge, positive in the water — and the coastlines are wherever it crosses zero. So a level's coast doubles back on itself and carries islands, neither of which a single-valued shoreline could express at all; and the share of the level that is water lands inside `basin.waterShare`, which is what keeps a basin from being a canal at one end or an empty sea at the other.
 - **R16** WHAT THE SHORE IS MADE OF, by rule and in this order: below sea level it is WATER; ground steeper than `surface.bedrockSlope` is BEDROCK; ground within `surface.bank.reach` of a water's edge that is the RIVER'S own past its mouth's run (R26) is BANK — soil and grass to the water, whatever the coast either side of the mouth; low ground at the waterline of a stretch softer than `surface.sand.rugged` × the biome's `shore.sand` (R21) is SAND — a BEACH, reaching `surface.sand.reach` up the shore where the stretch is softest and a fraction of that where it barely qualifies; where the boulder noise runs over `surface.boulder`'s threshold it is ROCK, a boulder field, and ruggedness moves that threshold so the fields are thick on a rock coast and absent behind a beach; everything else is the smoothed BEDROCK slab.
@@ -59,7 +59,7 @@ The generator respects coastal reality. Verbatim from the rule book, each enforc
 
 ## What swims here
 
-R20's roster is the one piece of level content that is drawn from a CATALOG rather than from the rule book: `engine/game/defs/fauna.ts`, its warm-coast half `defs/fauna-warm.ts` and its polar third `defs/fauna-arctic.ts` state each animal — how long it is, how fast, how deep it holds, how many travel together, how often it comes up (`breath` for a cetacean, `bask` for a basking shark) and how deep it holds when it does (`awash`, in body radii), whether its bulls breach (`breach`), and the water temperature it is met in — and two numbers above all: `perKm`, how many pods of it a kilometre of coast carries, and `offshore`, how far from the water's edge it is found.
+R20's roster is the one piece of level content that is drawn from a CATALOG rather than from the rule book: `engine/game/defs/fauna.ts`, its warm-coast half `defs/fauna-warm.ts`, its polar third `defs/fauna-arctic.ts` and its limestone-coast quarter `defs/fauna-karst.ts` state each animal — how long it is, how fast, how deep it holds, how many travel together, how often it comes up (`breath` for a cetacean, `bask` for a basking shark) and how deep it holds when it does (`awash`, in body radii), whether its bulls breach (`breach`), and the water temperature it is met in — and two numbers above all: `perKm`, how many pods of it a kilometre of coast carries, and `offshore`, how far from the water's edge it is found.
 
 `perKm` spans nearly two orders of magnitude and is the rarity: a coast where every animal turned up every ride would have no animals on it, only scenery. `offshore` is the GRADIENT, and it is what makes riding out to sea worth doing — the shore's small fish are banded into the first hundred metres or so, and the big animals start where those stop and run to the seaward edge. A level's water reaches some seven hundred metres out and is forty metres deep out there, so the outer half of a level is the half the catalog is built for; the second gate on it is `water`, the depth an animal needs under it, which a shelf falling from six metres to forty enforces on its own.
 
@@ -112,6 +112,28 @@ And on the arctic coast, from the ice edge out:
 | Sleeper shark | 0.12        | rare      | 1          | one ride in five      |
 | Bowhead whale | 0.08        | legendary | 1–2        | one ride in eight     |
 
+And on the karst coast, from the pebbles out over the deep:
+
+| Animal             | Pods per km | Rarity    | Travels in | Roughly              |
+| ------------------ | ----------- | --------- | ---------- | -------------------- |
+| Sardine            | 3.6         | common    | 18–40      | six schools a ride   |
+| Gilthead bream     | 2.0         | common    | 3–8        | three or four a ride |
+| Garfish            | 1.5         | common    | 4–12       | two or three a ride  |
+| Sea bass           | 1.4         | uncommon  | 2–5        | two a ride           |
+| Bottlenose dolphin | 0.9         | uncommon  | 3–8        | most rides           |
+| Dentex             | 0.6         | uncommon  | 1–3        | most rides           |
+| Greater amberjack  | 0.6         | uncommon  | 3–8        | most rides           |
+| Loggerhead turtle  | 0.5         | uncommon  | 1          | most rides           |
+| Striped dolphin    | 0.38        | scarce    | 6–16       | one ride in two      |
+| Bluefin tuna       | 0.32        | scarce    | 4–12       | one ride in two      |
+| Ocean sunfish      | 0.2         | scarce    | 1          | one ride in three    |
+| Swordfish          | 0.14        | rare      | 1          | one ride in four     |
+| Blue shark         | 0.12        | rare      | 1–2        | one ride in five     |
+| Monk seal          | 0.08        | legendary | 1          | one ride in eight    |
+| Fin whale          | 0.07        | legendary | 1–2        | one ride in nine     |
+
+The limestone coast's rows are a clear warm salt sea's, written between 12 and 28 °C. The garfish and the bluefin are the two fish here that leave the water — the garfish skittering along the surface ahead of a hull, the tuna clear of it over a bait ball — and the striped dolphin is the most acrobatic animal in the catalog. The sunfish and the swordfish are filed as sharks for the basking shark's reason: they come up without a breath, the one lying flat on its side at the surface and the other finning along it. The monk seal is the rarest animal in the game — a few hundred left in the world, one of them in a cave under the cliff — and the fin whale is the coast's great whale, the second-biggest animal there is, banded as far out as a level goes.
+
 The polar coast's rows are written to the freezing point — sea water freezes at −1.8 °C and the coast deals water down to it in three seasons of four — except the char, which is a summer fish in the sea. The polar bear is filed as a cetacean for the seal's reason (it breathes and beats no fish's tail) and is the one animal whose head is always up: a shallow `awash` and a nine-second `breath` keep it swimming with its shoulders out. The sleeper shark is the one animal in the catalog that never comes up at all. The killer whale, the minke and the humpback are the taiga's rows, offered here too.
 
 Coming up is the sighting, and the sighting is a FIN. A fish never comes up; a cetacean surfaces to breathe and the porbeagle comes up to hunt and bask, and either way the animal rises until its centreline is `awash` body radii under the water over it — about one, which brings the back awash and leaves the dorsal, and only the dorsal, cutting the surface. Measured against that water and not against mean sea level, because a sea a metre high swallows a fin that clears the mathematical plane by a hand's breadth.
@@ -124,86 +146,86 @@ One animal goes further. A BULL DOLPHIN breaches roughly every `breach` seconds:
 
 Every band above is a row of `LEVEL_RULES`; these are the ones a tuner reaches for first, with their units. The file is the authority — a number here that disagrees with it is a documentation bug.
 
-| Group     | Knob                               | Value                                 | Unit      | Rule    |
-| --------- | ---------------------------------- | ------------------------------------- | --------- | ------- |
-| `grid`    | `cell`                             | 4                                     | m         | R14     |
-| `bounds`  | `sea` / `land`                     | 150 / 130                             | m         | R14     |
-| `route`   | `length` / `step`                  | 1500–2300 / 10                        | m         | R24     |
-|           | `corridor`                         | 34–95                                 | m         | R15     |
-|           | `swing` / `reach`                  | 0.35–0.7 / 520                        | —, m      | R24     |
-|           | `selfClear` / `selfSpan`           | 85 / 220                              | m         | R24     |
-| `leg`     | `at` / `out` / `round`             | 280–900 / 20–90 / 84–100              | m         | R25     |
-|           | `offshore` (derived, checked)      | 170–400                               | m         | R25     |
-|           | `span` (of path, checked)          | 230–780                               | m         | R25     |
-| `river`   | `inland` / `length`                | 1000–1250 / 1000–2600                 | m         | R26     |
-|           | `head` / `taper`                   | 3 / 1.8                               | m, —      | R26     |
-|           | `sinuosity` (checked)              | 1.12–2.7                              | ×         | R26     |
-|           | `clear` / `radius`                 | 100 / 38                              | m         | R26     |
-|           | `selfBank` / `selfSpan`            | 25 / 1.25                             | m, ×      | R26     |
-|           | `bendWidths`                       | 2.6                                   | ×         | R26     |
-|           | `discharge`                        | 120–600                               | m³/s      | R27     |
-| `surface` | `bank.reach` / `bank.share`        | 30 / 0.5                              | m, —      | R16     |
-| `island`  | `count` / `r` / `clear`            | 1–4 / 25–95 / 18                      | —, m      | R15     |
-| `circuit` | `inshore` / `reach`                | 24–70 / 220–900                       | m         | R29     |
-|           | `lap` / `laps`                     | 1350–1950 / 2–3                       | m, —      | R30     |
-|           | `length` (the whole ride)          | 2600–4600                             | m         | R30     |
-|           | `harmonics` / `harmonic`           | 2–3 of 2–5                            | —         | R29     |
-|           | `swing` / `turn` (checked)         | 0.04–0.10 / 6.8–16                    | —, rad    | R29     |
-|           | `selfClear` / `selfSpan`           | 85 / 200                              | m         | R29     |
-|           | `airPerLap`                        | 1                                     | —         | R30     |
-|           | `mark.count` / `.stand`            | 2–4 / 30–44                           | —, m      | R31     |
-|           | `mark.ideal` / `.pass`             | 8–12 / 18                             | m         | R31     |
-|           | `mark.detour`                      | 10                                    | m         | R31     |
-|           | `mark.wrap` / `.apart`             | 1.5 / 150                             | rad, m    | R31     |
-|           | `coast.run` / `.wander`            | 360 / 45 over 280                     | m         | R29     |
-|           | `rocks.offshore`                   | 60–1200                               | m         | R29     |
-| `shore`   | `character.run`                    | 1100                                  | m         | R21     |
-| `land`    | `maxHeight` / `reach`              | 45 / 100                              | m         | R2      |
-|           | `Biome.ceiling` / `headland`       | 1 / 1 (arctic 1.5 / 3)                | ×         | R2      |
-|           | `Biome.wall.from` / `to` / `apron` | 0.35 / 1 / 0 (arctic 0.25 / 0.5 / 14) | — / — / m | R2, R21 |
-| `river`   | `RiverShape.kink` / `ragged`       | 0 / 0 (arctic 1 / 0.45)               | —         | R26     |
-|           | `plateau`                          | 8–20                                  | m         | R2      |
-|           | `slab.amplitude`                   | 1.6                                   | m         | R2      |
-|           | `hill` (× the plateau)             | 0.45–2                                | —         | R2, R21 |
-| `sea`     | `depth` / `reach`                  | 25 / 250                              | m         | R3      |
-| `sea`     | `openDepth` / `openReach`          | 60 / 700                              | m         | R3      |
-|           | `shelf.factor`                     | 0.55                                  | —         | R3      |
-| `course`  | `offshore`                         | 15–100                                | m         | R1      |
-|           | `minDepth`                         | 1.5                                   | m         | R5      |
-|           | `solidMargin` / `solidBerth`       | 6 + 0.8 × radius                      | m         | R6      |
-|           | `length`                           | 1200–2000                             | m         | R10     |
-|           | `wind` / `sweep`                   | 1.06 / 3.5                            | ×, rad    | R22     |
-|           | `radius`                           | 80                                    | m         | R23     |
-|           | `corner` (`GATE_CORNER`)           | 1.22                                  | rad       | R34     |
-| `gate`    | `spacing` / `width`                | 80–150 / 12                           | m         | R4      |
-| `air`     | `count` / `height` / `width`       | 2–3 / 2.5–5.5 / 6                     | —, m      | R7      |
-|           | `lipSpeed`                         | 50–60                                 | km/h      | R18     |
-|           | `pastApex` / `thread`              | 1.7 / 0.8                             | —, m      | R18     |
-|           | `reach`                            | 0.95 of slowest                       | —         | R18     |
-| `ramp`    | `lead` (derived, checked)          | 12–32                                 | m         | R8      |
-|           | `length` (plan) / `width`          | 8–10 / 8                              | m         | R8      |
-|           | `angle`                            | 15–22                                 | °         | R8      |
-|           | `runUp` / `runUpDepth`             | 160 / 2                               | m         | R9      |
-|           | `beam`                             | 30                                    | °         | R9      |
-| `trick`   | `TRICK_SHARE`                      | 0.95 of top speed                     | —         | R35     |
-|           | `trickStride(1)` (derived)         | 213 (marlin 153 + 10 + 50)            | m         | R35     |
-|           | `RUN_UP_SHARE` / `BEAM_WIDEN`      | 0.45 of R9 / 2.5× R9                  | —         | R35     |
-| `start`   | `behind`                           | 40                                    | m         | R11     |
-| `wind`    | `speed` / `seaward`                | 6–14 / ±60                            | m/s,°     | R12     |
-| `swell`   | `SWELL_DIAL`                       | 1–20                                  | m         | R36     |
-| `ice`     | `ICE.thickness` / `freeboard`      | 2 / 0.35                              | m         | R37     |
-|           | `ICE.channel` / `basin`            | 26 / 80                               | m         | R37     |
-|           | `ICE.brash` / `measured`           | 6 / 60                                | m         | R37     |
-|           | `dealSwell` (median / draw)        | 2.1 (log-uniform, squared)            | m         | R36     |
-| `day`     | `minSun` (the window's floor)      | 0                                     | °         | R13     |
-| `sky`     | `spread`                           | 0.32                                  | —         | R19     |
-| `solids`  | `<kind>.perKm`                     | 5 / 14 / 7 / 12 / 2.5                 | /km       | R17     |
-|           | `erratic.height`                   | 1.2–4 over ground                     | m         | R17     |
-|           | `stack.r` / `.top`                 | 6–15 / 7–22                           | m         | R17     |
-|           | `mark.r` / `.top`                  | 8–14 / 21–32                          | m         | R25     |
-| `land`    | `measured`                         | 116                                   | m         | R2      |
-| `search`  | `attempts` / `courseTries`         | 48 / 40                               | —         |         |
-|           | `depthSlack` / `marginSlack`       | 0.4 / 1.5                             | m         |         |
+| Group     | Knob                               | Value                                     | Unit      | Rule    |
+| --------- | ---------------------------------- | ----------------------------------------- | --------- | ------- |
+| `grid`    | `cell`                             | 4                                         | m         | R14     |
+| `bounds`  | `sea` / `land`                     | 150 / 130                                 | m         | R14     |
+| `route`   | `length` / `step`                  | 1500–2300 / 10                            | m         | R24     |
+|           | `corridor`                         | 34–95                                     | m         | R15     |
+|           | `swing` / `reach`                  | 0.35–0.7 / 520                            | —, m      | R24     |
+|           | `selfClear` / `selfSpan`           | 85 / 220                                  | m         | R24     |
+| `leg`     | `at` / `out` / `round`             | 280–900 / 20–90 / 84–100                  | m         | R25     |
+|           | `offshore` (derived, checked)      | 170–400                                   | m         | R25     |
+|           | `span` (of path, checked)          | 230–780                                   | m         | R25     |
+| `river`   | `inland` / `length`                | 1000–1250 / 1000–2600                     | m         | R26     |
+|           | `head` / `taper`                   | 3 / 1.8                                   | m, —      | R26     |
+|           | `sinuosity` (checked)              | 1.12–2.7                                  | ×         | R26     |
+|           | `clear` / `radius`                 | 100 / 38                                  | m         | R26     |
+|           | `selfBank` / `selfSpan`            | 25 / 1.25                                 | m, ×      | R26     |
+|           | `bendWidths`                       | 2.6                                       | ×         | R26     |
+|           | `discharge`                        | 120–600                                   | m³/s      | R27     |
+| `surface` | `bank.reach` / `bank.share`        | 30 / 0.5                                  | m, —      | R16     |
+| `island`  | `count` / `r` / `clear`            | 1–4 / 25–95 / 18                          | —, m      | R15     |
+| `circuit` | `inshore` / `reach`                | 24–70 / 220–900                           | m         | R29     |
+|           | `lap` / `laps`                     | 1350–1950 / 2–3                           | m, —      | R30     |
+|           | `length` (the whole ride)          | 2600–4600                                 | m         | R30     |
+|           | `harmonics` / `harmonic`           | 2–3 of 2–5                                | —         | R29     |
+|           | `swing` / `turn` (checked)         | 0.04–0.10 / 6.8–16                        | —, rad    | R29     |
+|           | `selfClear` / `selfSpan`           | 85 / 200                                  | m         | R29     |
+|           | `airPerLap`                        | 1                                         | —         | R30     |
+|           | `mark.count` / `.stand`            | 2–4 / 30–44                               | —, m      | R31     |
+|           | `mark.ideal` / `.pass`             | 8–12 / 18                                 | m         | R31     |
+|           | `mark.detour`                      | 10                                        | m         | R31     |
+|           | `mark.wrap` / `.apart`             | 1.5 / 150                                 | rad, m    | R31     |
+|           | `coast.run` / `.wander`            | 360 / 45 over 280                         | m         | R29     |
+|           | `rocks.offshore`                   | 60–1200                                   | m         | R29     |
+| `shore`   | `character.run`                    | 1100                                      | m         | R21     |
+| `land`    | `maxHeight` / `reach`              | 45 / 100                                  | m         | R2      |
+|           | `Biome.ceiling` / `headland`       | 1 / 1 (arctic 1.5 / 3, karst 1 / 1.5)     | ×         | R2      |
+|           | `Biome.wall.from` / `to` / `apron` | 0.35 / 1 / 0 (arctic 0.25 / 0.5 / 14)     | — / — / m | R2, R21 |
+| `river`   | `RiverShape.kink` / `ragged`       | 0 / 0 (arctic 1 / 0.45, karst 0.5 / 0.15) | —         | R26     |
+|           | `plateau`                          | 8–20                                      | m         | R2      |
+|           | `slab.amplitude`                   | 1.6                                       | m         | R2      |
+|           | `hill` (× the plateau)             | 0.45–2                                    | —         | R2, R21 |
+| `sea`     | `depth` / `reach`                  | 25 / 250                                  | m         | R3      |
+| `sea`     | `openDepth` / `openReach`          | 60 / 700                                  | m         | R3      |
+|           | `shelf.factor`                     | 0.55                                      | —         | R3      |
+| `course`  | `offshore`                         | 15–100                                    | m         | R1      |
+|           | `minDepth`                         | 1.5                                       | m         | R5      |
+|           | `solidMargin` / `solidBerth`       | 6 + 0.8 × radius                          | m         | R6      |
+|           | `length`                           | 1200–2000                                 | m         | R10     |
+|           | `wind` / `sweep`                   | 1.06 / 3.5                                | ×, rad    | R22     |
+|           | `radius`                           | 80                                        | m         | R23     |
+|           | `corner` (`GATE_CORNER`)           | 1.22                                      | rad       | R34     |
+| `gate`    | `spacing` / `width`                | 80–150 / 12                               | m         | R4      |
+| `air`     | `count` / `height` / `width`       | 2–3 / 2.5–5.5 / 6                         | —, m      | R7      |
+|           | `lipSpeed`                         | 50–60                                     | km/h      | R18     |
+|           | `pastApex` / `thread`              | 1.7 / 0.8                                 | —, m      | R18     |
+|           | `reach`                            | 0.95 of slowest                           | —         | R18     |
+| `ramp`    | `lead` (derived, checked)          | 12–32                                     | m         | R8      |
+|           | `length` (plan) / `width`          | 8–10 / 8                                  | m         | R8      |
+|           | `angle`                            | 15–22                                     | °         | R8      |
+|           | `runUp` / `runUpDepth`             | 160 / 2                                   | m         | R9      |
+|           | `beam`                             | 30                                        | °         | R9      |
+| `trick`   | `TRICK_SHARE`                      | 0.95 of top speed                         | —         | R35     |
+|           | `trickStride(1)` (derived)         | 213 (marlin 153 + 10 + 50)                | m         | R35     |
+|           | `RUN_UP_SHARE` / `BEAM_WIDEN`      | 0.45 of R9 / 2.5× R9                      | —         | R35     |
+| `start`   | `behind`                           | 40                                        | m         | R11     |
+| `wind`    | `speed` / `seaward`                | 6–14 / ±60                                | m/s,°     | R12     |
+| `swell`   | `SWELL_DIAL`                       | 1–20                                      | m         | R36     |
+| `ice`     | `ICE.thickness` / `freeboard`      | 2 / 0.35                                  | m         | R37     |
+|           | `ICE.channel` / `basin`            | 26 / 80                                   | m         | R37     |
+|           | `ICE.brash` / `measured`           | 6 / 60                                    | m         | R37     |
+|           | `dealSwell` (median / draw)        | 2.1 (log-uniform, squared)                | m         | R36     |
+| `day`     | `minSun` (the window's floor)      | 0                                         | °         | R13     |
+| `sky`     | `spread`                           | 0.32                                      | —         | R19     |
+| `solids`  | `<kind>.perKm`                     | 5 / 14 / 7 / 12 / 2.5                     | /km       | R17     |
+|           | `erratic.height`                   | 1.2–4 over ground                         | m         | R17     |
+|           | `stack.r` / `.top`                 | 6–15 / 7–22                               | m         | R17     |
+|           | `mark.r` / `.top`                  | 8–14 / 21–32                              | m         | R25     |
+| `land`    | `measured`                         | 116                                       | m         | R2      |
+| `search`  | `attempts` / `courseTries`         | 48 / 40                                   | —         |         |
+|           | `depthSlack` / `marginSlack`       | 0.4 / 1.5                                 | m         |         |
 
 The `search` group is the search's own: how many sub-seeds it tries, and the SLACK it builds in over the rules so that the analysis — which reads the baked, bilinear grid rather than the analytic field the search reads — finds the finished level inside the bands.
 

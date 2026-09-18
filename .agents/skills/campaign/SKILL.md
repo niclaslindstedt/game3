@@ -6,8 +6,8 @@ description: "Use when working on THE CAMPAIGN — the pinned levels and the lad
 # The campaign: the pinned shores, ridden for points
 
 The campaign is the sibling rally game's championship retyped for water:
-three SHORES (the warm mangrove coast, then the cold taiga, then the polar
-arctic), six LEVELS each,
+four SHORES (the warm mangrove coast, then the cold taiga, then the polar
+arctic, then the limestone karst), six LEVELS each,
 every level a SEED on a generator VERSION under a pinned DAY, ridden against
 the race's grid with hull contact off, paying the podium three, two and one
 for the whole field. The next level opens behind a podium (a MEDAL on a

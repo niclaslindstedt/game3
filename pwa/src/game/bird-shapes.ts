@@ -183,6 +183,47 @@ export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
   // Black to the tips, with the glossed mantle a shade lighter than the
   // wing.
   raven: { back: 0x1e2022, belly: 0x141618, tip: 0x0e1012, head: 0x1a1c1e, bill: 0x141618 },
+  // ── The karst coast ───────────────────────────────────────────────────
+  // The herring gull a shade darker on the mantle, white below, black
+  // tips, and the yellow bill and legs that name it.
+  yellowlegged: { back: 0x7e878f, belly: 0xf2f4f5, tip: 0x1b1e22, head: 0xf2f4f5, bill: 0xe0b23a },
+  // A pale, clean grey mantle, black tips, and the dark RED bill — which
+  // is the one thing that tells it from every other gull here.
+  audouin: { back: 0xaab2b8, belly: 0xf6f7f8, tip: 0x1d2024, head: 0xf6f7f8, bill: 0x9a2e2a },
+  // Black with a green gloss, the pale gape, and a yellow gape patch.
+  shag: { back: 0x14201c, belly: 0x1a2622, tip: 0x0e1614, head: 0x14201c, bill: 0xd8c46a },
+  // Grey-brown above, WHITE below to the wingtips — from the water a big
+  // pale cross shearing past — with the yellow bill out front.
+  shearwater: { back: 0x7a7066, belly: 0xf4f5f2, tip: 0x5a5048, head: 0x9a9088, bill: 0xd8c880 },
+  // Dark brown above and white below, the tips dark: a small pale cross
+  // in a fast line, and a dark one when it banks.
+  yelkouan: { back: 0x3a3630, belly: 0xf0f0ec, tip: 0x2a2620, head: 0x3a3630, bill: 0x2a2a2a },
+  // The arctic tern's paint, a shade greyer, with the black-tipped red
+  // bill.
+  commontern: { back: 0x9aa3ab, belly: 0xf4f6f7, tip: 0x2a2d31, head: 0x1c1f22, bill: 0xc9352a },
+  // Pale sooty brown all over with a white throat: a dark scythe against
+  // the sky, and against the cliff.
+  swift: { back: 0x5a524a, belly: 0x6a625a, tip: 0x3e3830, head: 0x5a524a, bill: 0x1a1a1a },
+  // A slim dark falcon: slate above, the underwing dark, the chest a
+  // rusty buff, the dark moustache on a pale cheek.
+  eleonora: { back: 0x3e4048, belly: 0x8a6a58, tip: 0x2a2c32, head: 0x3e4048, bill: 0x6a6a5a },
+  // Pale sandy brown on the body and the forewing, the flight feathers
+  // dark: from below a griffon is a pale plank edged in black, with the
+  // bare pale head out front.
+  griffon: { back: 0x9a8a6e, belly: 0xb8a888, tip: 0x2e2a26, head: 0xd8d0c0, bill: 0x8a8070 },
+  // Grey body, black head, wings and tail: a crow in a grey waistcoat.
+  hoodedcrow: { back: 0x1e2022, belly: 0x9a9c9a, tip: 0x0e1012, head: 0x1a1c1e, bill: 0x1a1c1e },
+  // White with BLACK flight feathers, the red bill and the red legs
+  // trailing: from below a stork in a vee is a white cross with black
+  // hands, and it is the one white bird here with legs.
+  stork: {
+    back: 0xf4f4f0,
+    belly: 0xf6f6f2,
+    tip: 0x1a1a1c,
+    head: 0xf4f4f0,
+    bill: 0xd0402a,
+    legs: 0xd0402a,
+  },
 };
 
 /** How far back the ARM sweeps at the shoulder and the HAND at the wrist

@@ -18,12 +18,14 @@ import type { Heightfield } from "../lib/heightfield.ts";
 import type { Season } from "../lib/solar.ts";
 import type { GeneratorVersion } from "./versions.ts";
 
-/** The BIOMES a shore can belong to. Three are built — the taiga, the coast
- * every rule was written against, the mangrove, the warm one, and the
- * arctic, the ice — and the rest are the names the campaign will need,
- * reserved so an id never changes. A biome is a kind of coast, never a place: nothing in this tree
- * names a country, a sea or a shore that exists. */
-export type BiomeId = "taiga" | "mangrove" | "archipelago" | "fjord" | "atoll" | "delta" | "arctic";
+/** The BIOMES a shore can belong to. Four are built — the taiga, the coast
+ * every rule was written against, the mangrove, the warm one, the arctic,
+ * the ice, and the karst, the limestone one on a blue sea — and the rest
+ * are the names the campaign will need, reserved so an id never changes. A
+ * biome is a kind of coast, never a place: nothing in this tree names a
+ * country, a sea or a shore that exists. */
+export type BiomeId =
+  "taiga" | "mangrove" | "archipelago" | "fjord" | "atoll" | "delta" | "arctic" | "karst";
 
 /** What the ground is made of where a point of shore stands (R16). The
  * BANK is the river's own shore (R26): soil and grass down to the water,
