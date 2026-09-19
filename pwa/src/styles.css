@@ -2786,7 +2786,16 @@ canvas {
    run that is standing still. It opens with a head of its own rather than a
    wordmark — the game's name is not the question here, WHICH RUN IS HELD is —
    and the rows under it are the front door's, so RESUME wears START's weight
-   and the eye lands on the way back to the water. */
+   and the eye lands on the way back to the water.
+
+   IT IS THE TIGHTEST HEIGHT BUDGET IN THE GAME. A phone held SIDEWAYS is 390
+   px tall and this card has to carry a head, a strip of figures and four
+   presses inside it — which is the whole reason the rows below are a LINE
+   apiece with a mark at the head of each, rather than the word-only slabs
+   they were. Measure it (`.menu-card-*`'s `scrollHeight` against its
+   `clientHeight`, both viewports) before adding anything to it: a card a row
+   too tall does not clip, does not wrap and does not show in any screenshot
+   — its last press simply sits below the fold. */
 .menu-card-pause {
   align-items: stretch;
   text-align: center;
@@ -2794,12 +2803,160 @@ canvas {
 }
 
 .menu-pause-head {
-  margin-bottom: 0.3rem;
+  margin-bottom: clamp(0.1rem, 1vmin, 0.3rem);
 }
 
 .menu-pause-head .menu-title {
   font-size: clamp(1.3rem, 5.5vmin, 1.9rem);
   color: var(--hud-good);
+}
+
+/* HOW THE HELD RUN HAS GONE (`pause-stats.ts`): up to four figures in one
+   row, each over its caption — the HUD's own chip, because the rider reading
+   this card was reading those chips a second ago.
+
+   ONE ROW, NEVER TWO. `1fr` columns rather than `auto-fit` with a minimum:
+   a minimum that cannot be met WRAPS, silently, and a strip that wrapped
+   would cost this card a whole second line of height on exactly the viewport
+   that has none to give. Equal columns cannot wrap, so the figures are sized
+   to the cell instead, and the widest of them — a twelve-boat standing, ten
+   minutes on the clock — was MEASURED into a four-cell strip at every
+   reference viewport rather than eyeballed on the three-cell one a lab can
+   ride to. */
+.pause-stats {
+  display: grid;
+  grid-auto-flow: column;
+  grid-auto-columns: 1fr;
+  gap: 0.3rem;
+  /* Every vertical measure on this card is scaled against the SHORT axis,
+     because the viewport that decides it is a phone on its side: 390 px of
+     height, of which the wash keeps some. `vmin` is what turns "roomy on a
+     desktop" into "tight on the one screen that cannot afford roomy"
+     without a second layout to keep in step. */
+  margin: 0.1rem 0 clamp(0.3rem, 1.5vmin, 0.55rem);
+  padding: clamp(0.28rem, 1.2vmin, 0.45rem) 0.2rem;
+  border-top: 2px solid rgb(242 247 248 / 14%);
+  border-bottom: 2px solid rgb(242 247 248 / 14%);
+}
+
+.pause-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.1rem;
+  min-width: 0;
+}
+
+.pause-stat-value {
+  /* FLAT, and deliberately not clamped against a viewport. The card is
+     `min(24rem, 100%)` wide, so a four-cell strip is 81–88 px per cell at
+     every reference viewport — the column barely moves, and a figure sized
+     against the viewport moves anyway: against `vw` it reaches its maximum
+     on a wide SHORT screen whose cells are still a phone's, and the widest
+     figure walks out of its column into its neighbour's. This is the size
+     the widest figure was measured to fit the NARROWEST of those cells at. */
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  line-height: 1.1;
+  color: var(--hud-ink);
+  white-space: nowrap;
+}
+
+.pause-stat-label {
+  font-size: 0.58rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  line-height: 1.1;
+  color: var(--hud-info);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+
+/* THE ROWS, ON THIS CARD ONLY. `.menu-item` is the craft card's RIDE and the
+   developer page's whole column as well, so the mark-and-a-line layout is
+   scoped here rather than pushed onto all of them: the pause card is the one
+   surface where four presses have to share a phone's short side with a head
+   and a strip of figures. */
+.menu-card-pause .menu-item {
+  display: flex;
+  align-items: center;
+  gap: clamp(0.45rem, 1.7vmin, 0.7rem);
+  padding: clamp(0.44rem, 1.6vmin, 0.62rem) clamp(0.6rem, 2.2vmin, 0.85rem);
+  text-align: left;
+  font-size: 0.92rem;
+  /* Looser than body text and tighter than the front door's tiles. The
+     front door's 0.16em is a tile's worth of spacing and this is a row's:
+     at 0.16em the one row that carries a second phrase (WATCH REPLAY and
+     its price) runs out of line and folds in two, which costs the card a
+     row of height on the viewport with none to give. */
+  letter-spacing: 0.1em;
+  text-indent: 0.1em;
+}
+
+.menu-card-pause .menu-items {
+  gap: clamp(0.34rem, 1.4vmin, 0.5rem);
+}
+
+/* Scoped to the ROWS, not to the card: the pause card's own OPTIONS panel
+   wears `.menu-card-pause` too, and its group headings carry marks of their
+   own at the size every settings page draws them. */
+.menu-card-pause .menu-item .menu-glyph {
+  width: 1.25em;
+  height: 1.25em;
+  opacity: 0.9;
+}
+
+/* The name takes the slack, so anything after it (the replay's price) is
+   pushed out to the far end of the same line rather than onto a second one. */
+.menu-card-pause .menu-item-name {
+  flex: 1 1 auto;
+}
+
+/* WATCH REPLAY: the one row here nobody goes looking for, so it carries the
+   card's second accent — the shallows' cyan, never the buoy's orange, which
+   means THE WAY ON and means it once per card. A rule down the leading edge
+   and the mark lit to match: enough to be found at a glance, not enough to
+   compete with the lit press above it. */
+.menu-card-pause .menu-item-watch {
+  border-color: rgb(63 167 184 / 55%);
+  box-shadow: inset 3px 0 0 var(--sea-shallow);
+}
+
+.menu-card-pause .menu-item-watch .menu-glyph {
+  color: var(--sea-shallow);
+  opacity: 1;
+}
+
+.menu-card-pause .menu-item-watch:hover .menu-glyph,
+.menu-card-pause .menu-item-watch:focus-visible .menu-glyph,
+.menu-card-pause .menu-item-watch.nav-cursor .menu-glyph {
+  color: var(--hud-ink);
+}
+
+.menu-card-pause .menu-item-watch:hover,
+.menu-card-pause .menu-item-watch:focus-visible,
+.menu-card-pause .menu-item-watch.nav-cursor {
+  border-color: var(--sea-shallow);
+}
+
+/* The price, out at the end of the row it is a price ON — not under it. The
+   note keeps its footnote weight (`.menu-item-note`) and gives up the block
+   display that would have cost the card a line. */
+.menu-card-pause .menu-item-note {
+  margin-top: 0;
+  flex: 0 0 auto;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+}
+
+/* The way out of the run, held apart from the three above it and given the
+   least of the card's weight — the front door's foot strip, as a row. */
+.menu-card-pause .menu-item-leave {
+  margin-top: clamp(0.15rem, 1vmin, 0.35rem);
+  font-size: 0.82rem;
 }
 
 .menu-brand {

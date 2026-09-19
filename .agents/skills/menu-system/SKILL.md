@@ -37,7 +37,7 @@ beside this one, **`hud-and-menus`** for anything drawn over a RUN, and
 | `splash` | The house's name while the first shore is built, then the title and an invitation | `splash-screen.tsx` over the timing in `splash.ts` |
 | `menu` | The front door, over a bot-ridden sea | `menu-main.tsx` → `menu-start.tsx` → `menu-craft.tsx`, `menu-options.tsx`, `menu-dev.tsx` |
 | `loading` | A run being stood up, paid for in slices | `loading-screen.tsx` over `run-loader.ts` |
-| `pause` | The run HELD, reached from the minimap or Escape: RESUME, OPTIONS, MAIN MENU | `menu-pause.tsx` over the frozen frame and the HUD |
+| `pause` | The run HELD, reached from the minimap or Escape: how the run has gone, then RESUME, OPTIONS, WATCH REPLAY, MAIN MENU | `menu-pause.tsx` over the frozen frame and the HUD |
 | `run` | The player's hands on it, with the HUD over the top | `hud.tsx` (`hud-and-menus`) |
 
 The surfaces and what each one MEANS are `pwa/src/game/shell.ts` — DOM-free,
@@ -60,7 +60,8 @@ the door comes up over the shore the player was just on.
 | Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
 | Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
-| The run held mid-ride: RESUME, OPTIONS, MAIN MENU — and the OPTIONS panel behind the middle one | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
+| The run held mid-ride: RESUME, OPTIONS, WATCH REPLAY, MAIN MENU — and the OPTIONS panel behind the second | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
+| WHICH FIGURES a held run is billed with, and in which order | `pwa/src/game/pause-stats.ts` — DOM-free, read by `tests/menu_system_test.ts` |
 | The app's mark, building | `pwa/src/game/mark-wave.tsx` over `app-mark.ts`'s paths |
 | THE MARKS the cards are read by | `pwa/src/game/menu-glyphs.tsx` — one 24x24 box per idea, stroked in `currentColor`; `make glyphs` is the contact sheet |
 | Every word on every card | `pwa/src/game/strings.ts` (§39.1) — no card carries a literal |

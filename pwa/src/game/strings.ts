@@ -878,6 +878,17 @@ export const STRINGS = {
    * that out afterwards has lost a race to a menu. */
   pauseReplay: "WATCH REPLAY",
   pauseReplayNote: "ends this run",
+  /** THE CAPTIONS ON THE HELD RUN'S OWN FIGURES (`pause-stats.ts`). Only the
+   * three the HUD has no standing readout for are named here; the rest of
+   * the strip wears the HUD's own captions, because the clock, the gates and
+   * the place on this card are the same three readings as the ones in the
+   * corner behind it and a second word for either would read as a second
+   * number. BEST because each is the run's high-water mark rather than what
+   * is happening now — which is the whole reason they are worth a cell on a
+   * card and not a tile over the water. */
+  pauseBestAir: "BEST AIR",
+  pauseBestLength: "LONGEST",
+  pauseBestHeight: "HIGHEST",
 
   /* ── A RUN BEING WATCHED (hud-replay.tsx, replay.ts) ─────────────────── */
   /** The strip over a recording: what it is, what it was ridden in, and how

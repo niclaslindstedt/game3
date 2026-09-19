@@ -38,6 +38,12 @@ export const GLYPH_NAMES = [
   "sliders",
   "terminal",
   "lock",
+  // The three the PAUSE CARD is read by (`menu-pause.tsx`). They are
+  // transport marks and a door rather than pictures of the game, because
+  // that is what the card actually offers: carry on, watch it back, leave.
+  "play",
+  "replay",
+  "exit",
   // The five a SETTINGS GROUP is headed with (`menu-options.tsx`). They are
   // read at the small end and beside a word, so each one is chosen for what
   // it is NOT: a wide box with a spacebar in it is not the prompt's tall box,
@@ -156,6 +162,44 @@ const GLYPHS: Record<GlyphName, JSX.Element> = {
       <rect x="5" y="10.5" width="14" height="10" rx="2" />
       <path d="M8.2 10.5V7.6a3.8 3.8 0 0 1 7.6 0v2.9" />
       <path d="M12 14.6v2.6" />
+    </>
+  ),
+  // A PLAY TRIANGLE: back onto the water, on the very frame the run was left
+  // on. The one mark on the sheet that needs no explaining anywhere in the
+  // world, which is right for the press nine riders in ten opened the card
+  // for.
+  play: <path d="M8.2 4.8 19.6 12 8.2 19.2Z" fill="currentColor" stroke="none" />,
+  // TWO WEDGES BACK AGAINST A BAR: the run so far, watched again from its
+  // start. Transport vocabulary on purpose — it stands two rows under the
+  // play triangle RESUME wears, and the pair reads as "carry on" against "go
+  // back and watch it".
+  //
+  // Not a film strip and not a clapperboard, though both say RECORDING more
+  // precisely: this mark is read at a dozen pixels beside a word, every box
+  // on the sheet is still resolving at that size, and the perforations or the
+  // stripes that would tell either of them from the four boxes already here
+  // are the first thing to go. A solid wedge is itself at any size.
+  //
+  // Nor a circular arrow, which is the other obvious draft: the HUD's own
+  // reset wears one (`hud-actions.tsx`), it is visible BEHIND this card, and
+  // two curling arrows on one screen meaning "watch the run back" and "go
+  // back to the last buoy" is the worst pair of neighbours on the page.
+  replay: (
+    <>
+      <path d="M12.8 6.2v11.6L5.4 12Z" fill="currentColor" stroke="none" />
+      <path d="M20.6 6.2v11.6L13.2 12Z" fill="currentColor" stroke="none" />
+      <path d="M3.2 5.8v12.4" />
+    </>
+  ),
+  // A DOOR WITH THE WAY OUT THROUGH IT: the front door, and the one press on
+  // the pause card that ends the run. TALL AND NARROW where every other box
+  // on the sheet is wide, and open on the side the arrow leaves by — a closed
+  // panel with an arrow beside it reads as a slide going the other way.
+  exit: (
+    <>
+      <path d="M13.2 3.4H5.6a2 2 0 0 0-2 2v13.2a2 2 0 0 0 2 2h7.6" />
+      <path d="M9.8 12h10.6" />
+      <path d="M16.9 8.5 20.4 12l-3.5 3.5" />
     </>
   ),
   // A KEYBOARD: the bindings, and the vibration beside them — the group that

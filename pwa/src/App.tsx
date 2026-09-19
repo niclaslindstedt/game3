@@ -949,8 +949,7 @@ export function App() {
           of question, and one card look beats two. */}
       {shell === "pause" && snap !== null && (
         <PauseMenu
-          seed={snap.seed}
-          craft={snap.craft}
+          snap={snap}
           settings={settings}
           onSettings={setSettings}
           onResume={() => runRef.current.resume()}
