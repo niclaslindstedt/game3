@@ -86,16 +86,19 @@ here, the keys that walk a card are there.
   same decision applied to a picture, so a right-hand turn swings the icon
   clockwise. North is up and east is LEFT — the price of agreeing with the
   chase camera, and not a bug to be tidied.
-- **THE WHOLE TOP-RIGHT CORNER IS SIZED OFF `--hud-map` AND NOTHING ELSE, so
-  a rule there STATES THE NUMBER OF PRESSES IN THE ROW** — `.hud-mini-icon`'s
-  `(map - gap · (n-1)) / n` and `.hud-zone`'s clearance (a map plus one
-  button) are that count written twice, and adding or removing a press means
-  editing both. A press REMOVED is the trap: the button survives with the
-  divisor of the row it used to share, and nothing looks broken — the marks
-  just come out small with a gap of sea under the plate. The shutter left for
-  a key and a menu row and the two that remain stayed at thirds for it. When
-  the two numbers disagree, the ZONE and the comments are the ones to believe:
-  the divisor is what gets left behind.
+- **THE WHOLE TOP-RIGHT CORNER IS SIZED OFF `--hud-map`, AND THE PRESSES' OWN
+  SIZE IS `--hud-press` ON `.hud`** — the diameter and `.hud-zone`'s clearance
+  over the cluster read the one number, so a press added to or taken out of the
+  row is one edit (`--hud-press`'s divisor and its gap count, one less) and the
+  glass below follows. It was written twice before, and the trap was a press
+  REMOVED: the button survived with the divisor of the row it used to share and
+  nothing looked broken — the marks just came out small with a gap of sea under
+  the plate. `.hud-zone`'s sum is the cluster's own terms and must stay
+  complete: the inset, the map, `--hud-cluster-gap` (the gap between the map
+  and the row) and one press. A term left out of it is glass lying over a
+  button, and it is invisible — the zones draw nothing until a thumb is down,
+  so the picture shows the button in clear sky either way. Only
+  `document.elementFromPoint` down each button's CENTRELINE answers it.
 - **A PRESS DRAWN OVER A RUN IS NEVER WIRED ON `onClick` ALONE.** `click` is an
   activation event synthesised from the PRIMARY pointer — the first finger on
   the glass — and on a phone that finger is always the handlebar's or the

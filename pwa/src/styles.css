@@ -60,13 +60,12 @@
      rally game's plate, which is the same instrument at the same reading
      distance. */
   --hud-map: clamp(6.24rem, 20.8vmin, 9.75rem);
-  /* The gap between the two glyph buttons. Their EDGE is half the map less
-     half of this, so the pair comes to the map's own width — but that sum is
-     written where it is used (`.hud-mini-icon`) rather than stored here: a
-     custom property is resolved against the element it is DECLARED on, and
-     `--hud-map` is re-declared on `.hud` by the portrait media query, so a
-     size computed here would keep the landscape map's proportions on a
-     phone held upright. */
+  /* The gap between the two glyph buttons. It is the one term of their size
+     that does NOT vary with the map, which is why it can live up here: their
+     diameter is `--hud-press` on `.hud`, computed against the map that
+     element currently has. A size computed HERE would be resolved against
+     `:root`'s own `--hud-map` and would keep the landscape map's proportions
+     on a phone held upright. */
   --hud-mini-gap: 0.3rem;
 }
 
@@ -262,6 +261,29 @@ canvas {
   --hud-edge: rgb(255 255 255 / calc(65% - 38% * var(--hud-dark)));
   --hud-track: rgb(255 255 255 / calc(70% - 41% * var(--hud-dark)));
 
+  /* THE TWO PRESSES' DIAMETER, and the one statement of it. Two to the map's
+     width would be `(map - gap) / 2`; they are drawn at four fifths of that,
+     because a disc reads as a control at a glance where a rounded plate read
+     as another chip, and it no longer has to be map-sized to be found. The
+     pair therefore comes to less than the map's width, and the row it sits in
+     keeps that width and centres them in it (`.hud-action-stack`) — the
+     cluster stays one column down the right-hand edge rather than a chart
+     with a short row slipped to one end of it.
+
+     It is declared HERE rather than beside `--hud-map` in `:root` because two
+     subtrees need it — the buttons themselves and `.hud-zone`'s clearance over
+     them — and a `var()` inside a custom property is substituted against the
+     element the property is DECLARED on. `:root` would freeze the landscape
+     map's proportions into a phone held upright; `.hud` is the element the
+     portrait query re-declares `--hud-map` on, so both resolve together. */
+  --hud-press: calc(0.8 * (var(--hud-map) - var(--hud-mini-gap)) / 2);
+  /* The gap BETWEEN the cluster's rows — the map and the row of presses under
+     it. Here rather than only on `.hud-topright` because `.hud-zone`'s
+     clearance is that cluster's height, and a term left out of it is a thumb
+     zone lying over a button: at 844×390 the row's foot came out one pixel
+     BELOW the glass before this was counted. */
+  --hud-cluster-gap: 0.5rem;
+
   text-shadow:
     0 1px 0 rgb(var(--hud-plate) / calc(100% - 78% * var(--hud-dark))),
     0 1px 3px rgb(0 0 0 / calc(82% * var(--hud-dark)));
@@ -339,7 +361,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: var(--hud-cluster-gap);
 }
 
 /* THE NOTICE STANDING OVER A CARD (App.tsx): the front door is a layer of
@@ -355,10 +377,22 @@ canvas {
 
 /* THE TWO PRESSES, side by side under the map: two targets a thumb finds
    without leaving the water, hung off the one square in this corner whose
-   size and place the rider already knows (hud-actions.tsx). */
+   size and place the rider already knows (hud-actions.tsx).
+
+   THE ROW IS THE MAP'S WIDTH AND THE DISCS ARE CENTRED IN IT. They come to
+   less than the map now that they are drawn at four fifths of half of it
+   (`--hud-press`), and a pair that size pushed to one end reads as a row that
+   has slipped rather than as the foot of the cluster. Taking the map's width
+   HERE rather than leaning on `.hud-topright`'s own `align-items` is what
+   holds that true: the column is only as wide as its widest child, and the
+   diagnostics under it (`.hud-meters`, the frame cost) have no cap — a long
+   enough line there would widen the column and centre the presses under the
+   line instead of under the chart. */
 .hud-action-stack {
   display: flex;
   align-items: flex-start;
+  justify-content: center;
+  width: var(--hud-map);
   gap: var(--hud-mini-gap);
 }
 
@@ -387,28 +421,157 @@ canvas {
   flex: none;
 }
 
-/* A GLYPH BUTTON is square around its mark rather than padded around a word,
-   and it is sized off the MINIMAP rather than off its own glyph — the map
-   below it is the one thing in this corner whose size the rider already
-   knows, and two presses at half its width come to exactly its edge. */
+/* A GLYPH BUTTON is a DISC around its mark rather than a plate padded round a
+   word, and it is sized off the MINIMAP rather than off its own glyph — the
+   map above it is the one thing in this corner whose size the rider already
+   knows, and two presses at half its width come to exactly its edge.
+
+   IT IS ROUND BECAUSE IT IS THE ONLY THING IN THIS CORNER THAT IS PRESSED.
+   As a rounded square it wore the chips' own chrome, and the chips are read
+   and never touched — so the two controls over the water read as two more
+   readouts that happened to have pictures in them. A disc is the one shape on
+   this screen that can only be a button, and it is the shape of the thing
+   doing the pressing: the corners of a square target are area no thumb ever
+   lands on.
+
+   The flair is what keeps a disc from reading as a flat sticker — a sheen off
+   the top as if the sky were on it, a rim of light along its upper edge, and
+   a shadow it stands off the water on — and every part of it is mixed from
+   the night dressing's own tokens, so the pair dips with the lamp along with
+   everything else in the corner. */
 .hud-mini-icon {
+  /* The halo the missed state hangs off is this element's own `::after`. */
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  /* TWO TO THE MAP'S WIDTH — the row is as wide as the minimap over it and
-     no wider, so the cluster reads as one block down the right-hand edge
-     rather than as a map with a row of buttons sticking out from under it.
-     The divisor is the number of presses in the row and the gap count is one
-     less: a third press would make it three and two, and `.hud-zone`'s
-     clearance (a map plus one button) follows from this line. */
-  width: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
-  height: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
+  /* The diameter, and `.hud-zone`'s clearance over the cluster, are the one
+     number (`--hud-press` on `.hud`) — a press added to or taken out of this
+     row changes it there, and the clearance follows without being re-picked. */
+  width: var(--hud-press);
+  height: var(--hud-press);
   padding: 0;
+  border-radius: 50%;
+  /* THE FACE, curved under one light from above: the plate lifted toward the
+     ink at the crown and left under its own weight at the foot. A flat fill
+     at this size is a hole cut in the frame. */
+  background: radial-gradient(
+    118% 118% at 50% 2%,
+    color-mix(in srgb, rgb(var(--hud-plate) / 84%), var(--hud-ink) 14%),
+    rgb(var(--hud-plate) / 72%) 54%,
+    rgb(var(--hud-plate) / 62%)
+  );
+  /* The rim of light along the top of the moulding, and the shadow the disc
+     stands off the sea on — the same separation the map beside it is given. */
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(28% - 16% * var(--hud-dark))),
+    0 2px 3px rgb(0 0 0 / 45%);
+  transition:
+    transform 110ms ease,
+    box-shadow 110ms ease,
+    border-color 110ms ease;
+}
+
+/* Pressable, said the way the map beside it says it: the disc brightens and
+   its rim goes to full ink. */
+.hud-mini-icon:hover,
+.hud-mini-icon:focus-visible,
+.hud-mini-icon.nav-cursor {
+  outline: none;
+  border-color: var(--hud-ink);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(34% - 18% * var(--hud-dark))),
+    0 2px 3px rgb(0 0 0 / 45%),
+    0 0 10px rgb(255 255 255 / calc(20% - 10% * var(--hud-dark)));
+}
+
+/* ...and pressed, it goes INTO the panel: the crown's rim becomes a shadow
+   cast down the inside of the moulding, which is the whole of what a real
+   button does when a thumb is on it. */
+.hud-mini-icon:active {
+  transform: translateY(1px) scale(0.95);
+  box-shadow:
+    inset 0 2px 5px rgb(0 0 0 / 42%),
+    0 1px 1px rgb(0 0 0 / 40%);
+}
+
+/* THE WAY BACK, LIT. A missed checkpoint is the one moment this press stops
+   being a convenience and becomes the answer — and it is also the moment the
+   rider is least likely to be remembering that the key is R, because he is
+   turned round somewhere he did not mean to be. So the disc goes to the
+   warning colour and beats, on the SAME 900 ms heartbeat the missed gate
+   wears out on the chart (`.hud-minimap-missed-halo`): one machine saying one
+   thing in two corners rather than two corners each having an idea. On
+   `--hud-bad`, which the night dressing deliberately never dims.
+
+   The beat is the RING's, never the disc's own `transform` — an animation
+   there would replace the press's `scale` wholesale, and the button would
+   stop answering the thumb at exactly the moment it is being used. */
+.hud-mini-missed {
+  color: var(--hud-bad);
+  border-color: var(--hud-bad);
+  /* THE FACE STAYS DARK. A disc filled with the warning colour is a red mark
+     on a red ground, and the one thing a rider has to be able to read here is
+     WHICH way the arrow curls — the face keeps its own plate with a cast of
+     the warning in it, just enough that the lamp is plainly lit, and the mark
+     keeps the contrast it was drawn with. The urgency is carried by the rim,
+     the glow and the ring, which have the whole sea to be seen against. */
+  background: radial-gradient(
+    118% 118% at 50% 2%,
+    color-mix(in srgb, rgb(var(--hud-plate) / 88%), var(--hud-bad) 15%),
+    color-mix(in srgb, rgb(var(--hud-plate) / 78%), var(--hud-bad) 8%) 54%,
+    rgb(var(--hud-plate) / 68%)
+  );
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / calc(28% - 16% * var(--hud-dark))),
+    0 2px 3px rgb(0 0 0 / 45%),
+    0 0 12px color-mix(in srgb, var(--hud-bad) 45%, transparent);
+}
+
+/* The ring going out of it, on the button's own `::after` so the mark inside
+   is untouched — and out of the hit test, because it stands over the whole of
+   a target a thumb is reaching for. Reduced motion leaves it standing at full
+   strength: the warning survives even when its movement does not, which is
+   the rule the chart's halo is drawn under too. */
+.hud-mini-missed::after {
+  content: "";
+  position: absolute;
+  /* Off the disc's own diameter, so the ring keeps its proportions whatever
+     size the row is drawn at. */
+  inset: calc(var(--hud-press) * -0.07);
+  border: 2px solid var(--hud-bad);
+  border-radius: 50%;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .hud-mini-missed::after {
+    animation: hud-missed-ring 900ms ease-out infinite;
+  }
+}
+
+/* Out of the rim and away, fading as it goes, so the pair reads as one disc
+   pulsing rather than as a button with a second circle round it. */
+@keyframes hud-missed-ring {
+  0% {
+    opacity: 0.9;
+    transform: scale(0.82);
+  }
+
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.16);
+  }
 }
 
 .hud-glyph {
-  width: 58%;
-  height: 58%;
+  /* A shade smaller than the plate wore it: a mark set to the edges of a
+     SQUARE has the corners to grow into, and inside a circle the same share
+     runs out of face at every diagonal. */
+  width: 54%;
+  height: 54%;
   fill: currentcolor;
   display: block;
   filter: drop-shadow(0 1px 0 var(--hud-shadow));
@@ -1074,12 +1237,16 @@ canvas {
 }
 
 /* THE MOVING INSTRUMENTS, standing side by side on the speed cluster
-   (hud-dial.tsx). The altitude figure rides to the right of its narrow
-   track, so the gap reserves that live space before the wind meter begins. */
+   (hud-dial.tsx). AN ORDINARY GAP: the live space the altitude figure needs
+   to its right is reserved by the column that owns it (`.hud-alt`), which is
+   the only thing on this row that knows how wide that figure gets. A gap
+   picked wide enough to clear it instead carried the wind meter out past the
+   rev bar and the speedo under it, and a corner whose three rows start at one
+   edge and end at three different ones does not read as one panel. */
 .hud-instruments {
   display: flex;
   align-items: flex-start;
-  gap: clamp(3.6rem, 10vmin, 5rem);
+  gap: clamp(0.6rem, 2vmin, 1.1rem);
   margin-bottom: 0.15rem;
 }
 
@@ -1093,9 +1260,26 @@ canvas {
    Everything in it takes the dressing's own tokens, so the instrument dips
    with the lamp along with the rev bar under it. */
 .hud-alt {
+  /* The tape's two sizes, declared on the COLUMN rather than on the parts
+     that wear them, because the column's own width is derived from both. */
+  --hud-tape-width: clamp(0.4rem, 1.3vmin, 0.55rem);
+  --hud-tape-figure: clamp(0.85rem, 2.4vmin, 1.2rem);
+  --hud-tape-figure-gap: 0.45rem;
+
   display: flex;
   flex-direction: column;
   align-items: flex-start;
+  /* THE LIVE SPACE THE FIGURE NEEDS, reserved here rather than by the gap to
+     whatever stands next in the row. The figure is OUT OF FLOW — it rides the
+     marker's height, so the column's content box is the caption's width and
+     says nothing about how far right the number reaches. The reserve is the
+     track, the figure's own gap off it, and the widest reading
+     `STRINGS.altitude` prints in practice ("188.6 m", 4.69 of the figure's
+     own em; a three-figure TROUGH is not a thing the sea does). In `em` of
+     that font rather than in px, so it holds at every step of the clamp. */
+  min-width: calc(
+    var(--hud-tape-width) + var(--hud-tape-figure-gap) + 4.8 * var(--hud-tape-figure)
+  );
   /* Enough that the FIGURE still clears the caption with the marker at the
      very foot of the track: it is centred on the marker's line, so half its
      own height hangs below the tape, and a rider deep in an ocean trough is
@@ -1180,7 +1364,7 @@ canvas {
 
 .hud-tape {
   position: relative;
-  width: clamp(0.4rem, 1.3vmin, 0.55rem);
+  width: var(--hud-tape-width);
   height: clamp(4.5rem, 16vmin, 7.5rem);
   border-radius: 2px;
   background: rgb(var(--hud-plate) / 55%);
@@ -1249,8 +1433,8 @@ canvas {
   left: 100%;
   top: 0;
   transform: translateY(-50%);
-  margin-left: 0.45rem;
-  font-size: clamp(0.85rem, 2.4vmin, 1.2rem);
+  margin-left: var(--hud-tape-figure-gap);
+  font-size: var(--hud-tape-figure);
   font-weight: 700;
   line-height: 1;
   letter-spacing: 0.02em;
@@ -2138,12 +2322,11 @@ canvas {
    So the top is the LOWER of the two: three fifths of the screen is where a
    thumb on a held phone can reach, and it is taken unless the cluster
    reaches further down than that — on a phone on its SIDE it does, because
-   the cluster is a map and a half tall and the screen is 393 px. Stated as
-   the cluster's own arithmetic (the top inset, the map, the gap the presses
-   hang below it on, and half a map for the presses themselves) rather than
-   as a percentage that happens to clear it today: the map is the one number
-   this corner is sized from, and a rule written this way cannot be left
-   behind by a change to it. */
+   the cluster is a map with a row of presses under it and the screen is 393
+   px. Stated as the cluster's own arithmetic — the top inset, the map, the
+   gap the presses hang below it on, and one press: every term a var the
+   cluster itself is built from, so the sum cannot be left behind by a change
+   to any of them. A percentage that happens to clear it today can. */
 .hud-touch {
   position: absolute;
   inset: 0;
@@ -2158,8 +2341,8 @@ canvas {
   top: max(
     40%,
     calc(
-      max(0.6rem, env(safe-area-inset-top)) + var(--hud-map) * 1.5 - var(--hud-mini-gap) / 2 +
-        1.1rem
+      max(0.6rem, env(safe-area-inset-top)) + var(--hud-map) + var(--hud-cluster-gap) +
+        var(--hud-press) + 1.1rem
     )
   );
   bottom: 0;
