@@ -221,20 +221,33 @@ describe("the bot on generated levels", () => {
       // A generated basin may put a bend where a hull at pace runs wide
       // onto it once or twice; a run that keeps resetting is lost.
       //
-      // THREE AND NOT TWO, and the extra one is not slack. A reset count is
-      // CHAOTIC in the seed: the bot decides on every step, so any change
-      // that moves its trajectory at all re-rolls where it runs wide.
-      // Measured over ten generated seeds against nine settings of a knob
-      // that perturbs the bot without making it better or worse (the air
-      // steer cap), the skiff's total resets ran 4, 5, 6, 8, 9, 9, 10, 11
-      // and 4 — no trend, and individual seeds moving 0 ↔ 3 between
-      // neighbouring settings. A bound of 2 therefore has no margin against
-      // any legitimate change, and a case that fails on a re-roll is
-      // testing the draw rather than the bot. What is worth holding is that
-      // the run is a RUN — it finishes, every gate is accounted for, and
-      // the pace is a race's — and those are the three assertions around
-      // this one.
-      expect(report.resets).toBeLessThanOrEqual(3);
+      // SIX, AND THE MARGIN IS THE POINT. A reset count is CHAOTIC in the
+      // seed: the bot decides on every step, so any change that moves its
+      // trajectory at all re-rolls where it runs wide. Measured over ten
+      // generated seeds against nine settings of a knob that perturbs the
+      // bot without making it better or worse (the air steer cap), the
+      // skiff's total resets ran 4, 5, 6, 8, 9, 9, 10, 11 and 4 — no
+      // trend, and individual seeds moving 0 ↔ 3 between neighbouring
+      // settings. It is not even stable across MACHINES: the arithmetic
+      // behind a trajectory is a chain of transcendentals, so seed 3 reads
+      // 3 here and 4 on CI. A case that fails on a re-roll is testing the
+      // draw rather than the bot.
+      //
+      // The distribution moved when the reset started HANDING THE STRETCH
+      // BACK (`course.ts`): a rider put down at the last checkpoint he
+      // PASSED re-rides water he has already come off once, and hard water
+      // can take a second reset off him. Over seeds 1..24 on the skiff the
+      // per-seed count now runs 1 0 3 0 2 0 1 1 3 0 2 2 1 2 0 1 0 1 2 2 1
+      // 0 4 0 — every run finished, mean 1.2, worst 4 — against a worst of
+      // 2 before it. Six is that worst plus the machine and plus the
+      // re-roll, and it is deliberately loose, because the reset count is
+      // now the WEAKEST of this case's four assertions: a reset is the way
+      // back from a miss as much as a sign of one, and every one of them
+      // still costs a standing start, so "a run that keeps resetting is
+      // lost" is really held by the PACE floor below — in the units that
+      // say it. The other three are what is worth holding: the run
+      // finishes, every gate is accounted for, and the pace is a race's.
+      expect(report.resets).toBeLessThanOrEqual(6);
       // Every gate is either taken or paid for — nothing is skipped
       // silently.
       expect(report.gatesPassed + report.gatesMissed).toBe(report.gates);
@@ -242,8 +255,9 @@ describe("the bot on generated levels", () => {
       // that is the WATER rather than the corners: a course-first level
       // (R24) runs in every direction relative to the swell, so a leg into
       // a head sea is ridden at a third of the pace of one across it — the
-      // same hull rides seed 3 (wind 8.5 m/s) at 40 km/h and seed 2 (13.5)
-      // at 25. MEASURED at twenty-two to fifty-one km/h over seeds 1 to 3
+      // same hull rides seed 2 (wind 13.5 m/s) at 53 km/h and seed 3 (8.5)
+      // at 27, where it also spends three resets re-riding what it came
+      // off. MEASURED at twenty-seven to sixty-five km/h over seeds 1 to 3
       // with all four craft, so this refuses a rider who has stopped
       // riding rather than one who is meeting the sea.
       const avgKmh = (report.courseLength / report.time) * 3.6;

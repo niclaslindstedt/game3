@@ -39,8 +39,9 @@ export type CraftInput = {
    * that offers it — a thumb on the glass is already holding the bar and
    * the lever, and has no third hand (`pwa/src/game/input-model.ts`). */
   crouch: number;
-  /** Edge-triggered: put the craft back at the last gate passed, facing
-   * the next one, at rest. */
+  /** Edge-triggered: put the craft back at the last checkpoint it PASSED,
+   * facing the next one, at rest — with the run rewound to that checkpoint,
+   * so everything charged since it is owed again (`course.ts`). */
   reset: boolean;
 };
 
@@ -289,7 +290,9 @@ export type Progress = {
   nextGate: number;
   /** Gate indices passed, in the order they were passed. */
   passed: number[];
-  /** Gate indices skipped past and charged for. */
+  /** Gate indices skipped past and charged for. A reset rewinds the run to
+   * the last gate PASSED, which takes back every entry after it along with
+   * its penalty — the stretch is the rider's to ride again (`course.ts`). */
   missed: number[];
   /** The most recent missed gate the rider has not yet returned to, or null.
    * Informational only: a miss remains forward progress and `nextGate`

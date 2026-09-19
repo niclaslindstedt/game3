@@ -26,7 +26,7 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 | Ramps: a plane the probes ride on, hinged at the water at its rear edge, contact normal from its angle | `engine/game/collision.ts` reading `Gate.ramp` |
 | Level bounds: a soft push back inside `level.bounds` | `engine/game/collision.ts` |
 | Gates: line crossing (water) / ring pass (air), in course order; `missedGate` when the craft crosses the owed gate's plane outside its opening, or reaches a later gate after already passing it — the missed gate then counts as reached with a penalty | `engine/game/course.ts` (`gate`, `airGate`, `missedGate`, `finish`, the splits) |
-| Reset to the last gate passed, facing the next | `engine/game/course.ts` + `step.ts` on the `reset` edge |
+| Reset to the last checkpoint PASSED, facing the next — and the run rewound to it, so everything charged since is owed again | `engine/game/course.ts` (`resetPose`, `resetCraft`) + `run.ts` on the `reset` edge |
 | Every number: restitution, friction, the push-out margin, the bounds' spring, the miss penalty | `engine/game/defs/tuning.ts` → `TUNING.contact`, `TUNING.course` (there is no `TUNING.collision`) |
 | ANOTHER HULL: the oriented shell, the min-translation faces, the sequential-impulse solver, the arcade's dials | `engine/game/hull-contact.ts`, `RACE.bump` in `engine/game/defs/modes.ts` — `rivals.ts` only says which PAIRS are asked |
 | What a solid IS (kind, radius, top height) and where it stands | `engine/mapgen/types.ts` (`Solid`), placed by `compile.ts` under `rules.ts` — the `mapgen-improvement` skill |
@@ -49,7 +49,7 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 | `gate` | The craft's path crossed a water gate's line, facing direction, in order | the gate index, the split |
 | `airGate` | The CoG passed through a ring's disc, in order | the gate index, the split, the height margin |
 | `missedGate` | The craft crossed the owed gate's plane outside its opening, or took a later gate with the owed gate still next | the gate index missed, the penalty |
-| `reset` | The rider asked, and the craft was stood at the last gate passed | the gate index |
+| `reset` | The rider asked; the craft was stood at the last checkpoint passed and the course rewound to it | the gate index |
 | `finish` | The last gate was taken | the total time, the splits |
 
 **Each fires ONCE per occurrence.** A `hit` every step the hull leans on a
@@ -120,6 +120,18 @@ transition into it.
   of that plane. Either advances the run, and the finish gate itself cannot
   be skipped. Nothing sends the craft back — a miss that demands a return is
   a run that ends in circles.
+- **...and the RESET is the rider's own way back from one.** The one thing
+  that rewinds a run is the rider asking for it: `resetCraft` stands him
+  behind the last checkpoint he actually THREADED and takes back every gate
+  charged since — off `missed`, off `penalty`, off the clock — so the
+  stretch is owed again and he can take the checkpoint this time. The pose
+  and the rewind are ONE decision: a reset that moved the craft without
+  moving `nextGate` would stand him behind a checkpoint while the run owed
+  one half a kilometre on, and the idle timer would put him there again
+  every few seconds. It reaches back no further than a checkpoint the run
+  was APPROVED at — a miss he rode on from and then took a later gate after
+  stays paid for — which is what keeps the reset from being a free undo on
+  top of the seconds it costs to ride the stretch twice.
 - **Bounds push, they do not stop.** The level's edge is a spring, not a
   wall: a craft leaving the bounds is pushed back proportionally to how far
   it is out, so a wide line costs speed and a runaway comes back. A hard

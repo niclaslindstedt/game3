@@ -16,8 +16,11 @@
 // still be crossed through its opening: there is no wide crossing of a
 // finish line.
 //
-// `reset` stands the craft a few metres behind the last gate it took (or
-// the start), facing the next one, at rest — the way home from a rock.
+// `reset` stands the craft a few metres behind the last checkpoint it TOOK
+// (or the start), facing the next one, at rest — the way home from a rock,
+// and the way back from a miss: the run is rewound to that same checkpoint,
+// so every gate charged since it is owed again and can be threaded this
+// time round.
 
 import { angleDiff } from "../lib/math.ts";
 import { fromEuler } from "../lib/quat.ts";
@@ -209,15 +212,17 @@ function placeOf(state: GameState): number {
   return ahead + 1;
 }
 
-/** Where a reset stands the craft: behind the last gate it is DONE with —
- * passed or paid for — or at the start, facing the next gate.
+/** Where a reset stands the craft: behind the last checkpoint it actually
+ * TOOK — threaded, not paid for — or at the start, facing the one after it.
  *
- * "Done with" is `nextGate - 1` rather than the last gate in `passed`,
- * because a missed gate is charged and counted as reached without being
- * passed. Reading `passed` sends a rider who went by three gates in a row
- * back to the last one they actually threaded, which on a course with
- * corners can be half a kilometre astern — and then the idle timer resets
- * them there again before they can ride back, for ever. */
+ * The last gate PASSED rather than the last one reached, because the reset
+ * is the way back from a MISS as much as from a rock: a rider who went by
+ * a checkpoint gets to ride the stretch again and take it this time. That
+ * only works because `resetCraft` rewinds the run to the same place, so the
+ * gate he is stood facing is the gate the run owes. The two halves are one
+ * decision and must not come apart — standing a rider behind a checkpoint
+ * he never took while the run owes one half a kilometre on is a reset that
+ * sends him backwards, and then the idle timer sends him there again. */
 export function resetPose(state: GameState): {
   x: number;
   z: number;
@@ -258,17 +263,18 @@ export function resetPose(state: GameState): {
     const s = state.level.start;
     return { x: s.x, z: s.z, heading: s.heading, gate: -1 };
   }
-  const last = p.nextGate - 1;
-  const next = gates[Math.min(p.nextGate, gates.length - 1)];
+  const last = lastPassed(p);
   if (last < 0) {
     const s = state.level.start;
     return { x: s.x, z: s.z, heading: s.heading, gate: -1 };
   }
+  const owed = last + 1;
   const gate = gates[last];
+  const next = gates[Math.min(owed, gates.length - 1)];
   const gatePoint = gatePassPoint(gate);
   const nextPoint = gatePassPoint(next);
   const heading =
-    p.nextGate < gates.length
+    owed < gates.length
       ? Math.atan2(nextPoint.x - gatePoint.x, nextPoint.z - gatePoint.z)
       : gate.heading;
   // Stand a little behind the line, along the gate's own facing, so the
@@ -343,10 +349,52 @@ export function standCraft(state: GameState, x: number, z: number, heading: numb
   c.tricking = false;
 }
 
-/** `reset`: back to the last gate. Emits the event. */
+/** The last checkpoint the run has APPROVED — threaded in its turn — or -1
+ * on a run that has not taken one yet. Gates are only ever taken in order,
+ * so it is the end of `passed`. */
+function lastPassed(p: Progress): number {
+  return p.passed.length > 0 ? p.passed[p.passed.length - 1] : -1;
+}
+
+/** REWIND THE COURSE TO THAT CHECKPOINT. A miss is still forward progress
+ * the moment it happens — nothing sends the rider back — but the reset he
+ * ASKS for gives the stretch back: every gate charged since the last one he
+ * threaded is struck off `missed` and its penalty taken back off the clock,
+ * and the run owes them again in order. That is what makes the reset an
+ * answer to a miss rather than a second punishment for it: the cost of
+ * taking it is the seconds spent riding the stretch a second time from a
+ * standing start, which on any course worth riding is the dearer of the two.
+ *
+ * It reaches back to the last gate PASSED and no further. A miss the rider
+ * rode on from and then took a later checkpoint after is settled: the run
+ * was approved past it, and a reset does not undo an approval. */
+function rewindToLastPassed(state: GameState): void {
+  const p = state.progress;
+  const last = lastPassed(p);
+  let refunded = 0;
+  // `missed` is filled in gate order, so the ones after the last approved
+  // checkpoint are the tail of it.
+  while (p.missed.length > 0 && p.missed[p.missed.length - 1] > last) {
+    p.missed.pop();
+    refunded += 1;
+  }
+  p.penalty -= refunded * K.missedPenalty;
+  p.time -= refunded * K.missedPenalty;
+  p.nextGate = last + 1;
+  // Whatever the miss warning was pointing at, the rider has just been put
+  // back down on the course: either that checkpoint is owed again — and an
+  // owed gate is not a missed one — or he is now standing forward of it.
+  p.activeMissedGate = null;
+}
+
+/** `reset`: back to the last checkpoint taken, with the course owing
+ * everything since. Emits the event. */
 export function resetCraft(state: GameState, events: GameEvent[]): void {
   const pose = resetPose(state);
   standCraft(state, pose.x, pose.z, pose.heading);
+  // The rewind before the clock is read: `lastResetAt` is what the bot's
+  // idle timer counts from, and it counts from the corrected time.
+  if (state.rules.course) rewindToLastPassed(state);
   state.progress.lastResetAt = state.progress.time;
   events.push({ kind: "reset", t: state.t, gate: pose.gate });
 }
