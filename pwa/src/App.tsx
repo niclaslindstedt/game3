@@ -336,7 +336,7 @@ export function App() {
       settingsRef.current.keys,
     );
     inputRef.current = input;
-    const renderer = renderKit.createRenderer(canvas, settingsRef.current.video);
+    const renderer = renderKit.createRenderer(canvas, settingsRef.current.video, params.player);
     renderer.setMissedGuide(settingsRef.current.hud.on && hudOver(shellRef.current));
     rendererRef.current = renderer;
     const audio = createRunAudio();

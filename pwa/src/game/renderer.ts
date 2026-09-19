@@ -167,6 +167,25 @@ export type GameRenderer = {
 export function createRenderer(
   canvas: HTMLCanvasElement,
   initialVideo: VideoSettings = DEFAULT_VIDEO,
+  /** WHETHER THE PLAYER IS IN THE PICTURE AT ALL — his hull and the rider on
+   * it, the lamps it carries and the pool they throw, the trail it lays in
+   * the map, the spray it throws, and both guides drawn for him. False draws
+   * the world with nobody on it.
+   *
+   * It draws less; it does not SIMULATE less. The run is stood up, stepped
+   * and ridden exactly as it would be — the camera is still the chase rig on
+   * his hull, so the frame is still the water a rider would be looking at —
+   * and the sea still carries the wash he is laying in it, because that is
+   * the engine's water and not a mark on a map.
+   *
+   * TAKEN AT THE BUILD AND NEVER AFTERWARDS, because the `?player=0` behind
+   * it is read once off the URL (`url-params.ts`) and no surface can move
+   * it. A setter would have to answer what becomes of the trail already in
+   * the map and the spray already in the air halfway through a run; an
+   * argument cannot be asked the question. It belongs to the coast banners
+   * (`make coasts`), where the subject is the SHORE and a craft in frame is
+   * the wrong thing to be looking at. */
+  playerShown = true,
 ): GameRenderer {
   let video = initialVideo;
   const renderer = new THREE.WebGLRenderer({
@@ -241,6 +260,25 @@ export function createRenderer(
    * built ONCE here and re-added to each world rather than torn down with
    * the shore. */
   const guide: GuideLine = createGuideLine();
+  /** What the HUD's own switch last asked of the two guides. Both are
+   * readouts drawn for a rider who is IN the picture, so each answers to the
+   * AND of that switch and `playerShown` — remembered here rather than read
+   * back off the guides, because the HUD's switch moves at any time and must
+   * not forget what the other half said.
+   *
+   * EACH STARTS AT ITS OWN GUIDE'S DEFAULT — the line shown, the missed
+   * arrow not — so the apply below writes back exactly what the pair already
+   * held and the only thing it can change is the player's own gate. Starting
+   * both at false instead would take the line off for the frames between the
+   * renderer being built and the app's first `setGuide`, which is a window
+   * nobody asked to close. */
+  let guideAsked = true;
+  let missedAsked = false;
+  const applyGuides = (): void => {
+    guide.setShown(guideAsked && playerShown);
+    missedGuide.setShown(missedAsked && playerShown);
+  };
+  applyGuides();
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
   /** THE FIELD, drawn: one hull and one rider per rival, posed off the
@@ -562,8 +600,11 @@ export function createRenderer(
     if (craft) {
       craft.position.set(c.x, c.y, c.z);
       craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
+      // The rider and the lamps are children of the hull, so one flag takes
+      // the whole machine out of the frame.
+      craft.visible = playerShown;
     }
-    rider?.update(state);
+    if (playerShown) rider?.update(state);
     for (const f of field) {
       const rc = f.run.craft;
       f.group.position.set(rc.x, rc.y, rc.z);
@@ -614,7 +655,7 @@ export function createRenderer(
     // …and where the hull's cockpit stands this frame, so the sea is not
     // drawn inside it. Before the water's own update, like everything else
     // it has to be told before it draws.
-    water.setWell(craft ? wellCut : null, c);
+    water.setWell(craft && playerShown ? wellCut : null, c);
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     gates?.update(state, camera);
     edgeNet?.update(state, dt);
@@ -679,7 +720,10 @@ export function createRenderer(
     // and the water reads the headlamp off the very spotlight the hull is
     // lit by.
     if (lamps) {
-      lamps.setLit(p.lamps, 1 - dayLight(p));
+      // A hull nobody can see throws no beam: the pool on the water is the
+      // one piece of the lamps that is not a child of the hull, so a night
+      // coast would otherwise be lit by a craft that is not in the picture.
+      lamps.setLit(playerShown ? p.lamps : 0, 1 - dayLight(p));
       // …and their own hardware is put away when the frame is drawn from a
       // lens bolted to the craft, because every piece of it is in front of
       // that lens rather than in front of the viewer. The beam is not: the
@@ -799,13 +843,24 @@ export function createRenderer(
     load,
     resize,
     setVideo,
-    setGuide: guide.setShown,
-    setMissedGuide: missedGuide.setShown,
+    setGuide: (on) => {
+      guideAsked = on;
+      applyGuides();
+    },
+    setMissedGuide: (on) => {
+      missedAsked = on;
+      applyGuides();
+    },
     setGhost,
     observe: (state) => {
-      wake.observe(state);
-      spray.observe(state);
-      rider?.observe(state);
+      // Nothing is laid for a player who is not in the picture — the trail
+      // and the spray are his, and a wake behind nobody is worse than no
+      // wake. The field and the ghost are unaffected: this is the PLAYER's.
+      if (playerShown) {
+        wake.observe(state);
+        spray.observe(state);
+        rider?.observe(state);
+      }
       for (const f of field) f.rider.observe(f.run);
       // The ghost's body is on springs like everybody else's; its hull is
       // not given the wake or the spray, because a trail cut by a craft

@@ -36,10 +36,22 @@ import { createHudPress, pressHandlers } from "./hud-press.ts";
 import { STRINGS } from "./strings.ts";
 
 /** The reset mark: an arrow curling back on itself, which is what this does
- * to a run. */
+ * to a run.
+ *
+ * THE BOX IS CUT ROUND THE STROKE, not round the line it is stroked on —
+ * which is the one thing this mark and the camera below it do differently,
+ * because this is the only one of the two that is stroked at all. The arc is
+ * drawn at width 11, so its ink stands 5.5 outside the path on every side:
+ * the sweep reaches x 84.03 and y 86.46, where its centreline stops at 78.53
+ * and 80.96. Cut the box to the centreline and the ring is sliced flat down
+ * its right-hand side and across its foot — and an SVG's default
+ * `overflow: hidden` TRIMS rather than shrinks, so the mark does not look
+ * too big, it looks like a different drawing. The arrowhead is filled with
+ * no stroke on it and reaches x = 8, which is why the left edge alone is
+ * flush with the box. */
 function ResetGlyph() {
   return (
-    <svg class="hud-glyph" viewBox="8 22 70.6 59" aria-hidden="true">
+    <svg class="hud-glyph" viewBox="8 19.4 76.1 67.1" aria-hidden="true">
       <path
         d="M 24 44 A 28 28 0 1 1 30 72"
         fill="none"
