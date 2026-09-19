@@ -265,9 +265,10 @@ canvas {
      width would be `(map - gap) / 2`; they are drawn at four fifths of that,
      because a disc reads as a control at a glance where a rounded plate read
      as another chip, and it no longer has to be map-sized to be found. The
-     pair therefore comes to less than the map's width and hangs off its right
-     corner — the thumb's side, and the side that keeps the cluster's outer
-     edge unbroken.
+     pair therefore comes to less than the map's width, and the row it sits in
+     keeps that width and centres them in it (`.hud-action-stack`) — the
+     cluster stays one column down the right-hand edge rather than a chart
+     with a short row slipped to one end of it.
 
      It is declared HERE rather than beside `--hud-map` in `:root` because two
      subtrees need it — the buttons themselves and `.hud-zone`'s clearance over
@@ -376,10 +377,22 @@ canvas {
 
 /* THE TWO PRESSES, side by side under the map: two targets a thumb finds
    without leaving the water, hung off the one square in this corner whose
-   size and place the rider already knows (hud-actions.tsx). */
+   size and place the rider already knows (hud-actions.tsx).
+
+   THE ROW IS THE MAP'S WIDTH AND THE DISCS ARE CENTRED IN IT. They come to
+   less than the map now that they are drawn at four fifths of half of it
+   (`--hud-press`), and a pair that size pushed to one end reads as a row that
+   has slipped rather than as the foot of the cluster. Taking the map's width
+   HERE rather than leaning on `.hud-topright`'s own `align-items` is what
+   holds that true: the column is only as wide as its widest child, and the
+   diagnostics under it (`.hud-meters`, the frame cost) have no cap — a long
+   enough line there would widen the column and centre the presses under the
+   line instead of under the chart. */
 .hud-action-stack {
   display: flex;
   align-items: flex-start;
+  justify-content: center;
+  width: var(--hud-map);
   gap: var(--hud-mini-gap);
 }
 
