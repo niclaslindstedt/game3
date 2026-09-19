@@ -82,6 +82,13 @@
 //                  The coast banners' switch (`make coasts`): a shore row is
 //                  a photograph of a COAST, and one craft on it is both the
 //                  wrong subject and the wrong shore's craft
+//   ?course=0      ...and leave the COURSE off it too: the gate marks, the
+//                  rings, the ramps under them, the rounding buoys, and the
+//                  lamps any of them throw on the water after dark. The
+//                  banners' other half, for the same reason — a course is
+//                  one RIDE laid over a coast, and the row is not offering
+//                  a ride, it is offering the place. A level is still
+//                  generated with its course and still ridden down it
 //
 
 import {
@@ -192,14 +199,18 @@ export type Params = {
   /** Whether the first-visit probe may run — false only when the URL says
    * `probe=0`, which is the labs' word for "hold the picture still". */
   probe: boolean;
-  /** Whether the PLAYER is in the picture — his craft, his rider, and
-   * everything drawn for him or left behind by him. False only when the URL
-   * says `player=0`, which is the banner lab's word for "photograph the
-   * coast, not the ride". It takes nothing off the RUN: the hull is still
-   * there, still ridden, still laying a wash in the water the sea carries —
-   * it is simply not drawn, so the camera still frames the water a rider
-   * would be on. */
-  player: boolean;
+  /** WHAT OF THE RUN IS DRAWN — the banner lab's two switches, grouped
+   * because they are one question asked twice and because the renderer takes
+   * them as one argument (`createRenderer`, which declares the shape it
+   * needs rather than importing this one).
+   *
+   * Neither takes anything off the RUN. The level is generated with its
+   * course, the hull is still on it, still ridden, still laying a wash in
+   * the water the sea carries; what changes is only what reaches the frame,
+   * so the camera still stands where a rider's would. `player=0` and
+   * `course=0` are the banner lab's word for "photograph the coast, not the
+   * ride". */
+  drawn: { player: boolean; course: boolean };
 };
 
 /** A figure off a link, held inside the travel the row that stores it has —
@@ -298,7 +309,7 @@ export function readParams(search: string): Params {
         ? { page: menu }
         : null,
     probe: p.get("probe") !== "0",
-    player: p.get("player") !== "0",
+    drawn: { player: p.get("player") !== "0", course: p.get("course") !== "0" },
   };
 }
 
