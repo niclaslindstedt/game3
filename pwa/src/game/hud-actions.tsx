@@ -18,7 +18,17 @@
 //
 // They live here rather than in hud.tsx because a glyph is geometry and
 // hud.tsx is a layout: the two buttons are the same shape at the same weight,
-// and a rider who has learned one has learned the other.
+// and a rider who has learned one has learned the other. Each mark is drawn
+// on a viewBox cut to its own INK rather than to a round number, so the two
+// sit at the same size in the middle of their discs — a box with slack down
+// one side hangs its mark off-centre, and on a circle that is the one thing
+// the eye catches.
+//
+// THE RESET LIGHTS UP WHEN A CHECKPOINT HAS BEEN MISSED. It is the press that
+// answers that moment, and the moment a rider is least likely to be
+// remembering the key for it, so it stops being one of two identical marks
+// and becomes the only lit thing in the corner (`.hud-mini-missed`, on the
+// same heartbeat the chart puts round the gate itself).
 
 import { useMemo } from "preact/hooks";
 
@@ -29,7 +39,7 @@ import { STRINGS } from "./strings.ts";
  * to a run. */
 function ResetGlyph() {
   return (
-    <svg class="hud-glyph" viewBox="0 0 100 100" aria-hidden="true">
+    <svg class="hud-glyph" viewBox="8 22 70.6 59" aria-hidden="true">
       <path
         d="M 24 44 A 28 28 0 1 1 30 72"
         fill="none"
@@ -46,7 +56,7 @@ function ResetGlyph() {
  * on top. Drawn rather than lettered for the same reason as the arrow. */
 function CameraGlyph() {
   return (
-    <svg class="hud-glyph" viewBox="0 0 24 24" aria-hidden="true">
+    <svg class="hud-glyph" viewBox="2 1.9 20 17.6" aria-hidden="true">
       <circle cx="8" cy="5" r="3.1" />
       <circle cx="15" cy="5" r="3.1" />
       <rect x="2" y="9" width="14" height="10.5" rx="2" />
@@ -66,14 +76,26 @@ function CameraGlyph() {
  * pointer and the browser synthesises no `click` for one: on `onClick` alone
  * neither of these buttons answers a rider who is holding the bar or the
  * lever, which is every rider who needs them. */
-export function HudActions({ onReset, onCamera }: { onReset: () => void; onCamera: () => void }) {
+export function HudActions({
+  onReset,
+  onCamera,
+  missed,
+}: {
+  onReset: () => void;
+  onCamera: () => void;
+  /** A checkpoint is behind the rider and owed (`HudSnapshot.missedDistance`).
+   * The button never learns WHICH one or how far back — that is the flash over
+   * the nose and the halo on the chart. Here it is one bit, and all it buys is
+   * the light. */
+  missed: boolean;
+}) {
   const resetPress = useMemo(createHudPress, []);
   const cameraPress = useMemo(createHudPress, []);
   return (
     <div class="hud-action-stack">
       <button
         type="button"
-        class="hud-mini hud-mini-icon"
+        class={`hud-mini hud-mini-icon ${missed ? "hud-mini-missed" : ""}`}
         title={STRINGS.resetTitle}
         aria-label={STRINGS.resetTitle}
         {...pressHandlers(resetPress, onReset)}
