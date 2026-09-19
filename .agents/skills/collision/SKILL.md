@@ -25,7 +25,7 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 | Grounding: probes vs `level.ground` — normal force + friction, the `ground` event | `engine/game/collision.ts` |
 | Ramps: a plane the probes ride on, hinged at the water at its rear edge, contact normal from its angle | `engine/game/collision.ts` reading `Gate.ramp` |
 | Level bounds: a soft push back inside `level.bounds` | `engine/game/collision.ts` |
-| Gates: line crossing (water) / ring pass (air), in course order; `missedGate` when the craft crosses the owed gate's plane outside its opening, or reaches a later gate after already passing it — the missed gate then counts as reached with a penalty | `engine/game/course.ts` (`gate`, `airGate`, `missedGate`, `finish`, the splits) |
+| Gates: line crossing (water) / ring pass (air), in course order, judged against the whole machine (`craftReach`) and not its centre of gravity; `missedGate` when the craft crosses the owed gate's plane outside its opening, or reaches a later gate after already passing it — the missed gate then counts as reached with a penalty | `engine/game/course.ts` (`gate`, `airGate`, `missedGate`, `finish`, the splits) |
 | Reset to the last checkpoint PASSED, facing the next — and the run rewound to it, so everything charged since is owed again | `engine/game/course.ts` (`resetPose`, `resetCraft`) + `run.ts` on the `reset` edge |
 | Every number: restitution, friction, the push-out margin, the bounds' spring, the miss penalty | `engine/game/defs/tuning.ts` → `TUNING.contact`, `TUNING.course` (there is no `TUNING.collision`) |
 | ANOTHER HULL: the oriented shell, the min-translation faces, the sequential-impulse solver, the arcade's dials | `engine/game/hull-contact.ts`, `RACE.bump` in `engine/game/defs/modes.ts` — `rivals.ts` only says which PAIRS are asked |
@@ -46,8 +46,8 @@ gates STAND, and **`test-scenario`** for staging exact contacts.
 | `launch` | The hull's last wet probe left the water | the speed, the pitch |
 | `land` | A probe re-entered the water after `airborne` | the vertical speed, the pitch at entry |
 | `dive` | A landing buried the bow probes past `TUNING.hull.diveDepth` | the depth, the speed lost |
-| `gate` | The craft's path crossed a water gate's line, facing direction, in order | the gate index, the split |
-| `airGate` | The CoG passed through a ring's disc, in order | the gate index, the split, the height margin |
+| `gate` | Any part of the craft or rider crossed a water gate's opening, facing direction, in order (`craftReach` + `TUNING.course.grace`) | the gate index, the split |
+| `airGate` | Any part of the craft or rider passed through a ring's disc, in order (same allowance) | the gate index, the split, the height margin |
 | `missedGate` | The craft crossed the owed gate's plane outside its opening, or took a later gate with the owed gate still next | the gate index missed, the penalty |
 | `reset` | The rider asked; the craft was stood at the last checkpoint passed and the course rewound to it | the gate index |
 | `finish` | The last gate was taken | the total time, the splits |

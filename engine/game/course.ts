@@ -5,6 +5,17 @@
 // its prescribed side; an AIR gate is a ring whose centre stands `y`
 // metres up, passed by a move through its disc.
 //
+// THE OPENING IS THE ONE THE RIDER CAN SEE, GROWN BY WHATEVER IS HANGING
+// OUT OF THE MACHINE. A checkpoint counts if ANY part of the craft or its
+// rider went through it — not if the centre of gravity did — so the test is
+// the visible opening plus `craftReach`, the support of the whole hull and
+// the man on it along whichever direction the crossing was off centre.
+// Nose-first through a ring that is the half-beam and the helmet; broadside
+// it is half the length. On top of that sits `TUNING.course.grace`, half a
+// metre nobody can see at gate range: inside it the honest answer to "did I
+// touch that?" is "I might have", and a rider is never charged five seconds
+// for a difference they were not shown.
+//
 // A GATE IS REACHED BY GOING THROUGH IT AND BY NOTHING ELSE, AND ONLY IN
 // ITS TURN. Between the buoys, or inside the ring, and only while it is the
 // gate the run OWES: a checkpoint threaded out of order counts for nothing,
@@ -23,13 +34,14 @@
 // time round.
 
 import { angleDiff } from "../lib/math.ts";
-import { fromEuler } from "../lib/quat.ts";
+import { fromEuler, unrotate } from "../lib/quat.ts";
 import type { Gate, Level, Ramp } from "../mapgen/types.ts";
 import { rampsOf } from "./collision.ts";
 import { TRICK_RESET_BACK } from "./defs/modes.ts";
 import { TUNING } from "./defs/tuning.ts";
+import { hullShell } from "./hull-contact.ts";
 import { restY } from "./hull.ts";
-import type { GameEvent, GameState, Progress } from "./state.ts";
+import type { CraftState, GameEvent, GameState, Progress } from "./state.ts";
 import { heightAt } from "./water.ts";
 
 const K = TUNING.course;
@@ -90,8 +102,72 @@ function offCentre(gate: Gate, at: { lateral: number; vertical: number }): numbe
   return gate.kind === "air" ? Math.hypot(at.lateral, at.vertical) : Math.abs(at.lateral);
 }
 
+/** HOW FAR THE CRAFT AND ITS RIDER REACH from the centre of gravity along a
+ * world direction, m: the support function of the whole machine, so "did
+ * ANY part of me go through that?" is one question with one answer at any
+ * attitude. Directional, and deliberately not a sphere — a hull crossing a
+ * ring nose-first reaches the half-beam sideways and the helmet upward,
+ * while the same hull thrown broadside reaches half its length, and a
+ * radius that covered the worst case would hand the common one two metres
+ * of ring it never earned.
+ *
+ * The hull's own outside is `hullShell`'s and is read rather than restated:
+ * the shell is already the oriented solid another hull meets, laid out off
+ * the same tables the buoyancy probes are, so a checkpoint and a rival see
+ * one machine. What this adds is the RIDER, whom that shell stops short of
+ * on purpose (he is no wall to a hull coming alongside, but he is very much
+ * a thing that goes through a ring): one point at the crown of his helmet,
+ * `TUNING.rider.crown` over the mass centre `spec.riderHeight` puts him at,
+ * and higher again by however much of a stand he is on. His shoulders are
+ * inside the beam and his boots inside the deck, so the crown is the only
+ * part of him that reaches past the hull at all. */
+export function craftReach(c: CraftState, ux: number, uy: number, uz: number): number {
+  // In the hull's own frame, where the shell's points are laid out.
+  const u = unrotate(c.q, { x: ux, y: uy, z: uz });
+  const shell = hullShell(c.spec);
+  let reach = 0;
+  for (const p of shell.points) {
+    const d = p.x * u.x + p.y * u.y + p.z * u.z;
+    if (d > reach) reach = d;
+  }
+  const crown = c.spec.riderHeight + c.stand * TUNING.stand.rise + TUNING.rider.crown;
+  return Math.max(reach, crown * u.y);
+}
+
+/** How much wider than it looks the gate is for THIS crossing, m: the
+ * craft and rider's reach along the direction the crossing was off centre,
+ * plus the benefit of the doubt. Zero for a bare point — a caller with no
+ * craft is asking the geometry question, and a point has no reach. */
+function allowance(
+  gate: Gate,
+  at: { lateral: number; vertical: number },
+  off: number,
+  craft: CraftState | null | undefined,
+): number {
+  if (!craft) return 0;
+  // BACK TOWARD THE GATE'S CENTRE, as a world unit vector lying in the
+  // gate's own plane: across the line for a water gate, and in from the
+  // ring's centre — the ring stands vertical, so its plane is spanned by
+  // that same across and world up — for an air one. INWARD rather than
+  // outward, because the part of the craft that is nearest the opening is
+  // the one on the near side of it: a hull passing OVER a ring is judged
+  // by its keel and one passing UNDER it by the rider's helmet, and a
+  // support taken the other way would credit a helmet standing clear
+  // above the hoop with having gone through it.
+  const rx = Math.cos(gate.heading);
+  const rz = -Math.sin(gate.heading);
+  const across = gate.kind === "air" ? -at.lateral / off : -Math.sign(at.lateral);
+  const up = gate.kind === "air" ? -at.vertical / off : 0;
+  return craftReach(craft, across * rx, up, across * rz) + K.grace;
+}
+
 /** Whether a move from p0 to p1 went THROUGH the gate. Returns the offset
- * from the gate's centre at the crossing, or null. */
+ * from the gate's centre at the crossing, or null.
+ *
+ * `craft` is what made the move: hand it over and the opening is judged
+ * against the whole machine rather than against the point, which is what
+ * the run does. Left out, this is the bare geometry — the question a lab,
+ * an analyzer or a test asks about a path. */
 export function crossedGate(
   gate: Gate,
   x0: number,
@@ -100,13 +176,24 @@ export function crossedGate(
   x1: number,
   y1: number,
   z1: number,
+  craft?: CraftState | null,
 ): { lateral: number; vertical: number } | null {
   const at = crossedLine(gate, x0, y0, z0, x1, y1, z1);
-  if (!at || offCentre(gate, at) > gate.width / 2) return null;
+  if (!at) return null;
+  const off = offCentre(gate, at);
+  const half = gate.width / 2;
+  // Dead through the middle needs no allowance, and asking for one there
+  // would divide the air gate's direction by an offset of zero.
+  if (off > half && off > half + allowance(gate, at, off, craft)) return null;
   if (gate.kind !== "slalom") return at;
   // Lateral is positive to rider-right. A buoy the rider KEEPS on the
   // left is therefore crossed to its right, and vice versa. Zero is the
   // can itself: neither side, and a collision in the contact model.
+  //
+  // THE SIDE GETS NO LEEWAY, only the distance does. Which side of a can a
+  // rider went is a decision they made and were shown making, not a
+  // measurement they could be half a metre out on — so the generosity above
+  // buys a wider berth off the mark and never a rounding the wrong way.
   if (!gate.rounding) return null;
   const correctSide = gate.rounding === "left" ? at.lateral > 0 : at.lateral < 0;
   return correctSide ? at : null;
@@ -186,7 +273,7 @@ export function stepCourse(
   // around. A rider who is somehow past the owed gate without ever crossing
   // its plane rides back to it, or takes the reset, which stands them
   // behind it facing the right way.
-  if (crossedGate(gates[n], x0, y0, z0, c.x, c.y, c.z)) {
+  if (crossedGate(gates[n], x0, y0, z0, c.x, c.y, c.z, c)) {
     take(state, n, c.y, events);
     p.nextGate = n + 1;
   } else if (n < gates.length - 1 && crossedLine(gates[n], x0, y0, z0, c.x, c.y, c.z)) {

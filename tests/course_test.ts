@@ -12,13 +12,16 @@ import {
   activeMissedCheckpoint,
   bearingToNext,
   botInput,
+  craftReach,
   createGame,
   crossedGate,
+  fromEuler,
   gatePassPoint,
   placeRun,
   resetPose,
   step,
   type CraftInput,
+  type CraftState,
   type Gate,
   type GameEvent,
   type GameState,
@@ -108,6 +111,66 @@ describe("crossing a gate", () => {
   it("aims at the ideal pass point beside a single buoy", () => {
     expect(gatePassPoint(rightBuoy)).toEqual({ x: 100, z: 58 });
     expect(gatePassPoint({ ...rightBuoy, rounding: "left" })).toEqual({ x: 100, z: 22 });
+  });
+
+  // ANY PART OF THE CRAFT OR THE RIDER COUNTS. Every gate above is judged
+  // as bare geometry — a point through an opening — because that is what a
+  // caller with no craft is asking. A RUN hands the craft over, and then
+  // the opening is the visible one grown by whatever of the machine is
+  // hanging out there plus `TUNING.course.grace`. Both gates face east
+  // (heading π/2), so lateral runs along −z and the rider's own axis is up.
+  describe("with the craft handed over", () => {
+    /** The marlin, stood at a heading so the tests can say which way it is
+     * pointing when it crosses. */
+    function riding(heading: number): CraftState {
+      const state = createGame({ seed: 1, craft: "marlin", level: LEVEL, quiet: true });
+      state.craft.q = fromEuler(heading, 0, 0);
+      return state.craft;
+    }
+    const EAST = Math.PI / 2;
+
+    it("reaches the rider's helmet upward and the keel down, and further on a stand", () => {
+      const c = riding(EAST);
+      const crown = c.spec.riderHeight + TUNING.rider.crown;
+      expect(craftReach(c, 0, 1, 0)).toBeCloseTo(crown, 6);
+      expect(craftReach(c, 0, -1, 0)).toBeLessThan(0.6);
+      c.stand = 1;
+      expect(craftReach(c, 0, 1, 0)).toBeCloseTo(crown + TUNING.stand.rise, 6);
+    });
+
+    it("counts a water gate the hull's flank went through", () => {
+      const c = riding(EAST);
+      // Half a beam and a little past the buoy: the centre of gravity is
+      // outside the opening, the rail that side is not.
+      const grazed = 40 - (8 + c.spec.beam / 2);
+      expect(crossedGate(water, 99, 0, grazed, 101, 0, grazed)).toBeNull();
+      expect(crossedGate(water, 99, 0, grazed, 101, 0, grazed, c)).not.toBeNull();
+      // ...and the leeway is a leeway, not a second gate: two metres wide
+      // of the buoy is still a miss.
+      expect(crossedGate(water, 99, 0, 30, 101, 0, 30, c)).toBeNull();
+    });
+
+    it("counts a ring the rider's helmet went up through, but not one the hull flew over", () => {
+      const c = riding(EAST);
+      // 4.2 m below the ring's centre — 1.2 m below the hoop — is a helmet
+      // inside it. The same 4.2 m ABOVE is a keel 1.2 m clear of it.
+      expect(crossedGate(air, 99, 4 - 4.2, 40, 101, 4 - 4.2, 40, c)).not.toBeNull();
+      expect(crossedGate(air, 99, 4 + 4.2, 40, 101, 4 + 4.2, 40, c)).toBeNull();
+    });
+
+    it("gives a hull thrown broadside the length it is actually blocking", () => {
+      const off = 40 - 4.5;
+      expect(crossedGate(air, 99, 4, off, 101, 4, off, riding(EAST))).toBeNull();
+      expect(crossedGate(air, 99, 4, off, 101, 4, off, riding(0))).not.toBeNull();
+    });
+
+    it("widens the berth off a single buoy without forgiving the wrong side", () => {
+      const c = riding(EAST);
+      const wide = 40 + 42.5;
+      expect(crossedGate(rightBuoy, 99, 0, wide, 101, 0, wide)).toBeNull();
+      expect(crossedGate(rightBuoy, 99, 0, wide, 101, 0, wide, c)).not.toBeNull();
+      expect(crossedGate(rightBuoy, 99, 0, 22, 101, 0, 22, c)).toBeNull();
+    });
   });
 });
 
