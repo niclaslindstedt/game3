@@ -500,7 +500,7 @@ export function botInput(state: GameState, asked: BotProfile = RIDER_BOT): Craft
   }
 
   // Stuck — on the ground with no way on, or wedged against a rock it
-  // has just hit and cannot get off: go back to the last gate.
+  // has just hit and cannot get off: go back to the last checkpoint taken.
   const wedged = c.hitCooldown > 0 && c.speed < 0.8 && !c.airborne;
   // ...or, whatever it is doing, no gate for `giveUpAfter` seconds: a
   // rider that lost does not ride on into the next county. A capsize is

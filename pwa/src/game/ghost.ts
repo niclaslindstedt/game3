@@ -59,7 +59,7 @@ const LEVER_STEPS = 255;
  * and a ghost replaying every jump at the wrong moment is worse than none.
  * A tape whose format this build does not know is dropped and rewritten by
  * the next run on that water. */
-export const GHOST_FORMAT = 1;
+export const GHOST_FORMAT = 2;
 
 /** THE BIGGEST TAPE WORTH KEEPING, characters of JSON. A six-minute tricks
  * run is 43 200 steps and a thumb that never settles costs two bytes a step

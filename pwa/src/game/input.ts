@@ -16,7 +16,7 @@
 //   W            throttle             S / Space  brake and reverse
 //   A / ←  D / → steer                ↓          lean back
 //   Q / ↑        lean forward         Shift      TUCK (hold)
-//   R            back to the last gate (edge)    B  restart the run
+//   R            back to the checkpoint (edge)   B  restart the run
 //   Enter        take a screenshot    C          next camera
 //   H            the readouts off, and back
 //

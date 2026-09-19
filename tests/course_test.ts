@@ -3,7 +3,7 @@
 // way and ONLY in their turn, a gate crossed outside its opening is charged
 // and the run moves on, the splits are the clock at each gate, the last
 // gate finishes the run, and a reset stands the craft back behind the last
-// gate it took.
+// checkpoint it took — giving back every checkpoint charged since.
 import { describe, expect, it } from "vitest";
 
 import {
@@ -309,6 +309,76 @@ describe("reset", () => {
     const events = ride(state, 4, () => FULL);
     expect(events.filter((e) => e.kind === "gate").length).toBe(0);
     expect(state.craft.x).toBeGreaterThan(g.x);
+  });
+
+  it("gives a missed checkpoint back, to be taken this time", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g = LEVEL.course.gates[0];
+    placeRun(state, { x: g.x - 40, z: g.z + 5 * g.width, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.progress.missed).toEqual([0]);
+    expect(state.progress.nextGate).toBe(1);
+    const charged = state.progress.time;
+
+    step(state, { ...NEUTRAL_INPUT, reset: true });
+    const p = state.progress;
+    // Nothing was ever approved, so the reset reaches back to the line —
+    // and the checkpoint is owed again, with its penalty off the clock.
+    expect(p.missed).toEqual([]);
+    expect(p.penalty).toBe(0);
+    expect(p.nextGate).toBe(0);
+    expect(p.activeMissedGate).toBeNull();
+    expect(p.time).toBeCloseTo(charged - TUNING.course.missedPenalty, 1);
+    expect(state.craft.x).toBeCloseTo(LEVEL.start.x, 6);
+
+    // ...and this time it is threaded rather than paid for — and the run
+    // carries on down the course from it with nothing owing.
+    const events = ride(state, 25, () => FULL);
+    expect(p.passed[0]).toBe(0);
+    expect(p.missed).toEqual([]);
+    expect(events.filter((e) => e.kind === "missedGate")).toHaveLength(0);
+  });
+
+  it("reaches back to the last checkpoint taken and no further", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g0 = LEVEL.course.gates[0];
+    const g1 = LEVEL.course.gates[1];
+    placeRun(state, { x: g0.x - 40, z: g0.z, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.progress.passed).toEqual([0]);
+    placeRun(state, { x: g1.x - 40, z: g1.z + 5 * g1.width, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.progress.missed).toEqual([1]);
+    expect(state.progress.nextGate).toBe(2);
+
+    step(state, { ...NEUTRAL_INPUT, reset: true });
+    const p = state.progress;
+    expect(p.passed).toEqual([0]);
+    expect(p.missed).toEqual([]);
+    expect(p.penalty).toBe(0);
+    expect(p.nextGate).toBe(1);
+    expect(state.craft.x).toBeCloseTo(g0.x - TUNING.course.resetBack, 6);
+  });
+
+  it("does not give back a checkpoint the run was approved past", () => {
+    const state = createGame({ seed: 1, craft: "skiff", level: LEVEL, quiet: true });
+    const g0 = LEVEL.course.gates[0];
+    const g1 = LEVEL.course.gates[1];
+    // Gate 0 gone by wide, gate 1 threaded after it: the run was approved
+    // at 1, so the reset stands the rider there and 0 stays paid for.
+    placeRun(state, { x: g0.x - 40, z: g0.z + 5 * g0.width, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    placeRun(state, { x: g1.x - 40, z: g1.z, heading: Math.PI / 2, speed: 15 });
+    ride(state, 4, () => FULL);
+    expect(state.progress.passed).toEqual([1]);
+    expect(state.progress.missed).toEqual([0]);
+
+    step(state, { ...NEUTRAL_INPUT, reset: true });
+    const p = state.progress;
+    expect(p.missed).toEqual([0]);
+    expect(p.penalty).toBe(TUNING.course.missedPenalty);
+    expect(p.nextGate).toBe(2);
+    expect(state.craft.x).toBeCloseTo(g1.x - TUNING.course.resetBack, 6);
   });
 
   it("does nothing once the run is finished", () => {

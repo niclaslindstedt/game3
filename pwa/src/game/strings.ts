@@ -296,7 +296,7 @@ export const STRINGS = {
    * out of the way of the water — so these are what a hover, a screen reader
    * and the keyboard hint get. The shutter is not among them: it is ENTER, a
    * menu row, and on a phone the hardware's own. */
-  resetTitle: "Back to the last gate (R)",
+  resetTitle: "Back to the last checkpoint you took (R)",
   cameraTitle: "Next camera (C)",
   /** The build corner: which stage and which craft this frame is of. */
   stage: (seed: number): string => `SEED ${seed}`,
@@ -696,7 +696,7 @@ export const STRINGS = {
   keyLeanBack: "LEAN BACK",
   keyLeanForward: "LEAN FORWARD",
   keyTuck: "TUCK",
-  keyReset: "BACK TO THE GATE",
+  keyReset: "BACK TO CHECKPOINT",
   keyRestart: "RESTART THE RUN",
   keyCamera: "CAMERA",
   keyHud: "HUD ON / OFF",
