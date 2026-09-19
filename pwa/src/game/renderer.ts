@@ -127,20 +127,6 @@ export type GameRenderer = {
   /** Whether the camera-space guide back to a missed checkpoint is drawn.
    * The app gates it with the HUD and the run/pause surfaces. */
   setMissedGuide: (on: boolean) => void;
-  /** WHETHER THE PLAYER IS IN THE PICTURE AT ALL — his hull and the rider on
-   * it, the lamps it carries and the pool they throw, the trail it lays in
-   * the map, the spray it throws, and both guides drawn for him. Off, the
-   * frame is the world and nobody on it.
-   *
-   * It draws less; it does not SIMULATE less. The run is stood up, stepped
-   * and ridden exactly as it would be — the camera is still the chase rig on
-   * his hull, so the frame is still the water a rider would be looking at —
-   * and the sea still carries the wash he is laying in it, because that is
-   * the engine's water and not a mark on a map. The `?player=0` switch
-   * behind it belongs to the coast banners (`make coasts`), where the
-   * subject is the SHORE and a craft in frame is the wrong thing to be
-   * looking at. Nothing in the game turns it. */
-  setPlayerShown: (shown: boolean) => void;
   /** THE GHOST, on the water beside the rider (`ghost-run.ts`): its own run
    * over the same shore, posed off its own state every frame and drawn
    * see-through so nothing about it can be mistaken for a rival. Null takes
@@ -181,6 +167,25 @@ export type GameRenderer = {
 export function createRenderer(
   canvas: HTMLCanvasElement,
   initialVideo: VideoSettings = DEFAULT_VIDEO,
+  /** WHETHER THE PLAYER IS IN THE PICTURE AT ALL — his hull and the rider on
+   * it, the lamps it carries and the pool they throw, the trail it lays in
+   * the map, the spray it throws, and both guides drawn for him. False draws
+   * the world with nobody on it.
+   *
+   * It draws less; it does not SIMULATE less. The run is stood up, stepped
+   * and ridden exactly as it would be — the camera is still the chase rig on
+   * his hull, so the frame is still the water a rider would be looking at —
+   * and the sea still carries the wash he is laying in it, because that is
+   * the engine's water and not a mark on a map.
+   *
+   * TAKEN AT THE BUILD AND NEVER AFTERWARDS, because the `?player=0` behind
+   * it is read once off the URL (`url-params.ts`) and no surface can move
+   * it. A setter would have to answer what becomes of the trail already in
+   * the map and the spray already in the air halfway through a run; an
+   * argument cannot be asked the question. It belongs to the coast banners
+   * (`make coasts`), where the subject is the SHORE and a craft in frame is
+   * the wrong thing to be looking at. */
+  playerShown = true,
 ): GameRenderer {
   let video = initialVideo;
   const renderer = new THREE.WebGLRenderer({
@@ -255,19 +260,25 @@ export function createRenderer(
    * built ONCE here and re-added to each world rather than torn down with
    * the shore. */
   const guide: GuideLine = createGuideLine();
-  /** WHETHER THE PLAYER IS DRAWN (`setPlayerShown`), and what the HUD's own
-   * switch last asked of the two guides. Both guides are readouts drawn for
-   * a rider who is in the picture, so they answer to the AND of the two —
-   * kept as a pair of flags rather than read back off the guides, because
-   * either switch can move at any time and neither may forget what the other
-   * said. */
-  let playerShown = true;
-  let guideAsked = false;
+  /** What the HUD's own switch last asked of the two guides. Both are
+   * readouts drawn for a rider who is IN the picture, so each answers to the
+   * AND of that switch and `playerShown` — remembered here rather than read
+   * back off the guides, because the HUD's switch moves at any time and must
+   * not forget what the other half said.
+   *
+   * EACH STARTS AT ITS OWN GUIDE'S DEFAULT — the line shown, the missed
+   * arrow not — so the apply below writes back exactly what the pair already
+   * held and the only thing it can change is the player's own gate. Starting
+   * both at false instead would take the line off for the frames between the
+   * renderer being built and the app's first `setGuide`, which is a window
+   * nobody asked to close. */
+  let guideAsked = true;
   let missedAsked = false;
   const applyGuides = (): void => {
     guide.setShown(guideAsked && playerShown);
     missedGuide.setShown(missedAsked && playerShown);
   };
+  applyGuides();
   let craft: THREE.Group | null = null;
   let rider: Rider | null = null;
   /** THE FIELD, drawn: one hull and one rider per rival, posed off the
@@ -840,24 +851,11 @@ export function createRenderer(
       missedAsked = on;
       applyGuides();
     },
-    setPlayerShown: (shown) => {
-      if (shown === playerShown) return;
-      playerShown = shown;
-      applyGuides();
-      if (craft) craft.visible = shown;
-      // The trail and the spray are not hidden, they are UNMADE: the map
-      // carries what was stamped into it and the particles are already in
-      // the air, so taking the player out of the picture has to clear both
-      // or the frame keeps a wake behind nothing.
-      if (!shown) {
-        wake.reset();
-        spray.reset();
-      }
-    },
     setGhost,
     observe: (state) => {
-      // …and nothing new is laid while he is out of the picture. The field
-      // and the ghost are unaffected: this switch is the PLAYER's.
+      // Nothing is laid for a player who is not in the picture — the trail
+      // and the spray are his, and a wake behind nobody is worse than no
+      // wake. The field and the ghost are unaffected: this is the PLAYER's.
       if (playerShown) {
         wake.observe(state);
         spray.observe(state);

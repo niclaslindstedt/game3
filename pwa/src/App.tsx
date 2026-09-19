@@ -336,13 +336,8 @@ export function App() {
       settingsRef.current.keys,
     );
     inputRef.current = input;
-    const renderer = renderKit.createRenderer(canvas, settingsRef.current.video);
+    const renderer = renderKit.createRenderer(canvas, settingsRef.current.video, params.player);
     renderer.setMissedGuide(settingsRef.current.hud.on && hudOver(shellRef.current));
-    // …and whether the player is in the picture at all (`?player=0`) — the
-    // coast banners' switch, and the only one of these that no surface can
-    // move afterwards: it is read once off the URL, because a card that
-    // could put the craft back would be a card the banner lab has to avoid.
-    renderer.setPlayerShown(params.player);
     rendererRef.current = renderer;
     const audio = createRunAudio();
     const clock = createRunClock(TUNING.physicsHz);
