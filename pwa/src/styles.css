@@ -5783,10 +5783,10 @@ button.knob-read:focus-visible {
 }
 
 /* ── THE CAMPAIGN CARD (menu-campaign.tsx) ────────────────────────────────
-   Two shore banners across the top, six level boxes in a grid under the one
+   Two shore banners across the top, eight level boxes in a grid under the one
    being looked at, and the shore's table under those. The BOX'S BORDER
    carries its state — lit and open, grey and shut, ringed where the campaign
-   would pick next — because at a glance across six boxes the frame is what
+   would pick next — because at a glance across eight boxes the frame is what
    the eye counts; what is inside is only what is specific to the level. */
 .menu-card-campaign,
 .menu-card-levels {
@@ -6057,8 +6057,8 @@ button.knob-read:focus-visible {
 }
 
 /* THE LEVEL'S OWN WATER, drawn behind what the box says about it — the whole
-   racing line, so six boxes read as six different rides before a word on any
-   of them has been read (`menu-shores.tsx`'s `CourseMap`).
+   racing line, so a shore's eight boxes read as eight different rides before
+   a word on any of them has been read (`menu-shores.tsx`'s `CourseMap`).
 
    It hangs to the RIGHT and is allowed to run off that edge. Centred, the
    line sits squarely under the level's name and fights it; pushed out, the

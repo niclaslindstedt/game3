@@ -26,11 +26,12 @@ import { ROUTE_STROKE, coastShot, routeShape } from "./shore-preview.ts";
 import { STRINGS } from "./strings.ts";
 
 /** THE LEVEL'S OWN WATER, as the shape it is — the whole racing line in the
- * corner of its own box, so six boxes read as six different rides before a
+ * corner of its own box, so a shore's eight boxes read as eight different
+ * rides before a
  * word on any of them has been read.
  *
  * It sits BEHIND the text rather than beside it. A level box is already as
- * short as its contents allow (a phone fits six of them only just), so a
+ * short as its contents allow (a phone fits four rows of two only just), so a
  * picture given a column of its own would cost the grid the layout it was
  * cut down to get. Behind, at low contrast, it costs nothing and the name
  * still reads over it.
@@ -64,7 +65,7 @@ export function CourseMap({ levelId }: { levelId: string }) {
 
 /** THE COAST behind a shore row — a real render taken by the game at a
  * staged moment on the shore's first level (`make coasts`), not a layout of
- * any one of them: a shore is six rides, and a picture of one of them would
+ * any one of them: a shore is eight rides, and a picture of one of them would
  * be advertising the wrong water.
  *
  * It fills the row and the text sits on it, which is the only layout that

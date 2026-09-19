@@ -241,7 +241,7 @@ materials present in the biome's stated shares).
   `compile.ts` under a rule in `rules.ts`, its shape in `rocks.ts`, and its
   contact in `collision.ts` (the `collision` skill).
 - **A new biome**: load the **`add-biome`** skill — it is the whole list in
-  order, the campaign's six levels included, and this bullet is only the
+  order, the campaign's levels on it included, and this bullet is only the
   nature half of it. A row in `engine/mapgen/biomes.ts` (the taiga's row stays
   neutral so no taiga seed re-rolls — `mapgen-improvement`'s invariant), and
   the app-side halves it cannot import: its water in `water-optics.ts`, its

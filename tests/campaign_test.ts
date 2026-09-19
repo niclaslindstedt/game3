@@ -17,7 +17,9 @@
 //     shore after this one is the whole table away.
 //   * A SAVE FROM ANOTHER BUILD. A blob naming a level the ladder no longer
 //     has, or a hull the roster no longer carries, must not poison the
-//     board.
+//     board — and a board played on a ladder of a different SHAPE has to be
+//     moved onto this one rather than read rung for rung, because the ids
+//     are the rung numbers and re-cutting a shore renames what was ridden.
 //   * A BOARD WITH A HOLE IN IT. The developer page sets the ladder outright
 //     (`unlockShores` / `lockShores`), and a prefix that is not a prefix is a
 //     state the campaign itself would never deal — a shore standing open
@@ -42,6 +44,7 @@ import {
 import {
   CAMPAIGN_LEVELS,
   EMPTY_PROGRESS,
+  LADDER_VERSION,
   MEDALS,
   PLAYER_ID,
   PODIUM,
@@ -77,6 +80,11 @@ import { GAME_MODES } from "@engine";
 
 const [MANGROVE, TAIGA, ARCTIC, KARST] = SHORES;
 
+/** How many rungs a shore runs. Named rather than written out, because
+ * every count below is the same fact and a ladder that grows again should
+ * move one number. */
+const RUNGS = 8;
+
 /** The field as it stood at a finish: the player at `place`, the rivals in
  * slot order around him. */
 function order(place: number, field = RACE.rivals + 1): (number | null)[] {
@@ -106,22 +114,37 @@ function rideShore(
 }
 
 describe("the ladder as committed", () => {
-  it("is four shores of six, the warm one first, four races and two tricks runs each", () => {
+  it("is four shores of eight, the warm one first, one race one tricks run all the way up", () => {
     expect(SHORES.map((s) => s.id)).toEqual(["mangrove", "taiga", "arctic", "karst"]);
     for (const shore of SHORES) {
-      expect(shore.levels.length).toBe(6);
-      expect(shore.levels.filter((l) => l.mode === "race").length).toBe(4);
-      expect(shore.levels.filter((l) => l.mode === "tricks").length).toBe(2);
-      expect(shore.levels.map((l) => l.mode)).toEqual([
-        "race",
-        "tricks",
-        "race",
-        "race",
-        "tricks",
-        "race",
+      expect(shore.levels.length).toBe(RUNGS);
+      expect(shore.levels.filter((l) => l.mode === "race").length).toBe(RUNGS / 2);
+      expect(shore.levels.filter((l) => l.mode === "tricks").length).toBe(RUNGS / 2);
+      // THE ALTERNATION IS THE LADDER'S SHAPE and not a coincidence of
+      // curation: a shore never asks the same game twice running, the race
+      // leads, and the finale is a tricks run.
+      expect(shore.levels.map((l) => l.mode)).toEqual(
+        Array.from({ length: RUNGS }, (_l, i) => (i % 2 === 0 ? "race" : "tricks")),
+      );
+      // The ids ARE the rung numbers — a board is keyed by them, and
+      // `mergeProgress` moves an older ladder's rows on that arithmetic.
+      expect(shore.levels.map((l) => l.id)).toEqual(
+        Array.from({ length: RUNGS }, (_l, i) => `${shore.id}-${i + 1}`),
+      );
+      // One lapped circuit a shore, and it is the third rung's race (R29).
+      expect(shore.levels.filter((l) => l.track === "circuit").map((l) => l.id)).toEqual([
+        `${shore.id}-3`,
       ]);
+      // The tricks runs lengthen as they climb, and the finale is the only
+      // six-minute rung in the game.
+      expect(shore.levels.filter((l) => l.mode === "tricks").map((l) => l.minutes)).toEqual([
+        2, 3, 4, 6,
+      ]);
+      // No shore rides the same water twice.
+      const shores = shore.levels.map((l) => `${l.seed}/${l.mode}`);
+      expect(new Set(shores).size).toBe(RUNGS);
     }
-    expect(CAMPAIGN_LEVELS.length).toBe(SHORES.length * 6);
+    expect(CAMPAIGN_LEVELS.length).toBe(SHORES.length * RUNGS);
     expect(new Set(CAMPAIGN_LEVELS.map((l) => l.id)).size).toBe(CAMPAIGN_LEVELS.length);
     expect(new Set(CAMPAIGN_LEVELS.map((l) => l.name)).size).toBe(CAMPAIGN_LEVELS.length);
   });
@@ -330,7 +353,7 @@ describe("how far the campaign has got, as the front door bills it", () => {
 describe("the locks", () => {
   it("opens the first level of the first shore and holds every other shut", () => {
     expect(levelUnlocked(MANGROVE, 0, EMPTY_PROGRESS)).toBe(true);
-    for (let i = 1; i < 6; i++) expect(levelUnlocked(MANGROVE, i, EMPTY_PROGRESS)).toBe(false);
+    for (let i = 1; i < RUNGS; i++) expect(levelUnlocked(MANGROVE, i, EMPTY_PROGRESS)).toBe(false);
     expect(shoreUnlocked(MANGROVE, EMPTY_PROGRESS)).toBe(true);
     for (const shut of SHORES.slice(1)) {
       expect(shoreUnlocked(shut, EMPTY_PROGRESS), shut.id).toBe(false);
@@ -362,9 +385,9 @@ describe("the locks", () => {
 
   it("is won by every level ridden and the table topped, and lost by a run of thirds", () => {
     const thirds = rideShore(EMPTY_PROGRESS, MANGROVE, 3);
-    expect(levelsRidden(MANGROVE, thirds)).toBe(6);
+    expect(levelsRidden(MANGROVE, thirds)).toBe(RUNGS);
     // Every level cleared, so the ladder inside the shore is open to the end.
-    for (let i = 0; i < 6; i++) expect(levelUnlocked(MANGROVE, i, thirds)).toBe(true);
+    for (let i = 0; i < RUNGS; i++) expect(levelUnlocked(MANGROVE, i, thirds)).toBe(true);
     // ...but a rival has won every level, and the shore is his.
     expect(playerStanding(MANGROVE, thirds).place).toBeGreaterThan(1);
     expect(shoreWon(MANGROVE, thirds)).toBe(false);
@@ -389,7 +412,7 @@ describe("the locks", () => {
     // The cold shore ridden and lost leaves it shut; won, it opens — and
     // only its first rung.
     const thirds = rideShore(warm, TAIGA, 3);
-    expect(levelsRidden(TAIGA, thirds)).toBe(6);
+    expect(levelsRidden(TAIGA, thirds)).toBe(RUNGS);
     expect(shoreUnlocked(ARCTIC, thirds)).toBe(false);
     const cold = rideShore(thirds, TAIGA, 1);
     expect(shoreWon(TAIGA, cold)).toBe(true);
@@ -401,7 +424,7 @@ describe("the locks", () => {
 
   it("is not won while a level has never been ridden, however the rest went", () => {
     let progress = EMPTY_PROGRESS;
-    for (const level of MANGROVE.levels.slice(0, 5)) {
+    for (const level of MANGROVE.levels.slice(0, -1)) {
       progress = recordRun(progress, level, { value: 10_000, craft: "skiff", order: order(1) });
     }
     expect(playerStanding(MANGROVE, progress).place).toBe(1);
@@ -413,10 +436,10 @@ describe("the locks", () => {
     const table = shoreStandings(MANGROVE, progress);
     expect(table.length).toBe(RACE.rivals + 1);
     expect(table[0].id).toBe(riderKey(0));
-    expect(table[0].points).toBe(18);
-    expect(table[0].wins).toBe(6);
+    expect(table[0].points).toBe(POINTS[0] * RUNGS);
+    expect(table[0].wins).toBe(RUNGS);
     expect(table[1].you).toBe(true);
-    expect(table[1].points).toBe(12);
+    expect(table[1].points).toBe(POINTS[1] * RUNGS);
     expect(table[1].place).toBe(2);
     // Everybody else on nought, in slot order behind the two who scored.
     expect(table.slice(3).every((row) => row.points === 0)).toBe(true);
@@ -448,18 +471,18 @@ describe("the locks", () => {
     });
     expect(ladderAfter("mangrove-1", podium)).toEqual({ kind: "next", level: MANGROVE.levels[1] });
     const thirds = rideShore(EMPTY_PROGRESS, MANGROVE, 3);
-    expect(ladderAfter("mangrove-6", thirds)).toEqual({ kind: "locked", shore: MANGROVE });
+    expect(ladderAfter("mangrove-8", thirds)).toEqual({ kind: "locked", shore: MANGROVE });
     const wins = rideShore(EMPTY_PROGRESS, MANGROVE, 1);
-    expect(ladderAfter("mangrove-6", wins)).toEqual({ kind: "next", level: TAIGA.levels[0] });
+    expect(ladderAfter("mangrove-8", wins)).toEqual({ kind: "next", level: TAIGA.levels[0] });
     // …and the cold shore's table opens the POLAR one rather than ending the
     // road, which is the whole of what adding a shore does to the ladder.
     const cold = rideShore(wins, TAIGA, 1);
-    expect(ladderAfter("taiga-6", cold)).toEqual({ kind: "next", level: ARCTIC.levels[0] });
+    expect(ladderAfter("taiga-8", cold)).toEqual({ kind: "next", level: ARCTIC.levels[0] });
     // …and the polar shore's table opens the LIMESTONE one, whose finale is
     // the end of the road.
     const polar = rideShore(cold, ARCTIC, 1);
-    expect(ladderAfter("arctic-6", polar)).toEqual({ kind: "next", level: KARST.levels[0] });
-    expect(ladderAfter("karst-6", rideShore(polar, KARST, 1))).toEqual({ kind: "end" });
+    expect(ladderAfter("arctic-8", polar)).toEqual({ kind: "next", level: KARST.levels[0] });
+    expect(ladderAfter("karst-8", rideShore(polar, KARST, 1))).toEqual({ kind: "end" });
     expect(ladderAfter("nowhere-1", wins)).toEqual({ kind: "end" });
   });
 });
@@ -584,7 +607,9 @@ describe("the developer's locks (unlockShores, lockShores)", () => {
 
   it("leaves a stored board it can read back", () => {
     const opened = unlockShores(EMPTY_PROGRESS, null);
-    expect(mergeProgress(JSON.parse(JSON.stringify(opened)))).toEqual(opened);
+    expect(mergeProgress(JSON.parse(JSON.stringify({ v: LADDER_VERSION, ...opened })))).toEqual(
+      opened,
+    );
   });
 
   it("says which press still has something to do", () => {
@@ -608,14 +633,20 @@ describe("the developer's locks (unlockShores, lockShores)", () => {
   });
 });
 
+/** A board as it is STORED: the shape it was played on, then the rows. */
+function stored(progress: CampaignProgress): unknown {
+  return JSON.parse(JSON.stringify({ v: LADDER_VERSION, ...progress }));
+}
+
 describe("a stored board", () => {
   it("survives a round trip", () => {
     const progress = rideShore(EMPTY_PROGRESS, MANGROVE, 2, 3000);
-    expect(mergeProgress(JSON.parse(JSON.stringify(progress)))).toEqual(progress);
+    expect(mergeProgress(stored(progress))).toEqual(progress);
   });
 
   it("drops what this build cannot stand on, and keeps the rest", () => {
     const blob = {
+      v: LADDER_VERSION,
       results: {
         "mangrove-1": { best: 100, craft: "skiff", place: 1, medal: null },
         "mangrove-2": { best: 800, craft: "skiff", place: 4, medal: "platinum" },
@@ -634,6 +665,56 @@ describe("a stored board", () => {
     expect(merged.results["mangrove-2"].medal).toBeNull();
     expect(merged.points).toEqual({ "mangrove-1": { [PLAYER_ID]: 3, r0: 2 } });
     expect(CRAFT_IDS).not.toContain("hovercraft");
+  });
+
+  it("moves a board played on the six-rung ladder onto this one", () => {
+    // THE BOARD IS A PLAYER'S SAVE. The shores grew from six rungs to eight
+    // and the ids are the rung numbers, so a row written on the old ladder
+    // names a rung that is now somebody else's: its 4, 5 and 6 are this
+    // ladder's 5, 6 and 7 — the same seeds in the same modes — while 1, 2
+    // and 3 did not move. Read without that, "LONG SWELL" would come back
+    // as a time against a tricks rung nobody rode.
+    const before = {
+      results: {
+        "mangrove-1": { best: 100, craft: "skiff", place: 1, medal: null },
+        "mangrove-4": { best: 140, craft: "dart", place: 2, medal: null },
+        "mangrove-5": { best: 900, craft: "otter", place: 3, medal: "bronze" },
+        "mangrove-6": { best: 150, craft: "skiff", place: 1, medal: null },
+      },
+      points: { "mangrove-6": { [PLAYER_ID]: 3, r0: 2 } },
+    };
+    const merged = mergeProgress(before);
+    expect(Object.keys(merged.results).sort()).toEqual([
+      "mangrove-1",
+      "mangrove-5",
+      "mangrove-6",
+      "mangrove-7",
+    ]);
+    // Each row landed on the level it was actually ridden on: the old 4 is
+    // this ladder's LONG SWELL, still a race, still seed 41.
+    expect(MANGROVE.levels[4].id).toBe("mangrove-5");
+    expect(MANGROVE.levels[4].mode).toBe("race");
+    expect(merged.results["mangrove-5"]).toEqual({
+      best: 140,
+      craft: "dart",
+      place: 2,
+      medal: null,
+    });
+    expect(merged.results["mangrove-6"].medal).toBe("bronze");
+    expect(merged.points).toEqual({ "mangrove-7": { [PLAYER_ID]: 3, r0: 2 } });
+    // The two rungs the re-cut ADDED are open ground: nothing claims them.
+    expect(merged.results["mangrove-4"]).toBeUndefined();
+    expect(merged.results["mangrove-8"]).toBeUndefined();
+    // ...and a board already on this ladder is left exactly where it is.
+    expect(mergeProgress({ v: LADDER_VERSION, ...before })).toEqual({
+      results: {
+        "mangrove-1": { best: 100, craft: "skiff", place: 1, medal: null },
+        "mangrove-4": { best: 140, craft: "dart", place: 2, medal: null },
+        "mangrove-5": { best: 900, craft: "otter", place: 3, medal: "bronze" },
+        "mangrove-6": { best: 150, craft: "skiff", place: 1, medal: null },
+      },
+      points: { "mangrove-6": { [PLAYER_ID]: 3, r0: 2 } },
+    });
   });
 
   it("is empty from nothing at all", () => {

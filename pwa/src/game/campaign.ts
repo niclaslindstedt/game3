@@ -558,17 +558,45 @@ export function unlockRows(progress: CampaignProgress): UnlockRow[] {
 
 const PROGRESS_KEY = "sea-haven-campaign";
 
+/** WHAT SHAPE OF LADDER A STORED BOARD WAS PLAYED ON. A board is keyed by
+ * LEVEL ID and the ids are the rung numbers, so re-cutting a shore renames
+ * rungs the player has already ridden — and a row landing on the wrong rung
+ * is worse than no row at all, because it is a figure and a medal against
+ * water nobody rode. So the shape is written down beside the board and read
+ * back before a single row is.
+ *
+ * 1 was four shores of SIX — a race, a tricks run, a circuit, two races
+ * around a tricks run. 2 is four shores of EIGHT, one race one tricks run
+ * all the way up, which pushed a new tricks rung in at 4 and another on the
+ * end. Nothing else moved: rungs 1–3 are the same seeds in the same modes,
+ * and the old 4, 5 and 6 are this ladder's 5, 6 and 7 exactly, so a board
+ * from 1 is MOVED rather than dropped. */
+export const LADDER_VERSION = 2;
+
+/** An old board's id on this ladder, or the id itself where it did not
+ * move. Only the six-rung ladder needs it, and only for its top three
+ * rungs; anything else a stored blob names is left to the id check below,
+ * which drops what this ladder does not have. */
+function movedId(id: string, version: number): string {
+  if (version >= LADDER_VERSION) return id;
+  return id.replace(/-([456])$/, (_m, rung: string) => `-${Number(rung) + 1}`);
+}
+
 /** A stored blob turned into progress this build can stand on: every id
- * checked against the ladder, every figure checked for being a number, and
- * anything else dropped — a level that no longer exists takes its row with
- * it rather than leaving a ghost on the board. */
+ * moved onto this ladder and then checked against it, every figure checked
+ * for being a number, and anything else dropped — a level that no longer
+ * exists takes its row with it rather than leaving a ghost on the board. */
 export function mergeProgress(parsed: unknown): CampaignProgress {
   const out: CampaignProgress = { results: {}, points: {} };
   if (typeof parsed !== "object" || parsed === null) return out;
   const known = new Set(CAMPAIGN_LEVELS.map((l) => l.id));
-  const blob = parsed as { results?: unknown; points?: unknown };
+  const blob = parsed as { v?: unknown; results?: unknown; points?: unknown };
+  // A board written before the shape was recorded is the six-rung one.
+  const version = typeof blob.v === "number" && Number.isFinite(blob.v) ? blob.v : 1;
+  const moved = (id: string): string => movedId(id, version);
   if (typeof blob.results === "object" && blob.results !== null) {
-    for (const [id, row] of Object.entries(blob.results as Record<string, unknown>)) {
+    for (const [stored, row] of Object.entries(blob.results as Record<string, unknown>)) {
+      const id = moved(stored);
       if (!known.has(id) || typeof row !== "object" || row === null) continue;
       const r = row as Partial<LevelResult>;
       if (!Number.isInteger(r.place) || (r.place as number) < 1) continue;
@@ -588,7 +616,8 @@ export function mergeProgress(parsed: unknown): CampaignProgress {
     }
   }
   if (typeof blob.points === "object" && blob.points !== null) {
-    for (const [id, row] of Object.entries(blob.points as Record<string, unknown>)) {
+    for (const [stored, row] of Object.entries(blob.points as Record<string, unknown>)) {
+      const id = moved(stored);
       if (!known.has(id) || typeof row !== "object" || row === null) continue;
       const scores: LevelScores = {};
       for (const [rider, got] of Object.entries(row as Record<string, unknown>)) {
@@ -611,7 +640,7 @@ export function loadProgress(): CampaignProgress {
 
 export function saveProgress(progress: CampaignProgress): void {
   try {
-    localStorage.setItem(PROGRESS_KEY, JSON.stringify(progress));
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify({ v: LADDER_VERSION, ...progress }));
   } catch {
     /* storage unavailable — the board still holds for this session */
   }

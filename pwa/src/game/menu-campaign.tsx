@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE CAMPAIGN CARD — a row of shores, six boxes each, and the table under the
-// one being looked at.
+// THE CAMPAIGN CARD — a row of shores, eight boxes each, and the table under
+// the one being looked at.
 //
 // IT IS TWO STEPS: WHICH COAST, then its ladder. The coast is asked on a page
 // of its own (`menu-shores.tsx`) — a row the width of the card, with a
@@ -11,7 +11,7 @@
 // the rung they stopped on, and making them choose a coast first to find it
 // would be the one press the card exists to save.
 //
-// The card is one column: the six boxes in a grid, then the table.
+// The card is one column: the eight boxes in a grid, then the table.
 // A BOX is a number, a name, what the level is (a race over a distance or
 // laps, a tricks run over minutes) and what has been got out of it — the
 // best place and the points it pays, the best figure, the medal — with the

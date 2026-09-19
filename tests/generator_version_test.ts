@@ -20,7 +20,7 @@
 //     level deliberately moved writes its new digest down; the rules
 //     moving under one that did not owes a version row instead.
 //
-// Twelve builds is the cost of that last case, which is why this is its
+// Thirty-two builds is the cost of that last case, which is why this is its
 // own file: on a shard it is the whole file's floor.
 
 import { describe, expect, it } from "vitest";

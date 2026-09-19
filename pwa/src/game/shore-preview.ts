@@ -14,7 +14,7 @@
 //   an open level, grey on a shut one — and stay sharp at any size, on any
 //   screen.
 //
-//   A COAST is six levels, so no one line is a picture of it. What it gets
+//   A COAST is eight levels, so no one line is a picture of it. What it gets
 //   instead is a real render taken by the game itself, from a camera over
 //   the shore's first level (`make coasts`), and there is nothing to do here
 //   but name the file. That is the sibling rally game's answer to the same
