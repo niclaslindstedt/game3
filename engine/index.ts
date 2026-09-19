@@ -285,6 +285,7 @@ export {
   activeMissedCheckpoint,
   aimPoint,
   bearingToNext,
+  craftReach,
   crossedGate,
   crossedLine,
   gatePassPoint,

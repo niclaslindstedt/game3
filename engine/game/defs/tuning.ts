@@ -543,6 +543,21 @@ export const TUNING = {
     leanIn: 0.28,
     /** Rider mass shift lag, s: a body moves slower than a thumb. */
     leanLag: 0.18,
+    /** HOW FAR ABOVE HIS OWN MASS CENTRE THE RIDER REACHES, m — the crown
+     * of the helmet over the point `spec.riderHeight` puts him at. The
+     * point mass is all the physics needs of him; this is the one figure
+     * that needs his SIZE, and it needs it because a ring he threads is
+     * threaded by the whole man and not by his navel (`craftReach` in
+     * `game/course.ts`).
+     *
+     * An ALLOWANCE rather than a measurement of the drawn figure: it only
+     * has to be no shorter than the helmet `pwa/src/game/rider-pose.ts`
+     * stands up there, which on a seated 2.0 m figure is about 0.7 m of
+     * spine, neck and lid over a mass centre at the lower abdomen. Rounded
+     * up, because every metre of it is being generous on purpose and a
+     * figure that came out short would take a checkpoint away from a rider
+     * who felt the ring go by his ear. */
+    crown: 0.8,
     /** THE WAY ASTERN, m/s, at which both shifts are fully stood down —
      * the speed BACKWARDS that has the rider sat up and sat square.
      *
@@ -822,5 +837,24 @@ export const TUNING = {
     /** Where a reset stands the craft: this far behind the gate it goes
      * back to, m, so the line is crossed by a MOVE. */
     resetBack: 6,
+    /** THE BENEFIT OF THE DOUBT on a checkpoint, m, on top of the craft
+     * and rider's own reach (`craftReach`). The opening a rider has to
+     * find is the visible one grown by however much of the machine is
+     * hanging out there, and then by this — so a crossing inside it is one
+     * where the honest answer to "did I touch that?" is "I might have".
+     *
+     * Half a metre at ring range is a couple of pixels and no rider can
+     * resolve it, which is the whole argument for the number: below it the
+     * eye cannot tell a ring threaded from a ring grazed, so charging five
+     * seconds for the difference is charging for something the player was
+     * never shown. It also quietly covers the two things the geometry does
+     * not model — the TUBE of the ring, whose outside is what a helmet
+     * actually clips (`width` is the aperture, not the hoop), and the
+     * rider's arms out on the bars.
+     *
+     * Not more than this. A margin a rider can SEE is a margin they will
+     * ride, and a course whose gates are two metres wider than they look
+     * is a course with no line in it. */
+    grace: 0.4,
   },
 } as const;
