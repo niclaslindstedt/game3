@@ -60,13 +60,12 @@
      rally game's plate, which is the same instrument at the same reading
      distance. */
   --hud-map: clamp(6.24rem, 20.8vmin, 9.75rem);
-  /* The gap between the two glyph buttons. Their EDGE is half the map less
-     half of this, so the pair comes to the map's own width — but that sum is
-     written where it is used (`.hud-mini-icon`) rather than stored here: a
-     custom property is resolved against the element it is DECLARED on, and
-     `--hud-map` is re-declared on `.hud` by the portrait media query, so a
-     size computed here would keep the landscape map's proportions on a
-     phone held upright. */
+  /* The gap between the two glyph buttons. It is the one term of their size
+     that does NOT vary with the map, which is why it can live up here: their
+     diameter is `--hud-press` on `.hud`, computed against the map that
+     element currently has. A size computed HERE would be resolved against
+     `:root`'s own `--hud-map` and would keep the landscape map's proportions
+     on a phone held upright. */
   --hud-mini-gap: 0.3rem;
 }
 
@@ -262,6 +261,28 @@ canvas {
   --hud-edge: rgb(255 255 255 / calc(65% - 38% * var(--hud-dark)));
   --hud-track: rgb(255 255 255 / calc(70% - 41% * var(--hud-dark)));
 
+  /* THE TWO PRESSES' DIAMETER, and the one statement of it. Two to the map's
+     width would be `(map - gap) / 2`; they are drawn at four fifths of that,
+     because a disc reads as a control at a glance where a rounded plate read
+     as another chip, and it no longer has to be map-sized to be found. The
+     pair therefore comes to less than the map's width and hangs off its right
+     corner — the thumb's side, and the side that keeps the cluster's outer
+     edge unbroken.
+
+     It is declared HERE rather than beside `--hud-map` in `:root` because two
+     subtrees need it — the buttons themselves and `.hud-zone`'s clearance over
+     them — and a `var()` inside a custom property is substituted against the
+     element the property is DECLARED on. `:root` would freeze the landscape
+     map's proportions into a phone held upright; `.hud` is the element the
+     portrait query re-declares `--hud-map` on, so both resolve together. */
+  --hud-press: calc(0.8 * (var(--hud-map) - var(--hud-mini-gap)) / 2);
+  /* The gap BETWEEN the cluster's rows — the map and the row of presses under
+     it. Here rather than only on `.hud-topright` because `.hud-zone`'s
+     clearance is that cluster's height, and a term left out of it is a thumb
+     zone lying over a button: at 844×390 the row's foot came out one pixel
+     BELOW the glass before this was counted. */
+  --hud-cluster-gap: 0.5rem;
+
   text-shadow:
     0 1px 0 rgb(var(--hud-plate) / calc(100% - 78% * var(--hud-dark))),
     0 1px 3px rgb(0 0 0 / calc(82% * var(--hud-dark)));
@@ -339,7 +360,7 @@ canvas {
   display: flex;
   flex-direction: column;
   align-items: flex-end;
-  gap: 0.5rem;
+  gap: var(--hud-cluster-gap);
 }
 
 /* THE NOTICE STANDING OVER A CARD (App.tsx): the front door is a layer of
@@ -411,14 +432,11 @@ canvas {
   display: flex;
   align-items: center;
   justify-content: center;
-  /* TWO TO THE MAP'S WIDTH — the row is as wide as the minimap over it and
-     no wider, so the cluster reads as one block down the right-hand edge
-     rather than as a map with a row of buttons sticking out from under it.
-     The divisor is the number of presses in the row and the gap count is one
-     less: a third press would make it three and two, and `.hud-zone`'s
-     clearance (a map plus one button) follows from this line. */
-  width: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
-  height: calc((var(--hud-map) - var(--hud-mini-gap)) / 2);
+  /* The diameter, and `.hud-zone`'s clearance over the cluster, are the one
+     number (`--hud-press` on `.hud`) — a press added to or taken out of this
+     row changes it there, and the clearance follows without being re-picked. */
+  width: var(--hud-press);
+  height: var(--hud-press);
   padding: 0;
   border-radius: 50%;
   /* THE FACE, curved under one light from above: the plate lifted toward the
@@ -505,7 +523,9 @@ canvas {
 .hud-mini-missed::after {
   content: "";
   position: absolute;
-  inset: -5px;
+  /* Off the disc's own diameter, so the ring keeps its proportions whatever
+     size the row is drawn at. */
+  inset: calc(var(--hud-press) * -0.07);
   border: 2px solid var(--hud-bad);
   border-radius: 50%;
   opacity: 0.85;
@@ -2289,12 +2309,11 @@ canvas {
    So the top is the LOWER of the two: three fifths of the screen is where a
    thumb on a held phone can reach, and it is taken unless the cluster
    reaches further down than that — on a phone on its SIDE it does, because
-   the cluster is a map and a half tall and the screen is 393 px. Stated as
-   the cluster's own arithmetic (the top inset, the map, the gap the presses
-   hang below it on, and half a map for the presses themselves) rather than
-   as a percentage that happens to clear it today: the map is the one number
-   this corner is sized from, and a rule written this way cannot be left
-   behind by a change to it. */
+   the cluster is a map with a row of presses under it and the screen is 393
+   px. Stated as the cluster's own arithmetic — the top inset, the map, the
+   gap the presses hang below it on, and one press: every term a var the
+   cluster itself is built from, so the sum cannot be left behind by a change
+   to any of them. A percentage that happens to clear it today can. */
 .hud-touch {
   position: absolute;
   inset: 0;
@@ -2309,8 +2328,8 @@ canvas {
   top: max(
     40%,
     calc(
-      max(0.6rem, env(safe-area-inset-top)) + var(--hud-map) * 1.5 - var(--hud-mini-gap) / 2 +
-        1.1rem
+      max(0.6rem, env(safe-area-inset-top)) + var(--hud-map) + var(--hud-cluster-gap) +
+        var(--hud-press) + 1.1rem
     )
   );
   bottom: 0;
