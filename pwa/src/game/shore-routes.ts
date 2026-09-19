@@ -81,6 +81,11 @@ export const SHORE_ROUTES: Record<string, ShoreRoute> = {
     aspect: 1.466,
     spec: { seed: 14, track: "coast", tricks: true, swell: 11, version: 1, digest: "82abccbd" },
   },
+  "mangrove-9": {
+    d: "/wDyCekT1F3NbcN+wIKKtIS7gcOCy43cj+WM74f2gvp4/m7/aP5e+1n4TOdH4z7fON4u3h7jFOUK4wDd",
+    aspect: 0.816,
+    spec: { seed: 38, track: "coast", tricks: false, swell: 14, version: 1, digest: "d1106117" },
+  },
   "taiga-1": {
     d: "AO4P7RvyVP9a+GHsZt1voHaKeoCCdZRmmlmcTp1FmiSdFKMIpwOuALYBuwS/CMQRxhv6Vv1f/2v+gPyQ96P0qu+y6LfeuQ==",
     aspect: 1.6902,
@@ -120,6 +125,11 @@ export const SHORE_ROUTES: Record<string, ShoreRoute> = {
     d: "f/+A74Tjp6ComKiLq4H9Wv9V/078RflA8zvmNNkyuDSpL6MrmySYHpYVkAyHBngBawBTAT4ALgIXCQkQABc=",
     aspect: 0.7529,
     spec: { seed: 31, track: "coast", tricks: true, swell: 13, version: 1, digest: "730a59be" },
+  },
+  "taiga-9": {
+    d: "AAAKDQ0VDx4NZQ9sFHZDsUK3Pb80xiLOHdMZ2BjeGecc7CHxMPdB+U72aex76ovukvKb+ab9uP/J/ND58ub44fzc/9T+y/vG7rQ=",
+    aspect: 0.6482,
+    spec: { seed: 62, track: "coast", tricks: false, swell: 15, version: 1, digest: "9339283f" },
   },
   "arctic-1": {
     d: "/wD1EfAd13bUe/rW+ODy6+nz3vjR+sT4vPSn55/kluON5IHoeu1y9mf9Wv9N/j34K+0Z4w/bBc4BwwCzA6cJmBCPHINIYlpRYUdoPW8o",
@@ -161,6 +171,11 @@ export const SHORE_ROUTES: Record<string, ShoreRoute> = {
     aspect: 1.425,
     spec: { seed: 5, track: "coast", tricks: true, swell: 20, version: 1, digest: "be675dfd" },
   },
+  "arctic-9": {
+    d: "HywNQQdOAmIAcQGGBZUMp2XOaMzE/s//1vzh9Ojo7drtz+zF6bvdoNuW24zefeJ05230YPpT/UT/Kv8V/QA=",
+    aspect: 1.2849,
+    spec: { seed: 70, track: "coast", tricks: false, swell: 20, version: 1, digest: "56612da9" },
+  },
   "karst-1": {
     d: "mwCYDJkVukvAV8Jgw23Be76Kt5n+xf/M/NP02e7d3uHM4rHem+GQ5Yrpf/Z1+2T/Tv4a9Q/wBekA3wLHBcAQrw==",
     aspect: 0.5373,
@@ -200,5 +215,10 @@ export const SHORE_ROUTES: Record<string, ShoreRoute> = {
     d: "/x3xIeYpqmmbd42BYd9e61rzU/xO/kj/Q/0++DryNukz2jGvK50nliKRHI8UjwyKBn8CcQBcBhwKDREA",
     aspect: 1.9644,
     spec: { seed: 29, track: "coast", tricks: true, swell: 11, version: 1, digest: "f71655bb" },
+  },
+  "karst-9": {
+    d: "AC0QNSA3di6CM447mDyiOKovrie2EboKwAXJANAA2QXfCuMR5xrpKeg431jeYt9s4nXmfeqE84v6lv2f/67/vf3L8/Ds/5/xmec=",
+    aspect: 1.5139,
+    spec: { seed: 84, track: "coast", tricks: false, swell: 12, version: 1, digest: "3a7d96e3" },
   },
 };

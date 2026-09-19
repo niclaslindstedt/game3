@@ -3,8 +3,8 @@
 // THE COAST, PHOTOGRAPHED — one banner per shore for the campaign and level
 // cards' shore rows, taken by the REAL GAME rather than drawn as a diagram.
 //
-// A shore is a COAST, not a course: the taiga is eight levels and the
-// mangrove is eight more, so a banner that was a layout of any one of them
+// A shore is a COAST, not a course: the taiga is nine levels and the
+// mangrove is nine more, so a banner that was a layout of any one of them
 // would be advertising water the row is not about — and the row already has
 // a layout under it on every box (`make routes`). What a row wants is
 // the PLACE: the colour of the water, how far into it the eye gets, what

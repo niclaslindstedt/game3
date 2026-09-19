@@ -566,11 +566,11 @@ const PROGRESS_KEY = "sea-haven-campaign";
  * back before a single row is.
  *
  * 1 was four shores of SIX — a race, a tricks run, a circuit, two races
- * around a tricks run. 2 is four shores of EIGHT, one race one tricks run
- * all the way up, which pushed a new tricks rung in at 4 and another on the
- * end. Nothing else moved: rungs 1–3 are the same seeds in the same modes,
- * and the old 4, 5 and 6 are this ladder's 5, 6 and 7 exactly, so a board
- * from 1 is MOVED rather than dropped. */
+ * around a tricks run. 2 is four shores of NINE, one race one tricks run
+ * all the way up: a tricks rung pushed in at 4, a six-minute one at 8 and a
+ * race to close on at 9. Nothing else moved — rungs 1–3 are the same seeds
+ * in the same modes and the old 4, 5 and 6 are this ladder's 5, 6 and 7
+ * exactly — so a board from 1 is MOVED rather than dropped. */
 export const LADDER_VERSION = 2;
 
 /** An old board's id on this ladder, or the id itself where it did not

@@ -1,6 +1,6 @@
 ---
 name: add-biome
-description: "Use when a NEW COAST is asked for — a fifth biome, a shore on a kind of water the game does not build yet, 'add a biome for …'. The whole of what a coast IS in this repo, as one checklist: the engine's row and its animals, the app's six tables (the water, the shore, the grade, the skies, the cover, the birds) and the two cries, the four suites that hold them to one list, every lab's help text, the docs, the changelog — AND THE CAMPAIGN'S EIGHT LEVELS on the new shore with their banner and their routes, which is the step a coast is most often shipped without. Owns the order the steps go in and the measurements each one owes; what each half is made of is `nature`'s, `atmosphere`'s, `water-look`'s and `campaign`'s."
+description: "Use when a NEW COAST is asked for — a fifth biome, a shore on a kind of water the game does not build yet, 'add a biome for …'. The whole of what a coast IS in this repo, as one checklist: the engine's row and its animals, the app's six tables (the water, the shore, the grade, the skies, the cover, the birds) and the two cries, the four suites that hold them to one list, every lab's help text, the docs, the changelog — AND THE CAMPAIGN'S NINE LEVELS on the new shore with their banner and their routes, which is the step a coast is most often shipped without. Owns the order the steps go in and the measurements each one owes; what each half is made of is `nature`'s, `atmosphere`'s, `water-look`'s and `campaign`'s."
 ---
 
 # Adding a biome: a coast is not a coast until it is ridden
@@ -13,7 +13,7 @@ the measurement each step owes before the next. It routes to the skills
 that own the halves: **`nature`** (the row, the shore, the sea life, the
 cover, the birds), **`atmosphere`** (the skies), **`water-look`** (the
 optics), **`sound-effects`** (a new cry), **`campaign`** and
-**`level-rating`** (the eight levels), **`playtest`** (the photographs).
+**`level-rating`** (the nine levels), **`playtest`** (the photographs).
 Load **`write-code`** beside all of them and **`skill-reflection`** at
 both ends.
 
@@ -141,7 +141,7 @@ coast shipped off its numbers alone is a coast nobody looked at.
 finishes or the coast's water is wrong somewhere the tests do not reach.
 The table goes in the PR.
 
-### 6. THE CAMPAIGN'S EIGHT LEVELS — never skip this
+### 6. THE CAMPAIGN'S NINE LEVELS — never skip this
 
 A coast is ridden in the campaign, RACE, TRICKS and TIME TRIAL only
 through its pinned shore (`new-game.ts`'s `pinnedFor`, `menu-levels.tsx`);
@@ -158,9 +158,9 @@ loop for the new shore:
    short steep sea on the limestone one.
 3. `make difficulty SEED=<seed> BIOME=<id> …` — look at each candidate.
 4. `pwa/src/game/campaign-levels.ts` — a `CampaignShore` in the rung order
-   (one race, one tricks run, all the way up: the circuit is the third
-   rung's race, and the finale is six minutes of tricks on the worst water
-   the coast has), its id on `CampaignShore.id`, appended to `SHORES`
+   (one race, one tricks run, all the way up, the race opening and closing:
+   the circuit is the third rung's race, the eighth is six minutes of tricks
+   and the ninth is a race down the worst water the coast has), its id on `CampaignShore.id`, appended to `SHORES`
    behind the last shore's table; every level with `version`, its pinned
    day inside `daylightWindow` for the coast and season, and `medals` on
    the four tricks rungs (two, three, four and six minutes) picked off the
@@ -170,7 +170,7 @@ loop for the new shore:
    same shore twice, and the DIGEST each level builds to, written into it.
 6. `make difficulty CAMPAIGN=1` — the sheets, in the PR.
 7. `make routes` (pure Node) and, on a built site, `make coasts` — the
-   shore's eight routes into `shore-routes.ts` and the banner `pwa/public/previews/
+   shore's nine routes into `shore-routes.ts` and the banner `pwa/public/previews/
    coast-<id>.jpg` with its receipt in `coast-shots.ts`; both are
    GENERATED and `tests/shore_preview_test.ts` holds them to the table.
 8. `npx vitest run tests/campaign_test.ts tests/generator_version_test.ts

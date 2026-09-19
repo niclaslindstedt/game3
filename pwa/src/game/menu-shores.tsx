@@ -26,7 +26,7 @@ import { ROUTE_STROKE, coastShot, routeShape } from "./shore-preview.ts";
 import { STRINGS } from "./strings.ts";
 
 /** THE LEVEL'S OWN WATER, as the shape it is — the whole racing line in the
- * corner of its own box, so a shore's eight boxes read as eight different
+ * corner of its own box, so a shore's nine boxes read as nine different
  * rides before a
  * word on any of them has been read.
  *
@@ -65,7 +65,7 @@ export function CourseMap({ levelId }: { levelId: string }) {
 
 /** THE COAST behind a shore row — a real render taken by the game at a
  * staged moment on the shore's first level (`make coasts`), not a layout of
- * any one of them: a shore is eight rides, and a picture of one of them would
+ * any one of them: a shore is nine rides, and a picture of one of them would
  * be advertising the wrong water.
  *
  * It fills the row and the text sits on it, which is the only layout that

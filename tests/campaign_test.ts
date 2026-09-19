@@ -83,7 +83,7 @@ const [MANGROVE, TAIGA, ARCTIC, KARST] = SHORES;
 /** How many rungs a shore runs. Named rather than written out, because
  * every count below is the same fact and a ladder that grows again should
  * move one number. */
-const RUNGS = 8;
+const RUNGS = 9;
 
 /** The field as it stood at a finish: the player at `place`, the rivals in
  * slot order around him. */
@@ -114,15 +114,17 @@ function rideShore(
 }
 
 describe("the ladder as committed", () => {
-  it("is four shores of eight, the warm one first, one race one tricks run all the way up", () => {
+  it("is four shores of nine, the warm one first, one race one tricks run all the way up", () => {
     expect(SHORES.map((s) => s.id)).toEqual(["mangrove", "taiga", "arctic", "karst"]);
     for (const shore of SHORES) {
       expect(shore.levels.length).toBe(RUNGS);
-      expect(shore.levels.filter((l) => l.mode === "race").length).toBe(RUNGS / 2);
-      expect(shore.levels.filter((l) => l.mode === "tricks").length).toBe(RUNGS / 2);
+      // The ladder is ODD, so the race both leads and closes: five races
+      // around four tricks runs.
+      expect(shore.levels.filter((l) => l.mode === "race").length).toBe(Math.ceil(RUNGS / 2));
+      expect(shore.levels.filter((l) => l.mode === "tricks").length).toBe(Math.floor(RUNGS / 2));
       // THE ALTERNATION IS THE LADDER'S SHAPE and not a coincidence of
-      // curation: a shore never asks the same game twice running, the race
-      // leads, and the finale is a tricks run.
+      // curation: a shore never asks the same game twice running, and the
+      // race is what a shore opens and closes on.
       expect(shore.levels.map((l) => l.mode)).toEqual(
         Array.from({ length: RUNGS }, (_l, i) => (i % 2 === 0 ? "race" : "tricks")),
       );
@@ -471,18 +473,18 @@ describe("the locks", () => {
     });
     expect(ladderAfter("mangrove-1", podium)).toEqual({ kind: "next", level: MANGROVE.levels[1] });
     const thirds = rideShore(EMPTY_PROGRESS, MANGROVE, 3);
-    expect(ladderAfter("mangrove-8", thirds)).toEqual({ kind: "locked", shore: MANGROVE });
+    expect(ladderAfter("mangrove-9", thirds)).toEqual({ kind: "locked", shore: MANGROVE });
     const wins = rideShore(EMPTY_PROGRESS, MANGROVE, 1);
-    expect(ladderAfter("mangrove-8", wins)).toEqual({ kind: "next", level: TAIGA.levels[0] });
+    expect(ladderAfter("mangrove-9", wins)).toEqual({ kind: "next", level: TAIGA.levels[0] });
     // …and the cold shore's table opens the POLAR one rather than ending the
     // road, which is the whole of what adding a shore does to the ladder.
     const cold = rideShore(wins, TAIGA, 1);
-    expect(ladderAfter("taiga-8", cold)).toEqual({ kind: "next", level: ARCTIC.levels[0] });
+    expect(ladderAfter("taiga-9", cold)).toEqual({ kind: "next", level: ARCTIC.levels[0] });
     // …and the polar shore's table opens the LIMESTONE one, whose finale is
     // the end of the road.
     const polar = rideShore(cold, ARCTIC, 1);
-    expect(ladderAfter("arctic-8", polar)).toEqual({ kind: "next", level: KARST.levels[0] });
-    expect(ladderAfter("karst-8", rideShore(polar, KARST, 1))).toEqual({ kind: "end" });
+    expect(ladderAfter("arctic-9", polar)).toEqual({ kind: "next", level: KARST.levels[0] });
+    expect(ladderAfter("karst-9", rideShore(polar, KARST, 1))).toEqual({ kind: "end" });
     expect(ladderAfter("nowhere-1", wins)).toEqual({ kind: "end" });
   });
 });

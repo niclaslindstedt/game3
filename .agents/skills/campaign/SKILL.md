@@ -7,9 +7,9 @@ description: "Use when working on THE CAMPAIGN — the pinned levels and the lad
 
 The campaign is the sibling rally game's championship retyped for water:
 four SHORES (the warm mangrove coast, then the cold taiga, then the polar
-arctic, then the limestone karst), eight LEVELS each — one race, one tricks
-run, all the way up, the circuit the third rung's race and the finale six
-minutes of tricks —
+arctic, then the limestone karst), nine LEVELS each — one race, one tricks
+run, all the way up, so the race both opens and closes a shore; the circuit
+is the third rung's race and the eighth is six minutes of tricks —
 every level a SEED on a generator VERSION under a pinned DAY, ridden against
 the race's grid with hull contact off, paying the podium three, two and one
 for the whole field. The next level opens behind a podium (a MEDAL on a
@@ -29,7 +29,7 @@ itself.
 | --------------------------------------------------------- | --------------------------------------------- |
 | The levels: seed, version, digest, day, medals            | `pwa/src/game/campaign-levels.ts`             |
 | The policy: building a level, standing a run up, the points, the locks, the table, the stored board | `pwa/src/game/campaign.ts` (storage-free above the line) |
-| The card: the shores, the eight boxes, the table          | `pwa/src/game/menu-campaign.tsx`              |
+| The card: the shores, the nine boxes, the table           | `pwa/src/game/menu-campaign.tsx`              |
 | The plate at the end of a campaign run                    | `run-news.ts`'s `campaignResultFor`           |
 | Where a finish goes to the board and a restart rebuilds the level | `App.tsx` (`ridingRef`, `settle`, `tryNewGame`) |
 | The generator's versions and the digest                   | `engine/mapgen/versions.ts`, `digest.ts`      |
