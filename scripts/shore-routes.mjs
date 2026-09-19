@@ -19,7 +19,7 @@
 // sits in, instead of being a picture of one state of one box.
 //
 // The banner behind a SHORE is a different problem and a different tool: a
-// shore is six levels, so it gets a real render of the coast rather than a
+// shore is nine levels, so it gets a real render of the coast rather than a
 // map of any one of them (scripts/coast-preview.mjs).
 //
 //   make routes

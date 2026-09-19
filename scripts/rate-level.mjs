@@ -178,7 +178,7 @@ function printStats(rows) {
   );
 }
 
-/** The committed ladder: every shore's six levels, built the way the
+/** The committed ladder: every shore's levels, built the way the
  * campaign builds them and rated under the conditions it pins. */
 async function auditCampaign() {
   const { SHORES } = await import(join(root, "pwa/src/game/campaign-levels.ts"));

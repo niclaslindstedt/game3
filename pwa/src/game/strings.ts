@@ -389,7 +389,7 @@ export const STRINGS = {
   campaignShoreWon: "WON",
   /** What a shut shore or level asks for — a padlock with no reason on it
    * is just a wall. */
-  campaignShoreLocked: "Win the shore before it: ride all six and finish top of its table",
+  campaignShoreLocked: "Win the shore before it: ride every level and finish top of its table",
   /** ...and the short form on the banner itself; the sentence is its title. */
   campaignShoreShut: "WIN THE SHORE BEFORE IT",
   campaignLevelLocked: (mode: string): string =>

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE CAMPAIGN'S SHORES, and the six levels each of them runs. Every level
+// THE CAMPAIGN'S SHORES, and the nine levels each of them runs. Every level
 // is a SEED plus the dials it is built at and the day it is ridden in —
 // the shores are generated, not authored — so a shore is a short table of
 // them with the name the menu shows. Curating one is `make rate` and `make
@@ -21,12 +21,18 @@
 // the light, the shape of the ask. A biome is a kind of coast and nothing
 // in this tree names a place (`tests/biome_test.ts`).
 //
-// THE RUNG ORDER is the same on every shore — a race, a tricks run, a
-// lapped circuit, a race, a tricks run, the finale — so the second
-// discipline is met second rather than fifth, the loop is inside the climb
-// rather than bolted on the end, and every rung asks more than the one
-// before it on `make rate CAMPAIGN=1`'s index, with the day (the hour, the
-// season, the sky, the wind) carrying a third of the climb. The seeds were
+// THE RUNG ORDER IS ONE RACE, ONE TRICKS RUN, ALL THE WAY UP — nine rungs,
+// so five races around four tricks runs, and the race both OPENS and CLOSES
+// a shore. Nothing asks the same game twice running, and neither discipline
+// is met once and then left for five rungs. The LAPPED CIRCUIT is the third
+// rung's race on every shore (a track kind, not a third game), which keeps
+// the loop inside the climb rather than bolted on the end. The last two
+// rungs are the shore's own summit: the eighth is the longest tricks run
+// the campaign sets and the only six-minute one, and the NINTH is a race
+// down the worst water its coast has, in the last light its season allows.
+// The tricks runs lengthen as they climb — two minutes, three, four, six —
+// and every rung asks more than the one before it on `make rate CAMPAIGN=1`'s index, with the day (the hour, the season,
+// the sky, the wind) carrying a third of the climb. The seeds were
 // picked from a sweep of the first forty-eight of each coast, as races, as
 // tricks runs and as circuits (`make rate COUNT=48 …`), on the brief the
 // rating module's header states: climb without a wall, no two rungs the
@@ -100,8 +106,10 @@ export type CampaignShore = {
 };
 
 /** THE WARM SHORE — the first, and the campaign's opening hour: flat water
- * over white sand, a lazy loop, then the swell that came in from somebody
- * else's weather and, last, the squall. */
+ * over white sand, a lazy loop, kickers with the swell that came in from
+ * somebody else's weather rolling under them, then the squall, six minutes
+ * of air over what the squall left, and a race home down eleven metres of
+ * it with the light going. */
 const MANGROVE: CampaignShore = {
   id: "mangrove",
   name: "Mangrove",
@@ -157,6 +165,23 @@ const MANGROVE: CampaignShore = {
     },
     {
       id: "mangrove-4",
+      name: "Swell Hops",
+      blurb: "Three minutes of ramps with the ocean's own swell rolling under them",
+      seed: 21,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "0bf3ade9",
+      hour: 11,
+      season: "summer",
+      weather: "high",
+      wind: 10,
+      swell: 4,
+      minutes: 3,
+      medals: { bronze: 1000, silver: 3000, gold: 6000 },
+    },
+    {
+      id: "mangrove-5",
       name: "Long Swell",
       blurb: "The ocean's own sea rolling under a grey lid",
       seed: 41,
@@ -171,7 +196,7 @@ const MANGROVE: CampaignShore = {
       swell: 6,
     },
     {
-      id: "mangrove-5",
+      id: "mangrove-6",
       name: "Wet Kickers",
       blurb: "Four minutes of tight ramps in the rain",
       seed: 45,
@@ -188,7 +213,7 @@ const MANGROVE: CampaignShore = {
       medals: { bronze: 1500, silver: 4000, gold: 8000 },
     },
     {
-      id: "mangrove-6",
+      id: "mangrove-7",
       name: "Squall Line",
       blurb: "A big sea, rocks on the line, and the front coming through at dusk",
       seed: 39,
@@ -202,12 +227,46 @@ const MANGROVE: CampaignShore = {
       wind: 13,
       swell: 9,
     },
+    {
+      id: "mangrove-8",
+      name: "Big Air",
+      blurb: "Six minutes of air off a storm sea, and the last of the light",
+      seed: 14,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "82abccbd",
+      hour: 17,
+      season: "autumn",
+      weather: "squall",
+      wind: 13,
+      swell: 11,
+      minutes: 6,
+      medals: { bronze: 2200, silver: 6600, gold: 13200 },
+    },
+    {
+      id: "mangrove-9",
+      name: "Running Dark",
+      blurb: "Eleven metres of sea on the sand, and the last of the light going",
+      seed: 38,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "d1106117",
+      hour: 18.5,
+      season: "spring",
+      weather: "squall",
+      wind: 14,
+      swell: 14,
+    },
   ],
 };
 
 /** THE COLD SHORE — the second, behind the warm one's table: granite
  * skerries on the line from the first rung, a longer night, and a bigger
- * sea at the end of it. */
+ * sea at the end of it — the last three rungs ridden in a winter that takes
+ * the light away and stands the sea up under the ramps, and the last of
+ * them is the most rock the campaign ever puts on a racing line. */
 const TAIGA: CampaignShore = {
   id: "taiga",
   name: "Taiga",
@@ -263,6 +322,23 @@ const TAIGA: CampaignShore = {
     },
     {
       id: "taiga-4",
+      name: "Skerry Kickers",
+      blurb: "Three minutes of kickers off the granite, a flat autumn light on the water",
+      seed: 36,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "8e83d070",
+      hour: 12,
+      season: "autumn",
+      weather: "high",
+      wind: 9,
+      swell: 3,
+      minutes: 3,
+      medals: { bronze: 800, silver: 2400, gold: 4800 },
+    },
+    {
+      id: "taiga-5",
       name: "Head Sea",
       blurb: "A steep sea straight onto the bow, and the tightest corners on the coast",
       seed: 3,
@@ -277,7 +353,7 @@ const TAIGA: CampaignShore = {
       swell: 5,
     },
     {
-      id: "taiga-5",
+      id: "taiga-6",
       name: "Winter Light",
       blurb: "Four minutes of kickers among the skerries, a low winter sun going",
       seed: 27,
@@ -294,7 +370,7 @@ const TAIGA: CampaignShore = {
       medals: { bronze: 1000, silver: 3000, gold: 6000 },
     },
     {
-      id: "taiga-6",
+      id: "taiga-7",
       name: "Grey Sea",
       blurb: "Nine metres of water, granite on the line, and the winter dark coming down",
       seed: 14,
@@ -308,15 +384,49 @@ const TAIGA: CampaignShore = {
       wind: 13,
       swell: 12,
     },
+    {
+      id: "taiga-8",
+      name: "Hard Winter",
+      blurb: "Six minutes of air over a winter storm sea, granite on every side",
+      seed: 31,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "730a59be",
+      hour: 14,
+      season: "winter",
+      weather: "squall",
+      wind: 14,
+      swell: 13,
+      minutes: 6,
+      medals: { bronze: 1500, silver: 4500, gold: 9000 },
+    },
+    {
+      id: "taiga-9",
+      name: "Storm Granite",
+      blurb: "More granite on the line than anywhere in the campaign, in a winter storm at dusk",
+      seed: 62,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "9339283f",
+      hour: 15,
+      season: "winter",
+      weather: "squall",
+      wind: 14,
+      swell: 15,
+    },
   ],
 };
 
 /** THE POLAR SHORE — the third, behind the cold one's table: black water at
  * the freezing point under a wall of glacier ice, bergs grounded off the
- * front where the taiga has skerries, a midnight sun to open on and a
- * blizzard to close on — and, in the middle of it, the one thing no other
- * coast can put under a run: a sea frozen over, with a channel cut down the
- * course (R37). */
+ * front where the taiga has skerries, a midnight sun to open on and the
+ * year's last light to close on — and, in the middle of it, the one thing
+ * no other coast can put under a run: a sea frozen over, with a channel cut
+ * down the course (R37). It carries the biggest water in the campaign: its
+ * last two rungs are ridden on twenty metres of swell, the top of R36's
+ * dial. */
 const ARCTIC: CampaignShore = {
   id: "arctic",
   name: "Arctic",
@@ -372,6 +482,23 @@ const ARCTIC: CampaignShore = {
     },
     {
       id: "arctic-4",
+      name: "Berg Hops",
+      blurb: "Three minutes of ramps among the grounded bergs, under a spring lid",
+      seed: 15,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "a730195b",
+      hour: 14,
+      season: "spring",
+      weather: "overcast",
+      wind: 12,
+      swell: 5,
+      minutes: 3,
+      medals: { bronze: 1000, silver: 3000, gold: 6000 },
+    },
+    {
+      id: "arctic-5",
       name: "Narrow Lead",
       blurb: "The sea frozen over, and the tightest line on the coast cut through it",
       seed: 2,
@@ -382,11 +509,11 @@ const ARCTIC: CampaignShore = {
       hour: 15,
       season: "winter",
       weather: "overcast",
-      wind: 13,
+      wind: 14,
       swell: 1.5,
     },
     {
-      id: "arctic-5",
+      id: "arctic-6",
       name: "Snow Kickers",
       blurb: "Four minutes of ramps in the snow, with the sun going down for the year",
       seed: 45,
@@ -403,7 +530,7 @@ const ARCTIC: CampaignShore = {
       medals: { bronze: 1200, silver: 3600, gold: 7200 },
     },
     {
-      id: "arctic-6",
+      id: "arctic-7",
       name: "White Out",
       blurb: "Nine metres of black water, growlers on the line, and a blizzard at last light",
       seed: 41,
@@ -414,8 +541,40 @@ const ARCTIC: CampaignShore = {
       hour: 17,
       season: "autumn",
       weather: "squall",
-      wind: 14,
+      wind: 11,
       swell: 18,
+    },
+    {
+      id: "arctic-8",
+      name: "Last Light",
+      blurb: "Six minutes of air on the biggest sea in the game, the year's light going out",
+      seed: 5,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "be675dfd",
+      hour: 17,
+      season: "autumn",
+      weather: "squall",
+      wind: 13,
+      swell: 20,
+      minutes: 6,
+      medals: { bronze: 1800, silver: 5400, gold: 10800 },
+    },
+    {
+      id: "arctic-9",
+      name: "Black Water",
+      blurb: "Eight metres of black water off the ice, at the end of the year's light",
+      seed: 70,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "56612da9",
+      hour: 17,
+      season: "autumn",
+      weather: "squall",
+      wind: 14,
+      swell: 20,
     },
   ],
 };
@@ -426,9 +585,11 @@ const ARCTIC: CampaignShore = {
  * headland from the first rung, and the SHORT STEEP SEA the north wind
  * stands up off the land in an hour. It opens on flat blue water among
  * the islets, hazes over in the heat of a summer afternoon, laps the
- * tightest circuit in the campaign, meets the southerly's grey sea, kicks
- * off the pebbles in the rain, and closes under the storm that comes off
- * the mountains as a black wall. */
+ * tightest circuit in the campaign, kicks off the reefs at noon, meets the
+ * southerly's grey sea, kicks off the pebbles in the rain, and turns into
+ * the storm that comes off the mountains as a black wall — six minutes of
+ * air over the water it breaks on, and then a race through the reefs in
+ * it. */
 const KARST: CampaignShore = {
   id: "karst",
   name: "Karst",
@@ -484,6 +645,23 @@ const KARST: CampaignShore = {
     },
     {
       id: "karst-4",
+      name: "Reef Kickers",
+      blurb: "Three minutes of kickers off the reefs, the stone white in the noon sun",
+      seed: 25,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "55f46431",
+      hour: 12,
+      season: "summer",
+      weather: "high",
+      wind: 11,
+      swell: 4,
+      minutes: 3,
+      medals: { bronze: 1000, silver: 3000, gold: 6000 },
+    },
+    {
+      id: "karst-5",
       name: "Southerly",
       blurb: "The warm wind up the sea, a grey lid, and reefs on the line in a rising chop",
       seed: 24,
@@ -498,7 +676,7 @@ const KARST: CampaignShore = {
       swell: 5,
     },
     {
-      id: "karst-5",
+      id: "karst-6",
       name: "Limestone Kickers",
       blurb: "Four minutes of ramps off the pebbles in the southerly's rain",
       seed: 15,
@@ -515,7 +693,7 @@ const KARST: CampaignShore = {
       medals: { bronze: 1200, silver: 3600, gold: 7200 },
     },
     {
-      id: "karst-6",
+      id: "karst-7",
       name: "Black Wall",
       blurb:
         "The storm off the mountains, nine metres of sea on the rock, and the last light of the year",
@@ -529,6 +707,38 @@ const KARST: CampaignShore = {
       weather: "squall",
       wind: 14,
       swell: 9,
+    },
+    {
+      id: "karst-8",
+      name: "Broken Water",
+      blurb: "Six minutes of air over a broken winter sea, with the storm on the rock",
+      seed: 29,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "f71655bb",
+      hour: 15,
+      season: "winter",
+      weather: "squall",
+      wind: 14,
+      swell: 11,
+      minutes: 6,
+      medals: { bronze: 1800, silver: 5400, gold: 10800 },
+    },
+    {
+      id: "karst-9",
+      name: "Storm Reef",
+      blurb: "The storm on the reefs, white rock in the spray, and the winter light going",
+      seed: 84,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "3a7d96e3",
+      hour: 16,
+      season: "winter",
+      weather: "squall",
+      wind: 14,
+      swell: 12,
     },
   ],
 };
