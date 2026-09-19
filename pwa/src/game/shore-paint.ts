@@ -184,6 +184,58 @@ export const SHORE_PAINT: Readonly<Partial<Record<BiomeId, ShorePaint>>> = {
     // nothing here can ever be painted as one.
     erratic: 0xb9d0de,
   },
+  karst: {
+    // LIMESTONE: pale, warm-grey, nearly white where the sun has bleached
+    // it, and bare — the bedrock here is a slab of it tilted into the sea,
+    // fluted by the rain. The "rock" is the scree at the foot of a
+    // headland, the same stone broken and lying in its own shadow, a shade
+    // darker and greyer.
+    bedrock: "#c4bfb0",
+    boulder: "#a39e8f",
+    // WHITE PEBBLE: the "sand" is a shingle of limestone worn round, so
+    // pale it reads as white against the blue, and a cove of it is the
+    // whole reason the shallows over it are aquamarine. Wet it goes to
+    // grey rather than brown — there is no sand in it to darken.
+    sand: "#e8e3d5",
+    sandWet: "#b6b0a0",
+    sandBed: "#dcd6c4",
+    // The bottom is pale rock under a meadow of seagrass, blue-green, and
+    // it runs out a fair way before the drop takes it.
+    bed: "#4d7a76",
+    bedReach: 60,
+    // The wet band on the rock is DARK: a black lichen paints the
+    // splash zone of every limestone shore a hand above the water, and
+    // under it the stone is grey-green with weed.
+    wet: "#5a5e58",
+    // The bank is the gorge's floor — gravel and dry grass down to the
+    // water under the oleander, a dusty olive — and at the water's edge
+    // the limestone again for the last metre, scoured white by the winter
+    // floods.
+    bank: "#8a8a5c",
+    bankStone: "#c0bbaa",
+    bankStoneUp: 1,
+    // THE FLOOR IS RED. A karst's soil is what is left when limestone
+    // dissolves — an iron-red clay lying in the hollows of the rock under
+    // the pines — and it is the one warm colour on a shore that is
+    // otherwise white stone and blue water. It starts a little way up from
+    // the water, where the first pines lean over the slab, and stops at
+    // the tree line, over which the hill is bare rock again.
+    floor: "#7a4f3c",
+    floorFrom: 14,
+    floorAbove: [1, 3],
+    floorTo: TREE_LINE,
+    // Limestone islets: dark and weeded at the water, pale grey above,
+    // bleached nearly white at the crown.
+    stone: { wet: 0x5c6058, body: 0xbfb9a8, lit: 0xe4dfcf },
+    // A reef awash is pale rock under clear water, greened by the weed on
+    // it — a shape the eye reads at once, which is what makes this coast's
+    // reefs the ones a rider actually sees coming.
+    reef: 0x86a496,
+    // …and no erratics (`Biome.rocks.erratic` is 0): no glacier ever came
+    // down this coast. The hex is the slab's, so nothing here can ever be
+    // painted as a foreign stone.
+    erratic: 0xbfb9a8,
+  },
 };
 
 /** The row for a coast; throws for one nobody has drawn the shore of, the

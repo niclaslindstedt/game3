@@ -93,7 +93,7 @@ export type CampaignLevel = {
 };
 
 export type CampaignShore = {
-  id: "mangrove" | "taiga" | "arctic";
+  id: "mangrove" | "taiga" | "arctic" | "karst";
   name: string;
   blurb: string;
   levels: readonly CampaignLevel[];
@@ -420,9 +420,123 @@ const ARCTIC: CampaignShore = {
   ],
 };
 
+/** THE LIMESTONE SHORE — the fourth, behind the polar one's table: a sea
+ * full of rock on the bluest water in the game, and the two things this
+ * coast has that no other does — the ROCK, islets and reefs off every
+ * headland from the first rung, and the SHORT STEEP SEA the north wind
+ * stands up off the land in an hour. It opens on flat blue water among
+ * the islets, hazes over in the heat of a summer afternoon, laps the
+ * tightest circuit in the campaign, meets the southerly's grey sea, kicks
+ * off the pebbles in the rain, and closes under the storm that comes off
+ * the mountains as a black wall. */
+const KARST: CampaignShore = {
+  id: "karst",
+  name: "Karst",
+  blurb: "White rock, blue water, and a sea full of islets",
+  levels: [
+    {
+      id: "karst-1",
+      name: "Blue Water",
+      blurb: "Flat water among the islets and reefs, the sun high and the stone white",
+      seed: 16,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "e7fe3c64",
+      hour: 10,
+      season: "summer",
+      weather: "clear",
+      wind: 7,
+      swell: 1.5,
+    },
+    {
+      id: "karst-2",
+      name: "Heat Haze",
+      blurb: "Two minutes of kickers on oily water, the horizon gone white in the heat",
+      seed: 27,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "e5cf8437",
+      hour: 14,
+      season: "summer",
+      weather: "haze",
+      wind: 8,
+      swell: 1.5,
+      minutes: 2,
+      medals: { bronze: 700, silver: 2100, gold: 4200 },
+    },
+    {
+      id: "karst-3",
+      name: "Islet Laps",
+      blurb: "Two laps of the tightest circuit in the campaign, at first light under a spring veil",
+      seed: 12,
+      mode: "race",
+      track: "circuit",
+      laps: 2,
+      version: 1,
+      digest: "15ea7ccc",
+      hour: 7,
+      season: "spring",
+      weather: "high",
+      wind: 10,
+      swell: 3,
+    },
+    {
+      id: "karst-4",
+      name: "Southerly",
+      blurb: "The warm wind up the sea, a grey lid, and reefs on the line in a rising chop",
+      seed: 24,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "eaefa45b",
+      hour: 15,
+      season: "autumn",
+      weather: "overcast",
+      wind: 12,
+      swell: 5,
+    },
+    {
+      id: "karst-5",
+      name: "Limestone Kickers",
+      blurb: "Four minutes of ramps off the pebbles in the southerly's rain",
+      seed: 15,
+      mode: "tricks",
+      track: "coast",
+      version: 1,
+      digest: "b6a2c1b2",
+      hour: 16,
+      season: "autumn",
+      weather: "rain",
+      wind: 12,
+      swell: 4,
+      minutes: 4,
+      medals: { bronze: 1200, silver: 3600, gold: 7200 },
+    },
+    {
+      id: "karst-6",
+      name: "Black Wall",
+      blurb:
+        "The storm off the mountains, nine metres of sea on the rock, and the last light of the year",
+      seed: 47,
+      mode: "race",
+      track: "coast",
+      version: 1,
+      digest: "8eff5d03",
+      hour: 15,
+      season: "winter",
+      weather: "squall",
+      wind: 14,
+      swell: 9,
+    },
+  ],
+};
+
 /** The shores in the order the campaign walks them: the warm one first, the
- * cold one behind its table, the polar one behind the cold one's. */
-export const SHORES: readonly CampaignShore[] = [MANGROVE, TAIGA, ARCTIC];
+ * cold one behind its table, the polar one behind the cold one's, and the
+ * limestone one behind the polar one's. */
+export const SHORES: readonly CampaignShore[] = [MANGROVE, TAIGA, ARCTIC, KARST];
 
 /** Every level, in ladder order. */
 export const CAMPAIGN_LEVELS: readonly CampaignLevel[] = SHORES.flatMap((s) => s.levels);

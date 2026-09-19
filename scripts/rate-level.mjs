@@ -58,7 +58,11 @@ const args = parseArgs(
     seed: { kind: "number", help: "one seed" },
     seeds: { kind: "list", help: "several seeds, comma-separated" },
     count: { kind: "number", help: "seeds 1..N — the sweep" },
-    biome: { kind: "string", default: "taiga", help: "which coast (taiga, mangrove, arctic)" },
+    biome: {
+      kind: "string",
+      default: "taiga",
+      help: "which coast (taiga, mangrove, arctic, karst)",
+    },
     track: { kind: "string", default: "coast", help: "coast (a shore sprint) or circuit (a lap)" },
     tricks: { kind: "flag", help: "build each seed as a TRICKS run (R35's line of ramps)" },
     hour: { kind: "number", help: "rate under this start hour instead of the level's own" },
@@ -70,7 +74,7 @@ const args = parseArgs(
     campaign: { kind: "flag", help: "audit the committed campaign ladder (campaign-levels.ts)" },
     json: { kind: "string", help: "write every rating to this file" },
   },
-  "usage: npm run rate -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove|arctic] [--track coast|circuit] [--tricks] [--hour h] [--season s] [--weather w] [--wind m/s] [--swell m] [--stats] [--campaign] [--json path]",
+  "usage: npm run rate -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove|arctic|karst] [--track coast|circuit] [--tricks] [--hour h] [--season s] [--weather w] [--wind m/s] [--swell m] [--stats] [--campaign] [--json path]",
 );
 
 const pad = (v, n) => String(v).padStart(n);

@@ -63,6 +63,27 @@ describe("water optics", () => {
     expect(mangrove.deepTo).toBeGreaterThan(taiga.deepTo);
   });
 
+  it("paints the karst the bluest and the clearest water of the four", () => {
+    // The limestone coast's sea is BLUE where the mangrove's is green-blue:
+    // every one of its tones sits further round the wheel toward blue than
+    // the same tone on the warm coast, its sea tone is more saturated, and
+    // the eye gets further into it than into any other water in the game.
+    const hsl = (hex: string) => new THREE.Color(hex).getHSL({ h: 0, s: 0, l: 0 });
+    const mangrove = waterOpticsOf("mangrove");
+    const karst = waterOpticsOf("karst");
+    for (const tone of ["shallow", "sea", "deep"] as const) {
+      expect(hsl(karst[tone]).h * 360, `karst ${tone}`).toBeGreaterThan(
+        hsl(mangrove[tone]).h * 360,
+      );
+      expect(karst[tone]).not.toBe(PALETTE.sea);
+    }
+    expect(hsl(karst.deep).h * 360).toBeGreaterThan(210);
+    expect(hsl(karst.sea).s).toBeGreaterThan(hsl(mangrove.sea).s);
+    for (const id of BIOME_IDS) {
+      if (id !== "karst") expect(karst.clarity).toBeGreaterThanOrEqual(waterOpticsOf(id).clarity);
+    }
+  });
+
   for (const id of BIOME_IDS) {
     describe(id, () => {
       const optics = waterOpticsOf(id);

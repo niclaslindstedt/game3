@@ -24,7 +24,9 @@ import {
   ARCTIC_SEEDS,
   LEVEL_SEEDS,
   MANGROVE_SEEDS,
+  KARST_SEEDS,
   arcticFor,
+  karstFor,
   levelFor,
   mangroveFor,
 } from "./support/levels.ts";
@@ -64,7 +66,18 @@ function mangrovePlantFor(seed: number): ReturnType<typeof planFlora> {
   return hit;
 }
 
-/** …and the arctic coast, the same way. */
+/** …the karst coast, the same way… */
+const karstPlanted = new Map<number, ReturnType<typeof planFlora>>();
+function karstPlantFor(seed: number): ReturnType<typeof planFlora> {
+  let hit = karstPlanted.get(seed);
+  if (hit === undefined) {
+    hit = planFlora(karstFor(seed), FLORA_SCALE.lush);
+    karstPlanted.set(seed, hit);
+  }
+  return hit;
+}
+
+/** …and the arctic coast. */
 const arcticPlanted = new Map<number, ReturnType<typeof planFlora>>();
 function arcticPlantFor(seed: number): ReturnType<typeof planFlora> {
   let hit = arcticPlanted.get(seed);
@@ -116,12 +129,34 @@ describe("the flora roster", () => {
         `${biome}: over the rider's head`,
       ).toBe(true);
     }
-    for (const biome of ["taiga", "mangrove"] as const) {
+    for (const biome of ["taiga", "mangrove", "karst"] as const) {
       expect(
         floraOf(biome).some((r) => r.look.height.max >= 8),
         `${biome}: a tree`,
       ).toBe(true);
     }
+  });
+
+  it("carries the scrub and the few trees a limestone shore is actually made of", () => {
+    // The maquis is knee to head high and grey; what stands over it is the
+    // pine, the oak, the olive and the cypress — and the cypress is a
+    // SPIRE narrower than anything else in any roster. The seagrass lies
+    // wholly under the water, the pebbles across the tideline, and the
+    // oleander and the giant reed take the gorge the alder takes the
+    // taiga's bank.
+    for (const id of ["immortelle", "sage", "rosemary", "rockrose", "myrtle", "spurge"]) {
+      expect(byId(id).biomes, id).toEqual(["karst"]);
+      expect(byId(id).look.form, id).toBe("bush");
+      expect(byId(id).look.height.max, id).toBeLessThan(4);
+    }
+    expect(byId("cypress").look.form).toBe("spire");
+    expect(byId("cypress").look.spread).toBeLessThan(byId("spruce").look.spread);
+    expect(byId("coastpine").look.form).toBe("pine");
+    expect(byId("coastpine").habitat.inland.min).toBeLessThan(byId("pine").habitat.inland.min);
+    expect(byId("posidonia").habitat.ground.max).toBeLessThan(0);
+    expect(byId("pebble").habitat.ground.min).toBeLessThan(0);
+    expect(byId("oleander").habitat.riverside).toBeDefined();
+    expect(byId("arundo").habitat.riverside).toBeDefined();
   });
 
   it("carries the cushions and the ice a polar shore is actually made of", () => {
@@ -205,6 +240,9 @@ describe("planting a shore", () => {
     for (const seed of ARCTIC_SEEDS) {
       arcticPlantFor(seed).forEach((list, s) => (total[s] += list.length));
     }
+    for (const seed of KARST_SEEDS) {
+      karstPlantFor(seed).forEach((list, s) => (total[s] += list.length));
+    }
     FLORA.forEach((spec, s) => {
       expect(total[s], `nothing planted anywhere for ${spec.id}`).toBeGreaterThan(0);
     });
@@ -224,6 +262,11 @@ describe("planting a shore", () => {
     for (const seed of ARCTIC_SEEDS) {
       arcticPlantFor(seed).forEach((list, s) => {
         if (!FLORA[s].biomes.includes("arctic")) expect(list, FLORA[s].id).toHaveLength(0);
+      });
+    }
+    for (const seed of KARST_SEEDS) {
+      karstPlantFor(seed).forEach((list, s) => {
+        if (!FLORA[s].biomes.includes("karst")) expect(list, FLORA[s].id).toHaveLength(0);
       });
     }
   });

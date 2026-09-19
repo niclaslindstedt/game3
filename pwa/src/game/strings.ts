@@ -20,6 +20,7 @@ const COAST_NAMES: Record<string, string> = {
   taiga: "TAIGA",
   mangrove: "MANGROVE",
   arctic: "ARCTIC",
+  karst: "KARST",
 };
 
 /** THE FOUR MODES' words, by the engine's id. */
@@ -449,7 +450,7 @@ export const STRINGS = {
    * the engine's own id, because the row is a ladder like the others. */
   startCoast: "COAST",
   startCoastHint:
-    "The kind of coast the seed builds — a cold skerry shore of granite and pine, a warm flat one of white sand and mangrove, or a polar one of ice walls and bergs on black water",
+    "The kind of coast the seed builds — a cold skerry shore of granite and pine, a warm flat one of white sand and mangrove, a polar one of ice walls and bergs on black water, or a limestone one of white pebble coves and pine on the bluest sea there is",
   coastName: (id: string): string => COAST_NAMES[id] ?? id.toUpperCase(),
   /** THE GAME, as the front door's tiles name it and as the start card's
    * head is titled with it. */

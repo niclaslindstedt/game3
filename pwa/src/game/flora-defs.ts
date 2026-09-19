@@ -12,10 +12,10 @@
 // bank is strewn over a shore by exactly the rules a stand of birch is:
 // one placer, one density row, one pass.
 //
-// WHY THESE SPECIES, AND WHY TWO ROSTERS. A coast is what grows on it as
-// much as what it is made of, and the two coasts this game builds grow
+// WHY THESE SPECIES, AND WHY FOUR ROSTERS. A coast is what grows on it as
+// much as what it is made of, and the four coasts this game builds grow
 // nothing in common. Each row says which coasts it belongs to (`biomes`),
-// the placer plants only the rows of the coast it is on, and the two
+// the placer plants only the rows of the coast it is on, and the four
 // ladders are these:
 //
 // THE TAIGA COAST — a northern shore is not a wall of spruce; that is the
@@ -77,6 +77,27 @@
 //                   wide where the ground is a little higher
 //   underfoot       shell and coral rubble at the tideline
 //
+// THE KARST COAST — a limestone shore is SCRUB, not forest: the hills were
+// cut and grazed to the rock, and what grows on a dry slab is the maquis,
+// grey-green and aromatic, with a few trees standing up out of it.
+//
+//   in the water    Neptune grass (Posidonia) — the seagrass meadow over
+//                   the pale rock that is the reason the bays are blue
+//   the tideline    white limestone pebbles, the shingle of the coves
+//   the spray zone  rock samphire, a fleshy tuft out of the bare slab
+//   the gorge       giant reed (Arundo) in a wall, and the oleander
+//                   flowering pink along the river — the coast's bank
+//   the slab        immortelle, sage, rosemary and rockrose: the low
+//                   maquis, knee high, grey and in flower
+//   the cliffs      tree spurge, a yellow-green dome on the steepest rock
+//   the scrub       myrtle and prickly juniper, head high and dark
+//   the shore       the coastal pine (Pinus halepensis), pale and open,
+//                   leaning out over the water off the slab
+//   the hollows     holm oak on the red soil, the olive on its terraces
+//   standing up     the cypress — a black spire, and nothing else on any
+//                   coast is that shape
+//   over the top    bare white rock above `TREE_LINE`
+//
 // Kept free of three.js so `tests/flora_test.ts` can read the whole roster
 // — the habitat bands are a claim about the coast, and a claim is worth
 // holding.
@@ -84,6 +105,7 @@
 import type { BiomeId, Surface } from "@engine";
 
 import { ARCTIC_FLORA } from "./flora-defs-arctic.ts";
+import { karstFlora } from "./flora-defs-karst.ts";
 
 /** The tree line, m above sea level: how high anything with a trunk gets
  * up a hill before the rock stands bare, which is what makes a rugged
@@ -95,11 +117,12 @@ export const TREE_LINE = 20;
 
 export type Band = { readonly min: number; readonly max: number };
 
-/** How a species is BUILT (`flora-shapes.ts`). Nine shapes carry three
+/** How a species is BUILT (`flora-shapes.ts`). Nine shapes carry four
  * rosters: what separates a birch from a rowan is its size, its bark and
  * its green, not another builder — what separates a cabbage palm from a
- * coconut is the count and reach of its fronds — and what separates a
- * cobble from a stranded floe is its size and its white. */
+ * coconut is the count and reach of its fronds, a spruce from a cypress
+ * its spread — and what separates a cobble from a stranded floe is its
+ * size and its white. */
 export type FloraForm =
   /** A bare trunk with a broad, flat, high crown: the Scots pine. */
   | "pine"
@@ -200,8 +223,9 @@ export type FloraSpec = {
  * fifty metres is a cove; one that does not is a bight the sea gets into. */
 export const SHELTER_RING = 45;
 
-/** The rows a bird will perch in: the tall trees of both coasts, read by
- * `bird-plan.ts`'s `treePerches`. Here because it names rows of this table. */
+/** The rows a bird will perch in: the tall trees of the wooded coasts, read
+ * by `bird-plan.ts`'s `treePerches`. Here because it names rows of this
+ * table. */
 export const PERCH_TREES = [
   "pine",
   "spruce",
@@ -211,6 +235,9 @@ export const PERCH_TREES = [
   "sabal",
   "coconut",
   "liveoak",
+  "coastpine",
+  "cypress",
+  "holmoak",
 ];
 
 /** The rows a coast plants, in roster order — what the placer, the lab and
@@ -830,4 +857,5 @@ export const FLORA: readonly FloraSpec[] = [
     },
   },
   ...ARCTIC_FLORA,
+  ...karstFlora(TREE_LINE),
 ];

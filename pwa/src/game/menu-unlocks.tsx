@@ -6,7 +6,7 @@
 // medal on the one before it, and a shore behind a table won outright. That
 // is the right price for a player and the wrong one for anybody who has to
 // LOOK at the last rung — a shore's banner, a circuit's boxes, the plate at
-// the end of the arctic finale — which is every review pass this game has.
+// the end of the karst finale — which is every review pass this game has.
 // So every shore is offered both ways, plus the two presses that take the
 // whole ladder at once: a state four evenings away is one press, and the
 // state that used to cost clearing the browser's storage is another.

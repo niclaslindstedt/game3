@@ -20,8 +20,8 @@
 // comes, will put the rider on the TAIGA COAST and the MANGROVE COAST, not
 // on a map.
 //
-// Seven ids are reserved in `types.ts` so a campaign location never changes
-// its name; THREE rows are built. The taiga's is the coast every rule in
+// Eight ids are reserved in `types.ts` so a campaign location never changes
+// its name; FOUR rows are built. The taiga's is the coast every rule in
 // `rules.ts` was written against — a cold northern skerry coast: low,
 // glacially planed bedrock slabs sliding into brackish water, boulder
 // fields the ice left behind, gravel and sand collecting in the bays,
@@ -34,9 +34,14 @@
 // standing sixty metres out of the sea, with firn and calved rubble in the
 // bays between the fronts, bergs grounded off it where the taiga has
 // skerries, a crack in the ice where the taiga has a river, and water at
-// the freezing point that is ice for half the year (R37). Asking for an
-// unbuilt biome throws, by design: a level on a coast nobody has drawn is
-// not a level.
+// the freezing point that is ice for half the year (R37). The karst's is a
+// warm-temperate LIMESTONE coast on the clearest water in the game: bare
+// pale rock falling steeply into a blue sea, white pebble coves in the
+// bays between the headlands, the sea thick with islets and reefs, a short
+// river in a rock gorge, and a wind sea that stands up fast off the
+// mountains behind it and no ocean swell at all, because the sea is
+// enclosed. Asking for an unbuilt biome throws, by design: a level on a
+// coast nobody has drawn is not a level.
 
 import type { FaunaId } from "../game/defs/fauna.ts";
 import { DECLINATION, type Season } from "../lib/solar.ts";
@@ -232,7 +237,7 @@ export type Biome = {
 };
 
 /** Every biome that is BUILT, in the order they are offered. */
-export const BIOME_IDS: readonly BiomeId[] = ["taiga", "mangrove", "arctic"];
+export const BIOME_IDS: readonly BiomeId[] = ["taiga", "mangrove", "arctic", "karst"];
 
 export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
   taiga: {
@@ -624,6 +629,141 @@ export const BIOMES: Readonly<Partial<Record<BiomeId, Biome>>> = {
       "humpback",
       "sleeper",
       "bowhead",
+    ],
+  },
+  karst: {
+    id: "karst",
+    name: "Karst coast",
+    // FULL SALT AND THEN SOME — 1027 kg/m³ — the saltiest water in the
+    // game, because an enclosed sea in a dry climate evaporates faster
+    // than its rivers fill it, and WARM-TEMPERATE: the surface off a
+    // limestone coast like this runs from 12–13 °C in the coldest month
+    // through 18–20 °C in May, 25–27 °C in August, 20–22 °C in early
+    // October and 17–18 °C in November, and the sheltered coves run a
+    // couple of degrees either side of the open sea. The bands are the
+    // taiga's dated months (`DECLINATION`): a May already swimmable, high
+    // summer at its hottest, an October still warm, a November cooling
+    // under the first north wind of the year.
+    water: {
+      density: 1027,
+      temperature: {
+        spring: { min: 16, max: 20 },
+        summer: { min: 23, max: 27 },
+        autumn: { min: 19, max: 22 },
+        winter: { min: 14, max: 17 },
+      },
+    },
+    // Halfway between the taiga and the mangrove: a midsummer noon sun
+    // seventy degrees up, a midwinter one twenty-three, days from nine to
+    // fifteen hours, and every night dark — a dusk of half an hour and
+    // then the stars, which over this dry air are the best in the game.
+    latitude: 43.5,
+    declination: DECLINATION,
+    // THE LAND STANDS HIGH AND COMES DOWN STEEP. A limestone coast is a
+    // mountain range's edge drowned by the sea: the headlands are bare
+    // rock forty metres up within a stone's throw of the water and the
+    // islands are the tops of the ridges the sea ran between. A third
+    // over the taiga's plateau, under the rock coasts' own ceiling, and
+    // the rugged stretches lifted half as much again over it — the
+    // taiga's headland is twice its plateau and this coast's three times.
+    relief: 1.3,
+    ceiling: 1,
+    headland: 1.5,
+    // …and a rugged stretch meets its hill over two fifths of the taiga's
+    // reach: a slab of limestone tilted into the sea, the bank steep
+    // enough that the trees lean over the water. Not a wall — the rock is
+    // bedded and it comes down in steps and slabs rather than a cliff —
+    // so the taiga's ramp stays and there is no apron: the soft stretches
+    // are the pebble coves, and they climb over the whole reach.
+    climb: 0.4,
+    wall: { from: 0.35, to: 1, apron: 0 },
+    // A KARST RIVER IS A GORGE. It comes out of the mountains in a
+    // limestone canyon, so it holds the race's own water at the mouth
+    // (`mouth` and `head` stay at 1: under them the race pinches and the
+    // creek goes under the grid's cell), closes a little faster than the
+    // rock channel behind the mouth, bends tighter — a gorge turns on its
+    // joints — and carries two thirds of the torrent: the springs are
+    // strong, the catchment is small. Half the taiga's meander is
+    // bang-bang, straight reaches and corners along the joints, and the
+    // walls wander a little. Banks, because a gorge has a floor of
+    // gravel and oleander down to the water. No bars: a gorge drops no
+    // delta.
+    river: {
+      mouth: 1,
+      head: 1,
+      taper: 1.15,
+      bend: 0.8,
+      discharge: 0.65,
+      banks: true,
+      kink: 0.5,
+      ragged: 0.15,
+      bars: null,
+    },
+    // A SEA FULL OF ROCK. A drowned mountain coast stands its ridge tops
+    // out of the water as islets a stone's throw off every headland — a
+    // third more skerries than the taiga, with the same again in reefs
+    // awash between them, and stacks and pinnacles where the sea has cut
+    // a ridge through. The boulders are limestone blocks fallen off the
+    // headlands, fewer than the moraine's, and NO ERRATICS: no glacier
+    // ever came down this coast, and an erratic is the ice's own rock.
+    rocks: { skerry: 1.3, boulder: 0.6, reef: 1.3, erratic: 0, stack: 1.2 },
+    // The "boulder field" (R16) is the SCREE at the foot of a headland —
+    // the blocks a limestone face sheds — a little narrower than the
+    // moraine's: most of this shore is bare slab, and the scree is what
+    // breaks a run of it up for R21's quilt. MEASURED over sixteen seeds
+    // with the sand below: 0.9 and 0.8 build sixteen of sixteen.
+    boulderField: 0.9,
+    beaches: true,
+    // The "sand" is WHITE PEBBLE: the shingle coves in the bays between
+    // the headlands, the one soft thing on a coast that is otherwise
+    // stone. Under the taiga's share — this is a rock coast with coves
+    // in it, and a coast that is mostly beach is the mangrove — and held
+    // well over what R21's quilt needs. MEASURED: 0.8 builds sixteen
+    // seeds of sixteen, as the taiga does.
+    shore: { sand: 0.8 },
+    // A SHORT STEEP SEA, AND NO OCEAN SWELL. The whole sea is a few
+    // hundred kilometres long and enclosed, so nothing arrives from past
+    // the horizon: what swell there is is a wind sea from down the sea,
+    // the southerly's, and it is short and never long. The wind sea is
+    // the game here — the north wind off the mountains stands a steep,
+    // short, breaking chop up inside an hour, and it is the whole sea's
+    // own: the taiga's islands take some of its wind sea off, and this
+    // coast's islands do not, because the wind comes off the LAND.
+    sea: { wind: 1, swell: 0.55 },
+    // R19 — a dry summer and a wet winter on one chart: bare blue and the
+    // milky heat haze of a calm afternoon at the fair end, a high veil
+    // ahead of the southerly, the southerly's warm grey lid and its rain
+    // in the middle, and at the top the summer thunderstorm that comes
+    // off the mountains as a black wall — this coast's squall.
+    weathers: ["clear", "haze", "high", "overcast", "rain", "squall"],
+    // Fourteen degrees in its coldest week: the one thing this sea never
+    // does.
+    freezes: false,
+    // R20 — a clear warm salt sea's, listed the way it is met. Along the
+    // pebbles and the rock: the sardine shoals, the bream and the bass
+    // over the coves, the garfish skittering along the surface, the
+    // dentex off the reef, the loggerhead up for a breath, the monk seal
+    // out of its cave once in a blue moon. Out past the islets: the
+    // bottlenose, the amberjack schools, the striped dolphins leaping,
+    // the bluefin busting bait. And past THAT, over the deep: the sunfish
+    // lying on the surface, the swordfish finning, the blue shark, and
+    // the fin whale that comes into this sea every summer.
+    fauna: [
+      "sardine",
+      "seabream",
+      "seabass",
+      "garfish",
+      "dentex",
+      "turtle",
+      "monkseal",
+      "dolphin",
+      "amberjack",
+      "striped",
+      "bluefin",
+      "sunfish",
+      "swordfish",
+      "blueshark",
+      "finwhale",
     ],
   },
 };

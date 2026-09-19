@@ -97,8 +97,9 @@
 //   R13 THE DAY AND THE WATER. The run STARTS in daylight: the level is
 //       dealt a SEASON, and its hour is SOLAR time drawn from the window in
 //       which the sun stands at least `day.minSun` over the horizon at the
-//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove, 78°N arctic)
-//       in that season, which decides where the sun stands at it and so
+//       coast's own latitude (`Biome.latitude`: 62°N taiga, 27°N mangrove,
+//       78°N arctic, 43.5°N karst) in that season, which decides where the
+//       sun stands at it and so
 //       what sky the run is under. So a seed can be a sunrise on the water,
 //       a noon, or a sun going down into the sea — and the clock runs on at
 //       an hour a minute (`sunHourAt`), so a run begun at sunset rides into
@@ -107,7 +108,8 @@
 //       twilight, a September night is black under the moon, and every
 //       mangrove night is. The water's temperature comes from the biome's
 //       band for the season and its density is the biome's (brackish on the
-//       taiga coast, full salt on the mangrove).
+//       taiga coast, full salt on the mangrove and the arctic, saltier
+//       still on the karst — an enclosed sea in a dry climate).
 //   R14 THE GRID. Both heightfields sit on `grid.cell` (4 m) cells over the
 //       course's own extent padded `bounds.sea` metres on the seaward sides
 //       and `bounds.land` metres on the landward ones, and the level's

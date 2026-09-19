@@ -165,6 +165,35 @@ export const WATER_OPTICS: Readonly<Partial<Record<BiomeId, WaterOptics>>> = {
     window: [0.3, 0.7],
     clarity: 12,
   },
+  karst: {
+    // THE BLUEST WATER IN THE GAME, and the clearest. A warm salt sea with
+    // no river worth the name running into it and nothing growing in the
+    // water column scatters almost nothing back but blue: over the white
+    // pebbles of a cove it is a luminous aquamarine you can count the
+    // stones through, over the slab and the seagrass an azure, and over
+    // the deep — which is close, because a drowned mountain coast falls
+    // away fast — a cobalt so saturated it reads as ink. Bluer than the
+    // mangrove's turquoise at every depth: that sea is green-blue over
+    // sand, and this one is blue over rock.
+    shallow: "#84dfe0",
+    sea: "#1e8ccb",
+    deep: "#0a2d68",
+    // The aquamarine holds over five metres of pebble and the deep tone
+    // is not reached until the bottom is nearly forty metres down, which
+    // it is a hundred metres off most of this shore.
+    shallowTo: 5,
+    deepTo: 38,
+    // What the bottom goes to once the water has taken it: a deep
+    // blue-black, well under the deep tone, so the drop off a headland
+    // keeps its weight under the bright cove beside it.
+    bed: "#0d2540",
+    // A summer reading of thirty metres is ordinary here, and forty is
+    // not rare: the surface is a pane of glass over the rock, the least
+    // skin of any coast, and the deep stop is still the sea life's — a
+    // fin whale at eight metres has to read as more than a shadow.
+    window: [0.2, 0.56],
+    clarity: 30,
+  },
 };
 
 /** The row for a coast; throws for one nobody has drawn the water of, the

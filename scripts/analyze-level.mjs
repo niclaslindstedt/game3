@@ -47,7 +47,7 @@ const args = parseArgs(
     biome: {
       kind: "string",
       default: "taiga",
-      help: "which coast the seed is built on (taiga, mangrove, arctic)",
+      help: "which coast the seed is built on (taiga, mangrove, arctic, karst)",
     },
     seeds: { kind: "list", help: "several seeds, comma-separated" },
     count: { kind: "number", help: "seeds 1..N — the sweep" },
@@ -69,7 +69,7 @@ const args = parseArgs(
     },
     json: { kind: "string", help: "write every analysis to this file" },
   },
-  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove|arctic] [--track coast|circuit] [--pace k] [--ramp k] [--findings n] [--json path]",
+  "usage: npm run analyze -- [--seed n | --seeds a,b,c | --count n] [--biome taiga|mangrove|arctic|karst] [--track coast|circuit] [--pace k] [--ramp k] [--findings n] [--json path]",
 );
 if (!isBiomeId(args.biome)) {
   console.error(`unknown biome "${args.biome}" (${BIOME_IDS.join(", ")})`);

@@ -118,6 +118,26 @@ export const BIRD_CALLS: Readonly<Record<BirdId, BirdCall | null>> = {
   skua: { sound: "gull_cry", airborne: 2, perched: 0.5, ref: 26, reach: 200 },
   gyrfalcon: null,
   raven: null,
+  // THE KARST COAST. The yellow-legged gull is the loudest gull in the
+  // game — a colony of them is the sound of every islet — and Audouin's
+  // the quiet one. The swifts SCREAM: a party of them round the cliff is
+  // this coast's summer evening, and the tern's cry is the nearest voice
+  // the bank has to it, played fast and high. The common tern is a tern;
+  // the crow is the one voice on any coast that is not a sea bird's. The
+  // shag, the two shearwaters (which wail at their colony at night and
+  // never over the water by day), the falcon, the vulture and the stork
+  // keep quiet.
+  yellowlegged: { sound: "gull_cry", airborne: 5, perched: 1.5, ref: 32, reach: 280 },
+  audouin: { sound: "gull_cry", airborne: 1.5, perched: 0.5, ref: 24, reach: 200 },
+  shag: null,
+  shearwater: null,
+  yelkouan: null,
+  commontern: { sound: "tern_cry", airborne: 6, perched: 2, ref: 24, reach: 180 },
+  swift: { sound: "swift_scream", airborne: 8, perched: 0, ref: 30, reach: 240 },
+  eleonora: null,
+  griffon: null,
+  hoodedcrow: { sound: "crow_caw", airborne: 3, perched: 2, ref: 34, reach: 300 },
+  stork: null,
 };
 
 /** The slot the draw is made per, s. A flock cries at most once a slot,

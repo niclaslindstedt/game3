@@ -14,7 +14,7 @@
 // renderer's OWN generator and posed off the engine's OWN clock, so a seed
 // flies the same birds every time without costing the run a single draw.
 //
-// WHY THESE THIRTY-THREE, over three coasts. Each row says which coasts
+// WHY THESE FORTY-FOUR, over four coasts. Each row says which coasts
 // it lives on (`biomes`), the planner lays only the flocks of the coast it
 // is on, and a few birds live on more than one.
 //
@@ -51,11 +51,26 @@
 // whole year round with it. The brent and the snow geese CROSS: south in
 // the autumn ahead of the ice and north in the spring behind it.
 //
+// THE KARST COAST. The yellow-legged gull is its everyday bird, and the
+// loudest gull in the game; Audouin's gull the rare, elegant one out on
+// the islets. The shag is its cormorant, in lines between the rocks and
+// drying on every one of them. The two shearwaters are the open water's —
+// the big one shearing the swell on stiff wings, the small dark one in
+// fast lines low over the sea the whole year — and the common tern fishes
+// the coves. The SWIFTS are the coast's sound: screaming parties tearing
+// round the cliffs at the fastest speed here, never landing. Eleonora's
+// falcon is the raptor, hunting out over the water off a cliff it lives
+// on; the griffon vulture the biggest wing on any coast, soaring over the
+// sea cliffs on a shallow V; the hooded crow the raven's part. And two
+// things CROSS, because this is the one place the sea is narrow enough:
+// the stork in a vee, and the crane, the same crane as the taiga's.
+//
 // The look (the paint, the wingtips, the bill) belongs to `bird-shapes.ts`.
 
 import type { BiomeId, Season } from "@engine";
 
 import { ARCTIC_BIRDS } from "./bird-defs-arctic.ts";
+import { KARST_BIRDS } from "./bird-defs-karst.ts";
 
 /** Every bird in the roster. */
 export type BirdId =
@@ -91,7 +106,18 @@ export type BirdId =
   | "snowgoose"
   | "skua"
   | "gyrfalcon"
-  | "raven";
+  | "raven"
+  | "yellowlegged"
+  | "audouin"
+  | "shag"
+  | "shearwater"
+  | "yelkouan"
+  | "commontern"
+  | "swift"
+  | "eleonora"
+  | "griffon"
+  | "hoodedcrow"
+  | "stork";
 
 export type Band = { readonly min: number; readonly max: number };
 
@@ -530,7 +556,10 @@ export const BIRDS: readonly BirdSpec[] = [
   {
     id: "crane",
     name: "Common crane",
-    biomes: ["taiga"],
+    // Over the taiga on its way to and from the north, and over the karst
+    // on its way to and from the south: the one bird that crosses two
+    // coasts, because it crosses the whole continent between them.
+    biomes: ["taiga", "karst"],
     span: 2.2,
     length: 1.15,
     // Neck out front and legs trailing behind: the longest thing in the sky.
@@ -846,6 +875,7 @@ export const BIRDS: readonly BirdSpec[] = [
     passes: [],
   },
   ...ARCTIC_BIRDS,
+  ...KARST_BIRDS,
 ];
 
 /** The rows a coast flies, in roster order. */

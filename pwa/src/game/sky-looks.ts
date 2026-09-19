@@ -519,6 +519,140 @@ const ARCTIC_SEASONS: Record<Season, SeasonLook> = {
   winter: { horizon: [0xe4d4de, 0.34], fog: [0xd4dbe6, 0.3], reach: 0.9, sun: 0.82, mist: 1.4 },
 };
 
+/** THE KARST COAST'S SKIES. The same ladder under a sun that stands
+ * between the taiga's and the mangrove's: what is authored here is what a
+ * dry warm-temperate sky does that neither of those does. The clear sky
+ * is the second-longest view in the game — the north wind that stands
+ * this coast's sea up also scrubs its air, so the islands forty
+ * kilometres off stand hard-edged on the rim — and the wet words are the
+ * SOUTHERLY's: a warm, humid wind up the length of the sea that brings a
+ * high veil, then a grey lid, then rain, in that order over a day. The
+ * haze is a calm's — the heat of a windless afternoon in high summer
+ * whitening the horizon until the islands float — and the squall is the
+ * summer thunderstorm that stands up over the mountains behind the coast
+ * and comes down onto the water as a black wall in twenty minutes. */
+const KARST_LOOKS: Looks = {
+  // Dry air with the north wind through it: the blue deep and hard, and
+  // the far shore standing at the fog's limit as if cut out.
+  clear: {
+    grey: 0xffffff,
+    mix: 0,
+    dim: [1, 1],
+    hemi: [1, 1.02],
+    fogNear: [1.12, 1.16],
+    fogFar: [1.12, 1.16],
+    through: [1, 1],
+  },
+  // THE CALM'S HAZE: a windless August afternoon, the sea gone to oil,
+  // the horizon whitened out and the islands floating on it with no line
+  // under them, the sun a glare. Not the mangrove's saturated milk — the
+  // air is dry — so the view stays longer than that coast's and the
+  // light stays harder.
+  haze: {
+    grey: 0xf0f1ec,
+    mix: 0.34,
+    dim: [0.88, 0.72],
+    hemi: [1.08, 1.16],
+    fogNear: [0.62, 0.46],
+    fogFar: [0.66, 0.5],
+    through: [0.78, 0.52],
+  },
+  // The southerly's first sign: a veil of cirrus up the length of the sea
+  // a day ahead of the front, the light going flat and the sea losing its
+  // blue to a pewter under it.
+  high: {
+    grey: 0xe4e8ec,
+    mix: 0.13,
+    dim: [0.9, 0.74],
+    hemi: [1.05, 1.15],
+    fogNear: [0.9, 0.78],
+    fogFar: [0.92, 0.82],
+    through: [0.8, 0.5],
+  },
+  // THE SOUTHERLY'S LID: a warm grey sheet, lower than the mangrove's
+  // winter front and warmer-toned than a northern stratus — the air under
+  // it is humid and the light comes through it yellowish rather than
+  // blue — and the sea under it the one dull colour this coast ever is.
+  overcast: {
+    grey: 0xa9aeb2,
+    mix: 0.48,
+    dim: [0.64, 0.4],
+    hemi: [1, 0.86],
+    fogNear: [0.8, 0.64],
+    fogFar: [0.84, 0.68],
+    fogDeck: 0.46,
+    overhead: [0xcdd2d6, 0x8f969c],
+    rim: 0x7e868d,
+    rimMix: 0.84,
+    base: [600, 320],
+    relief: [0.08, 0.2],
+    through: [0.26, 0.05],
+  },
+  // The southerly's rain: warm and heavy, a white sky as rain is
+  // everywhere, and the view short — the islands gone, the headland
+  // ahead a grey shape.
+  rain: {
+    grey: 0x9ba4ad,
+    mix: 0.46,
+    dim: [0.8, 0.5],
+    hemi: [0.98, 0.76],
+    fogNear: [0.56, 0.38],
+    fogFar: [0.6, 0.4],
+    fogDeck: 0.6,
+    overhead: [0xf1f5f9, 0x959ea8],
+    rim: 0x858e98,
+    rimMix: 0.88,
+    base: [340, 180],
+    relief: [0.12, 0.34],
+    through: [0.5, 0],
+  },
+  // THE SUMMER STORM OFF THE MOUNTAINS: a thunderhead that stands up over
+  // the ridge behind the coast on a hot afternoon and comes down onto the
+  // sea as a black wall with a squall of wind ahead of it, the whole
+  // thing over in half an hour. Black at the base like the taiga's front
+  // and the rim as bright as the mangrove's cell — the storm comes off
+  // the land, so the open sea beyond it is still in sun.
+  squall: {
+    grey: 0x4e5664,
+    mix: 0.66,
+    dim: [0.4, 0.16],
+    hemi: [0.8, 0.44],
+    fogNear: [0.44, 0.28],
+    fogFar: [0.5, 0.32],
+    fogDeck: 0.72,
+    overhead: [0x2e343e, 0x0b0e13],
+    rim: 0xd2d8de,
+    rimMix: 0.62,
+    base: [220, 120],
+    relief: [0.34, 0.6],
+    through: [0, 0],
+  },
+};
+
+/** The karst's seasons, on the taiga's dated days: a dry hot summer and a
+ * wet mild winter, and the two winds between them — the southerly's
+ * humidity in the autumn, and the north wind's scrubbed air in the
+ * winter, which is when this coast has its longest views of the year. */
+const KARST_SEASONS: Record<Season, SeasonLook> = {
+  // May: the sea already warm, the air still clear after the spring's
+  // last north winds, the hills green for the only month they are, and
+  // the light strong. No fog to speak of — the sea is warmer than the
+  // air by the afternoon.
+  spring: { horizon: [0xecf1f6, 0.1], fog: [0xe4ecf2, 0.08], reach: 1.06, sun: 1.02, mist: 0.5 },
+  // Late July: the heat. A white sky at the horizon on the calm days,
+  // the hills brown, the sun fierce, and the sea at its bluest under it.
+  summer: { horizon: [0xf4efe2, 0.22], fog: [0xede8dc, 0.2], reach: 0.88, sun: 1.06, mist: 0.3 },
+  // Early October: the southerly's season and the wettest weeks of the
+  // year — the sea still warm, the air humid, the storms standing up
+  // most afternoons, a warm and hazy horizon.
+  autumn: { horizon: [0xf0e6d8, 0.18], fog: [0xe6dfd2, 0.16], reach: 0.92, sun: 1, mist: 0.5 },
+  // Mid-November: the north wind's season. The clearest, hardest air of
+  // the year — a hundred kilometres of view on the morning after a blow
+  // — cold, blue, the sun low, and on the stillest mornings a little
+  // steam off a sea that is still warmer than the air over it.
+  winter: { horizon: [0xdfe8f2, 0.16], fog: [0xd8e2ec, 0.12], reach: 1.14, sun: 0.94, mist: 0.7 },
+};
+
 /** Every coast's skies and seasons, keyed the way `BIOMES` is: a coast the
  * engine can build without a row here has no sky, and `tests/biome_test.ts`
  * holds the two lists to each other. */
@@ -526,12 +660,14 @@ export const SKY_LOOKS: Readonly<Partial<Record<BiomeId, Looks>>> = {
   taiga: TAIGA_LOOKS,
   mangrove: MANGROVE_LOOKS,
   arctic: ARCTIC_LOOKS,
+  karst: KARST_LOOKS,
 };
 
 export const SEASON_LOOKS: Readonly<Partial<Record<BiomeId, Record<Season, SeasonLook>>>> = {
   taiga: TAIGA_SEASONS,
   mangrove: MANGROVE_SEASONS,
   arctic: ARCTIC_SEASONS,
+  karst: KARST_SEASONS,
 };
 
 /** A coast's skies; throws for one nobody has painted a sky for. */

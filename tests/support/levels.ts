@@ -110,3 +110,20 @@ export function arcticFor(seed: number): Level {
   }
   return hit;
 }
+
+/** THE KARST CORPUS: the fourth coast, kept apart for the same reason —
+ * its rows are the limestone's, the gorge's and the blue water's, and a
+ * suite asserting the taiga's birch on it is asserting nothing. */
+export const KARST_SEEDS: readonly number[] = Array.from({ length: 4 }, (_, i) => i * 47 + 3);
+
+const karsts = new Map<number, Level>();
+
+/** The karst level for a seed, built once. Read-only, as `levelFor`'s is. */
+export function karstFor(seed: number): Level {
+  let hit = karsts.get(seed);
+  if (hit === undefined) {
+    hit = generateLevel(seed, { biome: "karst" });
+    karsts.set(seed, hit);
+  }
+  return hit;
+}

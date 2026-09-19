@@ -131,4 +131,34 @@ export const SHORE_ROUTES: Record<string, ShoreRoute> = {
     aspect: 0.9551,
     spec: { seed: 41, track: "coast", tricks: false, swell: 18, version: 1, digest: "ab837aaa" },
   },
+  "karst-1": {
+    d: "mwCYDJkVukvAV8Jgw23Be76Kt5n+xf/M/NP02e7d3uHM4rHem+GQ5Yrpf/Z1+2T/Tv4a9Q/wBekA3wLHBcAQrw==",
+    aspect: 0.5373,
+    spec: { seed: 16, track: "coast", tricks: false, swell: 1.5, version: 1, digest: "e7fe3c64" },
+  },
+  "karst-2": {
+    d: "wv++77bjqNWJun2rdp9yj2yGYX9Tekh4J3cddRNyCGsDZQBbAVUETwlJEUQZQCk9PzxOOp8AsgHjB/EM+RH/XfVp",
+    aspect: 0.5907,
+    spec: { seed: 27, track: "coast", tricks: true, swell: 1.5, version: 1, digest: "e5cf8437" },
+  },
+  "karst-3": {
+    d: "RrwfpRObDJMEhQF7AHACYRkgIhMpCzgDSQBUAV8Dcwx8Ed5f6233f/6S/53/p/q29cDrzL3ztPmp/Z7/k/6C+nDuYN9MxUW9PLcfpRObCY4EhQF7AHACYRMvHBwiEykLOANJAFQBXwNpB3gP3l/ucfmD/I3/mP+n/LH4u/LE59DG7Lj2qf2e/5P+iPx993TxZONJwUG6MrE=",
+    aspect: 0.917,
+    spec: { seed: 12, track: "circuit", tricks: false, swell: 3, version: 1, digest: "15ea7ccc" },
+  },
+  "karst-4": {
+    d: "wQDTEeMj8Dj5S/+o9sDr0d3gz+jE7Lzus+6n7ZTmf9l312vWX9pY3lLjQvU7+jP9J/8f/hf8EPcL8xuTGYwVhQl6BHMCawBf",
+    aspect: 0.9784,
+    spec: { seed: 24, track: "coast", tricks: false, swell: 5, version: 1, digest: "eaefa45b" },
+  },
+  "karst-5": {
+    d: "/13oXKFFjkWEQ34+UgBMAkYFPww8EjoZOh89OjpHNE8vUxxZF1wSYQd2AYwAmgCnBsUL2BLoGPQg/w==",
+    aspect: 1.0374,
+    spec: { seed: 15, track: "coast", tricks: true, swell: 4, version: 1, digest: "b6a2c1b2" },
+  },
+  "karst-6": {
+    d: "AWABSDMFQgFVAGMDcQh+D4sblCabMqA/plOqWbJhuGTDZ91k6GbuafRt+3X/f/+J+5P3mfKe66LSp8aulfOL9XP9X/8=",
+    aspect: 0.9462,
+    spec: { seed: 47, track: "coast", tricks: false, swell: 9, version: 1, digest: "8eff5d03" },
+  },
 };

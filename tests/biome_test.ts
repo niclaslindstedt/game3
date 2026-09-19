@@ -12,12 +12,13 @@
 // itself CLAIMS is `tests/colour_grade_test.ts`'s.
 //
 // And a biome is a KIND of coast, never a place. The second half of the
-// file holds the rows to what makes the three coasts three — the cold one
+// file holds the rows to what makes the four coasts four — the cold one
 // is cold, brackish, sheltered and grey-green; the warm one is warm, salt,
 // swell-swept and turquoise; the polar one is at the freezing point, a wall
-// of ice over black water that is a sheet of ice in its winter — and holds
-// the tree to the rule that nothing in it names a country, a sea or a shore
-// that exists.
+// of ice over black water that is a sheet of ice in its winter; the
+// limestone one is warm, salt, steep, full of rock and the bluest water
+// there is — and holds the tree to the rule that nothing in it names a
+// country, a sea or a shore that exists.
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
@@ -43,9 +44,11 @@ import {
 
 import {
   ARCTIC_SEEDS,
+  KARST_SEEDS,
   LEVEL_SEEDS,
   MANGROVE_SEEDS,
   arcticFor,
+  karstFor,
   levelFor,
   mangroveFor,
 } from "./support/levels.ts";
@@ -59,11 +62,12 @@ import { WATER_OPTICS, waterOpticsOf } from "../pwa/src/game/water-optics.ts";
 const ROOT = process.cwd();
 
 describe("the built coasts", () => {
-  it("are the three the game opens on, the taiga first", () => {
-    expect(BIOME_IDS).toEqual(["taiga", "mangrove", "arctic"]);
+  it("are the four the game opens on, the taiga first", () => {
+    expect(BIOME_IDS).toEqual(["taiga", "mangrove", "arctic", "karst"]);
     expect(isBiomeId("taiga")).toBe(true);
     expect(isBiomeId("mangrove")).toBe(true);
     expect(isBiomeId("arctic")).toBe(true);
+    expect(isBiomeId("karst")).toBe(true);
     // Reserved, not built: a row nobody has written is a level that throws.
     expect(isBiomeId("atoll")).toBe(false);
     expect(isBiomeId(null)).toBe(false);
@@ -112,18 +116,20 @@ describe("the built coasts", () => {
     }
     const offered = new Set(BIOME_IDS.flatMap((id) => biomeOf(id).fauna));
     for (const spec of FAUNA) expect(offered.has(spec.id), spec.id).toBe(true);
-    // The three rosters are three: each coast's signature species grow on
+    // The four rosters are four: each coast's signature species grow on
     // it alone.
-    const taiga = new Set(floraOf("taiga").map((s) => s.id));
-    const mangrove = new Set(floraOf("mangrove").map((s) => s.id));
-    const arctic = new Set(floraOf("arctic").map((s) => s.id));
-    for (const id of ["spruce", "birch", "reed"])
-      expect(taiga.has(id) && !mangrove.has(id) && !arctic.has(id), id).toBe(true);
+    const rosters = BIOME_IDS.map((b) => [b, new Set(floraOf(b).map((s) => s.id))] as const);
+    const alone = (coast: string, id: string): boolean =>
+      rosters.every(([b, set]) => set.has(id) === (b === coast));
+    for (const id of ["spruce", "birch", "reed"]) expect(alone("taiga", id), id).toBe(true);
     for (const id of ["redmangrove", "sabal", "coconut"]) {
-      expect(mangrove.has(id) && !taiga.has(id) && !arctic.has(id), id).toBe(true);
+      expect(alone("mangrove", id), id).toBe(true);
     }
     for (const id of ["saxifrage", "strandedice", "kelp"]) {
-      expect(arctic.has(id) && !taiga.has(id) && !mangrove.has(id), id).toBe(true);
+      expect(alone("arctic", id), id).toBe(true);
+    }
+    for (const id of ["posidonia", "coastpine", "cypress", "olive"]) {
+      expect(alone("karst", id), id).toBe(true);
     }
     // …and nothing with a trunk grows on the polar coast at all.
     for (const spec of floraOf("arctic")) {
@@ -132,14 +138,17 @@ describe("the built coasts", () => {
   });
 });
 
-describe("what makes the three coasts three", () => {
+describe("what makes the four coasts four", () => {
   const taiga = biomeOf("taiga");
   const mangrove = biomeOf("mangrove");
   const arctic = biomeOf("arctic");
+  const karst = biomeOf("karst");
 
   it("is the water: cold and brackish against warm and salt against the freezing point", () => {
     expect(taiga.water.density).toBeLessThan(mangrove.water.density);
     expect(arctic.water.density).toBeGreaterThanOrEqual(mangrove.water.density);
+    // An enclosed sea in a dry climate is the saltiest water in the game.
+    expect(karst.water.density).toBeGreaterThanOrEqual(mangrove.water.density);
     for (const season of ["spring", "summer", "autumn", "winter"] as const) {
       expect(taiga.water.temperature[season].max).toBeLessThan(
         mangrove.water.temperature[season].min,
@@ -149,6 +158,15 @@ describe("what makes the three coasts three", () => {
       );
       // Sea water freezes at −1.8 °C, and a coast never deals water colder.
       expect(arctic.water.temperature[season].min).toBeGreaterThanOrEqual(-1.8);
+      // Warm-temperate: between the cold coast and the warm one, in every
+      // season, and swimmable in all of them.
+      expect(karst.water.temperature[season].min).toBeGreaterThan(
+        taiga.water.temperature[season].max,
+      );
+      expect(karst.water.temperature[season].max).toBeLessThan(
+        mangrove.water.temperature[season].max,
+      );
+      expect(karst.water.temperature[season].min).toBeGreaterThan(12);
     }
     // The winter water is under the freezing point of fresh water, which is
     // the sea R37 puts a sheet on.
@@ -175,6 +193,10 @@ describe("what makes the three coasts three", () => {
     // both summer seasons and no sun at all in a taiga November.
     expect(arctic.latitude).toBeGreaterThan(66.5);
     expect(arctic.latitude).toBeLessThan(85);
+    // …and the karst between the taiga and the mangrove: every night dark,
+    // no midnight sun, a noon sun that never stands overhead.
+    expect(karst.latitude).toBeGreaterThan(mangrove.latitude);
+    expect(karst.latitude).toBeLessThan(taiga.latitude);
   });
 
   it("is the year: the two lower coasts date it alike, and the polar coast dates its own", () => {
@@ -184,6 +206,7 @@ describe("what makes the three coasts three", () => {
     // because the taiga's November is a polar night.
     expect(taiga.declination).toEqual(DECLINATION);
     expect(mangrove.declination).toEqual(DECLINATION);
+    expect(karst.declination).toEqual(DECLINATION);
     for (const season of SEASONS) {
       expect(
         daylightWindow(arctic.latitude, R.day.minSun, arctic.declination[season]),
@@ -225,6 +248,25 @@ describe("what makes the three coasts three", () => {
     expect(arctic.rocks.boulder).toBeGreaterThan(0);
     expect(arctic.boulderField).toBeGreaterThan(taiga.boulderField);
     expect(arctic.shore.sand).toBeLessThan(taiga.shore.sand);
+    // The karst stands higher than the taiga and comes down steeper, with
+    // MORE rock in its sea than any coast — islets, reefs and stacks — no
+    // erratic (no glacier ever came down it), and less beach: a rock coast
+    // with pebble coves in it.
+    expect(karst.relief).toBeGreaterThan(taiga.relief);
+    expect(karst.ceiling).toBe(1);
+    expect(karst.headland).toBeGreaterThan(1);
+    expect(karst.climb).toBeLessThan(taiga.climb);
+    expect(karst.climb).toBeGreaterThan(arctic.climb);
+    expect(karst.rocks.skerry).toBeGreaterThan(taiga.rocks.skerry);
+    expect(karst.rocks.reef).toBeGreaterThan(taiga.rocks.reef);
+    expect(karst.rocks.stack).toBeGreaterThan(taiga.rocks.stack);
+    expect(karst.rocks.erratic).toBe(0);
+    expect(karst.rocks.boulder).toBeGreaterThan(0);
+    expect(karst.boulderField).toBeGreaterThan(0);
+    expect(karst.beaches).toBe(true);
+    expect(karst.shore.sand).toBeLessThan(taiga.shore.sand);
+    // Not a wall coast: the taiga's ramp, and no apron.
+    expect(karst.wall).toEqual(taiga.wall);
   });
 
   it("builds a wall on the polar coast and a slope on the taiga", () => {
@@ -308,8 +350,16 @@ describe("what makes the three coasts three", () => {
     expect(arctic.freezes).toBe(true);
     expect(taiga.freezes).toBe(false);
     expect(mangrove.freezes).toBe(false);
-    // None is off: the waves are the game on all three.
-    for (const b of [taiga, mangrove, arctic]) expect(b.sea.wind).toBeGreaterThan(0.6);
+    // An enclosed sea: the biggest wind sea of the four — the north wind
+    // comes off the land, and no island takes it off — and next to no
+    // swell, because nothing arrives from past a horizon it has not got.
+    expect(karst.sea.wind).toBeGreaterThanOrEqual(taiga.sea.wind);
+    expect(karst.sea.wind).toBeGreaterThan(mangrove.sea.wind);
+    expect(karst.sea.swell).toBeLessThan(taiga.sea.swell);
+    expect(karst.sea.swell).toBeGreaterThan(arctic.sea.swell);
+    expect(karst.freezes).toBe(false);
+    // None is off: the waves are the game on all four.
+    for (const id of BIOME_IDS) expect(biomeOf(id).sea.wind).toBeGreaterThan(0.6);
   });
 
   it("is the land: how steeply a coast comes down is a knob, and never past the reach", () => {
@@ -345,6 +395,21 @@ describe("what makes the three coasts three", () => {
     expect(mangrove.river.banks).toBe(true);
     expect(mangrove.river.kink).toBe(0);
     expect(mangrove.river.ragged).toBe(0);
+    // …and the karst's is a GORGE: the race's own water at the mouth (the
+    // two multiples a row may never take under 1), closing faster than
+    // the rock channel, bending tighter, half its turning on the joints,
+    // with banks and no bars.
+    expect(karst.river.mouth).toBe(1);
+    expect(karst.river.head).toBe(1);
+    expect(karst.river.taper).toBeGreaterThan(1);
+    expect(karst.river.bend).toBeLessThan(1);
+    expect(karst.river.bend).toBeGreaterThan(arctic.river.bend);
+    expect(karst.river.discharge).toBeLessThan(1);
+    expect(karst.river.discharge).toBeGreaterThan(mangrove.river.discharge);
+    expect(karst.river.kink).toBeGreaterThan(0);
+    expect(karst.river.kink).toBeLessThan(1);
+    expect(karst.river.banks).toBe(true);
+    expect(karst.river.bars).toBeNull();
     // …and the arctic's is a CRACK: reaches and corners, ragged walls.
     expect(arctic.river.kink).toBe(1);
     expect(arctic.river.ragged).toBeGreaterThan(0.3);
@@ -451,15 +516,38 @@ describe("what makes the three coasts three", () => {
     expect(polar.contrast).toBeLessThan(cold.contrast);
     expect(polar.saturation).toBeLessThan(cold.saturation);
     expect(polar.lift).toBeGreaterThan(cold.lift);
+    // …and the limestone coast punchy and saturated like the warm one,
+    // but split against a TRUE blue rather than a teal: its shadow tone
+    // sits further round the wheel toward blue than the mangrove's.
+    const blue = gradeOf("karst");
+    expect(blue.contrast).toBeGreaterThan(1);
+    expect(blue.saturation).toBeGreaterThan(1);
+    expect(blue.lift).toBeLessThan(cold.lift);
+    const hue = (hex: string): number => {
+      const n = Number.parseInt(hex.slice(1), 16);
+      const r = (n >> 16) / 255;
+      const g = ((n >> 8) & 255) / 255;
+      const b = (n & 255) / 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const d = max - min;
+      if (d === 0) return 0;
+      const h = max === r ? ((g - b) / d + 6) % 6 : max === g ? (b - r) / d + 2 : (r - g) / d + 4;
+      return h * 60;
+    };
+    expect(hue(blue.shade)).toBeGreaterThan(hue(warm.shade));
+    expect(hue(blue.shade)).toBeGreaterThan(200);
   });
 
   it("is the sky: the haze is warm water's and sea smoke, and the taiga never deals it", () => {
     expect(mangrove.weathers).toContain("haze");
     expect(arctic.weathers).toContain("haze");
+    expect(karst.weathers).toContain("haze");
     expect(taiga.weathers).not.toContain("haze");
     // The lightest and the heaviest sky are on every chart, so the ends of
     // R12's band stay the days they have to be everywhere.
-    for (const b of [taiga, mangrove, arctic]) {
+    for (const id of BIOME_IDS) {
+      const b = biomeOf(id);
       expect(b.weathers[0]).toBe("clear");
       expect(b.weathers[b.weathers.length - 1]).toBe("squall");
     }
@@ -478,6 +566,25 @@ describe("what makes the three coasts three", () => {
       expect(level.river.length).toBeGreaterThan(10);
       expect(level.solids.filter((s) => s.kind === "erratic")).toHaveLength(0);
       expect(level.solids.filter((s) => s.kind === "boulder").length).toBeGreaterThan(4);
+      expect(level.fauna.length).toBeGreaterThan(6);
+    }
+    // The karst's: warm salt water, a sea full of rock — a dozen and more
+    // islets, reefs and stacks standing off every seed's shore (MEASURED
+    // over sixteen seeds: 26 a level against the taiga's 21) — no erratic
+    // anywhere, a river running up into the country from every one, and
+    // life in its water.
+    const standing = (level: Level): number =>
+      level.solids.filter((s) => s.kind === "skerry" || s.kind === "reef" || s.kind === "stack")
+        .length;
+    for (const seed of KARST_SEEDS) {
+      const level = karstFor(seed);
+      expect(level.biome).toBe("karst");
+      expect(standing(level), `seed ${seed}`).toBeGreaterThan(12);
+      expect(level.water.temperature).toBeGreaterThan(13);
+      expect(level.water.temperature).toBeLessThan(27.5);
+      expect(level.water.density).toBe(karst.water.density);
+      expect(level.river.length).toBeGreaterThan(10);
+      expect(level.solids.filter((s) => s.kind === "erratic")).toHaveLength(0);
       expect(level.fauna.length).toBeGreaterThan(6);
     }
   });

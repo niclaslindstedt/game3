@@ -75,7 +75,7 @@ import {
 } from "../pwa/src/game/campaign.ts";
 import { GAME_MODES } from "@engine";
 
-const [MANGROVE, TAIGA, ARCTIC] = SHORES;
+const [MANGROVE, TAIGA, ARCTIC, KARST] = SHORES;
 
 /** The field as it stood at a finish: the player at `place`, the rivals in
  * slot order around him. */
@@ -106,8 +106,8 @@ function rideShore(
 }
 
 describe("the ladder as committed", () => {
-  it("is three shores of six, the warm one first, four races and two tricks runs each", () => {
-    expect(SHORES.map((s) => s.id)).toEqual(["mangrove", "taiga", "arctic"]);
+  it("is four shores of six, the warm one first, four races and two tricks runs each", () => {
+    expect(SHORES.map((s) => s.id)).toEqual(["mangrove", "taiga", "arctic", "karst"]);
     for (const shore of SHORES) {
       expect(shore.levels.length).toBe(6);
       expect(shore.levels.filter((l) => l.mode === "race").length).toBe(4);
@@ -455,7 +455,11 @@ describe("the locks", () => {
     // road, which is the whole of what adding a shore does to the ladder.
     const cold = rideShore(wins, TAIGA, 1);
     expect(ladderAfter("taiga-6", cold)).toEqual({ kind: "next", level: ARCTIC.levels[0] });
-    expect(ladderAfter("arctic-6", rideShore(cold, ARCTIC, 1))).toEqual({ kind: "end" });
+    // …and the polar shore's table opens the LIMESTONE one, whose finale is
+    // the end of the road.
+    const polar = rideShore(cold, ARCTIC, 1);
+    expect(ladderAfter("arctic-6", polar)).toEqual({ kind: "next", level: KARST.levels[0] });
+    expect(ladderAfter("karst-6", rideShore(polar, KARST, 1))).toEqual({ kind: "end" });
     expect(ladderAfter("nowhere-1", wins)).toEqual({ kind: "end" });
   });
 });

@@ -12,7 +12,8 @@
 // URL PARAMS, the whole set (the developer page's REPRO LINK writes exactly
 // these, so a frame is always handed on as a URL):
 //   ?seed=38       which level (default 38)
-//   ?biome=taiga   which COAST the seed is built on (taiga | mangrove | arctic)
+//   ?biome=taiga   which COAST the seed is built on (taiga | mangrove |
+//                  arctic | karst)
 //   ?mode=race     the start card's MODE row: race | tricks | timeTrial
 //   ?minutes=4     ...and its LENGTH row, for a tricks run: 2 | 4 | 6
 //   ?craft=skiff   which craft (skiff | marlin | otter | dart)
