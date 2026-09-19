@@ -41,6 +41,14 @@ import {
   type KeyAction,
 } from "../pwa/src/game/settings-input.ts";
 import { pickNeighbour, type NavRect } from "../pwa/src/game/menu-cursor.ts";
+import {
+  PAUSE_STATS,
+  pauseStats,
+  type PauseRun,
+  type PauseStat,
+} from "../pwa/src/game/pause-stats.ts";
+import { ALT_PEAK_SHOWN } from "../pwa/src/game/snapshot.ts";
+import { STRINGS } from "../pwa/src/game/strings.ts";
 import { NO_HOLD, releaseHold, takePress, tickHold } from "../pwa/src/game/menu-hold.ts";
 import {
   advanceLoad,
@@ -319,6 +327,126 @@ describe("which surface is up, and what follows from it (shell.ts)", () => {
     for (const shell of SHELLS.filter((s) => s !== "run" && s !== "replay")) {
       expect(soundsLive(shell)).toBe(false);
     }
+  });
+});
+
+describe("what the pause card bills a held run with (pause-stats.ts)", () => {
+  /** A run nobody has ridden anywhere yet: every figure at its floor, so
+   * each case below turns on exactly the fields it sets. */
+  const RESTING: PauseRun = {
+    place: 1,
+    riders: 1,
+    score: 0,
+    tricksOn: false,
+    left: null,
+    time: 0,
+    courseOn: false,
+    passed: 0,
+    gates: 0,
+    lap: 1,
+    laps: 1,
+    bestAir: 0,
+    bestLength: 0,
+    peakAltitude: 0,
+  };
+  const run = (over: Partial<PauseRun>): PauseRun => ({ ...RESTING, ...over });
+  const keys = (over: Partial<PauseRun>): string[] => pauseStats(run(over)).map((stat) => stat.key);
+
+  it("never carries more cells than the card has room for", () => {
+    // Everything a run can possibly have to say at once — a lapped race
+    // with the tricks on and three records standing.
+    const everything = run({
+      riders: 12,
+      place: 3,
+      courseOn: true,
+      tricksOn: true,
+      score: 4200,
+      passed: 7,
+      gates: 14,
+      lap: 2,
+      laps: 3,
+      bestAir: 2.4,
+      bestLength: 31,
+      peakAltitude: 8.2,
+    });
+    expect(pauseStats(everything)).toHaveLength(PAUSE_STATS);
+    expect(pauseStats(everything, 2)).toHaveLength(2);
+  });
+
+  it("leads a race with the standing and a tricks run with the score", () => {
+    expect(keys({ courseOn: true, riders: 12, place: 3 })[0]).toBe("place");
+    expect(keys({ tricksOn: true, score: 900 })[0]).toBe("score");
+  });
+
+  it("puts the run's OWN records in front of what the HUD behind it is showing", () => {
+    // The corner behind this card has a standing gate count and no standing
+    // air record at all, so a strip that spent its cells on the gates and
+    // the lap would be a second copy of the corner. The headline and the
+    // clock are the two repeats worth making; everything after them is the
+    // reading the HUD cannot hold.
+    const ridden = run({
+      courseOn: true,
+      riders: 8,
+      place: 2,
+      passed: 6,
+      gates: 14,
+      lap: 2,
+      laps: 3,
+      bestAir: 2.1,
+      bestLength: 27,
+    });
+    expect(pauseStats(ridden).map((stat) => stat.key)).toEqual(["place", "time", "air", "length"]);
+    // ...and with no story to tell yet, it IS the corner's reading — there
+    // is nothing else that is true.
+    expect(keys({ courseOn: true, riders: 8, passed: 6, gates: 14 })).toEqual([
+      "place",
+      "time",
+      "gates",
+    ]);
+  });
+
+  it("LEAVES OUT what the run is not playing for, rather than printing a zero", () => {
+    // A free ride down nothing: no field to place in, no course to count,
+    // no score being kept. The clock is the only thing left that is true.
+    expect(keys({})).toEqual(["time"]);
+    expect(keys({ riders: 1, place: 1 })).not.toContain("place");
+    expect(keys({ courseOn: false })).not.toContain("gates");
+    expect(keys({ tricksOn: false, score: 500 })).not.toContain("score");
+    expect(keys({ laps: 1 })).not.toContain("lap");
+  });
+
+  it("counts the clock DOWN on a run with a buzzer, and says so", () => {
+    const [clock] = pauseStats(run({ time: 30, left: 12 }));
+    expect(clock.key).toBe("time");
+    expect(clock.value).toBe(STRINGS.resultTime(12));
+    expect(clock.label).toBe(STRINGS.clockLeftLabel);
+    const [gone] = pauseStats(run({ time: 30 }));
+    expect(gone.value).toBe(STRINGS.resultTime(30));
+    expect(gone.label).toBe(STRINGS.clockLabel);
+  });
+
+  it("holds a run's records back until the run has actually set one", () => {
+    expect(keys({})).not.toContain("air");
+    expect(keys({ bestAir: 1.8 })).toContain("air");
+    expect(keys({})).not.toContain("length");
+    expect(keys({ bestLength: 24 })).toContain("length");
+  });
+
+  it("bills an apex on the ALTIMETER's own floor, so the strip and the tape agree", () => {
+    // A hull lifted by a brisk sea is not a run that has been UP, and a
+    // cell reporting the chop as the apex would be a cell disagreeing with
+    // the high-water tick on the tape right behind this card.
+    expect(keys({ peakAltitude: ALT_PEAK_SHOWN - 0.01 })).not.toContain("height");
+    expect(keys({ peakAltitude: ALT_PEAK_SHOWN })).toContain("height");
+  });
+
+  it("wears the HUD's own captions for the readings the HUD is also showing", () => {
+    const race = pauseStats(run({ courseOn: true, riders: 8, place: 2, passed: 3, gates: 14 }));
+    const by = (key: string): PauseStat => race.find((stat) => stat.key === key)!;
+    expect(by("place").value).toBe(STRINGS.place(2, 8));
+    expect(by("place").label).toBe(STRINGS.placeLabel);
+    expect(by("gates").value).toBe(STRINGS.gates(3, 14));
+    expect(by("gates").label).toBe(STRINGS.gatesLabel);
   });
 });
 

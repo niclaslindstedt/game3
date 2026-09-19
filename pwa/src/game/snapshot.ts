@@ -102,8 +102,13 @@ const ALT_KNEE_SHARE = 0.7;
  * just by being a sea, and a mark that read the chop would sit against the
  * zero line all run saying nothing. Two metres is clear of every sea a
  * sheltered coast deals and short of every ramp on the course, so the tick
- * arrives on the first jump and on nothing else. */
-const ALT_PEAK_SHOWN = 2;
+ * arrives on the first jump and on nothing else.
+ *
+ * Exported because the PAUSE CARD bills a run's apex on the same line
+ * (`pause-stats.ts`): the two are reading one number, and a second opinion
+ * about whether the run has been UP would be a cell disagreeing with the
+ * mark on the tape right beside it. */
+export const ALT_PEAK_SHOWN = 2;
 
 /** Where `m` metres above still water sits on the tape, 0 at its foot and
  * 1 at its top. Exported because the tape draws its own still-water line
@@ -271,6 +276,20 @@ export type HudSnapshot = {
    * apart from it because the two bests are two different jumps as often as
    * they are one. */
   lengthRecord: boolean;
+  /** THE RUN'S OWN STORY, straight off `progress` and not on the clock's
+   * hold: the longest flight it has flown (s), the furthest one carried (m)
+   * and the highest the hull has been (m). All 0 until the run has done the
+   * thing.
+   *
+   * The tiles above are LIVE readings that hold their record for a moment
+   * and then let it go, because a rider at speed can only read what is
+   * happening now. These are the same three facts with the hold taken off,
+   * and they exist for the one surface where the rider is not at speed: the
+   * PAUSE CARD reads them back (`pause-stats.ts`), where a number that
+   * expired two buoys ago is exactly the number worth having. */
+  bestAir: number;
+  bestLength: number;
+  peakAltitude: number;
   /** THE SCORE, banked (`tricks.score`) — the run's other total, and the
    * only number on this screen the clock has no opinion about. */
   score: number;
@@ -492,6 +511,9 @@ export function takeSnapshot(state: GameState, ghost: GameState | null = null): 
     airRecord: air.record,
     airLength: air.length,
     lengthRecord: air.lengthRecord,
+    bestAir: p.bestAir,
+    bestLength: p.bestLength,
+    peakAltitude: p.peakAltitude,
     ghostGap: ghostGap(state, ghost),
     seed: state.seed,
     craft: c.spec.id,
