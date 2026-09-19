@@ -75,6 +75,13 @@
 //                  probe (game/video-probe.ts) is what may promote an
 //                  untouched picture to HIGH, and a lab photographing a
 //                  surface must not have a row move under its camera
+//   ?player=0      leave the PLAYER off the water — his hull, the rider on
+//                  it, its lamps, the trail it lays, the spray it throws and
+//                  the guide line drawn for him. The run is ridden exactly as
+//                  it would be; nothing about it is simply in the picture.
+//                  The coast banners' switch (`make coasts`): a shore row is
+//                  a photograph of a COAST, and one craft on it is both the
+//                  wrong subject and the wrong shore's craft
 //
 
 import {
@@ -185,6 +192,14 @@ export type Params = {
   /** Whether the first-visit probe may run — false only when the URL says
    * `probe=0`, which is the labs' word for "hold the picture still". */
   probe: boolean;
+  /** Whether the PLAYER is in the picture — his craft, his rider, and
+   * everything drawn for him or left behind by him. False only when the URL
+   * says `player=0`, which is the banner lab's word for "photograph the
+   * coast, not the ride". It takes nothing off the RUN: the hull is still
+   * there, still ridden, still laying a wash in the water the sea carries —
+   * it is simply not drawn, so the camera still frames the water a rider
+   * would be on. */
+  player: boolean;
 };
 
 /** A figure off a link, held inside the travel the row that stores it has —
@@ -283,6 +298,7 @@ export function readParams(search: string): Params {
         ? { page: menu }
         : null,
     probe: p.get("probe") !== "0",
+    player: p.get("player") !== "0",
   };
 }
 

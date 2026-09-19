@@ -17,8 +17,19 @@
 // than a chosen one because it is the water that shore introduces itself
 // with, the first thing a player will actually ride of it; the helicopter
 // rung because it is the one rung that has the coast, the sea and the sky in
-// frame at once, and the craft is in it on purpose — the row is selling a
-// game, and a picture of empty water sells a screensaver.
+// frame at once.
+//
+// AND NOBODY IS ON THE WATER IN IT (`?player=0`). The run is ridden all the
+// same — the rig is a CHASE camera, so the hull is what puts the lens on the
+// water a rider would be looking at, and taking it out of the picture is the
+// only way to keep that framing without the craft in shot. What the row is
+// asking is WHICH COAST, and every answer to it is in the water, the light
+// and the shore; a craft in the middle of the frame is a different question
+// (the craft card asks it, over a turntable, with four answers) and it comes
+// with two lies attached — it is one arbitrary hull the picker is not
+// choosing here, and it drags the guide line out behind it, which is a HUD
+// readout that happens to be drawn in the water. A dashed line down the
+// middle of a coast is a course, and a course is the level card's job.
 //
 // Everything about the frame comes off switches the game already has, so the
 // picture is the game's own and not a special renderer's:
@@ -125,9 +136,12 @@ const H = Math.round(W / args.aspect);
 const QUALITY = args.quality;
 
 /** The chrome that is drawn for a human at the controls and is not part of
- * the coast. `.hud` is the whole of it: the readouts, the touch controls and
- * the new-build notice all hang inside that one element (`App.tsx`), and the
- * game has no switch of its own that takes it off mid-run. */
+ * the coast. `.hud` is the whole of it ON THE GLASS: the readouts, the touch
+ * controls and the new-build notice all hang inside that one element
+ * (`App.tsx`), and the game has no switch of its own that takes it off
+ * mid-run. The one HUD instrument this does NOT reach is the guide line,
+ * which is drawn in the water rather than over it — `?player=0` above is
+ * what takes that off, along with the craft it is drawn for. */
 const HIDE = ".hud { display: none !important; }";
 
 const outDir = join(root, args.out);
@@ -223,6 +237,9 @@ for (const shore of SHORES) {
     camera: args.camera,
     shot: "1",
     probe: "0",
+    // Nobody on the water — the hull, its rider, its trail, its spray and
+    // both guides drawn for him. See the header.
+    player: "0",
     // The shop window, drawn at the top of every ladder — see the header.
     water: "high",
     res: "high",
