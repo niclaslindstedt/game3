@@ -52,15 +52,29 @@ import type { PictureRow } from "./picture-rows.ts";
 import { fpsOfIndex, type BenchSample } from "./benchmark-index.ts";
 
 /** What one frame cost the RENDERER, read off its own counters. Every `Ms`
- * field is a slice of `frameMs` and they do not cover it: what is left over
- * is the scene being posed, culled and retoned, which the report names
- * `rest` rather than timing a sixth stopwatch for. */
+ * field is a slice of `frameMs`, stated in the order the frame does them,
+ * and between them they now cover it: what the report still calls `rest` is
+ * the residue of the clock's rounding rather than a stretch of the frame
+ * nobody timed. */
 export type FrameCost = {
+  /** The lens flown and the frustum cut, ms — the camera rig eased to where
+   * the run put it, the guides answered for, and the plane set every culling
+   * decision below is then taken against. */
+  poseMs: number;
   /** The water's CPU time, ms — the near grid displaced by the ENGINE's
    * `surfaceAt`, which is the one thing in the frame no graphics card makes
    * cheaper. Note what `surfaceAt` includes: the WASH, so a sea with twelve
    * trails on it is dearer here than the same grid on empty water. */
   waterMs: number;
+  /** Everything that stands in the WORLD, posed and culled, ms: the gates
+   * and their buoys, the guide line, the sea life, the birds, the spray and
+   * the cover. The water's own update runs inside this stretch and is taken
+   * back out of it, because it has a line of its own. */
+  worldMs: number;
+  /** The light read and every material put under it, ms — the sky stepped,
+   * then the water, the sea life and the lamps retoned to the preset it
+   * came back with. Per frame, because within a run the light moves. */
+  retoneMs: number;
   /** The reflection pass, ms — the shore submitted a second time from under
    * the surface. Zero on a frame the REFLECTIONS row's `every` skipped, so
    * this is the one phase whose mean over a run is not what any single
@@ -81,6 +95,12 @@ export type FrameCost = {
    * wake's raster. */
   calls: number;
   triangles: number;
+  /** …and how many of those were the MIRROR's, which is zero on a frame the
+   * REFLECTIONS row's `every` skipped. It is here so the report can tell the
+   * two kinds of frame apart: at GLOW the pass runs every other frame and
+   * the counts above are BIMODAL, which is the one shape a median has no
+   * useful answer for (see `whatAFrameDraws`). */
+  mirrorCalls: number;
   /** Compiled programs, and the geometries and textures resident. Not per
    * frame: what the shore is HOLDING, which is what a memory problem looks
    * like. */
@@ -119,15 +139,21 @@ export type FrameTiming = {
    * next frame's processor time. Read it as a ceiling on the GPU and as the
    * benchmark's own instrument tax. */
   gpuMs: number;
-  /** The frame end to end, ms, measured around all of the above. What it
-   * carries that the parts do not is the browser's own: a collection, a
-   * compositor, another page waking up.
+  /** THE FRAME'S WHOLE PERIOD, ms: from the moment the frame before it ended
+   * to the moment this one did. Not the span of the work — the span of the
+   * frame, so a run's periods TILE its elapsed time exactly and the mean of
+   * them is the frame rate the machine actually scored.
    *
-   * It is measured INSIDE the frame, so what it leaves out is the pump's own
-   * hop between frames and the card being redrawn on a reading — both of
-   * which the `fps` beside it in the table does include. The two columns
-   * standing a little apart is the benchmark's own overhead, and it is the
-   * one figure here that says how much. */
+   * It used to be measured inside the frame, around the phases alone, and
+   * the difference was left for a reader to find by holding this column up
+   * against the `fps` beside it. That had two costs. The breakdown's own
+   * footer quoted a frame rate and an index the machine had not scored — 72
+   * against a headline 68, on a report whose whole job is being quotable to
+   * a tenth. And `unbilled`, which is what is left of the wall once every
+   * phase is taken out, could only ever be the clock's rounding, while its
+   * caption claimed it was the compositor. Both are now what they say:
+   * `between` below is the gap, named, and it is the figure that says what
+   * the benchmark's own overhead costs. */
   wallMs: number;
 };
 
@@ -153,13 +179,22 @@ export type RunTotals = {
   frames: number;
   sim: number;
   observe: number;
-  /** The renderer's whole `frameMs`, and the four slices of it below. */
+  /** The renderer's whole `frameMs`, and the seven slices of it below. */
   render: number;
+  pose: number;
   water: number;
+  world: number;
+  retone: number;
   mirror: number;
   wake: number;
   submit: number;
   gpu: number;
+  /** The gap BETWEEN frames — everything after one frame's last draw was
+   * submitted and before the next one's first step: the pump's hop through
+   * the message channel, the compositor, and the card redrawn on a reading.
+   * Real time the machine spent not drawing, and the one phase here nothing
+   * on OPTIONS ▸ VIDEO can move. */
+  between: number;
   wall: number;
 };
 
@@ -171,11 +206,15 @@ export function noTotals(): RunTotals {
     sim: 0,
     observe: 0,
     render: 0,
+    pose: 0,
     water: 0,
+    world: 0,
+    retone: 0,
     mirror: 0,
     wake: 0,
     submit: 0,
     gpu: 0,
+    between: 0,
     wall: 0,
   };
 }
@@ -349,21 +388,34 @@ const PHASE_NAME = 10;
  * readings, and `RunTotals` says why: a browser's clock cannot resolve one
  * frame's phases, and only the sum over the run averages that rounding away.
  *
- * The order is the order the frame happens in, and the four indented lines
- * are slices of `render` rather than phases beside it. `rest` is what is left
- * of `render` once the four are taken out — the scene posed, culled and
- * retoned — and `unbilled` is what is left of the WALL once every phase is:
- * the browser's own work, which nothing on this page can time directly but
- * which a frame pays all the same. */
+ * The order is the order the frame happens in, and the indented lines are
+ * slices of `render` rather than phases beside it. `rest` is what is left of
+ * `render` once the seven are taken out, and it should now be about nothing:
+ * it was 27% of a measured frame and the largest line in this block while it
+ * stood for "the scene posed, culled and retoned" — three different things,
+ * none of them timed. `between` is the gap to the next frame, which is real
+ * time and
+ * nothing the game can be tuned to get back. And `unbilled` is what is left
+ * of the WALL once every one of them is: a collection landing mid-frame, and
+ * the clock's own rounding, which at a millisecond on this machine is the
+ * error bar on every line above it rather than a cost anybody can go and
+ * find. */
 function whereTheFrameWent(totals: RunTotals, step: number): string[] {
   if (totals.frames <= 0 || totals.wall <= 0) return [];
   const rest = Math.max(
     0,
-    totals.render - totals.water - totals.mirror - totals.wake - totals.submit,
+    totals.render -
+      totals.pose -
+      totals.water -
+      totals.world -
+      totals.retone -
+      totals.mirror -
+      totals.wake -
+      totals.submit,
   );
   const unbilled = Math.max(
     0,
-    totals.wall - totals.sim - totals.observe - totals.render - totals.gpu,
+    totals.wall - totals.sim - totals.observe - totals.render - totals.gpu - totals.between,
   );
   const mean = totals.wall / totals.frames;
   return [
@@ -372,17 +424,70 @@ function whereTheFrameWent(totals: RunTotals, step: number): string[] {
     phase("sim", totals.sim, totals, "the whole field stepped at 120 Hz — no draw calls in it"),
     phase("observe", totals.observe, totals, "the renderer reading each step"),
     phase("render", totals.render, totals, "the processor's half of the draw, split below"),
+    phase("  pose", totals.pose, totals, "the lens flown, the guides, the frustum cut"),
     phase("  water", totals.water, totals, "the grid displaced by the engine's surfaceAt"),
-    phase("  mirror", totals.mirror, totals, "the reflection pass, on the frames it is due"),
+    phase("  world", totals.world, totals, "the gates, the cover, the birds and the sea life"),
+    phase("  retone", totals.retone, totals, "the sky stepped, and every material relit under it"),
     phase("  wake", totals.wake, totals, "the trail rasterised into the map the water reads"),
+    phase("  mirror", totals.mirror, totals, "the reflection pass, on the frames it is due"),
     phase("  submit", totals.submit, totals, "the picture into the grade's target, and the grade"),
-    phase("  rest", rest, totals, "the scene posed, culled and retoned"),
+    phase("  rest", rest, totals, "what the seven above did not account for"),
     phase("gpu", totals.gpu, totals, "the fence — a ceiling on the card, and the instrument's tax"),
-    phase("unbilled", unbilled, totals, "the browser's own: a collection, the compositor"),
+    phase("between", totals.between, totals, "the pump's hop, the compositor, the card redrawn"),
+    phase("unbilled", unbilled, totals, "a collection landing mid-frame, and the clock's rounding"),
     `  ${"─".repeat(PHASE_NAME + 10)}`,
     `  ${"wall".padEnd(PHASE_NAME)} ${pad(fine(mean), 6)} ms         ` +
       `the frame, end to end — ${Math.round(1000 / mean)} fps, ` +
       `index ${Math.round(step * 1000 * (100 / mean))}`,
+  ];
+}
+
+/**
+ * WHAT A FRAME DRAWS — the counters, medianed, and no TIMES here because the
+ * block above states every one of them better. A counter is exact on the
+ * frame it was read, so a median of readings is the right summary of it; a
+ * time is quantised by the clock, so its summary is the run's own total.
+ *
+ * EXCEPT THAT THE RUN MAY HAVE TWO KINDS OF FRAME IN IT, and then the median
+ * is the worst possible summary. At REFLECTIONS ▸ GLOW the mirror's pass
+ * runs every OTHER frame (`REFLECTION_LOOK.every`), so the counts are
+ * bimodal — a frame draws the scene once or it draws it twice — and the
+ * median lands in the empty middle and reports a frame nobody drew. Measured
+ * on a run of a dozen craft on the warm coast: every frame was either about
+ * 70 draw calls or about 120, and the median read 99.
+ *
+ * Worse, it hides the only thing a reader wanted from the block. REFLECTIONS
+ * is often the one picture row still standing above its floor, and what its
+ * next press down is worth is exactly the gap between these two numbers. So
+ * where a run has both kinds of frame in it, both are stated and neither is
+ * averaged into the other.
+ *
+ * A reading is a mirror frame if the pass drew anything on it (`mirrorCalls`)
+ * rather than if it took any time: at GLOW the pass costs a third of a
+ * millisecond, and on a clock that cannot resolve one it reads as zero about
+ * as often as not.
+ */
+function whatAFrameDraws(costs: readonly FramePhases[]): string[] {
+  const withMirror = costs.filter((f) => f.mirrorCalls > 0);
+  const without = costs.filter((f) => f.mirrorCalls <= 0);
+  const split = withMirror.length > 0 && without.length > 0;
+  /** One counter, as one figure or as the two kinds of frame side by side. */
+  const counter = (read: (frame: FramePhases) => number): string =>
+    split
+      ? `${big(median(withMirror.map(read)))} with the mirror · ` +
+        `${big(median(without.map(read)))} without`
+      : big(median(costs.map(read)));
+  const held = costs[costs.length - 1];
+  return [
+    split
+      ? `PER FRAME, MEDIAN OVER THE RUN — and the mirror ran on ` +
+        `${Math.round((withMirror.length / costs.length) * 100)}% of the readings`
+      : "PER FRAME, MEDIAN OVER THE RUN",
+    `  draw calls   ${counter((f) => f.calls)}`,
+    `  triangles    ${counter((f) => f.triangles)}`,
+    `  programs     ${big(held.programs)}`,
+    `  geometries   ${big(held.geometries)}`,
+    `  textures     ${big(held.textures)}`,
   ];
 }
 
@@ -416,17 +521,7 @@ export function benchmarkReport(run: BenchmarkRun): string {
 
   if (costs.length > 0) {
     out.push("");
-    // THE COUNTERS, medianed — and no TIMES here, because the block above
-    // states every one of them better. A counter is exact on the frame it was
-    // read, so a median of readings is the right summary of it; a time is
-    // quantised by the clock, so its summary is the run's own total.
-    out.push("PER FRAME, MEDIAN OVER THE RUN");
-    out.push(`  draw calls   ${big(median(costs.map((f) => f.calls)))}`);
-    out.push(`  triangles    ${big(median(costs.map((f) => f.triangles)))}`);
-    const held = costs[costs.length - 1];
-    out.push(`  programs     ${big(held.programs)}`);
-    out.push(`  geometries   ${big(held.geometries)}`);
-    out.push(`  textures     ${big(held.textures)}`);
+    out.push(...whatAFrameDraws(costs));
   }
 
   if (scene.length > 0) {

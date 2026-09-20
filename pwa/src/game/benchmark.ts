@@ -198,7 +198,12 @@ export type BenchmarkOpts = BenchmarkRace & {
  * whole runs and answers to nothing on OPTIONS ▸ VIDEO, the second is the
  * renderer sampling the trail and answers to the WATER row. A single figure
  * over the pair would be the one number nobody could act on. */
-function benchFrame(state: GameState, renderer: GameRenderer, into?: RunTotals): void {
+function benchFrame(
+  state: GameState,
+  renderer: GameRenderer,
+  into?: RunTotals,
+  since?: number,
+): number {
   const opened = performance.now();
   let sim = 0;
   let observe = 0;
@@ -221,12 +226,26 @@ function benchFrame(state: GameState, renderer: GameRenderer, into?: RunTotals):
   // which is the only reading of the GPU a browser gives us — WebGL's timer
   // query is not exposed by every engine and not by Safari at all.
   const gpu = renderer.drain();
-  const wall = performance.now() - opened;
+  // THE FRAME IS ITS WHOLE PERIOD and not the span of its work: `since` is
+  // when the frame BEFORE it ended, so the periods of a run tile its elapsed
+  // time exactly and the mean of them is the rate the machine scored. Billed
+  // this way, the breakdown's own footer and the report's headline are one
+  // number instead of two a few percent apart. The warm-up passes nothing —
+  // its frames are drawn back to back inside one task, so there is no gap to
+  // bill and the span IS the period.
+  const closed = performance.now();
+  const between = since === undefined ? 0 : opened - since;
+  const wall = closed - (since ?? opened);
+  // The closing stamp goes BACK to the caller, and that is what makes the
+  // account exact rather than nearly right: the pump uses it as this frame's
+  // end, so the next frame's period starts where this one's stopped, the
+  // rate a reading reports is this frame's own `wall`, and the periods of a
+  // run tile its elapsed time with nothing falling between them.
   last.simMs = sim;
   last.observeMs = observe;
   last.gpuMs = gpu;
   last.wallMs = wall;
-  if (!into) return;
+  if (!into) return closed;
   // RUNNING TOTALS, and they are the figures the report actually prints. A
   // browser clamps `performance.now()` — a millisecond in Safari — so any one
   // of the phases above is rounded to something it is not, and only the sum
@@ -236,12 +255,17 @@ function benchFrame(state: GameState, renderer: GameRenderer, into?: RunTotals):
   into.sim += sim;
   into.observe += observe;
   into.render += cost.frameMs;
+  into.pose += cost.poseMs;
   into.water += cost.waterMs;
+  into.world += cost.worldMs;
+  into.retone += cost.retoneMs;
   into.mirror += cost.mirrorMs;
   into.wake += cost.wakeMs;
   into.submit += cost.submitMs;
   into.gpu += gpu;
+  into.between += between;
   into.wall += wall;
+  return closed;
 }
 
 /** THE LIGHTS, IN FRAMES — the whole of the warm-up, and what its bar on the
@@ -359,8 +383,11 @@ export function runBenchmark({ state, renderer, onStatus }: BenchmarkOpts): () =
       green = performance.now();
       framed = green;
     }
-    benchFrame(state, renderer, totals);
-    const now = performance.now();
+    // `framed` is when the LAST frame ended, so handing it over is what makes
+    // this frame's bill its whole period — the pump's hop and the card's own
+    // redraw included, rather than left for a reader to find by holding two
+    // columns up against each other.
+    const now = benchFrame(state, renderer, totals, framed);
     frames += 1;
     elapsed = now - green;
     /** This frame alone, as a rate. */

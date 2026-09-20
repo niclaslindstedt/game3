@@ -76,13 +76,19 @@ function sample(frame: number, index: number, fps: number): BenchSample {
 }
 
 /** A reading's whole account — what the renderer spent AND what the loop
- * around it spent, which is what a reading carries. */
-function cost(calls: number): FramePhases {
+ * around it spent, which is what a reading carries. `mirrorCalls` says the
+ * mirror drew on this frame, which is how the report tells the two kinds of
+ * frame apart; `mirrorFrames` below is how a run gets both kinds in it. */
+function cost(calls: number, mirrorCalls = calls >> 1): FramePhases {
   return {
+    poseMs: 0.5,
     waterMs: 2.5,
+    worldMs: 0.5,
+    retoneMs: 0.5,
     mirrorMs: 1,
+    mirrorCalls,
     wakeMs: 0.5,
-    submitMs: 3,
+    submitMs: 1.5,
     frameMs: 8,
     simMs: 6,
     observeMs: 0.5,
@@ -98,19 +104,25 @@ function cost(calls: number): FramePhases {
 
 /** …and a run's phases summed, in the proportions a race actually shows: the
  * simulation is the biggest single phase and the renderer's own half is
- * smaller than the frame. `render` is deliberately larger than its four
- * slices, because the report derives `rest` from the difference. */
+ * smaller than the frame. `render` is deliberately larger than its SEVEN
+ * slices, because the report derives `rest` from the difference — and on a
+ * real run that difference is about nothing, which is the point of having
+ * timed all seven. */
 function totals(frames = 30): RunTotals {
   return {
     frames,
     sim: 6 * frames,
     observe: 0.5 * frames,
     render: 8 * frames,
+    pose: 0.5 * frames,
     water: 2.5 * frames,
+    world: 0.5 * frames,
+    retone: 0.5 * frames,
     mirror: 1 * frames,
     wake: 0.5 * frames,
-    submit: 3 * frames,
+    submit: 1.5 * frames,
     gpu: 4 * frames,
+    between: 0.3 * frames,
     wall: 19 * frames,
   };
 }
@@ -397,7 +409,7 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
     // at nineteen and say nothing about the other eleven.
     const text = benchmarkReport(run());
     const block = text.slice(text.indexOf("WHERE THE FRAME WENT"));
-    for (const phase of ["sim", "observe", "render", "gpu", "unbilled", "wall"])
+    for (const phase of ["sim", "observe", "render", "gpu", "between", "unbilled", "wall"])
       expect(block).toContain(phase);
     // Every phase is meaned over the frames summed, not over the readings —
     // 6 ms of simulation a frame, whatever the two readings happened to say.
@@ -419,9 +431,10 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
   });
 
   it("derives `rest` and `unbilled` rather than timing a stopwatch for each", () => {
-    // `render` is 8 ms with 2.5 + 1 + 0.5 + 3 = 7 ms of named slices, so the
-    // scene being posed and culled is the 1 ms left over; the wall is 19 ms
-    // with 6 + 0.5 + 8 + 4 = 18.5 accounted, so the browser's own is 0.5.
+    // `render` is 8 ms with 0.5 + 2.5 + 0.5 + 0.5 + 1 + 0.5 + 1.5 = 7 ms of
+    // named slices, so 1 ms of it is unaccounted; the wall is 19 ms
+    // with 6 + 0.5 + 8 + 4 = 18.5 timed and 0.3 more spent between frames,
+    // so what nothing can account for is the 0.2 left.
     const block = benchmarkReport(run()).slice(
       benchmarkReport(run()).indexOf("WHERE THE FRAME WENT"),
     );
@@ -429,7 +442,42 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
     const rest = block.slice(block.indexOf("rest"));
     expect(rest.slice(0, 40)).toContain("1.00 ms");
     const unbilled = block.slice(block.indexOf("unbilled"));
-    expect(unbilled.slice(0, 40)).toContain("0.50 ms");
+    expect(unbilled.slice(0, 40)).toContain("0.20 ms");
+  });
+
+  it("TIMES THE SCENE POSED, CULLED AND RETONED as three, not as a residue", () => {
+    // `rest` was the largest line in this block on a real run — 27% of the
+    // frame — while standing for three different things and timing none of
+    // them. The three are timed now, in the order the frame does them, and
+    // what is left over is the rounding.
+    const block = benchmarkReport(run()).slice(
+      benchmarkReport(run()).indexOf("WHERE THE FRAME WENT"),
+    );
+    for (const slice of ["pose", "world", "retone"]) expect(block).toContain(slice);
+    // The order is the frame's own: the lens is flown before anything is
+    // culled against it, and nothing is relit until the sky has been stepped.
+    const order = ["pose", "water", "world", "retone", "wake", "mirror", "submit", "rest"];
+    const at = order.map((slice) => block.indexOf(`  ${slice} `));
+    for (const index of at) expect(index).toBeGreaterThan(0);
+    expect([...at].sort((a, b) => a - b)).toEqual(at);
+  });
+
+  it("BILLS THE GAP BETWEEN FRAMES AS ITS OWN PHASE, not as nothing", () => {
+    // The wall is the frame's whole PERIOD, so the pump's hop through the
+    // message channel, the compositor and the card's own redraw on a reading
+    // are inside it — and they are real time nothing on OPTIONS ▸ VIDEO can
+    // give back. Left inside `unbilled` they were invisible twice over: that
+    // line is measured around the timed phases alone, so it could only ever
+    // report the clock's rounding while its caption claimed the compositor.
+    const block = benchmarkReport(run()).slice(
+      benchmarkReport(run()).indexOf("WHERE THE FRAME WENT"),
+    );
+    const between = block.slice(block.indexOf("between"));
+    expect(between.slice(0, 40)).toContain("0.30 ms");
+    // …and it is NOT counted twice: `unbilled` is what is left once it is
+    // taken out along with everything else.
+    const unbilled = block.slice(block.indexOf("unbilled"));
+    expect(unbilled.slice(0, 40)).not.toContain("0.50 ms");
   });
 
   it("NEVER PRINTS A NEGATIVE PHASE, whatever the clock did to the parts", () => {
@@ -440,6 +488,9 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
     const skewed = totals();
     skewed.water = skewed.render * 2;
     skewed.sim = skewed.wall * 2;
+    // …including the gap between frames, which is timed on its own clock and
+    // can be read as larger than the period that contains it.
+    skewed.between = skewed.wall * 2;
     const text = benchmarkReport({ ...run(), totals: skewed });
     const block = text.slice(text.indexOf("WHERE THE FRAME WENT"), text.indexOf("PER FRAME"));
     // Every figure in the block, read back off the text rather than off the
@@ -449,6 +500,40 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
     for (const figure of figures) expect(figure).toBeGreaterThanOrEqual(0);
     for (const share of [...block.matchAll(/(-?\d+)%/g)].map((m) => Number(m[1])))
       expect(share).toBeGreaterThanOrEqual(0);
+  });
+
+  it("STATES BOTH KINDS OF FRAME when the mirror only runs on some of them", () => {
+    // At REFLECTIONS ▸ GLOW the pass runs every other frame, so the counts
+    // are BIMODAL and a median lands in the empty middle — it reports a
+    // frame nobody drew, and it hides the one thing the block is read for:
+    // what the next press down on that row is worth.
+    const costs = [cost(70, 0), cost(120, 50), cost(70, 0), cost(120, 50)];
+    const text = benchmarkReport({ ...run(), costs });
+    const block = text.slice(text.indexOf("PER FRAME"));
+    expect(block).toContain("120 with the mirror");
+    expect(block).toContain("70 without");
+    // The median of the four is 95, and no frame in this run drew 95.
+    expect(block).not.toContain("  draw calls   95");
+    // …and how often the pass was actually due, since that is what turns the
+    // gap between the two into what the row costs over a run.
+    expect(block).toContain("50% of the readings");
+  });
+
+  it("states ONE figure when every frame drew the same kind", () => {
+    // REFLECTIONS at SOFT or SHARP runs the pass every frame, and OFF never
+    // runs it: both are one kind of frame, and a split would be two columns
+    // saying the same thing — or, at OFF, a column headed with a pass that
+    // did not happen.
+    for (const costs of [
+      [cost(120, 50), cost(122, 50)],
+      [cost(70, 0), cost(72, 0)],
+    ]) {
+      const block = benchmarkReport({ ...run(), costs }).slice(
+        benchmarkReport({ ...run(), costs }).indexOf("PER FRAME"),
+      );
+      expect(block).not.toContain("with the mirror");
+      expect(block).not.toContain("of the readings");
+    }
   });
 
   it("leaves the breakdown out rather than printing a frame of zeroes", () => {
