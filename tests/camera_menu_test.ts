@@ -29,6 +29,7 @@ import {
   aimFor,
   anchorFor,
   createMenuCamera,
+  reframeEase,
   seawardFrom,
   standoffFor,
   type ScreenBox,
@@ -154,6 +155,28 @@ describe("the band the card leaves (anchorFor)", () => {
     const at = anchorFor(null);
     expect(Math.abs(at.x)).toBeLessThan(0.9);
     expect(Math.abs(at.y)).toBeLessThan(0.9);
+  });
+});
+
+describe("the walk between bands (reframeEase)", () => {
+  it("starts and ends flat, and covers the whole move", () => {
+    // The edge is what the jump WAS, so an ease that leaves at full speed
+    // (an exponential, which is what every other quantity in this shot
+    // tracks its target on) would take out only half the complaint.
+    expect(reframeEase(0)).toBe(0);
+    expect(reframeEase(1)).toBe(1);
+    expect(reframeEase(0.5)).toBeCloseTo(0.5, 6);
+    expect(reframeEase(0.02) / 0.02).toBeLessThan(0.2);
+    expect((1 - reframeEase(0.98)) / 0.02).toBeLessThan(0.2);
+    // ...and it never runs off either end, whatever it is handed.
+    expect(reframeEase(-1)).toBe(0);
+    expect(reframeEase(9)).toBe(1);
+    let last = -1;
+    for (let i = 0; i <= 20; i++) {
+      const s = reframeEase(i / 20);
+      expect(s).toBeGreaterThan(last);
+      last = s;
+    }
   });
 });
 
@@ -330,6 +353,55 @@ describe("the shot itself", () => {
     const want = anchorFor(frame.card);
     expect(at.x).toBeCloseTo(want.x, 1);
     expect(at.y).toBeCloseTo(want.y, 1);
+  });
+
+  it("WALKS him to a new band when the card changes — a page turn is not a cut", () => {
+    // THE COMPLAINT THIS ANSWERS: clicking around the front door made the
+    // background jump. `anchorFor` PICKS a band, and a pick is a step — every
+    // page is a different card (30 rem at the door, 36 at OPTIONS, 52 at the
+    // gallery), and the attract card is no card at all — so the rider used to
+    // cross the frame in ONE frame whenever the card under him changed.
+    //
+    // Measured through the projection like every other framing claim here, so
+    // what is checked is where the rider actually IS rather than what the
+    // anchor holds. The walk chosen is the attract card's cover giving way to
+    // the front door's, which is the biggest one the shell asks for and the
+    // one a boot onto the door plays every time.
+    const frame = { aspect: 16 / 9, card: null as ScreenBox | null };
+    const drone = createMenuCamera();
+    const pose: CameraPose = { x: 0, y: 0, z: 0, aimX: 0, aimY: 0, aimZ: 1, fov: 60, roll: 0 };
+    const fly = (seconds: number): void => {
+      for (let i = 0; i < Math.round(seconds / DT); i++) drone.update(pose, game, DT, flat, frame);
+    };
+    const where = (): ScreenPoint => screenOf(pose, frame.aspect, rider());
+    const apart = (a: ScreenPoint, b: ScreenPoint): number => Math.hypot(a.x - b.x, a.y - b.y);
+
+    fly(3);
+    const opened = where();
+    frame.card = boxFor("desktop");
+    const want = anchorFor(frame.card);
+    const walk = apart(opened, want);
+    // The case is only worth anything if the page turn really does move him.
+    expect(walk).toBeGreaterThan(0.2);
+
+    // THE FRAME THE CARD CHANGES ON: he has barely left. A cut lands the
+    // whole walk here, and the ease is flat at both ends, so a quarter of it
+    // is a wide margin around "essentially nothing".
+    fly(DT);
+    expect(apart(where(), opened)).toBeLessThan(walk * 0.25);
+
+    // ...half way through, genuinely on his way — neither still standing in
+    // the old band nor already arrived in the new one.
+    fly(MENU_CAM.reframe / 2);
+    const crossing = apart(where(), opened) / walk;
+    expect(crossing).toBeGreaterThan(0.1);
+    expect(crossing).toBeLessThan(0.9);
+
+    // ...and there when the walk is over, held as tightly as any other frame.
+    fly(MENU_CAM.reframe / 2 + 0.3);
+    const arrived = where();
+    expect(arrived.x).toBeCloseTo(want.x, 1);
+    expect(arrived.y).toBeCloseTo(want.y, 1);
   });
 
   it("keeps him there while the shot drifts, banking into its own drift", () => {
