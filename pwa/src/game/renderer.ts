@@ -329,6 +329,9 @@ export function createRenderer(
 
   const cost: FrameCost = {
     waterMs: 0,
+    mirrorMs: 0,
+    wakeMs: 0,
+    submitMs: 0,
     frameMs: 0,
     calls: 0,
     triangles: 0,
@@ -781,7 +784,14 @@ export function createRenderer(
 
     // THE WAKE'S PASS: the trail rasterised into the map the water reads,
     // before anything reads it.
+    //
+    // This and the two passes below are timed into `cost`: a pass is the one
+    // thing in `render` with a boundary sharp enough to put a clock either
+    // side of, and `FrameCost` says what the readings are for.
+    const wakeAt = performance.now();
     const marks = wake.render(renderer, state);
+    cost.wakeMs = performance.now() - wakeAt;
+    const mirrorAt = performance.now();
     // THE MIRROR'S PASS, before the picture: everything that stands over the
     // water, without the water itself, the spray over it, the rain in the
     // air over it or the dome — the sea reflects the sky as a function
@@ -809,6 +819,10 @@ export function createRenderer(
       flora?.drawFor("frame");
     }
     water.setMirror(mirror.live());
+    // Zero on a frame the REFLECTIONS row's `every` skipped, which is the
+    // reading a mean over the run has to be taken of rather than a median:
+    // at GLOW half the frames pay nothing and half pay all of it.
+    cost.mirrorMs = performance.now() - mirrorAt;
 
     // …AND HOW SOFT THE DISTANCE IS, which the camera answers for, because
     // it is the shot's own finish rather than the coast's (`camera-menu.ts`).
@@ -817,6 +831,7 @@ export function createRenderer(
     grade.setDream(rig.dream());
 
     // THE PICTURE, into the grade's target rather than onto the canvas…
+    const submitAt = performance.now();
     const onto = renderer.getRenderTarget();
     renderer.setRenderTarget(grade.target);
     renderer.render(scene, camera);
@@ -830,6 +845,11 @@ export function createRenderer(
     };
     // …and THE GRADE onto the canvas.
     const graded = grade.render(renderer);
+    // SUBMISSION, not drawing: the card is still working when this returns,
+    // and what it goes on to cost is only reachable through the fence
+    // (`drain`). A `submitMs` that looks cheap on a machine drawing slowly
+    // is the reading that says the bottleneck is the GPU's.
+    cost.submitMs = performance.now() - submitAt;
     cost.calls = picture.calls + graded.calls + pass.calls + marks.calls;
     cost.triangles = picture.triangles + graded.triangles + pass.triangles + marks.triangles;
     // WHAT THE SHORE IS HOLDING rather than what this frame drew: the driver's

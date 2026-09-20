@@ -33,7 +33,17 @@ import {
   indexOfFps,
   type BenchSample,
 } from "../pwa/src/game/benchmark-index.ts";
-import { benchmarkReport, big, median, type FrameCost } from "../pwa/src/game/benchmark-report.ts";
+import {
+  benchmarkReport,
+  big,
+  median,
+  noMachine,
+  noTotals,
+  type BenchmarkRun,
+  type FramePhases,
+  type Machine,
+  type RunTotals,
+} from "../pwa/src/game/benchmark-report.ts";
 import {
   RUNS_KEPT,
   keptWith,
@@ -64,15 +74,75 @@ function sample(frame: number, index: number, fps: number): BenchSample {
   return { frame, index, fps };
 }
 
-function cost(calls: number): FrameCost {
+/** A reading's whole account — what the renderer spent AND what the loop
+ * around it spent, which is what a reading carries. */
+function cost(calls: number): FramePhases {
   return {
     waterMs: 2.5,
+    mirrorMs: 1,
+    wakeMs: 0.5,
+    submitMs: 3,
     frameMs: 8,
+    simMs: 6,
+    observeMs: 0.5,
+    gpuMs: 4,
+    wallMs: 19,
     calls,
     triangles: calls * 3000,
     programs: 40,
     geometries: 120,
     textures: 30,
+  };
+}
+
+/** …and a run's phases summed, in the proportions a race actually shows: the
+ * simulation is the biggest single phase and the renderer's own half is
+ * smaller than the frame. `render` is deliberately larger than its four
+ * slices, because the report derives `rest` from the difference. */
+function totals(frames = 30): RunTotals {
+  return {
+    frames,
+    sim: 6 * frames,
+    observe: 0.5 * frames,
+    render: 8 * frames,
+    water: 2.5 * frames,
+    mirror: 1 * frames,
+    wake: 0.5 * frames,
+    submit: 3 * frames,
+    gpu: 4 * frames,
+    wall: 19 * frames,
+  };
+}
+
+function machine(): Machine {
+  return { cores: 8, clockMs: 1, gpu: "Test GPU" };
+}
+
+/** A whole run, ready to report on. Shared by every case below so that a
+ * field added to `BenchmarkRun` is added in one place and every case then
+ * asserts against the same numbers. */
+function run(): BenchmarkRun {
+  return {
+    conditions: {
+      shore: "SEED 38 · MANGROVE",
+      craft: 12,
+      width: 1280,
+      height: 720,
+      pixelRatio: 2,
+      picture: pictureRows(DEFAULT_VIDEO),
+      plan: [{ label: "seed", value: "38" }],
+    },
+    samples: [sample(15, 180, 110), sample(30, 175, 108)],
+    costs: [cost(180), cost(200)],
+    scene: [
+      { name: "cover", objects: 13, triangles: 400000 },
+      { name: "water", objects: 2, triangles: 200000 },
+    ],
+    totals: totals(),
+    machine: machine(),
+    washSources: 2963,
+    step: BENCHMARK.step,
+    frames: 30,
   };
 }
 
@@ -93,6 +163,9 @@ function record(at: number, index: number, picture: PictureRow[]): BenchmarkReco
     samples: [sample(BENCHMARK.frames, index, 60)],
     costs: [cost(180)],
     scene: [{ name: "water", objects: 2, triangles: 200000 }],
+    totals: totals(BENCHMARK.frames),
+    machine: machine(),
+    washSources: 2963,
   };
 }
 
@@ -299,31 +372,13 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
   });
 
   it("reports the CONDITIONS, the frame and where to look", () => {
-    const text = benchmarkReport({
-      conditions: {
-        shore: "SEED 38 · MANGROVE",
-        craft: 12,
-        width: 1280,
-        height: 720,
-        pixelRatio: 2,
-        picture: pictureRows(DEFAULT_VIDEO),
-        plan: [{ label: "seed", value: "38" }],
-      },
-      samples: [sample(15, 180, 110), sample(30, 175, 108)],
-      costs: [cost(180), cost(200)],
-      scene: [
-        { name: "cover", objects: 13, triangles: 400000 },
-        { name: "water", objects: 2, triangles: 200000 },
-      ],
-      step: BENCHMARK.step,
-      frames: 30,
-    });
+    const text = benchmarkReport(run());
     expect(text).toContain("1280×720 @ 2x");
     expect(text).toContain("12 craft");
     // The water's CPU time is the one line a draw-call count cannot stand in
     // for: the near grid calls the engine's own `surfaceAt` thousands of
     // times a frame and none of that is the GPU's.
-    expect(text).toContain("water cpu");
+    expect(text).toContain("water");
     // The breakdown is sorted by what it costs, so the row to look at first
     // is the first row.
     const breakdown = text.slice(text.indexOf("WHAT WAS STANDING THERE"));
@@ -332,6 +387,101 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
     // which is how a thermal sag is told from a scene that got heavier.
     expect(text).toContain("THE RUN, READING BY READING");
     expect(text).toContain("50%");
+  });
+
+  it("BILLS THE WHOLE FRAME, not just the renderer's share of it", () => {
+    // The frame the benchmark draws is a race STEPPED and then drawn, and
+    // the stepping is the half `frameMs` cannot see: a report that billed
+    // only the renderer could show eight milliseconds on a machine drawing
+    // at nineteen and say nothing about the other eleven.
+    const text = benchmarkReport(run());
+    const block = text.slice(text.indexOf("WHERE THE FRAME WENT"));
+    for (const phase of ["sim", "observe", "render", "gpu", "unbilled", "wall"])
+      expect(block).toContain(phase);
+    // Every phase is meaned over the frames summed, not over the readings —
+    // 6 ms of simulation a frame, whatever the two readings happened to say.
+    expect(block).toContain("6.00 ms");
+    // …and the wall is the frame end to end, with the rate it works out at.
+    expect(block).toContain("19.00 ms");
+  });
+
+  it("SHARES EVERY PHASE AGAINST THE WALL, so the column adds up", () => {
+    const block = benchmarkReport(run()).slice(
+      benchmarkReport(run()).indexOf("WHERE THE FRAME WENT"),
+    );
+    // 6 of 19 is 32%, 8 of 19 is 42%, 4 of 19 is 21% — against the frame
+    // rather than against the line above, which is what lets a reader see
+    // which HALF of the frame to go and look at.
+    expect(block).toContain("32%");
+    expect(block).toContain("42%");
+    expect(block).toContain("21%");
+  });
+
+  it("derives `rest` and `unbilled` rather than timing a stopwatch for each", () => {
+    // `render` is 8 ms with 2.5 + 1 + 0.5 + 3 = 7 ms of named slices, so the
+    // scene being posed and culled is the 1 ms left over; the wall is 19 ms
+    // with 6 + 0.5 + 8 + 4 = 18.5 accounted, so the browser's own is 0.5.
+    const block = benchmarkReport(run()).slice(
+      benchmarkReport(run()).indexOf("WHERE THE FRAME WENT"),
+    );
+    expect(block).toContain("rest");
+    const rest = block.slice(block.indexOf("rest"));
+    expect(rest.slice(0, 40)).toContain("1.00 ms");
+    const unbilled = block.slice(block.indexOf("unbilled"));
+    expect(unbilled.slice(0, 40)).toContain("0.50 ms");
+  });
+
+  it("NEVER PRINTS A NEGATIVE PHASE, whatever the clock did to the parts", () => {
+    // A clamped clock rounds each phase independently, so the slices of
+    // `render` can sum to more than `render` and the phases to more than the
+    // wall. That is the instrument, not a fault — but a report with a
+    // minus sign in it reads as a bug in the game.
+    const skewed = totals();
+    skewed.water = skewed.render * 2;
+    skewed.sim = skewed.wall * 2;
+    const text = benchmarkReport({ ...run(), totals: skewed });
+    const block = text.slice(text.indexOf("WHERE THE FRAME WENT"), text.indexOf("PER FRAME"));
+    // Every figure in the block, read back off the text rather than off the
+    // arithmetic that produced it — the report is the thing somebody pastes.
+    const figures = [...block.matchAll(/(-?\d+\.\d\d) ms/g)].map((m) => Number(m[1]));
+    expect(figures.length).toBeGreaterThan(0);
+    for (const figure of figures) expect(figure).toBeGreaterThanOrEqual(0);
+    for (const share of [...block.matchAll(/(-?\d+)%/g)].map((m) => Number(m[1])))
+      expect(share).toBeGreaterThanOrEqual(0);
+  });
+
+  it("leaves the breakdown out rather than printing a frame of zeroes", () => {
+    // A record kept by a build from before the phases were timed has no
+    // account at all. A block of zeroes would read as a machine that spent
+    // no time doing anything, which is worse than no block.
+    const text = benchmarkReport({ ...run(), totals: noTotals(), machine: noMachine() });
+    expect(text).not.toContain("WHERE THE FRAME WENT");
+    // …and with nothing known about the machine, no MACHINE line either.
+    expect(text).not.toContain("MACHINE");
+    // The rest of the report still stands.
+    expect(text).toContain("THE RUN, READING BY READING");
+  });
+
+  it("puts the CLOCK'S OWN RESOLUTION on the machine line, as the error bar", () => {
+    // Every per-frame figure in the table is quantised to it, so a reader
+    // who does not know it cannot tell a phase that is cheap from a phase
+    // the clock cannot see. It is the reason the breakdown is a run total.
+    const text = benchmarkReport(run());
+    expect(text).toContain("MACHINE");
+    expect(text).toContain("8 cores");
+    expect(text).toContain("1.00 ms clock");
+    expect(text).toContain("Test GPU");
+  });
+
+  it("names the WASH SOURCES beside the hulls, which no scene walk can see", () => {
+    // The product of the two is the shape of the simulation's cost: every
+    // source is read by every hull's probes at 120 Hz and by every vertex
+    // of the water grid, so twelve hulls is twelve readers AND twelve
+    // trails. None of it is an object, so `sceneTally` reports none of it.
+    const text = benchmarkReport(run());
+    const water = text.slice(text.indexOf("WHAT WAS IN THE WATER"));
+    expect(water).toContain("2 963");
+    expect(water).toContain("hulls");
   });
 
   it("reads a frame's usual cost as the MIDDLE reading, not the mean", () => {

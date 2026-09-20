@@ -421,6 +421,9 @@ export function BenchmarkCard({
       samples: status.samples,
       costs: status.costs,
       scene: status.scene,
+      totals: status.totals,
+      machine: status.machine,
+      washSources: status.washSources,
       step: BENCHMARK.step,
       frames: BENCHMARK.frames,
     });
@@ -654,6 +657,9 @@ export function BenchmarkHistoryPage({ onBack }: { onBack: () => void }) {
               samples: showing.samples,
               costs: showing.costs,
               scene: showing.scene,
+              totals: showing.totals,
+              machine: showing.machine,
+              washSources: showing.washSources,
               step: showing.step,
               frames: showing.frames,
             })
