@@ -369,27 +369,27 @@ export type Settings = {
    * ran again would overrule them. RESTORE DEFAULTS clears it with the rest,
    * which is the one honest way back to a first visit. */
   probed: boolean;
-  /** True once the developer menu has been let out — the START row held
-   * down for {@link DEV_HOLD_MS}. It STAYS out: a player who found it
-   * deliberately does not want to find it again every time they open the
-   * game. */
+  /** True once the developer menu has been let out — the craft card's
+   * turntable held down for {@link DEV_HOLD_MS}. It STAYS out: a player who
+   * found it deliberately does not want to find it again every time they
+   * open the game. */
   developer: boolean;
   dev: DevSettings;
 };
 
-/** How long the main menu's START row has to be held before the developer
- * menu is let out.
+/** How long the craft card's turntable has to be held before the developer
+ * menu is let out (`menu-hold.ts`, `craft-picker.tsx`).
  *
  * Seven seconds is the whole design. A press is a fifth of a second and a
- * player leaning on the row while they decide is under two, so nothing
- * anybody does on the way into a game reaches it; and it is short enough
- * that somebody TOLD about it finds it on their first try. There is no
- * combination to remember and nothing to type — the way in is the same
- * button as the way in.
+ * player resting a thumb on the hull while they look at it is under two, so
+ * nothing anybody does on the way into a game reaches it; and it is short
+ * enough that somebody TOLD about it finds it on their first try. There is
+ * no combination to remember and nothing to type.
  *
- * The row says so while it is being held (`menu-hold.ts` owns the ramp), so
- * a hold that is going to unlock something says it is going to before it
- * does, and a finger resting on START is never a surprise. */
+ * Nothing is drawn while it runs — a door meant to stay hidden cannot
+ * advertise itself to everybody who rests a thumb on the picture. What the
+ * player gets is the moment it LANDS: the hull whips round twice and
+ * settles back into its steady spin (`flourishRate`). */
 export const DEV_HOLD_MS = 7000;
 
 export const DEFAULT_SETTINGS: Settings = {

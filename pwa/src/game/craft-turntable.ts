@@ -28,6 +28,7 @@ import { biomeOf, restY, type CraftSpec } from "@engine";
 
 import { buildCraft, cockpitOf } from "./craft-body.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
+import { FLOURISH_SECONDS, flourishRate } from "./menu-hold.ts";
 import { createRider, type Rider } from "./rider.ts";
 
 /** WHERE THE VIEWER STANDS, as a direction rather than a place: the eye is
@@ -60,6 +61,11 @@ export type CraftTurntable = {
   /** Swap the craft on the water; the spin carries on from where it was.
    * The hull is built on the next frame, not inside this call. */
   setCraft: (spec: CraftSpec) => void;
+  /** Whip the hull round twice and settle back into the steady spin — the
+   * one thing this stand can say, and what it says is that the hold on the
+   * picture landed (`menu-hold.ts`). Restarts a flourish already running,
+   * rather than stacking a second one on it. */
+  flourish: () => void;
   /** Match the canvas to its box after a layout change. */
   resize: () => void;
   dispose: () => void;
@@ -237,6 +243,9 @@ export function createCraftTurntable(canvas: HTMLCanvasElement): CraftTurntable 
   let raf = 0;
   let last = performance.now();
   let angle = 0;
+  /** When the flourish started, on the same clock the frames arrive on, or
+   * null while the stand is simply turning. */
+  let flourishFrom: number | null = null;
 
   const frame = (now: number): void => {
     raf = requestAnimationFrame(frame);
@@ -252,7 +261,16 @@ export function createCraftTurntable(canvas: HTMLCanvasElement): CraftTurntable 
     }
     const dt = Math.min(0.1, (now - last) / 1000);
     last = now;
-    angle += dt * ((Math.PI * 2) / SPIN_PERIOD);
+    // The steady spin, plus whatever the flourish is adding to it this
+    // frame. The curve is `menu-hold.ts`'s — the stand only integrates it,
+    // so the receipt the card gives is the one the suite reads.
+    let rate = (Math.PI * 2) / SPIN_PERIOD;
+    if (flourishFrom !== null) {
+      const at = (now - flourishFrom) / 1000;
+      if (at >= FLOURISH_SECONDS) flourishFrom = null;
+      else rate += flourishRate(at);
+    }
+    angle += dt * rate;
     pivot.rotation.y = angle;
     renderer.render(scene, camera);
   };
@@ -261,6 +279,9 @@ export function createCraftTurntable(canvas: HTMLCanvasElement): CraftTurntable 
 
   return {
     setCraft,
+    flourish: () => {
+      flourishFrom = performance.now();
+    },
     resize,
     dispose: () => {
       cancelAnimationFrame(raf);

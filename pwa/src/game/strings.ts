@@ -378,7 +378,6 @@ export const STRINGS = {
     cleared === 0 ? `${of} SHORES · START HERE` : `${cleared} OF ${of} SHORES CLEARED`,
   /** The way out of every page under the front door. */
   menuBack: "MENU",
-  menuUnlocked: "DEVELOPER MENU UNLOCKED",
 
   /* ── THE CAMPAIGN (menu-campaign.tsx, app-campaign.ts) ─────────────── */
   /** The tile, and the card's own title. */

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE DEVELOPER PAGE: out of the way of a player who never found it (hold
-// START for seven seconds — `DEV_HOLD_MS`), and blunt for one who did.
+// the craft card's turning hull for seven seconds — `DEV_HOLD_MS`), and
+// blunt for one who did.
 //
 // EVERY ROW HERE IS A URL PARAMETER `App.tsx` ALREADY READS. That is the rule
 // for anything added, not a coincidence about what happened to be easy: a

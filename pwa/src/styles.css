@@ -3713,14 +3713,6 @@ canvas {
   opacity: 0.72;
 }
 
-/* The receipt for a hold that landed, said once on the visit it landed. */
-.menu-said {
-  margin: 0.2rem 0 0;
-  font-size: 0.72rem;
-  letter-spacing: 0.18em;
-  color: var(--buoy);
-}
-
 /* The build, at the far end of the foot strip, linking to its own commit.
    `margin-left: auto` is what puts it there — it rides in the strip's row
    rather than on a line of its own, which is a line of card height bought
@@ -4787,7 +4779,14 @@ button.knob-read:focus-visible {
    three on a narrow card — the stand frames the craft to whichever of the
    pane's two dimensions runs out first (craft-turntable.ts), and on a pane
    much taller than it is wide that is the WIDTH, so every further pixel of
-   height is scrim under the hull rather than more hull. */
+   height is scrim under the hull rather than more hull.
+
+   IT IS ALSO HELD, for seven seconds, to let the developer menu out
+   (craft-picker.tsx) — and it needs nothing of its own for that. A finger
+   left on a picture that long is a finger a phone would otherwise offer a
+   loupe, a selection or a callout, each of which takes the pointer stream
+   the hold is counted on away; the page-wide `touch-action: none` and the
+   `*` rule at the head of this sheet already refuse all three. */
 .craft-pick-stage {
   position: relative;
   flex: 1;
