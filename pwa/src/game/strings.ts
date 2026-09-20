@@ -683,6 +683,11 @@ export const STRINGS = {
    * from — the camera key reaches it in a REPLAY and nowhere else
    * (`camera-tv.ts`). */
   cameraTv: "TV",
+  /** ...and the drone that holds a shore behind the front door, which no row
+   * offers either and which the camera key cannot reach at all: it is put up
+   * by a CARD going up (`camera-menu.ts`). Named here because the ladder's
+   * type is every rung there is, and a word is what the type asks for. */
+  cameraMenu: "MENU",
 
   /* ── THE KEYBOARD PAGE (menu-keys.tsx, settings-input.ts) ──────────── */
   /** One word per action, and every one of them says what the CRAFT does

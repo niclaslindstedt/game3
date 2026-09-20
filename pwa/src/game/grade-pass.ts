@@ -37,6 +37,18 @@
 // the canvas through `#include <colorspace_fragment>` like every other
 // hand-written shader here.
 //
+// THE DREAM, which rides on this pass rather than on one of its own. The
+// menu's drone (`camera-menu.ts`) is finished like an aerial plate: soft with
+// distance, and in a lens looking well down the distance is a run UP THE
+// FRAME, so the softening is a ramp in screen height — a tilt-shift — and
+// needs no depth buffer to know where the far away is. It goes here because
+// this pass already reads the whole picture back exactly once, so the blur is
+// extra taps of a texture that is being sampled anyway rather than a second
+// full-screen target; and it goes BEFORE the grade for the reason a lens
+// comes before a colourist. It costs nothing whatever while a run is being
+// ridden: `uDream` is 0 there, and the branch on it is uniform across the
+// whole draw.
+//
 // THE ANTI-ALIASING MOVES WITH THE PICTURE. Everything with an edge in it is
 // now drawn off-screen, so the samples have to be there too and the canvas's
 // own context asks for none: a multisampled default framebuffer would only be
@@ -46,8 +58,12 @@
 
 import * as THREE from "three";
 
+import type { DreamLook } from "./camera.ts";
 import { type ColourGrade, gradeColour } from "./colour-grade.ts";
 import { pictureSamples } from "./settings-video.ts";
+
+/** The picture height the dream's radius is quoted at, px. */
+const DREAM_REFERENCE = 1080;
 
 /** Mid grey in the perceptual coordinate — `sqrt(0.18)`. The pivot the
  * contrast turns about; `colour-grade.ts`'s header says why it is not 0.18. */
@@ -65,6 +81,9 @@ void main() {
 
 const FRAGMENT = /* glsl */ `
 uniform sampler2D uPicture;
+uniform float uDream;
+uniform vec2 uDreamRamp;
+uniform vec2 uDreamStep;
 uniform float uContrast;
 uniform float uLift;
 uniform float uSaturation;
@@ -78,9 +97,36 @@ varying vec2 vUv;
 const float MID_P = ${MID_P};
 const vec3 LUMA = vec3( 0.2126, 0.7152, 0.0722 );
 
+/** THE TAPS: twelve directions thirty degrees apart, alternating between two
+ * radii so the samples fill a DISC rather than ring a hole — a single ring
+ * blurs an edge into two edges. Fixed directions rather than a noise dither,
+ * because a dither redrawn per frame on a shot this slow reads as the
+ * picture simmering. Trig rather than a table, because a constant array
+ * initialiser is GLSL ES 3.00 and this material is compiled as 1.00. */
+const float TAPS = 12.0;
+const float TURN = 6.2831853 / TAPS;
+const float INNER = 0.55;
+
 void main() {
   vec4 picture = texture2D( uPicture, vUv );
   vec3 c = picture.rgb;
+
+  // THE DREAM, before anything is graded: how far up the frame this pixel is,
+  // ramped between the two heights the shot says its distance runs over, and
+  // the disc widened with it.
+  if ( uDream > 0.0 ) {
+    float soft = uDream * smoothstep( uDreamRamp.x, uDreamRamp.y, vUv.y );
+    if ( soft > 0.0 ) {
+      vec2 spread = uDreamStep * soft;
+      vec3 sum = c;
+      for ( int i = 0; i < 12; i++ ) {
+        float turn = float( i ) * TURN;
+        float ring = mod( float( i ), 2.0 ) < 0.5 ? INNER : 1.0;
+        sum += texture2D( uPicture, vUv + vec2( cos( turn ), sin( turn ) ) * spread * ring ).rgb;
+      }
+      c = sum / ( TAPS + 1.0 );
+    }
+  }
 
   // THE CONTRAST, then THE LIFT, in the perceptual coordinate: a gain about
   // mid grey, then the blacks off the floor. Lifting first would only hand
@@ -127,6 +173,12 @@ export type GradePass = {
   /** The coast's grade. Eight numbers on one material — no recompile, so it
    * can be set from `load` on the frame a new coast arrives. */
   setGrade: (grade: ColourGrade) => void;
+  /** How soft the distance is, pushed once a frame by the camera that is
+   * asking for it (`CameraRig.dream`). The radius is quoted at a 1080-tall
+   * picture and scaled to this buffer here, so a phone and a desktop are
+   * softened by the same share of the PICTURE rather than by the same count
+   * of pixels. */
+  setDream: (look: DreamLook) => void;
   /** Read the picture back, grade it, write the canvas; what the pass cost. */
   render: (renderer: THREE.WebGLRenderer) => { calls: number; triangles: number };
   dispose: () => void;
@@ -150,6 +202,9 @@ export function createGradePass(): GradePass {
 
   const uniforms = {
     uPicture: { value: target.texture },
+    uDream: { value: 0 },
+    uDreamRamp: { value: new THREE.Vector2(0, 1) },
+    uDreamStep: { value: new THREE.Vector2(0, 0) },
     uContrast: { value: 1 },
     uLift: { value: 0 },
     uSaturation: { value: 1 },
@@ -191,6 +246,15 @@ export function createGradePass(): GradePass {
       const wide = Math.max(1, Math.round(w));
       const high = Math.max(1, Math.round(h));
       if (target.width !== wide || target.height !== high) target.setSize(wide, high);
+    },
+    setDream: (look) => {
+      uniforms.uDream.value = look.amount;
+      uniforms.uDreamRamp.value.set(look.from, look.to);
+      // In UV, and round in PIXELS — the horizontal step is divided by the
+      // buffer's own width, so a wide window blurs a disc rather than an
+      // ellipse.
+      const radius = (look.radius * target.height) / DREAM_REFERENCE;
+      uniforms.uDreamStep.value.set(radius / target.width, radius / target.height);
     },
     setGrade: (grade) => {
       uniforms.uContrast.value = grade.contrast;

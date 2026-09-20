@@ -243,8 +243,15 @@ describe("the shader says what the model says", () => {
     const declared = [...glsl.matchAll(/uniform\s+\w+\s+(\w+)\s*(?:\[\d+\])?\s*;/g)].map(
       (m) => m[1],
     );
+    // The grade's own eight, plus the three the DREAM rides on — the
+    // softening the menu's drone is finished with, which is on this pass
+    // because this pass is already reading the whole picture back
+    // (`grade-pass.ts`'s header says why it is not one of its own).
     expect(declared.sort()).toEqual([
       "uContrast",
+      "uDream",
+      "uDreamRamp",
+      "uDreamStep",
       "uGlow",
       "uLift",
       "uPicture",

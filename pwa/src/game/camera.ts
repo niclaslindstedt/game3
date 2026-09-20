@@ -29,6 +29,14 @@
 //           foreshortened to a stripe from behind: the wake's V, the line
 //           between two buoys, the wind's streaks across the surface.
 //
+// TWO MORE RUNGS ARE OFF THE LADDER, because neither is a view anybody may
+// RIDE from: `tv`, the lens planted on the water for a moment a recording
+// already knows is coming (`camera-tv.ts`), and `menu`, the drone that holds
+// a shore behind the front door with the rider out in whatever band of frame
+// the card does not cover (`camera-menu.ts`). Both are reached by being SET
+// rather than by being walked to, and the camera key can never land on
+// either.
+//
 // The five outside rigs are ONE rig with different proportions — one table
 // of numbers (`camera-rigs.ts`), one update function — so an angle is a row
 // rather than another camera to maintain. They ease with speed, look THROUGH
@@ -61,6 +69,8 @@ import { angleDiff, rotate, type GameState } from "@engine";
 import { createSprung } from "../lib/sprung.ts";
 import { clamp } from "../lib/util.ts";
 import { createViewChange } from "./camera-change.ts";
+import { MAX_VFOV, REF_ASPECT, verticalFovFor } from "./camera-lens.ts";
+import { MENU_CAM, createMenuCamera, type MenuFrame } from "./camera-menu.ts";
 import { createTvCamera } from "./camera-tv.ts";
 import type { ReplayShot } from "./replay-shots.ts";
 import {
@@ -73,7 +83,13 @@ import {
   type EyeRig,
 } from "./camera-rigs.ts";
 
-export type CameraMode = EyeCamera | ChaseCamera | "tv";
+/** The lens arithmetic is stated next door (`camera-lens.ts`, which the menu
+ * drone reads too) and spelled here, so every host still asks the camera for
+ * it. */
+export { MAX_VFOV, REF_ASPECT, verticalFovFor };
+export type { MenuFrame, ScreenBox } from "./camera-menu.ts";
+
+export type CameraMode = EyeCamera | ChaseCamera | "tv" | "menu";
 /** The modes the camera key walks, in the order it walks them — the same
  * handlebars-backwards ladder the options card lists, so the key and the
  * setting never disagree about what "the next camera" means.
@@ -81,7 +97,9 @@ export type CameraMode = EyeCamera | ChaseCamera | "tv";
  * THE TV CAM IS NOT ON IT. It frames the moment the craft is arriving at
  * rather than the water ahead of him, and it cuts — see `camera-tv.ts` for
  * why nobody may ride from it. A REPLAY walks the ladder plus that one rung
- * (`WATCHING_MODES`), which is the only place it can be reached. */
+ * (`WATCHING_MODES`), which is the only place it can be reached. NEITHER IS
+ * THE MENU DRONE, for the same reason from the other end: it frames the
+ * card rather than the water, and it is reached only by a card going up. */
 export const CAMERA_MODES: readonly CameraMode[] = [
   "bow",
   "nose",
@@ -121,22 +139,6 @@ function angleLerp(a: number, b: number, t: number): number {
 /** Soft ceiling: linear well under `max`, easing onto it, never arriving. */
 function soften(v: number, max: number): number {
   return max * Math.tanh(v / max);
-}
-
-/** Aspect ratio the fov numbers are tuned against (landscape). */
-export const REF_ASPECT = 16 / 9;
-/** Vertical fov ceiling on narrow viewports, deg — where hor+ stops before
- * a phone held upright turns into a fisheye. */
-export const MAX_VFOV = 108;
-
-/** three.js's fov is VERTICAL, so a fixed number collapses the horizontal
- * field on a phone held upright, and every degree of yaw sweeps three
- * times more of the frame than it does in landscape. Below the reference
- * aspect the HORIZONTAL field is held instead (hor+), capped. */
-export function verticalFovFor(designFov: number, aspect: number): number {
-  if (!(aspect < REF_ASPECT)) return designFov;
-  const halfH = Math.atan(Math.tan((designFov * Math.PI) / 360) * REF_ASPECT);
-  return Math.min(MAX_VFOV, (Math.atan(Math.tan(halfH) / aspect) * 360) / Math.PI);
 }
 
 /** Clearance the flown hand-over is never allowed under, m — modest, because
@@ -193,6 +195,27 @@ export type CameraRig = {
    * a key press can never land on a rung the surface it is on has no business
    * offering. */
   setLadder: (modes: readonly CameraMode[]) => void;
+  /** THE SHAPE OF THE WINDOW, and the CARD standing over it — pushed by the
+   * renderer on every resize and by the app whenever a card goes up, comes
+   * down or is re-laid. Read by the `menu` rung alone, which frames the rider
+   * into whatever band of screen the card leaves; every other rung frames a
+   * rider who is steering and has no business knowing a card exists. */
+  setFrame: (frame: Partial<MenuFrame>) => void;
+  /** HOW SOFT THE PICTURE IS, for the pass that softens it. The amount eases
+   * with the rung, so the blur arrives and leaves with the hand-over rather
+   * than switching on in a frame; the rest is the shot's own
+   * (`MENU_CAM.dream`). */
+  dream: () => DreamLook;
+};
+
+/** The distance softening a frame is finished with: how much of it is on,
+ * where up the frame it starts and finishes, and what it is worth at the far
+ * end (pixels at a 1080-tall picture). `grade-pass.ts` applies it. */
+export type DreamLook = {
+  amount: number;
+  from: number;
+  to: number;
+  radius: number;
 };
 
 export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
@@ -201,6 +224,14 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
   let restand = true;
   const change = createViewChange();
   const tv = createTvCamera();
+  const drone = createMenuCamera();
+  /** The window's shape and the card over it. The aspect opens at the
+   * reference rather than at zero: a frame composed before the first resize
+   * has landed is composed for a landscape window, which is the one guess
+   * that is never absurd. */
+  const frame: MenuFrame = { aspect: REF_ASPECT, card: null };
+  /** How far the softening has come on, eased — see `dream`. */
+  const dream: DreamLook = { amount: 0, ...MENU_CAM.dream };
   /** The moment the broadcast is on, and whether the last frame was drawn
    * from a stand — the second is what turns the hand-back into a FLIGHT. */
   let shot: ReplayShot | null = null;
@@ -424,13 +455,26 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
    * chase. */
   const walkTo = (next: CameraMode): void => {
     if (next === mode) return;
-    if (drawn) change.start(pose, shown);
+    // …EXCEPT ONTO OR OFF THE MENU'S DRONE, WHICH CUTS. A hand-over is a
+    // rider changing his mind about where to sit, and both ends of one are
+    // the same shot a couple of metres apart; this is a different camera
+    // forty-six metres up, and flying it is a swoop nobody asked for landing
+    // on a card that has just gone up. The card IS the edit, so the picture
+    // changes with it — the same reasoning that makes the broadcast a cut
+    // (`camera-tv.ts`), and a 0.6 s flight is also 0.6 s the first frame of a
+    // front door spends somewhere other than where it was composed.
+    const cut = next === "menu" || mode === "menu";
+    if (drawn && !cut) change.start(pose, shown);
+    if (cut) change.cancel();
     mode = next;
     restand = true;
     // A rung walked away from mid-shot leaves a stand nobody is standing on,
     // and walking back onto `tv` must land as a fresh cut rather than easing
-    // the lens across the water from wherever it last stood.
+    // the lens across the water from wherever it last stood. The drone is
+    // dropped for the same reason — its eased craft position is a memory of
+    // a shore nobody is over any more.
     tv.drop();
+    drone.drop();
     onStand = false;
   };
 
@@ -452,7 +496,12 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
       // than assuming a shot is a stand.
       const broadcast =
         mode === "tv" && shot !== null && tv.update(pose, shot, state, dt, surfaceY);
-      if (!broadcast) {
+      if (mode === "menu") {
+        // THE DRONE COMPOSES ITS OWN SHOT — it is the one rung that is not a
+        // boom, a stand or a seat, so none of the eased quantities above mean
+        // anything to it and it is handed the frame instead.
+        drone.update(pose, state, dt, surfaceY, frame);
+      } else if (!broadcast) {
         if (onStand && drawn) {
           change.start(pose, shown);
           restand = true;
@@ -461,6 +510,11 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
         else chase(CHASE_RIGS[mode === "tv" ? "chase" : mode], state, dt, surfaceY);
       }
       onStand = broadcast;
+      // ...and the softening is simply ON while the drone is, because the
+      // drone is cut to rather than flown to and the card goes up on the same
+      // frame. Easing it instead would be a blur arriving after the picture
+      // it belongs to, at whatever rate the machine happens to be drawing.
+      dream.amount = mode === "menu" ? 1 : 0;
       if (change.flying()) {
         change.fly(pose, state.craft, dt);
         const floor = surfaceY(pose.x, pose.z) + CHANGE_CLEARANCE;
@@ -487,6 +541,11 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
     setLadder: (modes) => {
       ladder = modes;
     },
+    setFrame: (next) => {
+      if (next.aspect !== undefined && next.aspect > 0) frame.aspect = next.aspect;
+      if (next.card !== undefined) frame.card = next.card;
+    },
+    dream: () => dream,
     cycle: () => {
       // A rung the live ladder does not carry reads as -1 and so walks to its
       // head, which is the honest answer: the key was pressed on a camera
@@ -499,6 +558,7 @@ export function createCameraRig(initial: CameraMode = "chase"): CameraRig {
       restand = true;
       change.cancel();
       tv.drop();
+      drone.drop();
       onStand = false;
     },
   };
