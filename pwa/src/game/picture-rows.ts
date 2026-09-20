@@ -29,9 +29,11 @@ import {
   DETAIL_LEVELS,
   DISTANCE_LEVELS,
   FRAME_RATE_LEVELS,
+  REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   detailOf,
+  type ReflectionLevel,
   type VideoSettings,
 } from "./settings-video.ts";
 import { STRINGS } from "./strings.ts";
@@ -55,6 +57,7 @@ export const PICTURE_ROWS = {
   detail: STRINGS.optDetail,
   distance: STRINGS.optDistance,
   seeThrough: STRINGS.optSeeThrough,
+  reflections: STRINGS.optReflections,
   frameRate: STRINGS.optFrameRate,
 } as const;
 
@@ -65,6 +68,17 @@ export type PictureRow = { label: string; value: string };
  * picture, and the window over it is the dearest thing in the frame on a tile
  * GPU. */
 const SEE_STOPS = [STRINGS.optOff, STRINGS.optOn] as const;
+
+/** The REFLECTIONS row's stops, cheapest first — the sky alone, the near
+ * coast's light smeared into the water, then the shore itself at two
+ * sharpnesses. Exported for the same reason `STEPS` is: the options page
+ * builds its chips off this record rather than keeping a second copy. */
+export const MIRROR_STEPS: Record<ReflectionLevel, string> = {
+  off: STRINGS.optOff,
+  glow: STRINGS.optReflectGlow,
+  soft: STRINGS.optReflectSoft,
+  sharp: STRINGS.optReflectSharp,
+};
 
 /** The FRAME RATE row's stops, cheapest first — fewer frames is less work, so
  * the ladder climbs to the display's own rate. Worded as the figures they are,
@@ -90,6 +104,7 @@ export function pictureRows(video: VideoSettings): PictureRow[] {
     { label: PICTURE_ROWS.detail, value: STEPS[detailOf(video)] },
     { label: PICTURE_ROWS.distance, value: STEPS[video.distance] },
     { label: PICTURE_ROWS.seeThrough, value: video.seeThrough ? STRINGS.optOn : STRINGS.optOff },
+    { label: PICTURE_ROWS.reflections, value: MIRROR_STEPS[video.reflections] },
     { label: PICTURE_ROWS.frameRate, value: RATE_STOPS[video.frameRate] },
   ];
 }
@@ -107,5 +122,6 @@ export const PICTURE_LADDERS: { label: string; ladders: string[][] }[] = [
   { label: PICTURE_ROWS.detail, ladders: [DETAIL_LEVELS.map((id) => STEPS[id])] },
   { label: PICTURE_ROWS.distance, ladders: [DISTANCE_LEVELS.map((id) => STEPS[id])] },
   { label: PICTURE_ROWS.seeThrough, ladders: [[...SEE_STOPS]] },
+  { label: PICTURE_ROWS.reflections, ladders: [REFLECTION_LEVELS.map((id) => MIRROR_STEPS[id])] },
   { label: PICTURE_ROWS.frameRate, ladders: [FRAME_RATE_LEVELS.map((id) => RATE_STOPS[id])] },
 ];

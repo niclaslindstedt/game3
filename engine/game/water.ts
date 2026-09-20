@@ -124,7 +124,7 @@ import { frozen } from "./ice.ts";
 import { oceanDepth, oceanOffset, oceanOut, STORM_CEILING, stormRamp } from "./ocean.ts";
 import { type Wash, washAt, type WashSample } from "./wash.ts";
 import { layBand } from "./wave-band.ts";
-import { tableAt } from "./wave-bed.ts";
+import { tableCursor, tableLerp } from "./wave-bed.ts";
 
 const S = TUNING.sea;
 const O = TUNING.sea.open;
@@ -737,6 +737,9 @@ export function seaSummary(sea: SeaState, x: number, z: number): { Hs: number; T
 }
 
 const scratch = new Float64Array(3);
+/** Which row of every component's depth table this sample falls between, and
+ * how far past it (`tableCursor`) — one reading a sample, shared by the lot. */
+const cursor = new Float64Array(3);
 /** A phase sample and its gradient — the component's local wave vector. */
 const phaseAt = new Float64Array(3);
 /** Three numbers a component — the local wavenumber, the amplitude it
@@ -820,6 +823,11 @@ export function surfaceAt(
   const total = comps.length;
   const n = Math.min(count, total);
   let m0 = 0;
+  // WHICH ROW OF THE DEPTH LADDER this sample stands on — once, not once a
+  // component. Every table is laid over the same √d axis with the same rows
+  // (`TABLE_ROWS`), so the row and the weight are a property of the DEPTH and
+  // all thirteen components of a coastal sea share them.
+  tableCursor(depth, cursor);
   for (let b = 0; b < sea.bands.length; b++) {
     const share = shares[b];
     if (share <= 1e-3) continue;
@@ -827,7 +835,7 @@ export function surfaceAt(
     for (let j = 0; j < at.length; j++) {
       const i = at[j];
       const c = comps[i];
-      tableAt(c.table, depth, scratch);
+      tableLerp(c.table, cursor, scratch);
       const a = c.amp * scratch[1] * share;
       held[i * 3] = scratch[0];
       held[i * 3 + 1] = a;

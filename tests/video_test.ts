@@ -37,6 +37,7 @@ import {
   RAIN_LOOK,
   REFLECTION_LEVELS,
   REFLECTION_LOOK,
+  pressReflections,
   RESOLUTION_SCALE,
   SKY_LEVELS,
   SKY_LOOK,
@@ -327,14 +328,52 @@ describe("the picture's other ladders", () => {
     // never sharp: a tree line read off a wave at full resolution is a
     // second tree line standing on its head.
     expect(REFLECTION_LOOK.off.scale).toBe(0);
-    for (let i = 1; i < REFLECTION_LEVELS.length; i++) {
-      const under = REFLECTION_LOOK[REFLECTION_LEVELS[i - 1]];
-      const over = REFLECTION_LOOK[REFLECTION_LEVELS[i]];
+    // Walked over the stops that HAVE a picture: OFF draws no texture, so its
+    // blur is a number nothing reads and holding the ladder to it would be
+    // holding a stop to a figure that does not exist.
+    const drawn = REFLECTION_LEVELS.filter((id) => REFLECTION_LOOK[id].scale > 0);
+    for (let i = 1; i < drawn.length; i++) {
+      const under = REFLECTION_LOOK[drawn[i - 1]];
+      const over = REFLECTION_LOOK[drawn[i]];
       expect(over.scale).toBeGreaterThan(under.scale);
       expect(over.blur).toBeLessThanOrEqual(under.blur);
+      // …and a stop up never redraws the mirror LESS often than the stop
+      // under it, or the ladder would buy a sharper picture and hand back a
+      // stickier one.
+      expect(over.every).toBeLessThanOrEqual(under.every);
     }
     expect(REFLECTION_LOOK.sharp.blur).toBeLessThan(REFLECTION_LOOK.soft.blur);
     expect(REFLECTION_LOOK.sharp.blur).toBeGreaterThan(0);
+  });
+
+  it("closes the window when the mirror is turned off, and never re-opens it", () => {
+    // The two dearest things on the sea move together at the floor: a rider
+    // who presses OFF is on a machine that cannot afford either, and a page
+    // that granted half of that would be arguing with the press.
+    expect(pressReflections("off")).toEqual({ reflections: "off", seeThrough: false });
+    // …and ONLY at the floor, and only downward. A solid sea with the shore
+    // standing in it is a real picture somebody may want, so coming back up
+    // the ladder leaves the window exactly where the rider left it — the row
+    // is one press away and directly underneath.
+    for (const id of REFLECTION_LEVELS) {
+      if (id === "off") continue;
+      expect(pressReflections(id)).toEqual({ reflections: id });
+    }
+  });
+
+  it("draws the middle stop's pass less often, and every other stop every frame", () => {
+    // THE HALF-RATE PASS IS WHAT MAKES GLOW A STOP RATHER THAN A SHADE. The
+    // cover's shorter mirrored reach takes triangles off the pass; only the
+    // cadence takes DRAW CALLS off it, and a shore scene's mirror is fifty-odd
+    // draws. Every stop must ask for a whole number of frames, or the counter
+    // it drives would skip unevenly.
+    expect(REFLECTION_LOOK.glow.every).toBeGreaterThan(1);
+    for (const id of REFLECTION_LEVELS) {
+      expect(Number.isInteger(REFLECTION_LOOK[id].every)).toBe(true);
+      expect(REFLECTION_LOOK[id].every).toBeGreaterThanOrEqual(1);
+    }
+    expect(REFLECTION_LOOK.soft.every).toBe(1);
+    expect(REFLECTION_LOOK.sharp.every).toBe(1);
   });
 
   it("lets the wake be turned off outright, and keeps the road under the relief", () => {
@@ -474,6 +513,7 @@ describe("the DETAIL row's reverse reading (detailOf)", () => {
     expect(detailOf(DEFAULT_VIDEO)).toBe("medium");
     expect(DEFAULT_VIDEO.water).toBe("medium");
     expect(DEFAULT_VIDEO.seeThrough).toBe(true);
+    expect(DEFAULT_VIDEO.reflections).toBe("soft");
   });
 });
 
@@ -485,7 +525,6 @@ describe("the WATER row's own levers (WATER_PRESETS)", () => {
       spray: SPRAY_LEVELS,
       wake: WAKE_LEVELS,
       splash: SPLASH_LEVELS,
-      reflections: REFLECTION_LEVELS,
     } as const;
     const levers = Object.keys(rank) as (keyof typeof rank)[];
     for (let i = 1; i < WATER_LEVELS.length; i++) {

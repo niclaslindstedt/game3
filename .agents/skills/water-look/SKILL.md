@@ -33,10 +33,10 @@ at both ends of the session and **`write-code`** beside this one.
 | `pwa/src/game/water-break.ts` | WHERE THE SEA GOES WHITE, three-free: the SURF the bed trips (read off the depth load `Hs / (breakingHs·d)`, never a depth in metres), the CREST that spills in deep water, and the CAPS the wind blows off — kept apart, because they are not the same thing and the wind band is the only one that tells a coast from a gale. The mesh sows it, `make surf` draws it, `tests/water_break_test.ts` holds it |
 | `pwa/src/game/water-shader.ts` | HOW THE WATER IS LIT, per pixel: the body under the two lights and the light through a crest, Schlick's Fresnel on the WAVE's normal against `skyAlong`, the shore's mirror laid over it, the rain's rings, ONE Beckmann glint lobe over Cox and Munk's slope variance, the ripple tile scrolled downwind and faded with distance, the lamp's pool, the foam's lace, the wake's map read per vertex and per pixel. `tests/water_shader_test.ts` holds the uniform contract |
 | `pwa/src/game/water-optics.ts` | WHAT A COAST'S WATER IS MADE OF: three tones and the depths they run over, the surface's window, the flat unlit tone the bottom fades into, and `clarity` — the ONE depth scale the window, the bed's fade and the sea life's haze are written against. The app half of a biome row; `tests/water_optics_test.ts` holds the two lists to each other |
-| `pwa/src/game/reflection.ts` | WHAT THE WATER MIRRORS BESIDES THE SKY: the scene drawn once a frame from the lens's mirror image in the water plane, Lengyel's oblique near plane so nothing under the surface is drawn, into a small texture the shader lays over the analytic sky wherever it has a picture. The WATER row's; OFF is no pass |
+| `pwa/src/game/reflection.ts` | WHAT THE WATER MIRRORS BESIDES THE SKY: the scene drawn once a frame from the lens's mirror image in the water plane, Lengyel's oblique near plane so nothing under the surface is drawn, into a small texture the shader lays over the analytic sky wherever it has a picture. THE REFLECTIONS ROW's; OFF is no pass and closes the window with it, GLOW is a fifth-size picture read three mips down on every OTHER frame (the matrix and the frustum stand with it, so the mirror is a frame old rather than out of register) |
 | `pwa/src/game/sky-glsl.ts` | `atmosphere`'s — but `mirrorBuild` is the rough-mirror build the water and the craft's gel coat are compiled with, and `seaMirror(preset)` the same question for the horizon ring's one grazing angle |
 | `pwa/src/game/fx-textures.ts` | `visual-effects`'s — the foam tile and the ripple tile, made in code, and `TEXTURE_ANISOTROPY` |
-| `pwa/src/game/settings-video.ts` | The WATER row: the grid's cell, its rings, the far reach, the ripple fade — the biggest CPU bill in the frame, and the rider's to spend. `tests/video_test.ts` reads the ladder |
+| `pwa/src/game/settings-video.ts` | The WATER row: the grid's cell, its rings, the far reach, the ripple fade — the biggest CPU bill in the frame, and the rider's to spend. And the REFLECTIONS row beside it — the mirror's size, blur and CADENCE, plus `pressReflections`, which closes SEE-THROUGH at the floor. `tests/video_test.ts` reads both ladders |
 
 ## The judgement: LOOK, at the right cells
 
@@ -52,6 +52,7 @@ make surf SEED=38 ARGS="--reach 3500"                                       # �
 make screenshots SCENE=cruise HOUR=20.5 WEATHER=clear                       # the glint's road, the lamp
 make screenshots SCENE=cruise WEATHER=squall                                # the mirror under a lid
 make screenshots SCENE=cruise ARGS="--see 0"  # beside --see 1: the window closed and open
+make screenshots SCENE=cruise ARGS="--mirror off"   # …and off / glow / soft: the ladder, under a CLEAR sky
 make screenshots SCENE=wildlife                                             # into the water
 ```
 

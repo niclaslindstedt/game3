@@ -50,9 +50,10 @@
 //                  camera key still walks the whole ladder from there
 //   ?water=high    the picture rows, as OPTIONS ▸ VIDEO sets them:
 //   ?res=low       WATER, RESOLUTION, DETAIL and DISTANCE (low | medium |
-//   ?detail=low    high), SEE-THROUGH (?see=0/1) and the FRAME RATE cap
-//   ?distance=low  (?fps=30/60/max). They are settings like the start
-//   ?see=0         card's, so a link lays them over the stored ones rather
+//   ?detail=low    high), SEE-THROUGH (?see=0/1), REFLECTIONS
+//   ?distance=low  (?mirror=off/glow/soft/sharp) and the FRAME RATE cap
+//   ?see=0         (?fps=30/60/max). They are settings like the start
+//   ?mirror=glow   card's, so a link lays them over the stored ones rather
 //   ?fps=30        than reading them into the run — which is what lets the
 //                  screenshot lab photograph one row of the ladder, and a
 //                  bug report about the water name the picture it was seen
@@ -123,11 +124,13 @@ import {
   DETAIL_PRESETS,
   DISTANCE_LEVELS,
   FRAME_RATE_LEVELS,
+  REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   WATER_PRESETS,
   type DetailLevel,
   type DistanceLevel,
+  type ReflectionLevel,
   type FrameRateLevel,
   type ResolutionLevel,
   type WaterLevel,
@@ -184,6 +187,7 @@ export type Params = {
   detail: DetailLevel | undefined;
   distance: DistanceLevel | undefined;
   seeThrough: boolean | undefined;
+  reflections: ReflectionLevel | undefined;
   frameRate: FrameRateLevel | undefined;
   /** True when the URL names a RUN rather than a visit — a pinned run, a
    * staged moment, a screenshot. Those boot past both cards. */
@@ -291,6 +295,7 @@ export function readParams(search: string): Params {
     detail: stop(DETAIL_LEVELS, "detail"),
     distance: stop(DISTANCE_LEVELS, "distance"),
     seeThrough: see === null ? undefined : see === "1",
+    reflections: stop(REFLECTION_LEVELS, "mirror"),
     frameRate: stop(FRAME_RATE_LEVELS, "fps"),
     rides: shot || named !== null || paused || p.get("start") === "1",
     paused,
@@ -334,6 +339,7 @@ export function settingsFor(stored: Settings, params: Params): Settings {
   if (params.detail !== undefined) Object.assign(settings.video, DETAIL_PRESETS[params.detail]);
   if (params.distance !== undefined) settings.video.distance = params.distance;
   if (params.seeThrough !== undefined) settings.video.seeThrough = params.seeThrough;
+  if (params.reflections !== undefined) settings.video.reflections = params.reflections;
   if (params.frameRate !== undefined) settings.video.frameRate = params.frameRate;
   if (params.craft !== null) settings.ride.craft = params.craft;
   // A LINK THAT NAMES A SEED RIDES THAT SEED. The measured modes otherwise

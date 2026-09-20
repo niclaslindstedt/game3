@@ -64,6 +64,11 @@ import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
 /** Nothing lit, for a level with no marks of one kind on it — a coast
  * sprint has no rounding buoys at all. Stated once so the pick is handed a
  * list rather than a null and allocates nothing to say "none". */
+/** What a pass that did not run cost — the mirror's, on a frame it was not
+ * due. A frozen object rather than a literal per frame, since the frame's
+ * bill reads it either way. */
+const NO_PASS: { calls: number; triangles: number } = { calls: 0, triangles: 0 };
+
 const NO_LAMPS: readonly BuoyLamp[] = [];
 
 /** HOW SEE-THROUGH A GHOST IS (`ghost-run.ts`). Enough of the hull is left
@@ -581,6 +586,7 @@ export function createRenderer(
     sky.setRainSheet(RAIN_LOOK[next.rain].sheet);
     flora?.setDensity(FLORA_SCALE[next.flora]);
     mirror.setScale(REFLECTION_LOOK[next.reflections].scale);
+    mirror.setRate(REFLECTION_LOOK[next.reflections].every);
     water.setMirrorLook(REFLECTION_LOOK[next.reflections]);
     // THE DISTANCE ROW pulls the fog in (or lets it out) to meet the radii the
     // frame will draw to; the radii themselves are applied per frame, because
@@ -783,16 +789,26 @@ export function createRenderer(
     // cloud edges back on the crests. The cover is the one thing in the scene
     // with two answers: it draws its near share into the water and the whole
     // of itself into the picture.
-    flora?.drawFor("mirror");
-    const pass = mirror.render(renderer, scene, [
-      water.mesh,
-      water.far,
-      spray.group,
-      missedGuide.group,
-      ...sky.unmirrored,
-    ]);
+    //
+    // …AND ONLY ON THE FRAMES IT IS DUE (the REFLECTIONS row's `every`). At
+    // GLOW the pass runs every other frame and the water keeps reading the
+    // picture it drew last time, which is the only lever on this row that
+    // takes DRAW CALLS off the mirror rather than just triangles. The cover's
+    // two instance counts are moved either side of it, so a frame that draws
+    // no mirror does not pay to set them either.
+    let pass = NO_PASS;
+    if (mirror.due()) {
+      flora?.drawFor("mirror");
+      pass = mirror.render(renderer, scene, [
+        water.mesh,
+        water.far,
+        spray.group,
+        missedGuide.group,
+        ...sky.unmirrored,
+      ]);
+      flora?.drawFor("frame");
+    }
     water.setMirror(mirror.live());
-    flora?.drawFor("frame");
 
     // …AND HOW SOFT THE DISTANCE IS, which the camera answers for, because
     // it is the shot's own finish rather than the coast's (`camera-menu.ts`).

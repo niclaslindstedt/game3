@@ -159,4 +159,29 @@ describe("the water grid", () => {
       expect(Math.max(...grid.step)).toBeCloseTo(grid.snap, 4);
     }
   });
+
+  it("tells every vertex how far it reaches, so the cull can keep it alive", () => {
+    for (const { look, rings } of looks) {
+      const grid = layWaterGrid(look, rings);
+      // THE CONTRACT THE CULL STANDS ON: a vertex outside the lens by more
+      // than its own span holds up no triangle that is inside it. So the span
+      // has to cover every corner of every triangle the vertex belongs to —
+      // the water mesh hands `span[v] + crest` to the frustum test and skips
+      // the sample outright, and a corner it skipped on a visible triangle is
+      // a facet of last frame's sea.
+      const reach = (a: number, b: number): number =>
+        Math.hypot(grid.ox[a] - grid.ox[b], grid.oz[a] - grid.oz[b]);
+      for (let i = 0; i < grid.index.length; i += 3) {
+        const t = [grid.index[i], grid.index[i + 1], grid.index[i + 2]];
+        for (const a of t) {
+          for (const b of t) expect(grid.span[a]).toBeGreaterThanOrEqual(reach(a, b) - 1e-4);
+        }
+      }
+      // …and it is a per-vertex answer rather than one number for the grid:
+      // the core reaches a fine cell's diagonal and the rim a coarse one's,
+      // which is the whole saving.
+      expect(Math.min(...grid.span)).toBeCloseTo(look.cell * Math.SQRT2, 4);
+      expect(Math.max(...grid.span)).toBeCloseTo(grid.snap * Math.SQRT2, 4);
+    }
+  });
 });

@@ -501,8 +501,6 @@ export function createWaterMesh(
   };
   setCoast(BIOME_IDS[0]);
 
-  /** The widest cell of the near grid, at its rim. */
-  const maxCell = grid.snap;
   /** WHAT THE FADE BAND IS MEASURED AGAINST, m: the nearest the grid's rim can
    * ever stand to the craft. The craft sits up to half a coarse cell off the
    * snapped origin, so measuring the band from the rider rather than from the
@@ -625,13 +623,24 @@ export function createWaterMesh(
     farMesh.position.set(fsx, 0, fsz);
     horizon.position.set(cx, -farSink - 1, cz);
     // How far outside the frustum a vertex may stand and still be sampled:
-    // the biggest cell it can be a corner of, and the tallest crest the sea
-    // stands up, so nothing a visible triangle touches is ever stale. The
-    // far grid takes two of its cells, because the near grid's edge reads
-    // the far cells round it (`farHeightAt`) and those must be fresh too.
-    const crest = 1 + 1.2 * bigHs;
-    const farMargin = 2 * farCell + crest;
-    const nearMargin = maxCell + crest;
+    // how far IT reaches (`grid.span` — the furthest corner of any triangle
+    // it holds up), and the tallest crest the sea stands up, so nothing a
+    // visible triangle touches is ever stale. The far grid takes two of its
+    // cells, because the near grid's edge reads the far cells round it
+    // (`farHeightAt`) and those must be fresh too.
+    //
+    // THE MARGIN IS THE VERTEX'S OWN and not the grid's coarsest cell. The
+    // near grid spans a factor of sixteen in cell size from the core to the
+    // rim, so one margin for all of them is the rim's — and a core vertex
+    // given a rim cell's 24 m of slack stays awake a long way behind the
+    // lens. Measured: at the design point it is 28 % of the grid's
+    // `surfaceAt` calls a frame, for a picture that cannot differ by a
+    // vertex.
+    // The tallest crest this sea stands up — named apart from the per-vertex
+    // `crest` tint below, which shadows anything called `crest` inside the
+    // loop that reads this.
+    const tallest = 1 + 1.2 * bigHs;
+    const farMargin = 2 * farCell + tallest;
     if (farComponents > 0) {
       for (let j = 0; j < FAR_GRID; j++) {
         const wz = fsz - farHalf + j * farCell;
@@ -680,7 +689,7 @@ export function createWaterMesh(
       const wx = sx + ox;
       const wz = sz + oz;
       const k = v * 3;
-      if (frustum && !seen(frustum, wx, wz, nearMargin)) continue;
+      if (frustum && !seen(frustum, wx, wz, grid.span[v] + tallest)) continue;
       surfaceAt(sea, level, wx, wz, t, sample);
       const fade =
         1 -

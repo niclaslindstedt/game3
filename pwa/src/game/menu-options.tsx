@@ -79,18 +79,21 @@ import {
   DETAIL_PRESETS,
   DISTANCE_LEVELS,
   FRAME_RATE_LEVELS,
+  REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   WATER_LEVELS,
   WATER_PRESETS,
   detailOf,
+  pressReflections,
   type DetailLevel,
   type DistanceLevel,
   type FrameRateLevel,
+  type ReflectionLevel,
   type ResolutionLevel,
   type VideoSettings,
   type WaterLevel,
 } from "./settings-video.ts";
-import { STEPS } from "./picture-rows.ts";
+import { MIRROR_STEPS, STEPS } from "./picture-rows.ts";
 import { STRINGS } from "./strings.ts";
 import { useState } from "preact/hooks";
 
@@ -142,6 +145,15 @@ const DETAIL_STOPS: Stop<DetailLevel>[] = DETAIL_LEVELS.map((id) => ({ id, label
 const DISTANCE_STOPS: Stop<DistanceLevel>[] = DISTANCE_LEVELS.map((id) => ({
   id,
   label: STEPS[id],
+}));
+
+/** THE MIRROR'S LADDER, cheapest first, worded off `picture-rows.ts` so the
+ * page and the benchmark's card read one vocabulary. Four stops rather than
+ * three because the gap between no mirror and a mirror is the biggest single
+ * step on the page — half the frame — and GLOW is the rung in it. */
+const REFLECTION_STOPS: Stop<ReflectionLevel>[] = REFLECTION_LEVELS.map((id) => ({
+  id,
+  label: MIRROR_STEPS[id],
 }));
 
 /** The cap's ladder: two figures and the screen's own rate. Slowest first,
@@ -358,6 +370,23 @@ export function OptionsPage({
               stops={ON_OFF}
               value={onOff(settings.video.seeThrough)}
               onPick={(id) => setVideo({ seeThrough: id === "on" })}
+              onHint={setHint}
+            />
+            {/* THE MIRROR, beside the window: the two dearest things on the
+                sea, and the two an older machine wants back first. Turning
+                the mirror OFF closes the window with it — the one place on
+                this page where a row writes its neighbour, and it is honest
+                because the neighbour is right there and visibly moves. A
+                rider who wants a solid sea that still mirrors the shore can
+                still have it; what OFF says is "this machine cannot afford
+                the sea's two big bills", and granting half of that would be
+                the page arguing with the press. */}
+            <StepRow
+              label={STRINGS.optReflections}
+              hint={STRINGS.optReflectionsHint}
+              stops={REFLECTION_STOPS}
+              value={settings.video.reflections}
+              onPick={(reflections) => setVideo(pressReflections(reflections))}
               onHint={setHint}
             />
             {/* The last row is not a picture cost but a schedule: every row
