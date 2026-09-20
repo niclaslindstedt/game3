@@ -283,9 +283,18 @@ export function createRenderer(
    * nobody asked to close. */
   let guideAsked = true;
   let missedAsked = false;
+  /** ...AND THE MENU'S DRONE DRAWS NEITHER. Both are instruments for a rider
+   * who is being guided — a line of dashes to the checkpoint he is riding at,
+   * an arrow to the one he missed — and behind a card nobody is: what they
+   * come to is course furniture laid across a picture that is not a run, and
+   * on a lens looking down from a dozen storeys the dashes read as a dotted
+   * line drawn on the sea. Asked of the RUNG rather than of the surface,
+   * because which surface is up is `App.tsx`'s and the renderer is handed
+   * only the camera (`live-camera.ts` is where the two meet). */
+  const guided = (): boolean => rig.mode() !== "menu";
   const applyGuides = (): void => {
-    guide.setShown(guideAsked && playerShown);
-    missedGuide.setShown(missedAsked && playerShown);
+    guide.setShown(guideAsked && playerShown && guided());
+    missedGuide.setShown(missedAsked && playerShown && guided());
   };
   applyGuides();
   let craft: THREE.Group | null = null;
@@ -665,6 +674,10 @@ export function createRenderer(
       gates?.setLens(bufferSize.y);
     }
     camera.updateMatrixWorld();
+    // Re-asked every frame rather than on a setter, because the rung moves
+    // without this module being told — a card goes up, a card comes down —
+    // and both calls are a boolean and a `visible` away from free.
+    applyGuides();
     missedGuide.update(state, camera, dt);
     viewProjection.multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse);
     frustum.setFromProjectionMatrix(viewProjection);

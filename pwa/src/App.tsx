@@ -93,7 +93,7 @@ import { createBenchmark, createLoader } from "./game/app-load.ts";
 import type { BenchmarkStatus } from "./game/benchmark.ts";
 import { BenchmarkCard } from "./game/menu-bench.tsx";
 import { LoadingScreen } from "./game/loading-screen.tsx";
-import { useLiveCamera } from "./game/live-camera.ts";
+import { cameraFor, useLiveCamera } from "./game/live-camera.ts";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
@@ -524,22 +524,19 @@ export function App() {
         scriptFrom = state.t;
       }
       renderer.load(state);
-      renderer.camera.setMode(settingsRef.current.ride.camera);
+      // THE RUNG THE SURFACE ASKS FOR, not the stored row's, and settled here
+      // so a shore's FIRST frame is already composed (`live-camera.ts`).
+      renderer.camera.setMode(cameraFor(shellRef.current, settingsRef.current.ride.camera));
       renderer.camera.restand();
       const steps = Math.round(ahead * TUNING.physicsHz);
       for (let i = 0; i < steps; i++) stepOnce();
       hudClock = HUD_TICK;
     };
 
-    // The sea the attract card is covering, and the sea the menu is over. It
-    // is a real run at the settings the URL and the store agreed on, ridden
-    // by the bot — so the water the player presses START over is the water
-    // they are about to ride.
-    stand(params.scene, params.t);
-    frozen = params.shot;
-    // A URL that names a run boots into one — held under the pause card when
-    // it asked for that; one that names a menu page opens the door on it;
-    // anything else gets the attract card first.
+    // WHICH SURFACE THE APP OPENS ON — a URL naming a run boots into one (held
+    // under the pause card when it asked), one naming a page opens the door on
+    // it, anything else gets the attract card. Settled BEFORE the first shore
+    // is stood, because `stand` reads it for the camera and for the ghost.
     const opensOn: Shell = params.rides
       ? params.paused
         ? "pause"
@@ -548,11 +545,12 @@ export function App() {
         ? "menu"
         : "splash";
     setShellNow(splashSkipped(location.search) && opensOn === "splash" ? "menu" : opensOn);
-    // A link that boots straight onto the water is a run somebody is riding,
-    // so it gets its ghost too — armed here rather than in `stand` above,
-    // which ran before there was a surface to ask about.
-    ghost.arm(state, playerRides(shellRef.current));
-    replays.arm(state, null, playerRides(shellRef.current) && scenario === null);
+    // The sea the attract card is covering, and the sea the menu is over. It
+    // is a real run at the settings the URL and the store agreed on, ridden
+    // by the bot — so the water the player presses START over is the water
+    // they are about to ride.
+    stand(params.scene, params.t);
+    frozen = params.shot;
 
     /* ── STANDING A RUN UP ───────────────────────────────────────────────
        `run-loader.ts` sequences a load; `app-load.ts` owns the steps and the

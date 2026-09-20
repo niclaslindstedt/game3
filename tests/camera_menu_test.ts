@@ -34,8 +34,16 @@ import {
   type ScreenBox,
   type ScreenPoint,
 } from "../pwa/src/game/camera-menu.ts";
-import { cardBox } from "../pwa/src/game/live-camera.ts";
-import type { CameraPose } from "../pwa/src/game/camera.ts";
+import { cameraFor, cardBox, composesCard } from "../pwa/src/game/live-camera.ts";
+import {
+  CAMERA_MODES,
+  WATCHING_MODES,
+  createCameraRig,
+  type CameraPose,
+} from "../pwa/src/game/camera.ts";
+import { BENCHMARK } from "../pwa/src/game/benchmark-plan.ts";
+import { mergeSettings } from "../pwa/src/game/settings.ts";
+import { readParams } from "../pwa/src/game/url-params.ts";
 
 import { LEVEL_SEEDS, levelFor } from "./support/levels.ts";
 
@@ -440,6 +448,71 @@ describe("the shot itself", () => {
     const pose = poseAfter(3);
     const reach = Math.hypot(game.craft.x - pose.x, game.craft.y - pose.y, game.craft.z - pose.z);
     expect(reach).toBeLessThan(90);
+  });
+});
+
+describe("the drone is the MENU's and nobody else's", () => {
+  // It frames a card rather than the water ahead of a rider: the guide line
+  // is off under it, the course is furniture, and a rider handed it mid-run
+  // would be steering a hull he can barely see from a lens that is composing
+  // around a menu that is not there. So every door onto it is shut except
+  // one — a card going up (`live-camera.ts`) — and these are the doors.
+
+  it("is the rung EVERY card over the sea gets, from the attract card on", () => {
+    // The flicker this answers: the attract card's cover is opaque but it
+    // FADES, so a surface whose camera waited on its own card reaching the
+    // DOM spent that fade revealing the last thing the lens was on. Both
+    // cards get the drone, and `App.tsx` settles the rung off this BEFORE
+    // the first frame of a shore is drawn.
+    expect(cameraFor("splash", "chase")).toBe("menu");
+    expect(cameraFor("menu", "chase")).toBe("menu");
+  });
+
+  it("is NOT what any surface somebody rides, watches or times gets", () => {
+    for (const shell of ["run", "pause", "replay", "bench", "loading"] as const) {
+      expect(cameraFor(shell, "chase"), shell).toBe("chase");
+      expect(composesCard(shell), shell).toBe(false);
+    }
+  });
+
+  it("is on neither ladder the camera key walks", () => {
+    expect(CAMERA_MODES).not.toContain("menu");
+    expect(WATCHING_MODES).not.toContain("menu");
+  });
+
+  it("cannot be cycled onto, and the key walks OFF it", () => {
+    const rig = createCameraRig();
+    rig.setMode("menu");
+    expect(rig.mode()).toBe("menu");
+    // A rung the live ladder does not carry walks to its head.
+    expect(rig.cycle()).toBe(CAMERA_MODES[0]);
+    // ...and no amount of walking comes back round to it, on either ladder.
+    for (const ladder of [CAMERA_MODES, WATCHING_MODES]) {
+      rig.setLadder(ladder);
+      for (let i = 0; i < ladder.length + 1; i++) {
+        expect(rig.cycle()).not.toBe("menu");
+      }
+    }
+  });
+
+  it("cannot be read out of a stored blob", () => {
+    // `mergeSettings` checks every value against what this build OFFERS, and
+    // the drone is not on the ladder it offers.
+    const merged = mergeSettings({ ride: { camera: "menu" } });
+    expect(merged.ride.camera).not.toBe("menu");
+  });
+
+  it("cannot be asked for by a link", () => {
+    expect(readParams("?camera=menu").camera).toBeUndefined();
+    // ...where a rung that IS on the ladder comes through.
+    expect(readParams("?camera=heli").camera).toBe("heli");
+  });
+
+  it("is not what the benchmark is scored from", () => {
+    // The stopwatch times a RACE, and a frame drawn from a lens nobody rides
+    // is not the frame the score is about (`benchmark-plan.ts` says so too).
+    expect(BENCHMARK.camera).not.toBe("menu");
+    expect(CAMERA_MODES).toContain(BENCHMARK.camera);
   });
 });
 

@@ -13,12 +13,24 @@
 //   (`menu-system`'s rule). The C key walks the ladder WITHOUT writing the
 //   setting, so the two never argue.
 //
-//   THE SURFACE THAT IS UP. Behind the front door nobody is steering, the
-//   middle of the screen is a card, and the only thing the picture owes the
-//   player is that the game is plainly still RUNNING — so the sea goes to the
-//   menu drone (`camera-menu.ts`), which stands a dozen storeys up and holds
-//   the rider out in whatever band of frame the card leaves. Every other
-//   surface hands the lens back to whatever the row says.
+//   THE SURFACE THAT IS UP. Behind a card nobody is steering, the middle of
+//   the screen is a menu, and the only thing the picture owes the player is
+//   that the game is plainly still RUNNING — so the sea goes to the menu
+//   drone (`camera-menu.ts`), which stands a dozen storeys up and holds the
+//   rider out in whatever band of frame the card leaves. Every other surface
+//   hands the lens back to whatever the row says. `cameraFor` is that answer
+//   as one pure function, because two places need it: the hook below, and the
+//   app STANDING a shore for the first time.
+//
+// THE ATTRACT CARD IS ON THE LIST, and it is the reason `cameraFor` exists
+// rather than a line inside the hook. Its cover is opaque, so nothing behind
+// it can be seen — but it FADES, and a surface whose camera is only set once
+// its own card is in the DOM spends the whole of that fade revealing the
+// camera the LAST thing used. Booting onto the door showed a flick of chase
+// -cam footage before the drone arrived, which reads as the game glitching on
+// its way up. So the rung is settled for the surface the app is about to open
+// on, BEFORE the first frame is drawn, and the drone is simply what every
+// card stands over.
 //
 // The drone goes up on every PAGE of the door rather than on the root card
 // alone: walking to OPTIONS and back would otherwise drop the lens to the
@@ -26,8 +38,14 @@
 // a page turning. And the row still wins while it is being MOVED — a rider
 // changing the CAMERA row on the door sees the camera it names, exactly as on
 // the pause card — because that effect fires on its own; the next page turn
-// puts the drone back. The ATTRACT card is not on the list at all: its cover
-// is opaque, so there is no sea behind it to compose.
+// puts the drone back.
+//
+// NOTHING ELSE MAY REACH THE DRONE. It is off both ladders the camera key
+// walks (`CAMERA_MODES`, `WATCHING_MODES`), no OPTIONS row offers it,
+// `mergeSettings` will not read it out of a stored blob and `url-params.ts`
+// will not take it from a link — so the only way onto that rung is a card
+// going up, which is this module. `tests/camera_menu_test.ts` holds every one
+// of those doors shut.
 //
 // WHERE THE CARD IS is the honest answer the browser laid out, never a copy
 // of the stylesheet's `min(30rem, 100%)` arithmetic — a second statement of
@@ -92,6 +110,23 @@ export function watchMenuCard(on: boolean, set: (card: ScreenBox | null) => void
   };
 }
 
+/** WHICH SURFACES ARE A CARD OVER THE SEA rather than a ride. Both of them
+ * get the drone; everything else — a run, a run held, a run watched back, a
+ * run being timed, a run being stood up — gets the rider's own camera. The
+ * LOADING card is deliberately not here: it stands over a run that is being
+ * built for somebody to ride, and `app-load.ts` has already set that run's
+ * camera by the time it is up. */
+export function composesCard(shell: Shell): boolean {
+  return shell === "splash" || shell === "menu";
+}
+
+/** ...and the rung that follows, given what the stored row says. Pure, so
+ * `tests/camera_menu_test.ts` reads it and the app can settle a shore's
+ * camera before its first frame is drawn. */
+export function cameraFor(shell: Shell, ride: CameraMode): CameraMode {
+  return composesCard(shell) ? "menu" : ride;
+}
+
 /** Hold the lens on the rung the surface that is up asks for, and keep the
  * menu's drone told where the card is. `rig` is undefined until the render
  * stack has been fetched, which is why the caller passes whatever says a
@@ -110,8 +145,11 @@ export function useLiveCamera(
 ): void {
   useEffect(() => {
     if (!rig) return;
-    if (shell === "menu") rig.setMode("menu");
+    if (composesCard(shell)) rig.setMode("menu");
     else if (rig.mode() === "menu") rig.setMode(ride);
+    // ...and only the DOOR has a card to measure: the attract card's cover is
+    // one screen-filling block, so the drone composes on its own default
+    // instead (`anchorFor`, handed no box).
     return watchMenuCard(shell === "menu", (card) => rig.setFrame({ card }));
     // `ride` is deliberately NOT a dependency: the row has an effect of its
     // own, and re-running this one when the row moves would put the drone
