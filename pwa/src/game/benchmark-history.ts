@@ -145,11 +145,20 @@ function totals(value: unknown): RunTotals {
     sim: reading(t.sim),
     observe: reading(t.observe),
     render: reading(t.render),
+    // Zero on a record kept before `rest` was split into its three, which
+    // reads correctly: that run's `rest` carried all of them.
+    pose: reading(t.pose),
     water: reading(t.water),
+    world: reading(t.world),
+    retone: reading(t.retone),
     mirror: reading(t.mirror),
     wake: reading(t.wake),
     submit: reading(t.submit),
     gpu: reading(t.gpu),
+    // Zero on a record kept before the gap between frames was billed, which
+    // reads correctly: that run's `wall` was the span of the work, so there
+    // is no gap inside it to account for.
+    between: reading(t.between),
     wall: reading(t.wall),
   };
 }
@@ -208,8 +217,14 @@ function record(value: unknown): BenchmarkRecord | null {
       fps: reading(s?.fps),
     })),
     costs: costs.map((c: Partial<FramePhases>) => ({
+      poseMs: reading(c?.poseMs),
       waterMs: reading(c?.waterMs),
+      worldMs: reading(c?.worldMs),
+      retoneMs: reading(c?.retoneMs),
       mirrorMs: reading(c?.mirrorMs),
+      // Zero on an older record, which folds every reading onto one side of
+      // the report's split and so prints the single median it used to.
+      mirrorCalls: count(c?.mirrorCalls),
       wakeMs: reading(c?.wakeMs),
       submitMs: reading(c?.submitMs),
       frameMs: reading(c?.frameMs),

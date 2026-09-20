@@ -17,6 +17,7 @@ import { heightAt, surfaceAt, type CraftId, type GameState, type Level } from "@
 
 import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
 import type { FrameCost, SceneShare } from "./benchmark-report.ts";
+import { tallyScene } from "./scene-tally.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
 import { isEyeCamera } from "./camera-rigs.ts";
 import { createCheckpointArrow } from "./checkpoint-arrow.ts";
@@ -328,8 +329,12 @@ export function createRenderer(
   let edgeNet: EdgeNet | null = null;
 
   const cost: FrameCost = {
+    poseMs: 0,
     waterMs: 0,
+    worldMs: 0,
+    retoneMs: 0,
     mirrorMs: 0,
+    mirrorCalls: 0,
     wakeMs: 0,
     submitMs: 0,
     frameMs: 0,
@@ -392,7 +397,7 @@ export function createRenderer(
       edgeNet = createEdgeNet(level);
       world = new THREE.Group();
       // NAMED, and not for debugging: the benchmark's report buckets the scene
-      // by the nearest named ancestor (`sceneTally`), so a group without a
+      // by the nearest named ancestor (`scene-tally.ts`), so a group without a
       // name is a subsystem that reports as "everything else". A name added
       // here is a row in that breakdown; a group added without one is a row
       // silently folded into its parent's.
@@ -698,6 +703,10 @@ export function createRenderer(
     // drawn inside it. Before the water's own update, like everything else
     // it has to be told before it draws.
     water.setWell(craft && playerShown ? wellCut : null, c);
+    // THE LENS IS FLOWN AND THE FRUSTUM IS CUT, and everything above answers
+    // to that and nothing else. It is the first of the three stopwatches
+    // that used to be one residue called `rest` — see `cost.worldMs`.
+    cost.poseMs = performance.now() - t0;
     cost.waterMs = water.update(state, c.x, c.z, frustum);
     if (courseShown) gates?.update(state, camera);
     edgeNet?.update(state, dt);
@@ -745,6 +754,19 @@ export function createRenderer(
     }
     flora?.update(frustum, pose.x, pose.z, drawn.cover, mirror.live() ? inWater : undefined);
 
+    // EVERYTHING THAT STANDS IN THE WORLD, posed and culled against the
+    // frustum just cut: the gates and their buoys, the guide, the sea life,
+    // the birds, the spray and the cover. The water's own update sits inside
+    // this stretch and is taken back out, because it is billed on its own
+    // line — it is the one thing here a graphics card cannot make cheaper.
+    // Clamped because it is the one slice measured by DIFFERENCE rather than
+    // by its own stopwatch, and the water's reading inside it is rounded
+    // independently: on a clock that cannot resolve a millisecond, a water
+    // update billed 1 ms out of a 1 ms stretch leaves this a hair negative,
+    // and a minus sign in the report reads as a bug in the game.
+    const retoneAt = performance.now();
+    cost.worldMs = Math.max(0, retoneAt - t0 - cost.poseMs - cost.waterMs);
+
     // The sky follows the lens, because it reads where the lens ended up:
     // the dome rides it, the rain's box wraps around it, and the cloud over
     // the sun is read at the craft.
@@ -789,6 +811,13 @@ export function createRenderer(
     // thing in `render` with a boundary sharp enough to put a clock either
     // side of, and `FrameCost` says what the readings are for.
     const wakeAt = performance.now();
+    // …and the same stamp closes the last of the three stretches that used to
+    // be one residue called `rest`: THE LIGHT READ AND EVERY MATERIAL PUT
+    // UNDER IT, per frame, because within a run the light MOVES. The three
+    // exist because `rest` was 27% of a measured frame and the largest line
+    // in the report while it stood for "posed, culled and retoned" — three
+    // different things, none of them timed.
+    cost.retoneMs = wakeAt - retoneAt;
     const marks = wake.render(renderer, state);
     cost.wakeMs = performance.now() - wakeAt;
     const mirrorAt = performance.now();
@@ -851,6 +880,10 @@ export function createRenderer(
     // is the reading that says the bottleneck is the GPU's.
     cost.submitMs = performance.now() - submitAt;
     cost.calls = picture.calls + graded.calls + pass.calls + marks.calls;
+    // …AND THE MIRROR'S OWN SHARE OF THEM, which is what lets the report tell
+    // a frame that drew the pass from one that skipped it. Zero is the
+    // honest answer on a skipped frame and is what the split is keyed on.
+    cost.mirrorCalls = pass.calls;
     cost.triangles = picture.triangles + graded.triangles + pass.triangles + marks.triangles;
     // WHAT THE SHORE IS HOLDING rather than what this frame drew: the driver's
     // compiled programs and the buffers and textures still resident. Read here
@@ -860,46 +893,6 @@ export function createRenderer(
     cost.geometries = renderer.info.memory.geometries;
     cost.textures = renderer.info.memory.textures;
     cost.frameMs = performance.now() - t0;
-  };
-
-  /** THE SCENE, WALKED, and bucketed by what it belongs to — the benchmark's
-   * report asks for it once, on the last frame of a run
-   * (`benchmark-report.ts`). It is the half of that report that says WHERE to
-   * look: a frame's draw calls say a machine is struggling, and this says the
-   * cover is four fifths of its triangles.
-   *
-   * The bucket is the nearest NAMED ancestor, which is why the groups this
-   * module adds to the scene carry names: without one an object would be
-   * reported against the scene itself and the breakdown would be a single row
-   * saying "all of it".
-   *
-   * Only what would actually be DRAWN: an invisible object, and everything
-   * under it, is skipped exactly as three's own traversal skips it — a
-   * breakdown that counted the sea life with SEE-THROUGH off would send
-   * somebody optimising a thing that was never submitted.
-   *
-   * A WALK OF THE WHOLE GRAPH, so it is never called from a frame that is
-   * being timed for anything but this. */
-  const sceneTally = (): SceneShare[] => {
-    const buckets = new Map<string, SceneShare>();
-    const walk = (object: THREE.Object3D, under: string): void => {
-      if (!object.visible) return;
-      const name = object.name !== "" ? object.name : under;
-      const geometry = (object as Partial<THREE.Mesh>).geometry;
-      if (geometry !== undefined) {
-        const share = buckets.get(name) ?? { name, objects: 0, triangles: 0 };
-        share.objects += 1;
-        const index = geometry.getIndex();
-        const position = geometry.getAttribute("position");
-        const verts = index ? index.count : (position?.count ?? 0);
-        const instances = (object as Partial<THREE.InstancedMesh>).count ?? 1;
-        share.triangles += (verts / 3) * instances;
-        buckets.set(name, share);
-      }
-      for (const child of object.children) walk(child, name);
-    };
-    walk(scene, "scene");
-    return [...buckets.values()];
   };
 
   resize();
@@ -951,7 +944,9 @@ export function createRenderer(
     },
     camera: rig,
     cost: () => cost,
-    sceneTally,
+    // The walk itself is `scene-tally.ts`'s; what belongs here is only which
+    // graph it is asked about.
+    sceneTally: () => tallyScene(scene),
     bufferSize: () => ({ w: bufferSize.x, h: bufferSize.y }),
     drain: () => {
       const t0 = performance.now();
