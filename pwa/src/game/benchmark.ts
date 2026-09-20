@@ -71,13 +71,45 @@ import { TUNING, botInput, step, type GameState } from "@engine";
 
 import { BENCHMARK } from "./benchmark-plan.ts";
 import { SAMPLE_EVERY, benchIndex, type BenchSample } from "./benchmark-index.ts";
-import type { FrameCost, SceneShare } from "./benchmark-report.ts";
+import {
+  noMachine,
+  noTotals,
+  type FramePhases,
+  type FrameTiming,
+  type Machine,
+  type RunTotals,
+  type SceneShare,
+} from "./benchmark-report.ts";
+import { readMachine } from "./machine.ts";
 import type { GameRenderer } from "./renderer.ts";
 
 /** Engine steps per rendered frame. Exact by construction (see
  * `BenchmarkPlan.step`), so no accumulator is carried between frames and
  * nothing drifts. */
 const STEPS_PER_FRAME = Math.max(1, Math.round(BENCHMARK.step / TUNING.dt));
+
+/** WHAT THE LOOP SPENT ON THE FRAME JUST DRAWN — the benchmark's own half of
+ * a reading, beside the renderer's `cost()`.
+ *
+ * One object written every frame and read at the readings, which is exactly
+ * how the renderer keeps its counters and for the same reason: a frame that
+ * allocated a record of its own timings would be a measurement paying for
+ * itself. A reading copies it. */
+const last: FrameTiming = { simMs: 0, observeMs: 0, gpuMs: 0, wallMs: 0 };
+
+/** LIVE WASH SOURCES ON THE SEA — every rider's trail added up.
+ *
+ * Read once, on the last frame, beside the scene walk. It is in the report
+ * because it is the only figure that explains the simulation's cost: a wash
+ * source is summed into `surfaceAt` for every probe of every hull at 120 Hz
+ * AND for every vertex of the water grid, so what it drives grows with the
+ * sources TIMES the readers — and a race is twelve of both. The scene walk
+ * cannot see any of it, because none of it is an object. */
+function washSourcesOn(state: GameState): number {
+  let sources = 0;
+  for (const wash of state.sea.washes) sources += wash.count;
+  return sources;
+}
 
 // How often the card is told where the run is, in frames, is `SAMPLE_EVERY` —
 // the reading and the report are the same event, because the card IS the
@@ -109,10 +141,19 @@ export type BenchmarkStatus = {
   samples: BenchSample[];
   /** What each of those frames cost the renderer, same order — the half of
    * the report somebody optimising the game reads (`benchmark-report.ts`). */
-  costs: FrameCost[];
+  costs: FramePhases[];
   /** What was standing in the scene on the LAST frame, by subsystem. Taken
    * once, at the end: it is a walk of the whole graph. */
   scene: SceneShare[];
+  /** EVERY FRAME'S PHASES SUMMED, not just the ones a reading landed on —
+   * the breakdown the report prints, and the only one a clamped clock lets
+   * anybody trust. */
+  totals: RunTotals;
+  /** What drew it, as much of it as the browser will say. Read once, at the
+   * end, because none of it changes during a run. */
+  machine: Machine;
+  /** Live wash sources on the sea on the last frame. */
+  washSources: number;
   /** Hulls that were actually on the water, the player's included. */
   craft: number;
   /** The drawing buffer the frames were drawn into, device pixels. A time
@@ -137,19 +178,37 @@ export type BenchmarkOpts = BenchmarkRace & {
   onStatus: (status: BenchmarkStatus) => void;
 };
 
-/** ONE FRAME OF THE RACE, drawn and waited for. The warm-up and the measured
- * run share it because they have to: a warm-up that stepped the water any
- * differently would be warming a different frame from the one about to be
- * timed.
+/** ONE FRAME OF THE RACE, drawn and waited for — and CUT INTO ITS PHASES on
+ * the way past, because the frame's two halves have two different authors
+ * and only one of them was ever billed.
+ *
+ * The warm-up and the measured run share this function because they have to:
+ * a warm-up that stepped the water any differently would be warming a
+ * different frame from the one about to be timed. That includes the clock
+ * reads below — they are the same handful of nanoseconds either side of the
+ * measurement, so both halves of the run take the same path.
  *
  * `observe` after every STEP and `render` once a FRAME, which is the app's own
  * order (`App.tsx`): the wake, the spray and the foam read the craft at the
  * step's cadence and are drawn at the frame's, so a benchmark that observed
- * once a frame would be measuring a thinner trail than the game leaves. */
-function benchFrame(state: GameState, renderer: GameRenderer): void {
+ * once a frame would be measuring a thinner trail than the game leaves.
+ *
+ * WHY `sim` AND `observe` ARE TIMED APART. They alternate inside one loop and
+ * they belong to different layers: the first is the engine stepping twelve
+ * whole runs and answers to nothing on OPTIONS ▸ VIDEO, the second is the
+ * renderer sampling the trail and answers to the WATER row. A single figure
+ * over the pair would be the one number nobody could act on. */
+function benchFrame(state: GameState, renderer: GameRenderer, into?: RunTotals): void {
+  const opened = performance.now();
+  let sim = 0;
+  let observe = 0;
   for (let i = 0; i < STEPS_PER_FRAME; i++) {
+    const stepped = performance.now();
     step(state, botInput(state));
+    const seen = performance.now();
     renderer.observe(state);
+    sim += seen - stepped;
+    observe += performance.now() - seen;
   }
   // THE FRAME'S TIME IS THE PLAN'S AND NOT THE CLOCK'S. `render`'s `dt` is
   // what the camera eases on, and handing it the wall time would ease the
@@ -158,8 +217,31 @@ function benchFrame(state: GameState, renderer: GameRenderer): void {
   // with the thing being measured.
   renderer.render(state, BENCHMARK.step);
   // THE FENCE: one pixel back out of the buffer, which cannot be answered
-  // until every draw behind it has landed.
-  renderer.drain();
+  // until every draw behind it has landed. `drain` reports what it waited,
+  // which is the only reading of the GPU a browser gives us — WebGL's timer
+  // query is not exposed by every engine and not by Safari at all.
+  const gpu = renderer.drain();
+  const wall = performance.now() - opened;
+  last.simMs = sim;
+  last.observeMs = observe;
+  last.gpuMs = gpu;
+  last.wallMs = wall;
+  if (!into) return;
+  // RUNNING TOTALS, and they are the figures the report actually prints. A
+  // browser clamps `performance.now()` — a millisecond in Safari — so any one
+  // of the phases above is rounded to something it is not, and only the sum
+  // over eighteen hundred frames averages that rounding back out.
+  const cost = renderer.cost();
+  into.frames += 1;
+  into.sim += sim;
+  into.observe += observe;
+  into.render += cost.frameMs;
+  into.water += cost.waterMs;
+  into.mirror += cost.mirrorMs;
+  into.wake += cost.wakeMs;
+  into.submit += cost.submitMs;
+  into.gpu += gpu;
+  into.wall += wall;
 }
 
 /** THE LIGHTS, IN FRAMES — the whole of the warm-up, and what its bar on the
@@ -235,8 +317,11 @@ export function runBenchmark({ state, renderer, onStatus }: BenchmarkOpts): () =
   /** The score, read every `SAMPLE_EVERY` measured frames. */
   const samples: BenchSample[] = [];
   /** …and what the frame it was read on cost the renderer. */
-  const costs: FrameCost[] = [];
+  const costs: FramePhases[] = [];
   let scene: SceneShare[] = [];
+  const totals = noTotals();
+  let machine = noMachine();
+  let washSources = 0;
 
   const report = (phase: BenchmarkStatus["phase"]): void => {
     // THE BUFFER IS ASKED FOR EVERY TIME rather than captured at the green: a
@@ -252,6 +337,13 @@ export function runBenchmark({ state, renderer, onStatus }: BenchmarkOpts): () =
       samples: samples.slice(),
       costs: costs.slice(),
       scene,
+      // The totals are handed out as a COPY for the same reason the readings
+      // are: they go on accumulating behind whoever is holding this status,
+      // and a card that re-read them would redraw a finished run's breakdown
+      // as the next run filled it in.
+      totals: { ...totals },
+      machine,
+      washSources,
       // The field plus the rider the card is standing over.
       craft: state.rivals.length + 1,
       width: size.w,
@@ -267,7 +359,7 @@ export function runBenchmark({ state, renderer, onStatus }: BenchmarkOpts): () =
       green = performance.now();
       framed = green;
     }
-    benchFrame(state, renderer);
+    benchFrame(state, renderer, totals);
     const now = performance.now();
     frames += 1;
     elapsed = now - green;
@@ -285,13 +377,23 @@ export function runBenchmark({ state, renderer, onStatus }: BenchmarkOpts): () =
         index: benchIndex(frames * BENCHMARK.step, elapsed / 1000),
         fps,
       });
-      costs.push({ ...renderer.cost() });
+      // BOTH HALVES OF THE FRAME: what the renderer spent, and what the loop
+      // around it spent. Copied rather than referenced — each is one object
+      // rewritten every frame.
+      costs.push({ ...renderer.cost(), ...last });
     }
     if (finished) {
       stopped = true;
       // The graph is walked ONCE, here, on the last frame that was drawn, so
       // what it reports is the scene the run was actually measured against.
       scene = renderer.sceneTally();
+      // …and the two readings the walk cannot take: what was in the WATER,
+      // and what drew it. Both here rather than at the green, for the same
+      // reason the scene is — a report says what the run it reports on was
+      // actually measured against. The machine's probe SPINS on the clock,
+      // so it runs once the stopwatch has stopped and never inside a frame.
+      washSources = washSourcesOn(state);
+      machine = readMachine();
       report("done");
       return;
     }

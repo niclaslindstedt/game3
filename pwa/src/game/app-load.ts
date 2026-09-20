@@ -324,6 +324,9 @@ export function createBenchmark(world: BenchmarkWorld): {
               samples: status.samples,
               costs: status.costs,
               scene: status.scene,
+              totals: status.totals,
+              machine: status.machine,
+              washSources: status.washSources,
             });
           },
         });

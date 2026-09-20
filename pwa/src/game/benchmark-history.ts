@@ -35,7 +35,14 @@
 // `tests/benchmark_test.ts` reads.
 
 import type { BenchSample } from "./benchmark-index.ts";
-import type { FrameCost, SceneShare } from "./benchmark-report.ts";
+import {
+  noMachine,
+  noTotals,
+  type FramePhases,
+  type Machine,
+  type RunTotals,
+  type SceneShare,
+} from "./benchmark-report.ts";
 import type { PictureRow } from "./picture-rows.ts";
 
 const KEY = "sea-haven-benchmarks";
@@ -86,9 +93,23 @@ export type BenchmarkRecord = {
   frames: number;
   step: number;
   samples: BenchSample[];
-  costs: FrameCost[];
+  costs: FramePhases[];
   scene: SceneShare[];
+  /** Every frame's phases summed — the breakdown. A record written by a
+   * build from before it existed reads back as `noTotals()`, and the report
+   * leaves the block out rather than printing a frame of zeroes. */
+  totals: RunTotals;
+  /** What drew it; `noMachine()` for a record from before it was kept. */
+  machine: Machine;
+  /** Live wash sources on the sea on the run's last frame. */
+  washSources: number;
 };
+
+/** How much of a stored driver name is kept. It is printed straight into a
+ * report somebody pastes, and a real one is a few dozen characters — a
+ * hand-edited store must not be able to put a page of text in the middle of
+ * a table. */
+const GPU_NAME_CAP = 64;
 
 /** Round to `READING_DP`, dropping anything that is not a number: a reading
  * out of a hand-edited store must not reach the graph as a NaN, which draws
@@ -100,7 +121,7 @@ function reading(value: unknown): number {
 }
 
 /** A whole non-negative count, or zero. Every figure in a `SceneShare` and
- * every counter in a `FrameCost` is one. */
+ * every counter in a `FramePhases` is one. */
 function count(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value < 0) return 0;
   return Math.round(value);
@@ -113,6 +134,43 @@ function count(value: unknown): number {
 function exact(value: unknown): number {
   if (typeof value !== "number" || !Number.isFinite(value) || value <= 0) return 0;
   return value;
+}
+
+/** The run's summed phases, read back defensively. A blob from a build that
+ * kept none comes back as an empty account, which the report reads as "no
+ * breakdown" and skips — never as a run whose every phase cost nothing. */
+function totals(value: unknown): RunTotals {
+  const empty = noTotals();
+  if (!value || typeof value !== "object") return empty;
+  const t = value as Partial<RunTotals>;
+  const frames = count(t.frames);
+  if (frames <= 0) return empty;
+  return {
+    frames,
+    sim: reading(t.sim),
+    observe: reading(t.observe),
+    render: reading(t.render),
+    water: reading(t.water),
+    mirror: reading(t.mirror),
+    wake: reading(t.wake),
+    submit: reading(t.submit),
+    gpu: reading(t.gpu),
+    wall: reading(t.wall),
+  };
+}
+
+/** …and what drew it. A string out of a hand-edited store is capped rather
+ * than trusted: it is printed straight into a report somebody pastes, and a
+ * driver name is a few dozen characters. */
+function machine(value: unknown): Machine {
+  const none = noMachine();
+  if (!value || typeof value !== "object") return none;
+  const m = value as Partial<Machine>;
+  return {
+    cores: count(m.cores),
+    clockMs: reading(m.clockMs),
+    gpu: typeof m.gpu === "string" ? m.gpu.slice(0, GPU_NAME_CAP) : "",
+  };
 }
 
 function rows(value: unknown): PictureRow[] {
@@ -154,15 +212,25 @@ function record(value: unknown): BenchmarkRecord | null {
       index: reading(s?.index),
       fps: reading(s?.fps),
     })),
-    costs: costs.map((c: Partial<FrameCost>) => ({
+    costs: costs.map((c: Partial<FramePhases>) => ({
       waterMs: reading(c?.waterMs),
+      mirrorMs: reading(c?.mirrorMs),
+      wakeMs: reading(c?.wakeMs),
+      submitMs: reading(c?.submitMs),
       frameMs: reading(c?.frameMs),
+      simMs: reading(c?.simMs),
+      observeMs: reading(c?.observeMs),
+      gpuMs: reading(c?.gpuMs),
+      wallMs: reading(c?.wallMs),
       calls: count(c?.calls),
       triangles: count(c?.triangles),
       programs: count(c?.programs),
       geometries: count(c?.geometries),
       textures: count(c?.textures),
     })),
+    totals: totals(r.totals),
+    machine: machine(r.machine),
+    washSources: count(r.washSources),
     scene: scene
       .filter((s: Partial<SceneShare>) => typeof s?.name === "string")
       .map((s: Partial<SceneShare>) => ({
