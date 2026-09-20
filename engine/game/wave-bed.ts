@@ -56,8 +56,14 @@ export function shoaling(omega: number, k: number, d: number): number {
   return Math.sqrt(cg0 / cg);
 }
 
+/** How many rows every component's depth table has. ONE number for the whole
+ * field — the axis is the same √d ladder for every frequency — which is what
+ * lets `surfaceAt` work out WHICH row a depth falls on once per sample rather
+ * than once per component. */
+export const TABLE_ROWS = Math.floor(Math.sqrt(S.tableDepth) / S.tableRoot) + 1;
+
 export function buildTable(omega: number): Float32Array {
-  const rows = Math.floor(Math.sqrt(S.tableDepth) / S.tableRoot) + 1;
+  const rows = TABLE_ROWS;
   const table = new Float32Array(rows * 3);
   for (let i = 0; i < rows; i++) {
     // The axis is √d (see `tableRoot`): fine where the coefficients move
@@ -72,19 +78,44 @@ export function buildTable(omega: number): Float32Array {
   return table;
 }
 
-/** Read a component's depth table at `d`, linearly between rows. The axis
- * is √d, so the row a depth falls on is its root over the pitch. */
-export function tableAt(table: Float32Array, d: number, out: Float64Array): void {
-  const rows = table.length / 3;
-  const f = clamp(Math.sqrt(Math.max(d, 0)) / S.tableRoot, 0, rows - 1);
+/** WHERE A DEPTH FALLS ON THE LADDER, as the row under it and how far past
+ * that row it stands: the axis is √d, so the row is its root over the pitch.
+ * Written into `out` as (i0, i1, t).
+ *
+ * Split from the read below because the answer is the SAMPLE's and not the
+ * component's — every table has the same rows over the same axis, so a point
+ * of sea falls on one row whatever frequency is asking. `surfaceAt` sums a
+ * dozen components at each of thousands of vertices a frame, and finding the
+ * row per component was a square root and a floor apiece for one answer. */
+export function tableCursor(d: number, out: Float64Array): void {
+  const f = clamp(Math.sqrt(Math.max(d, 0)) / S.tableRoot, 0, TABLE_ROWS - 1);
   const i0 = Math.floor(f);
-  const i1 = Math.min(i0 + 1, rows - 1);
-  const t = f - i0;
+  out[0] = i0;
+  out[1] = Math.min(i0 + 1, TABLE_ROWS - 1);
+  out[2] = f - i0;
+}
+
+/** Read one component's table at a cursor `tableCursor` has already found —
+ * the local wavenumber, the shoaling coefficient and coth(k·d), linearly
+ * between the two rows. */
+export function tableLerp(table: Float32Array, at: Float64Array, out: Float64Array): void {
+  const i0 = at[0] * 3;
+  const i1 = at[1] * 3;
+  const t = at[2];
   for (let j = 0; j < 3; j++) {
-    const a = table[i0 * 3 + j];
-    out[j] = a + (table[i1 * 3 + j] - a) * t;
+    const a = table[i0 + j];
+    out[j] = a + (table[i1 + j] - a) * t;
   }
 }
+
+/** Read a component's depth table at `d` — the two above in one call, for a
+ * caller with a single component to ask about. */
+export function tableAt(table: Float32Array, d: number, out: Float64Array): void {
+  tableCursor(d, cursor);
+  tableLerp(table, cursor, out);
+}
+
+const cursor = new Float64Array(3);
 
 /** How many times the four sweep orders are run. Two rounds settle every
  * exposed cell of a generated level to a thousandth of a radian of what

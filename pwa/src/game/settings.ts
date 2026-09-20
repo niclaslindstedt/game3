@@ -45,6 +45,7 @@ import {
   FLORA_LEVELS,
   FRAME_RATE_LEVELS,
   RAIN_LEVELS,
+  REFLECTION_LEVELS,
   RESOLUTION_LEVELS,
   SKY_LEVELS,
   WATER_LEVELS,
@@ -540,12 +541,18 @@ export function mergeSettings(parsed: unknown): Settings {
     const on = <T extends string>(stops: readonly T[], value: unknown): T | null =>
       stops.some((id) => id === value) ? (value as T) : null;
     settings.video.water = on(WATER_LEVELS, video.water) ?? settings.video.water;
-    // THE WATER ROW IS ONE WORD, EXPANDED — the spray, the wake, the splash
-    // and the mirror are read off the stop above rather than out of the blob,
-    // so a sea the rider asked to be cheap is cheap in every part of itself.
-    // Any of the four stored beside it is a leftover from the build where
-    // they hung off DETAIL, and honouring one would keep a sharp mirror on a
-    // LOW sea for ever — the exact disagreement the row was moved to end.
+    // THE WATER ROW IS ONE WORD, EXPANDED — the spray, the wake and the
+    // splash are read off the stop above rather than out of the blob, so a
+    // sea the rider asked to be cheap is cheap in every part of itself. Any
+    // of the three stored beside it is a leftover from the build where they
+    // hung off DETAIL, and honouring one would keep a full ring wave on a LOW
+    // sea for ever — the exact disagreement the row was moved to end.
+    //
+    // THE MIRROR IS NOT EXPANDED FROM IT and used to be: it is the
+    // REFLECTIONS row's own answer now, so it is checked off its own ladder
+    // below like every other row. A blob from the build where WATER owned it
+    // simply has no `reflections` in it and lands on the default, which is
+    // the picture that build was drawing at MEDIUM anyway.
     Object.assign(settings.video, WATER_PRESETS[settings.video.water]);
     settings.video.distance = on(DISTANCE_LEVELS, video.distance) ?? settings.video.distance;
     settings.video.resolution =
@@ -554,6 +561,8 @@ export function mergeSettings(parsed: unknown): Settings {
     settings.video.sky = on(SKY_LEVELS, video.sky) ?? settings.video.sky;
     settings.video.rain = on(RAIN_LEVELS, video.rain) ?? settings.video.rain;
     settings.video.frameRate = on(FRAME_RATE_LEVELS, video.frameRate) ?? settings.video.frameRate;
+    settings.video.reflections =
+      on(REFLECTION_LEVELS, video.reflections) ?? settings.video.reflections;
     if (typeof video.seeThrough === "boolean") settings.video.seeThrough = video.seeThrough;
     if (typeof video.fauna === "boolean") settings.video.fauna = video.fauna;
   }

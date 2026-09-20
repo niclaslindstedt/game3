@@ -934,7 +934,11 @@ describe("what survives a stored settings blob (settings.ts)", () => {
       rain: DEFAULT_SETTINGS.video.rain,
       distance: DEFAULT_SETTINGS.video.distance,
       frameRate: DEFAULT_SETTINGS.video.frameRate,
-      // The four the WATER stop expands into are the stop's, not the blob's:
+      // …and so does the MIRROR, which was the WATER stop's until it became
+      // its own row: a blob from that build says nothing about it and lands
+      // on the picture that build was drawing.
+      reflections: DEFAULT_SETTINGS.video.reflections,
+      // The three the WATER stop expands into are the stop's, not the blob's:
       // `water: "high"` is a high sea in every part of itself.
       ...WATER_PRESETS.high,
     });
@@ -942,11 +946,11 @@ describe("what survives a stored settings blob (settings.ts)", () => {
 
   it("expands the WATER stop over anything the blob stored beside it", () => {
     // THE DECOUPLING, held at the door. A blob from the build where the
-    // spray, the wake, the splash and the mirror hung off DETAIL carries them
-    // at DETAIL's stop; honouring one would leave a sharp mirror on a sea the
-    // rider asked to be cheap, which is the fault the row was moved to end.
+    // spray, the wake and the splash hung off DETAIL carries them at DETAIL's
+    // stop; honouring one would leave a full ring wave on a sea the rider
+    // asked to be cheap, which is the fault the row was moved to end.
     const stale = mergeSettings({
-      video: { water: "low", spray: "full", wake: "full", splash: "full", reflections: "sharp" },
+      video: { water: "low", spray: "full", wake: "full", splash: "full" },
     });
     expect(stale.video.water).toBe("low");
     for (const [key, value] of Object.entries(WATER_PRESETS.low)) {
@@ -955,6 +959,23 @@ describe("what survives a stored settings blob (settings.ts)", () => {
     // ...and the levers around the water are untouched by it.
     expect(stale.video.flora).toBe(DEFAULT_SETTINGS.video.flora);
     expect(stale.video.sky).toBe(DEFAULT_SETTINGS.video.sky);
+  });
+
+  it("keeps the mirror the rider set, whatever the WATER stop beside it says", () => {
+    // THE MIRROR IS ITS OWN ROW NOW, which is the whole point of it: a rider
+    // on an older machine turns the shore out of the water and KEEPS the fine
+    // grid, the spray and the wake they were paying for. A WATER stop that
+    // expanded over it would take that trade away again.
+    const kept = mergeSettings({ video: { water: "high", reflections: "off" } });
+    expect(kept.video.reflections).toBe("off");
+    expect(kept.video.water).toBe("high");
+    expect(kept.video.spray).toBe(WATER_PRESETS.high.spray);
+    // …and a stop this build does not have falls back on its own, like every
+    // other row.
+    expect(mergeSettings({ video: { reflections: "mirror" } }).video.reflections).toBe(
+      DEFAULT_SETTINGS.video.reflections,
+    );
+    expect(mergeSettings({ video: { reflections: "glow" } }).video.reflections).toBe("glow");
   });
 
   it("keeps a frame-rate cap the rider set and drops one this build does not offer", () => {

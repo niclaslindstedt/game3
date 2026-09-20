@@ -627,7 +627,7 @@ export const STRINGS = {
    * answer; a row that had to be read is a row that has failed. */
   optWater: "WATER",
   optWaterHint:
-    "The whole sea — how fine the grid is and how far out it reaches, plus the spray, the wake, the splash and what the water mirrors",
+    "The whole sea — how fine the grid is and how far out it reaches, plus the spray, the wake and the splash",
   optDistance: "DISTANCE",
   optDistanceHint:
     "How much of the coast is drawn — the shorter the view, the closer the haze that closes over it",
@@ -638,6 +638,16 @@ export const STRINGS = {
     "Everything around the water — the sea life, what grows on the shore, how much cloud is in the sky, and how much rain falls out of it",
   optSeeThrough: "SEE-THROUGH",
   optSeeThroughHint: "The bed, the rocks and what swims under the hull — off, the sea is solid",
+  /** THE MIRROR. Its stops are its own ladder rather than LOW/MEDIUM/HIGH,
+   * because they are not three amounts of one thing: OFF is a sea that shows
+   * the sky alone, GLOW is the LIGHT off the near coast smeared into the
+   * water, and the top two are the shore itself, drawn sharper. */
+  optReflections: "REFLECTIONS",
+  optReflectionsHint:
+    "The shore standing in the water — the dearest thing in the frame; off, the sea shows the sky alone and the window closes with it",
+  optReflectGlow: "GLOW",
+  optReflectSoft: "SOFT",
+  optReflectSharp: "SHARP",
   /** The one row on the picture page that is about TIME: the two stops are
    * spelled as the figures they are, and the top of the ladder is whatever
    * the screen itself does. */

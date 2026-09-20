@@ -10,10 +10,11 @@
 // THE WORDS ON THE CHIPS ARE NOT HERE. Every one of them is `strings.ts`'s
 // (§39.1); this file names the STOPS and the menu looks their labels up.
 
-/** THE PICTURE, AS FIVE QUESTIONS: how much sea, how many pixels, how much
- * world, how far that world runs before the haze takes it, and whether you can
- * see INTO the water — and a sixth row that is about the MACHINE rather than
- * the picture, how many frames a second it is asked for. Every lever below is
+/** THE PICTURE, AS SIX QUESTIONS: how much sea, how many pixels, how much
+ * world, how far that world runs before the haze takes it, whether you can see
+ * INTO the water and whether the shore stands ON it — and a seventh row that
+ * is about the MACHINE rather than the picture, how many frames a second it is
+ * asked for. Every lever below is
  * real and read by the renderer, but a rider does not have an opinion about
  * pine density — they have an opinion about whether the game is smooth, and
  * about which of the things making it unsmooth they would rather keep. Six
@@ -170,15 +171,23 @@ export type VideoSettings = {
   /** WHETHER THE SHORE STANDS IN THE WATER — the coast, the wood on it, the
    * rocks, the gates, the craft and the rider, drawn a second time from
    * under the surface into a texture the water mirrors (`reflection.ts`),
-   * and how big that texture is. Part of WATER, and it applies the instant
-   * it is set.
+   * how much coast goes into it and how big that texture is. ITS OWN ROW
+   * (REFLECTIONS), and it applies the instant it is set.
    *
-   * The dearest thing on the row on a machine that is short of vertices
-   * rather than pixels: the texture is small, but every stand of pines
-   * inside the mirrored lens is submitted again to draw into it. OFF is
-   * genuinely off — no pass, no texture — and the sea reflects the sky
-   * alone, which is the honest picture of open water and a poorer one of
-   * a shore. */
+   * Its own row because it is the dearest single thing in the frame and it
+   * is a LOOK rather than an amount. The texture is small, but every chunk
+   * of shore and every stand of pines inside the mirrored lens is submitted
+   * AGAIN to draw into it: on a shore scene that is half the frame's draw
+   * calls and half its triangles. A machine short of vertices rather than
+   * pixels is exactly the machine that wants this away and wants to keep the
+   * fine grid, the spray and the wake it was paying for — which is the trade
+   * the WATER row could not say while it owned the mirror too.
+   *
+   * OFF is genuinely off — no pass, no texture — and the sea reflects the
+   * sky alone. It is the row's floor and it CLOSES THE WINDOW with it
+   * (`menu-options.tsx`): a rider who has asked for the two dearest things
+   * on the sea to stop is asking for an older machine's picture, and leaving
+   * the transparent pass running would be the page granting half of it. */
   reflections: ReflectionLevel;
   /** HOW MANY FRAMES A SECOND THE GAME MAY DRAW — its own row (FRAME RATE),
    * and the one row on the page that is not about the picture at all but
@@ -330,32 +339,88 @@ export const SPLASH_LOOK: Record<SplashLevel, SplashLook> = {
   full: { crater: 1, ring: 1, throw: 1, boil: true },
 };
 
-export const REFLECTION_LEVELS = ["off", "soft", "sharp"] as const;
+export const REFLECTION_LEVELS = ["off", "glow", "soft", "sharp"] as const;
 export type ReflectionLevel = (typeof REFLECTION_LEVELS)[number];
 
 /** What one stop of the REFLECTION lever draws: how big the mirror's
- * picture is, as a share of the frame's own pixels a side, and how many mip
- * levels down the water reads it. */
+ * picture is, as a share of the frame's own pixels a side, how many mip
+ * levels down the water reads it, and ONE FRAME IN HOW MANY the pass is
+ * drawn at all. */
 export type ReflectionLook = {
   scale: number;
   blur: number;
+  /** One frame in how many the mirror is redrawn — 1 being every frame. A
+   * stop past 1 leaves the picture, its world-to-texture matrix and the
+   * mirrored frustum all standing for a frame, so what the water shows is
+   * simply a frame old rather than a frame out of register. */
+  every: number;
 };
 
-/** THE REFLECTION LADDER. `off` is no picture and no pass. SOFT is enough:
- * a sea is a rough mirror, and what it shows of a tree line is its mass.
- * SHARP is a bigger picture READ LESS BLURRED — the two move together,
- * because a picture with more pixels in it read down the same number of mip
- * levels is the same smear at 2.25 times the price (measured: under two per
- * cent of the sea's pixels moved between the two, until the blur was put on
- * the ladder too). What the top stop buys is a tree line that keeps its
- * trunks at the waterline rather than one that has gone to a smear a little
- * sooner; never a sharp mirror, which on a wave is a second tree line
- * standing on its head. */
+/** THE REFLECTION LADDER. `off` is no picture and no pass, and the sea
+ * reflects the sky alone — the honest picture of open water and a poorer one
+ * of a shore.
+ *
+ * GLOW is the stop between that and a mirror, and it exists because the two
+ * neighbours are a long way apart: the pass is HALF the frame's draw calls
+ * and triangles on a shore scene (measured, `make profile`: cruise goes
+ * 120 → 68 draws and 797k → 462k triangles with it off), and a machine that
+ * cannot afford that should not have to give the water up entirely.
+ *
+ * It buys the gap two ways, neither of which is "draw less shore". The
+ * picture is a fifth of the frame's size and read three mip levels down, so
+ * what comes back is not a tree line but the LIGHT off one — the land's own
+ * colour and mass smeared into the water, which at the grazing angles a rider
+ * actually sees the sea at is most of what a mirror was giving them; and the
+ * pass is drawn EVERY OTHER FRAME, which halves what it costs outright. A
+ * blurred mirror one frame old on water that is itself moving is not a thing
+ * anybody can see, and it is the only lever here that cuts the pass's draw
+ * calls rather than just its triangles.
+ *
+ * CUTTING THE COAST'S OWN REACH IN THE MIRROR WAS TRIED AND DOES NOT PAY:
+ * the shore is drawn in 256 m chunks, so a chunk's bounding sphere reaches
+ * 181 m past its centre and the mirrored lens's own frustum has already
+ * rejected everything a distance cut would. Measured at 60 m, 120 m and
+ * 250 m of coast: the same 113 draws and 636k triangles at all three. What
+ * `scale` cuts is the COVER's mirrored reach (`flora.ts` takes a share of
+ * its own), and that is where the triangles it saves come from.
+ *
+ * SOFT is the design point: a sea is a rough mirror, and what it shows of a
+ * tree line is its mass. SHARP is a bigger picture READ LESS BLURRED — the
+ * two move together, because a picture with more pixels in it read down the
+ * same number of mip levels is the same smear at 2.25 times the price
+ * (measured: under two per cent of the sea's pixels moved between the two,
+ * until the blur was put on the ladder too). What the top stop buys is a tree
+ * line that keeps its trunks at the waterline rather than one that has gone
+ * to a smear a little sooner; never a sharp mirror, which on a wave is a
+ * second tree line standing on its head. */
 export const REFLECTION_LOOK: Record<ReflectionLevel, ReflectionLook> = {
-  off: { scale: 0, blur: 1.5 },
-  soft: { scale: 0.4, blur: 1.5 },
-  sharp: { scale: 0.6, blur: 0.75 },
+  off: { scale: 0, blur: 1.5, every: 1 },
+  glow: { scale: 0.18, blur: 3, every: 2 },
+  soft: { scale: 0.4, blur: 1.5, every: 1 },
+  sharp: { scale: 0.6, blur: 0.75, every: 1 },
 };
+
+/** WHAT PRESSING THE REFLECTIONS ROW WRITES — the stop, and the SEE-THROUGH
+ * row with it when the stop is OFF.
+ *
+ * The two of them are the sea's two big bills: the mirror is a second pass
+ * over the whole shore, the window is a blended pass over most of the frame
+ * with the sea bed drawn behind it, and they are the two rows an older
+ * machine wants back. A rider who presses the mirror's floor is saying this
+ * machine cannot afford them; granting half of that would be the page arguing
+ * with the press.
+ *
+ * ONE WAY ONLY. Coming back UP the ladder does not re-open the window: the
+ * rider may want a solid sea with the shore standing in it, that is a real
+ * picture, and a row that pushed its neighbour back and forth would be a row
+ * nobody could set. The window is one press away and right underneath.
+ *
+ * Here rather than in the options page's handler so the root suite can read
+ * it (`tests/video_test.ts`) — the page is a `.tsx` and nothing DOM-free may
+ * import it. */
+export function pressReflections(reflections: ReflectionLevel): Partial<VideoSettings> {
+  return reflections === "off" ? { reflections, seeThrough: false } : { reflections };
+}
 
 /** What one stop of the WATER row builds. `water-grid.ts` lays the near
  * grid out of the first three and `water-shader.ts` reads the last two. */
@@ -433,7 +498,7 @@ export const WATER_LOOK: Record<WaterLevel, WaterLook> = {
  * sea's surface or thrown off it. Named as a slice of `VideoSettings` rather
  * than restated, so adding another is a decision about which row it belongs on
  * instead of a silent omission from both. */
-export type WaterSettings = Pick<VideoSettings, "spray" | "wake" | "splash" | "reflections">;
+export type WaterSettings = Pick<VideoSettings, "spray" | "wake" | "splash">;
 
 /** WHAT EACH WATER STOP DRAWS ON THE SEA, stop for stop with `WATER_LOOK`
  * above it: one word, one sea. Pressing WATER writes both, and `mergeSettings`
@@ -442,8 +507,15 @@ export type WaterSettings = Pick<VideoSettings, "spray" | "wake" | "splash" | "r
  *
  * They belong to this row and not to DETAIL because every one of them is a
  * mark ON the water — the water the hull throws, the road it leaves, the
- * crater it knocks, the sky the surface mirrors — and none of them reads
- * right against a surface drawn at a different stop. A fine grid under a sea
+ * crater it knocks — and none of them reads right against a surface drawn at
+ * a different stop.
+ *
+ * THE MIRROR IS NOT AMONG THEM, and used to be. It is the single dearest
+ * thing in the frame (half the draw calls and half the triangles on a shore
+ * scene) and it is a LOOK rather than an amount — a sea with the shore
+ * standing in it against one that shows the sky alone — so it is the
+ * REFLECTIONS row's, beside SEE-THROUGH, and a rider on an older machine can
+ * put it away without also giving up the grid, the spray and the wake. A fine grid under a sea
  * the craft leaves no mark on is a photograph of a parked craft; a coarse one
  * under the full ring wave is a facet with a ripple rolling over it. The two
  * halves also fail on different hardware — the grid is CPU, these are pixels —
@@ -455,18 +527,17 @@ export type WaterSettings = Pick<VideoSettings, "spray" | "wake" | "splash" | "r
  * a stop nobody would keep, whatever it saved. */
 export const WATER_PRESETS: Record<WaterLevel, WaterSettings> = {
   // The phone that would rather have the frames: under half the spray, a wake
-  // that is foam on a sea that does not bend for it, a sea that does not take
-  // a landing's blow, and a mirror that shows the sky alone.
-  low: { spray: "low", wake: "flat", splash: "off", reflections: "off" },
+  // that is foam on a sea that does not bend for it, and a sea that does not
+  // take a landing's blow.
+  low: { spray: "low", wake: "flat", splash: "off" },
   // The design point — every lever at the number the game was tuned on.
-  medium: { spray: "full", wake: "full", splash: "some", reflections: "soft" },
-  // A machine with headroom: the whole of a splash — the ring wave and every
-  // droplet of the wall a dive throws — and a mirror that keeps a tree line's
-  // trunks at the waterline. The spray is already every droplet the hull
-  // throws and the wake already everything the map carries, so those two have
-  // nowhere left to go; a stop that promised more would be the page inventing
-  // work to sell.
-  high: { spray: "full", wake: "full", splash: "full", reflections: "sharp" },
+  medium: { spray: "full", wake: "full", splash: "some" },
+  // A machine with headroom: the whole of a splash, the ring wave and every
+  // droplet of the wall a dive throws. The spray is already every droplet the
+  // hull throws and the wake already everything the map carries, so those two
+  // have nowhere left to go; a stop that promised more would be the page
+  // inventing work to sell.
+  high: { spray: "full", wake: "full", splash: "full" },
 };
 
 /** What one stop of the DISTANCE row is worth. Two radii and a haze, and the
@@ -718,6 +789,11 @@ export const DETAIL_PRESETS: Record<DetailLevel, DetailSettings> = {
  * A rider only ever moves this row to buy something — frames at LOW, a longer
  * view at HIGH — never to get back to correct.
  *
+ * REFLECTIONS ships SOFT, which is what the design point always drew — the
+ * row is new, the picture it defaults to is not. GLOW is the stop a machine
+ * that cannot hold the pass moves to before it gives the shore up entirely,
+ * and OFF is the floor, which takes SEE-THROUGH down with it.
+ *
  * FRAME RATE ships MAX — the display's own rate, which is what every browser
  * game a rider has met does without asking. It is the row to reach for on a
  * phone that draws unevenly, and a cap is a choice about THIS machine that
@@ -727,6 +803,7 @@ export const DEFAULT_VIDEO: VideoSettings = {
   distance: "medium",
   resolution: "high",
   seeThrough: true,
+  reflections: "soft",
   frameRate: "max",
   ...WATER_PRESETS.medium,
   ...DETAIL_PRESETS.medium,

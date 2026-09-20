@@ -40,6 +40,20 @@ export type WaterGrid = {
    * anything that spreads a vertex's answer over the water it stands for
    * (the foam field) needs to know how much water that is. */
   step: Float32Array;
+  /** How far each vertex REACHES, m — the furthest any triangle it is a
+   * corner of gets from it. What a cull has to add to the frustum before it
+   * may call a vertex unseen: a vertex outside the lens by less than this
+   * still holds up a triangle that is inside it, and a stale corner on a
+   * visible triangle is a facet of last frame's sea.
+   *
+   * PER VERTEX rather than one number for the grid, because the grid's cells
+   * span a factor of sixteen from the core to the rim: giving a 1.5 m core
+   * vertex the 24 m rim cell's margin keeps a third of the grid alive behind
+   * the lens for nothing. It is read off the index buffer rather than off the
+   * ring a vertex belongs to, so a seam vertex — which hangs off a coarse
+   * cell's edge while speaking for a fine one — is measured by the triangles
+   * it actually has. */
+  span: Float32Array;
   /** Triangle indices, wound so the face normal is +y. */
   index: Uint32Array;
   /** The reach either side of the origin, m. */
@@ -176,11 +190,30 @@ export function layWaterGrid(look: WaterLook, rings: number = look.rings): Water
     edge[k] = Math.max(Math.abs(ox[k]), Math.abs(oz[k])) / reach;
     stride[k] = sts[k] * cell;
   }
+  // How far each vertex reaches: the furthest corner of any triangle it is
+  // part of. Walked once here so the cull can read it per frame.
+  const spans = new Float32Array(count);
+  const far = (a: number, b: number): void => {
+    const d = Math.hypot(ox[a] - ox[b], oz[a] - oz[b]);
+    if (d > spans[a]) spans[a] = d;
+  };
+  for (let i = 0; i < index.length; i += 3) {
+    const a = index[i];
+    const b = index[i + 1];
+    const c = index[i + 2];
+    far(a, b);
+    far(a, c);
+    far(b, a);
+    far(b, c);
+    far(c, a);
+    far(c, b);
+  }
   return {
     ox,
     oz,
     edge,
     step: stride,
+    span: spans,
     index: new Uint32Array(index),
     reach,
     snap: cell * 2 ** rings,

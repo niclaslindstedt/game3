@@ -52,14 +52,28 @@ export type Reflection = {
   /** How big the texture is, as a share of the frame's own pixels; 0 is
    * off, and nothing is drawn. */
   setScale: (share: number) => void;
+  /** ONE FRAME IN HOW MANY the pass is drawn — the REFLECTIONS row's `every`.
+   * 1 redraws the mirror with every picture; 2 leaves last frame's standing
+   * on the frames between, which halves the dearest pass in the renderer. */
+  setRate: (every: number) => void;
+  /** Whether THIS frame is one of them. `aim` decides it, so everything that
+   * culls against the mirrored lens can ask before it does the work — a
+   * frame that is not redrawing the mirror should not be laying out a cover
+   * for it either. */
+  due: () => boolean;
   /** …and what it was last set to, so a caller culling against `frustum` can
    * ask how much of its detail this picture could resolve. */
   scale: () => number;
   /** Whether the mirror has a picture this frame — off, or the lens under
    * the water, where a mirror in the surface faces the wrong way. */
   live: () => boolean;
-  /** Pose the mirrored lens for this frame's real one. Before anything culls
-   * against `frustum`. */
+  /** Pose the mirrored lens for this frame's real one, and settle whether
+   * this frame redraws the mirror at all. Before anything culls against
+   * `frustum` — on a frame that is not `due`, the lens, its matrix and its
+   * frustum are LEFT WHERE THEY WERE, so the picture the water is still
+   * reading and the matrix that maps it are the same frame's. Posing the
+   * lens afresh over a stale texture is the one way to get this wrong: the
+   * reflection then slides across the sea by whatever the camera did. */
   aim: (camera: THREE.PerspectiveCamera) => void;
   /** Draw the scene into the texture, with `hidden` left out. Returns the
    * pass's draw calls and triangles, for the frame's own bill. */
@@ -104,10 +118,26 @@ export function createReflection(): Reflection {
   const clearColor = new THREE.Color();
   let scale = 0;
   let live = false;
+  let every = 1;
+  /** Frames since the mirror was last drawn; the first frame is always one. */
+  let since = Number.MAX_SAFE_INTEGER;
+  let due = false;
 
   const aim = (camera: THREE.PerspectiveCamera): void => {
-    live = scale > 0 && camera.position.y > 0;
-    if (!live) return;
+    const on = scale > 0 && camera.position.y > 0;
+    // A lens that has gone under the water has no mirror to keep: the
+    // surface faces the wrong way and the last picture is not a stale
+    // version of the right answer, it is the wrong answer.
+    if (!on) {
+      live = false;
+      due = false;
+      since = Number.MAX_SAFE_INTEGER;
+      return;
+    }
+    due = ++since >= every;
+    if (!due) return;
+    since = 0;
+    live = true;
     // The lens reflected in the plane: where it stands, where it looks, and
     // which way is up — each mirrored, so the virtual lens is a proper
     // rotation rather than a flipped one and the scene's faces stay front.
@@ -149,7 +179,7 @@ export function createReflection(): Reflection {
   };
 
   const render: Reflection["render"] = (renderer, scene, hidden) => {
-    if (!live) return { calls: 0, triangles: 0 };
+    if (!live || !due) return { calls: 0, triangles: 0 };
     renderer.getDrawingBufferSize(size);
     const w = Math.max(4, Math.round(size.x * scale));
     const h = Math.max(4, Math.round(size.y * scale));
@@ -183,7 +213,15 @@ export function createReflection(): Reflection {
     setScale: (share) => {
       scale = share;
       if (share <= 0) live = false;
+      // A row pressed mid-run redraws the mirror on the very next frame
+      // rather than at the end of whatever cadence was running.
+      since = Number.MAX_SAFE_INTEGER;
     },
+    setRate: (n) => {
+      every = Math.max(1, Math.round(n));
+      since = Number.MAX_SAFE_INTEGER;
+    },
+    due: () => due,
     live: () => live,
     scale: () => scale,
     aim,
