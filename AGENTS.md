@@ -183,7 +183,8 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | How a craft looks                                     | `pwa/src/game/craft-body.ts`, `craft-styles.ts`               | `craft-design`       |
 | How a craft is LIT: the highlight, the sky in the gel coat, what each part is finished in | `pwa/src/game/craft-surface.ts`   | `craft-design`, `rider` |
 | The rider on the saddle: the pose, the figure         | `pwa/src/game/rider-pose.ts`, `rider.ts`                      | `rider`              |
-| The camera: the ladder, its rigs, the flown hand-over  | `pwa/src/game/camera.ts`, `camera-rigs.ts`, `camera-change.ts` | `game-feel`         |
+| The camera: the ladder, its rigs, the flown hand-over  | `pwa/src/game/camera.ts`, `camera-rigs.ts`, `camera-change.ts`, `camera-lens.ts` (what a fov is worth at a viewport's shape) | `game-feel`         |
+| THE SHOT THE FRONT DOOR STANDS OVER: a drone a dozen storeys up with the rider held out in the band of frame the CARD leaves | `pwa/src/game/camera-menu.ts` (the shot, three-free), `live-camera.ts` (which rung each surface gets, and the card measured off the DOM) | `menu-system`, `game-feel` |
 | The sky: the sun's place, the moon's, the ladder of looks, each COAST's weathers and seasons' cast, the lid | `pwa/src/game/sky.ts`, `sky-rungs.ts`, `sky-looks.ts` (`SKY_LOOKS` / `SEASON_LOOKS`, one row per biome), `daylight.ts` | `atmosphere`  |
 | The night sky: the stars, the band, where the sphere has turned | `pwa/src/game/starfield.ts`                                   | `atmosphere`         |
 | The craft's lamps: the headlamp's beam, the sidelights, the buoys' own lights | `pwa/src/game/craft-lamps.ts`, `gates.ts`'s `setNight`, `water-shader.ts`'s lamp term | `atmosphere`, `water-look` |
@@ -228,7 +229,7 @@ By area first. Each row's skill owns the file-by-file map inside that area — g
 | What the water MIRRORS besides the sky: the shore, the craft | `pwa/src/game/reflection.ts`                                | `water-look`         |
 | The terrain, the rocks                                | `pwa/src/game/terrain.ts`, `rocks.ts`                         | `nature`             |
 | What a COAST's water looks like: its tones, its clarity | `pwa/src/game/water-optics.ts`                              | `water-look`, `nature` |
-| WHAT A COAST IS GRADED: the cast over the whole finished frame — the contrast, the lift, the drain, the split | `pwa/src/game/colour-grade.ts` (three-free, the model and the table), `grade-pass.ts` (the pass the frame is drawn through) | `atmosphere`, `water-look` |
+| WHAT A COAST IS GRADED: the cast over the whole finished frame — the contrast, the lift, the drain, the split | `pwa/src/game/colour-grade.ts` (three-free, the model and the table), `grade-pass.ts` (the pass the frame is drawn through, which also carries the menu drone's DISTANCE SOFTENING — `MENU_CAM.dream`) | `atmosphere`, `water-look` |
 | What a COAST's SHORE is painted: its sand, its slab, its bed, its stone, where its wood starts | `pwa/src/game/shore-paint.ts` (three-free; `terrain.ts` and `rocks.ts` read it) | `nature`             |
 | The water as LIT: the glint, the sky it mirrors, the ripples, the rain's rings, the foam's texture | `pwa/src/game/water-shader.ts`   | `water-look`         |
 | THE FOAM AS READ: the tile's world footprint, the lace, and the second reading that keeps it from looking like a tile | `pwa/src/game/water-foam.ts` (three-free), the tile in `fx-textures.ts` | `water-look`         |

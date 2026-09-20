@@ -93,6 +93,7 @@ import { createBenchmark, createLoader } from "./game/app-load.ts";
 import type { BenchmarkStatus } from "./game/benchmark.ts";
 import { BenchmarkCard } from "./game/menu-bench.tsx";
 import { LoadingScreen } from "./game/loading-screen.tsx";
+import { useLiveCamera } from "./game/live-camera.ts";
 import { MainMenu, type MenuPage } from "./game/menu-main.tsx";
 import { createMenuNav, walkCardsOnKeys } from "./game/menu-nav.ts";
 import { PauseMenu } from "./game/menu-pause.tsx";
@@ -277,14 +278,14 @@ export function App() {
   }, [settings.hud.on, shell]);
 
   // ...AND SO DOES THE CAMERA ROW, for the same reason and one more: the
-  // pause card opens that page over a FROZEN run, and a row worded CAMERA
-  // that only took effect on the next one would be a row the app ignores
-  // exactly where it is most obviously being asked. The C key still walks the
-  // ladder without writing the setting, so the two never argue — this fires
-  // only when the stored choice itself moves.
+  // pause card opens that page over a FROZEN run. That row and the one other
+  // thing that decides which lens is up — the SURFACE, because the front door
+  // is framed around its card rather than around a rider — are stated
+  // together in `live-camera.ts`, which owns why.
   useEffect(() => {
     rendererRef.current?.camera.setMode(settings.ride.camera);
   }, [settings.ride.camera]);
+  useLiveCamera(rendererRef.current?.camera, shell, menuPage.page, settings.ride.camera, warm);
 
   // The fader reaches the bus the moment it moves; a layer reads the bus
   // every frame, so the engine under the card gets quieter as the thumb

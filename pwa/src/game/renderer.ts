@@ -502,6 +502,10 @@ export function createRenderer(
     renderer.setPixelRatio(next.dpr);
     renderer.setSize(next.w, next.h, false);
     camera.aspect = next.w / next.h;
+    // The menu's drone composes its frame against the window's own shape —
+    // it puts the rider at a place ON SCREEN, and what that is worth in
+    // degrees is the aspect's answer.
+    rig.setFrame({ aspect: camera.aspect });
     // The aspect is applied HERE and not left to the frame: the lens the
     // frame picks is a vertical fov derived from this aspect (hor+), so the
     // projection has to already know the new shape. `fovWas` is cleared so
@@ -776,6 +780,12 @@ export function createRenderer(
     ]);
     water.setMirror(mirror.live());
     flora?.drawFor("frame");
+
+    // …AND HOW SOFT THE DISTANCE IS, which the camera answers for, because
+    // it is the shot's own finish rather than the coast's (`camera-menu.ts`).
+    // Pushed here rather than beside the pose so it reads the amount the
+    // frame was actually flown at.
+    grade.setDream(rig.dream());
 
     // THE PICTURE, into the grade's target rather than onto the canvas…
     const onto = renderer.getRenderTarget();

@@ -139,6 +139,25 @@ export const LISTENERS: Record<CameraMode, Listener> = {
   // met, are what the shot was cut for, and a broadcast puts a microphone on
   // exactly those. Between the shots the picture is on the boom and this row
   // is not read at all.
+  // THE MENU DRONE (`camera-menu.ts`), which is not a seat either: a lens
+  // sixty metres up over a shore nobody is riding for. It is the sea's row
+  // like the broadcast's, and further out still — the machinery down to a
+  // thread, the rider's own wind gone, and every one-shot soft and dull
+  // (`muffle`), because a slam heard from that far up has lost its edge to
+  // the air between. That it is quiet is the point: a bed under a card is
+  // ducked anyway (`shell.ts`'s `soundsLive`), and what is left of it should
+  // be the swell rather than an engine somebody is not riding.
+  menu: {
+    engine: 0.22,
+    exhaust: 0.3,
+    pump: 0.3,
+    tone: 0.55,
+    hull: 0.35,
+    wind: 0.1,
+    sea: 1.35,
+    events: 0.5,
+    muffle: 0.7,
+  },
   tv: {
     engine: 0.5,
     exhaust: 0.8,

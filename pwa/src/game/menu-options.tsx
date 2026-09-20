@@ -107,6 +107,10 @@ const CAMERA_LABELS: Record<CameraMode, string> = {
   // Off `CAMERA_MODES`, so no row here ever offers it — it is named because
   // the type is the whole ladder and a replay's bar prints the word.
   tv: STRINGS.cameraTv,
+  // ...and the menu's own drone, off the ladder from the other end: it is
+  // never ridden, never walked to, and never printed — the card it stands
+  // behind is what puts it up (`camera-menu.ts`).
+  menu: STRINGS.cameraMenu,
 };
 
 /** Exported because the PAUSE CARD's strip carries the same row: a camera
