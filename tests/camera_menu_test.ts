@@ -121,6 +121,20 @@ describe("the band the card leaves (anchorFor)", () => {
     }
   });
 
+  it("takes the FLOOR over the ceiling, even where the ceiling is roomier", () => {
+    // A phone held upright with a tall card is exactly this: a deeper band
+    // above than below, and the rider put up there is small, hazed and
+    // inside the softening's own ramp. `BAND_WORTH` is what says the near
+    // water is worth more than the far — up to nearly twice the room.
+    const taller = { left: -0.95, right: 0.95, top: 0.2, bottom: -0.45 };
+    expect(1 - taller.top).toBeGreaterThan(taller.bottom + 1);
+    expect(anchorFor(taller).y).toBeLessThan(taller.bottom);
+    // ...and it is a preference, not a law: a ceiling with twice the room
+    // still wins, because by then there is nowhere else worth being.
+    const noFloor = { left: -0.95, right: 0.95, top: -0.1, bottom: -0.93 };
+    expect(anchorFor(noFloor).y).toBeGreaterThan(noFloor.top);
+  });
+
   it("sits him LOW in a side band, which is what leaves a horizon in the frame", () => {
     // The lower the rider, the further ABOVE him the lens is aimed — see
     // `SIDE_LOW`. A side band with him level with the card is a frame with
@@ -234,6 +248,30 @@ describe("where the lens may stand (seawardFrom, standoffFor)", () => {
     }
   });
 
+  it("prefers to stand ASTERN of the rider's course, and gives it up to the water", () => {
+    // The pull is worth `asternPull` metres of openness the bearing does not
+    // have: enough to decide between two the water has no strong opinion
+    // about, never enough to stand the lens in a wood.
+    for (const level of shores) {
+      const { x, z } = level.start;
+      const plain = seawardFrom(level, x, z);
+      const at = (bearing: number): number =>
+        sampleField(
+          level.offshore,
+          x + Math.sin(bearing) * MENU_CAM.range,
+          z + Math.cos(bearing) * MENU_CAM.range,
+        );
+      for (const astern of [0, Math.PI / 2, Math.PI, -Math.PI / 2]) {
+        const pulled = seawardFrom(level, x, z, MENU_CAM.range, astern);
+        // Whatever it picked, it is a bearing the pull could pay for: the
+        // openness it gave up is inside the pull's own budget.
+        expect(at(plain) - at(pulled), `seed ${level.seed}`).toBeLessThanOrEqual(
+          2 * MENU_CAM.asternPull + 1e-6,
+        );
+      }
+    }
+  });
+
   it("takes the LONGEST clear standoff, so open water gets the whole shot", () => {
     // Searched inwards from the furthest rather than outwards from the
     // nearest: a channel gets what it has, and water with room in it gets the
@@ -314,6 +352,78 @@ describe("the shot itself", () => {
     const later = poseAfter(25);
     expect(Math.hypot(later.x - first.x, later.y - first.y, later.z - first.z)).toBeGreaterThan(1);
     expect(Math.abs(later.fov - first.fov)).toBeGreaterThan(0.1);
+  });
+
+  it("does NOT take the hull's bob into the frame", () => {
+    // THE CALMNESS CLAIM, measured. The framing is solved every frame, so a
+    // shot composed on the craft's own position tracks every heave and slam
+    // straight into the aim; composed on a point that lags him by about a
+    // second (`MENU_CAM.compose`) the RIDER moves and the frame does not.
+    //
+    // Measured as the DIFFERENCE between two shots run in lockstep, one over
+    // a bobbing hull and one over a still one — everything the shot does on
+    // its own (the height's breath, the standoff's, the lens's, the drift,
+    // the tremor) is a function of its own clock and cancels, so what is left
+    // is the bob's contribution and nothing else. A 3 Hz bob of ±0.6 m is a
+    // hull crossing chop.
+    const bobbing = createGame({ seed: LEVEL_SEEDS[0], craft: "skiff", quiet: true });
+    const still = createGame({ seed: LEVEL_SEEDS[0], craft: "skiff", quiet: true });
+    const one = createMenuCamera();
+    const two = createMenuCamera();
+    const poseA: CameraPose = { x: 0, y: 0, z: 0, aimX: 0, aimY: 0, aimZ: 1, fov: 60, roll: 0 };
+    const poseB: CameraPose = { ...poseA };
+    const base = still.craft.y;
+    const elevation = (pose: CameraPose): number =>
+      Math.atan2(pose.aimY - pose.y, Math.hypot(pose.aimX - pose.x, pose.aimZ - pose.z));
+    let low = Infinity;
+    let high = -Infinity;
+    let hullLow = Infinity;
+    let hullHigh = -Infinity;
+    for (let i = 0; i < Math.round(6 / DT); i++) {
+      bobbing.craft.y = base + 0.6 * Math.sin(2 * Math.PI * 3 * i * DT);
+      one.update(poseA, bobbing, DT, flat, frame);
+      two.update(poseB, still, DT, flat, frame);
+      // Past the first second, so the ease has settled onto the hull.
+      if (i * DT < 1) continue;
+      const took = elevation(poseA) - elevation(poseB);
+      low = Math.min(low, took);
+      high = Math.max(high, took);
+      // ...against what a lens aimed straight AT the hull would have taken.
+      const raw = Math.atan2(
+        bobbing.craft.y - poseB.y,
+        Math.hypot(bobbing.craft.x - poseB.x, bobbing.craft.z - poseB.z),
+      );
+      hullLow = Math.min(hullLow, raw);
+      hullHigh = Math.max(hullHigh, raw);
+    }
+    const framed = ((high - low) * 180) / Math.PI;
+    const hull = ((hullHigh - hullLow) * 180) / Math.PI;
+    // The hull's own swing is about a degree at this range; what reaches the
+    // frame is a small fraction of it.
+    expect(hull).toBeGreaterThan(0.5);
+    expect(framed).toBeLessThan(hull / 5);
+  });
+
+  it("keeps a rider who is RIDING inside the band the card left him", () => {
+    // ...and the other half of the same knob: the lag is LEASHED, so a rider
+    // who has simply ridden away is not framed where he was a second ago.
+    const ride = createGame({ seed: LEVEL_SEEDS[0], craft: "skiff", quiet: true });
+    const drone = createMenuCamera();
+    const pose: CameraPose = { x: 0, y: 0, z: 0, aimX: 0, aimY: 0, aimZ: 1, fov: 60, roll: 0 };
+    const box = frame.card as ScreenBox;
+    for (let i = 0; i < Math.round(30 / DT); i++) {
+      // A steady 18 m/s along the shore, with the hull working in a seaway.
+      ride.craft.vx = 18;
+      ride.craft.vz = 0;
+      ride.craft.x += 18 * DT;
+      ride.craft.y = 0.4 + 0.5 * Math.sin(2 * Math.PI * 1.4 * i * DT);
+      drone.update(pose, ride, DT, flat, frame);
+      if (i * DT < 1) continue;
+      const at = screenOf(pose, frame.aspect, ride.craft);
+      expect(inside(box, at), `under the card at ${(i * DT).toFixed(0)} s`).toBe(false);
+      expect(Math.abs(at.x), `across at ${(i * DT).toFixed(0)} s`).toBeLessThan(1);
+      expect(Math.abs(at.y), `up at ${(i * DT).toFixed(0)} s`).toBeLessThan(1);
+    }
   });
 
   it("is a LONG lens, longer than any rung a rider steers from", () => {

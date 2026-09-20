@@ -23,6 +23,24 @@
 //   the rider wander through it, which is what an operator holding a position
 //   actually gets.
 //
+//   IT TRAILS THE RIDER'S AVERAGED COURSE. Where the lens stands is not only
+//   a question of where the water is: it is preferred ASTERN of the direction
+//   the rider has been going, heavily averaged over several seconds, so the
+//   shot looks along his line with his wake running toward the lens. Averaged
+//   is the whole point — a drone that answered his instantaneous heading
+//   would swing the world round on every carve, which is the fault the first
+//   version of this shot had by holding a fixed bearing instead and the fault
+//   a naive follow would have by holding none.
+//
+//   IT IS COMPOSED ON A SMOOTHED RIDER, NOT AN INSTANTANEOUS ONE. The framing
+//   is solved against a point that follows the craft on a slow ease and is
+//   LEASHED to it (`MENU_CAM.compose`, `.leash`) — so a hull slamming through
+//   a wave, bobbing in a seaway or twitching under the bot moves within the
+//   frame instead of moving the frame. That is what an operator holding a
+//   shot actually produces, and it is the difference between a lens that
+//   looks flown and one that looks stuck to a transom. The leash is what
+//   stops the rider wandering out of the band he was put in.
+//
 //   AND IT STANDS OVER WATER, WITH THE RIDER IN SIGHT. The drift is measured
 //   off the direction the OPEN WATER lies in from wherever the rider is — the
 //   gradient of the level's own offshore field, which is "away from the
@@ -191,12 +209,40 @@ export const MENU_CAM = {
   /** Metres the lens is held clear of whatever is under it — the sea, or the
    * shore when the drift carries it over the land. */
   clearance: 6,
-  /** How briskly the lens follows the craft's own plan position, 1/s. The
-   * framing is SOLVED every frame, so this is not what keeps the rider in
-   * shot; what it buys is that a bot slamming through a wave does not jog
-   * the whole picture. Slow enough to swallow a chop, quick enough that the
-   * craft never walks out of the band it was put in. */
+  /** How briskly the LENS follows the craft's own plan position, 1/s — where
+   * the stand is taken from, as against where the shot is aimed. Slow enough
+   * that a chop does not walk the stand about. */
   follow: 2.2,
+  /** How briskly the point the shot is COMPOSED ON follows the craft, 1/s,
+   * and how far behind him it may ever fall, m.
+   *
+   * These two are what make the picture calm. The framing is solved every
+   * frame (`aimFor`), so solving it against the craft's own position tracks
+   * every slam, every heave and every twitch of the bot's steering straight
+   * into the frame — the lens ends up glued to a hull that is not being
+   * ridden smoothly, which is the opposite of what a drone shot looks like.
+   * Solved against a point that lags him by about a second instead, the
+   * RIDER moves within a frame that is holding still.
+   *
+   * The leash is the safety: three metres is worth an eighth of the frame's
+   * height at this range, so he drifts around his anchor and can never be
+   * carried out of the band the card left him. */
+  compose: 0.9,
+  leash: 3,
+  /** THE RIDER'S OWN COURSE, averaged: how fast the average follows his
+   * travel direction (1/s — a time constant of five or six seconds, which is
+   * several carves), and the pace below which his direction is not worth
+   * reading at all, m/s. A hull at rest in a seaway has a travel direction
+   * made of nothing but the orbital motion under it. */
+  courseFollow: 0.18,
+  underway: 4,
+  /** ...and what standing ASTERN of that average is worth to the ring that
+   * picks the bearing, in metres of the open water it is scored against
+   * (`seawardFrom`). Enough to decide between two bearings the water has no
+   * strong opinion about, and nowhere near enough to stand the lens in a
+   * wood: a couple of hundred metres of open sea beats it every time, which
+   * is the order the two should be in. */
+  asternPull: 22,
   /** How far up the frame the craft's own height is read from, m — the
    * rider's head rather than the keel, so he sits where he is aimed at. */
   aimUp: 1,
@@ -253,6 +299,21 @@ export type ScreenPoint = { x: number; y: number };
  * has nothing but water in it. It is also simply the better photograph. */
 const SIDE_LOW = -0.62;
 
+/** WHAT A BAND IS WORTH, against its own depth — because the room a card
+ * leaves is not equally good everywhere, and in a shot that looks DOWN the
+ * difference is large. Up the frame is the far distance: the rider is
+ * smaller there, the haze is thicker, and he is inside the softening's own
+ * ramp (`MENU_CAM.dream`). Down the frame is the near water, sharp and
+ * close, and it is the better photograph besides — a subject low in the
+ * frame with the sea running away above him.
+ *
+ * So the FLOOR is worth its whole depth, a side band very nearly so, and the
+ * CEILING a little over half: a card has to leave nearly twice the room
+ * above it as below before the rider is put up there at all. A phone held
+ * upright with a tall card is exactly that case, and it was putting him in
+ * the blur. */
+const BAND_WORTH = { floor: 1, side: 0.95, ceiling: 0.55 };
+
 /** How close to the edge of the frame the craft is ever put. A rider against
  * the glass reads as a mistake however much room the card left, and the haze
  * and the grade's own vignette live out there. */
@@ -265,7 +326,8 @@ const NO_CARD: ScreenPoint = { x: -0.42, y: -0.6 };
 /** THE BAND THE CARD LEAVES, and the point in it the craft is held at.
  *
  * Four bands — left, right, below, above — each measured as the clear run
- * between the card's own edge and the edge of the frame. The deepest one
+ * between the card's own edge and the edge of the frame, and each weighed by
+ * what that part of the frame is WORTH to be in (`BAND_WORTH`). The best one
  * wins and the craft goes in the middle of it, pulled off the glass by
  * `EDGE`; the other axis is centred within whatever the card leaves on it,
  * so a band chosen at the side still sits low rather than dead level with
@@ -281,13 +343,13 @@ export function anchorFor(card: ScreenBox | null, into?: ScreenPoint): ScreenPoi
     return out;
   }
   const bands = [
-    { depth: card.left + 1, x: (-1 + card.left) / 2, y: SIDE_LOW },
-    { depth: 1 - card.right, x: (card.right + 1) / 2, y: SIDE_LOW },
-    { depth: card.bottom + 1, x: -0.3, y: (-1 + card.bottom) / 2 },
-    { depth: 1 - card.top, x: -0.3, y: (card.top + 1) / 2 },
+    { worth: (card.left + 1) * BAND_WORTH.side, x: (-1 + card.left) / 2, y: SIDE_LOW },
+    { worth: (1 - card.right) * BAND_WORTH.side, x: (card.right + 1) / 2, y: SIDE_LOW },
+    { worth: (card.bottom + 1) * BAND_WORTH.floor, x: -0.3, y: (-1 + card.bottom) / 2 },
+    { worth: (1 - card.top) * BAND_WORTH.ceiling, x: -0.3, y: (card.top + 1) / 2 },
   ];
   let best = bands[0];
-  for (const band of bands) if (band.depth > best.depth) best = band;
+  for (const band of bands) if (band.worth > best.worth) best = band;
   out.x = clamp(best.x, -1 + EDGE, 1 - EDGE);
   out.y = clamp(best.y, -1 + EDGE, 1 - EDGE);
   return out;
@@ -379,9 +441,21 @@ export function aimFor(
  * pine wood.) Asked at the distance the lens actually wants to stand, the
  * question answers itself and the noise is gone.
  *
+ * `astern` is where the rider has been COMING FROM, averaged (the update
+ * below), and a bearing near it is credited `MENU_CAM.asternPull` metres of
+ * openness it does not have — so the lens prefers to trail his line, and
+ * gives that preference up the moment the water disagrees strongly. Leave it
+ * out and the ring answers the water alone.
+ *
  * Coarse on purpose — the answer is eased onto and a drift of thirty-odd
  * degrees is laid over it, so a finer ring would be precision nothing spends. */
-export function seawardFrom(level: Level, x: number, z: number, far = MENU_CAM.range): number {
+export function seawardFrom(
+  level: Level,
+  x: number,
+  z: number,
+  far = MENU_CAM.range,
+  astern?: number,
+): number {
   let best = level.seaHeading;
   let most = -Infinity;
   for (let i = 0; i < MENU_CAM.rays; i++) {
@@ -391,8 +465,9 @@ export function seawardFrom(level: Level, x: number, z: number, far = MENU_CAM.r
       x + Math.sin(bearing) * far,
       z + Math.cos(bearing) * far,
     );
-    if (out > most) {
-      most = out;
+    const pull = astern === undefined ? 0 : Math.cos(bearing - astern) * MENU_CAM.asternPull;
+    if (out + pull > most) {
+      most = out + pull;
       best = bearing;
     }
   }
@@ -480,6 +555,15 @@ export function createMenuCamera(): MenuCamera {
    * than framings, so both are flown to rather than taken. */
   let seaward = 0;
   let stand = MENU_CAM.range;
+  /** The rider's own direction, heavily averaged — what the lens prefers to
+   * stand astern of. Held through every stretch he is not making way in,
+   * because a drifting hull's travel direction is the water's, not his. */
+  let course = 0;
+  let steered = false;
+  /** ...and THE POINT THE SHOT IS COMPOSED ON: the craft, lagged and leashed
+   * (`MENU_CAM.compose`). This is what the framing is solved against, and it
+   * is why the rider moves within the frame instead of moving it. */
+  const shown: Vec = { x: 0, y: 0, z: 0 };
   const eye: Vec = { x: 0, y: 0, z: 0 };
   const toCraft: Vec = { x: 0, y: 0, z: 0 };
   const look: Vec = { x: 0, y: 0, z: 1 };
@@ -488,6 +572,9 @@ export function createMenuCamera(): MenuCamera {
   return {
     drop: () => {
       held = false;
+      // The averaged course goes with it: a shore that has just been stood
+      // up has no history, and the last one's line is not this one's.
+      steered = false;
     },
     update: (pose, state, dt, surfaceY, frame) => {
       const c = state.craft;
@@ -500,11 +587,50 @@ export function createMenuCamera(): MenuCamera {
       if (first) {
         heldX = c.x;
         heldZ = c.z;
+        shown.x = c.x;
+        shown.y = c.y;
+        shown.z = c.z;
         held = true;
       } else {
         const ease = clamp(MENU_CAM.follow * dt, 0, 1);
         heldX += (c.x - heldX) * ease;
         heldZ += (c.z - heldZ) * ease;
+      }
+
+      // THE RIDER'S AVERAGED COURSE. Read off his TRAVEL rather than his
+      // heading — a hull is often carried across its own nose — and only
+      // while he is making way, because a drifting hull's travel direction
+      // is the orbital motion of the water under it.
+      const pace = Math.hypot(c.vx, c.vz);
+      if (pace > MENU_CAM.underway) {
+        const travel = Math.atan2(c.vx, c.vz);
+        course =
+          steered && !first
+            ? course + angleDiff(course, travel) * clamp(MENU_CAM.courseFollow * dt, 0, 1)
+            : travel;
+        steered = true;
+      }
+
+      // ...AND THE POINT THE SHOT IS COMPOSED ON: the craft on a slow ease,
+      // then LEASHED back to within `leash` metres of where he actually is.
+      // The ease is what takes the slam, the heave and the bot's twitch out
+      // of the frame; the leash is what stops a rider who has simply ridden
+      // away from being framed where he was a second ago.
+      if (!first) {
+        const ease = clamp(MENU_CAM.compose * dt, 0, 1);
+        shown.x += (c.x - shown.x) * ease;
+        shown.y += (c.y - shown.y) * ease;
+        shown.z += (c.z - shown.z) * ease;
+        const lagX = c.x - shown.x;
+        const lagY = c.y - shown.y;
+        const lagZ = c.z - shown.z;
+        const lag = Math.hypot(lagX, lagY, lagZ);
+        if (lag > MENU_CAM.leash) {
+          const pull = 1 - MENU_CAM.leash / lag;
+          shown.x += lagX * pull;
+          shown.y += lagY * pull;
+          shown.z += lagZ * pull;
+        }
       }
 
       // WHICH WAY THE WATER LIES from where the rider is, eased onto: this
@@ -513,7 +639,13 @@ export function createMenuCamera(): MenuCamera {
       // HOW MUCH SHOT THIS SKY LEAVES — the whole reach, height and standoff
       // together, so the composition holds and only the range gives.
       const seen = MENU_CAM.flownIn[state.level.weather] ?? 1;
-      const wantSeaward = seawardFrom(state.level, heldX, heldZ, MENU_CAM.range * seen);
+      const wantSeaward = seawardFrom(
+        state.level,
+        heldX,
+        heldZ,
+        MENU_CAM.range * seen,
+        steered ? course + Math.PI : undefined,
+      );
       seaward = first
         ? wantSeaward
         : seaward + angleDiff(seaward, wantSeaward) * clamp(MENU_CAM.bearingFollow * dt, 0, 1);
@@ -560,9 +692,12 @@ export function createMenuCamera(): MenuCamera {
       if (eye.y < floor) eye.y = floor;
 
       const fov = MENU_CAM.fov + MENU_CAM.fovSway * Math.sin(MENU_CAM.fovRate * t);
-      toCraft.x = c.x - eye.x;
-      toCraft.y = c.y + MENU_CAM.aimUp - eye.y;
-      toCraft.z = c.z - eye.z;
+      // THE SHOT IS COMPOSED ON `shown`, NOT ON `c` — see the header and
+      // `MENU_CAM.compose`. Everything else about the frame follows from
+      // this one substitution.
+      toCraft.x = shown.x - eye.x;
+      toCraft.y = shown.y + MENU_CAM.aimUp - eye.y;
+      toCraft.z = shown.z - eye.z;
       const reach = Math.hypot(toCraft.x, toCraft.y, toCraft.z) || 1;
       anchorFor(frame.card, at);
       aimFor(toCraft, at, fov, frame.aspect, look);
