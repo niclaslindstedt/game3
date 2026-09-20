@@ -87,6 +87,14 @@
 // the stylesheet's arithmetic, so a card that grows moves the rider by
 // itself.
 //
+// …AND HE IS WALKED TO IT, NOT CUT TO IT. Every page of the front door is a
+// different card, so turning one asks for a different band, and a pick is a
+// step: taken on the frame it lands, the rider crosses the frame in one and
+// the shot reads as the picture glitching as the menu is clicked around in.
+// So the anchor is flown over about a second (`MENU_CAM.reframe`), which is
+// the same decision the bearing and the standoff already make and for the
+// same reason — a reposition that arrives in a frame is a cut.
+//
 // …and the framing is solved rather than nudged. `aimFor` turns "hold the
 // craft at this point in the frame" into an aim direction, given what the
 // lens is worth at this viewport's shape (`camera-lens.ts`). That is why the
@@ -246,6 +254,29 @@ export const MENU_CAM = {
   /** How far up the frame the craft's own height is read from, m — the
    * rider's head rather than the keel, so he sits where he is aimed at. */
   aimUp: 1,
+  /** THE REFRAME: how long the rider takes to arrive at a new band, s, and
+   * the least the band has to move before the move is flown rather than
+   * simply tracked.
+   *
+   * `anchorFor` PICKS a band, and a pick is a step: every page of the front
+   * door is a different card (30 rem at the door, 36 at OPTIONS, 52 at the
+   * gallery), so turning one moves the anchor by a tenth of the frame at the
+   * least and flips it from a side band to the floor at the worst. Taken on
+   * the frame it lands, that is a cut in the middle of a shot nobody asked to
+   * have cut — it reads as the picture glitching as the card changes, which
+   * is the same fault the drone's own bearing and standoff are eased to avoid
+   * (`bearingFollow`, `rangeFollow`). So the anchor is FLOWN: an operator
+   * given a new mark walks the subject across the frame, and a second is
+   * about how long that takes.
+   *
+   * It is a fixed-duration S-curve rather than the exponential ease those two
+   * use, because the input is a STEP and not a signal to track: an
+   * exponential leaves at full speed, which is the very edge being taken off.
+   * The floor is what keeps a card SETTLING — a resize observer firing
+   * through a scrollbar's width, a row growing — from restarting the flight
+   * every frame; under it the anchor simply tracks. */
+  reframe: 1,
+  reframeLeast: 0.02,
   /** HOW MUCH OF THE SHOT EACH SKY LEAVES, 0..1 on both the height and the
    * standoff together — so the DEPRESSION never moves and only the reach
    * does. Sized off what the haze does to a hull rather than off the sky's
@@ -353,6 +384,16 @@ export function anchorFor(card: ScreenBox | null, into?: ScreenPoint): ScreenPoi
   out.x = clamp(best.x, -1 + EDGE, 1 - EDGE);
   out.y = clamp(best.y, -1 + EDGE, 1 - EDGE);
   return out;
+}
+
+/** HOW A REFRAME IS FLOWN: 0 at the start of the move, 1 at the end, flat at
+ * both ends — so the rider leaves his old band and arrives in his new one
+ * with no edge on either, which is what an operator walking a subject across
+ * the frame gives. See `MENU_CAM.reframe` for why this is a duration rather
+ * than the ease every other quantity in this shot tracks its target on. */
+export function reframeEase(s: number): number {
+  const t = clamp(s, 0, 1);
+  return t * t * (3 - 2 * t);
 }
 
 /** The frame the shot is being composed in: how wide the window is against
@@ -567,7 +608,15 @@ export function createMenuCamera(): MenuCamera {
   const eye: Vec = { x: 0, y: 0, z: 0 };
   const toCraft: Vec = { x: 0, y: 0, z: 0 };
   const look: Vec = { x: 0, y: 0, z: 1 };
+  /** WHERE THE RIDER IS HELD, and the reframe carrying him there: the band
+   * the card is asking for this frame (`want`), the one he was in when it
+   * started asking (`from`), where he is now (`at`), and how far into the
+   * move the shot has got. */
   const at: ScreenPoint = { x: 0, y: 0 };
+  const from: ScreenPoint = { x: 0, y: 0 };
+  const want: ScreenPoint = { x: 0, y: 0 };
+  const band: ScreenPoint = { x: 0, y: 0 };
+  let flown = MENU_CAM.reframe;
 
   return {
     drop: () => {
@@ -699,7 +748,29 @@ export function createMenuCamera(): MenuCamera {
       toCraft.y = shown.y + MENU_CAM.aimUp - eye.y;
       toCraft.z = shown.z - eye.z;
       const reach = Math.hypot(toCraft.x, toCraft.y, toCraft.z) || 1;
-      anchorFor(frame.card, at);
+      // THE BAND THE CARD LEAVES, and the walk across the frame to it.
+      // The first frame of a shot stands in it for the same reason the stand
+      // and the bearing do: there is nowhere to have come from, and a front
+      // door that opened by walking its rider in from the last card's band
+      // would announce the card rather than the game.
+      anchorFor(frame.card, band);
+      if (first) {
+        at.x = from.x = want.x = band.x;
+        at.y = from.y = want.y = band.y;
+        flown = MENU_CAM.reframe;
+      } else {
+        if (Math.hypot(band.x - want.x, band.y - want.y) > MENU_CAM.reframeLeast) {
+          from.x = at.x;
+          from.y = at.y;
+          flown = 0;
+        }
+        want.x = band.x;
+        want.y = band.y;
+        flown = Math.min(flown + dt, MENU_CAM.reframe);
+        const walked = reframeEase(flown / MENU_CAM.reframe);
+        at.x = from.x + (want.x - from.x) * walked;
+        at.y = from.y + (want.y - from.y) * walked;
+      }
       aimFor(toCraft, at, fov, frame.aspect, look);
 
       // THE TREMOR, applied to the aim alone: a lens that is not quite still
