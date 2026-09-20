@@ -49,7 +49,14 @@ import {
 } from "../pwa/src/game/pause-stats.ts";
 import { ALT_PEAK_SHOWN } from "../pwa/src/game/snapshot.ts";
 import { STRINGS } from "../pwa/src/game/strings.ts";
-import { NO_HOLD, releaseHold, takePress, tickHold } from "../pwa/src/game/menu-hold.ts";
+import {
+  FLOURISH_SECONDS,
+  FLOURISH_TURNS,
+  NO_HOLD,
+  flourishRate,
+  holdWait,
+  tickHold,
+} from "../pwa/src/game/menu-hold.ts";
 import {
   advanceLoad,
   createLoad,
@@ -166,55 +173,110 @@ describe("the craft card's spec sheet (craft-stats.ts)", () => {
 });
 
 describe("the hold that unlocks the developer menu (menu-hold.ts)", () => {
-  const held = (fromMs: number) => ({ from: fromMs, armed: false });
+  const held = (fromMs: number) => ({ from: fromMs, fired: false });
 
   it("is nothing at all until a finger is down", () => {
     expect(tickHold(NO_HOLD, 5_000, DEV_HOLD_MS)).toBe(NO_HOLD);
   });
 
-  it("arms only once the whole length has been held", () => {
-    expect(tickHold(held(0), DEV_HOLD_MS - 1, DEV_HOLD_MS).armed).toBe(false);
-    expect(tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS).armed).toBe(true);
+  it("fires only once the whole length has been held", () => {
+    expect(tickHold(held(0), DEV_HOLD_MS - 1, DEV_HOLD_MS).fired).toBe(false);
+    expect(tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS).fired).toBe(true);
   });
 
   it("is SEVEN SECONDS — past anything a press or a lean does by accident", () => {
     expect(DEV_HOLD_MS).toBe(7000);
-    // A press, and a finger resting on the row while its owner decides.
-    expect(tickHold(held(0), 200, DEV_HOLD_MS).armed).toBe(false);
-    expect(tickHold(held(0), 2_000, DEV_HOLD_MS).armed).toBe(false);
+    // A press, and a thumb resting on the hull while its owner looks at it.
+    expect(tickHold(held(0), 200, DEV_HOLD_MS).fired).toBe(false);
+    expect(tickHold(held(0), 2_000, DEV_HOLD_MS).fired).toBe(false);
   });
 
-  it("makes an ordinary press a press", () => {
-    expect(takePress(NO_HOLD).press).toBe(true);
-    expect(takePress(releaseHold(held(0))).press).toBe(true);
+  it("ASKS AGAIN when the clock comes back short, rather than giving up", () => {
+    // The bug this pins, and the one the hold was reported missing over: a
+    // timer is set against one clock and `tickHold` reads another, so a wake
+    // a millisecond early is ordinary. A caller that took that for 'not this
+    // time' and returned would have nothing left scheduled — a finger held
+    // all afternoon and a hold that never fires.
+    const hold = held(0);
+    expect(tickHold(hold, DEV_HOLD_MS - 1, DEV_HOLD_MS)).toBe(hold);
+    expect(holdWait(hold, DEV_HOLD_MS - 1, DEV_HOLD_MS)).toBe(1);
+    // And it cannot spin: every wake `tickHold` refuses is one that still
+    // owes time, so the wait that follows is never zero.
+    for (const now of [0, 1, 3_500, DEV_HOLD_MS - 0.4, DEV_HOLD_MS - 1e-9]) {
+      expect(holdWait(hold, now, DEV_HOLD_MS)).toBeGreaterThanOrEqual(1);
+    }
+    // Due, or nothing to wait for.
+    expect(holdWait(hold, DEV_HOLD_MS, DEV_HOLD_MS)).toBe(0);
+    expect(holdWait(hold, DEV_HOLD_MS * 3, DEV_HOLD_MS)).toBe(0);
+    expect(holdWait(NO_HOLD, 1_000, DEV_HOLD_MS)).toBe(0);
   });
 
-  it("SWALLOWS the click a completed hold's own release produces", () => {
-    // The rule that stops a run being started over the top of the menu the
-    // player just spent seven seconds asking for.
-    const armed = tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS);
-    const released = releaseHold(armed);
-    expect(released.from).toBeNull();
-    // ...and it is still armed here, because the click has not arrived yet.
-    expect(released.armed).toBe(true);
-    expect(takePress(released).press).toBe(false);
+  it("waits out what is left of the hold and no longer", () => {
+    expect(holdWait(held(0), 0, DEV_HOLD_MS)).toBe(DEV_HOLD_MS);
+    expect(holdWait(held(1_000), 3_000, DEV_HOLD_MS)).toBe(DEV_HOLD_MS - 2_000);
   });
 
-  it("swallows exactly ONE click, so the row still starts a run afterwards", () => {
-    // The bug this pins: an `armed` that is never spent is a START button
-    // that unlocked the developer menu once and then never rode again.
-    const armed = tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS);
-    const after = takePress(releaseHold(armed));
-    expect(after.press).toBe(false);
-    expect(takePress(after.hold).press).toBe(true);
-  });
-
-  it("stays armed whatever the clock says next, and re-renders nothing", () => {
-    const armed = tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS);
-    // The SAME object back, which is how the component tells 'nothing
-    // happened' from 'it fired' without a second piece of state.
-    expect(tickHold(armed, DEV_HOLD_MS * 9, DEV_HOLD_MS)).toBe(armed);
+  it("fires ONCE, whatever the clock says next, and re-renders nothing", () => {
+    // The finger is usually still down when it fires, so the same object
+    // back is how the component tells 'nothing happened' from 'it fired'
+    // without a second piece of state — and is what stops the flourish
+    // being started again on every later tick of the same hold.
+    const fired = tickHold(held(0), DEV_HOLD_MS, DEV_HOLD_MS);
+    expect(tickHold(fired, DEV_HOLD_MS * 9, DEV_HOLD_MS)).toBe(fired);
     expect(tickHold(held(0), DEV_HOLD_MS - 1, DEV_HOLD_MS)).toEqual(held(0));
+  });
+});
+
+describe("the flourish that says the hold landed (menu-hold.ts)", () => {
+  /** The extra angle the flourish has swept by `to` seconds in, integrated
+   * finely enough that the quadrature is not what any of these measure. */
+  const swept = (to: number): number => {
+    const steps = 20_000;
+    let angle = 0;
+    for (let i = 0; i < steps; i += 1)
+      angle += flourishRate(((i + 0.5) * to) / steps) * (to / steps);
+    return angle;
+  };
+
+  it("turns the hull exactly the authored number of times, and then stops", () => {
+    expect(swept(FLOURISH_SECONDS)).toBeCloseTo(2 * Math.PI * FLOURISH_TURNS, 3);
+    // Nothing is left running afterwards: the stand is back to its own
+    // steady spin, with no step to snap over.
+    expect(flourishRate(FLOURISH_SECONDS)).toBe(0);
+    expect(flourishRate(FLOURISH_SECONDS * 4)).toBe(0);
+  });
+
+  it("eases in and out rather than snapping into a spin and back", () => {
+    expect(flourishRate(0)).toBe(0);
+    expect(flourishRate(-1)).toBe(0);
+    // Zero at both ends and continuous with them: a frame either side of the
+    // start is a rate a frame's worth away from the steady one.
+    expect(flourishRate(0.01)).toBeLessThan(0.1);
+    expect(flourishRate(FLOURISH_SECONDS - 0.01)).toBeLessThan(0.1);
+  });
+
+  it("goes fast, faster, slower, slow — one hump, and never backwards", () => {
+    // The shape the card is read by: a hull that reversed would read as a
+    // stuck animation rather than as an answer.
+    const peak = flourishRate(FLOURISH_SECONDS / 2);
+    for (let i = 0; i <= 200; i += 1) {
+      const rate = flourishRate((i / 200) * FLOURISH_SECONDS);
+      expect(rate).toBeGreaterThanOrEqual(0);
+      expect(rate).toBeLessThanOrEqual(peak + 1e-9);
+    }
+    // Rising through the first half and falling through the second, with the
+    // whole figure over in under three seconds.
+    expect(flourishRate(FLOURISH_SECONDS * 0.25)).toBeLessThan(peak);
+    expect(flourishRate(FLOURISH_SECONDS * 0.25)).toBeGreaterThan(flourishRate(0.05));
+    expect(flourishRate(FLOURISH_SECONDS * 0.75)).toBeLessThan(peak);
+    expect(FLOURISH_SECONDS).toBeLessThan(3);
+  });
+
+  it("is quick enough to read as a figure rather than as a hurried stand", () => {
+    // The steady spin is one turn every eighteen seconds; the peak of the
+    // flourish has to be an order of magnitude past that or nobody sees it.
+    const steady = (2 * Math.PI) / 18;
+    expect(flourishRate(FLOURISH_SECONDS / 2)).toBeGreaterThan(steady * 10);
   });
 });
 

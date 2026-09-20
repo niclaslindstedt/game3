@@ -172,9 +172,17 @@ export function CraftPage({
             screen, and the readings beside it stay the size they need to be
             read at. */}
         <div class="craft-stage-col">
+          {/* THE PICTURE IS ALSO THE WAY IN TO THE DEVELOPER MENU, held for
+              seven seconds — the one large thing on any card that a press
+              does nothing to, so a finger left on it is asking for exactly
+              one thing (`menu-hold.ts`). The hull whipping round twice is
+              the whole of what the player is told here; the DEVELOPER chip
+              is waiting on the front door. */}
           <CraftPicker
             craft={craft}
             cursor
+            unlocked={settings.developer}
+            onUnlock={() => onSettings({ ...settings, developer: true })}
             onPick={(pick) => onSettings({ ...settings, ride: { ...settings.ride, craft: pick } })}
           />
           {/* The card's ONE sentence, standing in the picture under the

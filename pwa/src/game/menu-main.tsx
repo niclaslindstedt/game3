@@ -52,8 +52,10 @@
 //   OPTIONS    → the knobs the game actually has (menu-options.tsx), and
 //                behind one of its rows the keyboard's bindings
 //                (menu-keys.tsx).
-//   DEVELOPER  → hidden until RACE has been HELD for seven seconds
-//                (menu-hold.ts, `DEV_HOLD_MS`), and out for good once found.
+//   DEVELOPER  → hidden until the craft card's turntable has been HELD for
+//                seven seconds (menu-hold.ts, `DEV_HOLD_MS`), and out for
+//                good once found. Nothing on THIS card opens it; the chip
+//                simply appears here once it has been.
 //
 // THE DOOR LAYS ITSELF OUT ALONG WHICHEVER AXIS HAS ROOM. A phone held
 // UPRIGHT has height and no width, so the hero takes a row of its own and
@@ -64,26 +66,23 @@
 // is that the DOM is one order and one markup either way, so there is no
 // second door to keep in step.
 //
-// The hold is on RACE and not on the wordmark or a corner because a secret
-// nobody can be told about is a secret nobody finds: "hold the button you
-// already press" is one sentence long and needs no diagram. THE TILE SAYS
-// NOTHING WHILE IT IS HELD — no fill, no change of word. A door meant to stay
-// hidden cannot advertise itself to everybody who rests a thumb on START, so
-// the only way through it is knowing where to press; the DEVELOPER chip
-// appearing is the whole of the answer, and `menu-said` below is the moment's
-// one.
+// NO TILE ON THIS CARD IS HELD. The hold that lets the developer menu out
+// used to sit on RACE, which meant a tile whose ordinary job is to start a
+// run had to decide whether a lifted finger was a press — and it fired
+// silently, on a card with nothing on it that could answer. It is on the
+// CRAFT CARD's turntable now (craft-picker.tsx): a picture a press does
+// nothing to, which can therefore say YES by whipping the hull round twice.
+// All that is left here is the chip appearing in the foot strip.
 //
 // WHICH page is up is a plain tagged union, and it lives next door
 // (`menu-page.ts`) so the URL reader can name one without reaching a `.tsx`;
 // this file re-exports it, so `MenuPage` still has one spelling.
 
-import { useEffect, useRef, useState } from "preact/hooks";
 import { GAME_MODES, type GameMode } from "@engine";
 
 import { APP_NAME, REPO_URL } from "../identity.ts";
 import { MarkWave } from "./mark-wave.tsx";
-import { DEV_HOLD_MS, type Settings } from "./settings.ts";
-import { NO_HOLD, releaseHold, takePress, tickHold, type HoldState } from "./menu-hold.ts";
+import type { Settings } from "./settings.ts";
 import {
   campaignStanding,
   findLevel,
@@ -146,149 +145,11 @@ const MODE_GLYPHS: Record<GameMode, GlyphName> = {
   free: "compass",
 };
 
-/**
- * RACE — a press that opens the start card set up for a race, and a
- * seven-second hold that opens the developer menu (see this module's header
- * for why it is this tile).
- *
- * THE PRESS IS TAKEN ON `click`, NOT ON `pointerup`, and that is what makes
- * the tile reachable three ways at once. A pointer, a key and `menu-nav.ts`'s
- * cursor all end in a click; only the first of them has pointer events at
- * all. So the pointer and key handlers do nothing but run the HOLD, and the
- * click is where the card actually opens — with `holdRelease` deciding
- * whether this particular click is one, because a hold that has already
- * unlocked something must not also walk off the page it just unlocked.
- */
-function HoldTile({
-  glyph,
-  label,
-  unlocked,
-  onStart,
-  onUnlock,
-}: {
-  glyph: GlyphName;
-  /** The tile's word, already in the strings table's casing. */
-  label: string;
-  unlocked: boolean;
-  onStart: () => void;
-  onUnlock: () => void;
-}) {
-  const [hold, setHold] = useState<HoldState>(NO_HOLD);
-  // The hold as the CLICK will read it. `hold` is state, and a click arrives
-  // in the same task as the release that ended it — before the render that
-  // would have shown it — so the decision is taken off a ref written
-  // synchronously beside every `setHold`.
-  const holdRef = useRef<HoldState>(NO_HOLD);
-  const put = (next: HoldState): void => {
-    holdRef.current = next;
-    setHold(next);
-  };
-
-  // ONE TIMER FOR THE WHOLE HOLD, not a tick a tenth of a second. Nothing is
-  // drawn while the finger is down, so there is no fraction to redraw and the
-  // only moment that matters is the one the hold completes at — which is a
-  // known time away. `tickHold` is still what decides it: the rule lives in
-  // the DOM-free module the tests read, and this only says when to ask.
-  useEffect(() => {
-    if (hold.from === null || hold.armed) return;
-    const left = DEV_HOLD_MS - (performance.now() - hold.from);
-    const timer = window.setTimeout(
-      () => {
-        const next = tickHold(hold, performance.now(), DEV_HOLD_MS);
-        if (next === hold) return;
-        put(next);
-        onUnlock();
-      },
-      left > 0 ? left : 0,
-    );
-    return () => window.clearTimeout(timer);
-    // `onUnlock` is a fresh closure each render and would restart the timer;
-    // the hold itself is the only thing this should answer to.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hold]);
-
-  const begin = (): void => {
-    if (hold.from !== null) return;
-    put({ from: performance.now(), armed: false });
-  };
-  // Letting go — including dragging the finger off the tile, which is how a
-  // player who changed their mind about the hold says so. A hold that FIRED
-  // stays armed across this: the click it is about to produce is the one it
-  // has to swallow, and `press` below is where it is spent.
-  const end = (): void => {
-    const released = releaseHold(holdRef.current);
-    put(released);
-    // ...AND IF NO CLICK EVER COMES FOR IT, IT IS SPENT ANYWAY, one task
-    // later. This is not belt and braces; it is the case that actually
-    // happens. A browser only raises `click` when the press and the release
-    // land on the same element, and the release that ARMS this hold is the
-    // one release guaranteed to change the card under the finger — the
-    // DEVELOPER tile appears and the receipt with it. Measured in Chromium:
-    // that release raises no click at all. An `armed` left standing then
-    // waits for the NEXT press and eats that instead, which is a START
-    // button that unlocks the developer menu once and never rides again.
-    //
-    // A timeout of zero is strictly after the click, because a click is
-    // dispatched synchronously with the release that causes it — so whichever
-    // of the two arrives, the flag is spent exactly once.
-    if (released.armed) {
-      window.setTimeout(() => {
-        if (holdRef.current.armed && holdRef.current.from === null) put(NO_HOLD);
-      }, 0);
-    }
-  };
-  /** The click, or the key coming back up: an ordinary press unless a
-   * completed hold is standing there to be spent on it. */
-  const press = (): void => {
-    const taken = takePress(holdRef.current);
-    put(taken.hold);
-    if (taken.press) onStart();
-  };
-
-  // Already unlocked: the hold has nothing left to open, so START is a plain
-  // button again. Leaving it armed would mean every long press on the way
-  // into a run re-running a thing that has already happened.
-  const holds = !unlocked;
-  return (
-    <button
-      type="button"
-      class="menu-tile menu-tile-mode"
-      data-menu="race"
-      // Only BEGINNING is gated on there being something left to unlock.
-      // The enders are always bound: a hold that armed on the last press has
-      // to be let go of even though the tile has stopped holding.
-      onPointerDown={holds ? begin : undefined}
-      onPointerUp={end}
-      onPointerLeave={end}
-      onPointerCancel={end}
-      // A key held down repeats, and the browser turns each repeat into a
-      // click — so the key path takes the press itself on the way UP and
-      // swallows the synthesised clicks, rather than starting a run on the
-      // first repeat of a hold that had six seconds left to run.
-      onKeyDown={(e) => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault();
-        if (!e.repeat && holds) begin();
-      }}
-      onKeyUp={(e) => {
-        if (e.key !== "Enter" && e.key !== " ") return;
-        e.preventDefault();
-        press();
-      }}
-      onClick={press}
-    >
-      <Glyph name={glyph} />
-      <span class="menu-tile-name">{label}</span>
-    </button>
-  );
-}
-
 function RootPage({
   settings,
   progress,
   onNavigate,
   onMode,
-  onUnlock,
 }: {
   settings: Settings;
   /** The board, for the one live figure on the door: how far up the ladder
@@ -299,9 +160,7 @@ function RootPage({
    * the way through rather than read back here: the tiles are a CHOICE, not
    * a ladder showing where the stored setting stands. */
   onMode: (mode: GameMode) => void;
-  onUnlock: () => void;
 }) {
-  const [said, setSaid] = useState(false);
   const standing = campaignStanding(progress);
   return (
     <div class="menu-card menu-card-root">
@@ -342,22 +201,7 @@ function RootPage({
             </span>
           </span>
         </button>
-        <HoldTile
-          glyph={MODE_GLYPHS.race}
-          label={STRINGS.modeName("race")}
-          unlocked={settings.developer}
-          onStart={() => {
-            onMode("race");
-            onNavigate({ page: cardBefore("race") });
-          }}
-          onUnlock={() => {
-            setSaid(true);
-            onUnlock();
-          }}
-        />
-        {/* RACE is the held one and is spelled out above; the other three
-            are the same press with no secret behind it. */}
-        {GAME_MODES.filter((mode) => mode !== "race").map((mode) => (
+        {GAME_MODES.map((mode) => (
           <button
             key={mode}
             type="button"
@@ -409,10 +253,6 @@ function RootPage({
         )}
         <VersionStamp />
       </div>
-      {/* Said once, on the visit where the hold actually landed. The tile
-          appearing is the lasting answer; this is the moment's one, so
-          nobody has to wonder whether the seven seconds did anything. */}
-      {said && <p class="menu-said">{STRINGS.menuUnlocked}</p>}
     </div>
   );
 }
@@ -458,7 +298,6 @@ export function MainMenu({
           progress={progress}
           onNavigate={onNavigate}
           onMode={(mode) => onSettings({ ...settings, ride: { ...settings.ride, mode } })}
-          onUnlock={() => onSettings({ ...settings, developer: true })}
         />
       )}
       {page.page === "campaign" && (

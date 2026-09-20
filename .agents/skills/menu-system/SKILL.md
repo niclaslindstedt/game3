@@ -1,6 +1,6 @@
 ---
 name: menu-system
-description: "Use when changing the SHELL the game lives inside — the attract card the app opens on, the front door and its START / OPTIONS / DEVELOPER rows, the seven-second hold that lets the developer menu out, an options or developer row, the loading card over a run being stood up, the pause card that holds a run mid-ride, how a card is walked on the keys, or anything the game REMEMBERS between visits (pwa/src/game/settings.ts). Owns the five-surface state machine in shell.ts and App.tsx, the DOM-free-payload split every card is built on, the rule that the sea never stops behind a card and the one card it does not hold for, and the `make screenshots SCENE=… --surface` loop that judges the result. Not the readouts over a run in progress — that is `hud-and-menus`."
+description: "Use when changing the SHELL the game lives inside — the attract card the app opens on, the front door and its CAMPAIGN / mode / OPTIONS / DEVELOPER tiles, the seven-second hold on the craft card's turntable that lets the developer menu out, an options or developer row, the loading card over a run being stood up, the pause card that holds a run mid-ride, how a card is walked on the keys, or anything the game REMEMBERS between visits (pwa/src/game/settings.ts). Owns the five-surface state machine in shell.ts and App.tsx, the DOM-free-payload split every card is built on, the rule that the sea never stops behind a card and the one card it does not hold for, and the `make screenshots SCENE=… --surface` loop that judges the result. Not the readouts over a run in progress — that is `hud-and-menus`."
 ---
 
 # The menu system: the shell the game lives inside
@@ -56,7 +56,7 @@ the door comes up over the shore the player was just on.
 | The head with the way out in it | `pwa/src/game/menu.tsx` |
 | THE ROW every setting on every surface is: `StepRow` (a named ladder, with its dealt mark), `FadeRow`, `NumberRow`, `KnobGroup`, `Caption` | `pwa/src/game/menu-knobs.tsx` |
 | The craft on a turntable, and what the card bills it at | `pwa/src/game/craft-picker.tsx` + `craft-turntable.ts` (three.js, a dynamic chunk) over `craft-stats.ts` (DOM-free) |
-| The seven-second hold on START | `pwa/src/game/menu-hold.ts` (the rule) + `menu-main.tsx` (the pointer, the key, the clock) |
+| The seven-second hold on the craft card's turntable, and the flourish that answers it | `pwa/src/game/menu-hold.ts` (the rule and the curve) + `craft-picker.tsx` (the pointer, the clock) + `craft-turntable.ts` (the hull turned by it) |
 | Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
 | Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
@@ -141,13 +141,18 @@ the door comes up over the shore the player was just on.
   against what this build offers (`mergeSettings`). A value off a ladder is
   one the menu has no stop to put the cursor back on, so the player can never
   return to it — `Object.assign` over the whole thing is the bug.
-- **A completed hold is not also a press, and `armed` must still be SPENT.**
-  The release that arms the hold is the one release certain to change the
-  card under the finger (the DEVELOPER row appears), and a browser raises no
-  `click` when press and release land on different elements — so the flag
-  waits for a press that never comes and eats the next real one instead. The
-  clock in `menu-main.tsx`'s `end` is what stops that; do not remove it
-  because "the click always arrives". It does not.
+- **A HOLD BELONGS ON SOMETHING A PRESS DOES NOTHING TO, AND IT OWES AN
+  ANSWER.** The seven-second hold sat on RACE for a while, and a button whose
+  ordinary job is to start a run has to decide whether the finger lifting off
+  it was a press — a release that changes the card under the finger raises no
+  `click` at all, so a flag held for one waits for a press that never comes
+  and eats the next real one. The craft card's TURNTABLE has neither problem:
+  nothing presses it, so there is nothing to swallow, and the hull is already
+  turning, so the card can answer without drawing anything new. It does —
+  `flourishRate` whips it round twice and settles it back (`menu-hold.ts`).
+  A hold that fires silently on a surface with nothing to say reads as a
+  feature that stopped working, which is how this one came to be reported
+  missing.
 - **EXACTLY ONE LIT CONTROL PER CARD, and the colour means one thing.** The
   buoy's orange is the way ON; a second orange control on the same surface
   does not double the invitation, it cancels it — the eye is handed a choice
