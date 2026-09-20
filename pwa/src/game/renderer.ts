@@ -167,10 +167,12 @@ export type GameRenderer = {
 export function createRenderer(
   canvas: HTMLCanvasElement,
   initialVideo: VideoSettings = DEFAULT_VIDEO,
-  /** WHETHER THE PLAYER IS IN THE PICTURE AT ALL — his hull and the rider on
-   * it, the lamps it carries and the pool they throw, the trail it lays in
-   * the map, the spray it throws, and both guides drawn for him. False draws
-   * the world with nobody on it.
+  /** WHAT OF THE RUN REACHES THE FRAME. `player` is his hull and the rider
+   * on it, the lamps it carries and the pool they throw, the trail it lays
+   * in the map, the spray it throws, and both guides drawn for him.
+   * `course` is the gate marks, the rings, the ramps under them, the
+   * rounding buoys and the lamps any of those throw on the water. With both
+   * false the frame is the COAST and nothing that was put on it.
    *
    * It draws less; it does not SIMULATE less. The run is stood up, stepped
    * and ridden exactly as it would be — the camera is still the chase rig on
@@ -178,15 +180,22 @@ export function createRenderer(
    * and the sea still carries the wash he is laying in it, because that is
    * the engine's water and not a mark on a map.
    *
-   * TAKEN AT THE BUILD AND NEVER AFTERWARDS, because the `?player=0` behind
-   * it is read once off the URL (`url-params.ts`) and no surface can move
-   * it. A setter would have to answer what becomes of the trail already in
-   * the map and the spray already in the air halfway through a run; an
-   * argument cannot be asked the question. It belongs to the coast banners
-   * (`make coasts`), where the subject is the SHORE and a craft in frame is
-   * the wrong thing to be looking at. */
-  playerShown = true,
+   * TAKEN AT THE BUILD AND NEVER AFTERWARDS, because the `?player=0` and
+   * `?course=0` behind them are read once off the URL (`url-params.ts`) and
+   * no surface can move either. A setter would have to answer what becomes
+   * of the trail already in the map and the spray already in the air
+   * halfway through a run; an argument cannot be asked the question. The
+   * SHAPE is declared here rather than imported from `url-params.ts`, which
+   * is deliberately three-free and read by the suite: what the renderer
+   * needs is two booleans, and saying so keeps the arrow pointing one way.
+   *
+   * Both belong to the coast banners (`make coasts`), where the subject is
+   * the shore itself — a craft in the middle of the frame is the wrong thing
+   * to be looking at, and a line of buoys down it is one RIDE over a coast
+   * where the row is offering the coast. */
+  drawn: { player: boolean; course: boolean } = { player: true, course: true },
 ): GameRenderer {
+  const { player: playerShown, course: courseShown } = drawn;
   let video = initialVideo;
   const renderer = new THREE.WebGLRenderer({
     canvas,
@@ -375,6 +384,13 @@ export function createRenderer(
       flora.group.name = "cover";
       gates.group.name = "gates";
       buoys.group.name = "buoys";
+      // THE COURSE, OFF AT THE GROUP rather than through `setCourse`: that
+      // one puts the rings and the cans away and deliberately LEAVES THE
+      // RAMPS, because a tricks run is a line of decks with no ring over any
+      // of them (R35). A banner wants the deck gone too — a plank floating
+      // on an empty sea is stranger than the course it belonged to.
+      gates.group.visible = courseShown;
+      buoys.group.visible = courseShown;
       guide.group.name = "guide";
       fauna.group.name = "fauna";
       birds.group.name = "birds";
@@ -657,7 +673,7 @@ export function createRenderer(
     // it has to be told before it draws.
     water.setWell(craft && playerShown ? wellCut : null, c);
     cost.waterMs = water.update(state, c.x, c.z, frustum);
-    gates?.update(state, camera);
+    if (courseShown) gates?.update(state, camera);
     edgeNet?.update(state, dt);
     // THE GUIDE LINE, along the course's own line from the checkpoint behind
     // the rider to the one ahead. It reads the ENGINE's own water (`surfaceAt`
@@ -665,15 +681,19 @@ export function createRenderer(
     // dash two hundred metres out lies on the wave that is actually there and
     // not on the nearest ring of a grid that has thinned by then.
     guide.update(state, (x, z, out) => surfaceAt(state.sea, state.level, x, z, state.t, out));
-    buoys?.update(state, camera);
+    if (courseShown) buoys?.update(state, camera);
     // R31 — THE LAMPS ON THE SEA. The gate marks and the rounding buoys
     // both throw a pool, the water can carry four of them, and which four
     // is decided by range from the craft rather than by which list they
     // came out of: a gate mark five metres away lights more water than a
-    // rounding buoy across the bay.
+    // rounding buoy across the bay. A course that is not drawn throws none:
+    // the pools are on the WATER rather than in the course's own group, so
+    // hiding the buoys alone would leave four lamps burning on an empty sea.
     if (gates || buoys)
       water?.setBuoyLamps(
-        nearestLamps(gates?.lamps ?? NO_LAMPS, buoys?.lamps ?? NO_LAMPS, c.x, c.z),
+        courseShown
+          ? nearestLamps(gates?.lamps ?? NO_LAMPS, buoys?.lamps ?? NO_LAMPS, c.x, c.z)
+          : NO_LAMPS,
       );
     // How far the rider can see into the water is the water mesh's answer, and
     // it is 0 with the window closed — so a closed window is also an empty sea
@@ -731,8 +751,10 @@ export function createRenderer(
       lamps.setAboard(isEyeCamera(rig.mode()));
       water.setLamp(lamps.light);
     }
-    gates?.setNight(p.lamps);
-    buoys?.setNight(p.lamps);
+    if (courseShown) {
+      gates?.setNight(p.lamps);
+      buoys?.setNight(p.lamps);
+    }
 
     // THE WAKE'S PASS: the trail rasterised into the map the water reads,
     // before anything reads it.

@@ -19,17 +19,23 @@
 // rung because it is the one rung that has the coast, the sea and the sky in
 // frame at once.
 //
-// AND NOBODY IS ON THE WATER IN IT (`?player=0`). The run is ridden all the
-// same — the rig is a CHASE camera, so the hull is what puts the lens on the
-// water a rider would be looking at, and taking it out of the picture is the
-// only way to keep that framing without the craft in shot. What the row is
-// asking is WHICH COAST, and every answer to it is in the water, the light
-// and the shore; a craft in the middle of the frame is a different question
-// (the craft card asks it, over a turntable, with four answers) and it comes
-// with two lies attached — it is one arbitrary hull the picker is not
-// choosing here, and it drags the guide line out behind it, which is a HUD
-// readout that happens to be drawn in the water. A dashed line down the
-// middle of a coast is a course, and a course is the level card's job.
+// AND NOBODY IS ON THE WATER IN IT, ON NO COURSE (`?player=0&course=0`).
+// The run is ridden all the same — the rig is a CHASE camera, so the hull is
+// what puts the lens on the water a rider would be looking at, and taking it
+// out of the picture is the only way to keep that framing without the craft
+// in shot.
+//
+// What the row is asking is WHICH COAST, and every answer to it is in the
+// water, the light and the shore. A craft in the middle of the frame is a
+// different question — the craft card asks it, over a turntable, with four
+// answers — and it is one arbitrary hull the picker is not choosing here.
+// The COURSE is a different question again: a line of gate marks, a ring on
+// its ramp and a rounding buoy are one RIDE laid over this coast, and a
+// shore is nine of them. A row that showed one would be advertising the
+// water the row is not about, which is the same mistake as putting a single
+// level's layout behind it — and the row already has a layout under it on
+// every box. The guide line went with the craft for a third reason: it is a
+// HUD readout that happens to be drawn in the water.
 //
 // Everything about the frame comes off switches the game already has, so the
 // picture is the game's own and not a special renderer's:
@@ -237,9 +243,12 @@ for (const shore of SHORES) {
     camera: args.camera,
     shot: "1",
     probe: "0",
-    // Nobody on the water — the hull, its rider, its trail, its spray and
-    // both guides drawn for him. See the header.
+    // Nobody on the water, and nothing laid out on it — the hull, its rider,
+    // its trail, its spray and both guides drawn for him; the gate marks,
+    // the rings, the ramps, the cans and the lamps they throw. See the
+    // header.
     player: "0",
+    course: "0",
     // The shop window, drawn at the top of every ladder — see the header.
     water: "high",
     res: "high",
