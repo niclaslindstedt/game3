@@ -17,6 +17,7 @@ import {
   BODY,
   DYNAMICS,
   HAUL,
+  POSE_RANGE,
   REST_READ,
   STANCE,
   createRiderDynamics,
@@ -26,6 +27,7 @@ import {
   riderHaul,
   solveLimb,
   sub,
+  worthPosing,
   type P,
   type RiderRead,
 } from "../pwa/src/game/rider-pose.ts";
@@ -587,5 +589,40 @@ describe("the haul", () => {
       last = away;
     }
     expect(last).toBeLessThan(0.1);
+  });
+});
+
+describe("which riders are worth rebuilding (worthPosing)", () => {
+  // Posing a rider re-emits the whole figure into its buffers, and a race
+  // does that for twelve men every frame. It was 20% of a measured frame,
+  // and most of it was spent on men who were not on screen.
+
+  it("does not rebuild a rider the lens cannot see, however close he is", () => {
+    expect(worthPosing(0, false)).toBe(false);
+    expect(worthPosing(5, false)).toBe(false);
+    // …and the near ones it CAN see are the whole point of the rule.
+    expect(worthPosing(0, true)).toBe(true);
+    expect(worthPosing(5, true)).toBe(true);
+  });
+
+  it("stops at the range a pose stops being legible, not at the draw distance", () => {
+    expect(worthPosing(POSE_RANGE - 1, true)).toBe(true);
+    expect(worthPosing(POSE_RANGE, true)).toBe(true);
+    expect(worthPosing(POSE_RANGE + 1, true)).toBe(false);
+    // A craft is still DRAWN well past this: what stops is re-solving the
+    // man on it, who is some twenty pixels tall out there.
+    expect(POSE_RANGE).toBeGreaterThan(50);
+    expect(POSE_RANGE).toBeLessThan(200);
+  });
+
+  it("is a question about this frame alone, with nothing remembered", () => {
+    // A rider who comes back into the lens is posed on the first frame he is
+    // in it — his springs never stopped (`observe`), so what he is posed
+    // from is a body that went on answering the hull while he was away.
+    // Nothing here may depend on what was asked last frame.
+    for (const metres of [0, 10, POSE_RANGE, POSE_RANGE * 2]) {
+      expect(worthPosing(metres, true)).toBe(worthPosing(metres, true));
+      expect(worthPosing(metres, false)).toBe(false);
+    }
   });
 });
