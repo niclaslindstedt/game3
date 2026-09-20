@@ -36,6 +36,7 @@
 
 import type { BenchSample } from "./benchmark-index.ts";
 import {
+  GPU_NAME_CAP,
   noMachine,
   noTotals,
   type FramePhases,
@@ -105,12 +106,6 @@ export type BenchmarkRecord = {
   washSources: number;
 };
 
-/** How much of a stored driver name is kept. It is printed straight into a
- * report somebody pastes, and a real one is a few dozen characters — a
- * hand-edited store must not be able to put a page of text in the middle of
- * a table. */
-const GPU_NAME_CAP = 64;
-
 /** Round to `READING_DP`, dropping anything that is not a number: a reading
  * out of a hand-edited store must not reach the graph as a NaN, which draws
  * as a line that vanishes. */
@@ -160,8 +155,8 @@ function totals(value: unknown): RunTotals {
 }
 
 /** …and what drew it. A string out of a hand-edited store is capped rather
- * than trusted: it is printed straight into a report somebody pastes, and a
- * driver name is a few dozen characters. */
+ * than trusted, to the same `GPU_NAME_CAP` the live read applies — a run has
+ * to say the same thing on the card and out of the history. */
 function machine(value: unknown): Machine {
   const none = noMachine();
   if (!value || typeof value !== "object") return none;

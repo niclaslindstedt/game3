@@ -34,6 +34,7 @@ import {
   type BenchSample,
 } from "../pwa/src/game/benchmark-index.ts";
 import {
+  GPU_NAME_CAP,
   benchmarkReport,
   big,
   median,
@@ -471,6 +472,25 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
     expect(text).toContain("8 cores");
     expect(text).toContain("1.00 ms clock");
     expect(text).toContain("Test GPU");
+  });
+
+  it("KEEPS A WHOLE DRIVER NAME — the part that identifies the hardware is at the END", () => {
+    // Measured off a real context: a driver through ANGLE spells out the
+    // backend, the device and its id, and runs to ninety-odd characters. A
+    // cap that trims one throws away the only half worth reading.
+    const real =
+      "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero) (0x0000C0DE)), SwiftShader driver)";
+    expect(real.length).toBeLessThanOrEqual(GPU_NAME_CAP);
+    const kept = mergeBenchmarks([
+      { ...record(1, 100, []), machine: { cores: 4, clockMs: 0.1, gpu: real } },
+    ]);
+    expect(kept[0].machine.gpu).toBe(real);
+    // …and a store somebody pasted a page of text into is still bounded, so
+    // it cannot run through the middle of the report's table.
+    const flood = mergeBenchmarks([
+      { ...record(1, 100, []), machine: { cores: 4, clockMs: 1, gpu: "x".repeat(9000) } },
+    ]);
+    expect(flood[0].machine.gpu.length).toBe(GPU_NAME_CAP);
   });
 
   it("names the WASH SOURCES beside the hulls, which no scene walk can see", () => {

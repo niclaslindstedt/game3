@@ -206,6 +206,23 @@ export type Machine = {
   gpu: string;
 };
 
+/** HOW MUCH OF A DRIVER NAME IS KEPT, characters.
+ *
+ * Stated here, beside the field, because BOTH ends need it and they are two
+ * modules that cannot share one otherwise: `machine.ts` caps what it reads
+ * off the context, and `benchmark-history.ts` caps what it reads back out of
+ * a store anybody can edit. Capping only the store was a bug — the same run
+ * then read one way on the card and another way out of the history.
+ *
+ * 128 rather than something tidier because a real name is longer than it
+ * looks: a desktop driver through ANGLE spells out the backend, the device
+ * and its id — "ANGLE (Google, Vulkan 1.3.0 (SwiftShader Device (Subzero)
+ * (0x0000C0DE)), SwiftShader driver)" is 91 on its own — and the part that
+ * identifies the hardware is at the END, so a cap that trims is a cap that
+ * throws away the only bit worth reading. It is a bound against a hand-edited
+ * store putting a page of text through the middle of a table, not a budget. */
+export const GPU_NAME_CAP = 128;
+
 /** Nothing known about the machine — the shape a stored record from an
  * older build reads back as. */
 export function noMachine(): Machine {

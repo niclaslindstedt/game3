@@ -26,7 +26,7 @@
 // from the same driver and is thrown away in the same breath, which keeps a
 // reporting concern out of the module that owns the picture.
 
-import { type Machine, noMachine } from "./benchmark-report.ts";
+import { GPU_NAME_CAP, type Machine, noMachine } from "./benchmark-report.ts";
 
 /** How many times the clock probe waits for the clock to move. Several
  * rather than one because the first wait can land just before a tick and
@@ -81,7 +81,11 @@ function gpuName(gl: WebGLRenderingContext | WebGL2RenderingContext): string {
   const unmasked = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : null;
   const plain = gl.getParameter(gl.RENDERER);
   const name = typeof unmasked === "string" && unmasked !== "" ? unmasked : plain;
-  return typeof name === "string" ? name : "";
+  // Capped HERE as well as on the way back out of the store, so a run reads
+  // the same on the card as it does out of the history. Measured: a driver
+  // through ANGLE runs to ninety-odd characters, which is why the cap is
+  // where it is rather than at a tidier number (`GPU_NAME_CAP`).
+  return typeof name === "string" ? name.slice(0, GPU_NAME_CAP) : "";
 }
 
 /** …asked of a context of its own, then given back. A 1×1 canvas is enough:
