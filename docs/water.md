@@ -368,7 +368,7 @@ McCowan's (1894) `H/d = 0.78` for a single solitary wave stays in `TUNING.sea.br
 
 ## Where the sea goes WHITE (`pwa/src/game/water-break.ts`)
 
-Breaking above is the ENGINE's clip — what the field is allowed to stand at. Which water is painted white is the renderer's, and it is a separate rule with its own module, three-free so the water mesh (per vertex, sown into `foam-field.ts`), `make surf` and `tests/water_break_test.ts` all read one statement of it.
+Breaking above is the ENGINE's clip — what the field is allowed to stand at. Which water is painted white is the renderer's, and it is a separate rule with its own module, three-free so the water mesh (per vertex, straight into the colour's alpha), `make surf` and `tests/water_break_test.ts` all read one statement of it.
 
 **Three things put white on a sea and they are not the same thing**, and the order below is the order of SIZE:
 
@@ -380,11 +380,13 @@ Breaking above is the ENGINE's clip — what the field is allowed to stand at. W
 
 The depth load is why no depth in metres appears anywhere: the engine already states the sea a depth can hold, so the honest measure of "is this water tripping the sea" is the sea's height over that ceiling. It is 0 in deep water and 1 exactly where `surfaceAt`'s clip bites, and it scales itself — a three-metre sea starts standing up in eleven metres of water and a half-metre one in under two.
 
-> **It used to be the other way round.** The shallow term read an absolute `smoothstep(2.2, 0.3, depth)`, which is a metre or two of water — the beach, not the surf line — so it never fired on anything a rider crossed; and the whitecaps opened at 7 m/s and were full by 14, which is inside R12's own 6–13 m/s band. Measured on seed 38 (`make surf`), **7.6 % of the open water inside the level was white and none of the surf line was** — the 4.1 % standing over the course was 3.4 points of whitecap and 0.7 of spilling crest, with the shoal term contributing exactly nothing. That is an ocean painted like a snowfield in front of a clean beach, which is exactly backwards from what a rider sees. The same seed now reads 1.7 % offshore and 2.1 % over the water a course is ridden on, and that 2.1 is 2.0 points of surf.
+> **It used to be the other way round.** The shallow term read an absolute `smoothstep(2.2, 0.3, depth)`, which is a metre or two of water — the beach, not the surf line — so it never fired on anything a rider crossed; and the whitecaps opened at 7 m/s and were full by 14, which is inside R12's own 6–13 m/s band. Measured on seed 38 (`make surf`), **7.6 % of the open water inside the level was white and none of the surf line was** — the 4.1 % standing over the course was 3.4 points of whitecap and 0.7 of spilling crest, with the shoal term contributing exactly nothing. That is an ocean painted like a snowfield in front of a clean beach, which is exactly backwards from what a rider sees. The same seed now reads 0.0 % offshore and 0.1 % over the water a course is ridden on, and all of that 0.1 is surf.
 
 Real whitecap coverage is the check on the caps: Monahan & O'Muircheartaigh (1980) measure `W ≈ 3.84·10⁻⁶·U^3.41`, about 1 % of the surface at 10 m/s and 4 % at 15 — a scatter — while the surf off a beach is continuous white. The wind band is the only thing that tells a coast from a gale, because the other two gates are shares of the sea's own height and read the same on any sea; the storm past the rim (`open.wind` = 25 m/s) still reads all of it.
 
 The tilt bands are held against the SEA'S OWN characteristic tilt as well as an absolute one, and the wider wins: a big quoted swell is steep over its whole face by construction, and an absolute band paints every vertex of a twenty-metre sea white.
+
+**Nothing remembers a break.** The share is this point at this instant, and once the wave has rolled on the water behind it is green again. That is not the honest model of foam — a world point stands at the top of a wavelet for about a tenth of a second, and the air a crest drives under keeps the patch white for seconds after — and a memory did stand here for a while. It held the LOUDEST share over a cell metres across and over seconds of clock at once, which paints a hand's width of crest as a whole cell of white for as long as the memory runs: on seed 38 it drew a sheltered bay in 2.9 m/s of wind about nine tenths white, against the 0.8 % this rule asks for, and `make surf` agreed with the rule because it modelled the decay in TIME and never the smear in SPACE. A memory that spreads what it remembers is worse than none. If one comes back it is per POINT and per instant, in the mesh and in the lab on the same day.
 
 ## The surface (`surfaceAt`)
 
