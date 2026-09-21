@@ -31,7 +31,7 @@
 // The head and the body a page is hung on are still `menu.tsx`'s.
 
 import type { ComponentChildren } from "preact";
-import { useRef, useState } from "preact/hooks";
+import { useEffect, useRef, useState } from "preact/hooks";
 
 import { Glyph, type GlyphName } from "./menu-glyphs.tsx";
 import { STRINGS } from "./strings.ts";
@@ -348,6 +348,20 @@ export function NumberRow({
   // the draft is read from a ref in the handlers: a stale one in the second of
   // them would commit the same number twice and rebuild the chart for it.
   const draftRef = useRef<string | null>(null);
+  const fieldRef = useRef<HTMLInputElement | null>(null);
+  // THE FIELD HANDS THE KEYBOARD BACK ON ITS WAY OUT. This row is the only
+  // typed field in the game and it lives on a card that goes away the moment
+  // the rider presses on — taking a focused input off the page with it. A
+  // browser asked to close a keyboard that way can put the keys away and
+  // leave the page still slid up under where they were (`visible-viewport.ts`
+  // says what that costs), and `focusout` never fires to say so. Blurring it
+  // first makes the exit an ordinary one.
+  useEffect(() => {
+    const field = fieldRef.current;
+    return () => {
+      if (field && document.activeElement === field) field.blur();
+    };
+  }, []);
   const describe = (): void => onHint?.(says(label, hint));
   const clamp = (next: number): number => Math.min(max, Math.max(min, next));
   const step = (dir: 1 | -1): void => {
@@ -382,6 +396,7 @@ export function NumberRow({
         </button>
         <span class="knob-value">
           <input
+            ref={fieldRef}
             class="knob-word knob-field"
             type="text"
             inputMode="numeric"

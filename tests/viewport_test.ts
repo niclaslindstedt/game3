@@ -6,7 +6,14 @@
 // matters is that a rotated box is never mistaken for the box it replaced.
 import { describe, expect, it } from "vitest";
 
-import { MAX_DPR, MIN_DPR, sameViewport, viewportOf } from "../pwa/src/lib/viewport.ts";
+import {
+  MAX_DPR,
+  MIN_DPR,
+  sameBox,
+  sameViewport,
+  viewportOf,
+  visibleBox,
+} from "../pwa/src/lib/viewport.ts";
 import { RESOLUTION_SCALE } from "../pwa/src/game/settings-video.ts";
 
 describe("viewportOf", () => {
@@ -80,5 +87,81 @@ describe("sameViewport", () => {
 
   it("sees a ratio change under an unchanged box", () => {
     expect(sameViewport(portrait, viewportOf(390, 844, 1))).toBe(false);
+  });
+});
+
+describe("visibleBox", () => {
+  // An iPhone held on its side, and the software keyboard that takes about
+  // 245 of its 393 CSS px: the page stays laid out at 393, the visible window
+  // is 148 tall and sits at the BOTTOM of it.
+  const KEYBOARD = { height: 148, offsetTop: 245, scale: 1 };
+
+  it("is the whole layout viewport when the two agree", () => {
+    expect(visibleBox({ height: 393, offsetTop: 0, scale: 1 }, 393)).toEqual({
+      top: 0,
+      height: 393,
+      bottom: 0,
+    });
+  });
+
+  it("is the whole layout viewport with no visual viewport to measure", () => {
+    expect(visibleBox(null, 720)).toEqual({ top: 0, height: 720, bottom: 0 });
+  });
+
+  it("reports where a keyboard has left the visible window", () => {
+    expect(visibleBox(KEYBOARD, 393)).toEqual({ top: 245, height: 148, bottom: 0 });
+  });
+
+  it("accounts for every px of the layout viewport", () => {
+    const box = visibleBox({ height: 120, offsetTop: 60, scale: 1 }, 393);
+    expect(box.top + box.height + box.bottom).toBe(393);
+  });
+
+  it("ignores a pinch-zoomed window, which is a lens and not a smaller screen", () => {
+    expect(visibleBox({ height: 196, offsetTop: 90, scale: 2 }, 393)).toEqual({
+      top: 0,
+      height: 393,
+      bottom: 0,
+    });
+  });
+
+  it("rounds to whole px", () => {
+    expect(visibleBox({ height: 147.6, offsetTop: 245.4, scale: 1 }, 392.7)).toEqual({
+      top: 245,
+      height: 148,
+      bottom: 0,
+    });
+  });
+
+  it("never reports a window taller than the viewport it sits in", () => {
+    const box = visibleBox({ height: 900, offsetTop: 100, scale: 1 }, 393);
+    expect(box.height).toBe(293);
+    expect(box.bottom).toBe(0);
+  });
+
+  it("never reports a window with no height", () => {
+    // A visual viewport measured between layouts reads 0, and a shell with no
+    // height is a black screen that nothing later re-measures.
+    expect(visibleBox({ height: 0, offsetTop: 0, scale: 1 }, 393).height).toBe(1);
+  });
+
+  it("never reports a negative offset", () => {
+    expect(visibleBox({ height: 393, offsetTop: -20, scale: 1 }, 393).top).toBe(0);
+  });
+});
+
+describe("sameBox", () => {
+  const box = { top: 245, height: 148, bottom: 0 };
+
+  it("has no opinion until a box has been worn", () => {
+    expect(sameBox(null, box)).toBe(false);
+  });
+
+  it("holds the shell still through a scroll that moved nothing", () => {
+    expect(sameBox({ ...box }, box)).toBe(true);
+  });
+
+  it("acts on a window that has moved without changing size", () => {
+    expect(sameBox({ top: 0, height: 148, bottom: 245 }, box)).toBe(false);
   });
 });
