@@ -67,12 +67,26 @@
      `:root`'s own `--hud-map` and would keep the landscape map's proportions
      on a phone held upright. */
   --hud-mini-gap: 0.3rem;
+
+  /* WHERE THE PAGE IS VISIBLE. `--shell-height` is how tall the viewport is,
+     and stays a UNIT — only a unit can reach past the layout viewport to the
+     physical bottom of an iOS screen (the block below). The other two are how
+     far the visible window has been pushed off the viewport's top and bottom
+     edges, which no unit can say: `lib/visible-viewport.ts` measures them and
+     writes them here in px. Both are 0 whenever the browser is showing the
+     whole page, which is nearly always — so `--shell-visible` is then the
+     viewport's own height and every box below is laid out exactly as it would
+     be without any of this. */
+  --shell-top: 0px;
+  --shell-bottom: 0px;
+  --shell-height: 100%;
+  --shell-visible: calc(var(--shell-height) - var(--shell-top) - var(--shell-bottom));
 }
 
 html,
 body {
   margin: 0;
-  height: 100%;
+  height: var(--shell-height);
   overflow: hidden;
   overscroll-behavior: none;
   background: var(--sea);
@@ -103,6 +117,8 @@ body {
 #root {
   position: fixed;
   inset: 0;
+  top: var(--shell-top);
+  height: var(--shell-visible);
   z-index: 1;
 }
 
@@ -112,18 +128,25 @@ canvas {
   height: 100%;
 }
 
-/* iOS EDGE TO EDGE. A fixed, non-scrolling shell laid out with `inset: 0`
-   stops at the LAYOUT viewport, which on iOS leaves a dead band along the
-   bottom of the screen — the game paints down to the layout edge and `body`'s
-   own `--sea` fills the rest, a flat blue strip under the instrument panel.
-   Percentage heights (`height: 100%`) land in the same place for the same
-   reason: the document stops at the letterboxed viewport instead of reaching
-   under the home indicator. An explicit viewport height is what carries the
-   shell to the physical bottom — `#root` is over-constrained by it (`top`
-   plus `height` wins, `bottom` is dropped), and the canvas, the HUD's ground
-   and the renderer's `ResizeObserver` all follow the box they sit in. Nothing
-   is pushed out of reach, because every pinned instrument is anchored with
+/* iOS EDGE TO EDGE, and the fallback under the measured shell. A fixed,
+   non-scrolling shell laid out with `inset: 0` stops at the LAYOUT viewport,
+   which on iOS leaves a dead band along the bottom of the screen — the game
+   paints down to the layout edge and `body`'s own `--sea` fills the rest, a
+   flat blue strip under the instrument panel. Percentage heights
+   (`height: 100%`) land in the same place for the same reason: the document
+   stops at the letterboxed viewport instead of reaching under the home
+   indicator. An explicit viewport height is what carries the shell to the
+   physical bottom — `#root` is over-constrained by it (`top` plus `height`
+   wins, `bottom` is dropped), and the canvas, the HUD's ground and the
+   renderer's `ResizeObserver` all follow the box they sit in. Nothing is
+   pushed out of reach, because every pinned instrument is anchored with
    `env(safe-area-inset-*)`.
+
+   THIS IS THE ONLY THING THAT MAY BE A UNIT. `--shell-height` is how tall the
+   viewport is and is answered here for good; where the browser is showing the
+   page inside it is measured in JS and subtracted (the `:root` block at the
+   top). Writing a measured height over this instead would hand iOS back the
+   letterboxed viewport the unit exists to escape.
 
    INSTALLED vs BROWSER TAB is the whole subtlety. `100vh` is the LARGE
    viewport — the screen as it would be with the toolbars retracted. That is
@@ -147,12 +170,6 @@ canvas {
     :root {
       --shell-height: 100dvh;
     }
-  }
-
-  html,
-  body,
-  #root {
-    height: var(--shell-height);
   }
 }
 
@@ -2670,6 +2687,8 @@ canvas {
 .splash {
   position: fixed;
   inset: 0;
+  top: var(--shell-top);
+  height: var(--shell-visible);
   z-index: 2000;
   display: flex;
   flex-direction: column;
@@ -4208,7 +4227,7 @@ button.knob-read:focus-visible {
   --caption-pad: 0.45rem;
   position: fixed;
   left: 50%;
-  bottom: max(0.6rem, env(safe-area-inset-bottom));
+  bottom: calc(var(--shell-bottom) + max(0.6rem, env(safe-area-inset-bottom)));
   z-index: 1600;
   transform: translateX(-50%);
   width: min(44rem, calc(100vw - 2rem));

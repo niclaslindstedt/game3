@@ -3,6 +3,7 @@ import { render } from "preact";
 
 import "./styles.css";
 import { App } from "./App.tsx";
+import { watchVisibleViewport } from "./lib/visible-viewport.ts";
 
 // In dev no worker registers (`usePwaUpdate` runs disabled), but a worker
 // installed by a previous `vite preview` on this origin would keep serving
@@ -14,6 +15,11 @@ if (import.meta.env.DEV && "serviceWorker" in navigator) {
     .getRegistrations()
     .then((regs) => regs.forEach((reg) => void reg.unregister()));
 }
+
+// Before the first render, so the shell's very first layout is already over
+// the part of the screen the browser is showing rather than corrected a frame
+// into the session. It runs for the life of the page and is never stopped.
+watchVisibleViewport();
 
 const root = document.getElementById("root");
 if (!root) throw new Error("missing #root element");
