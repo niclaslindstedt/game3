@@ -256,6 +256,14 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     follow(next, 0);
     standingFall = fallOf(next.weather, cover);
     fall = standingFall;
+    // THE SHEET IS SET HERE WHATEVER THE SKY IS, including a dry one. The
+    // per-frame half below only runs while something is falling — there is
+    // nothing to carry along under a clear sky — so this is the one call that
+    // reaches a level whose weather puts no water in the air, and a level
+    // loaded after a wet one would otherwise keep the last one's rain
+    // standing in it: visible, frozen where the old lens left it, and paid
+    // for as a transparent sheet across the frame.
+    rain.setIntensity(fall * sheet);
     setFog();
   };
 
@@ -329,7 +337,10 @@ export function createEnvironment(scene: THREE.Scene): Environment {
     },
     setRainSheet: (share) => {
       sheet = share;
-      if (standingFall > 0) rain.setIntensity(fall * sheet);
+      // Unguarded, like the load above: under a dry sky `fall` is 0 and the
+      // product is the 0 the sheet already stands at, so the row needs no
+      // opinion about the weather to be applied.
+      rain.setIntensity(fall * sheet);
     },
     preset: () => preset,
     uniforms,

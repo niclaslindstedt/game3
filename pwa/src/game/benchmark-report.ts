@@ -101,6 +101,12 @@ export type FrameCost = {
    * the counts above are BIMODAL, which is the one shape a median has no
    * useful answer for (see `whatAFrameDraws`). */
   mirrorCalls: number;
+  /** …and the triangles under them. A pass that runs on EVERY frame has no
+   * split to show up in, so without this the dearest thing in the renderer is
+   * invisible in a report: the shore drawn a second time from under the water
+   * is routinely a third of the triangles in the frame, and nothing else in
+   * the block distinguishes it from the shore drawn the first time. */
+  mirrorTriangles: number;
   /** Compiled programs, and the geometries and textures resident. Not per
    * frame: what the shore is HOLDING, which is what a memory problem looks
    * like. */
@@ -477,14 +483,35 @@ function whatAFrameDraws(costs: readonly FramePhases[]): string[] {
       ? `${big(median(withMirror.map(read)))} with the mirror · ` +
         `${big(median(without.map(read)))} without`
       : big(median(costs.map(read)));
+  /** WHAT THE MIRROR'S OWN PASS PUT IN THAT FIGURE. A pass that runs on every
+   * frame disappears into a total: at REFLECTIONS ▸ SHARP the shore is drawn
+   * a second time from under the water on every picture, and nothing in the
+   * block says which part of the frame that was — a reader holding these
+   * counts against the scene's own tally has to do the subtraction to find
+   * it, and the scene's tally is not in the same units.
+   *
+   * Only where the split above does not already say it: where a run has both
+   * kinds of frame in it the pass IS the gap between the two figures, and a
+   * tail would state the same thing twice. Medianed over the frames the pass
+   * actually ran on, for the reason the split exists at all — a median that
+   * counted the skipped frames would land between the two and report a pass
+   * nobody drew. */
+  const ofMirror = (read: (frame: FramePhases) => number): string => {
+    if (split || withMirror.length === 0) return "";
+    const own = median(withMirror.map(read));
+    // A counter a record cannot answer stays quiet rather than reporting a
+    // pass that drew nothing: a history kept before this was billed reads
+    // back as zero (`benchmark-history.ts`).
+    return own > 0 ? `   of which the mirror's ${big(own)}` : "";
+  };
   const held = costs[costs.length - 1];
   return [
     split
       ? `PER FRAME, MEDIAN OVER THE RUN — and the mirror ran on ` +
         `${Math.round((withMirror.length / costs.length) * 100)}% of the readings`
       : "PER FRAME, MEDIAN OVER THE RUN",
-    `  draw calls   ${counter((f) => f.calls)}`,
-    `  triangles    ${counter((f) => f.triangles)}`,
+    `  draw calls   ${counter((f) => f.calls)}${ofMirror((f) => f.mirrorCalls)}`,
+    `  triangles    ${counter((f) => f.triangles)}${ofMirror((f) => f.mirrorTriangles)}`,
     `  programs     ${big(held.programs)}`,
     `  geometries   ${big(held.geometries)}`,
     `  textures     ${big(held.textures)}`,
