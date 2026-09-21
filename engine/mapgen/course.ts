@@ -165,13 +165,19 @@ export function gateBuoys(gate: Gate): Vec2[] {
  * inverse of `pointAlong`, and how anything holding a published `Level`
  * works out where on the path a gate, a hinge or a ring stands.
  *
- * R30 — `after` is what makes it work on a LAPPED course. There the same
- * water is ridden two or three times, so "the distance of gate G4" has two
- * or three answers and the nearest-point search returns the first of them
- * for every one of the copies — which reads as a course whose gates are all
- * in the same place. The gates are in course ORDER, so walking them with
- * each one's search starting where the last one ended gives each copy its
- * own lap's answer.
+ * R30 — `after` and `before` are what make it work on a LAPPED course.
+ * There the same water is ridden two or three times, so "the distance of
+ * gate G4" has two or three answers and the nearest-point search returns the
+ * first of them for every one of the copies — which reads as a course whose
+ * gates are all in the same place. The gates are in course ORDER, so walking
+ * them with each one's search starting where the last one ended gives each
+ * copy its own lap's answer.
+ *
+ * `before` is the other end of that, for a caller who knows which STRETCH
+ * the point is on — the leg a rider is riding, say. A floor alone leaves
+ * every later lap in the search, and the copies of one piece of water differ
+ * only in a float's last bits, so which one wins is arbitrary: the answer
+ * can be a whole lap downstream of the rider it was asked about.
  */
 export function distanceAlong(
   points: readonly Vec2[],
@@ -179,6 +185,7 @@ export function distanceAlong(
   x: number,
   z: number,
   after = 0,
+  before = Infinity,
 ): number {
   let best = Infinity;
   let at = after;
@@ -190,9 +197,11 @@ export function distanceAlong(
     const len2 = dx * dx + dz * dz;
     const len = Math.sqrt(len2);
     if (cum[i] + len < after) continue;
-    // The stretch of THIS segment that is still ahead of `after`.
+    if (cum[i] > before) break;
+    // The stretch of THIS segment that is still inside the window.
     const floor = len > 0 ? clamp((after - cum[i]) / len, 0, 1) : 0;
-    const t = len2 > 0 ? clamp(((x - a.x) * dx + (z - a.z) * dz) / len2, floor, 1) : 0;
+    const ceiling = len > 0 ? clamp((before - cum[i]) / len, floor, 1) : floor;
+    const t = len2 > 0 ? clamp(((x - a.x) * dx + (z - a.z) * dz) / len2, floor, ceiling) : 0;
     const d = Math.hypot(x - (a.x + dx * t), z - (a.z + dz * t));
     if (d < best) {
       best = d;
