@@ -12,8 +12,10 @@ import {
   botInput,
   createGame,
   distanceAlong,
+  gatePassPoint,
   placeRun,
   pointAlong,
+  polylineDistance,
   standCraft,
   step,
   type GameState,
@@ -21,7 +23,7 @@ import {
 
 import { BEHIND, REACH, guidePath, guideWindow } from "../pwa/src/game/guide-plan.ts";
 
-import { levelFor } from "./support/levels.ts";
+import { CIRCUIT_SEEDS, circuitFor, levelFor } from "./support/levels.ts";
 
 const SEED = 38;
 
@@ -61,6 +63,90 @@ describe("the guide line's path", () => {
       expect(path.gates[i]).toBeGreaterThan(path.gates[i - 1]);
     }
     expect(path.gates[path.gates.length - 1]).toBeLessThanOrEqual(path.length + 1e-6);
+  });
+});
+
+describe("the guide line at a rounding buoy", () => {
+  // R31 — a circuit's marks stand forty-odd metres OFF the loop they are
+  // drawn around, and the checkpoint there is taken by riding OUT to the can
+  // and crossing its abeam line on the prescribed side. A guide laid on the
+  // loop itself runs straight past the one mark on the course the rider has
+  // to go round, which is the one place it can be read as saying the wrong
+  // thing. These cases hold the bend that fixes it — and hold it to costing
+  // nothing anywhere else on the course.
+  it("leads the line out through the point the checkpoint is taken at", () => {
+    let marks = 0;
+    for (const seed of CIRCUIT_SEEDS) {
+      const level = circuitFor(seed);
+      const path = guidePath(level);
+      for (const gate of level.course.gates) {
+        if (gate.kind !== "slalom") continue;
+        const pass = gatePassPoint(gate);
+        // The line reaches the crossing point itself…
+        expect(polylineDistance(path.points, pass.x, pass.z)).toBeLessThan(0.05);
+        // …which puts it a STANDOFF off the can rather than the forty-odd
+        // metres of the loop it was drawn round. A quarter metre of slack
+        // for the resampled bend's own chords, which cut a hair inside the
+        // arc they are laid along.
+        const stand = polylineDistance(path.points, gate.x, gate.z);
+        expect(Math.abs(stand - (gate.standoff ?? 0))).toBeLessThan(0.25);
+        marks++;
+      }
+    }
+    expect(marks).toBeGreaterThan(0);
+  });
+
+  it("rounds the can on the side the colour prescribes", () => {
+    for (const seed of CIRCUIT_SEEDS) {
+      const level = circuitFor(seed);
+      const path = guidePath(level);
+      for (let i = 0; i < level.course.gates.length; i++) {
+        const gate = level.course.gates[i];
+        if (gate.kind !== "slalom") continue;
+        const at = pointAlong(path.points, path.cum, path.gates[i]);
+        // Lateral is positive to rider-right, so a can kept on the LEFT is
+        // one the line passes to the right of — the very reading
+        // `crossedGate` charges the crossing by.
+        const lateral =
+          (at.x - gate.x) * Math.cos(gate.heading) - (at.z - gate.z) * Math.sin(gate.heading);
+        expect(gate.rounding === "left" ? lateral : -lateral).toBeGreaterThan(0);
+      }
+    }
+  });
+
+  it("still threads every other checkpoint through its own centre", () => {
+    for (const seed of CIRCUIT_SEEDS) {
+      const level = circuitFor(seed);
+      const path = guidePath(level);
+      for (const gate of level.course.gates) {
+        if (gate.kind === "slalom") continue;
+        expect(polylineDistance(path.points, gate.x, gate.z)).toBeLessThan(0.05);
+      }
+    }
+  });
+
+  it("keeps every lap's stations in order on the line it bent", () => {
+    for (const seed of CIRCUIT_SEEDS) {
+      const level = circuitFor(seed);
+      const path = guidePath(level);
+      expect(path.gates.length).toBe(level.course.gates.length);
+      for (let i = 0; i < level.course.gates.length; i++) {
+        if (i > 0) expect(path.gates[i]).toBeGreaterThan(path.gates[i - 1]);
+        // Every gate stands where its own station says it does, lap two and
+        // lap three included: the laps pass the same water, so a station
+        // looked for again on the bent line can fall on the wrong one.
+        const pass = gatePassPoint(level.course.gates[i]);
+        const at = pointAlong(path.points, path.cum, path.gates[i]);
+        expect(Math.hypot(at.x - pass.x, at.z - pass.z)).toBeLessThan(0.05);
+      }
+      expect(path.gates[path.gates.length - 1]).toBeLessThanOrEqual(path.length + 1e-6);
+    }
+  });
+
+  it("leaves a course with nothing to round on its own line", () => {
+    const level = levelFor(SEED);
+    expect(level.course.gates.some((g) => g.kind === "slalom")).toBe(false);
+    expect(guidePath(level).points).toBe(level.course.path);
   });
 });
 

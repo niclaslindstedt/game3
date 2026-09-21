@@ -17,6 +17,15 @@
 // gate `i` and gate `i + lapGates` sit a lap apart on it rather than on top
 // of each other.
 //
+// THE COURSE'S OWN LINE IS NOT THE RIDDEN ONE AT A ROUNDING BUOY, and that
+// is the one place the two come apart. A circuit's marks stand forty-odd
+// metres OFF the loop they are drawn around (R31), and the checkpoint there
+// is taken by riding out to the can and crossing its abeam line on the
+// colour's prescribed side — so the loop runs straight past the very mark
+// the rider has to go round. `bendsOf` leads the line out through that
+// crossing point and back again, anchored at the checkpoints either side so
+// every other mark is still threaded exactly.
+//
 // A RUN WITH NO COURSE TO COUNT IS STILL RIDDEN ALONG THAT LINE. The tricks
 // field (R35) is laid on the racing line itself, out and back, so the same
 // stretch of the same path is the right thing to draw — what changes is that
@@ -28,6 +37,7 @@
 import {
   cumulative,
   distanceAlong,
+  gatePassPoint,
   pointAlong,
   type CraftState,
   type GameState,
@@ -67,19 +77,180 @@ export type GuidePath = {
 };
 
 export function guidePath(level: Level): GuidePath {
-  const points = level.course.path;
-  const cum = cumulative(points);
-  const gates = new Float64Array(level.course.gates.length);
-  // Each gate is looked for AFTER the one before it, which is what keeps a
-  // circuit's second lap on the second loop of the path instead of snapping
-  // back onto the first, where the same water is passed again.
+  const line = level.course.path;
+  const lineCum = cumulative(line);
+  const length = lineCum.length > 0 ? lineCum[lineCum.length - 1] : 0;
+  const gates = level.course.gates;
+  // Every gate's station on the course's OWN line, each looked for AFTER the
+  // one before it — which is what keeps a circuit's second lap on the second
+  // loop of the path instead of snapping back onto the first, where the same
+  // water is passed again.
+  const marks = new Float64Array(gates.length);
   let after = 0;
   for (let i = 0; i < gates.length; i++) {
-    const g = level.course.gates[i];
-    after = distanceAlong(points, cum, g.x, g.z, after);
-    gates[i] = after;
+    after = distanceAlong(line, lineCum, gates[i].x, gates[i].z, after);
+    marks[i] = after;
   }
-  return { points, cum, gates, length: cum.length > 0 ? cum[cum.length - 1] : 0 };
+  const bends = bendsOf(gates, marks, line, lineCum);
+  if (bends.length === 0) return { points: line, cum: lineCum, gates: marks, length };
+  return bentPath(line, lineCum, bends, marks);
+}
+
+/* ── THE ROUNDING ─────────────────────────────────────────────────────── */
+
+/** The angle the guide leaves the course's own line at to go out round a
+ * can, rad. The bend's LENGTH follows from this rather than being a number of
+ * its own: a cosine shoulder `span` metres long carrying an offset of `off`
+ * is at its steepest half way along, at `π · off / (2 · span)`, so holding
+ * the angle fixed is `span = off · π / (2 · tan LEAD)`. That is what keeps a
+ * mark lying fifty metres off the line and one lying forty reading as the
+ * same manoeuvre instead of the wide one reading as a swerve.
+ *
+ * Thirty degrees: a break off the line big enough to say "the mark is out
+ * there" at the range the dashes are read at, shallow enough that the line
+ * never doubles back across itself down the frame. */
+const LEAD = Math.PI / 6;
+
+/** How much line a rounding's shoulder gets per metre of offset — `LEAD`
+ * says why. It is a CEILING: a shoulder is cut short by the checkpoint
+ * standing nearer than that on either side. */
+const SHOULDER = Math.PI / (2 * Math.tan(LEAD));
+
+/** How finely a bend is resampled, m. The course's own line carries a vertex
+ * about every ten metres, which is a straight past a can rather than an arc
+ * round one — and where the checkpoint before a mark stands close the whole
+ * shoulder is three of those vertices, so an apex laid only on them can miss
+ * the crossing point altogether. Four metres is inside the dash stride, so
+ * the bend reads as a curve rather than as three long facets. */
+const BEND_STEP = 4;
+
+/** How near two samples have to stand to be the same one, m. A zero length
+ * segment is one the dash walk and `pointAlong` both divide by, and a
+ * millimetre is far under anything the line says. */
+const SAME = 1e-3;
+
+/** A rounding as the line is bent for it: the station of the can's own abeam
+ * plane on the course's line, the offset from there out to the point the
+ * rider crosses it at, and how much line the shoulder gets either side before
+ * the checkpoints there anchor it back onto the line. */
+type Bend = {
+  readonly at: number;
+  readonly dx: number;
+  readonly dz: number;
+  readonly back: number;
+  readonly ahead: number;
+};
+
+/** How much of a bend's offset stands at station `d`: all of it at the apex,
+ * none of it at the checkpoint either side, and a raised cosine between. The
+ * cosine is flat at BOTH ends of its half cycle, so the line leaves the
+ * course's own, tops out at the can and rejoins without a corner anywhere in
+ * it — which a triangular blend would have three of. */
+function bendShare(bend: Bend, d: number): number {
+  if (d === bend.at) return 1;
+  const span = d < bend.at ? bend.back : bend.ahead;
+  if (span <= 0) return 0;
+  const t = Math.abs(d - bend.at) / span;
+  return t >= 1 ? 0 : 0.5 * (1 + Math.cos(Math.PI * t));
+}
+
+/** Every rounding buoy on the course, as a bend of the line. Empty on a coast
+ * course, which has no marks to round — and that is what lets `guidePath`
+ * hand the course's own line straight back for one. */
+function bendsOf(
+  gates: Level["course"]["gates"],
+  marks: Float64Array,
+  points: readonly Vec2[],
+  cum: Float64Array,
+): Bend[] {
+  const length = cum.length > 0 ? cum[cum.length - 1] : 0;
+  const bends: Bend[] = [];
+  for (let i = 0; i < gates.length; i++) {
+    if (gates[i].kind !== "slalom") continue;
+    const at = marks[i];
+    const on = pointAlong(points, cum, at);
+    const pass = gatePassPoint(gates[i]);
+    const dx = pass.x - on.x;
+    const dz = pass.z - on.z;
+    const shoulder = Math.hypot(dx, dz) * SHOULDER;
+    // ANCHORED ON THE CHECKPOINTS EITHER SIDE. A shoulder run past one would
+    // pull the line off the mark standing there — off an air gate's ring, and
+    // off the ramp leading to it — so the bend is the rounding's alone and
+    // every other checkpoint is still threaded through its own centre. Where
+    // the leg is shorter than the shoulder wants, the course is asking for a
+    // harder break than `LEAD` and the line says so.
+    bends.push({
+      at,
+      dx,
+      dz,
+      back: Math.min(shoulder, at - (i > 0 ? marks[i - 1] : 0)),
+      ahead: Math.min(shoulder, (i + 1 < gates.length ? marks[i + 1] : length) - at),
+    });
+  }
+  return bends;
+}
+
+/** The course's line with every rounding bent into it, built once per level:
+ * the line's own vertices, every gate's station and a fine sample through
+ * each shoulder, each one carried out by whatever share of the bends reach
+ * it.
+ *
+ * THE GATES' STATIONS ARE CARRIED THROUGH rather than looked for again. A
+ * lapped course passes the same water two or three times, and on the course's
+ * own line the laps are identical to the last bit — so `distanceAlong` breaks
+ * the tie on the earliest, which is the lap being asked for. A bend is
+ * resampled per lap and the copies differ by a float's last bits, which is
+ * enough for that tie to fall the other way and put a gate a whole lap
+ * downstream. So each gate keeps the station it was measured at on the line,
+ * and what is read here is where the sample laid at it ended up. */
+function bentPath(
+  points: readonly Vec2[],
+  cum: Float64Array,
+  bends: readonly Bend[],
+  marks: Float64Array,
+): GuidePath {
+  const stations: number[] = [];
+  for (let i = 0; i < cum.length; i++) stations.push(cum[i]);
+  for (let i = 0; i < marks.length; i++) stations.push(marks[i]);
+  for (const bend of bends) {
+    for (let d = bend.at - bend.back; d < bend.at + bend.ahead; d += BEND_STEP) stations.push(d);
+  }
+  stations.sort((a, b) => a - b);
+  const kept: number[] = [];
+  const out: Vec2[] = [];
+  for (const d of stations) {
+    if (kept.length > 0 && d - kept[kept.length - 1] < SAME) continue;
+    const on = pointAlong(points, cum, d);
+    let x = on.x;
+    let z = on.z;
+    for (const bend of bends) {
+      const share = bendShare(bend, d);
+      x += bend.dx * share;
+      z += bend.dz * share;
+    }
+    kept.push(d);
+    out.push({ x, z });
+  }
+  const bentCum = cumulative(out);
+  const gates = new Float64Array(marks.length);
+  // A merge walk: both lists are in order, so the sample standing at a gate's
+  // station is never behind the one found for the gate before it.
+  let j = 0;
+  for (let i = 0; i < marks.length; i++) {
+    while (
+      j + 1 < kept.length &&
+      Math.abs(kept[j + 1] - marks[i]) <= Math.abs(kept[j] - marks[i])
+    ) {
+      j++;
+    }
+    gates[i] = bentCum[j];
+  }
+  return {
+    points: out,
+    cum: bentCum,
+    gates,
+    length: bentCum.length > 0 ? bentCum[bentCum.length - 1] : 0,
+  };
 }
 
 /** The stretch of the line the dashes are laid over, as stations along
@@ -144,7 +315,17 @@ export function guideWindow(path: GuidePath, state: GameState, aim: Vec2 | null)
   // taken. It anchors the craft's own station, so a lapped course reads the
   // leg being ridden rather than the same water one lap back.
   const from = counting && next > 0 ? path.gates[next - 1] : 0;
-  const here = distanceAlong(path.points, path.cum, state.craft.x, state.craft.z, from);
+  // THE SEARCH IS HELD TO THE LEG BEING RIDDEN. R30's lapped course passes
+  // the same water two and three times, and the copies differ by a float's
+  // last bits, so a search left to run on past the checkpoint ahead answers
+  // with whichever lap's copy happens to come out nearest — and a mark drawn
+  // a lap downstream is no mark at all. The rider is between the checkpoint
+  // behind them and the one ahead by construction: a plane crossed outside
+  // the opening charges the gate on the same step, so `nextGate` is never
+  // behind the hull. A run with no course to count rides a coast (R35),
+  // which passes nothing twice and needs no ceiling.
+  const to = counting ? path.gates[next] : Infinity;
+  const here = distanceAlong(path.points, path.cum, state.craft.x, state.craft.z, from, to);
   if (counting) {
     // A run that counts the course is drawn to the next mark AT LEAST, and
     // on past it down the line while the reach allows — which is what keeps
