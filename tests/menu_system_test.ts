@@ -41,6 +41,7 @@ import {
   type KeyAction,
 } from "../pwa/src/game/settings-input.ts";
 import { pickNeighbour, type NavRect } from "../pwa/src/game/menu-cursor.ts";
+import { createRunSurfaces, type RunSurfaceWorld } from "../pwa/src/game/run-surfaces.ts";
 import {
   PAUSE_STATS,
   pauseStats,
@@ -1425,5 +1426,77 @@ describe("a measured run rides a PINNED shore rather than a seed (new-game.ts)",
     expect(mergeSettings({ ride: { level: RACE_LEVEL.id } }).ride.level).toBe(RACE_LEVEL.id);
     expect(mergeSettings({ ride: { level: "atoll-1" } }).ride.level).toBeNull();
     expect(mergeSettings({ ride: { level: 7 } }).ride.level).toBeNull();
+  });
+});
+
+/* ── THE WAYS OUT OF A RUN (run-surfaces.ts) ──────────────────────────────
+   The six presses are pure bookkeeping over the app's own closures, so a
+   stub world reads exactly what each one did. */
+describe("the ways a run is left", () => {
+  /** A world that writes down what it was told, on a run that is a campaign
+   * rung unless told otherwise. */
+  function spy(onCampaign = true) {
+    const seen = {
+      pages: [] as string[],
+      shells: [] as string[],
+      leftCampaign: false,
+      ghostCleared: false,
+      tapeDropped: false,
+    };
+    const world: RunSurfaceWorld = {
+      settings: () => mergeSettings({}),
+      shell: () => "run",
+      setShell: (shell) => void seen.shells.push(shell),
+      unfreeze: () => {},
+      resumeClock: () => {},
+      restand: () => {},
+      onCampaign: () => onCampaign,
+      leaveCampaign: () => {
+        seen.leftCampaign = true;
+      },
+      setMenuPage: (page) => void seen.pages.push(page.page),
+      setResult: () => {},
+      abandon: () => {},
+      ghost: {
+        clear: () => {
+          seen.ghostCleared = true;
+        },
+      },
+      replays: {
+        watch: () => false,
+        clear: () => {
+          seen.tapeDropped = true;
+        },
+      },
+    };
+    return { seen, surfaces: createRunSurfaces(world) };
+  }
+
+  it("opens the front door itself when the press NAMES the root", () => {
+    // The pause card's row says MAIN MENU, so it names its card: landing on
+    // the campaign's coast list instead is a row that did not do what it
+    // said, whatever the run underneath happened to be.
+    const { seen, surfaces } = spy();
+    surfaces.toMenu({ page: "root" });
+    expect(seen.pages).toEqual(["root"]);
+    expect(seen.shells).toEqual(["menu"]);
+    // ...and it is still a way OUT of the run: the rung is let go of, the
+    // ghost comes off the water and the tape is dropped.
+    expect(seen.leftCampaign).toBe(true);
+    expect(seen.ghostCleared).toBe(true);
+    expect(seen.tapeDropped).toBe(true);
+  });
+
+  it("lands a nameless press on the ladder out of a campaign run, the root out of any other", () => {
+    // The finish plate names no card: out of a rung the door opens where the
+    // box just ridden shows what it paid.
+    expect(nameless(true)).toEqual(["campaign"]);
+    expect(nameless(false)).toEqual(["root"]);
+
+    function nameless(onCampaign: boolean): string[] {
+      const { seen, surfaces } = spy(onCampaign);
+      surfaces.toMenu();
+      return seen.pages;
+    }
   });
 });
