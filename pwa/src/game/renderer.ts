@@ -39,7 +39,9 @@ import { createGuideLine, type GuideLine } from "./guide-line.ts";
 import { createFlora, type CoverMirror, type Flora } from "./flora.ts";
 import { createFootprints } from "./footprints.ts";
 import { createReflection } from "./reflection.ts";
+import { aimCamera } from "./camera-aim.ts";
 import { createRider, type Rider } from "./rider.ts";
+import { worthPosing } from "./rider-pose.ts";
 import { createRocks } from "./rocks.ts";
 import {
   DEFAULT_VIDEO,
@@ -344,13 +346,32 @@ export function createRenderer(
     geometries: 0,
     textures: 0,
   };
+  /** `worthPosing`'s two questions, asked of the scene. The ball is the
+   * rider's own geometry sphere — fixed at the saddle (rider.ts) — grown by
+   * its offset so a hull at any attitude still fits inside it, and allocated
+   * once because a frame asks this twelve times.
+   *
+   * THE MIRROR COUNTS AS THE LENS. A rider can be out of the picture and in
+   * the water's reflection of it, and a figure posed only for the one the
+   * eye is looking through would stand in the sea holding a pose from
+   * whenever he was last on screen. Both frusta are this frame's — the
+   * mirrored lens is aimed with the real one, just above — and on a frame
+   * the pass is not due the mirror's is deliberately the one the water is
+   * still showing. */
+  const riderBall = new THREE.Sphere(new THREE.Vector3(), 2.6);
+  const posesRider = (at: { x: number; y: number; z: number }): boolean => {
+    riderBall.center.set(at.x, at.y, at.z);
+    const eye = camera.position;
+    const seen =
+      frustum.intersectsSphere(riderBall) ||
+      (mirror.live() && mirror.frustum.intersectsSphere(riderBall));
+    return worthPosing(Math.hypot(at.x - eye.x, at.y - eye.y, at.z - eye.z), seen);
+  };
+
   /** The one pixel `drain` reads back, allocated once. */
   const drained = new Uint8Array(4);
   const eye = new THREE.Vector3();
   const aim = new THREE.Vector3();
-  const upVec = new THREE.Vector3();
-  const right = new THREE.Vector3();
-  const forward = new THREE.Vector3();
   const bufferSize = new THREE.Vector2();
   /** The lens's frustum this frame, for the water grid and the cover to
    * submit only what it can see. */
@@ -640,45 +661,13 @@ export function createRenderer(
     if (state.level !== level || state.craft.spec.id !== craftId || state.rivals !== fieldFor)
       load(state);
     const c = state.craft;
-    if (craft) {
-      craft.position.set(c.x, c.y, c.z);
-      craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
-      // The rider and the lamps are children of the hull, so one flag takes
-      // the whole machine out of the frame.
-      craft.visible = playerShown;
-    }
-    if (playerShown) rider?.update(state);
-    for (const f of field) {
-      const rc = f.run.craft;
-      f.group.position.set(rc.x, rc.y, rc.z);
-      f.group.quaternion.set(rc.q.x, rc.q.y, rc.q.z, rc.q.w);
-      f.rider.update(f.run);
-    }
-    if (ghost) {
-      const gc = ghost.state.craft;
-      ghost.group.position.set(gc.x, gc.y, gc.z);
-      ghost.group.quaternion.set(gc.q.x, gc.q.y, gc.q.z, gc.q.w);
-      ghost.rider.update(ghost.state);
-    }
     // THE CAMERA, applied — before the water and the cover, because both
     // submit only what the lens can see and have to be told where it stands.
     // The pose is the rig's; the lens is widened for a narrow viewport so a
     // phone held upright sees the same field across.
     const pose = rig.update(state, dt, (x, z) => heightAt(state.sea, state.level, x, z, state.t));
-    camera.position.set(pose.x, pose.y, pose.z);
     aim.set(pose.aimX, pose.aimY, pose.aimZ);
-    if (pose.roll !== 0) {
-      // A rolled lens: the up vector banks about the line of sight, right
-      // side down for a positive roll.
-      forward.copy(aim).sub(camera.position).normalize();
-      right.crossVectors(forward, upVec.set(0, 1, 0)).normalize();
-      upVec.crossVectors(right, forward).normalize();
-      camera.up
-        .copy(upVec)
-        .multiplyScalar(Math.cos(pose.roll))
-        .addScaledVector(right, Math.sin(pose.roll));
-    } else camera.up.set(0, 1, 0);
-    camera.lookAt(aim);
+    aimCamera(camera, pose, aim, pose.roll);
     const fov = verticalFovFor(pose.fov, camera.aspect);
     if (Math.abs(fov - fovWas) > 0.05) {
       camera.fov = fov;
@@ -698,6 +687,33 @@ export function createRenderer(
     // The mirrored lens is posed with the real one, so the cover can cull
     // against both before either draws.
     mirror.aim(camera);
+
+    // THE MACHINES, POSED — after the lens rather than before it, because
+    // who is worth posing is a question about the lens. Nothing in here
+    // reads the camera but that decision.
+    if (craft) {
+      craft.position.set(c.x, c.y, c.z);
+      craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
+      // The rider and the lamps are children of the hull, so one flag takes
+      // the whole machine out of the frame.
+      craft.visible = playerShown;
+    }
+    if (playerShown) rider?.update(state);
+    for (const f of field) {
+      const rc = f.run.craft;
+      f.group.position.set(rc.x, rc.y, rc.z);
+      f.group.quaternion.set(rc.q.x, rc.q.y, rc.q.z, rc.q.w);
+      // REBUILT ONLY IF IT CAN BE READ — `worthPosing` (rider-pose.ts) owns
+      // the rule and says why; the springs are stepped for every rival
+      // regardless, in `observe`.
+      if (posesRider(rc)) f.rider.update(f.run);
+    }
+    if (ghost) {
+      const gc = ghost.state.craft;
+      ghost.group.position.set(gc.x, gc.y, gc.z);
+      ghost.group.quaternion.set(gc.q.x, gc.q.y, gc.q.z, gc.q.w);
+      if (posesRider(gc)) ghost.rider.update(ghost.state);
+    }
 
     // …and where the hull's cockpit stands this frame, so the sea is not
     // drawn inside it. Before the water's own update, like everything else

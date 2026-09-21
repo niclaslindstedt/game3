@@ -880,3 +880,40 @@ export function createRiderDynamics(): RiderDynamics {
 
   return { observe, read, reset };
 }
+
+/**
+ * HOW FAR OFF A RIDER IS STILL WORTH RE-POSING, in metres.
+ *
+ * Posing a rider is not free and it is not once: `rider.ts` solves every
+ * joint and then RE-EMITS the whole figure — every facet, every normal —
+ * into its buffers, and a race does that for twelve men sixty times a
+ * second. It is one draw call when it is drawn, which is the number that
+ * used to be quoted about him; the rebuild is the number that was not.
+ *
+ * Ninety metres is where the man stops being able to show it. He is about
+ * two metres of figure, so at that range he is some twenty pixels tall on a
+ * 720-line viewport at the chase lens's field — and the whole travel of a
+ * pose, a shoulder rolling into a turn or a knee taking a landing, is a
+ * few centimetres of that. Past it the rebuild is arithmetic nobody can
+ * see the result of.
+ */
+export const POSE_RANGE = 90;
+
+/**
+ * Whether a rider is worth the rebuild this frame: near enough to read, and
+ * inside the lens.
+ *
+ * WHAT HE DOES INSTEAD IS HOLD THE POSE HE HAD, which is why this can be
+ * decided per frame with nothing remembered. His springs are stepped in
+ * `observe` whatever this says — they are the engine's cadence and cost a
+ * few multiplications — so a rider who comes back into the lens is posed
+ * from a body that never stopped answering the hull, on the first frame he
+ * is in it. Skipping the springs instead would be a man who snaps.
+ *
+ * The PLAYER is never asked: he is the figure the chase camera is looking
+ * at for the whole run, and a rule that could ever drop him is a rule with
+ * nothing to gain and one thing to lose.
+ */
+export function worthPosing(metres: number, inView: boolean): boolean {
+  return inView && metres <= POSE_RANGE;
+}
