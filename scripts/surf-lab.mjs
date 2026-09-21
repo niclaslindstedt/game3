@@ -77,7 +77,6 @@ aliasEngine(root);
 const { breakBands, breakingParts, depthLoad } = await import(
   join(root, "pwa/src/game/water-break.ts")
 );
-const { FOAM_LIFE } = await import(join(root, "pwa/src/game/foam-field.ts"));
 
 const args = parseArgs(
   process.argv.slice(2),
@@ -276,13 +275,14 @@ function station(s) {
 // ── What is breaking along the line ─────────────────────────────────────
 // The renderer's own rule (`water-break.ts`), asked of the same water.
 //
-// WHAT IS BREAKING IS NOT WHAT IS WHITE, and measuring the first is how a sea
-// that looks like a snowfield reads as four parts in a thousand. A world point
-// is at the top of a wavelet for about a tenth of a second; the foam it leaves
-// stands in the water and dies over `FOAM_LIFE` (`foam-field.ts`), so the
-// share the rider SEES is the running maximum of the instant against what is
-// left of the last few seconds of it. That is what the water mesh draws, so
-// that is what this measures: the same decay, per term, at the station.
+// MEASURE WHAT IS DRAWN. The water mesh carries this rule's answer straight
+// into a vertex's alpha, for this instant and for that point alone — so a
+// station's share over a record IS what the rider is shown, and the columns
+// below are the sea's own coverage rather than a model of one. A memory of
+// foam used to stand between the two, and modelling it here let a sea that
+// drew as a snowfield report four parts in a thousand: the lab agreed with a
+// model of the renderer while the renderer did something else. If a memory
+// comes back, it belongs in the mesh AND in this loop on the same day.
 const parts = { crest: 0, shoal: 0, cap: 0 };
 /** A share this big is white water a rider can see — under it the shader's
  * lace reaches only the brightest lines of the foam tile and reads as aerated
@@ -290,8 +290,6 @@ const parts = { crest: 0, shoal: 0, cap: 0 };
 const VISIBLE = 0.15;
 function breakingAlong(st, seconds = 90, dt = 0.2) {
   const n = Math.round(seconds / dt);
-  const decay = Math.exp(-dt / FOAM_LIFE);
-  const held = { crest: 0, shoal: 0, cap: 0 };
   const sum = { crest: 0, shoal: 0, cap: 0 };
   let all = 0;
   let covered = 0;
@@ -302,26 +300,20 @@ function breakingAlong(st, seconds = 90, dt = 0.2) {
     breakingParts(st.bands, 1 - sample.ny, sample.height, st.hsHere, st.depth, st.seaWind, parts);
     let here = 0;
     for (const key of ["crest", "shoal", "cap"]) {
-      held[key] = Math.max(parts[key], held[key] * decay);
-      // Only what the field has had time to fill counts — the first few
-      // seconds of any record are a sea that has never broken.
-      if (i * dt >= 4 * FOAM_LIFE) sum[key] += held[key];
-      here += held[key];
+      sum[key] += parts[key];
+      here += parts[key];
     }
     here = Math.min(1, here);
-    if (i * dt >= 4 * FOAM_LIFE) {
-      all += here;
-      if (here >= VISIBLE) covered++;
-      if (here > peak) peak = here;
-    }
+    all += here;
+    if (here >= VISIBLE) covered++;
+    if (here > peak) peak = here;
   }
-  const counted = Math.max(1, n - Math.round((4 * FOAM_LIFE) / dt));
   return {
-    crest: sum.crest / counted,
-    shoal: sum.shoal / counted,
-    cap: sum.cap / counted,
-    all: all / counted,
-    covered: covered / counted,
+    crest: sum.crest / n,
+    shoal: sum.shoal / n,
+    cap: sum.cap / n,
+    all: all / n,
+    covered: covered / n,
     peak,
   };
 }

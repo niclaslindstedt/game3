@@ -63,17 +63,24 @@
 // off the tops. The rule lives in its own three-free module so this loop, the
 // surf lab and the tests all read one statement of it.
 //
-// THAT SHARE IS WHAT IS BREAKING NOW, AND IT IS NOT THE FOAM. Every term
-// above is read off the surface at this instant, and a world point stands
-// at the top of a wavelet for about a tenth of a second, so on its own the
-// rule draws sparks rather than whitecaps. The foam the rider sees is the
-// AIR LEFT IN THE WATER after the crest has gone on without it, and that is
-// `foam-field.ts`: a world-anchored store this loop SOWS what is breaking
-// into and READS BACK what has not yet died. The louder of the two is the
-// share, so a crest going over is still drawn at the grid's own fineness
-// and the field only ever adds the tail. What the LIGHT does with all of
-// that — the sky each face reflects, the sun's glint, the ripples, the
-// foam's texture — is per pixel and `water-shader.ts`'s.
+// THAT SHARE IS WHAT IS BREAKING NOW, AND NOTHING REMEMBERS IT. The rule is
+// read off the surface at this instant and the vertex carries its answer
+// straight into the alpha; no store holds a crest's white standing in the
+// water after the wave has rolled on.
+//
+// THERE WAS ONE, AND IT DREW A SEA THAT WAS NOT THERE. A world point stands
+// at the top of a wavelet for about a tenth of a second, so a memory is the
+// honest model of foam — but the one that stood here kept the LOUDEST share
+// over a cell metres across and over seconds of clock at once, which turns a
+// hand's width of crest going over into that whole cell white for as long as
+// the memory runs. Measured on seed 38, the rule puts 0.8 % of the ridden
+// water white and the field drew a sheltered bay in 2.9 m/s of wind at about
+// nine tenths. A memory that spreads what it remembers is worse than none:
+// bring one back per POINT and per instant, or not at all.
+//
+// What the LIGHT does with the share — the sky each face reflects, the sun's
+// glint, the ripples, the foam's texture — is per pixel and
+// `water-shader.ts`'s.
 
 import * as THREE from "three";
 import {
@@ -94,7 +101,6 @@ import { PALETTE } from "../identity.ts";
 import { clamp } from "../lib/util.ts";
 import type { BuoyLamp } from "./buoys.ts";
 import type { WellCut } from "./craft-body.ts";
-import { createFoamField, FOAM_LIFE } from "./foam-field.ts";
 import {
   WATER_LOOK,
   type ReflectionLook,
@@ -435,15 +441,6 @@ export function createWaterMesh(
   /** The STORM standing at the craft (`stormSeaAt`), read once a frame: both
    * 0 inside a level, so every threshold below is the level's own there. */
   const storm = { Hs: 0, Tp: 0 };
-  /** THE FOAM ALREADY IN THE WATER (`foam-field.ts`). It reaches half a
-   * coarse cell past the grid, which is the furthest the craft can stand
-   * off the snapped origin, so every vertex the loop below visits is inside
-   * it. */
-  const foamField = createFoamField(grid.reach + grid.snap);
-  /** The engine clock the field was last aged to, s. A run that starts over
-   * or a level that changes under it hands the field water it has never
-   * seen, so it forgets rather than smearing the last sea over this one. */
-  let foamT = -1;
   /** The far grid's height at a plan point, off its last displacement and
    * sunk as it stands — what the near grid's edge fades to. Bilinear over
    * the far cells. */
@@ -550,31 +547,6 @@ export function createWaterMesh(
     return breakingParts(bands, 1 - s.ny, s.height, hsHere, depth, wind, parts);
   };
 
-  /** FILLING THE FIELD BEFORE THE FIRST FRAME. Foam is the last few seconds
-   * of this sea, and a field that starts empty starts a run on a sea that
-   * has never broken — the whitecaps grow in over the first five seconds,
-   * which is a fault a rider sees every time they press RIDE and a
-   * screenshot, which draws ONE frame, can never see past. So a field that
-   * has just been cleared is handed the moments it missed: the same reading,
-   * at `PRIME_STEP` back and back again, aged between as the run would have
-   * aged it. The frustum is left out — the rider may turn at once. */
-  const PRIME_PASSES = 6;
-  const PRIME_STEP = 0.6;
-  const primeFoam = (state: GameState, cx: number, cz: number, sx: number, sz: number): void => {
-    const { level } = state;
-    for (let k = PRIME_PASSES; k >= 1; k--) {
-      const t = state.t - k * PRIME_STEP;
-      foamField.advance(cx, cz, PRIME_STEP);
-      for (let v = 0; v < count; v++) {
-        const wx = sx + grid.ox[v];
-        const wz = sz + grid.oz[v];
-        surfaceAt(state.sea, level, wx, wz, t, sample);
-        const depth = -sampleField(level.ground, wx, wz);
-        foamField.sow(wx, wz, grid.step[v], breakingAt(state.sea, wx, wz, depth, sample));
-      }
-    }
-  };
-
   const update = (state: GameState, cx: number, cz: number, frustum?: THREE.Frustum): number => {
     const t0 = performance.now();
     const sx = snapOrigin(cx, grid);
@@ -667,18 +639,6 @@ export function createWaterMesh(
     // How much of the open ocean's storm stands here — once a frame, like
     // the storm's own height above, and for the same reason.
     stormHere = stormRamp(oceanOut(sea.bounds, cx, cz));
-    // Age the foam and carry it along with the craft — after the bands,
-    // which is what a reading is judged against. A clock that has gone
-    // backwards, or jumped further than the foam would have lived anyway,
-    // is a different run, and a field that has just been cleared is filled
-    // with the seconds it missed before this frame is drawn off it.
-    const foamDt = t - foamT;
-    const fresh = foamT < 0 || foamDt < 0 || foamDt > 4 * FOAM_LIFE;
-    if (fresh) {
-      foamField.clear();
-      primeFoam(state, cx, cz, sx, sz);
-    } else foamField.advance(cx, cz, foamDt);
-    foamT = t;
     // Where the craft stands on the grid, so the fade band below can be
     // measured from the RIDER rather than from the origin the grid snapped to.
     const offX = sx - cx;
@@ -741,13 +701,9 @@ export function createWaterMesh(
       r += (toward.r - r) * lift;
       g += (toward.g - g) * lift;
       bl += (toward.b - bl) * lift;
-      // WHAT IS BREAKING NOW, sown into the foam field, which holds it while
-      // the wave rolls on out from under it; the share the vertex carries is
-      // the louder of the two — this instant's break at the grid's own
-      // fineness, over the tail of every break the water remembers.
-      const breaking = breakingAt(sea, wx, wz, depth, sample);
-      foamField.sow(wx, wz, grid.step[v], breaking);
-      const foam = Math.max(breaking, foamField.read(wx, wz));
+      // WHAT IS BREAKING NOW, at the grid's own fineness and for this
+      // instant alone.
+      const foam = breakingAt(sea, wx, wz, depth, sample);
       const q = v * 4;
       colors[q] = r;
       colors[q + 1] = g;
