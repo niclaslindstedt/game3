@@ -225,6 +225,11 @@ function record(value: unknown): BenchmarkRecord | null {
       // Zero on an older record, which folds every reading onto one side of
       // the report's split and so prints the single median it used to.
       mirrorCalls: count(c?.mirrorCalls),
+      // Zero on a record kept before the pass's triangles were billed apart.
+      // The report states the share only where it has one, so such a record
+      // says what the pass cost in draw calls and stays quiet about the rest
+      // rather than claiming a pass that drew nothing.
+      mirrorTriangles: count(c?.mirrorTriangles),
       wakeMs: reading(c?.wakeMs),
       submitMs: reading(c?.submitMs),
       frameMs: reading(c?.frameMs),

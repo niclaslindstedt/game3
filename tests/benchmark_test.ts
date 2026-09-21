@@ -87,6 +87,7 @@ function cost(calls: number, mirrorCalls = calls >> 1): FramePhases {
     retoneMs: 0.5,
     mirrorMs: 1,
     mirrorCalls,
+    mirrorTriangles: mirrorCalls * 3000,
     wakeMs: 0.5,
     submitMs: 1.5,
     frameMs: 8,
@@ -533,6 +534,36 @@ describe("the score sheet and the report (benchmark-sheet.ts, benchmark-report.t
       );
       expect(block).not.toContain("with the mirror");
       expect(block).not.toContain("of the readings");
+    }
+  });
+
+  it("names the MIRROR'S OWN SHARE of a frame the pass ran on every time", () => {
+    // At REFLECTIONS ▸ SOFT or SHARP the pass runs on every picture, so it
+    // has no split to show up in and disappears into the totals — and it is
+    // routinely a third of the triangles in the frame. Stated as a tail on
+    // the two counters it is part of, so a reader sees what the row is worth
+    // without holding the block against the scene's own tally.
+    const costs = [cost(120, 50), cost(122, 50)];
+    const block = benchmarkReport({ ...run(), costs }).slice(
+      benchmarkReport({ ...run(), costs }).indexOf("PER FRAME"),
+    );
+    expect(block).toContain("of which the mirror's 50");
+    expect(block).toContain(`of which the mirror's ${big(50 * 3000)}`);
+  });
+
+  it("says nothing about a mirror at REFLECTIONS ▸ OFF, and nothing twice at GLOW", () => {
+    // OFF never runs the pass: a row of zeroes would be a line about a
+    // picture the machine did not draw. And where the pass runs on only some
+    // frames the split already states it — the gap between the two figures IS
+    // the pass, so a tail would say it a second time.
+    for (const costs of [
+      [cost(70, 0), cost(72, 0)],
+      [cost(70, 0), cost(120, 50)],
+    ]) {
+      const block = benchmarkReport({ ...run(), costs }).slice(
+        benchmarkReport({ ...run(), costs }).indexOf("PER FRAME"),
+      );
+      expect(block).not.toContain("of which the mirror");
     }
   });
 

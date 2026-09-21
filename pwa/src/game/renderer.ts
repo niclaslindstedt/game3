@@ -337,6 +337,7 @@ export function createRenderer(
     retoneMs: 0,
     mirrorMs: 0,
     mirrorCalls: 0,
+    mirrorTriangles: 0,
     wakeMs: 0,
     submitMs: 0,
     frameMs: 0,
@@ -901,6 +902,7 @@ export function createRenderer(
     // honest answer on a skipped frame and is what the split is keyed on.
     cost.mirrorCalls = pass.calls;
     cost.triangles = picture.triangles + graded.triangles + pass.triangles + marks.triangles;
+    cost.mirrorTriangles = pass.triangles;
     // WHAT THE SHORE IS HOLDING rather than what this frame drew: the driver's
     // compiled programs and the buffers and textures still resident. Read here
     // with the rest so a reading is one frame's whole account, and flat to ask
