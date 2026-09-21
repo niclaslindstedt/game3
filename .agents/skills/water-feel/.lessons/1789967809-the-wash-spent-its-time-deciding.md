@@ -47,3 +47,16 @@ between them they said which half of the function to work on. The timer in a
 shared container swings ±20% run to run, so pick constants off a
 deterministic count — slots walked a tick — and use the clock only to
 confirm the direction.
+
+**AND DO NOT CARRY A LOCALITY WIN'S RATIO OUT OF THE CONTAINER.** The
+interleaved pairs here said a fifth off the tick, consistently and with no
+overlap between the two sets. On the machine that raised the problem it was
+**7%** — `sim` 2.49 → 2.31 ms. The direction transferred and the exactness
+transferred; the magnitude did not, because what this change removes is
+REDUNDANT MEMORY TRAFFIC, and a contended, bandwidth-starved shared runner
+punishes that several times harder than a desktop core with a real cache
+does. Nothing about the count was wrong — 115k slots a tick became 60k — it
+is the price of a slot that differs. So for a change that removes work of
+this KIND, quote the count as the result and the local clock only as a sign,
+and say out loud that the ratio is the container's rather than the
+product's. Measured directly: this one over-stated it by about three.
