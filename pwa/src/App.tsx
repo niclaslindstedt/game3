@@ -953,7 +953,7 @@ export function App() {
           onSettings={setSettings}
           onResume={() => runRef.current.resume()}
           onReplay={canReplay ? () => runRef.current.watch() : null}
-          onMainMenu={() => runRef.current.toMenu()}
+          onMainMenu={() => runRef.current.toMenu({ page: "root" })}
         />
       )}
       {shell === "menu" && (

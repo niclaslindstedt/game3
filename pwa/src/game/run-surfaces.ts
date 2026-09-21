@@ -18,7 +18,10 @@
 //            door does.
 //   MENU     out to the front door. Nothing is torn down: the same craft
 //            carries on under the bot, which is what keeps the water moving
-//            under the menu.
+//            under the menu. WHICH card the door opens on is the press's own
+//            call: a finish lands on the ladder out of a campaign run, where
+//            the box just ridden shows what it paid, while the pause card's
+//            row says MAIN MENU and means the front door itself.
 //   RESTART  the run again from the line, on the shore it is already on —
 //            the B key's own line, and the finish plate's first press. The
 //            one of the six that STANDS something: a fresh state on the same
@@ -37,10 +40,8 @@
 // `App.tsx`'s, built once on mount and outliving every card. The same shape
 // `run-settle.ts` and `app-load.ts` are built in, and for the same reason.
 
-import type { GhostRig } from "./ghost-run.ts";
 import type { MenuPage } from "./menu-page.ts";
 import { freeRides } from "./new-game.ts";
-import type { ReplayRun } from "./replay-run.ts";
 import type { Settings } from "./settings.ts";
 import { canPause, type Shell } from "./shell.ts";
 
@@ -66,14 +67,22 @@ export type RunSurfaceWorld = {
   setResult: (result: null) => void;
   /** The load in flight, for the one press that gives up on one. */
   abandon: () => void;
-  ghost: GhostRig;
-  replays: ReplayRun;
+  /** The ghost rig (`ghost-run.ts`) and the recording rig (`replay-run.ts`)
+   * as the little of them these presses use. Spelled out rather than picked
+   * off the rigs' own types, because the recording rig reaches the replay
+   * bar's `.tsx` and a root test cannot read a module that does — and
+   * structural either way, so `App.tsx` hands over the whole rigs. */
+  ghost: { clear: () => void };
+  replays: { watch: () => boolean; clear: () => void };
 };
 
 export type RunSurfaces = {
   pause: () => void;
   resume: () => void;
-  toMenu: () => void;
+  /** Out to the front door, on the card the press names. With none, the
+   * door opens where the run came from: the ladder out of a campaign run,
+   * the root out of anything else. */
+  toMenu: (page?: MenuPage) => void;
   restart: () => void;
   abandonLoad: () => void;
   watch: () => void;
@@ -116,12 +125,14 @@ export function createRunSurfaces(world: RunSurfaceWorld): RunSurfaces {
       world.setResult(null);
       world.setShell("replay");
     },
-    toMenu: () => {
+    toMenu: (page?: MenuPage) => {
       endRun();
       world.setResult(null);
       // Out of a campaign run the door opens on the ladder, where the box
-      // just ridden shows what it paid.
-      world.setMenuPage(world.onCampaign() ? { page: "campaign" } : { page: "root" });
+      // just ridden shows what it paid — unless the press NAMED its card, as
+      // the pause card's does: a row labelled MAIN MENU that lands on the
+      // campaign's coast list is a row that did not do what it said.
+      world.setMenuPage(page ?? (world.onCampaign() ? { page: "campaign" } : { page: "root" }));
       world.leaveCampaign();
       // A recording left behind is a recording nobody is watching: the tape
       // is dropped and the camera handed back to the ladder a run is ridden
