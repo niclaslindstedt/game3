@@ -51,14 +51,28 @@
 // stands a run at a moment with the sea unmarked, which is what a still
 // wants.
 //
-// THE COST is bounded twice: a trail is at most `maxAge` seconds of
-// sources at the cadence (a couple of hundred), and a sample first asks
-// whether it is inside the trail's box at all — one compare per axis —
-// before it asks any source, so the forty thousand vertices of the water
-// grid that are nowhere near a wake pay a few nanoseconds each. The
-// age-only half of every source (its radius, its faded amplitude, its
-// carrier's phase) is refreshed once per distinct `t` and shared by every
-// sample of that step or frame.
+// THE COST is bounded three ways: a trail is at most `maxAge` seconds of
+// sources at the cadence (a couple of hundred); a sample first asks whether
+// it is inside the trail's box at all — one compare per axis — before it
+// asks any source, so the forty thousand vertices of the water grid that
+// are nowhere near a wake pay a few nanoseconds each; and a sample that IS
+// near one reads a list gathered for the patch of water it stands in
+// (`gatherAt`, `GATHER`) rather than walking the trail itself. The age-only
+// half of every source (its radius, its faded amplitude, its carrier's
+// phase) is refreshed once per distinct `t` and shared by every sample of
+// that step or frame.
+//
+// THAT THIRD BOUND IS WORTH THE PARAGRAPH, because what it fixes is not
+// obvious from the model: nine tenths of what the wash cost was DECIDING
+// rather than adding waves up. Measured on a twelve-craft race, a sample
+// walked 434 slots to find the hundred worth a cosine — and a hull asks for
+// the wash once per buoyancy probe, so that walk was done two dozen times
+// over for one hull standing in one place. The whole sum of every packet
+// was a sixteenth of it. The gather does the deciding once for a patch a
+// hull wide and hands the same short list to every probe in it, and because
+// it is a SUPERSET walked in the trail's own order, every sample still runs
+// the same tests and adds the same terms in the same order: a run replays
+// to the bit, and `make sim` comes back byte for byte.
 
 import type { GameEvent, GameState } from "./state.ts";
 import { TUNING } from "./defs/tuning.ts";
@@ -86,6 +100,22 @@ const CAPACITY = Math.ceil(W.maxAge * (FASTEST / W.spacing + TUNING.physicsHz / 
  * so a chunk is a short stretch of it, and a sample near the hull asks the
  * last chunk or two rather than every source of the last nine seconds. */
 const CHUNK = 16;
+/** HOW BIG A PATCH OF WATER ONE GATHER SERVES, m. A hull asks for the wash
+ * once per buoyancy probe and it has a couple of dozen of them, all inside
+ * its own footprint and all at the same instant — so the walk that decides
+ * WHICH sources are near enough to matter was being done a couple of dozen
+ * times for one answer. It is done once for a patch this wide instead, and
+ * every probe inside it reads the short list that came back.
+ *
+ * Wider is a longer list for everybody; narrower is more walks, and the two
+ * cross at about a HULL'S LENGTH — which is the answer reasoning gives as
+ * well as the one counting does, since a hull's length is exactly the
+ * spread its probes have to be served over. Counted over a twelve-craft
+ * race: the walking and the reading together come to 60k slots a tick here
+ * against 115k before, and to 62k at either two metres or four. It serves
+ * the renderer's grid as well — its vertices arrive in scan order, so a run
+ * of them falls in one patch. */
+const GATHER = 3;
 const CHUNKS = Math.ceil(CAPACITY / CHUNK);
 
 /** One rider's trail: a ring buffer of sources, oldest first from `start`. */
@@ -132,10 +162,23 @@ export type Wash = {
   ownerZ: number;
   /** Whether each source is still younger than `young` at `cacheT`. */
   readonly young: Uint8Array;
+  /** THE GATHER (`gatherAt`): the slots whose packets could reach anywhere
+   * within `GATHER` of `gatherX, gatherZ` at `gatherT`, in the order the
+   * walk would have met them. `gatherT` is NaN while there is none. */
+  gatherT: number;
+  gatherX: number;
+  gatherZ: number;
+  gatherN: number;
+  readonly gather: Int32Array;
 };
 
 export function freshWash(): Wash {
   return {
+    gatherT: NaN,
+    gatherX: 0,
+    gatherZ: 0,
+    gatherN: 0,
+    gather: new Int32Array(CAPACITY),
     x: new Float64Array(CAPACITY),
     z: new Float64Array(CAPACITY),
     t0: new Float64Array(CAPACITY),
@@ -179,6 +222,8 @@ export function clearWash(w: Wash): void {
   w.chunkMaxX.fill(-Infinity);
   w.chunkMaxZ.fill(-Infinity);
   w.cacheT = NaN;
+  w.gatherT = NaN;
+  w.gatherN = 0;
   w.lastTick = -1;
   w.lastX = w.lastZ = NaN;
   w.ownerX = w.ownerZ = NaN;
@@ -189,6 +234,11 @@ export function clearWash(w: Wash): void {
  * drops its oldest. */
 function lay(w: Wash, x: number, z: number, t: number, a: number): void {
   if (!(Math.abs(a) >= W.minCrest)) return;
+  // A LIST GATHERED BEFORE THIS SOURCE EXISTED DOES NOT KNOW ABOUT IT, and
+  // a hull lays into the same instant it reads from. Thrown away here and
+  // in `drop`, which is where a trail can change at all — anywhere else and
+  // the exactness this is only worth having for is gone.
+  w.gatherT = NaN;
   if (a > W.maxCrest) a = W.maxCrest;
   else if (a < -W.maxCrest) a = -W.maxCrest;
   if (w.count === CAPACITY) drop(w);
@@ -226,6 +276,7 @@ function lay(w: Wash, x: number, z: number, t: number, a: number): void {
 /** Drop the oldest source: its slot reads as nothing until it is laid
  * again, and its chunk's box is reset once the chunk is empty. */
 function drop(w: Wash): void {
+  w.gatherT = NaN;
   const slot = w.start;
   w.amp[slot] = 0;
   const c = (slot / CHUNK) | 0;
@@ -362,6 +413,56 @@ function ramp(s: number): number {
 /** THE WASH AT A POINT: every live source of every trail on the sea, summed
  * into `out`. `fade` is the shallows' cut, 0..1 (`depth / shoal`, clamped
  * by the caller). Zero-cost outside every trail's box. */
+/**
+ * WALK THE TRAIL ONCE for a patch of water `GATHER` wide, and keep the
+ * slots whose packets could reach any part of it.
+ *
+ * This is the whole of the saving, and it is a saving of BOOKKEEPING rather
+ * than of physics: measured on a twelve-craft race, a sample walked 434
+ * slots to find the hundred that were actually near enough to be worth a
+ * cosine, and it did that again for every one of a hull's two dozen probes.
+ * Nine tenths of the wash's cost was the deciding, not the waves.
+ *
+ * WHAT COMES BACK IS EXACT, and deliberately so: the list is a SUPERSET —
+ * every box is grown by the patch's own half-width, so nothing that could
+ * matter anywhere in it is dropped — and each sample still runs the same
+ * per-source tests it always did, in the same order. The sum is added up in
+ * the order the walk would have met it, so a run replays to the bit and no
+ * digest moves.
+ */
+function gatherAt(w: Wash, x: number, z: number, t: number): void {
+  refresh(w, t);
+  w.gatherT = t;
+  w.gatherX = x;
+  w.gatherZ = z;
+  let n = 0;
+  const minX = x - GATHER;
+  const maxX = x + GATHER;
+  const minZ = z - GATHER;
+  const maxZ = z + GATHER;
+  for (let c = 0; c < CHUNKS; c++) {
+    if (
+      w.chunkLive[c] === 0 ||
+      maxX < w.chunkMinX[c] ||
+      minX > w.chunkMaxX[c] ||
+      maxZ < w.chunkMinZ[c] ||
+      minZ > w.chunkMaxZ[c]
+    )
+      continue;
+    const end = Math.min(CAPACITY, (c + 1) * CHUNK);
+    for (let i = c * CHUNK; i < end; i++) {
+      // A dead slot — never laid, dropped, or faded to nothing — is 0.
+      if (w.amp[i] === 0) continue;
+      const box = w.radius[i] + tail + GATHER;
+      const dx = x - w.x[i];
+      const dz = z - w.z[i];
+      if (dx > box || dx < -box || dz > box || dz < -box) continue;
+      w.gather[n++] = i;
+    }
+  }
+  w.gatherN = n;
+}
+
 export function washAt(
   washes: readonly Wash[],
   x: number,
@@ -390,67 +491,66 @@ export function washAt(
       : own <= W.birth - GATE
         ? 0
         : ramp((own - (W.birth - GATE)) / GATE);
-    for (let c = 0; c < CHUNKS; c++) {
-      if (
-        w.chunkLive[c] === 0 ||
-        x < w.chunkMinX[c] ||
-        x > w.chunkMaxX[c] ||
-        z < w.chunkMinZ[c] ||
-        z > w.chunkMaxZ[c]
-      )
-        continue;
-      const end = Math.min(CAPACITY, (c + 1) * CHUNK);
-      for (let i = c * CHUNK; i < end; i++) {
-        // A dead slot — never laid, dropped, or faded to nothing — is 0.
-        if (w.amp[i] === 0) continue;
-        const dx = x - w.x[i];
-        const dz = z - w.z[i];
-        const r = w.radius[i];
-        const box = r + tail;
-        if (dx > box || dx < -box || dz > box || dz < -box) continue;
-        const d = Math.sqrt(dx * dx + dz * dz);
-        const u = d - r;
-        if (u > tail || u < -tail) continue;
-        // INSIDE THE BIRTH RADIUS THERE IS NO WAVE: that water is the hull,
-        // and a hull lifted by its own fresh ring would heave itself into
-        // one. The gate closes over the inner half-metre so the surface
-        // stays smooth for a hull that is passing over an older source.
-        if (d <= W.birth - GATE) continue;
-        const gate = d >= W.birth ? 1 : ramp((d - (W.birth - GATE)) / GATE);
-        const q = 1 - u * u * inv;
-        const env = q * q * gate * (w.young[i] ? mask : 1);
-        // Under half a millimetre here — the tail of a ring, or a ring
-        // nearly dead — is not worth the cosine.
-        if (!(Math.abs(w.amp[i]) * env > 5e-4)) continue;
-        // Cylindrical spreading: a ring's energy over its circumference, so
-        // its amplitude goes as 1/√d.
-        const spread = Math.sqrt(W.birth / d);
-        const amp = w.amp[i] * spread * env;
-        const phase = WASH_K * d + w.phase0[i];
-        const cos = Math.cos(phase);
-        const sin = Math.sin(phase);
-        const eta = amp * cos;
-        height += eta;
-        // dη/dd: the carrier's own slope, the envelope's, and the spreading's.
-        // d(ln window)/du — finite, since |u| < tail keeps q above nothing.
-        const dEnv = (-4 * u * inv) / q;
-        const dSpread = -0.5 / d;
-        const dEta = amp * (cos * (dEnv + dSpread) - sin * WASH_K);
-        // ∂η/∂t: the rise and the decay, the envelope going out at the group
-        // speed, and the carrier going out at the phase speed.
-        const rate = amp * (cos * (w.ampRate[i] - dEnv * WASH_GROUP) + sin * WASH_OMEGA);
-        vy += rate;
-        if (d > 1e-6) {
-          const ux = dx / d;
-          const uz = dz / d;
-          sx += dEta * ux;
-          sz += dEta * uz;
-          // Airy's horizontal orbit at the surface, in phase with the height
-          // and along the ring's travel: u = ω·η.
-          const orbit = WASH_OMEGA * eta;
-          vx += orbit * ux;
-          vz += orbit * uz;
-        }
+    // THE SHORT LIST for the patch this sample is in, walked once and read
+    // by every sample that lands in it. Index order is the walk's own, so
+    // the sum is added up in exactly the order it always was.
+    if (
+      !(w.gatherT === t) ||
+      x < w.gatherX - GATHER ||
+      x > w.gatherX + GATHER ||
+      z < w.gatherZ - GATHER ||
+      z > w.gatherZ + GATHER
+    )
+      gatherAt(w, x, z, t);
+    for (let g = 0; g < w.gatherN; g++) {
+      const i = w.gather[g];
+      const dx = x - w.x[i];
+      const dz = z - w.z[i];
+      const r = w.radius[i];
+      const box = r + tail;
+      if (dx > box || dx < -box || dz > box || dz < -box) continue;
+      const d = Math.sqrt(dx * dx + dz * dz);
+      const u = d - r;
+      if (u > tail || u < -tail) continue;
+      // INSIDE THE BIRTH RADIUS THERE IS NO WAVE: that water is the hull,
+      // and a hull lifted by its own fresh ring would heave itself into
+      // one. The gate closes over the inner half-metre so the surface
+      // stays smooth for a hull that is passing over an older source.
+      if (d <= W.birth - GATE) continue;
+      const gate = d >= W.birth ? 1 : ramp((d - (W.birth - GATE)) / GATE);
+      const q = 1 - u * u * inv;
+      const env = q * q * gate * (w.young[i] ? mask : 1);
+      // Under half a millimetre here — the tail of a ring, or a ring
+      // nearly dead — is not worth the cosine.
+      if (!(Math.abs(w.amp[i]) * env > 5e-4)) continue;
+      // Cylindrical spreading: a ring's energy over its circumference, so
+      // its amplitude goes as 1/√d.
+      const spread = Math.sqrt(W.birth / d);
+      const amp = w.amp[i] * spread * env;
+      const phase = WASH_K * d + w.phase0[i];
+      const cos = Math.cos(phase);
+      const sin = Math.sin(phase);
+      const eta = amp * cos;
+      height += eta;
+      // dη/dd: the carrier's own slope, the envelope's, and the spreading's.
+      // d(ln window)/du — finite, since |u| < tail keeps q above nothing.
+      const dEnv = (-4 * u * inv) / q;
+      const dSpread = -0.5 / d;
+      const dEta = amp * (cos * (dEnv + dSpread) - sin * WASH_K);
+      // ∂η/∂t: the rise and the decay, the envelope going out at the group
+      // speed, and the carrier going out at the phase speed.
+      const rate = amp * (cos * (w.ampRate[i] - dEnv * WASH_GROUP) + sin * WASH_OMEGA);
+      vy += rate;
+      if (d > 1e-6) {
+        const ux = dx / d;
+        const uz = dz / d;
+        sx += dEta * ux;
+        sz += dEta * uz;
+        // Airy's horizontal orbit at the surface, in phase with the height
+        // and along the ring's travel: u = ω·η.
+        const orbit = WASH_OMEGA * eta;
+        vx += orbit * ux;
+        vz += orbit * uz;
       }
     }
   }
