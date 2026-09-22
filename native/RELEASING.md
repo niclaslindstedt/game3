@@ -35,7 +35,7 @@ Connect API key, the Play service account, and every console questionnaire.
 **Apple.** [App Store Connect](https://appstoreconnect.apple.com) → Apps → **+**.
 
 - **Bundle ID** must be the one `app.config.js` already declares:
-  `se.agilator.seahaven`. It is on the publisher's domain rather than the
+  `APP_BUNDLE_ID` (unset: `dev.local.seahaven`). It is on the publisher's domain rather than the
   author's because Agilator AB holds the store agreements, and it is
   **unchangeable** once a record ships under it.
 - **SKU** is yours and never shown; the slug is fine.
