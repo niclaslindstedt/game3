@@ -81,6 +81,12 @@ function specifiers(text: string): string[] {
   return out;
 }
 
+/** Whether `spec` is imported for its types only, and so erased at build. */
+function typeOnly(text: string, spec: string): boolean {
+  const quoted = spec.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`import\\s+type\\s[^;]*?from\\s*["']${quoted}["']`).test(code(text));
+}
+
 type Edge = { from: string; spec: string; to: string | null; bare: boolean };
 
 /** Where a specifier lands: a repo-relative path for a relative import or
@@ -127,6 +133,17 @@ const SHELL_SEAM = new Set([
   "native/src/injected.ts",
   "native/src/navigation.ts",
   "native/src/rumble.ts",
+  // The store listing's RULES — categories, the age-rating answers, the field
+  // limits. It lives under `native/` because that is the shell it describes,
+  // and `tests/store_listing_test.ts` checks it from the root suite for the
+  // same reason the pairs above are checked from both ends: an answer that
+  // drifts from the build is silent until a reviewer finds it. It qualifies
+  // for the seam on the same terms — types and one literal, importing nothing.
+  "native/store/listing.mts",
+  // The committed SKELETON of the listing's words. The real copy.mts is
+  // gitignored, so this is what a fresh clone compiles and what the suite
+  // reads to check Apple's field limits are respected by the shape.
+  "native/store/copy.example.mts",
 ]);
 
 describe("the dependency direction (§23.7)", () => {
@@ -199,11 +216,19 @@ describe("the dependency direction (§23.7)", () => {
     }
   });
 
-  it("every shell module the suite may hold imports nothing at all", () => {
+  it("every shell module the suite may hold pulls in nothing at runtime", () => {
     for (const rel of SHELL_SEAM) {
-      const edges = edgesOf(join(ROOT, ...rel.split("/")));
+      const file = join(ROOT, ...rel.split("/"));
+      // A `import type` is erased before anything runs, so it cannot drag a
+      // shell's dependency tree into the suite — which is the whole point of
+      // this case. What it can still do is tie one seam module to another, so
+      // the target has to be in the seam too.
+      const carried = edgesOf(file).filter((e) => {
+        if (!typeOnly(readFileSync(file, "utf8"), e.spec)) return true;
+        return !SHELL_SEAM.has(e.to ?? "");
+      });
       expect(
-        edges.map((e) => e.spec),
+        carried.map((e) => e.spec),
         `${rel} is in SHELL_SEAM, so the root suite imports it without installing that tree`,
       ).toEqual([]);
     }

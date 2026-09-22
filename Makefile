@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android
+.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata
 
 build:
 	npm run build
@@ -399,3 +399,24 @@ changelog:
 # auto-derive from the current .changes/unreleased/ fragments. Read-only.
 bump:
 	@node scripts/release/compute-bump.mjs
+
+# ---------------------------------------------------------------------------
+# SHIPPING TO THE STORE (native/store/)
+# ---------------------------------------------------------------------------
+# One authored listing (native/store/listing.mts) compiles into the files the
+# upload tools read. The RULES are committed; the WORDS are not — see
+# native/store/README.md.
+
+# "Is this checkout wired up to ship?" — every gate between here and a
+# submission, what is missing and where to get it. `ARGS="--now"` narrows it to
+# the items that wait on no store account.
+store-preflight:
+	@node --experimental-strip-types --disable-warning=ExperimentalWarning \
+		scripts/store-preflight.mjs $(ARGS)
+
+# Compile the listing into native/store/store.config.json (for
+# `eas metadata:push`) and the fastlane metadata tree. `ARGS="--check"`
+# validates without writing.
+store-metadata:
+	node --experimental-strip-types --disable-warning=ExperimentalWarning \
+		scripts/generate-store-metadata.mjs $(ARGS)
