@@ -42,7 +42,7 @@ player actually does, then what makes this one unusual. Up to 4000 characters,
 read on a phone.`,
 
   // The JOINED string is what must fit 100 characters, not each term.
-  keywords: ["keyword", "budget", "is", "joined"],
+  keywords: ["keyword", "budget", "spent", "joined"],
 
   // ≤ 4000. The product page's "What's New".
   releaseNotes: "RELEASE NOTES — what changed, for the version this ships beside.",

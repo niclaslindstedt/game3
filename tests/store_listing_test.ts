@@ -59,7 +59,12 @@ const copy: typeof skeleton = existsSync(localCopy)
   ? ((await import(pathToFileURL(localCopy).href)) as typeof skeleton)
   : skeleton;
 
-const EN = copy.APPLE_INFO["en-US"];
+// Non-null because a listing with no en-US locale is not a listing — and
+// under `noUncheckedIndexedAccess` the index says "possibly undefined", which
+// would otherwise spread `?.` through every case below for a state the next
+// line rules out.
+const EN = copy.APPLE_INFO["en-US"]!;
+if (!EN) throw new Error("copy.APPLE_INFO has no en-US locale");
 const NOTES = copy.APPLE_REVIEW_NOTES;
 const CONTACT = RULES.apple.contact;
 
