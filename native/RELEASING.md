@@ -41,8 +41,12 @@ Connect API key, the Play service account, and every console questionnaire.
 - **SKU** is yours and never shown; the slug is fine.
 - Creating the record assigns the numeric **Apple ID**. Put it, and the team id
   from the developer portal's Membership page, into `eas.json`'s
-  `submit.production.ios` — both are public identifiers, so both are committed
-  literals; EAS interpolates neither.
+  `submit.production.ios` as `ascAppId` and `appleTeamId` — both are public
+  identifiers, so both are committed literals; EAS interpolates neither. Until
+  then the two keys are **absent**, not empty: EAS rejects an `eas.json` with
+  an empty value or a `$comment` key, and every `eas` command fails on it —
+  `eas init` included. (The three `ascApiKey*` fields are `$VAR` references
+  on purpose: EAS interpolates the process environment into exactly those.)
 
 **Google.** [Play Console](https://play.google.com/console) → Create app, with
 the same package name.

@@ -141,7 +141,7 @@ missing before a first submission.
   lands, the listing is typed into App Store Connect and the Play Console by
   hand — `RELEASING.md` lists what they ask for.
 - **No app records, no credentials.** `eas.json`'s `ascAppId` and
-  `appleTeamId` are empty because the records do not exist yet, and every
+  `appleTeamId` are absent because the records do not exist yet, and every
   credential is read from the environment (`.env.example` documents each one,
   where to get it and what shape it is). This repository is public: nothing
   personal and nothing secret is committed here, not even as a default a
