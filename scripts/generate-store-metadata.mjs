@@ -392,7 +392,11 @@ if (tauriConfig && !tauriConfig?.bundle?.resources?.["../webroot"]) {
 // import the other, and the one that is WRONG is the listing — a store page
 // promising a macOS the binary refuses to launch on is a refund.
 const shellFloor = tauriConfig?.bundle?.macOS?.minimumSystemVersion;
-if (SHIPS.macAppStore && macRules.minimumSystemVersion && shellFloor !== macRules.minimumSystemVersion) {
+if (
+  SHIPS.macAppStore &&
+  macRules.minimumSystemVersion &&
+  shellFloor !== macRules.minimumSystemVersion
+) {
   fail(
     `mac.minimumSystemVersion (${macRules.minimumSystemVersion}) and ` +
       `tauri.conf.json's bundle.macOS.minimumSystemVersion (${shellFloor}) disagree`,
@@ -402,7 +406,10 @@ if (SHIPS.macAppStore && macRules.minimumSystemVersion && shellFloor !== macRule
 // THE SANDBOX. Not optional on the Mac App Store, and the shortest true
 // sentence the review notes have — so a list that has lost it is a submission
 // that will be rejected before anybody reads a word.
-if (SHIPS.macAppStore && !(macRules.entitlements ?? []).includes("com.apple.security.app-sandbox")) {
+if (
+  SHIPS.macAppStore &&
+  !(macRules.entitlements ?? []).includes("com.apple.security.app-sandbox")
+) {
   fail(
     "mac.entitlements does not include com.apple.security.app-sandbox — the Mac " +
       "App Store requires it, and the review notes are written around it.",
@@ -451,9 +458,9 @@ if (SHIPS.macAppStore && macRules.universalPurchase) {
 // ---------------------------------------------------------------------------
 const steam = SHIPS.steam
   ? {
-  ...RULES.steam,
-  shortDescription: copy.STEAM_SHORT_DESCRIPTION,
-  aboutBody: copy.STEAM_ABOUT_BODY,
+      ...RULES.steam,
+      shortDescription: copy.STEAM_SHORT_DESCRIPTION,
+      aboutBody: copy.STEAM_ABOUT_BODY,
     }
   : null;
 if (steam) checkLength("steam.shortDescription", steam.shortDescription, { max: STEAM_SHORT_MAX });

@@ -83,7 +83,6 @@ const authored = copy !== skeleton;
  */
 const itAuthored = authored ? it : it.skip;
 
-
 describe("the App Store listing fits Apple's fields", () => {
   it("has a title between 2 and 30 characters", () => {
     // Composed from identity.ts rather than authored, so this is really an
@@ -196,4 +195,3 @@ describe("the review notes are true of the build", () => {
     expect(PUBLISHER).toBeTruthy();
   });
 });
-

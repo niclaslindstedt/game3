@@ -364,138 +364,138 @@ warn(
 //    not produce on its own.
 // ---------------------------------------------------------------------------
 if (SHIPS.macAppStore) {
-section("MAC APP STORE");
+  section("MAC APP STORE");
 
-const macConfig = at("tauri", "store", "mac.config.json");
-if (existsSync(macConfig)) {
-  ok(`the Mac listing is compiled (${rel(macConfig)})`);
-} else {
-  warn(
-    "the Mac listing has not been compiled",
-    "`make store-metadata`. If it says SKIPPED, the copy module has no MAC_INFO / " +
-      "MAC_REVIEW_NOTES — the Mac page is a separate piece of writing, because the " +
-      "phone's review notes describe a different binary. See the `store-listing` skill.",
-  );
-}
+  const macConfig = at("tauri", "store", "mac.config.json");
+  if (existsSync(macConfig)) {
+    ok(`the Mac listing is compiled (${rel(macConfig)})`);
+  } else {
+    warn(
+      "the Mac listing has not been compiled",
+      "`make store-metadata`. If it says SKIPPED, the copy module has no MAC_INFO / " +
+        "MAC_REVIEW_NOTES — the Mac page is a separate piece of writing, because the " +
+        "phone's review notes describe a different binary. See the `store-listing` skill.",
+    );
+  }
 
-// THE ICON THE DOCK DRAWS. Not one of the PNGs: a macOS bundle reads
-// `icon.icns` and nothing else, and a build without one ships the blank
-// generic icon — which is both a rejection and the first thing anybody sees.
-const icns = at("tauri", "src-tauri", "icons", "icon.icns");
-if (existsSync(icns)) ok(`the macOS .icns is generated (${rel(icns)})`);
-else warn("no macOS .icns", "`npm --prefix tauri run icons`; `make tauri` runs it too.");
+  // THE ICON THE DOCK DRAWS. Not one of the PNGs: a macOS bundle reads
+  // `icon.icns` and nothing else, and a build without one ships the blank
+  // generic icon — which is both a rejection and the first thing anybody sees.
+  const icns = at("tauri", "src-tauri", "icons", "icon.icns");
+  if (existsSync(icns)) ok(`the macOS .icns is generated (${rel(icns)})`);
+  else warn("no macOS .icns", "`npm --prefix tauri run icons`; `make tauri` runs it too.");
 
-// The Tahoe half. Optional today and dated tomorrow: without a layered icon
-// the Dock shows a flat square beside neighbours that pick up the glass.
-const layers = pngCount(at("tauri", "store", "icon-layers"));
-if (layers >= 2) ok(`${layers} Icon Composer layers for the macOS 26 icon`);
-else warn("no Icon Composer layers", "`make icons`; tauri/store/MAC_APP_STORE.md has the rest.");
+  // The Tahoe half. Optional today and dated tomorrow: without a layered icon
+  // the Dock shows a flat square beside neighbours that pick up the glass.
+  const layers = pngCount(at("tauri", "store", "icon-layers"));
+  if (layers >= 2) ok(`${layers} Icon Composer layers for the macOS 26 icon`);
+  else warn("no Icon Composer layers", "`make icons`; tauri/store/MAC_APP_STORE.md has the rest.");
 
-// EVERYTHING BELOW NEEDS A MAC, and says so rather than failing on Linux: the
-// entitlements name a team, the profile is issued to that team, and both are
-// gitignored because this repository is public.
-const entitlements = at("tauri", "src-tauri", "Entitlements.plist");
-if (existsSync(entitlements)) {
-  ok(`the sandbox entitlements are generated (${rel(entitlements)})`);
-} else {
-  warn(
-    "no Entitlements.plist — the Mac App Store requires the App Sandbox",
-    "`npm --prefix tauri run mac:appstore` writes it from APPLE_TEAM_ID in " +
-      "native/.env. Generated rather than committed because it names a specific " +
-      "developer account, and this repository is public.",
-    "mac",
-  );
-}
+  // EVERYTHING BELOW NEEDS A MAC, and says so rather than failing on Linux: the
+  // entitlements name a team, the profile is issued to that team, and both are
+  // gitignored because this repository is public.
+  const entitlements = at("tauri", "src-tauri", "Entitlements.plist");
+  if (existsSync(entitlements)) {
+    ok(`the sandbox entitlements are generated (${rel(entitlements)})`);
+  } else {
+    warn(
+      "no Entitlements.plist — the Mac App Store requires the App Sandbox",
+      "`npm --prefix tauri run mac:appstore` writes it from APPLE_TEAM_ID in " +
+        "native/.env. Generated rather than committed because it names a specific " +
+        "developer account, and this repository is public.",
+      "mac",
+    );
+  }
 
-const profile = at("tauri", "src-tauri", "embedded.provisionprofile");
-if (existsSync(profile)) ok("a Mac App Store provisioning profile is in place");
-else
-  warn(
-    "no embedded.provisionprofile",
-    "download a Mac App Store profile for the app id in the developer portal and " +
-      "save it as tauri/src-tauri/embedded.provisionprofile (gitignored).",
-    "mac",
-  );
+  const profile = at("tauri", "src-tauri", "embedded.provisionprofile");
+  if (existsSync(profile)) ok("a Mac App Store provisioning profile is in place");
+  else
+    warn(
+      "no embedded.provisionprofile",
+      "download a Mac App Store profile for the app id in the developer portal and " +
+        "save it as tauri/src-tauri/embedded.provisionprofile (gitignored).",
+      "mac",
+    );
 
-// ---------------------------------------------------------------------------
-// 7. STEAM. The desktop shell ships to a second storefront, and everything
-//    above is Apple's. The build side of it — packaging, signing, the upload
-//    — belongs to `make tauri-package`; these are the STORE-PAGE facts, which
-//    are true or false from a cold checkout.
-// ---------------------------------------------------------------------------
+  // ---------------------------------------------------------------------------
+  // 7. STEAM. The desktop shell ships to a second storefront, and everything
+  //    above is Apple's. The build side of it — packaging, signing, the upload
+  //    — belongs to `make tauri-package`; these are the STORE-PAGE facts, which
+  //    are true or false from a cold checkout.
+  // ---------------------------------------------------------------------------
 }
 
 if (SHIPS.steam) {
-section("STEAM");
+  section("STEAM");
 
-const steamConfigPath = at("tauri", "store", "steam.json");
-let steamConfig = null;
-try {
-  steamConfig = JSON.parse(readFileSync(steamConfigPath, "utf8"));
-} catch {
-  fail(
-    `${rel(steamConfigPath)} could not be read`,
-    "it holds the app and depot ids an upload writes into its VDF.",
-  );
-}
-
-if (steamConfig) {
-  // 480 is Spacewar, Valve's shared test app. Everything works with it — the
-  // build uploads, the page renders — into a sandbox every developer on Steam
-  // shares. It is the quietest failure in the whole submission.
-  const appId = Number(process.env.SF_STEAM_APP_ID || steamConfig.appId);
-  if (appId === 480) {
+  const steamConfigPath = at("tauri", "store", "steam.json");
+  let steamConfig = null;
+  try {
+    steamConfig = JSON.parse(readFileSync(steamConfigPath, "utf8"));
+  } catch {
     fail(
-      "the Steam app id is 480 — that is Spacewar, Valve's shared test app",
-      "an upload against it succeeds into a sandbox every Steam developer shares. " +
-        "Put the real id in tauri/store/steam.json.",
-      "steam",
-    );
-  } else if (Number.isFinite(appId) && appId > 0) {
-    ok(`Steam app ${appId}`);
-  } else {
-    fail(
-      "tauri/store/steam.json has no appId",
-      "Steamworks → App Admin; the number in the URL is the app id.",
-      "steam",
+      `${rel(steamConfigPath)} could not be read`,
+      "it holds the app and depot ids an upload writes into its VDF.",
     );
   }
 
-  const depots = Object.entries(steamConfig.depots ?? {});
-  const unset = depots.filter(([, id]) => !Number.isFinite(Number(id)) || Number(id) <= 0);
-  if (depots.length === 0) {
-    fail("tauri/store/steam.json names no depots", "one per platform the build ships", "steam");
-  } else if (unset.length === 0) {
-    ok(`${depots.length} Steam depots (${depots.map(([os]) => os).join(", ")})`);
-  } else {
+  if (steamConfig) {
+    // 480 is Spacewar, Valve's shared test app. Everything works with it — the
+    // build uploads, the page renders — into a sandbox every developer on Steam
+    // shares. It is the quietest failure in the whole submission.
+    const appId = Number(process.env.SF_STEAM_APP_ID || steamConfig.appId);
+    if (appId === 480) {
+      fail(
+        "the Steam app id is 480 — that is Spacewar, Valve's shared test app",
+        "an upload against it succeeds into a sandbox every Steam developer shares. " +
+          "Put the real id in tauri/store/steam.json.",
+        "steam",
+      );
+    } else if (Number.isFinite(appId) && appId > 0) {
+      ok(`Steam app ${appId}`);
+    } else {
+      fail(
+        "tauri/store/steam.json has no appId",
+        "Steamworks → App Admin; the number in the URL is the app id.",
+        "steam",
+      );
+    }
+
+    const depots = Object.entries(steamConfig.depots ?? {});
+    const unset = depots.filter(([, id]) => !Number.isFinite(Number(id)) || Number(id) <= 0);
+    if (depots.length === 0) {
+      fail("tauri/store/steam.json names no depots", "one per platform the build ships", "steam");
+    } else if (unset.length === 0) {
+      ok(`${depots.length} Steam depots (${depots.map(([os]) => os).join(", ")})`);
+    } else {
+      warn(
+        `Steam depots not set: ${unset.map(([os]) => os).join(", ")}`,
+        "Steamworks → App Admin → Depots. A depot per platform, or the upload has " +
+          "nowhere to put that platform's build.",
+        "steam",
+      );
+    }
+  }
+
+  const steamPage = at("tauri", "store", "steam-listing.md");
+  if (existsSync(steamPage)) ok(`the Steam store page is compiled (${rel(steamPage)})`);
+  else warn("the Steam store page has not been compiled", "`make store-metadata`");
+
+  // Valve's own required art. Not generated from the app mark — a capsule is a
+  // designed image with the game's name set in it, which is a different job from
+  // an icon (see the store-art half of tauri/store/README.md).
+  const capsules = at("tauri", "store", "capsules");
+  const capsuleCount = pngCount(capsules);
+  if (capsuleCount > 0) ok(`${capsuleCount} Steam capsule images in ${rel(capsules)}`);
+  else
     warn(
-      `Steam depots not set: ${unset.map(([os]) => os).join(", ")}`,
-      "Steamworks → App Admin → Depots. A depot per platform, or the upload has " +
-        "nowhere to put that platform's build.",
-      "steam",
+      "no Steam capsule art",
+      "Valve requires a header (920×430), a small capsule (462×174), a main capsule " +
+        "(1232×706) and a library capsule (600×900). None can be an upscaled icon — a " +
+        "capsule is the game's name set in a picture, which is a designed image and " +
+        "not a generated one. NOT gated on the Steamworks record: this is doable today, " +
+        "and it is the item a first upload most often waits on.",
     );
-  }
-}
-
-const steamPage = at("tauri", "store", "steam-listing.md");
-if (existsSync(steamPage)) ok(`the Steam store page is compiled (${rel(steamPage)})`);
-else warn("the Steam store page has not been compiled", "`make store-metadata`");
-
-// Valve's own required art. Not generated from the app mark — a capsule is a
-// designed image with the game's name set in it, which is a different job from
-// an icon (see the store-art half of tauri/store/README.md).
-const capsules = at("tauri", "store", "capsules");
-const capsuleCount = pngCount(capsules);
-if (capsuleCount > 0) ok(`${capsuleCount} Steam capsule images in ${rel(capsules)}`);
-else
-  warn(
-    "no Steam capsule art",
-    "Valve requires a header (920×430), a small capsule (462×174), a main capsule " +
-      "(1232×706) and a library capsule (600×900). None can be an upscaled icon — a " +
-      "capsule is the game's name set in a picture, which is a designed image and " +
-      "not a generated one. NOT gated on the Steamworks record: this is doable today, " +
-      "and it is the item a first upload most often waits on.",
-  );
 }
 
 // ---------------------------------------------------------------------------
