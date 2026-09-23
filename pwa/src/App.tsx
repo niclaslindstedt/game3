@@ -100,6 +100,7 @@ import { PauseMenu } from "./game/menu-pause.tsx";
 import type { FrameCost, GameRenderer } from "./game/renderer.ts";
 import { fallbackGame, gameFor, tryGame } from "./game/new-game.ts";
 import { loadRecords, saveRecords, type RecordBook } from "./game/records.ts";
+import { useCloudSync } from "./game/use-cloud-sync.ts";
 import { snapInput } from "./game/ghost.ts";
 import { createGhostRig } from "./game/ghost-run.ts";
 import { createRunActions } from "./game/run-actions.ts";
@@ -180,6 +181,7 @@ export function App() {
   const progressRef = useRef(progress);
   progressRef.current = progress;
   useEffect(() => saveProgress(progress), [progress]);
+  useCloudSync({ records, campaign: progress, setRecords, setCampaign: setProgress });
   const ridingRef = useRef<CampaignLevel | null>(null);
   const inputRef = useRef<ReturnType<typeof createInputManager> | null>(null);
   const rendererRef = useRef<GameRenderer | null>(null);

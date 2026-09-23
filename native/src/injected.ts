@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// JavaScript injected into the game WebView. Four jobs, all invisible to the
-// game's own code — the first three run on their own as the page loads, the
-// fourth is fired at it by the shell when the phone does something the page
+// JavaScript injected into the game WebView. Five jobs, all invisible to the
+// game's own code — the first four run on their own as the page loads, the
+// fifth is fired at it by the shell when the phone does something the page
 // cannot see:
 //
 //  1. NATIVE_FLAG — names this shell to the page BEFORE the game boots, on
@@ -23,11 +23,17 @@
 //     the content for the same reason the flag is: a listener added after the
 //     game's first frame is a slap nobody feels.
 //
-//  3. VIEWPORT_HARDENING — make the page feel like an app, not a document:
+//  3. CLOUD_BRIDGE — carry the page's cloud asks out to iCloud. The website
+//     owns what is saved and how two devices reconcile
+//     (pwa/src/game/cloud-save.ts); the shell moves an opaque string and says
+//     what happened. Injected before the content so an ask made during the
+//     game's first frame is heard.
+//
+//  4. VIEWPORT_HARDENING — make the page feel like an app, not a document:
 //     kill the long-press callout/selection and rubber-band scroll that a raw
 //     WKWebView still allows even with the website's own viewport meta.
 //
-//  4. SHOT_COMMAND — press the game's own SHUTTER, because the phone has one
+//  5. SHOT_COMMAND — press the game's own SHUTTER, because the phone has one
 //     of its own and the page cannot hear it. Fired through
 //     `injectJavaScript` when the OS says the rider took a screenshot
 //     (src/screen-capture.ts), so the picture they took with the hardware is
@@ -65,6 +71,30 @@ export const RUMBLE_BRIDGE = `(function () {
       if (!post) return;
       post.postMessage(
         JSON.stringify({ sh: "rumble", ms: pulse.ms, strength: pulse.strength }),
+      );
+    });
+  } catch (e) {}
+  true;
+})();`;
+
+/** Listens for the page's cloud asks and posts each one to the shell. The
+ * event's name and the ask's shape are `SHELL_CLOUD` in
+ * `pwa/src/shell-host.ts`, and the message is read by `parseCloudAsk` in
+ * `src/cloud-save.ts` — change one, change all three. The answer comes back
+ * the other way, through `injectJavaScript`. */
+export const CLOUD_BRIDGE = `(function () {
+  try {
+    window.addEventListener("sh-shell-cloud", function (event) {
+      var ask = event.detail || {};
+      var post = window.ReactNativeWebView;
+      if (!post) return;
+      post.postMessage(
+        JSON.stringify({
+          sh: "cloud",
+          action: ask.action,
+          requestId: ask.requestId,
+          data: ask.data,
+        }),
       );
     });
   } catch (e) {}

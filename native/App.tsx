@@ -30,7 +30,14 @@ import type { WebViewMessageEvent, WebViewNavigation } from "react-native-webvie
 
 import { BRAND_BG, REMOTE_GAME_URL } from "./src/config";
 import { playRumble } from "./src/haptics";
-import { NATIVE_FLAG, RUMBLE_BRIDGE, SHOT_COMMAND, VIEWPORT_HARDENING } from "./src/injected";
+import {
+  CLOUD_BRIDGE,
+  NATIVE_FLAG,
+  RUMBLE_BRIDGE,
+  SHOT_COMMAND,
+  VIEWPORT_HARDENING,
+} from "./src/injected";
+import { cloudChanged, onCloudChange, parseCloudAsk, serveCloudAsk } from "./src/cloud-save";
 import { startLocalServer, type LocalServer } from "./src/local-server";
 import { isExternalUrl } from "./src/navigation";
 import { parseRumble } from "./src/rumble";
@@ -132,9 +139,22 @@ export default function App() {
   // bridge for is dropped where it lands — the page can post whatever it
   // likes and none of it may reach the shell by accident.
   const onMessage = useCallback((event: WebViewMessageEvent) => {
-    const pulse = parseRumble(event.nativeEvent.data);
-    if (pulse) playRumble(pulse);
+    const raw = event.nativeEvent.data;
+    const pulse = parseRumble(raw);
+    if (pulse) {
+      playRumble(pulse);
+      return;
+    }
+    const ask = parseCloudAsk(raw);
+    // The cloud answers on its own time, so the reply is injected when it
+    // lands rather than returned from here.
+    if (ask) void serveCloudAsk(ask).then((script) => webRef.current?.injectJavaScript(script));
   }, []);
+
+  // ANOTHER DEVICE WROTE THE STORE. iCloud tells the shell, the shell tells
+  // the page, and the page pulls and merges — the shell never reads the save
+  // itself, because what a save MEANS is the website's business.
+  useEffect(() => onCloudChange(() => webRef.current?.injectJavaScript(cloudChanged())), []);
 
   const reveal = useCallback(() => {
     setLoaded(true);
@@ -211,7 +231,7 @@ export default function App() {
           // The shell flag must exist before the game's scripts read it, and
           // the rumble listener before the first thing that could ask for a
           // pulse; the hardening runs once the document is up.
-          injectedJavaScriptBeforeContentLoaded={`${NATIVE_FLAG}\n${RUMBLE_BRIDGE}`}
+          injectedJavaScriptBeforeContentLoaded={`${NATIVE_FLAG}\n${RUMBLE_BRIDGE}\n${CLOUD_BRIDGE}`}
           injectedJavaScript={VIEWPORT_HARDENING}
           onMessage={onMessage}
           onNavigationStateChange={onNavStateChange}
