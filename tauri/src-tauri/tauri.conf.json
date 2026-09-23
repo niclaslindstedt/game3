@@ -3,7 +3,7 @@
   "productName": "Sea Haven",
   "mainBinaryName": "seahaven",
   "version": "0.1.0",
-  "identifier": "se.agilator.seahaven",
+  "identifier": "dev.local.seahaven",
   "build": {
     "frontendDist": "./placeholder"
   },
