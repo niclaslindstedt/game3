@@ -2,7 +2,7 @@
   "name": "game3",
   "version": "0.1.0",
   "private": true,
-  "description": "Sea Haven \u2014 a personal-watercraft racing game for the browser: generated shores, physically grounded water, playable on phone and desktop as an installable PWA.",
+  "description": "Sea Haven — a personal-watercraft racing game for the browser: generated shores, physically grounded water, playable on phone and desktop as an installable PWA.",
   "license": "PolyForm-Noncommercial-1.0.0",
   "author": "Niclas Lindstedt <niclas@agilator.se>",
   "type": "module",
@@ -55,17 +55,20 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
-    "@types/node": "^25.9.3",
-    "@typescript-eslint/eslint-plugin": "^8.61.1",
-    "@typescript-eslint/parser": "^8.61.1",
-    "eslint": "^10.5.0",
+    "@types/node": "^24.19.0",
+    "@typescript-eslint/eslint-plugin": "^8.70.1",
+    "@typescript-eslint/parser": "^8.70.1",
+    "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
-    "globals": "^17.6.0",
-    "prettier": "^3.4.2",
+    "globals": "^17.12.0",
+    "prettier": "^3.9.9",
     "typescript": "^6.0.3",
-    "vitest": "^4.1.9"
+    "vitest": "^4.1.11"
   },
   "engines": {
     "node": ">=22"
+  },
+  "allowScripts": {
+    "fsevents": false
   }
 }
