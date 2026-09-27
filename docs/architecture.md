@@ -126,9 +126,9 @@ The app is a Vite + Preact + three.js site, phone-first, installable. It reads `
 
 ### The startup path is no longer gated
 
-§23.9 asks for a named budget on the code needed to reach the first interactive screen, gated in CI. **There is no such gate any more**: it lived in `scripts/check-seo.mjs` and ran from `seo.yml`, and both are gone. The ledger ([spec-conformance.md](spec-conformance.md)) carries §23.9 as a gap rather than pretending otherwise.
+§23.9 asks for a named budget on the code needed to reach the first interactive screen, gated in CI. **There are no size budgets, by owner decision**, and so no such gate. The ledger ([spec-conformance.md](spec-conformance.md)) carries §23.9 as a deliberate deviation rather than pretending otherwise.
 
-What the gate protected is still worth protecting, and the SPLIT that bought it is still in place: `renderer.ts` is the one static edge from `App.tsx` that reaches three.js, and it is pulled through `await import(...)`, which keeps three.js and 36 render modules off the first-render path (306 KB raw / 114 KB gzip against 963 / 300 when that edge was static). Make that import static again and the entry chunk quadruples with nothing left to say so. The lazy renderer chunk's own envelope is still watched loosely by Vite's `chunkSizeWarningLimit` in `pwa/vite.config.ts`.
+What the gate protected is still worth protecting, and the SPLIT that bought it is still in place: `renderer.ts` is the one static edge from `App.tsx` that reaches three.js, and it is pulled through `await import(...)`, which keeps three.js and 36 render modules off the first-render path (306 KB raw / 114 KB gzip against 963 / 300 when that edge was static). Make that import static again and the entry chunk quadruples with nothing to say so — it is a first-paint cost, not a budget to golf bytes against.
 
 §23.9's narrow entry surface was never bought either: the app imports `@engine` whole to stand a run up. The day a menu needs one fact from the core (a level's name, a craft's blurb), that fact must come from an import-free leaf, or the menu's module graph will contain the whole simulation and every generator — an import is an import, and tree-shaking is global.
 

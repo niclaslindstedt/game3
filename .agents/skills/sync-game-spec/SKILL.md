@@ -64,7 +64,7 @@ because the game half leans on the baseline half:
 | §7.2 | `AGENTS.md` carries the four game sections: role map, content pipeline, the rules that bite, craft index |
 | §8.5 | Every PR settles a fragment or the `no-changelog` label; `tests/changeset_test.ts` holds the vocabulary |
 | §9.1 | One documented command per capability — content (`make level`, `make analyze`), sim (`make sim`), playtest (`make screenshots`), the labs (`make waves`, `make ride`) |
-| §11 | `docs/` coverage, the page-is-the-product rules, SEO and PWA surfaces (`update-docs` / `update-website`) |
+| §11 | `docs/` coverage, the page-is-the-product rules, discoverability (withheld here) and PWA surfaces (`update-docs` / `update-website`) |
 | §12 | Every tool reachable by one command, `--help`, non-zero on an unknown flag, prints its inputs and outputs |
 | §13.1 | Examples are runnable and CI-exercised, not restatements of the README |
 | §13.2 | `prompts/` versioning format (overlap with `update-prompts`) |

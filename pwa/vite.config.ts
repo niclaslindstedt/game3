@@ -46,13 +46,8 @@ const version = process.env.GITHUB_SHA ? buildLabel : `${buildLabel}+${new Date(
 
 export default defineConfig({
   base,
-  // The lazy renderer carries three.js and the generated rider shapes in a
-  // 571 kB chunk by design. Keep Vite's warning just above that measured
-  // envelope. It is the ONLY thing watching bundle size now: the raw and
-  // gzip budgets over the first-render path went with `check-seo.mjs`, so
-  // what keeps three.js off that path is the dynamic import of
-  // `renderer.ts` in `App.tsx` and nothing else (spec-conformance §23.9).
-  build: { chunkSizeWarningLimit: 600 },
+  // No size budgets, by owner decision; this only keeps Vite's own warning quiet.
+  build: { chunkSizeWarningLimit: 100_000 },
   resolve: {
     alias: {
       "@engine": here("../engine/index.ts"),

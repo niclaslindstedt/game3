@@ -6,14 +6,14 @@ description: "Use when the deployed app's identity-derived content under pwa/ ma
 # Updating the Website
 
 **Governing spec sections:** §11.2 (the deployed site IS the product — this is
-a webapp-kind project with no separate `website/` tree), §11.3 (SEO surfaces —
+a webapp-kind project with no separate `website/` tree), §11.3 (discoverability —
 **deliberately not met here**, see below), §21.5 (this skill is mandated when
 the project publishes a website).
 
 > **THE SITE IS NOT INDEXED, AND THAT IS THE DESIGN.** The web deploy carries
 > no crawlable description of itself: no meta description, canonical, Open
 > Graph, Twitter card or JSON-LD in the head, no prerendered body copy, a
-> `robots.txt` of `Disallow: /`, `noindex` on every page, and no
+> `robots.txt` that lets a crawler in to read the `noindex` on every page, and no
 > `sitemap.xml`, `llms.txt` or `og.png` shipped at all. **Do not "fix" any of
 > that.** A sweep that re-adds a discovery signal because the spec asks for
 > one is a regression, and `tests/identity_test.ts` will fail it.
@@ -30,7 +30,7 @@ icons, and the hand-authored static pages:
 | --- | --- | --- |
 | `index.html` head + `manifest.webmanifest` | `pwa/src/identity.ts` (name, title, description, palette) | `pwa/pwa-plugin.ts` at build time |
 | Icons, favicon | `pwa/public/icons/icon.svg` + the palette | `make icons` (`scripts/generate-icons.mjs`) — never hand-edit the PNGs. No `og.png`: there is no share card |
-| `robots.txt`, `CNAME` | hand-authored in `pwa/public/` | you — `CNAME` tracks `SITE_URL`; `robots.txt` stays `Disallow: /` |
+| `robots.txt`, `CNAME` | hand-authored in `pwa/public/` | you — `CNAME` tracks `SITE_URL`; `robots.txt` stays `Allow: /` with no `Sitemap:` line, so a crawler can read the `noindex` |
 | `privacy/`, `support/` pages | hand-authored in `pwa/public/` | you — the store listing will cite them later |
 | The head of `pwa/index.html` | `identity.ts` (title, palette) | you — the title and the theme colour only; nothing else in that head describes the game |
 | Identity strings in app code | `pwa/src/identity.ts` | never re-hardcode a brand string |

@@ -16,8 +16,8 @@
          the game and is not the copy a search engine should hand anybody, so
          the page carries no crawlable description of itself: no meta
          description, no canonical, no sitemap link, no Open Graph or Twitter
-         card, no JSON-LD, and no prerendered body copy. `robots.txt` says the
-         same thing at the origin, and `tests/identity_test.ts` holds this
+         card, no JSON-LD, and no prerendered body copy. `robots.txt` lets a
+         crawler in so it can read the `noindex`, and `tests/identity_test.ts` holds this
          head to it — a discovery tag added back here fails that test.
          The title is the app's name alone because a browser tab and an
          installed launcher both need one. -->

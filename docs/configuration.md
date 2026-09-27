@@ -143,11 +143,11 @@ Name, copy, palette, and URLs live in `pwa/src/identity.ts` and nowhere else; `p
 | ----------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `pwa/index.html` head               | `noindex,nofollow,noarchive,nosnippet,noimageindex` and nothing else a crawler reads: no meta description, no canonical, no sitemap link, no Open Graph or Twitter card, no JSON-LD |
 | `pwa/index.html` body               | `#root` and a `<noscript>` line. No prerendered copy describing the game                                                                                                            |
-| `pwa/public/robots.txt`             | `Disallow: /`, advertising no sitemap                                                                                                                                               |
+| `pwa/public/robots.txt`             | `Allow: /`, advertising no sitemap — a crawler has to fetch a page to read its `noindex`                                                                                            |
 | `sitemap.xml`, `llms.txt`, `og.png` | not shipped, and not generated                                                                                                                                                      |
 | `privacy/`, `support/`              | still REACHABLE — a store review fetches them by URL — but `noindex,nofollow` and no canonical                                                                                      |
 
-`robots.txt` alone would only ask a crawler not to fetch; a URL it already knows can still be listed. The per-page `noindex` is what covers that, which is why both are there. `tests/identity_test.ts` holds all of it: adding a discovery tag, a crawler file or prerendered body copy back fails the suite.
+A `Disallow` in `robots.txt` would only ask a crawler not to fetch — and a crawler that cannot fetch a page never reads its `noindex`, so a URL it already knows could still be listed. That is why `robots.txt` lets it in and the per-page `noindex` does the asking. `tests/identity_test.ts` holds all of it: adding a discovery tag, a crawler file or prerendered body copy back fails the suite.
 
 This is a deliberate deviation from OSS_GAME_SPEC §11.3, recorded as such in [spec-conformance.md](spec-conformance.md).
 

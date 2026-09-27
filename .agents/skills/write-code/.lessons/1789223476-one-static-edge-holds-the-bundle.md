@@ -1,9 +1,13 @@
 ---
 title: One static import held three.js in the entry chunk — trace the edges before golfing bytes, because the critical path is a graph question, not a size question
 date: 2026-09-12
-scope: pwa/src/App.tsx, pwa/vite.config.ts, scripts/check-seo.mjs
-concepts: [bundle, critical-path, code-splitting, three, measurement, check-seo]
+scope: pwa/src/App.tsx, pwa/vite.config.ts
+concepts: [bundle, critical-path, code-splitting, three, measurement]
 ---
+
+> The budget this was measured against is gone — there are no size budgets,
+> by owner decision. Do not split code to satisfy one; the edge-tracing below
+> still stands for a first paint that got slow.
 
 `check-seo` had been failing PRs over tens of bytes, and two sessions' worth
 of slimming bought ~60 of them back. The actual problem was one line:

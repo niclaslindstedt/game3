@@ -26,7 +26,7 @@ export default [
   },
   js.configs.recommended,
   {
-    // Node tooling scripts (icon generation, SEO checks, the sim CLI, the
+    // Node tooling scripts (icon generation, the sim CLI, the
     // labs, release plumbing). These run under Node, so expose its globals
     // rather than the browser's.
     files: ["scripts/**/*.mjs", ".agents/skills/**/*.mjs"],
