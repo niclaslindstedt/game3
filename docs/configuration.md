@@ -77,6 +77,7 @@ Every dependency resolves from the public npm registry, so `npm install` needs n
 | `VITE_BASE`                        | Deploy base path: `/` (default), `/preview/`, `/branch/`. Drives the SW scope, the manifest identity, and every emitted URL.                                   |
 | `VITE_PWA_IGNORE_PATHS`            | Comma-separated absolute paths the built service worker must NOT claim. Only the root slot sets it (`/preview/,/branch/`) so nested slots own their own pages. |
 | `GITHUB_SHA` / `GITHUB_RUN_NUMBER` | Provided by CI; baked into the build label the HUD corner shows.                                                                                               |
+| `VITE_SHELL_BUILD`                 | `on` in the phone and desktop bundles (their `bundle-web.mjs` set it). The build links nothing back to the source or the website — see _The packaged apps_.    |
 | `CHROMIUM_PATH`                    | The browser the screenshot and profile tools drive. Claude web sessions have one at `/opt/pw-browsers/chromium`.                                               |
 
 `.env.example` at the root documents the same set; copy it to `.env` (gitignored) to override locally.
@@ -145,11 +146,20 @@ Name, copy, palette, and URLs live in `pwa/src/identity.ts` and nowhere else; `p
 | `pwa/index.html` body               | `#root` and a `<noscript>` line. No prerendered copy describing the game                                                                                                            |
 | `pwa/public/robots.txt`             | `Allow: /`, advertising no sitemap — a crawler has to fetch a page to read its `noindex`                                                                                            |
 | `sitemap.xml`, `llms.txt`, `og.png` | not shipped, and not generated                                                                                                                                                      |
-| `privacy/`, `support/`              | still REACHABLE — a store review fetches them by URL — but `noindex,nofollow` and no canonical                                                                                      |
+| `privacy/`, `support/`              | still REACHABLE for the website's players, but `noindex,nofollow` and no canonical. A store listing names the app's own pages on apps.agilator.se instead                           |
 
 A `Disallow` in `robots.txt` would only ask a crawler not to fetch — and a crawler that cannot fetch a page never reads its `noindex`, so a URL it already knows could still be listed. That is why `robots.txt` lets it in and the per-page `noindex` does the asking. `tests/identity_test.ts` holds all of it: adding a discovery tag, a crawler file or prerendered body copy back fails the suite.
 
 This is a deliberate deviation from OSS_GAME_SPEC §11.3, recorded as such in [spec-conformance.md](spec-conformance.md).
+
+## The packaged apps
+
+**The phone and desktop apps link nothing back to the source or the website, by owner decision.** Both bundle scripts build the site with `VITE_SHELL_BUILD=on`, which:
+
+- empties `__SOURCE_URL__`, so the HUD's build label and the menu's version stamp name the commit as plain text and the repository URL is not in the bundle at all;
+- leaves the website's own pages out of the webroot — `privacy/`, `support/` (which link to the source and its discussions) and `CNAME` (`WEB_ONLY` in `pwa/pwa-plugin.ts`).
+
+The desktop Help menu and About panel send a player to the app's page on apps.agilator.se (`APPS_PAGE_URL` in `identity.ts`, restated in `tauri/shell/src/config.rs`), whose privacy and support pages are the ones the store listing names. `scripts/lib/no-source.mjs` then reads every file of the webroot as bytes and the bundle script refuses one that names `niclaslindstedt`, "Source code" or "Report an issue"; `make store-metadata` refuses a listing that names the source or the owner's domain. The website keeps every link.
 
 ## Losing focus
 

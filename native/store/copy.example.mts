@@ -47,8 +47,9 @@ read on a phone.`,
   // ≤ 4000. The product page's "What's New".
   releaseNotes: "RELEASE NOTES — what changed, for the version this ships beside.",
 
-  // Required, must be http(s), and deliberately not the source repository.
-  supportUrl: "https://example.invalid/support/",
+  // Required, must be http(s), and deliberately not the source repository or
+  // the web edition: the app's support page on the publisher's app site.
+  supportUrl: "https://apps.agilator.se/sea-haven/support/",
 };
 
 /** The App Store product page, one entry per locale. */

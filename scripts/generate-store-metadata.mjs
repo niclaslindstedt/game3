@@ -138,9 +138,11 @@ function checkLength(field, value, limit) {
 // Compose. Brand-shaped values come from identity.ts, never from the listing,
 // so there is exactly one place a rename has to happen.
 // ---------------------------------------------------------------------------
-const site = identity.SITE_URL.replace(/\/$/, "");
-const MARKETING_URL = `${site}/`;
-const PRIVACY_URL = `${site}/privacy/`;
+// The game's page on the publisher's app site, not the web edition: a listing
+// names neither the website nor the source (see THE SOURCE below).
+const page = identity.APPS_PAGE_URL.replace(/\/$/, "");
+const MARKETING_URL = `${page}/`;
+const PRIVACY_URL = `${page}/privacy/`;
 const copyright = `${new Date().getFullYear()} ${identity.PUBLISHER}`;
 
 // The review phone is resolved out of band — see scripts/lib/store-env.mjs.
@@ -492,6 +494,22 @@ if (errors.length) {
   for (const message of errors) console.error(`  ✗ ${message}`);
   console.error("");
   process.exit(1);
+}
+
+// THE SOURCE: no listing — phone, Mac or Steam, words or URLs, review notes
+// included — names the source repository or the owner's own domain and
+// account. The packaged apps link nothing back to either (scripts/lib/
+// no-source.mjs), and the listing they ship under says the same.
+{
+  const said = JSON.stringify({ info, review, macInfo, macNotes, steam });
+  for (const needle of ["niclaslindstedt", "github.com"]) {
+    if (said.toLowerCase().includes(needle)) {
+      fail(
+        `the listing mentions "${needle}" — a store listing names the app's page ` +
+          `(${MARKETING_URL}), never the source or the web edition`,
+      );
+    }
+  }
 }
 
 const config = {

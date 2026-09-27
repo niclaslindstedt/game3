@@ -27,7 +27,7 @@ import { describe, expect, it } from "vitest";
 
 import { RULES } from "../native/store/listing.mts";
 import * as skeleton from "../native/store/copy.example.mts";
-import { APP_TITLE, PUBLISHER, SITE_URL } from "../pwa/src/identity.ts";
+import { APP_TITLE, APPS_PAGE_URL, PUBLISHER } from "../pwa/src/identity.ts";
 
 const root = join(import.meta.dirname, "..");
 const read = (...parts: string[]) => readFileSync(join(root, ...parts), "utf8");
@@ -166,16 +166,16 @@ describe("the review notes are true of the build", () => {
     expect(NOTES).toMatch(/no in-app\s+purchases/i);
   });
 
-  it("names a privacy page that exists in the site's own tree", () => {
-    // Apple fetches this URL before review opens the app at all, and the Play
-    // Console's Data safety form links it. It is static HTML under pwa/public/
-    // rather than an app route precisely so that neither has to run any
-    // JavaScript to read it.
+  it("keeps a privacy page in the website's own tree that says the same", () => {
+    // The listing names the policy on the app site (APPS_PAGE_URL), which
+    // Apple fetches before review opens the app at all. The website carries
+    // its own for its players, as static HTML under pwa/public/ so nothing has
+    // to run any JavaScript to read it.
     expect(read("pwa", "public", "privacy", "index.html")).toMatch(/collects nothing/i);
   });
 
-  itAuthored("names that page in the notes", () => {
-    expect(NOTES).toContain(`${SITE_URL}/privacy/`);
+  itAuthored("names the listing's privacy page in the notes", () => {
+    expect(NOTES).toContain(`${APPS_PAGE_URL}privacy/`);
   });
 
   it("does not promise a feature by naming a bundle id the app does not use", () => {

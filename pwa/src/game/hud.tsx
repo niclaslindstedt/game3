@@ -38,7 +38,6 @@
 // different job from drawing a readout. Every word here comes from
 // strings.ts (§39.1).
 
-import { REPO_URL } from "../identity.ts";
 import { formatTime } from "../lib/util.ts";
 import type { HudFlash } from "./run-news.ts";
 import { hourLabel } from "./daylight.ts";
@@ -430,14 +429,20 @@ export function Hud({
       </div>
 
       {/* §38.3: the build says what it is — version and commit, linked to
-          the source — and beside it the two words that name this frame. */}
+          the source on the website and plain in a packaged build, which links
+          nothing back to it — and beside it the two words that name this
+          frame. */}
       <div class="hud-build">
         <span>
           {STRINGS.stage(snap.seed)} · {snap.craft.toUpperCase()}
         </span>
-        <a href={`${REPO_URL}/commit/${__COMMIT_SHA__}`} target="_blank" rel="noreferrer">
-          {__BUILD_LABEL__}
-        </a>
+        {__SOURCE_URL__ ? (
+          <a href={`${__SOURCE_URL__}/commit/${__COMMIT_SHA__}`} target="_blank" rel="noreferrer">
+            {__BUILD_LABEL__}
+          </a>
+        ) : (
+          <span>{__BUILD_LABEL__}</span>
+        )}
       </div>
 
       {/* THE RESULT PLATE IS NOT A READOUT and is not drawn here: it carries

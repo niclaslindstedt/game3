@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-import { statSync, readdirSync } from "node:fs";
-import { join, posix, relative, sep } from "node:path";
+import { rmSync, statSync, readdirSync } from "node:fs";
+import { join, posix, relative, resolve, sep } from "node:path";
 
 import type { HtmlTagDescriptor, Plugin, ResolvedConfig } from "vite";
 
@@ -28,6 +28,9 @@ type AppPwaOptions = {
   /** Absolute path prefixes this worker must disown (sibling deploy slots
    * nested under this base, e.g. `/preview/` under `/`). */
   ignorePaths?: string[];
+  /** A build for the phone or desktop app (`VITE_SHELL_BUILD=on`), which
+   * leaves out the website's own pages — see `WEB_ONLY`. */
+  shellBuild?: boolean;
 };
 
 // Public assets we never want in the precache: `robots.txt` is for crawlers,
@@ -35,6 +38,18 @@ type AppPwaOptions = {
 // strips it from every non-root slot, so a precached `${base}CNAME` would
 // 404 the install fetch on `/preview/` and `/branch/`.
 const PUBLIC_SKIP = new Set(["robots.txt", "CNAME"]);
+
+// The public files that are the WEBSITE's rather than the game's, left out of
+// a packaged build: the CNAME names the site's host, and the privacy and
+// support pages link to the source and its discussions. Nothing in the game
+// links to either page — the desktop Help menu opens the app's page on
+// apps.agilator.se instead — and a phone or desktop build carries no link back
+// to the source or the site, which its bundle scripts check byte for byte.
+const WEB_ONLY = ["CNAME", "privacy", "support"];
+
+function webOnly(rel: string): boolean {
+  return WEB_ONLY.some((p) => rel === p || rel.startsWith(`${p}/`));
+}
 
 /** Per-deploy-slot install name so a parked preview installs as its own tile. */
 function channelName(base: string): { name: string; short_name: string } {
@@ -187,7 +202,12 @@ self.addEventListener("fetch", (event) => {
 `;
 }
 
-export function appPwa({ base, version, ignorePaths = [] }: AppPwaOptions): Plugin {
+export function appPwa({
+  base,
+  version,
+  ignorePaths = [],
+  shellBuild = false,
+}: AppPwaOptions): Plugin {
   const cacheId = cacheIdForBase(base);
   let config: ResolvedConfig;
 
@@ -279,6 +299,7 @@ export function appPwa({ base, version, ignorePaths = [] }: AppPwaOptions): Plug
         for (const file of listFiles(publicDir)) {
           const rel = relative(publicDir, file).split(sep).join(posix.sep);
           if (PUBLIC_SKIP.has(rel) || rel.endsWith(".map")) continue;
+          if (shellBuild && webOnly(rel)) continue;
           add(`${base}${rel}`, statSync(file).size);
         }
       }
@@ -305,6 +326,14 @@ export function appPwa({ base, version, ignorePaths = [] }: AppPwaOptions): Plug
         fileName: "precache-manifest.json",
         source: `${JSON.stringify({ totalBytes, assets }, null, 2)}\n`,
       });
+    },
+
+    // Vite copies the whole public directory into the output; a packaged build
+    // takes the website's own pages back out once everything is written.
+    closeBundle() {
+      if (!shellBuild) return;
+      const outDir = resolve(config.root, config.build.outDir);
+      for (const rel of WEB_ONLY) rmSync(join(outDir, rel), { recursive: true, force: true });
     },
   };
 }

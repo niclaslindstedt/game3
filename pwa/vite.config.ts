@@ -9,6 +9,7 @@ import tailwindcss from "@tailwindcss/vite";
 import { defineConfig } from "vite";
 
 import { appPwa } from "./pwa-plugin.ts";
+import { REPO_URL } from "./src/identity.ts";
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 
@@ -22,6 +23,16 @@ const ignorePaths = (process.env.VITE_PWA_IGNORE_PATHS ?? "")
   .split(",")
   .map((p) => p.trim())
   .filter(Boolean);
+
+// Is this build going INSIDE a store shell — the phone app or the desktop app —
+// rather than onto the web? Both shells' `bundle-web.mjs` pass it. A packaged
+// build carries no link back to the source and no word of the website: the
+// build label prints plain (`__SOURCE_URL__` is empty, so the repository URL is
+// never in the bundle), and the website's own pages — its privacy and support
+// pages and its CNAME — are left out (`appPwa`'s `shellBuild`). The shells send
+// a player to the app's page on apps.agilator.se instead, and their bundle
+// scripts refuse a bundle that names the source or the site.
+const shellBuild = process.env.VITE_SHELL_BUILD === "on";
 
 // Build identity for the HUD's build label and the update toast.
 const commit =
@@ -57,6 +68,7 @@ export default defineConfig({
     __APP_VERSION__: JSON.stringify(appVersion),
     __BUILD_LABEL__: JSON.stringify(buildLabel),
     __COMMIT_SHA__: JSON.stringify(commit),
+    __SOURCE_URL__: JSON.stringify(shellBuild ? "" : REPO_URL),
   },
   // `appPwa` only applies on build, so dev keeps registering no worker (the
   // app passes `enabled: !import.meta.env.DEV` to `usePwaUpdate`).
@@ -64,5 +76,5 @@ export default defineConfig({
   // The runtime is Preact: `@preact/preset-vite` compiles JSX against
   // `preact/jsx-runtime` and aliases `react` / `react-dom` onto
   // `preact/compat`, so the pre-built framework chunks resolve to Preact.
-  plugins: [preact(), tailwindcss(), appPwa({ base, version, ignorePaths })],
+  plugins: [preact(), tailwindcss(), appPwa({ base, version, ignorePaths, shellBuild })],
 });

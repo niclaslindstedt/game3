@@ -18,7 +18,7 @@ import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
 
-import { APP_DESCRIPTION, APP_NAME, PALETTE, SITE_URL } from "../pwa/src/identity.ts";
+import { APP_DESCRIPTION, APP_NAME, APPS_PAGE_URL, PALETTE } from "../pwa/src/identity.ts";
 import {
   SHELL_COMMAND,
   SHELL_COMMANDS,
@@ -186,10 +186,14 @@ describe("the macOS menu bar", () => {
     expect([...sent].sort()).toEqual([...SHELL_COMMANDS].sort());
   });
 
-  it("sends the player to the same website identity.ts names", () => {
+  it("sends the player to the app's page identity.ts names, never the web edition", () => {
     // The Help menu is the one part of the shell that points OUT, and the two
-    // pages it offers are the two a store listing has to name as well.
-    expect(rustConst(rustConfig, "SITE_URL")).toBe(SITE_URL.replace(/\/$/, ""));
+    // pages it offers are the two a store listing has to name as well. They
+    // are the app site's: a packaged build names neither the website nor the
+    // source.
+    expect(rustConst(rustConfig, "APPS_PAGE_URL")).toBe(APPS_PAGE_URL.replace(/\/$/, ""));
+    expect(rustConfig).not.toMatch(/niclaslindstedt/i);
+    expect(rustMenu).not.toMatch(/niclaslindstedt/i);
     expect(rustMenu).toContain('Target::Link("/privacy/")');
     expect(rustMenu).toContain('Target::Link("/support/")');
   });

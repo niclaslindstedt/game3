@@ -23,9 +23,18 @@ export const APP_DESCRIPTION =
   "built from real wave physics — on your phone or desktop, offline once loaded. " +
   "No account, no download.";
 export const SITE_URL = "https://game3.niclaslindstedt.se";
-/** Where the source lives — the HUD's build label will link a build's commit
- * here, so the running app can always say exactly what it is. */
+/** Where the source lives — on the website, the HUD's build label and the
+ * menu's version link a build's commit here, so the running app can always say
+ * exactly what it is. The browser code never imports it: it reads
+ * `__SOURCE_URL__`, which a packaged build (`VITE_SHELL_BUILD=on`) leaves
+ * empty, so the label prints plain and the URL is not in its bundle. */
 export const REPO_URL = "https://github.com/niclaslindstedt/game3";
+/** The game's page on the publisher's app site, which carries its privacy
+ * policy (`privacy/`) and support page (`support/`). It is where the store
+ * listing and the packaged apps send a player: a phone or desktop build names
+ * neither the website above nor the source, and its bundle scripts refuse one
+ * that does (`scripts/lib/no-source.mjs`). The website keeps both. */
+export const APPS_PAGE_URL = "https://apps.agilator.se/sea-haven/";
 
 /** A northern sea: deep teal water under a pale sky, granite and pine along
  * the shore, sand in the pockets, foam on the crests and an orange buoy to
