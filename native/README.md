@@ -112,6 +112,8 @@ make native-android     # run on an Android device/emulator
 make native-iphone      # a REAL iPhone over USB: bundle, sign, install, launch
 ```
 
+CI's `native` job runs the typecheck and `expo-doctor` on every push (`.github/workflows/ci.yml`).
+
 `make native-iphone ARGS="--device 'my iPhone'"` picks between several;
 `ARGS="--skip-bundle"` reuses the packed site.
 
