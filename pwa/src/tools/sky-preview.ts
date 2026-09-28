@@ -165,6 +165,7 @@ function clock(hour: number): string {
 void main();
 
 // Keep the three import from being tree-shaken out of a harness that only
-// reaches it through the renderer — and make the version obvious in the
-// console when a cell comes back black.
-console.log(`three r${THREE.REVISION}`);
+// reaches it through the renderer — and leave the version where a harness
+// (or a devtools session) can read it when a cell comes back black, without
+// a bare console line outside the output module.
+(window as unknown as { __threeRevision: string }).__threeRevision = THREE.REVISION;

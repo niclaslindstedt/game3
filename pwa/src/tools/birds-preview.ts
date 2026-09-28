@@ -158,4 +158,6 @@ function main(): void {
 
 main();
 
-console.log(`three r${THREE.REVISION}`);
+// Keeps the three import from being tree-shaken, and leaves the version where
+// a harness or a devtools session can read it when a cell comes back black.
+(window as unknown as { __threeRevision: string }).__threeRevision = THREE.REVISION;
