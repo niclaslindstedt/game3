@@ -58,3 +58,5 @@ native/store/copy.mts
 native/store/store.config.json
 native/store/screenshots/
 native/fastlane/metadata/
+native/fastlane/screenshots/
+native/fastlane/report.xml

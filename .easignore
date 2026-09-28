@@ -37,6 +37,8 @@ native/store/copy.mts
 native/store/store.config.json
 native/store/screenshots/
 native/fastlane/metadata/
+native/fastlane/screenshots/
+native/fastlane/report.xml
 
 # native/.gitignore, re-anchored under native/ (rules the root file already
 # applies repo-wide are not repeated).

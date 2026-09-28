@@ -33,7 +33,7 @@ submission package, and one says what is still missing:
 ```sh
 make store-preflight         # is this checkout wired up to ship? what is left?
 make store-metadata          # copy.mts + listing.mts → store.config.json, fastlane
-make store-shots             # the real game → screenshots/ (captioned PNGs)
+# make store-shots           # NOT PORTED YET — see above; no such target today
 ```
 
 | Path                             | What it is                                                  | Committed? |
@@ -140,11 +140,18 @@ forty-minute upload. `ASC_KEY_ID`, `ASC_ISSUER_ID` and either `ASC_KEY_PATH` or
 `ASC_KEY_CONTENT` — see `.env.example`; `native/*.p8` and `native/.env` are
 gitignored.
 
-`native/fastlane/` (the `Appfile` and the lanes) does not exist yet — it is one
-of the things `make store-preflight` names, and [`../RELEASING.md`](../RELEASING.md)
-§3 says what goes in it.
+`native/fastlane/Appfile` reads the bundle id from `APP_BUNDLE_ID` and the
+`metadata` lane in `native/fastlane/Fastfile` uploads the compiled listing (and
+the frames under `screenshots/`, once there are any): `cd native && fastlane
+metadata`, with fastlane installed (`brew install fastlane`). It submits nothing
+unless run with `submit:true`.
 
 ## The screenshots
+
+**Not ported yet** — this section describes the harness as the sibling game
+runs it, which is what Sea Haven's will look like once its own recipes are
+written. There is no `scripts/store-shots.mjs` and no `make store-shots` in
+this tree today.
 
 `scripts/store-shots.mjs` drives the real game in headless Chromium.
 

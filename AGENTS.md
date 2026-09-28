@@ -385,7 +385,7 @@ Each of these is the one place an answer is written down. Anything that needs it
 | THE BENCHMARK: its plan, its score, what it keeps | `docs/getting-started.md`'s developer paragraph, `docs/configuration.md`'s stored-data section, then a run of it with its own COPY DEBUG REPORT in the PR |
 | App identity, domain, deploy slots           | `identity.ts`, README, `docs/configuration.md`, `pwa/public/*`, `pwa/index.html`                      |
 | The craft, the controls, install flow        | README (What/Controls) + `docs/getting-started.md`                                                    |
-| Shell/platform plans                         | `docs/platforms.md`, `tauri/README.md`                                                                |
+| Shell/platform plans, or how the desktop app is released | `docs/platforms.md`, `tauri/README.md`, `tauri/RELEASING.md`                             |
 | The store app: the shell, its build, its bridges | `native/README.md`, `native/RELEASING.md`, `docs/platforms.md`; the Make targets in the README's Usage table |
 | A gap against the fleet rules, found or closed | `docs/conformance.md` — add, re-date or delete its row                                              |
 | A sound, a bed, a column in the listener     | `docs/audio.md`, then `make audition` (and its `--meter` table in the PR)                              |
