@@ -29,6 +29,7 @@
     "waves": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/waves-lab.mjs",
     "ride": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/ride-lab.mjs",
     "crafts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/craft-preview.mjs",
+    "blender": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/blender.mjs",
     "audition": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/audition.mjs",
     "screenshots": "node scripts/screenshot.mjs",
     "profile": "node scripts/profile-render.mjs",

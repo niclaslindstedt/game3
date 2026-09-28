@@ -16,12 +16,21 @@
 //   make crafts CRAFT=marlin        one craft, previews/crafts-marlin.png
 //   node scripts/craft-preview.mjs --scale 120
 //
+// THE ASSET SHEET: `--asset=previews/blender/skiff-lod0.glb,…` sets a
+// craft MODELLED in Blender (`make blender`, the `blender-assets` skill)
+// below the builder's own, each through the very code the game draws it
+// with (`craft-models.ts`: merged, dressed, hung, the code's hull
+// collapsed), with the game's rider on it — or the modelled one, with
+// `--rider=previews/blender/rider-lod0.glb` — and `--steer` turns the bars
+// and the nozzle to a share of their lock, the rider's hands with them.
+//   make crafts ARGS="--asset=previews/blender/skiff-lod0.glb,previews/blender/skiff-lod1.glb"
+//
 // Beside the picture it prints the numbers a proportion is argued about:
 // the draft, the freeboard, the bars and the rider's helmet over the
 // waterline, and the triangle counts — the render budget a craft spends.
 
-import { mkdirSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
+import { basename, dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
@@ -36,8 +45,12 @@ const { CRAFT, CRAFT_IDS, craftById, hullProbes, restY } = await import(
 );
 const { buildCraft, cockpitOf } = await import(join(root, "pwa/src/game/craft-body.ts"));
 const { createRider } = await import(join(root, "pwa/src/game/rider.ts"));
+const { REST_READ, poseRider } = await import(join(root, "pwa/src/game/rider-pose.ts"));
 const { CRAFT_STYLES } = await import(join(root, "pwa/src/game/craft-styles.ts"));
 const { biomeOf } = await import(join(root, "engine/mapgen/biomes.ts"));
+const models = await import(join(root, "pwa/src/game/craft-models.ts"));
+const { GLTFLoader } = await import("three/examples/jsm/loaders/GLTFLoader.js");
+const THREE = await import("three");
 
 const args = parseArgs(
   process.argv.slice(2),
@@ -45,11 +58,56 @@ const args = parseArgs(
     craft: { kind: "string", help: `one craft (${CRAFT_IDS.join(", ")}); every one when left out` },
     scale: { kind: "number", default: 90, help: "pixels per metre" },
     out: { kind: "string", help: "where to write the PNG (previews/crafts[-<craft>].png)" },
+    asset: {
+      kind: "string",
+      default: "",
+      help: "modelled crafts to set below the builder's (glTF paths, comma-separated; the id is the file's stem before its first -)",
+    },
+    rider: { kind: "string", default: "", help: "a modelled rider (glTF) to seat on the models" },
+    steer: {
+      kind: "number",
+      default: 0,
+      help: "the bars turned to this share of their lock, -1..1",
+    },
   },
-  "usage: node scripts/craft-preview.mjs [--craft id] [--scale px]",
+  "usage: node scripts/craft-preview.mjs [--craft id] [--scale px] [--asset=a.glb,b.glb] [--rider=r.glb] [--steer s]",
 );
 
-const specs = args.craft ? [craftById(args.craft)] : CRAFT;
+/** A glTF off the disk, parsed as the game parses one. */
+async function readGltf(path) {
+  const buf = readFileSync(join(root, path));
+  const ab = buf.buffer.slice(buf.byteOffset, buf.byteOffset + buf.byteLength);
+  return new Promise((done, fail) => new GLTFLoader().parse(ab, "", done, fail));
+}
+const assets = await Promise.all(
+  args.asset
+    .split(",")
+    .filter(Boolean)
+    .map(async (path) => ({ path, id: basename(path).split("-")[0], gltf: await readGltf(path) })),
+);
+const riderGltf = args.rider ? await readGltf(args.rider) : null;
+for (const a of assets) {
+  if (!CRAFT_IDS.includes(a.id)) {
+    console.error(`${a.path}: no craft "${a.id}" (${CRAFT_IDS.join(", ")})`);
+    process.exit(2);
+  }
+}
+
+/** The rows: every craft asked for as the builder draws it — and, with
+ * `--asset`, each asset's craft as the builder draws it, then the models. */
+const rowsOf = assets.length
+  ? [...new Set(assets.map((a) => a.id))].flatMap((id) => [
+      { spec: craftById(id), label: craftById(id).name, asset: null },
+      ...assets
+        .filter((a) => a.id === id)
+        .map((a) => ({ spec: craftById(id), label: basename(a.path, ".glb"), asset: a })),
+    ])
+  : (args.craft ? [craftById(args.craft)] : CRAFT).map((spec) => ({
+      spec,
+      label: spec.name,
+      asset: null,
+    }));
+const specs = rowsOf.map((r) => r.spec);
 const density = biomeOf("taiga").water.density;
 
 /** A view: where the eye stands, as a unit direction FROM the craft, and
@@ -87,25 +145,56 @@ function basis(view) {
   return { look, right, up };
 }
 
-/** The triangles of a mesh, body frame, with their vertex colour. */
-function trianglesOf(mesh) {
+/** Every triangle drawn under `root`, in its frame: the builder's merged
+ * meshes and a model's skinned one alike (its vertices through its bones),
+ * a mesh whose draw is collapsed (`craft-models.ts`) left out. */
+function drawnTriangles(root) {
+  root.updateMatrixWorld(true);
+  const toRoot = new THREE.Matrix4().copy(root.matrixWorld).invert();
   const out = [];
-  const pos = mesh.geometry.getAttribute("position").array;
-  const col = mesh.geometry.getAttribute("color").array;
-  for (let i = 0; i + 8 < pos.length; i += 9) {
-    const a = [pos[i], pos[i + 1], pos[i + 2]];
-    const b = [pos[i + 3], pos[i + 4], pos[i + 5]];
-    const c = [pos[i + 6], pos[i + 7], pos[i + 8]];
-    out.push({ a, b, c, color: [col[i], col[i + 1], col[i + 2]] });
-  }
+  const v = new THREE.Vector3();
+  root.traverse((o) => {
+    if (!o.isMesh || o.geometry.drawRange.count === 0) return;
+    const g = o.geometry;
+    const col = g.getAttribute("color");
+    const m = new THREE.Matrix4().multiplyMatrices(toRoot, o.matrixWorld);
+    const n = g.index ? g.index.count : g.getAttribute("position").count;
+    const at = (i) => {
+      const k = g.index ? g.index.getX(i) : i;
+      if (o.isSkinnedMesh) o.getVertexPosition(k, v);
+      else v.fromBufferAttribute(g.getAttribute("position"), k);
+      v.applyMatrix4(m);
+      return { p: [v.x, v.y, v.z], c: col ? [col.getX(k), col.getY(k), col.getZ(k)] : [1, 0, 1] };
+    };
+    for (let i = 0; i + 2 < n; i += 3) {
+      const [a, b, c] = [at(i), at(i + 1), at(i + 2)];
+      out.push({ a: a.p, b: b.p, c: c.p, color: a.c });
+    }
+  });
   return out;
 }
 
-/** The craft the builder made and the rider sat on it at rest. */
-function triangles(spec, style) {
-  const craft = buildCraft(spec, style).children.flatMap(trianglesOf);
-  const rider = trianglesOf(createRider(cockpitOf(spec, style)).mesh);
-  return { craft, rider };
+/** A craft's state with the bars and the nozzle at `share` of their lock. */
+function steered(spec, share) {
+  return { spec, nozzle: share * spec.nozzleAngle, trim: 0, bucket: 0 };
+}
+
+/** The craft the builder made — or, with a model adopted, the craft the game
+ * draws — and the rider sat on it at rest, hands on the bars as they turn. */
+function triangles(spec, style, asset) {
+  models.adoptModels({
+    crafts: asset ? new Map([[spec.id, asset.gltf]]) : new Map(),
+    rider: asset ? riderGltf : null,
+  });
+  const group = buildCraft(spec, style);
+  models.hangCraft(group, spec, group.children[0].material);
+  const craftState = steered(spec, asset ? args.steer : 0);
+  models.poseCraft(group, craftState);
+  const craft = drawnTriangles(group);
+  const rider = createRider(cockpitOf(spec, style));
+  rider.pose(models.onTheBars(poseRider(cockpitOf(spec, style), REST_READ), craftState));
+  group.add(rider.mesh);
+  return { craft, rider: drawnTriangles(rider.mesh) };
 }
 
 /** A sun over the viewer's shoulder, so every view shades the same way. */
@@ -157,14 +246,14 @@ VIEWS.forEach((v, i) => {
 });
 
 const rows = [];
-specs.forEach((spec, row) => {
+rowsOf.forEach(({ spec, label, asset }, row) => {
   const style = CRAFT_STYLES[spec.id];
-  const { craft, rider } = triangles(spec, style);
+  const { craft, rider } = triangles(spec, style, asset);
   const tris = [...craft, ...rider];
   const float = restY(spec, density);
   const top = 22 + row * cellH;
   canvas.line(0, top, width, top, INK.grid);
-  canvas.text(spec.name, 10, top + 10, INK.label, 2);
+  canvas.text(label.toUpperCase(), 10, top + 10, INK.label, asset ? 1 : 2);
   canvas.text(`${spec.length.toFixed(2)} X ${spec.beam.toFixed(2)} M`, 10, top + 32, INK.label, 1);
   canvas.text(`${craft.length} + ${rider.length} TRIS`, 10, top + 44, INK.label, 1);
 
@@ -205,7 +294,7 @@ specs.forEach((spec, row) => {
     for (const p of [t.a, t.b, t.c]) if (p[1] > helmet) helmet = p[1];
   }
   rows.push({
-    craft: spec.id,
+    craft: asset ? basename(asset.path, ".glb") : spec.id,
     tris: craft.length,
     riderTris: rider.length,
     draft: (-keel - float).toFixed(2),
@@ -218,7 +307,16 @@ specs.forEach((spec, row) => {
 
 mkdirSync(join(root, "previews"), { recursive: true });
 const out =
-  args.out ?? join(root, "previews", args.craft ? `crafts-${args.craft}.png` : "crafts.png");
+  args.out ??
+  join(
+    root,
+    "previews",
+    assets.length
+      ? `crafts-asset-${[...new Set(assets.map((a) => a.id))].join("-")}.png`
+      : args.craft
+        ? `crafts-${args.craft}.png`
+        : "crafts.png",
+  );
 writeFileSync(out, canvas.toPng());
 
 console.log(

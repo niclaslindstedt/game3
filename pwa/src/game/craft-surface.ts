@@ -148,15 +148,16 @@ const MIRROR_GLSL = /* glsl */ `
  * into — the very objects the dome's and the water's materials hold — and
  * with it the surface reflects the sky over it; without it, it only shines.
  */
-export function craftSurface(sky?: SkyUniforms): CraftSurface {
+export function craftSurface(sky?: SkyUniforms, smooth = false): CraftSurface {
   const material = new THREE.MeshPhongMaterial({
     name: CRAFT_SURFACE,
     vertexColors: true,
-    flatShading: true,
+    flatShading: !smooth,
     specular: new THREE.Color(SPECULAR),
     shininess: SHININESS,
   });
   material.userData.skyLayers = 0;
+  material.userData.sky = sky;
   material.onBeforeCompile = (shader) => {
     shader.vertexShader = shader.vertexShader
       .replace(
@@ -207,8 +208,28 @@ specularStrength *= gloss;`,
   // text for a surface with a sky and one without, and for every sheet
   // count: the key has to say what the source was compiled for.
   material.customProgramCacheKey = () =>
-    `${CRAFT_SURFACE}|${sky ? `sky${material.userData.skyLayers as number}` : "studio"}`;
+    `${CRAFT_SURFACE}|${sky ? `sky${material.userData.skyLayers as number}` : "studio"}|${smooth ? "smooth" : "flat"}`;
   return material;
+}
+
+/**
+ * THE SAME SURFACE, SMOOTH — what a MODELLED craft and rider are drawn
+ * with (`craft-models.ts`): the one surface's sky, finishes and mirror over
+ * the model's own normals rather than its facets', made once per surface
+ * and following it (the sheet count through `applyCraftSky`, a ghost's
+ * see-through as it stood when the sibling was made).
+ */
+export function smoothOf(m: CraftSurface): CraftSurface {
+  let s = m.userData.smooth as CraftSurface | undefined;
+  if (!s) {
+    s = craftSurface(m.userData.sky as SkyUniforms | undefined, true);
+    s.transparent = m.transparent;
+    s.opacity = m.opacity;
+    s.depthWrite = m.depthWrite;
+    s.userData.skyLayers = m.userData.skyLayers as number;
+    m.userData.smooth = s;
+  }
+  return s;
 }
 
 /**
@@ -218,6 +239,8 @@ specularStrength *= gloss;`,
  * comparison.
  */
 export function applyCraftSky(m: CraftSurface, layers: number): void {
+  const smooth = m.userData.smooth as CraftSurface | undefined;
+  if (smooth) applyCraftSky(smooth, layers);
   if (m.userData.skyLayers === layers) return;
   m.userData.skyLayers = layers;
   m.needsUpdate = true;

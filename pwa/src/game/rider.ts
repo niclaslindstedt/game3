@@ -36,6 +36,7 @@ import type { GameState } from "@engine";
 
 import { Builder, type P } from "../lib/lowpoly.ts";
 import type { Cockpit } from "./craft-body.ts";
+import { hangRider, onTheBars } from "./craft-models.ts";
 import { FINISH, craftSurface } from "./craft-surface.ts";
 import {
   BODY,
@@ -57,7 +58,7 @@ import {
  * so the two never read as one thing — and the vest's back is a mid tone
  * on purpose: at chase range a dark back on a dark saddle is one black
  * patch however well it is modelled. */
-const PAINT = {
+export const PAINT = {
   skin: 0xc9906a,
   /** The wetsuit: dark, with the lighter panels of a camo print down the
    * outside of the legs. */
@@ -85,7 +86,7 @@ const PAINT = {
  * shell and the visor flare, the wet skin and the wet suit carry a sheen,
  * the nylon and the leather do not. Keyed by the paint, because every
  * segment names its colour and a segment's colour is its material. */
-const RIDER_FINISH: Record<keyof typeof PAINT, number> = {
+export const RIDER_FINISH: Record<keyof typeof PAINT, number> = {
   skin: FINISH.skin,
   suit: FINISH.neoprene,
   suitLight: FINISH.neoprene,
@@ -131,7 +132,7 @@ const FACETS = {
  * axis = its up) is BACKWARD. `o` is what makes a rear rather than a
  * cylinder: the mass of a seated man's hips is behind the line his spine
  * runs down, and no symmetric ring can say so. */
-type Ring = { t: number; w: number; d: number; o?: number };
+export type Ring = { t: number; w: number; d: number; o?: number };
 
 /** A length in the figure's own units: every literal in this file is a
  * dimension of the 1.8 m man `BODY`'s table describes, so it carries
@@ -222,9 +223,165 @@ function legPaint(n: number, dark: number, light: number, stripe: number): numbe
   return out;
 }
 
-/** The whole figure, from its joints. The order is fixed: the per-facet
- * brightness hash is keyed on it, and a refresh keeps the colours. */
-function figure(b: Builder, p: RiderPose): void {
+/** ONE PIECE OF THE FIGURE, as data: a segment lofted from `a` to `to`
+ * (`segment`'s arguments), the helmet's banded shell, or the boot's sole.
+ * Each names the BONE it rides (`rider-rig.ts`'s `riderBones`) — the one
+ * joint-to-joint span it is laid along, or the one it hangs off — so the
+ * same list is what the builder emits every frame and what the modelled
+ * rider is made of (`make blender KIND=rider`), piece for piece. */
+export type FigurePart =
+  | {
+      kind: "segment";
+      bone: string;
+      a: P;
+      to: P;
+      hint: P;
+      rings: readonly Ring[];
+      n: number;
+      paint: number | readonly number[];
+      caps: [boolean, boolean];
+      /** A second bone the part is shared with, from its `a` end (a seat
+       * that is sat on the pelvis and leans with the spine). */
+      from?: string;
+    }
+  | {
+      kind: "helmet";
+      bone: string;
+      base: P;
+      crown: P;
+      u: P;
+      v: P;
+      rings: readonly Ring[];
+      livery: readonly (readonly number[])[];
+      n: number;
+    }
+  | { kind: "box"; bone: string; min: P; max: P; paint: number };
+
+/** The segments' cross-sections, stated once: the builder lofts them and
+ * the model is lofted through them. */
+const RINGS = {
+  seat: [
+    { t: 0, w: 0.098, d: 0.09, o: 0.03 },
+    { t: 0.1, w: 0.14, d: 0.12, o: 0.058 },
+    { t: 0.22, w: 0.166, d: 0.138, o: 0.072 },
+    { t: 0.36, w: 0.18, d: 0.14, o: 0.06 },
+    { t: 0.52, w: 0.18, d: 0.132, o: 0.04 },
+    { t: 0.68, w: 0.172, d: 0.12, o: 0.022 },
+    { t: 0.84, w: 0.16, d: 0.11, o: 0.01 },
+    { t: 1, w: 0.15, d: 0.104 },
+  ],
+  // The V a swimmer's back makes: a waist well inside the ribs, the lats
+  // flaring above them to a chest wider than the shoulder joints, so the
+  // deltoids stand outside the torso rather than continuing its line.
+  torso: [
+    { t: 0, w: 0.155, d: 0.108 },
+    { t: 0.3, w: 0.178, d: 0.126 },
+    { t: 0.58, w: 0.2, d: 0.134 },
+    { t: 0.82, w: 0.219, d: 0.135 },
+    { t: 1, w: 0.228, d: 0.126 },
+  ],
+  hem: [
+    { t: 0, w: 0.166, d: 0.118 },
+    { t: 1, w: 0.172, d: 0.124 },
+  ],
+  strap: [
+    { t: 0, w: 0.022, d: 0.034 },
+    { t: 1, w: 0.022, d: 0.032 },
+  ],
+  neck: [
+    { t: 0, w: 0.058, d: 0.052 },
+    { t: 1, w: 0.052, d: 0.05 },
+  ],
+  shell: [
+    { t: 0, w: 0.1, d: 0.118 },
+    { t: 0.14, w: 0.12, d: 0.14 },
+    { t: 0.34, w: 0.13, d: 0.15 },
+    { t: 0.56, w: 0.13, d: 0.149 },
+    { t: 0.76, w: 0.118, d: 0.136 },
+    { t: 0.9, w: 0.098, d: 0.11 },
+    { t: 1, w: 0.05, d: 0.058 },
+  ],
+  chin: [
+    { t: 0, w: 0.09, d: 0.058 },
+    { t: 0.45, w: 0.085, d: 0.055 },
+    { t: 1, w: 0.062, d: 0.044 },
+  ],
+  peak: [
+    { t: 0, w: 0.118, d: 0.028 },
+    { t: 1, w: 0.078, d: 0.015 },
+  ],
+  // The deltoid cap, broad, into a sleeve hem that grips the arm.
+  deltoid: [
+    { t: 0, w: 0.082, d: 0.078 },
+    { t: 0.5, w: 0.076, d: 0.072 },
+    { t: 1, w: 0.062, d: 0.06 },
+  ],
+  // Biceps and triceps at mid-humerus, then a bony elbow.
+  upperArm: [
+    { t: 0, w: 0.058, d: 0.056 },
+    { t: 0.42, w: 0.064, d: 0.061 },
+    { t: 1, w: 0.046, d: 0.044 },
+  ],
+  // The forearm's flexor mass high, a narrow wrist to set it against.
+  forearm: [
+    { t: 0, w: 0.05, d: 0.048 },
+    { t: 0.24, w: 0.058, d: 0.055 },
+    { t: 0.62, w: 0.045, d: 0.043 },
+    { t: 1, w: 0.032, d: 0.03 },
+  ],
+  // The knuckles fullest across the middle of the grip: a glove is a
+  // ball round a bar, not a collar on one.
+  fist: [
+    { t: 0, w: 0.04, d: 0.032 },
+    { t: 0.5, w: 0.048, d: 0.038 },
+    { t: 1, w: 0.04, d: 0.032 },
+  ],
+  thigh: [
+    { t: 0, w: 0.102, d: 0.096 },
+    { t: 0.32, w: 0.1, d: 0.094 },
+    { t: 0.74, w: 0.076, d: 0.073 },
+    { t: 1, w: 0.062, d: 0.059 },
+  ],
+  kneePad: [
+    { t: 0, w: 0.072, d: 0.07 },
+    { t: 1, w: 0.076, d: 0.074 },
+  ],
+  shin: [
+    { t: 0, w: 0.064, d: 0.064 },
+    { t: 0.26, w: 0.07, d: 0.078 },
+    { t: 0.6, w: 0.054, d: 0.058 },
+    { t: 1, w: 0.036, d: 0.038 },
+  ],
+  bootUpper: [
+    { t: 0, w: 0.046, d: 0.048 },
+    { t: 0.3, w: 0.052, d: 0.052 },
+    { t: 0.72, w: 0.05, d: 0.04 },
+    { t: 1, w: 0.038, d: 0.024 },
+  ],
+  cuff: [
+    { t: 0, w: 0.05, d: 0.05 },
+    { t: 1, w: 0.048, d: 0.048 },
+  ],
+} as const satisfies Record<string, readonly Ring[]>;
+
+/** Every piece of the figure, from its joints. The order is fixed: the
+ * per-facet brightness hash is keyed on it, and a refresh keeps the
+ * colours. */
+export function figureParts(p: RiderPose): FigurePart[] {
+  const out: FigurePart[] = [];
+  const seg = (
+    bone: string,
+    a: P,
+    to: P,
+    hint: P,
+    rings: readonly Ring[],
+    n: number,
+    paint: number | readonly number[],
+    caps: [boolean, boolean] = [true, true],
+    from?: string,
+  ): void => {
+    out.push({ kind: "segment", bone, a, to, hint, rings, n, paint, caps, from });
+  };
   const up = p.torsoUp;
   const right = p.torsoRight;
   const fwd = p.torsoFwd;
@@ -245,68 +402,46 @@ function figure(b: Builder, p: RiderPose): void {
   // back on a machine and one perched on a post. The bottom ring beds a
   // little INTO the cushion on purpose — a body resting on foam displaces
   // it, and a mass that stops exactly at the surface reads as hovering.
-  segment(
-    b,
+  seg(
+    "spine",
     add(p.pelvis, scale(p.pelvisUp, -(BODY.pelvis + k(0.005)))),
     at(p.pelvis, k(0.22), 0, 0),
     right,
-    [
-      { t: 0, w: 0.098, d: 0.09, o: 0.03 },
-      { t: 0.1, w: 0.14, d: 0.12, o: 0.058 },
-      { t: 0.22, w: 0.166, d: 0.138, o: 0.072 },
-      { t: 0.36, w: 0.18, d: 0.14, o: 0.06 },
-      { t: 0.52, w: 0.18, d: 0.132, o: 0.04 },
-      { t: 0.68, w: 0.172, d: 0.12, o: 0.022 },
-      { t: 0.84, w: 0.16, d: 0.11, o: 0.01 },
-      { t: 1, w: 0.15, d: 0.104 },
-    ],
+    RINGS.seat,
     FACETS.pelvis,
     PAINT.suit,
+    [true, true],
+    "pelvis",
   );
   // THE TORSO, the vest over it with its back panel lighter and a strap
   // over each shoulder, and the band at its hem covering the join.
-  segment(
-    b,
+  seg(
+    "spine",
     at(p.pelvis, k(0.06), 0, 0),
     at(p.chest, k(0.04), 0, 0),
     right,
-    // The V a swimmer's back makes: a waist well inside the ribs, the lats
-    // flaring above them to a chest wider than the shoulder joints, so the
-    // deltoids stand outside the torso rather than continuing its line.
-    [
-      { t: 0, w: 0.155, d: 0.108 },
-      { t: 0.3, w: 0.178, d: 0.126 },
-      { t: 0.58, w: 0.2, d: 0.134 },
-      { t: 0.82, w: 0.219, d: 0.135 },
-      { t: 1, w: 0.228, d: 0.126 },
-    ],
+    RINGS.torso,
     FACETS.torso,
     facetPaint(FACETS.torso, PAINT.vestBack, PAINT.vest, PAINT.vest),
     [false, true],
   );
-  segment(
-    b,
+  seg(
+    "spine",
     at(p.pelvis, k(0.06), 0, 0),
     at(p.pelvis, k(0.13), 0, 0),
     right,
-    [
-      { t: 0, w: 0.166, d: 0.118 },
-      { t: 1, w: 0.172, d: 0.124 },
-    ],
+    RINGS.hem,
     FACETS.torso,
     PAINT.orange,
     [false, false],
   );
   for (const side of [-1, 1]) {
-    segment(
-      b,
+    seg(
+      "spine",
       at(p.chest, k(0.05), side * k(0.11), k(-0.1)),
       at(p.pelvis, k(0.15), side * k(0.06), k(-0.125)),
       fwd,
-      [
-        { t: 0, w: 0.022, d: 0.034 },
-        { t: 1, w: 0.022, d: 0.032 },
-      ],
+      RINGS.strap,
       FACETS.strap,
       PAINT.orange,
     );
@@ -317,81 +452,54 @@ function figure(b: Builder, p: RiderPose): void {
   // as kit rather than as a head — with the goggle port and the chin bar
   // one dark mass at the front, a peak over it, and its livery in bands up
   // the shell.
-  segment(
-    b,
+  seg(
+    "spine",
     at(p.chest, k(0.02), 0, k(0.02)),
     add(p.neck, scale(up, k(0.03))),
     right,
-    [
-      { t: 0, w: 0.058, d: 0.052 },
-      { t: 1, w: 0.052, d: 0.05 },
-    ],
+    RINGS.neck,
     FACETS.limb,
     PAINT.skin,
     [false, false],
   );
   const headBase = add(p.neck, scale(p.headFwd, k(0.03)));
-  const crown = add(headBase, scale(p.headUp, BODY.helmet));
   {
     const axis = p.headUp;
     const u = across(p.headRight, axis);
-    const v = cross(axis, u);
     // Lofted band by band rather than through `segment`, because the
     // livery changes UP the shell and a loft paints one colour per panel
     // for its whole length. The dark front is carried up past the port to
     // the brow, where the peak takes over.
-    const shell: readonly Ring[] = [
-      { t: 0, w: 0.1, d: 0.118 },
-      { t: 0.14, w: 0.12, d: 0.14 },
-      { t: 0.34, w: 0.13, d: 0.15 },
-      { t: 0.56, w: 0.13, d: 0.149 },
-      { t: 0.76, w: 0.118, d: 0.136 },
-      { t: 0.9, w: 0.098, d: 0.11 },
-      { t: 1, w: 0.05, d: 0.058 },
-    ];
     const n = FACETS.helmet;
     const white = facetPaint(n, PAINT.shellLow, PAINT.visor, PAINT.shellLow);
-    const livery: readonly number[][] = [
-      white,
-      white,
-      facetPaint(n, PAINT.orange, PAINT.visor, PAINT.orange),
-      facetPaint(n, PAINT.orange, PAINT.helmet, PAINT.orange),
-      facetPaint(n, PAINT.helmet, PAINT.helmet, PAINT.helmet),
-      facetPaint(n, PAINT.helmet, PAINT.helmet, PAINT.helmet),
-    ];
-    const rings: P[][] = shell.map((r) => {
-      const o = add(headBase, scale(sub(crown, headBase), r.t));
-      const ring: P[] = [];
-      for (let j = 0; j < n; j++) {
-        const th = ((j + 0.5) / n) * Math.PI * 2;
-        const cx = Math.cos(th) * k(r.w);
-        const cy = Math.sin(th) * k(r.d);
-        ring.push([
-          o[0] + u[0] * cx + v[0] * cy,
-          o[1] + u[1] * cx + v[1] * cy,
-          o[2] + u[2] * cx + v[2] * cy,
-        ]);
-      }
-      return ring;
+    out.push({
+      kind: "helmet",
+      bone: "head",
+      base: headBase,
+      crown: add(headBase, scale(p.headUp, BODY.helmet)),
+      u,
+      v: cross(axis, u),
+      rings: RINGS.shell,
+      livery: [
+        white,
+        white,
+        facetPaint(n, PAINT.orange, PAINT.visor, PAINT.orange),
+        facetPaint(n, PAINT.orange, PAINT.helmet, PAINT.orange),
+        facetPaint(n, PAINT.helmet, PAINT.helmet, PAINT.helmet),
+        facetPaint(n, PAINT.helmet, PAINT.helmet, PAINT.helmet),
+      ],
+      n,
     });
-    b.finish = FINISH.shell;
-    for (let i = 0; i < livery.length; i++) b.loft([rings[i], rings[i + 1]], livery[i], true);
-    b.cap(rings[0], PAINT.visor, true);
-    b.cap(rings[rings.length - 1], PAINT.helmet, false);
   }
   // THE CHIN BAR, jutting forward under the port: the one part of the shell
   // that says full-face from the side, and the reason the front reads as a
   // face guard rather than as a dark stripe.
-  segment(
-    b,
+  seg(
+    "head",
     add(add(headBase, scale(p.headUp, k(0.04))), scale(p.headFwd, k(0.06))),
     add(add(headBase, scale(p.headUp, k(0.025))), scale(p.headFwd, k(0.185))),
     p.headRight,
-    [
-      { t: 0, w: 0.09, d: 0.058 },
-      { t: 0.45, w: 0.085, d: 0.055 },
-      { t: 1, w: 0.062, d: 0.044 },
-    ],
+    RINGS.chin,
     FACETS.limb,
     PAINT.visor,
   );
@@ -400,15 +508,12 @@ function figure(b: Builder, p: RiderPose): void {
   // rather than as a wire when the camera catches it edge-on. Navy over,
   // white under — the underside is what a rider hanging into a turn shows
   // the camera.
-  segment(
-    b,
+  seg(
+    "head",
     add(add(headBase, scale(p.headUp, k(0.205))), scale(p.headFwd, k(0.1))),
     add(add(headBase, scale(p.headUp, k(0.26))), scale(p.headFwd, k(0.245))),
     p.headRight,
-    [
-      { t: 0, w: 0.118, d: 0.028 },
-      { t: 1, w: 0.078, d: 0.015 },
-    ],
+    RINGS.peak,
     FACETS.peak,
     [PAINT.helmet, PAINT.helmet, PAINT.shellLow, PAINT.helmet],
   );
@@ -423,70 +528,33 @@ function figure(b: Builder, p: RiderPose): void {
   // circumferences halved.
   for (let i = 0; i < 2; i++) {
     const side = i === 0 ? -1 : 1;
+    const s = i === 0 ? "l" : "r";
     const shoulder = p.shoulders[i];
     const elbow = p.elbows[i];
     const wrist = p.wrists[i];
     const hint: P = [side, -0.5, 0];
     const cuff = add(shoulder, scale(sub(elbow, shoulder), 0.24));
-    segment(
-      b,
+    const arm = `upperarm_${s}`;
+    seg(
+      arm,
       add(shoulder, scale(sub(shoulder, elbow), 0.08)),
       cuff,
       hint,
-      // The deltoid cap, broad, into a sleeve hem that grips the arm.
-      [
-        { t: 0, w: 0.082, d: 0.078 },
-        { t: 0.5, w: 0.076, d: 0.072 },
-        { t: 1, w: 0.062, d: 0.06 },
-      ],
+      RINGS.deltoid,
       FACETS.limb,
       PAINT.vest,
       [true, false],
     );
-    segment(
-      b,
-      cuff,
-      elbow,
-      hint,
-      // Biceps and triceps at mid-humerus, then a bony elbow.
-      [
-        { t: 0, w: 0.058, d: 0.056 },
-        { t: 0.42, w: 0.064, d: 0.061 },
-        { t: 1, w: 0.046, d: 0.044 },
-      ],
-      FACETS.limb,
-      PAINT.skin,
-      [false, true],
-    );
-    segment(
-      b,
-      elbow,
-      wrist,
-      hint,
-      // The forearm's flexor mass high, a narrow wrist to set it against.
-      [
-        { t: 0, w: 0.05, d: 0.048 },
-        { t: 0.24, w: 0.058, d: 0.055 },
-        { t: 0.62, w: 0.045, d: 0.043 },
-        { t: 1, w: 0.032, d: 0.03 },
-      ],
-      FACETS.limb,
-      PAINT.skin,
-    );
+    seg(arm, cuff, elbow, hint, RINGS.upperArm, FACETS.limb, PAINT.skin, [false, true]);
+    seg(`forearm_${s}`, elbow, wrist, hint, RINGS.forearm, FACETS.limb, PAINT.skin);
     const bar = p.bars[i];
     const fist = sub(p.hands[i], scale(normalize(sub(p.hands[i], wrist)), k(0.015)));
-    segment(
-      b,
+    seg(
+      `hand_${s}`,
       sub(fist, scale(bar, k(0.05))),
       add(fist, scale(bar, k(0.045))),
       sub(wrist, p.hands[i]),
-      // The knuckles fullest across the middle of the grip: a glove is a
-      // ball round a bar, not a collar on one.
-      [
-        { t: 0, w: 0.04, d: 0.032 },
-        { t: 0.5, w: 0.048, d: 0.038 },
-        { t: 1, w: 0.04, d: 0.032 },
-      ],
+      RINGS.fist,
       FACETS.fist,
       PAINT.glove,
     );
@@ -500,49 +568,37 @@ function figure(b: Builder, p: RiderPose): void {
   // its `w` there.
   for (let i = 0; i < 2; i++) {
     const side = i === 0 ? -1 : 1;
+    const s = i === 0 ? "l" : "r";
     const hip = p.hips[i];
     const knee = p.knees[i];
     const ankle = p.ankles[i];
-    const out: P = [side, 0.2, 0];
+    const out_: P = [side, 0.2, 0];
     const n = FACETS.limb;
-    segment(
-      b,
+    seg(
+      `thigh_${s}`,
       hip,
       knee,
-      out,
-      [
-        { t: 0, w: 0.102, d: 0.096 },
-        { t: 0.32, w: 0.1, d: 0.094 },
-        { t: 0.74, w: 0.076, d: 0.073 },
-        { t: 1, w: 0.062, d: 0.059 },
-      ],
+      out_,
+      RINGS.thigh,
       n,
       legPaint(n, PAINT.suit, PAINT.suitLight, PAINT.suitLight),
     );
     const shin = normalize(sub(ankle, knee));
-    segment(
-      b,
+    seg(
+      `shin_${s}`,
       sub(knee, scale(shin, k(0.035))),
       add(knee, scale(shin, k(0.05))),
-      out,
-      [
-        { t: 0, w: 0.072, d: 0.07 },
-        { t: 1, w: 0.076, d: 0.074 },
-      ],
+      out_,
+      RINGS.kneePad,
       n,
       PAINT.orange,
     );
-    segment(
-      b,
+    seg(
+      `shin_${s}`,
       knee,
       ankle,
-      out,
-      [
-        { t: 0, w: 0.064, d: 0.064 },
-        { t: 0.26, w: 0.07, d: 0.078 },
-        { t: 0.6, w: 0.054, d: 0.058 },
-        { t: 1, w: 0.036, d: 0.038 },
-      ],
+      out_,
+      RINGS.shin,
       n,
       legPaint(n, PAINT.suit, PAINT.suitLight, PAINT.orange),
     );
@@ -553,42 +609,66 @@ function figure(b: Builder, p: RiderPose): void {
     // player sees.
     const floor = p.floors[i];
     const z = ankle[2];
-    b.box(
-      ankle[0] - k(0.05),
-      floor,
-      z - k(0.08),
-      ankle[0] + k(0.05),
-      floor + k(0.028),
-      z + BODY.foot - k(0.08),
-      PAINT.boot,
-    );
-    segment(
-      b,
+    out.push({
+      kind: "box",
+      bone: `boot_${s}`,
+      min: [ankle[0] - k(0.05), floor, z - k(0.08)],
+      max: [ankle[0] + k(0.05), floor + k(0.028), z + BODY.foot - k(0.08)],
+      paint: PAINT.boot,
+    });
+    seg(
+      `boot_${s}`,
       [ankle[0], floor + k(0.075), z - k(0.062)],
       [ankle[0], floor + k(0.048), z + BODY.foot - k(0.09)],
-      out,
-      [
-        { t: 0, w: 0.046, d: 0.048 },
-        { t: 0.3, w: 0.052, d: 0.052 },
-        { t: 0.72, w: 0.05, d: 0.04 },
-        { t: 1, w: 0.038, d: 0.024 },
-      ],
+      out_,
+      RINGS.bootUpper,
       n,
       PAINT.boot,
     );
-    segment(
-      b,
+    seg(
+      `shin_${s}`,
       add(ankle, scale(shin, k(-0.1))),
       add(ankle, scale(shin, k(0.02))),
-      out,
-      [
-        { t: 0, w: 0.05, d: 0.05 },
-        { t: 1, w: 0.048, d: 0.048 },
-      ],
+      out_,
+      RINGS.cuff,
       n,
       PAINT.boot,
       [false, false],
     );
+  }
+  return out;
+}
+
+/** The whole figure, from its joints, into the builder. */
+function figure(b: Builder, p: RiderPose): void {
+  for (const part of figureParts(p)) {
+    if (part.kind === "segment") {
+      segment(b, part.a, part.to, part.hint, part.rings, part.n, part.paint, part.caps);
+    } else if (part.kind === "box") {
+      b.box(...part.min, ...part.max, part.paint);
+    } else {
+      const { base, crown, u, v, n } = part;
+      const rings: P[][] = part.rings.map((r) => {
+        const o = add(base, scale(sub(crown, base), r.t));
+        const ring: P[] = [];
+        for (let j = 0; j < n; j++) {
+          const th = ((j + 0.5) / n) * Math.PI * 2;
+          const cx = Math.cos(th) * k(r.w);
+          const cy = Math.sin(th) * k(r.d);
+          ring.push([
+            o[0] + u[0] * cx + v[0] * cy,
+            o[1] + u[1] * cx + v[1] * cy,
+            o[2] + u[2] * cx + v[2] * cy,
+          ]);
+        }
+        return ring;
+      });
+      b.finish = FINISH.shell;
+      for (let i = 0; i < part.livery.length; i++)
+        b.loft([rings[i], rings[i + 1]], part.livery[i], true);
+      b.cap(rings[0], PAINT.visor, true);
+      b.cap(rings[rings.length - 1], PAINT.helmet, false);
+    }
   }
 }
 
@@ -626,8 +706,14 @@ export function createRider(cockpit: Cockpit, surface?: THREE.Material): Rider {
   const owned = surface === undefined;
   const material = surface ?? craftSurface();
   const mesh = new THREE.Mesh(geometry, material);
+  // THE MODELLED RIDER, where this build draws one (`craft-models.ts`): hung
+  // under the figure, which is collapsed and no longer re-emitted — the
+  // model's bones take the very pose the figure would have been drawn in.
+  const model = hangRider(mesh, material, { paint: PAINT, finish: RIDER_FINISH });
+  model?.pose(poseRider(cockpit, REST_READ));
 
   const pose = (p: RiderPose): void => {
+    if (model) return model.pose(p);
     draw(p);
     builder.refresh(geometry);
   };
@@ -636,7 +722,7 @@ export function createRider(cockpit: Cockpit, surface?: THREE.Material): Rider {
     mesh,
     pose,
     observe: (state) => dynamics.observe(state),
-    update: (state) => pose(poseRider(cockpit, dynamics.read(state))),
+    update: (state) => pose(onTheBars(poseRider(cockpit, dynamics.read(state)), state.craft)),
     reset: () => dynamics.reset(),
     dispose: () => {
       geometry.dispose();

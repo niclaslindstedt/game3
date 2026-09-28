@@ -1,5 +1,5 @@
 {
-  "about": "Every asset Sea Haven ships, where it comes from and under what licence. The game ships no audio file, no font file and no model or texture file: every sound is synthesized and every hull, wave and shore is geometry built by code at run time. Nothing here is third-party. A new kind of asset, or a new generator, changes this file in the same commit.",
+  "about": "Every asset Sea Haven ships, where it comes from and under what licence. The game ships no audio file, no font file and no texture file: every sound is synthesized, every wave and shore is geometry built by code at run time, and the crafts and the rider are glTF MODELS made in Blender off the game's own data by `make models` (the code-built ones stay one build switch away). Nothing here is third-party. A new kind of asset, or a new generator, changes this file in the same commit.",
   "assets": [
     {
       "path": "pwa/public/icons/icon.svg",
@@ -41,6 +41,20 @@
       "note": "The campaign's coast banners."
     },
     {
+      "path": "pwa/models/*.glb",
+      "source": "generated",
+      "generator": "make models (scripts/blender.mjs over scripts/blender/craft.py and rider.py, then scripts/models.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The modelled crafts and rider, made in Blender off the game's own data (pwa/src/game/model-data.ts). Committed; tests/models_test.ts holds each to the stamp in pwa/models/sources.json."
+    },
+    {
+      "path": "pwa/models/sources.json",
+      "source": "generated",
+      "generator": "make models (scripts/models.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The stamp of what the models were made from (pwa/models-stamp.ts)."
+    },
+    {
       "path": "pwa/src/game/audio/",
       "source": "authored",
       "licence": "PolyForm-Noncommercial-1.0.0",
@@ -50,7 +64,7 @@
       "path": "pwa/src/game/",
       "source": "authored",
       "licence": "PolyForm-Noncommercial-1.0.0",
-      "note": "The world's models and materials — craft, rider, sea, shore, flora, fauna, sky — built as geometry and shaders by this code at run time. No model or texture file ships."
+      "note": "The world's models and materials — craft, rider, sea, shore, flora, fauna, sky — built as geometry and shaders by this code at run time (the crafts and the rider drawn from pwa/models/ unless a build switches them back). No texture file ships."
     }
   ]
 }
