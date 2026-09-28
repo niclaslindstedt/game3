@@ -320,6 +320,7 @@ export { type RunTape, type TapeSample } from "./sim/tape.ts";
 
 // Deterministic utilities shared with tooling.
 export { createRng, type Rng } from "./lib/prng.ts";
+export { fixedClock, wallClock, type Clock } from "./lib/clock.ts";
 export { hash2, smooth, tiledValueNoise, valueNoise } from "./lib/noise.ts";
 export {
   DECLINATION,
@@ -331,7 +332,7 @@ export {
   type Season,
   type SunPlace,
 } from "./lib/solar.ts";
-export { SUN_SECONDS_PER_HOUR, sunHourAt } from "./game/clock.ts";
+export { SUN_SECONDS_PER_HOUR, sunHourAt } from "./game/sun-clock.ts";
 export { angleDiff, clamp, lerp, TAU } from "./lib/math.ts";
 export {
   fromEuler,

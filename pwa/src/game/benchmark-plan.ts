@@ -88,7 +88,7 @@ export type BenchmarkPlan = {
    *
    * So it is pinned in full daylight, mid-morning, with the sun high enough
    * to light the water's window and low enough to lay a real glint across
-   * the sea. ONE MINUTE OF RIDING IS ONE HOUR OF SUN (`clock.ts`), so this
+   * the sea. ONE MINUTE OF RIDING IS ONE HOUR OF SUN (`sun-clock.ts`), so this
    * is the start of a band and not a point: the warm-up and the measured
    * thirty seconds carry it to about half past ten, which is the whole of it
    * in broad day with nothing crossed under the stopwatch.

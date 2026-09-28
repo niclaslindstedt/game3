@@ -258,6 +258,15 @@ Make targets are the definition of green CI enforces).
   game-specific module. Those pools are what a sequel keeps as-is. A Gerstner
   sum is THIS game's (`engine/game/water.ts`); the noise under the sea bed is
   not (`engine/lib/noise.ts`).
+- **The engine never reads the wall clock; it is HANDED one.** Code in
+  `engine/` that times itself or stamps a record — the analyzer's `ms` —
+  takes a `Clock` from `engine/lib/clock.ts` (a trailing
+  `clock: Clock = wallClock` parameter) and calls `clock.now()`; it never
+  calls `Date.now`, `performance.now` or `new Date()`. A test hands in
+  `fixedClock()` and compares the whole report. `tests/imports_test.ts` and
+  `tests/determinism_test.ts` fail by file name on a clock read anywhere else.
+  The sun's clock (`game/sun-clock.ts`) is not a wall clock: it turns
+  `state.t` into an hour.
 - **The engine's only public surface is `engine/index.ts`.** Export new
   types/constants the app or the tests need from there; the app and tests
   import `@engine`, nothing deeper.

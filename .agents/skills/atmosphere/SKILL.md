@@ -28,7 +28,7 @@ the engine has an opinion about colour:
 | --- | --- |
 | Which of the coast's five skies a seed is ridden under, and HOW HEAVY it is — read off the wind the level already has, so the darkest skies stand over the biggest seas (R19) | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`; `skyCover(wind.speed)` is the one measure of heaviness |
 | The three hours a level offers, worked out from the coast's own daylight (R13) | `engine/mapgen/daytime.ts` |
-| The hour the run has REACHED — an hour of sun a minute of riding | `sunHourAt(level, state.t)` in `engine/game/clock.ts` |
+| The hour the run has REACHED — an hour of sun a minute of riding | `sunHourAt(level, state.t)` in `engine/game/sun-clock.ts` |
 | The astronomy itself: declination by season, the sun's elevation and bearing at a latitude | `engine/lib/solar.ts` — the generator needs it to pick an hour at all |
 
 Which sky, which season and which hour are the ONLY inputs. A row on the

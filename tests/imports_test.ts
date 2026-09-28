@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE DEPENDENCY DIRECTION, walked — OSS_GAME_SPEC §23.7's "enforce
-// direction with a test, not with discipline". The arrows AGENTS.md states
+// THE DEPENDENCY DIRECTION, walked — enforced by a test rather than by
+// discipline, because discipline is what degrades under a deadline. The
+// arrows AGENTS.md states
 // are read off the REAL import graph here: every `import`/`export … from`
 // in engine/, pwa/src/, scripts/ and tests/, resolved to the role it lands
 // in, and held to the four rules:
@@ -15,10 +16,11 @@
 //   4. the suite reaches the engine the way a host does — `@engine` — so a
 //      test cannot pin an internal a host could never see.
 //
-// Beside the graph, the §25 hygiene the same walk can check for free: no
-// wall clock, no global random source and no console in the engine's code
-// (the analyzer's report timer is the one recorded exception — dev-time,
-// never stepping a run — and it is named here rather than waved through).
+// Beside the graph, the hygiene the same walk can check for free: no wall
+// clock, no global random source and no console in the engine's code. The
+// clock seam (`engine/lib/clock.ts`) is the one place a clock is read —
+// whatever times itself, like the analyzer's report, is handed a clock from
+// it — and it is named here rather than waved through.
 // `tests/determinism_test.ts` proves a run replays; this file is why it
 // keeps doing so after the next merge.
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -146,7 +148,7 @@ const SHELL_SEAM = new Set([
   "native/store/copy.example.mts",
 ]);
 
-describe("the dependency direction (§23.7)", () => {
+describe("the dependency direction", () => {
   it("has a graph to walk", () => {
     expect(ENGINE.length).toBeGreaterThan(20);
     expect(PWA.length).toBeGreaterThan(0);
@@ -241,12 +243,12 @@ describe("the dependency direction (§23.7)", () => {
   });
 });
 
-describe("the engine's hygiene (§25)", () => {
-  /** The one wall-clock read the engine is allowed: the analyzer stamps its
-   * report with how long it took. Dev-time only — `analyzeLevel` never
-   * steps a run and the timing never feeds a decision. Anything else is a
-   * §25.1 violation and lands here by name. */
-  const CLOCK_ALLOWED = new Set(["engine/analysis/index.ts"]);
+describe("the engine's hygiene", () => {
+  /** The one file that may read the wall clock: the clock seam, which every
+   * self-timing report (the analyzer's `ms`) is HANDED a clock from. The
+   * timing never feeds a decision and never reaches a run. Anything else
+   * reading a clock lands here by name. */
+  const CLOCK_ALLOWED = new Set(["engine/lib/clock.ts"]);
 
   for (const file of ENGINE) {
     const rel = relative(ROOT, file).split(sep).join("/");

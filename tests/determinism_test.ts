@@ -1,14 +1,18 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// The §25 guards: a run replayed from the same seed and inputs is the same
-// run, bit for bit; the engine draws nothing from a clock or a global
-// random source; and a different seed is a different run.
+// The determinism guards: a run replayed from the same seed and inputs is the
+// same run, bit for bit; the engine draws nothing from a clock or a global
+// random source; a different seed is a different run; and a report that
+// times itself comes out the same twice once its clock is held still.
 import { readdirSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 
 import {
+  analyzeLevel,
   botInput,
   createGame,
+  fixedClock,
+  generateLevel,
   simulateStage,
   step,
   type CraftInput,
@@ -109,9 +113,9 @@ describe("determinism", () => {
     walk(join(process.cwd(), "engine"), files);
     expect(files.length).toBeGreaterThan(10);
     for (const file of files) {
-      // The analyzer times itself for its report; it is dev-time only and
-      // never steps a run.
-      if (file.includes("/analysis/")) continue;
+      // The one clock seam: whatever times itself is HANDED a clock from
+      // here (the analyzer's `ms`), so nothing else in the engine reads one.
+      if (file.endsWith("/lib/clock.ts")) continue;
       // The prose may name the thing it forbids; the code may not.
       const text = readFileSync(file, "utf8")
         .split("\n")
@@ -120,6 +124,14 @@ describe("determinism", () => {
       expect(text, file).not.toMatch(/Math\.random/);
       expect(text, file).not.toMatch(/Date\.now|new Date\(|performance\.now/);
     }
+  });
+
+  it("analyzes a level to an identical report under a fixed clock", () => {
+    const level = generateLevel(7);
+    const once = analyzeLevel(level, fixedClock());
+    const twice = analyzeLevel(level, fixedClock());
+    expect(twice).toEqual(once);
+    expect(once.ms).toBe(0);
   });
 
   it("nothing in the engine prints to the console", () => {

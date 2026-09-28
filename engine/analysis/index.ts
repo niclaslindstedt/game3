@@ -27,6 +27,7 @@
 // nobody has to fix.
 
 import { sampleField } from "../lib/heightfield.ts";
+import { wallClock, type Clock } from "../lib/clock.ts";
 import { angleDiff } from "../lib/math.ts";
 import { daylightWindow } from "../lib/solar.ts";
 import { faunaById } from "../game/defs/fauna.ts";
@@ -117,9 +118,11 @@ export type LevelAnalysis = {
   ms: number;
 };
 
-/** Re-check a finished level against every rule in the rule book. */
-export function analyzeLevel(level: Level): LevelAnalysis {
-  const started = Date.now();
+/** Re-check a finished level against every rule in the rule book. `clock`
+ * times the pass for the report's `ms` and nothing else; hand in a fixed one
+ * for a report that must come out the same twice. */
+export function analyzeLevel(level: Level, clock: Clock = wallClock): LevelAnalysis {
+  const started = clock.now();
   // R32 — score it against the rule book AT THE PACE IT WAS BUILT TO, not
   // the catalog's own. A level drawn for a faster class has its gates
   // further apart on purpose, and an analyzer reading the unpaced table
@@ -640,7 +643,7 @@ export function analyzeLevel(level: Level): LevelAnalysis {
       hour: level.hour,
       weather: level.weather,
     },
-    ms: Date.now() - started,
+    ms: clock.now() - started,
   };
 }
 
