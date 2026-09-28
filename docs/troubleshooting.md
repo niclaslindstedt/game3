@@ -62,7 +62,7 @@ Nothing imports tooling. A helper two files want to share goes in `engine/lib/` 
 A run has to replay from its seed, so nothing in `engine/` reads the clock or a global random source; draw from `state.rng`, and print through `engine/output.ts`. The analyzer's report timer is the one recorded exception.
 
 **`tests/file_size_test.ts` — "is N lines".**
-A source file passed a thousand physical lines. Split it by concern; if it is genuinely dense (a rule catalogue, a lookup table), put `game-spec:allow-large-file: <reason>` in a comment in its first twenty lines — with a real reason, and only while it is actually over the cap.
+A source file passed a thousand physical lines. Split it by concern; if it is genuinely dense (a rule catalogue, a lookup table), put `guidelines:allow-large-file: <reason>` in a comment in its first twenty lines — with a real reason, and only while it is actually over the cap; a marked file is split the next time it is touched.
 
 **`tests/symlinks_test.ts` — "is a regular file, not a symlink".**
 A checkout without symlink support (Windows without developer mode) or an editor that dereferenced `CLAUDE.md` into a copy. `git config --global core.symlinks true` and re-checkout; never edit the alias, edit `AGENTS.md`.

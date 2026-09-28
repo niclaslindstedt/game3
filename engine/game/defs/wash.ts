@@ -2,7 +2,7 @@
 // THE WASH — the block of `TUNING` that answers to `wash.ts`: the waves a
 // hull leaves in the water, as opposed to the waves the sea brought. It
 // lives beside `tuning.ts` the way the sea and the assist do — that file is
-// at the §20.5 cap — and `tuning.ts` folds it in as `TUNING.wash`, which
+// at the 1000-line cap — and `tuning.ts` folds it in as `TUNING.wash`, which
 // is how the whole repo spells it; nothing reads this module directly.
 
 /** THE WASH — every wave a hull makes (`wash.ts`).

@@ -442,7 +442,7 @@ export const LEVEL_RULES = {
     zoneSlack: 20,
   },
 
-  /** R26, R27 — stated next door, to keep this file under the §20.5
+  /** R26, R27 — stated next door, to keep this file under the 1000-line
    * cap; `R.river` and `R.flow` are these two tables. */
   river: RIVER_RULES,
   flow: FLOW_RULES,

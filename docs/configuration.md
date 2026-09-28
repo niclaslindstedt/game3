@@ -44,7 +44,7 @@ The running game reads its whole situation off the URL, which is what makes a le
 
 A URL that names a RUN (`start`, `scene`, `shot`, `paused`) boots into one, past the attract card and the front door. `player` and `course` are the two rows here that no surface can put back: both are read once, on the way in, because a card that could return the craft or the buoys mid-visit would be a card the banner lab has to steer around. Anything else opens the front door, with the URL's seed, craft, time, day, weather and picture rows as the settings it is standing on — so a link decides what RIDE rides without deciding that it has already been pressed. Every one of these except `update` is a row on the start card, the level card, the craft card, the options page or the developer page. COPY REPRO LINK writes back what decides the RUN — the seed, the craft, the day and the developer's own overrides; the picture rows are a fact about the machine reading the link rather than about the frame, so they are left to whoever opens it. `scripts/screenshot.mjs` and `scripts/profile-render.mjs` both take them as flags (`--water`, `--res`, `--detail`, `--see`, `--fps`), which is how a picture ladder is looked at and metered one stop at a time; the screenshot tool takes `--camera` the same way.
 
-The debug switch the spec asks for (§19.3) is the dev build: `npm run dev` lifts the engine's `debug`-level output onto the console through `pwa/src/output-bridge.ts`, and the same lines are kept in an in-memory ring buffer every build can read back.
+The documented debug switch is the dev build: `npm run dev` lifts the engine's `debug`-level output onto the console through `pwa/src/output-bridge.ts`, and the same lines are kept in an in-memory ring buffer every build can read back.
 
 ## What the game remembers
 
@@ -150,7 +150,7 @@ Name, copy, palette, and URLs live in `pwa/src/identity.ts` and nowhere else; `p
 
 A `Disallow` in `robots.txt` would only ask a crawler not to fetch — and a crawler that cannot fetch a page never reads its `noindex`, so a URL it already knows could still be listed. That is why `robots.txt` lets it in and the per-page `noindex` does the asking. `tests/identity_test.ts` holds all of it: adding a discovery tag, a crawler file or prerendered body copy back fails the suite.
 
-This is a deliberate deviation from OSS_GAME_SPEC §11.3, recorded as such in [spec-conformance.md](spec-conformance.md).
+This is by owner decision: the site is not meant to be found through a search engine.
 
 ## The packaged apps
 
@@ -163,4 +163,4 @@ The desktop Help menu and About panel send a player to the app's page on apps.ag
 
 ## Losing focus
 
-A hidden tab, a minimised window or a phone call **pauses the run** — the run clock included — and coming back lands on the very frame it left (OSS_GAME_SPEC §37.3). This is a single-player game, so there is nobody the world has to keep moving for. The decision lives in `pwa/src/game/run-loop.ts`, which also clamps a long frame to a tenth of a second and drops the time beyond it rather than simulating a stall (§37.2).
+A hidden tab, a minimised window or a phone call **pauses the run** — the run clock included — and coming back lands on the very frame it left. This is a single-player game, so there is nobody the world has to keep moving for. The decision lives in `pwa/src/game/run-loop.ts`, which also clamps a long frame to a tenth of a second and drops the time beyond it rather than simulating a stall.

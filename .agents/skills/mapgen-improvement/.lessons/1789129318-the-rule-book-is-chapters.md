@@ -5,7 +5,7 @@ scope: engine/mapgen/rules.ts, engine/mapgen/rules-circuit.ts, engine/mapgen/pac
 concepts: [rules, docs, tests, file-size]
 ---
 
-`engine/mapgen/rules.ts` sits on §20.5's cap exactly and there is no slack
+`engine/mapgen/rules.ts` sits on the 1000-line cap exactly and there is no slack
 left — R27 and R28 took it to the line, and four passes of trimming prose to
 fit one more rule is worth doing once and never again. A new rule gets a
 SIBLING CHAPTER: `rules-circuit.ts` (R29–R31) and `pace.ts` (R32) each carry

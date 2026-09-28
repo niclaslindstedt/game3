@@ -5,7 +5,7 @@ scope: engine/game/defs/
 concepts: [file-size, tuning, refactor, defs]
 ---
 
-`engine/game/defs/tuning.ts` is kept close to the §20.5 cap, so a single new
+`engine/game/defs/tuning.ts` is kept close to the 1000-line cap, so a single new
 tuning number — with the comment every number here owes — can fail
 `tests/file_size_test.ts` before it fails anything else. The marker the test
 accepts is not the answer: the file is at the cap for a reason and an

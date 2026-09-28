@@ -5,7 +5,7 @@
 // (`wind.ts`).
 //
 // They live beside `tuning.ts` for the same reason the arcade assist does
-// — that file had grown past the §20.5 cap and these are the pieces that
+// — that file had grown past the 1000-line cap and these are the pieces that
 // come out cleanly, being one subject with one owner and one lab
 // (`make waves`). `TUNING.sea` and `TUNING.wind` are still how the whole
 // repo spells them; `tuning.ts` folds these in under those names, and

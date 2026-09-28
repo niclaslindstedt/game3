@@ -226,7 +226,7 @@ export function appPwa({
     // here (not in index.html) so the hrefs stay base-correct from one
     // source of truth regardless of the configured `base`. The theme-color
     // metas stay in index.html: they carry no href, and they need the
-    // light/dark media variants the spec asks for, which a static tag says
+    // light/dark media variants, which a static tag says
     // best — `PALETTE.sea` there and here must agree.
     transformIndexHtml(): HtmlTagDescriptor[] {
       return [

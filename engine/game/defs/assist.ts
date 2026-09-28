@@ -3,7 +3,7 @@
 // block of `TUNING` that is not a model of anything.
 //
 // It lives beside `tuning.ts` rather than inside it because that file had
-// grown past the §20.5 cap, and this is the piece that comes out cleanly:
+// grown past the 1000-line cap, and this is the piece that comes out cleanly:
 // every number in here is argued against a BENCH (the flight bench, the
 // ramp bench, the following-sea corpus) rather than against the world. The
 // air and ramp hands are DIALS a difficulty setting is expected to move;

@@ -2,7 +2,7 @@
 // THE HULL UNDER THE WATER — `TUNING.submerged`, stated here and folded
 // into the one tuning object next door under that name, the way the air
 // (`defs/flight.ts`), the assist and the sea are: `tuning.ts` has the
-// §20.5 cap over it, and this is one subject with one owner
+// 1000-line cap over it, and this is one subject with one owner
 // (`craft-physics`), one module (`game/submerged.ts`), one lab (`make
 // ride`) and one page of benches (`docs/riding.md`).
 //

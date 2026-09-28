@@ -10,7 +10,7 @@ and why?
 
 Everything about the answer lives in **`engine/game/water.ts`** — with what
 the BED does to a wave (dispersion, shoaling, the depth table, the eikonal
-phase field) split into **`engine/game/wave-bed.ts`** beside it for the §20.5
+phase field) split into **`engine/game/wave-bed.ts`** beside it for the 1000-line
 cap — a DOM-free
 module of pure functions: a `SeaState` built ONCE from the level's wind and
 seed, and `surfaceAt(sea, level, x, z, t)` evaluated wherever anything needs

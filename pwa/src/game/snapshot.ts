@@ -8,7 +8,7 @@
 // Nothing in here decides anything: the speed is the engine's `speed`, the
 // rev fraction is against the engine's own redline, the gate count is the
 // progress the engine keeps. A number that decided an outcome would be a
-// rule in the shell (§23.2), and there are none.
+// rule in the shell, and there are none.
 
 import {
   TUNING,
@@ -300,7 +300,7 @@ export type HudSnapshot = {
    *
    * `comboParts` is what it is MADE of, and it is handed over as the
    * engine's own elements rather than as a line of text: the words are the
-   * strings table's (§39.1) and the HUD asks it for them. Empty with
+   * strings table's and the HUD asks it for them. Empty with
    * nothing in hand, and it follows the figure through the hold — the
    * receipt says what was banked AND what for. */
   combo: number;

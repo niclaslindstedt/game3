@@ -1,5 +1,5 @@
 ---
-title: `App.tsx` sits two lines under the §20.5 cap — a new concern there needs its own module, and the cap is the design review
+title: `App.tsx` sits two lines under the 1000-line cap — a new concern there needs its own module, and the cap is the design review
 date: 2026-09-20
 scope: pwa/src/App.tsx, pwa/src/game/live-camera.ts
 concepts: [file-size, app, effects, refactor, menu]

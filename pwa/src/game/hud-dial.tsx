@@ -73,7 +73,7 @@ export function RevBar({ rpm, idle, braking }: { rpm: number; idle: number; brak
  * the foot and 1 at the top (`snapshot.ts`'s `altitudeShare` owns the scale
  * and the still-water line's place on it); `peak` is the run's high-water
  * mark on the same scale, or negative with nothing to mark yet. `reading`
- * is the figure, already worded (§39.1).
+ * is the figure, already worded.
  *
  * The FILL runs from the still-water line to the marker rather than from
  * the foot, because the thing being read is the DEPARTURE from the water:
@@ -116,7 +116,7 @@ export function AltitudeTape({
 
 /** THE WIND METER. `angle` is the screen-space bearing the arrow points
  * along, radians clockwise from straight up; `reading` and `label` are
- * already worded (§39.1). The two offset arrow faces make one thick object,
+ * already worded. The two offset arrow faces make one thick object,
  * and the small bright facet fixes which end is the point even at phone size. */
 export function WindMeter({
   angle,

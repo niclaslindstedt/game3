@@ -109,7 +109,7 @@ export const OPEN_RULES: RunRules = {
 };
 
 /** THE RACE'S NUMBERS — stated here rather than in `tuning.ts`, which is at
- * the §20.5 cap, and because every one of them is the race's alone. */
+ * the 1000-line cap, and because every one of them is the race's alone. */
 export const RACE = {
   /** The field: how many other riders stand on the grid. Eleven, so the
    * whole grid is a round dozen. */

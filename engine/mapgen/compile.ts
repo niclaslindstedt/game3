@@ -5,7 +5,7 @@
 // where the level would be. Now that the course says where, the two
 // heightfields are baked over its extent, the surface classifier is closed
 // over them, and everything downstream reads grids: a buoyancy probe at
-// 120 Hz is two lerps, not a noise stack (OSS_GAME_SPEC §24.5).
+// 120 Hz is two lerps, not a noise stack.
 //
 // The level is read-only from here on. Nothing regenerates any of it.
 

@@ -1,11 +1,10 @@
 # Agent skills
 
 Every skill is a `SKILL.md` playbook under `.agents/skills/<name>/`, with
-the §21.3 front matter and structure, an empty `.lessons/` directory the
+`name` and `description` front matter, an empty `.lessons/` directory the
 `skill-reflection` skill fills, and — for the maintenance skills — a
-`.last-updated` baseline (§21.4). `.claude/skills` and `.gemini/skills` are
-symlinks here. `AGENTS.md` is the router that says which one to load;
-`OSS_GAME_SPEC.md` §21 is the contract they are written to.
+`.last-updated` baseline. `.claude/skills` and `.gemini/skills` are
+symlinks here. `AGENTS.md` is the router that says which one to load.
 
 ## Session workflow
 
@@ -18,7 +17,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `conflict` | Moving a branch onto another: the backup branch, always fetch, resolve honestly |
 | `skill-reflection` | Read each loaded skill's lessons first; record, prune, merge, promote at the end; the size bars; `scripts/skill-lessons.mjs` |
 
-## Maintenance (§21.5, §21.6)
+## Maintenance
 
 | Skill | One line |
 | --- | --- |
@@ -26,10 +25,8 @@ symlinks here. `AGENTS.md` is the router that says which one to load;
 | `update-docs` | `docs/*.md` back in step with the water, the craft, the generator, the sim and the tooling |
 | `update-readme` | `README.md`'s twelve sections back in step with the commands, the craft and the controls |
 | `update-website` | The identity-derived shell under `pwa/` back in step with `identity.ts` — and the site still carrying none of the discovery signals it withholds on purpose |
-| `update-prompts` | `prompts/` back in step with its sources (dormant — no prompt shipped yet) |
-| `sync-game-spec` | Walk `OSS_GAME_SPEC.md` chapter by chapter against the tree; re-date `docs/spec-conformance.md` |
 
-## Craft (§21.9)
+## Craft
 
 | Skill | One line |
 | --- | --- |

@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE KARST COAST'S COVER — the fourth quarter of the roster. It lives
 // beside `flora-defs.ts` for the reason `flora-defs-arctic.ts` does: one
-// subject, one placer, one lab, and a parent file past the §20.5 cap.
+// subject, one placer, one lab, and a parent file past the 1000-line cap.
 // `FLORA` is still how the whole app spells the roster — `flora-defs.ts`
 // spreads these rows onto the end of it — and nothing anywhere reads this
 // module directly. What a row MEANS (the look, the habitat, the forms) is

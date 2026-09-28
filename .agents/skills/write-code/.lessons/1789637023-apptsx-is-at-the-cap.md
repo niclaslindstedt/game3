@@ -11,7 +11,7 @@ concepts: [file-size, refactor, app, factories]
 render is ~40 lines at its most frugal — so the work is not "write it
 compactly", it is "extract something real first".
 
-`§20.5.1`'s `game-spec:allow-large-file:` marker exists, but taking it for
+The `guidelines:allow-large-file:` marker exists, but taking it for
 `App.tsx` is the wrong call: the cap is a size smell and this file genuinely
 has coherent pieces in it.
 

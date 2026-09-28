@@ -36,7 +36,7 @@
 // they are the one part of this screen that does NOT run off the snapshot
 // (they write into the input manager at pointer rate), and that is a
 // different job from drawing a readout. Every word here comes from
-// strings.ts (§39.1).
+// strings.ts.
 
 import { formatTime } from "../lib/util.ts";
 import type { HudFlash } from "./run-news.ts";
@@ -79,7 +79,7 @@ export function Hud({
   /** Draw the thumb zones. */
   touch: boolean;
   input: InputManager;
-  /** The TAB is away and the clock with it (§37.3) — not the pause card,
+  /** The TAB is away and the clock with it — not the pause card,
    * which is a surface of its own (`menu-pause.tsx`) and stands over all of
    * this. The two share a word and nothing else. */
   away: boolean;
@@ -105,7 +105,7 @@ export function Hud({
   //
   // ...and THE COMBO'S LINE, composed once here rather than at the two
   // places below that want it: the element list is the engine's and the
-  // words are the strings table's (§39.1, §39.2), and this is only where
+  // words are the strings table's, and this is only where
   // the two are put together.
   const comboLine = STRINGS.comboLine(snap.comboParts);
   return (
@@ -428,7 +428,7 @@ export function Hud({
         <UpdateButton />
       </div>
 
-      {/* §38.3: the build says what it is — version and commit, linked to
+      {/* The build says what it is — version and commit, linked to
           the source on the website and plain in a packaged build, which links
           nothing back to it — and beside it the two words that name this
           frame. */}

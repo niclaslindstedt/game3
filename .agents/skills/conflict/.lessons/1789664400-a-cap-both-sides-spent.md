@@ -1,5 +1,5 @@
 ---
-title: When main and the branch each added lines to a file near the §20.5 cap, the merged file is over it though neither side was — fold the BRANCH's hooks into its own module, and re-run the timing-margin tests
+title: When main and the branch each added lines to a file near the 1000-line cap, the merged file is over it though neither side was — fold the BRANCH's hooks into its own module, and re-run the timing-margin tests
 date: 2026-09-17
 scope: engine/game/craft.ts, tests/tricks_test.ts
 concepts: [rebase, file-size, parallel-work, timing-margins]

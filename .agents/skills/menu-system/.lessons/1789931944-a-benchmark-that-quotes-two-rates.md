@@ -41,7 +41,7 @@ sides of the cadence and the table alternates 86/156 draw calls down its
 whole length. That is aliasing, not thrashing — worth knowing before
 spending an afternoon on it.
 
-**`renderer.ts` SITS AT THE §20.5 CAP, so instrumenting it needs room made
+**`renderer.ts` SITS AT THE 1000-LINE CAP, so instrumenting it needs room made
 first.** It was 992 lines of 1000, and three stopwatches with the comments
 this tree expects do not fit. The clean thing to take out is an INSTRUMENT
 rather than a piece of drawing: `sceneTally` was a pure walk of an

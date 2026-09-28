@@ -8,7 +8,7 @@
 // ladder without a browser (`tests/video_test.ts`).
 //
 // THE WORDS ON THE CHIPS ARE NOT HERE. Every one of them is `strings.ts`'s
-// (§39.1); this file names the STOPS and the menu looks their labels up.
+//; this file names the STOPS and the menu looks their labels up.
 
 /** THE PICTURE, AS SIX QUESTIONS: how much sea, how many pixels, how much
  * world, how far that world runs before the haze takes it, whether you can see

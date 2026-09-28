@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE CLOCK THE APP STEPS THE ENGINE ON (OSS_GAME_SPEC §37). The display
+// THE CLOCK THE APP STEPS THE ENGINE ON. The display
 // hands the app frames at whatever rate it likes; the engine takes steps of
 // exactly `1 / TUNING.physicsHz`. This is the accumulator between the two,
 // DOM-free so the root suite can hold it to the three decisions below
@@ -9,13 +9,13 @@
 // THE THREE DECISIONS, each stated once:
 //
 // - THE FRAME DELTA IS CLAMPED to `MAX_FRAME_SECONDS` and THE TIME BEYOND IT
-//   IS DROPPED, never paid down later (§37.2). A hitch, a garbage
+//   IS DROPPED, never paid down later. A hitch, a garbage
 //   collection, a laptop lid: the run resumes where it was, a tenth of a
 //   second at most behind, rather than simulating the stall at a hundred
 //   steps a frame until the debt spirals. A run is not a clock nobody may
 //   stop; it is the player's, and they were not riding it while the machine
 //   was away.
-// - LOSING FOCUS PAUSES THE RUN (§37.3). This is a single-player game: a
+// - LOSING FOCUS PAUSES THE RUN. This is a single-player game: a
 //   hidden tab, a minimised window or a phone call stops the world, the
 //   run clock included, and coming back lands on the very frame it left.
 //   The accumulator is emptied on resume so the first frame back is one

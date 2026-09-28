@@ -11,8 +11,8 @@ directory rather than into `scripts/`:
 file under the scratchpad dies on `import { chromium } from "playwright-core"`
 with `ERR_MODULE_NOT_FOUND` however the repo was installed. Import it by
 absolute path instead —
-`import { chromium } from "/home/user/game3/node_modules/playwright-core/index.mjs"`
-— or put the script under `scripts/`. Same for any other dependency; only
+`import { chromium } from "<checkout>/node_modules/playwright-core/index.mjs"`,
+with the checkout's real absolute path in place of `<checkout>` — or put the script under `scripts/`. Same for any other dependency; only
 repo-relative absolute paths (`scripts/lib/serve-dist.mjs`) work either way.
 `serveDir(dir)` from `scripts/lib/serve-dist.mjs` returns `{ url, close }`,
 with the url already carrying a trailing slash.

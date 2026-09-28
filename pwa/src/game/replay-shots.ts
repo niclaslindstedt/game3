@@ -45,7 +45,7 @@
 import { TUNING, type GameState } from "@engine";
 
 /** What a shot is OF. The word the replay bar prints is `strings.ts`'s
- * (§39.1 — nothing here names anything the player reads). */
+ * (nothing here names anything the player reads). */
 export type ShotKind = "air" | "trick" | "bump" | "wipeout";
 
 /** ONE MOMENT WORTH A CAMERA, as the run wrote it down. Steps rather than

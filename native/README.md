@@ -12,7 +12,7 @@ Two rules hold, and they are the whole design:
 - **Nothing in `engine/` may learn this shell exists.** The one file of `pwa/`
   that does is [`pwa/src/shell-host.ts`](../pwa/src/shell-host.ts).
 - **A feature the shell needs is a feature the website needs first.** The shell
-  adds reach, never a rule (OSS_GAME_SPEC §33).
+  adds reach, never a rule.
 
 See [`docs/platforms.md`](../docs/platforms.md) for where this sits.
 

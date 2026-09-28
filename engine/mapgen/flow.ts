@@ -32,7 +32,7 @@
 // PLUME: the river does not stop at the sea, it fans out into it and dies
 // over `flow.plume` metres.
 //
-// BAKED, like everything else a hull reads at 120 Hz (§24.5): two fields
+// BAKED, like everything else a hull reads at 120 Hz: two fields
 // over the river's own box, one per plan axis, so the whole question "which
 // way is this water going and how fast" is two bilinear samples and no
 // walk of a polyline. Over its OWN box rather than the level's, because

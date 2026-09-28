@@ -6,7 +6,7 @@
 // downstream reads them through `sampleField`: the craft's buoyancy probes,
 // the collision engine, the wave model's shoaling, the renderer's terrain
 // mesh and the level map in scripts/. A grid rather than a closure so the
-// compile step runs ONCE (OSS_GAME_SPEC §24.5) and a sample is two lerps
+// compile step runs ONCE and a sample is two lerps
 // rather than a stack of noise octaves at 120 Hz.
 //
 // Samples outside the grid clamp to the nearest edge cell: the world ends

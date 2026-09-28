@@ -40,7 +40,7 @@ because his body stopped answering the hull while he was away. What he does
 while unposed is HOLD the pose he had, which is why the whole thing needs
 nothing remembered between frames.
 
-**`renderer.ts` lives at the §20.5 cap, so any of this needs room made
+**`renderer.ts` lives at the 1000-line cap, so any of this needs room made
 first.** Adding the cull put it at 1015. The exemption marker exists and
 taking it for fifteen lines on a file you have just grown is the wrong call:
 `aimCamera` came out instead (a rig's pose put on a three camera, the banked

@@ -4,7 +4,7 @@
 // Stated next door and folded back into `LEVEL_RULES` under its own names
 // (`R.river`, `R.flow`), so nothing that reads a river number learns this
 // file exists — the `defs/sea.ts` pattern, for the same reason: `rules.ts`
-// is AT the §20.5 cap, and R26 is the rule with the most numbers under it.
+// is AT the 1000-line cap, and R26 is the rule with the most numbers under it.
 //
 // The PROSE stays in `rules.ts` with every other rule's. This is not a
 // chapter of the rule book (those are `rules-circuit.ts` and `pace.ts`,

@@ -45,7 +45,7 @@ const { buildCampaignLevel } = await import(join(root, "pwa/src/game/campaign.ts
 // The encoder is the card's OWN, read off the module that also decodes it
 // (`shore-preview.ts`) — a second implementation here would be a tool writing
 // bytes the card cannot read back, which is the one failure the format's two
-// halves are stated together to prevent. §23.6: tooling imports the app, and
+// halves are stated together to prevent. Tooling imports the app, and
 // nothing imports tooling, so this is the direction the arrow already runs.
 const { routeOf } = await import(join(root, "pwa/src/game/shore-preview.ts"));
 

@@ -3,7 +3,7 @@
 // and `TUNING.flight`, stated here and folded into the one tuning object
 // next door under exactly those names. It lives beside `tuning.ts` rather
 // than inside it for the same reason the assist and the sea do: that file
-// has the §20.5 cap over it, and this is one subject with one owner
+// has the 1000-line cap over it, and this is one subject with one owner
 // (`craft-physics`), one lab (`make ride`) and one page of benches
 // (`docs/riding.md`).
 //

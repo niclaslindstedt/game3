@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// ONE SOURCE OF TRUTH FOR AGENT GUIDANCE (OSS_GAME_SPEC §7.1, §21.2): every
+// ONE SOURCE OF TRUTH FOR AGENT GUIDANCE: every
 // tool-specific guidance file is a SYMLINK onto AGENTS.md, and every
 // tool-specific skills directory a symlink onto .agents/skills. A checkout
 // on a platform without symlink support, or an editor that "helpfully"
@@ -45,7 +45,7 @@ function holds(links: Record<string, string>, canonical: string): void {
   }
 }
 
-describe("the guidance symlinks (§7.1)", () => {
+describe("the guidance symlinks", () => {
   it("AGENTS.md is the real file", () => {
     const stat = lstatSync(join(ROOT, "AGENTS.md"));
     expect(stat.isSymbolicLink()).toBe(false);
@@ -66,7 +66,7 @@ describe("the guidance symlinks (§7.1)", () => {
   });
 });
 
-describe("the skills symlinks (§21.2)", () => {
+describe("the skills symlinks", () => {
   it(".agents/skills is the real directory", () => {
     const stat = lstatSync(join(ROOT, ".agents", "skills"));
     expect(stat.isSymbolicLink()).toBe(false);

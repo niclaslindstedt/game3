@@ -21,7 +21,7 @@
 //                     build time, which is what turns the crests toward the
 //                     shallows and wraps them into a river mouth.
 //
-// Split out of `water.ts` for the §20.5 cap, and along the seam that was
+// Split out of `water.ts` for the 1000-line cap, and along the seam that was
 // already there: nothing in here knows about a spectrum, a band or a share,
 // and nothing in `water.ts` sweeps a grid.
 //

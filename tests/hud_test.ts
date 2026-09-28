@@ -253,7 +253,7 @@ describe("how far the chrome is dipped", () => {
 
 /** THE TRICK VOCABULARY — the words the combo line is built from, and the
  * one place in the app where the engine's elements become English
- * (`pwa/src/game/strings.ts`, §39.1). Read here rather than in
+ * (`pwa/src/game/strings.ts`). Read here rather than in
  * `tricks_test.ts` because none of it is the engine's: the engine names the
  * THING and counts the revolutions, and every judgement about what to call
  * the result is made in the table. */

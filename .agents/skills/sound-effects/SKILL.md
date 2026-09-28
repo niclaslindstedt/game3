@@ -232,7 +232,7 @@ unlock.
 - `make audition` before and after, the meter's table in the PR;
   `npx vitest run tests/audio_test.ts`; `make build` (the bank is on the
   startup path through `App.tsx`, and nothing gates that path's size any
-  more — see `docs/spec-conformance.md` §23.9 — so read the built chunk
+  more, by owner decision — so read the built chunk
   sizes yourself).
 - `docs/audio.md` restates the shape of it; a new layer, a new column in
   the listener or a new kind of cue is a line there.

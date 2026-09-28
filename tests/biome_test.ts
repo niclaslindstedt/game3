@@ -605,7 +605,7 @@ describe("a biome is a kind of coast, never a place", () => {
         /\.(ts|tsx|mjs|md)$/.test(name) &&
         // …and not this file, which carries the words it looks for, nor the
         // identity test, which guards against the sibling game's own name.
-        !/CHANGELOG|OSS_GAME_SPEC|LICENSE|biome_test|identity_test/.test(name)
+        !/CHANGELOG|LICENSE|biome_test|identity_test/.test(name)
       ) {
         out.push(path);
       }

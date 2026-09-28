@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // HOW FAR IS THAT FROM THIS LINE — the two distance questions a polyline is
-// ever asked, and nothing of this game in either of them (§23.7).
+// ever asked, and nothing of this game in either of them.
 //
 // They live in the pool rather than beside the course because more than one
 // module in `mapgen/` needs them and those modules read each other: the

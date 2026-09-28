@@ -64,7 +64,7 @@ the door comes up over the shore the player was just on.
 | WHICH FIGURES a held run is billed with, and in which order | `pwa/src/game/pause-stats.ts` — DOM-free, read by `tests/menu_system_test.ts` |
 | The app's mark, building | `pwa/src/game/mark-wave.tsx` over `app-mark.ts`'s paths |
 | THE MARKS the cards are read by | `pwa/src/game/menu-glyphs.tsx` — one 24x24 box per idea, stroked in `currentColor`; `make glyphs` is the contact sheet |
-| Every word on every card | `pwa/src/game/strings.ts` (§39.1) — no card carries a literal |
+| Every word on every card | `pwa/src/game/strings.ts` — no card carries a literal |
 | The chrome | `pwa/src/styles.css`, from `── THE MENU SYSTEM` down |
 
 ## The rules that are easy to undo by accident
@@ -89,7 +89,7 @@ the door comes up over the shore the player was just on.
   frame is rendered with dt 0 and the accumulator is never asked for steps.
   What must NOT happen on the way back is the absence being paid down — hold
   a run for three seconds, resume, and the clock has to move by one frame and
-  not by three seconds (§37.2, and the same rule a hidden tab gets).
+  not by three seconds (the same rule a hidden tab gets).
 - **RESUME IS THE CARD'S `data-nav-back` AND ITS `data-nav-focus`.** A card
   opened by a thumb aiming for the minimap must cost one press to leave, and
   the row under it hands the run back to the bot — so Escape, the backdrop and

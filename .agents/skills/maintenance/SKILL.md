@@ -5,7 +5,7 @@ description: "Use when you want to bring every drift-prone artifact in the repo 
 
 # Maintenance
 
-This is the umbrella skill for Sea Haven, mandated by §21.6 of `OSS_GAME_SPEC.md`. It does no rewriting itself — it decides which sync skills are stale, runs each one, and reports a combined summary. Use it when you do not know which specific artifact is out of date, or when several have likely drifted at once (for example, after a large merge).
+This is the umbrella skill for Sea Haven. It does no rewriting itself — it decides which sync skills are stale, runs each one, and reports a combined summary. Use it when you do not know which specific artifact is out of date, or when several have likely drifted at once (for example, after a large merge).
 
 ## When to run
 
@@ -19,16 +19,15 @@ Do **not** use this skill for a targeted fix — if you know exactly which artif
 
 The registry is the single source of truth for which sync skills exist in this repo. Every `update-*` directory under `.agents/skills/` must appear here exactly once. Add rows whenever you create a new sync skill.
 
-| Skill | Fixes | Spec sections | Run order |
-| --- | --- | --- | --- |
-| `update-docs` | `docs/*.md` vs. engine/app/tooling source of truth | §11.1 | 1 |
-| `update-readme` | `README.md` vs. current commands, craft, controls, URLs | §3 | 2 |
-| `update-website` | the not-indexed head + identity-derived shell vs. `identity.ts`/docs | §11.2–§11.3 | 3 |
-| `update-prompts` | `prompts/` templates vs. their sources of truth (dormant) | §13.2 | 4 |
+| Skill | Fixes | Run order |
+| --- | --- | --- |
+| `update-docs` | `docs/*.md` vs. engine/app/tooling source of truth | 1 |
+| `update-readme` | `README.md` vs. current commands, craft, controls, URLs | 2 |
+| `update-website` | the not-indexed head + identity-derived shell vs. `identity.ts`/docs | 3 |
 
-Run order matters: `update-docs` runs before `update-readme` because the README links into docs pages and summarizes their content — a README synced against stale docs re-imports the staleness. `update-website` runs after both because it checks that nothing has put a description of what the README and docs claim back onto the site; `update-prompts` runs last (currently dormant — no prompts shipped yet, so it usually just refreshes its baseline).
+Run order matters: `update-docs` runs before `update-readme` because the README links into docs pages and summarizes their content — a README synced against stale docs re-imports the staleness. `update-website` runs after both because it checks that nothing has put a description of what the README and docs claim back onto the site.
 
-After the registry, finish a full sweep with the `sync-game-spec` skill — it walks `OSS_GAME_SPEC.md` chapter by chapter, catches the residual conformance violations the per-artifact skills did not touch, and re-dates every row of `docs/spec-conformance.md`.
+After the registry, finish a full sweep with the conformance ledger, `docs/conformance.md`: check each row against the tree, re-date the ones that still hold, and delete the ones the tree has since closed. A row with no date behind it is an opinion.
 
 ## Discovery process
 
@@ -40,7 +39,7 @@ For each skill in the registry, decide whether it needs to run:
    BASELINE=$(cat .agents/skills/<skill>/.last-updated)
    ```
 
-   An empty or missing file means "never run" — schedule it. Every baseline in this repository starts empty (the bootstrap shipped them that way, per §21.4), so the first sweep runs every skill against the initial commit.
+   An empty or missing file means "never run" — schedule it. Every baseline in this repository starts empty (the bootstrap shipped them that way), so the first sweep runs every skill against the initial commit.
 
 2. Diff the watched paths for that skill against the baseline:
 

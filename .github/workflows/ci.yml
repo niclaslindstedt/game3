@@ -126,7 +126,7 @@ jobs:
             | bash -s -- 1.7.7 /usr/local/bin
       - run: make actionlint
 
-  # OSS_GAME_SPEC §7.1 / §21.2: every tool-specific guidance file is a
+  # Every tool-specific guidance file is a
   # SYMLINK onto AGENTS.md, and every tool-specific skills directory a symlink
   # onto .agents/skills. A checkout on a platform without symlink support, or
   # an editor that "helpfully" dereferences one, turns a single source of

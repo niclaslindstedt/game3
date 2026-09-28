@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// ONE IDENTITY MANIFEST (OSS_GAME_SPEC §35.6): the name, the URLs and the
+// ONE IDENTITY MANIFEST: the name, the URLs and the
 // colours live in `pwa/src/identity.ts`, and every surface that cannot
 // import it — the static HTML head, the crawler files under `pwa/public/`, the
 // icon generator, the package manifests, the README's play link — restates

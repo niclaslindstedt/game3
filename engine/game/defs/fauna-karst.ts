@@ -3,7 +3,7 @@
 //
 // They live beside `fauna.ts` for the reason `fauna-warm.ts` and
 // `fauna-arctic.ts` do: one subject, one owner, one lab, and a parent file
-// past the §20.5 cap. `FAUNA` is still how the whole repo spells the
+// past the 1000-line cap. `FAUNA` is still how the whole repo spells the
 // catalog; `fauna.ts` concatenates these onto the other three coasts'
 // rows, and nothing anywhere reads this module directly. The TYPE, the
 // rarity ladder and every rule about what a row means are stated there.

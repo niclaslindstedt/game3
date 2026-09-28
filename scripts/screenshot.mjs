@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // SCREENSHOTS of the real build: serves pwa/dist, opens the app in
 // headless Chromium at a staged moment, waits for the app to say the
-// frame is ready, and captures it at the three reference viewports (§35.2)
+// frame is ready, and captures it at the three reference viewports
 // — desktop landscape 1280×720, phone portrait 390×844 and phone LANDSCAPE
 // 844×390, the last two at 2× — into the gitignored previews/. The third is
 // the one the game is actually held at and the only one that reaches the
@@ -181,7 +181,7 @@ const SURFACES = {
   },
 };
 
-/** The reference viewports (§35.2) — and the phone is a TOUCHSCREEN, not a
+/** The reference viewports — and the phone is a TOUCHSCREEN, not a
  * narrow desktop window.
  *
  * Chromium opens a page as a machine with a mouse: `maxTouchPoints` 0 and

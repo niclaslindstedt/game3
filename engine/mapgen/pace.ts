@@ -147,7 +147,7 @@
 //       the bed are the summer's, and the analysis scores the shore the
 //       ice lies on rather than the ice.
 //
-// Split out of `rules.ts` for the §20.5 cap, and along the seam that was
+// Split out of `rules.ts` for the 1000-line cap, and along the seam that was
 // already there: that file says what the rules ARE, this one says what
 // they become at a pace and under a run's own dials.
 
@@ -251,13 +251,13 @@ export function rulesAtPace(pace: number, rampWidth = 1): PacedRules {
  * kinks back has to argue with a failing check rather than with nobody.
  *
  * Stated here rather than in `rules.ts` for R33's reason: that file is at
- * the §20.5 cap, and a rule whose prose cannot live beside its number is
+ * the 1000-line cap, and a rule whose prose cannot live beside its number is
  * worse off split across two files than moved whole into one. */
 export const GATE_CORNER = 1.22;
 
 /** R33 — THE RAMP DIAL'S BAND: the multiples of `ramp.width` a run may be
  * dealt. Stated here rather than in `rules.ts` because R33 is stated here
- * and because that file is at the §20.5 cap. The floor is the four-metre
+ * and because that file is at the 1000-line cap. The floor is the four-metre
  * deck R8 drew until the width was doubled, and the ceiling is twice the
  * one it draws now; past either end the ramp stops being the thing the
  * assist, the bot and the analysis were argued against. */
@@ -277,7 +277,7 @@ export function clampDial(rampWidth: number): number {
  * as flat water; the ceiling is twenty, which is the WMO's phenomenal sea
  * and about as much as a hull this size can be ridden over at all. Stated
  * here rather than in `rules.ts` for R33's and R34's reason: that file is
- * at the §20.5 cap.
+ * at the 1000-line cap.
  *
  * Its SHAPE — how steep the swell is quoted at, how narrow a band it is
  * laid over, how far off the wind it comes in — is `TUNING.sea.swell`,
@@ -314,7 +314,7 @@ export function dealSwell(u: number): number {
 
 /** R37 — THE ICE: what a frozen coast's sheet is, and the channel cut
  * through it. Stated here rather than in `rules.ts` for R33's and R34's
- * reason: that file is at the §20.5 cap.
+ * reason: that file is at the 1000-line cap.
  *
  * `thickness` is level first-year ice at the end of a polar winter — two
  * metres — and `freeboard` is what stands over the water: a tenth of the
@@ -348,7 +348,7 @@ export const ICE = {
  * long empty straights with a ramp at the end of each.
  *
  * Stated here rather than in `rules.ts` for R33's and R34's reason: that
- * file is at the §20.5 cap. */
+ * file is at the 1000-line cap. */
 export const TRICK_SHARE = 0.95;
 
 /** R35 — HOW FAR APART A TRICKS RUN'S RAMPS STAND, m from one hinge to the

@@ -127,7 +127,7 @@ export const CAMERA_STOPS: Stop<CameraMode>[] = CAMERA_MODES.map((id) => ({
 
 /* The four picture ladders are cheapest first, left to right, so a rider who
    is looking for frames always walks the same way — and their words come off
-   the strings table like every other word on every other card (§39.1), never
+   the strings table like every other word on every other card, never
    off the id. `STEPS` is `picture-rows.ts`'s rather than this page's: the
    benchmark reports what these rows were standing at when it scored a run,
    and a page and a report wording one setting two ways is one setting nobody

@@ -241,8 +241,8 @@ export function createReplayRig(world: ReplayWorld): ReplayRig {
 }
 
 /** WHAT THE BAR IS GIVEN: the facts, never the words. `strings.ts` turns
- * them into the two lines a watcher reads (§39.1 — nothing below the string
- * table names anything the player sees), which is the same DOM-free-payload
+ * them into the two lines a watcher reads (nothing below the string table
+ * names anything the player sees), which is the same DOM-free-payload
  * split every readout in this app is built on. */
 export type ReplayBill = {
   mode: GameMode;

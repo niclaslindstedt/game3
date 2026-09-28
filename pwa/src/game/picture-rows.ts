@@ -11,7 +11,7 @@
 // use of that tool is running it twice with one row moved.
 //
 // IT IS ITS OWN MODULE FOR TWO REASONS. `settings-video.ts` is the dictionary
-// between a row and a draw call and deliberately carries no words (§39.1);
+// between a row and a draw call and deliberately carries no words;
 // `menu-options.tsx` has the words and cannot be imported by anything
 // DOM-free. This is the join: DOM-free, so the tests read it, and the ONE
 // place the three ladder steps are worded — the options page takes `STEPS`

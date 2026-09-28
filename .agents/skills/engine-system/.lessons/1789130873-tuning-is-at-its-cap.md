@@ -25,7 +25,7 @@ the import. Prefer splitting the block you are ALREADY editing over
 compressing a block you are not. The WRITING RULE below still applies to
 what stays behind, because it is why the file has room at all.
 
-Reaching for the §20.5.1 `game-spec:allow-large-file:` marker on the first
+Reaching for the `guidelines:allow-large-file:` marker on the first
 overflow is the wrong move — it is for files whose SUBJECT is genuinely that
 big, and a badge on this one just lets the next contributor grow it further.
 

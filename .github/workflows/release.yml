@@ -2,8 +2,8 @@
 name: release
 
 # THE RELEASE, END TO END. Normally CALLED by version-bump.yml — the one
-# entry point a maintainer dispatches (OSS_GAME_SPEC §10.3) — and also
-# dispatchable on its own as the break-glass, with the same `bump` input.
+# entry point a maintainer dispatches — and also dispatchable on its own as
+# the break-glass, with the same `bump` input.
 #
 # What it does, in order: derive the semver bump from the changeset
 # fragments in .changes/unreleased/ (their front-matter carries the
@@ -15,10 +15,9 @@ name: release
 # served at `/` (and the same code at `/preview/`, because main now matches
 # the tag) without waiting for the next push.
 #
-# WHY THERE IS NO RELEASE_TOKEN. The spec's reference shape has version-bump
-# push a `v*` tag with a PAT so that a `push: tags` trigger fires here; the
-# PAT exists only because the default GITHUB_TOKEN suppresses downstream
-# workflow triggers. This repository chains the two workflows with a
+# WHY THERE IS NO RELEASE TOKEN. A tag pushed with the default GITHUB_TOKEN
+# triggers no downstream workflow, which is the usual reason a release keeps
+# a personal access token. This repository chains the two workflows with a
 # `workflow_call` instead — one dispatched run, in which the commit, the tag,
 # the GitHub Release and the Pages deploy all happen — so no cross-workflow
 # trigger is needed, the default GITHUB_TOKEN is sufficient, and the tag is

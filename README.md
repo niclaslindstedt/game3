@@ -5,7 +5,6 @@
 [![ci](https://github.com/niclaslindstedt/game3/actions/workflows/ci.yml/badge.svg)](https://github.com/niclaslindstedt/game3/actions/workflows/ci.yml)
 [![release](https://github.com/niclaslindstedt/game3/actions/workflows/release.yml/badge.svg)](https://github.com/niclaslindstedt/game3/actions/workflows/release.yml)
 [![pages](https://github.com/niclaslindstedt/game3/actions/workflows/pages.yml/badge.svg)](https://github.com/niclaslindstedt/game3/actions/workflows/pages.yml)
-[![spec](https://img.shields.io/badge/OSS__GAME__SPEC-v1.1.0-blueviolet)](OSS_GAME_SPEC.md)
 [![license](https://img.shields.io/badge/license-PolyForm--NC-blue.svg)](LICENSE)
 
 ## What
@@ -149,11 +148,11 @@ Three layers, one direction of dependency: `engine/` is the whole game as a fram
 - [Audio](docs/audio.md) — the synth, the bank, the beds, the listener, and how to audition and meter them
 - [Platforms](docs/platforms.md) — the web, the desktop app and the store app beside it
 - [Configuration](docs/configuration.md) · [Troubleshooting](docs/troubleshooting.md)
-- [Spec conformance](docs/spec-conformance.md) — where this repo stands against [OSS_GAME_SPEC.md](OSS_GAME_SPEC.md), chapter by chapter
+- [Conformance](docs/conformance.md) — where this repo knowingly falls short of the rules it is built to, and what closing each gap would take
 
 ## Contributing
 
-Bugs and feature requests go to [GitHub Issues](https://github.com/niclaslindstedt/game3/issues); questions to [Discussions](https://github.com/niclaslindstedt/game3/discussions). Read [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow (conventional commits, changeset fragments, the labs-before-and-after rule for hull, water and generator changes). This repository conforms to [OSS_GAME_SPEC.md](OSS_GAME_SPEC.md).
+Bugs and feature requests go to [GitHub Issues](https://github.com/niclaslindstedt/game3/issues); questions to [Discussions](https://github.com/niclaslindstedt/game3/discussions). Read [CONTRIBUTING.md](CONTRIBUTING.md) for the workflow (conventional commits, changeset fragments, the labs-before-and-after rule for hull, water and generator changes).
 
 ## License
 

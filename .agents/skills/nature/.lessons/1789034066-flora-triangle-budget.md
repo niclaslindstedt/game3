@@ -8,7 +8,7 @@ concepts: [flora, rendering, tooling]
 The cover is the biggest single block of geometry in the frame — adding the full roster
 took the chase view from 282k triangles to about 1.6M — and `make profile` reports only
 that total. What tells you where it went is a throwaway script under the repo root
-(`aliasEngine("/home/user/game3")`, then `planFlora(level, scale)` and
+(`aliasEngine(process.cwd())` from the checkout's root, then `planFlora(level, scale)` and
 `buildFlora(look, seed).getAttribute("position").count / 3`) printing instances and
 triangles per row.
 

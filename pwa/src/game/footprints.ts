@@ -10,8 +10,8 @@
 // They are DECORATION and nothing else. Nothing in the engine knows they
 // exist, the hull cannot touch one, and they change no height — a painter
 // that moved geometry would have invented a solid the physics never heard
-// of. Placed deterministically on the level's own seed (§25.2: the renderer
-// never draws on the simulation's randomness), instanced into one draw
+// of. Placed deterministically on the level's own seed (the renderer never
+// draws on the simulation's randomness), instanced into one draw
 // call, and laid a couple of centimetres over the ground with a polygon
 // offset so a print never fights the terrain it sits on.
 

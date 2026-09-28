@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE COMMAND LINE, once. Every tool in `scripts/` owes the same three
-// things (OSS_GAME_SPEC §12): `--help` that prints its flags with their
+// things: `--help` that prints its flags with their
 // defaults, a non-zero exit on a flag it does not know — a measurement
 // tool that ignores a mistyped flag reports a confident wrong number — and
 // its inputs printed beside its outputs. This is the parser that gives

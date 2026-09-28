@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // The simulation slice: the bot rides levels end to end through the real
 // engine, deterministically, and nothing the sea throws at the hull makes
-// a number that is not a number. The synthetic level is the §23.8 fixture;
+// a number that is not a number. The synthetic level is the sequel-test fixture;
 // the generated seeds are the generator and the handling kept honest with
 // each other.
 import { describe, expect, it } from "vitest";

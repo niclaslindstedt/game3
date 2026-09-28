@@ -229,7 +229,7 @@ export function neutralTouch(): TouchChannel {
 }
 
 /** The keyboard's three ramped axes, screen-space. Advanced once per STEP
- * (§37.1) so a ramp is the same ramp on every display. */
+ * so a ramp is the same ramp on every display. */
 export type InputModel = {
   steer: number;
   throttle: number;
@@ -244,8 +244,8 @@ export function createInputModel(): InputModel {
 
 /** One step's input: advance the keyboard ramps by `dt`, merge the thumbs
  * in, apply the sign flip and hand the engine its structure. `reset` is the
- * edge the caller has banked since the last step (§37.1: a press is never
- * lost between steps).
+ * edge the caller has banked since the last step (a press is never lost
+ * between steps).
  *
  * Merging: a thumb on the bar owns steer and lean outright — a key held
  * under it would fight the hand. The throttle takes the DEEPER of key and

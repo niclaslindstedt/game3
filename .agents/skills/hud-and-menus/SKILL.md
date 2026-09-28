@@ -109,7 +109,7 @@ here, the keys that walk a card are there.
   different question (the zone lesson) and neither one is evidence about the
   other: here the hit test lands, the button hears the touch, and the action
   never runs.
-- **The build label is §38's "the running build says what it is".** It reads
+- **The build label is "the running build says what it is".** It reads
   `engine/version.ts` and the build's short hash; do not drop it for room.
 - **A new colour on this screen owes the night dressing a ramp.** The HUD dips
   with the craft's lamp — `snapshot.dark` on the root as `--hud-dark`, and the

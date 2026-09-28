@@ -1,9 +1,9 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Wires the engine's central output module (§19.4) into the app, so an
+// Wires the engine's central output module into the app, so an
 // engine diagnostic lands in one buffer the app can read back — the
 // engine's account of a run sitting beside the app's, in order, for the
-// crash-report block of §38.2. Dev builds also lift the line onto the
-// console, which is the documented way to raise verbosity (§19.3).
+// crash-report block. Dev builds also lift the line onto the
+// console, which is the documented way to raise verbosity.
 //
 // The buffer lives here for now, DOM-free: when the developer menu arrives
 // it moves to `game/debug-log.ts` and this file only routes.

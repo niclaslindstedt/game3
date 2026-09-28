@@ -1,19 +1,16 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 name: version-bump
 
-# THE ONE WAY A RELEASE STARTS (OSS_GAME_SPEC §10.3): a maintainer dispatches
-# this, and nothing else in the repository cuts a version.
+# THE ONE WAY A RELEASE STARTS: a maintainer dispatches this, and nothing
+# else in the repository cuts a version.
 #
-# The spec's reference `version-bump` is a small, read-only workflow that
-# resolves the next version, checks the tree, pushes a `v*` tag with a
-# RELEASE_TOKEN PAT, and lets a `push: tags` trigger start the release. This
-# repository keeps the small, read-only half — the checks below run before
-# anything is written — and replaces the tag push with a `workflow_call` into
-# release.yml, so the whole release is ONE dispatched run: the commit, the
-# tag, the GitHub Release and the Pages deploy, all under the default
-# GITHUB_TOKEN. No PAT is stored, no tag is force-pushed, and a hand-pushed
-# `v*` tag starts nothing (tag protection still belongs on the repository,
-# as the spec says — but the blast radius of a stray tag here is a tag).
+# It is small and read-only on purpose. The checks below — main, a clean
+# tree, the version the fragments add up to, a tag that does not exist yet —
+# run and print before anything is written, and only then does it hand off
+# to release.yml by `workflow_call`. So the whole release is ONE dispatched
+# run: the commit, the tag, the GitHub Release, the desktop downloads and the
+# Pages deploy, all under the default GITHUB_TOKEN. No token is stored, no tag
+# is force-pushed, and a hand-pushed `v*` tag starts nothing.
 #
 # `bump` defaults to `auto` — derived from the .changes/unreleased/ fragments
 # by scripts/release/compute-bump.mjs. Pick patch/minor/major to override.

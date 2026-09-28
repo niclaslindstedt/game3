@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE POLAR COAST'S BIRDS — the arctic third of the roster, beside
 // `bird-defs.ts` for the reason `flora-defs-arctic.ts` is beside the cover:
-// one subject, one planner, one lab, and a parent file past the §20.5 cap.
+// one subject, one planner, one lab, and a parent file past the 1000-line cap.
 // `BIRDS` is still how the whole app spells the roster — `bird-defs.ts`
 // spreads these rows onto the end of it — and nothing anywhere reads this
 // module directly. What a row MEANS is stated there; which of the birds a

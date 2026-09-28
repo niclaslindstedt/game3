@@ -2,7 +2,7 @@
 // INPUT: one manager merges the keyboard and the HUD's thumb zones into the
 // engine's `CraftInput`. The maths — the ramps, the lever, the handlebar,
 // the sign flip — is next door in input-model.ts, DOM-free so the tests can
-// read it; this file is the listeners. Sampled once per STEP (§37.1): the
+// read it; this file is the listeners. Sampled once per STEP: the
 // ramps advance by the step's own dt, and the reset edge is banked between
 // steps and handed to the step it arrives in, so a tap inside one step is
 // still seen by that step.

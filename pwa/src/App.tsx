@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE APP: the shell the game lives inside, and the §37 clock underneath it.
+// THE APP: the shell the game lives inside, and the fixed-step clock underneath it.
 //
 // SIX SURFACES, ONE CANVAS, AND THE SEA NEVER STOPS — except under the card
 // standing over the PLAYER's own run, and while the benchmark is turning the
@@ -35,9 +35,9 @@
 //
 // THE LOOP: `requestAnimationFrame` hands the clock (run-loop.ts) the wall
 // time; the clock says how many fixed steps to take; each step samples the
-// input (§37.1, once per step) and calls `step`. The renderer draws the state
+// input (once per step) and calls `step`. The renderer draws the state
 // once per frame; the HUD is refreshed from a snapshot at ~12 Hz. A hidden
-// tab pauses the clock (§37.3) and the HUD says so.
+// tab pauses the clock and the HUD says so.
 //
 // THE SOUND FOLLOWS THE SAME RULE AS THE SEA: it never stops behind a card,
 // except the pause card's. The beds (`game/audio/`) are fed every frame the
@@ -146,7 +146,7 @@ export function App() {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [snap, setSnap] = useState<HudSnapshot | null>(null);
   const [flashes, setFlashes] = useState<HudFlash[]>([]);
-  /** The TAB is away and the clock with it (§37.3). Nothing to do with the
+  /** The TAB is away and the clock with it. Nothing to do with the
    * pause card, which is a surface — see `game/shell.ts`. */
   const [away, setAway] = useState(false);
   const [shell, setShell] = useState<Shell>("splash");
@@ -843,7 +843,7 @@ export function App() {
     };
     raf = requestAnimationFrame(frame);
 
-    // §37.3: a hidden tab is a paused run. `blur` alone is not — a window
+    // A hidden tab is a paused run. `blur` alone is not — a window
     // still on screen keeps riding (the held keys are let go of by the input
     // manager, which is what stops a craft riding off on its own).
     const onVisibility = (): void => {

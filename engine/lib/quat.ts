@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // A unit quaternion as the craft's orientation, and the handful of
 // operations the rigid body needs on it. Generic math with no game
-// knowledge; it lives in the generic pool (OSS_GAME_SPEC §23.7 rule 5).
+// knowledge; it lives in the generic pool.
 //
 // CONVENTIONS, stated once. The quaternion rotates BODY axes into WORLD
 // axes: body x is the craft's right, body y its up, body z its forward.

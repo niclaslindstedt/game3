@@ -65,7 +65,7 @@
 // It wears the front door's own chrome (`.menu` / `.menu-card`) rather than a
 // look of its own: it is the same game asking the same kind of question, and
 // `menu-nav.ts` already walks anything inside a `.menu-card`. Every word comes
-// from strings.ts (§39.1).
+// from strings.ts.
 
 import { craftById } from "@engine";
 import { useState } from "preact/hooks";

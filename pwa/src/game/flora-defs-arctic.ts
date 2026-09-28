@@ -2,7 +2,7 @@
 // THE POLAR COAST'S COVER — the arctic third of the roster. It lives beside
 // `flora-defs.ts` for the reason `defs/fauna-arctic.ts` lives beside the
 // catalog: one subject, one placer, one lab, and a parent file that had
-// grown past the §20.5 cap. `FLORA` is still how the whole app spells the
+// grown past the 1000-line cap. `FLORA` is still how the whole app spells the
 // roster — `flora-defs.ts` spreads these rows onto the end of it — and
 // nothing anywhere reads this module directly. What a row MEANS (the look,
 // the habitat, the forms) is stated there and not repeated here.

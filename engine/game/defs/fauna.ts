@@ -13,7 +13,7 @@
 // in `fauna-warm.ts`, the polar coast's in `fauna-arctic.ts` and the karst
 // coast's in `fauna-karst.ts`, all folded in below, the way `defs/sea.ts`
 // is folded into `TUNING` — one subject too big for one file under the
-// §20.5 cap.
+// 1000-line cap.
 //
 // THE CATALOG IS A GRADIENT, AND THE GRADIENT IS THE DESIGN. `offshore` is
 // what makes riding out to sea worth doing: the small fish are banded into

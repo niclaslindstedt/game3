@@ -1,5 +1,5 @@
 ---
-title: `pwa/src/App.tsx` sits AT the §20.5 cap, so any new surface wiring has to pay for its own lines before it can land
+title: `pwa/src/App.tsx` sits AT the 1000-line cap, so any new surface wiring has to pay for its own lines before it can land
 date: 2026-09-17
 scope: pwa/src/App.tsx, tests/file_size_test.ts
 concepts: [file-size, app, refactor, comments]
@@ -9,7 +9,7 @@ App.tsx was 998 physical lines of a 1000-line cap. That is not headroom — a
 new layer over the canvas is a prop or two, a ref, an import and a comment,
 which is twenty lines, and `tests/file_size_test.ts` fails before anything
 else does. Budget for it BEFORE writing the wiring, and never reach for the
-`game-spec:allow-large-file` marker to get out of it: the test refuses a
+`guidelines:allow-large-file` marker to get out of it: the test refuses a
 marker on a file under the cap precisely so a badge cannot be parked there.
 
 What paid for a finish plate's layer, in the order worth trying:

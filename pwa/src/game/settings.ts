@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE PLAYER'S SETTINGS: every choice the game remembers between visits, in
-// one table, with the storage layer around it (OSS_GAME_SPEC §36).
+// one table, with the storage layer around it.
 //
 // The module is in two halves and the split is deliberate. `mergeSettings` is
 // a PURE function of a parsed blob — it never touches storage, so the root

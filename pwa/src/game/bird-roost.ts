@@ -5,14 +5,14 @@
 // The other half of `bird-plan.ts`, which is the MODEL: this file decides
 // where a flock's home and its beat STAND, and that one says where each
 // bird of it is at a moment. They split because between them they were at
-// the §20.5 cap and the line between them is the obvious one — a placer
+// the 1000-line cap and the line between them is the obvious one — a placer
 // asks the level questions (how deep is it here, what is in the lee of
 // that skerry, how tall is the tallest pine, how far is this off the
 // racing line) and the model asks the clock.
 //
 // Three-free, like the model, so `tests/birds_test.ts` reads it directly.
 // Deterministic in the level's seed, so a seed flies the same birds every
-// time without costing the run a single draw (§25.2).
+// time without costing the run a single draw.
 //
 // WHERE A HOME MAY BE. Four of the five kinds are the shore's — a raft in
 // the lee of something, a rock or a buoy, the crown of a tall tree, a few
@@ -145,7 +145,7 @@ export function treePerches(level: Level): Roost[] {
 /**
  * Lay every flock the season allows over the level, and decide what
  * crosses it. Deterministic in the level's seed on the renderer's own
- * generator (§25.2), so nothing here costs the run a draw.
+ * generator, so nothing here costs the run a draw.
  */
 export function planBirds(level: Level, perches: readonly Roost[] = treePerches(level)): BirdPlan {
   const rng = createRng(level.seed ^ 0x6b1d);

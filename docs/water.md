@@ -410,7 +410,7 @@ The Airy terms are the velocity at a fixed phase and average to zero over a cycl
 
 A band whose share at the point is under a thousandth — under a millimetre of water — is skipped outright rather than multiplied by zero, and that is most of a level: out at sea the local band is absent and up a river the ocean band is, so all but the water round a river mouth pays for one band. Each component's depth table is read ONCE and held between the two passes.
 
-How a band of components is LAID over a spectrum — the slices, the headings, the fan — is `engine/game/wave-band.ts`, beside `wave-bed.ts`: one is what the spectrum does and the other is what the bed does, and `water.ts` is the sum of both under §20.5's cap.
+How a band of components is LAID over a spectrum — the slices, the headings, the fan — is `engine/game/wave-band.ts`, beside `wave-bed.ts`: one is what the spectrum does and the other is what the bed does, and `water.ts` is the sum of both under the 1000-line cap.
 
 **What a component costs, and where it is paid.** The fixed work — the shares, the depth, the clip — is about 300 ns a call, and a component is about **140 ns on top of it**, whether or not it carries a phase field (the field's gradient read is not the expensive part; the sines, the crest correction, the normal and the orbital velocity are). The water mesh calls this once per vertex per frame — 5400 of them at the design WATER row — so the eight ocean components and the five local ones are most of a 10 ms frame, and every component added is another 0.75 ms of it. That is why `sea.components` is 8 and why a repeat is fixed by where the slices SIT (`sliceMix`) rather than by laying more of them: sixteen put the same frame at 17 ms.
 

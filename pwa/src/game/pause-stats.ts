@@ -28,7 +28,7 @@
 //
 // DOM-free: the decision is here and `menu-pause.tsx` only draws it, so
 // `tests/menu_system_test.ts` holds every rule above without a browser. The
-// WORDS are the strings table's (§39.1) — nothing here spells one.
+// WORDS are the strings table's — nothing here spells one.
 
 import { STRINGS } from "./strings.ts";
 import { ALT_PEAK_SHOWN, type HudSnapshot } from "./snapshot.ts";

@@ -134,7 +134,7 @@ check, because it will be optimised against.
 | `index.ts` | The block `engine/index.ts` re-exports. |
 | `fauna.ts` | **What swims here (R20)**, placed: the pods, their loops, the water and rock each one is kept clear of. What an animal IS is `game/defs/fauna.ts`, and where it is at a moment is `game/fauna.ts` — `nature` owns both. |
 | `weather.ts` | **Which sky a seed is dealt (R19)**, off the biome's own list and how heavy the wind makes it. Drawn LAST of the things the search judges, because no sky makes a basin unrideable. `atmosphere` owns what it then looks like. |
-| `pace.ts` | **The rule book's third chapter** — R32's speed class, R33's ramp dial, and R34's cap on the turn a GATE may ask for. New rule prose lands here when `rules.ts` is at the §20.5 cap. |
+| `pace.ts` | **The rule book's third chapter** — R32's speed class, R33's ramp dial, and R34's cap on the turn a GATE may ask for. New rule prose lands here when `rules.ts` is at the 1000-line cap. |
 
 And the scoreboard, which is NOT in `mapgen/` on purpose:
 
@@ -278,7 +278,7 @@ undoes it without knowing it was ever a rule.
   is four edits: a `GenerateOptions` field, a `Level` field carrying what
   was actually built (the analyzer is handed a `Level` and nothing else), a
   case in `rulesAtPace`, and the clamp applied ONCE in `generateLevel`.
-  `rules.ts` is AT the §20.5 cap with no headroom, so the dial's band and
+  `rules.ts` is AT the 1000-line cap with no headroom, so the dial's band and
   its rule's prose live in `pace.ts`; and `rulesAtPace` must keep returning
   `LEVEL_RULES` ITSELF when every dial is stock, because the placer's
   keep-out reads that table and a copy re-rolls every seed. Most consumers

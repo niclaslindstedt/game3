@@ -6,7 +6,7 @@
 // It lives beside the renderer rather than inside it because it is an
 // INSTRUMENT and not part of drawing: nothing in a frame calls it, the report
 // asks for it once on the last frame of a run (`benchmark-report.ts`), and
-// `renderer.ts` is at the §20.5 cap with the frame itself to carry.
+// `renderer.ts` is at the 1000-line cap with the frame itself to carry.
 //
 // The bucket is the nearest NAMED ancestor, which is why the groups the
 // renderer adds to the scene carry names: without one an object would be

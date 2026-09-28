@@ -17,7 +17,7 @@
 // (`defs/submerged.ts` → `TUNING.submerged`); and the SCORE over all of it
 // (`defs/tricks.ts` → `TUNING.tricks`). Each is one subject with one
 // owner and one lab, and moving them is what keeps this file under the
-// §20.5 cap.
+// 1000-line cap.
 
 import { ASSIST } from "./assist.ts";
 import { FLIGHT, TUCK } from "./flight.ts";
@@ -680,14 +680,14 @@ export const TUNING = {
   /** THE HULL UNDER THE WATER — the rider's authority down there, the
    * spell and its clock, the float-up and the water the hull turns,
    * stated in `defs/submerged.ts` beside this file (`submerged.ts`); the
-   * split is the §20.5 cap, and every reader still spells it
+   * split is the 1000-line cap, and every reader still spells it
    * `TUNING.submerged`. */
   submerged: SUBMERGED,
 
   /** THE ARCADE ASSIST — the help the rider is given, stated in
    * `defs/assist.ts` beside this file rather than in it. Two hands on
    * two dials (`assist.ts`, `GameState.assist` / `.rampAssist`) and the
-   * difficulty ladder over both; the split is the §20.5 cap, not a
+   * difficulty ladder over both; the split is the 1000-line cap, not a
    * second tuning file, and every reader still spells it
    * `TUNING.assist`. */
   assist: ASSIST,

@@ -96,8 +96,8 @@ that only shows when ridden.
   wind, the flags in force — on the picture's title and in the table — so a
   PR's before/after can be checked to be the same measurement.
 - **Every tool parses through `cli.mjs`.** A hand-rolled `process.argv`
-  scan is a tool with no `--help` and no unknown-flag exit, and §12 asks for
-  both.
+  scan is a tool with no `--help` and no unknown-flag exit, and every tool
+  owes both.
 - **`--experimental-strip-types` erases types and refuses anything that
   emits code**: no enums, no parameter properties, no namespaces in anything
   a script imports. The first sign is a lab dying with

@@ -3,7 +3,7 @@
 // proportioned, one row per `FaunaId`. The look half of the split
 // `engine/game/defs/fauna.ts` is the fact half of (the way `craft-styles.ts`
 // is to `defs/craft.ts`), kept beside `fauna.ts` rather than in it because
-// forty-two rows of paint put the drawing past the §20.5 cap. `fauna.ts`
+// forty-two rows of paint put the drawing past the 1000-line cap. `fauna.ts`
 // builds a body from a row here and the catalog's dimensions; nothing else
 // reads this module. The design rules the rows obey — seen from ABOVE, a
 // silhouette read by its dorsal, its pectorals and its tail span, and only

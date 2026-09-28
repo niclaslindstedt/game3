@@ -637,7 +637,7 @@ export const RUN_BANK: SoundBank = {
   // BETWEEN things, never over them.
 
   // THE BIRDS' CRIES are their own module (`bird-bank.ts`) — one roster's
-  // worth of voices per coast is what took this file past the §20.5 cap —
+  // worth of voices per coast is what took this file past the 1000-line cap —
   // and spread in here so the route, the bed and the tests still read one
   // bank.
   ...BIRD_BANK,

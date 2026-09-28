@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// A SYNTHETIC level for the rule suites — the §23.8 sequel test: the
+// A SYNTHETIC level for the rule suites — the sequel test: the
 // physics, the course, the bot and the simulator are all held to a level
 // no generator built, so the whole of the rule suite passes with the
 // generator deleted. A flat sea bed at −8 m with a straight shore along x

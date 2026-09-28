@@ -7,7 +7,7 @@ concepts: [tooling, testing, generated-artifacts, campaign]
 
 The sibling rally game puts a committed artefact's encoder in
 `scripts/lib/`, shared by the tool that writes it and the test that checks it.
-That does not port: §23.7's "nothing imports tooling" is a live case here
+That does not port: "nothing imports tooling" is a live case here
 (`imports_test.ts` → "nothing imports tooling"), so a test importing
 `scripts/lib/*.mjs` fails the suite — and `tsc` fails it first, TS7016, since
 the root tsconfig has no `allowJs`.

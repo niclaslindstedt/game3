@@ -25,8 +25,8 @@
 // heather mat, nothing in the engine knows any of this exists, and no
 // vertex is ever moved — a painter that lifted the ground would have
 // invented a rock the physics never heard of. It is drawn deterministically
-// off the level's seed on its OWN generator (§25.2: the renderer never
-// draws on the simulation's randomness), so a seed plants the same shore
+// off the level's seed on its OWN generator (the renderer never draws on
+// the simulation's randomness), so a seed plants the same shore
 // every time without costing the run a single number.
 
 import { createRng, fieldGradient, sampleField, valueNoise, type Level, type Vec2 } from "@engine";

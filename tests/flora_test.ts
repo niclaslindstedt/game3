@@ -302,7 +302,7 @@ describe("planting a shore", () => {
   });
 
   it("plants the same shore twice for the same seed", () => {
-    // §25.2 the other way round: the renderer draws on its OWN generator,
+    // The determinism rule the other way round: the renderer draws on its OWN generator,
     // and a shore that moved between two loads of one seed would mean it
     // had found a clock or a `Math.random` somewhere.
     const seed = SEEDS[0];

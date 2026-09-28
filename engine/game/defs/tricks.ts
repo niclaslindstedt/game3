@@ -3,7 +3,7 @@
 // air, the ground a flight covered, the revolutions, the crest ride and the
 // laydown are worth, and the combo they ride on. It lives beside
 // `tuning.ts` the way the sea, the wash and the flight do — that file is at
-// the §20.5 cap — and `tuning.ts` folds it in as `TUNING.tricks`, which is
+// the 1000-line cap — and `tuning.ts` folds it in as `TUNING.tricks`, which is
 // how the whole repo spells it; nothing reads this module directly.
 //
 // Every number in here is an ARCADE DIAL. None is measured against anything

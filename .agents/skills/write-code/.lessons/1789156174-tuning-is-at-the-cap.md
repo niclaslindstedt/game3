@@ -1,5 +1,5 @@
 ---
-title: `defs/tuning.ts` sits AT the §20.5 cap — a new TUNING block goes in a sibling defs module folded in under the same name, never behind an exemption marker
+title: `defs/tuning.ts` sits AT the 1000-line cap — a new TUNING block goes in a sibling defs module folded in under the same name, never behind an exemption marker
 date: 2026-09-11
 scope: engine/game/defs/
 concepts: [tuning, file-size, defs, engine]
@@ -8,8 +8,8 @@ concepts: [tuning, file-size, defs, engine]
 Adding a block to `engine/game/defs/tuning.ts` will put it over a thousand
 lines, and `tests/file_size_test.ts` fails with the whole file named. Do not
 shave the new block's prose down to fit — that leaves the file one line from
-the wall for the next session — and do not reach for §20.5.1's
-`game-spec:allow-large-file` marker: NO file in this tree uses one, and a
+the wall for the next session — and do not reach for the
+`guidelines:allow-large-file` marker: NO file in this tree uses one, and a
 tuning file is not the place to claim the first.
 
 The established move is already in the file's own header: state the block

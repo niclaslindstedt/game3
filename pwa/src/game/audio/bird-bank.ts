@@ -2,7 +2,7 @@
 // WHAT THE BIRDS SOUND LIKE — the cries of both coasts' rosters, as data,
 // spread into `RUN_BANK` by `bank.ts` so everything downstream still reads
 // one bank. Split out of it because two rosters of voices took that file
-// past the §20.5 cap, and a bird's cry is the one kind of sound in the bank
+// past the 1000-line cap, and a bird's cry is the one kind of sound in the bank
 // that is neither the craft's nor the water's.
 //
 // Which bird makes which of these, how often and how far off it is heard is
