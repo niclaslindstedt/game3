@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata
+.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata check-licenses
 
 build:
 	npm run build
@@ -369,6 +369,11 @@ tauri-fmt:
 # for an explicit target.
 desktop:
 	npm run tauri:package -- $(ARGS)
+
+# Every dependency's licence, read out of the three committed lockfiles and
+# held to the allow-list in the script. No install needed; CI's lint job runs it.
+check-licenses:
+	node scripts/check-licenses.mjs $(ARGS)
 
 shellcheck:
 	shellcheck scripts/*.sh .githooks/* .claude/hooks/*.sh

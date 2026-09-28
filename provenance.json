@@ -1,0 +1,56 @@
+{
+  "about": "Every asset Sea Haven ships, where it comes from and under what licence. The game ships no audio file, no font file and no model or texture file: every sound is synthesized and every hull, wave and shore is geometry built by code at run time. Nothing here is third-party. A new kind of asset, or a new generator, changes this file in the same commit.",
+  "assets": [
+    {
+      "path": "pwa/public/icons/icon.svg",
+      "source": "authored",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The app mark, drawn by hand. scripts/generate-icons.mjs and pwa/src/game/app-mark.ts restate its geometry."
+    },
+    {
+      "path": "pwa/public/icons/*.png",
+      "source": "generated",
+      "generator": "make icons (scripts/generate-icons.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0"
+    },
+    {
+      "path": "pwa/public/favicon.ico",
+      "source": "generated",
+      "generator": "make icons (scripts/generate-icons.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0"
+    },
+    {
+      "path": "native/assets/*.png",
+      "source": "generated",
+      "generator": "make icons (scripts/generate-icons.mjs) — icon-1024.png and pwa-192.png, copied in",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The phone app's icon, splash icon and favicon are byte-for-byte copies of the generated web icons; nothing writes them here yet (see docs/conformance.md)."
+    },
+    {
+      "path": "tauri/src-tauri/icons/",
+      "source": "generated",
+      "generator": "tauri/scripts/icons.mjs (run by the desktop build)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "Build output, gitignored: pwa/public/icons/ re-encoded to RGBA for the desktop app."
+    },
+    {
+      "path": "pwa/public/previews/*.jpg",
+      "source": "generated",
+      "generator": "make coasts (scripts/coast-preview.mjs), a render of the real game",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The campaign's coast banners."
+    },
+    {
+      "path": "pwa/src/game/audio/",
+      "source": "authored",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "Every sound, bed and bird cry, as authored synthesis parameters. No audio file ships."
+    },
+    {
+      "path": "pwa/src/game/",
+      "source": "authored",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The world's models and materials — craft, rider, sea, shore, flora, fauna, sky — built as geometry and shaders by this code at run time. No model or texture file ships."
+    }
+  ]
+}
