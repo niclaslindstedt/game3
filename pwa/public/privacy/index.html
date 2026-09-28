@@ -9,10 +9,14 @@
   be a page a crawler, a rating board and a Play Console form all fail to
   read.
 
-  IT SAYS ONE THING, AND IT IS TRUE OF THE BUILD: nothing leaves the device.
-  Keep it that way — if the game ever gains an account, a leaderboard server,
-  an analytics call or an advertising SDK, this page becomes false in the
-  same commit.
+  IT SAYS ONE THING, AND IT IS TRUE OF THE BUILD: nothing reaches a server of
+  ours. The one thing that leaves a device is the phone app's cloud save — the
+  player's own records and campaign, in their own iCloud, which is Apple
+  acting for them — and this page says exactly what travels
+  (pwa/src/game/cloud-save.ts is the list). Keep it that way — if the game
+  ever gains an account, a leaderboard server, an analytics call or an
+  advertising SDK, this page becomes false in the same commit, and
+  tests/store_listing_test.ts holds the iCloud half of it.
 
   The colours are `PALETTE` from pwa/src/identity.ts, restated because a
   static page cannot import a TypeScript module. There is no third copy: this
@@ -103,7 +107,7 @@
         no advertising, and no server of ours anywhere that knows you played.
       </p>
       <p class="updated">
-        Applies to the web game and to any app built from it. Last updated 2026-09-09.
+        Applies to the web game and to the apps built from it. Last updated 2026-09-28.
       </p>
 
       <h2>What the game stores</h2>
@@ -112,20 +116,34 @@
         your own browser or app, on your own device, in ordinary local storage:
       </p>
       <ul>
-        <li>Your settings, once there are settings to keep.</li>
-        <li>Your best times, once there is a board to keep them on.</li>
+        <li>Your settings — graphics, controls, sound.</li>
+        <li>Your best times and scores, and your campaign progress.</li>
+        <li>The ghost of your own best run on a course.</li>
+        <li>Screenshots you take in the game, and the game's own performance measurements.</li>
       </ul>
       <p>
-        None of it is transmitted. Clearing the site data in your browser, or deleting the app,
-        deletes all of it, and there is no copy elsewhere to restore it from.
+        On the web and on the desktop none of it is transmitted: clearing the site data in your
+        browser, or deleting the app, deletes all of it, and there is no copy elsewhere to restore
+        it from.
+      </p>
+
+      <h2>iCloud, in the mobile app</h2>
+      <p>
+        If you are signed in to iCloud, the iPhone and iPad app also keeps a copy of your best times
+        and your campaign progress in your own iCloud storage, so the game on your other devices
+        picks up where you left off. That copy lives in your Apple Account and is handled by Apple
+        under Apple's privacy policy; we have no access to it. Your settings, ghosts, screenshots
+        and performance measurements are never copied — they stay on the device that made them.
+        Turning iCloud off for the app in your device's settings stops the copying.
       </p>
 
       <h2>What the game sends</h2>
       <p>
-        Nothing. The web version loads the game's own files from its own address once, then runs
-        offline. The only connection you can cause is a link you press yourself — the source
-        repository, or a credit — which opens in your own browser and is then between you and that
-        site.
+        Nothing to us. The web version loads the game's own files from its own address once, then
+        runs offline; the mobile and desktop apps carry the whole game inside the download. The
+        mobile app's only traffic is the iCloud copy above, between your device and your own Apple
+        Account. The only other connection you can cause is a link you press yourself, which opens
+        in your own browser and is then between you and that site.
       </p>
 
       <h2>Children</h2>
@@ -152,7 +170,11 @@
         <p>
           Questions:
           <a href="https://github.com/niclaslindstedt/game3/discussions">Discussions</a> ·
-          <a href="/support/">Support</a> · <a href="/">Play the game</a>
+          <a href="/support/">Support</a> · <a href="/">Play the game</a> · This policy is also
+          published at
+          <a href="https://apps.agilator.se/sea-haven/privacy/"
+            >apps.agilator.se/sea-haven/privacy/</a
+          >
         </p>
       </footer>
     </main>

@@ -3,8 +3,8 @@
 // shot-roll.ts, plus the subscription the gallery watches it through.
 //
 // INDEXEDDB RATHER THAN localStorage, which is where every other persisted
-// thing in this game lives (the settings blob, and nothing else yet). That
-// is kilobytes of JSON; a single 1920-wide PNG of a low-poly shore is
+// thing in this game lives (the settings, the records, the campaign, the
+// ghosts and the benchmark history). Those are kilobytes of JSON; a single 1920-wide PNG of a low-poly shore is
 // hundreds of kilobytes, and localStorage's whole budget
 // is 5 MB of UTF-16 that base64 would inflate by a third before the first
 // picture was even stored. IndexedDB is the one API in the browser that
