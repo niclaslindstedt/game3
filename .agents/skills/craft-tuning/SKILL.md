@@ -13,7 +13,7 @@ same seeds, and **any change to `defs/craft.ts` owes that table, before and
 after.**
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs craft-tuning --list`.
+`npx ogf-skill-lessons craft-tuning --list`.
 
 | Load beside this one | For |
 | --- | --- |

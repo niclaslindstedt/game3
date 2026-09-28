@@ -48,8 +48,11 @@
 // the whole corridor moves with the hinge, so the depth, the solids and the
 // crowding are all checked where the deck actually ends up.
 
-import { angleDiff } from "../lib/math.ts";
-import { sampleField, type Heightfield } from "../lib/heightfield.ts";
+import { angleDiff } from "@niclaslindstedt/oss-game-framework/core/math";
+import {
+  sampleField,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { cumulative, pointAlong } from "./course.ts";
 import { rulesAtPace, trickStride } from "./pace.ts";
 import { solidBerth } from "./rules.ts";

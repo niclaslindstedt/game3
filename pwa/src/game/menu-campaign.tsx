@@ -30,7 +30,7 @@
 import { RACE } from "@engine";
 import { useState } from "preact/hooks";
 
-import { formatTime } from "../lib/util.ts";
+import { formatTime } from "@niclaslindstedt/oss-game-framework/hud/format";
 import {
   MEDALS,
   PLAYER_ID,

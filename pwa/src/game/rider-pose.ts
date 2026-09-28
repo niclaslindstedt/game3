@@ -54,7 +54,7 @@
 
 import { TUNING, topSpeedOf, type CraftSpec, type GameState } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { Cockpit } from "./craft-body.ts";
 
 export type P = [number, number, number];

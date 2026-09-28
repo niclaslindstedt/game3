@@ -16,7 +16,10 @@
 // freezes is the same shore in every season, and no seed re-rolls for the
 // sheet existing.
 
-import { createHeightfield, type Heightfield } from "../lib/heightfield.ts";
+import {
+  createHeightfield,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { ICE } from "./pace.ts";
 import type { Vec2 } from "./types.ts";
 

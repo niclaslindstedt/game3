@@ -19,7 +19,7 @@ Two traps, and both bit in one pass:
   way round — while the LEFT is carried up over the top, drains, and is the
   one that comes down flat as it levels. Four lines of scratch Node settle
   it for good: `rotate(fromEuler(0, 0, roll), {x:1,y:0,z:0})` from
-  `engine/lib/quat.ts`, printed at a few rolls.
+  the framework's `core/quat`, printed at a few rolls.
 - **The screen mirrors it.** The engine's forward is +z and a three.js
   camera looks down its own −z, so a chase camera behind the craft puts
   world **+x on the LEFT of the frame**. A shot that "proves" the splash is

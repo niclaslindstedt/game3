@@ -146,7 +146,7 @@ describe("the sun over this coast", () => {
   });
 
   it("gives each season the day the taiga coast actually has", () => {
-    // The facts the table was written against (engine/lib/solar.ts): an
+    // The facts the table was written against (`engine/mapgen/seasons.ts`): an
     // eighteen-hour day in high summer and a six-and-a-half-hour one in
     // mid-November; sunrise before five in July and after eight in
     // November; the noon sun nine degrees up in November and near fifty in

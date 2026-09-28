@@ -18,7 +18,7 @@ export {
   recentLogs,
   type OutputLevel,
   type OutputSink,
-} from "./output.ts";
+} from "@niclaslindstedt/oss-game-framework/core/output";
 
 // The simulation.
 export { createGame, freshCraft, rulesFor, step, type CreateGameOptions } from "./game/step.ts";
@@ -318,22 +318,27 @@ export { simulateStage, SIM_SECONDS, type RunReport, type SimOptions } from "./s
 export { botInput, launchSpeedFor, RIDER_BOT, type BotProfile } from "./sim/bot.ts";
 export { type RunTape, type TapeSample } from "./sim/tape.ts";
 
-// Deterministic utilities shared with tooling.
-export { createRng, type Rng } from "./lib/prng.ts";
-export { fixedClock, wallClock, type Clock } from "./lib/clock.ts";
-export { hash2, smooth, tiledValueNoise, valueNoise } from "./lib/noise.ts";
+// Deterministic utilities shared with tooling — the framework's engine-safe
+// core (`@niclaslindstedt/oss-game-framework/core/*`), re-exported so a host
+// spells every one of them `@engine`.
+export { createRng, type Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
+export { fixedClock, wallClock, type Clock } from "@niclaslindstedt/oss-game-framework/core/clock";
 export {
-  DECLINATION,
-  SEASONS,
+  hash2,
+  smooth,
+  tiledValueNoise,
+  valueNoise,
+} from "@niclaslindstedt/oss-game-framework/core/noise";
+export {
   SOUTH,
   daylightWindow,
   hourOfElevation,
   sunAt,
-  type Season,
   type SunPlace,
-} from "./lib/solar.ts";
+} from "@niclaslindstedt/oss-game-framework/core/solar";
+export { DECLINATION, SEASONS, type Season } from "./mapgen/seasons.ts";
 export { SUN_SECONDS_PER_HOUR, sunHourAt } from "./game/sun-clock.ts";
-export { angleDiff, clamp, lerp, TAU } from "./lib/math.ts";
+export { angleDiff, clamp, lerp, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
 export {
   fromEuler,
   identity,
@@ -345,4 +350,4 @@ export {
   unrotate,
   type Quat,
   type Vec3,
-} from "./lib/quat.ts";
+} from "@niclaslindstedt/oss-game-framework/core/quat";

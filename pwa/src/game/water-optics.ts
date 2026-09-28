@@ -46,7 +46,7 @@
 import * as THREE from "three";
 import { type BiomeId } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 
 export type WaterOptics = {
   /** The body over nothing, over the shelf and over the deep — sRGB hexes,

@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// The canvas sizing arithmetic, DOM-free (pwa/src/lib/viewport.ts): what a
+// The canvas sizing arithmetic, DOM-free (the framework's `display/viewport`): what a
 // measured CSS box turns into, and which measurements are worth acting on.
 // The rotation this holds the line against is the one a browser reports
 // twice — once with the old box and once with the new — so the rule that
@@ -13,7 +13,7 @@ import {
   sameViewport,
   viewportOf,
   visibleBox,
-} from "../pwa/src/lib/viewport.ts";
+} from "@niclaslindstedt/oss-game-framework/display/viewport";
 import { RESOLUTION_SCALE } from "../pwa/src/game/settings-video.ts";
 
 describe("viewportOf", () => {

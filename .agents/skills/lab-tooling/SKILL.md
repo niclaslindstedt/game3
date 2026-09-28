@@ -1,6 +1,6 @@
 ---
 name: lab-tooling
-description: "Use when writing or changing a LAB, a PREVIEW or any script under `scripts/` — a new Make target, a new flag on an existing one, a picture drawn in pure Node, a contact sheet drawn in a browser, a scratch probe over the built site, a meter. Owns the shelf every tool is built from (`scripts/lib/`: the flag parser, the raster and the PNG encoder, the `@engine` alias, the static server), the harness-page pattern for a lab that has to DRAW to answer its question, the rule that a lab reads the game's own modules and never restates one, the URL contract the built app answers to, and where a new tool is registered (the Makefile, `package.json`, the README's Usage table, the router's labs table). Load it BEFORE writing a one-off script: what you need is usually on the shelf."
+description: "Use when writing or changing a LAB, a PREVIEW or any script under `scripts/` — a new Make target, a new flag on an existing one, a picture drawn in pure Node, a contact sheet drawn in a browser, a scratch probe over the built site, a meter. Owns the shelf every tool is built from (the shared framework's `tooling/*`: the flag parser, the raster and the PNG encoder, the `@engine` alias, the static server — and this game's own `scripts/lib/`: the level and ride painters, the ride scenarios), the harness-page pattern for a lab that has to DRAW to answer its question, the rule that a lab reads the game's own modules and never restates one, the URL contract the built app answers to, and where a new tool is registered (the Makefile, `package.json`, the README's Usage table, the router's labs table). Load it BEFORE writing a one-off script: what you need is usually on the shelf."
 ---
 
 # Lab tooling — how a measurement is built here
@@ -13,7 +13,7 @@ afternoon rather than a week — and the reason a session that writes its own
 PNG encoder, its own flag parser or its own static server has reinvented
 something that was already three imports away.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 lab-tooling --list`. Load **`skill-reflection`** at both ends of the session
 and **`write-code`** beside this one (its rules on `--experimental-strip-types`
 and `aliasEngine` are the ones a script trips on first). The subject skill
@@ -23,7 +23,7 @@ says what the lab must SHOW; this one says how it is built.
 
 | Kind | Runs in | Costs | Answers |
 | --- | --- | --- | --- |
-| **Pure Node** — loads the engine (and, through the alias, an app module), draws with `scripts/lib/draw.mjs`, writes a PNG and a table | `node --experimental-strip-types`, no build, no browser | seconds | anything that is NUMBERS or GEOMETRY: a transect, a ride strip, a level map, a craft's triangles, a sim table |
+| **Pure Node** — loads the engine (and, through the alias, an app module), draws with the framework's `tooling/draw`, writes a PNG and a table | `node --experimental-strip-types`, no build, no browser | seconds | anything that is NUMBERS or GEOMETRY: a transect, a ride strip, a level map, a craft's triangles, a sim table |
 | **Browser-driven** — serves a page in headless Chromium and screenshots or meters it | Playwright over Chromium (`CHROMIUM_PATH`), often `make build` first | tens of seconds to minutes | anything that is LIGHT: a shader, a sky, a canopy, the HUD, what a frame costs |
 
 **Build the pure-Node lab whenever the question can be asked of the engine.**
@@ -32,7 +32,7 @@ cannot photograph a stale build. The browser lab exists for what only the GPU
 can answer, and there are two shapes of it:
 
 - **The built site** (`scripts/screenshot.mjs`, `profile-render.mjs`,
-  `audition.mjs --meter`): `scripts/lib/serve-dist.mjs` serves `pwa/dist/` on
+  `audition.mjs --meter`): the framework's `tooling/serve-dist` serves `pwa/dist/` on
   a real origin, the tool opens the app at a URL that stands the run at a
   moment, waits for `window.__SH_READY__`, and shoots or meters. **`make
   build` first, every time** — a stale dist photographs the last change.
@@ -45,17 +45,23 @@ can answer, and there are two shapes of it:
   Build one when a screenshot of a RUN can only ever show one cell of a
   ladder that is judged side by side or not at all.
 
-## The shelf: `scripts/lib/`
+## The shelf: the framework's `tooling/*`, and `scripts/lib/`
+
+The generic half of the shelf is shared with the sibling games and lives in
+the framework (`import { parseArgs } from
+"@niclaslindstedt/oss-game-framework/tooling/cli"`); a fix to it is a
+framework PR, never a copy here. This game's own painters stay in
+`scripts/lib/`.
 
 | Module | Gives every tool |
 | --- | --- |
-| `cli.mjs` | THE COMMAND LINE, once: `parseArgs(argv, spec)` from one table of flags — `--help` that prints every flag with its default, a non-zero exit on a flag it does not know (a measurement tool that ignores a mistyped flag reports a confident wrong number), `--name=value` and `--name value` both, positionals in `_` |
-| `draw.mjs` | A SMALL RASTER: an RGBA buffer, a filled box, a line, a circle, a polyline, a label in a 5×7 bitmap font (upper case — a caption is a tag), alpha blending so a transect can be drawn a dozen moments deep; `toPng()` through `png.mjs` |
-| `png.mjs` | The PNG encoder — zlib only, no native image dependency; the icon generator uses the same one |
-| `engine-alias.mjs` | `aliasEngine(root)` — a resolve hook that hands `@engine` to `engine/index.ts` so a plain-Node script can `import()` an APP module (`scenarios.ts`, `craft-body.ts`, `flora-plan.ts`) instead of restating its table. Call it BEFORE the dynamic import. three.js geometry loads in plain Node under it, so a lab can paint the builder's exact triangles |
-| `serve-dist.mjs` | `serveDir(dir)` — the built site on a real origin on a free port, as deployed (directory → `index.html`, unknown path → 404), because the service worker, the manifest and `localStorage` all behave differently off `file://` |
-| `level-draw.mjs`, `ride-draw.mjs` | The two schematic painters (a level from above, a ride in profile), reused by anything that wants a level or a hull in a picture |
-| `ride-scenarios.mjs` | The ride lab's staged moments — a `RunMoment` and a scripted input each. Named separately from the app's `scenarios.ts`; a scenario added to one is added to both |
+| `tooling/cli` | THE COMMAND LINE, once: `parseArgs(argv, spec)` from one table of flags — `--help` that prints every flag with its default, a non-zero exit on a flag it does not know (a measurement tool that ignores a mistyped flag reports a confident wrong number), `--name=value` and `--name value` both, positionals in `_` |
+| `tooling/draw` | A SMALL RASTER: an RGBA buffer, a filled box, a line, a circle, a polyline, a label in a 5×7 bitmap font (upper case — a caption is a tag), alpha blending so a transect can be drawn a dozen moments deep; `toPng()` through `tooling/png` |
+| `tooling/png` | The PNG encoder — zlib only, no native image dependency; the icon generator uses the same one |
+| `tooling/alias` | `aliasEngine(root)` — a resolve hook that hands `@engine` to `engine/index.ts` so a plain-Node script can `import()` an APP module (`scenarios.ts`, `craft-body.ts`, `flora-plan.ts`) instead of restating its table. Call it BEFORE the dynamic import. three.js geometry loads in plain Node under it, so a lab can paint the builder's exact triangles |
+| `tooling/serve-dist` | `serveDir(dir)` — the built site on a real origin on a free port, as deployed (directory → `index.html`, unknown path → 404), because the service worker, the manifest and `localStorage` all behave differently off `file://` |
+| `scripts/lib/level-draw.mjs`, `ride-draw.mjs`, `course-draw.mjs` | The two schematic painters (a level from above, a ride in profile), reused by anything that wants a level or a hull in a picture |
+| `scripts/lib/ride-scenarios.mjs` | The ride lab's staged moments — a `RunMoment` and a scripted input each. Named separately from the app's `scenarios.ts`; a scenario added to one is added to both |
 
 And the `scripts/` entries themselves are the worked examples: `waves-lab.mjs`
 for a three-panel pure-Node picture with a table, `level-map.mjs` for a lab
@@ -95,7 +101,7 @@ that only shows when ridden.
 - **A lab prints its inputs beside its outputs.** The seed, the craft, the
   wind, the flags in force — on the picture's title and in the table — so a
   PR's before/after can be checked to be the same measurement.
-- **Every tool parses through `cli.mjs`.** A hand-rolled `process.argv`
+- **Every tool parses through the framework's `tooling/cli`.** A hand-rolled `process.argv`
   scan is a tool with no `--help` and no unknown-flag exit, and every tool
   owes both.
 - **`--experimental-strip-types` erases types and refuses anything that
@@ -131,7 +137,7 @@ A tool exists when a session that has never seen it can find it. One change,
 all of these:
 
 1. `scripts/<name>.mjs` with a header saying what question it answers and
-   the commands to run it; `#!/usr/bin/env node`; flags through `cli.mjs`.
+   the commands to run it; `#!/usr/bin/env node`; flags through the framework's `tooling/cli`.
 2. `package.json`: `"<name>": "node --experimental-strip-types
    --disable-warning=ExperimentalWarning scripts/<name>.mjs"` for a pure-Node
    lab; a plain `node scripts/<name>.mjs` for a browser one.

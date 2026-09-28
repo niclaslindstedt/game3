@@ -114,7 +114,7 @@ export {
   sampleField,
   sampleFieldGradient,
   type Heightfield,
-} from "../lib/heightfield.ts";
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
 export { bendRadius, drawRiver, type River } from "./river.ts";
 export { flowAt, layFlow } from "./flow.ts";
 export type {

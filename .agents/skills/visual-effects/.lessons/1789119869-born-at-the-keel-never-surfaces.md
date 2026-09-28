@@ -15,7 +15,7 @@ at 1.5 m/s rose a tenth of a metre and never came out of the water.
 
 Two things to do before changing a number on any spawn point that reads as
 "not there": print the birth `y` against `heightAt(sea, level, x, z, t)` at the
-same plan point in Node (`scripts/lib/engine-alias.mjs` makes `scenarios.ts`
+same plan point in Node (the framework's `tooling/alias` makes `scenarios.ts`
 importable in seconds), and if it is under, spawn at
 `max(hullPoint, heightAt(...)) + lift`. Reading the sea at BIRTH is fine and
 cheap — a few calls a step — and does not break the rule that a droplet reads

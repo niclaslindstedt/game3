@@ -37,7 +37,7 @@
 //   one this move can only chase, and the arrival would be the ease rather
 //   than the flight.
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CameraPose } from "./camera.ts";
 
 /** How long a move takes, s: this much, plus the span term below. A step

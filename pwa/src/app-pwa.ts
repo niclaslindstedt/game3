@@ -1,5 +1,5 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// Shared PWA wiring. `lib/pwa-update.ts` owns the update *state machine*
+// Shared PWA wiring. The framework's `pwa/pwa-update` owns the update *state machine*
 // and the app's own update button the prompt; this file owns the one value
 // the service-worker *build* and the watch must agree on — the precache
 // cache id, which the SW build turns into a cache named `<cacheId>-precache`.

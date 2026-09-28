@@ -44,7 +44,7 @@
 // coast nobody has drawn is not a level.
 
 import type { FaunaId } from "../game/defs/fauna.ts";
-import { DECLINATION, type Season } from "../lib/solar.ts";
+import { DECLINATION, type Season } from "./seasons.ts";
 import type { Band } from "./rules.ts";
 import type { BiomeId, Weather } from "./types.ts";
 

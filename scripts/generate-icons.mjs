@@ -5,14 +5,14 @@
 // a wave: a crest that rises from the left, tips over and curls, drawn as
 // the foam along its lip and the darker face under it, with a small orange
 // hull held nose-up beside it, on deep teal water. Pure Node (the shared
-// lib/png.mjs encoder), so the pipeline needs no native image dependencies.
+// framework's `tooling/png` encoder), so the pipeline needs no native image dependencies.
 // Rerun with `npm run icons` / `make icons` after changing the mark, and keep
 // icon.svg and pwa/src/game/app-mark.ts in lockstep.
 import { mkdirSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { encodePng } from "./lib/png.mjs";
+import { encodePng } from "@niclaslindstedt/oss-game-framework/tooling/png";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const iconsDir = join(root, "pwa", "public", "icons");

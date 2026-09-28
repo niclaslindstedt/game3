@@ -197,7 +197,7 @@ export type VideoSettings = {
    * heating up to do it; holding the rate at sixty, or at thirty on a phone
    * that cannot keep sixty, is the same work done on time. The engine never
    * learns the number: it steps at 120 Hz behind whatever frames are drawn
-   * (`run-loop.ts`), and `frame-rate.ts`'s gate is where a callback is
+   * (the framework's `loop/run-clock`), and `frame-rate.ts`'s gate is where a callback is
    * skipped. MAX is the display's own rate, whatever it is. */
   frameRate: FrameRateLevel;
 };

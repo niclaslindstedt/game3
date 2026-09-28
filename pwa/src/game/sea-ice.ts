@@ -19,7 +19,7 @@
 import * as THREE from "three";
 import { ICE, iceAt, valueNoise, hash2, type Level } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 
 /** Chunk edge, the skirt and its cell: the terrain's own numbers, so the
  * sheet and the shore are culled and drawn to the same distances. */

@@ -4,7 +4,7 @@ The repository is structured after its sibling rally repo, which ships one produ
 
 ## Web / PWA (`pwa/`)
 
-The deployed site IS the product. It is installable (home-screen app on iOS/Android, fullscreen launch), offline-capable (hand-rolled precaching service worker), self-updating (in-app prompt from `pwa/src/lib/pwa-update.ts`), and phone-first with full desktop keyboard support. Three deploy slots on [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/):
+The deployed site IS the product. It is installable (home-screen app on iOS/Android, fullscreen launch), offline-capable (hand-rolled precaching service worker), self-updating (in-app prompt from the shared framework's `pwa/pwa-update` watch, read by `pwa/src/game/update-button.tsx`), and phone-first with full desktop keyboard support. Three deploy slots on [game3.niclaslindstedt.se](https://game3.niclaslindstedt.se/):
 
 | Slot        | Serves                                        |
 | ----------- | --------------------------------------------- |

@@ -38,8 +38,9 @@ import { rulesAtPace } from "../mapgen/pace.ts";
 import { biomeOf } from "../mapgen/biomes.ts";
 import type { Level, Weather } from "../mapgen/types.ts";
 import { createSea, seaSummary } from "../game/water.ts";
-import { angleDiff, clamp } from "../lib/math.ts";
-import { sunAt, type Season } from "../lib/solar.ts";
+import { angleDiff, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { sunAt } from "@niclaslindstedt/oss-game-framework/core/solar";
+import type { Season } from "../mapgen/seasons.ts";
 
 /** What a level is RIDDEN IN, as opposed to what it is: the three things a
  * campaign level pins that the generator would otherwise deal. Each

@@ -38,16 +38,31 @@
 // sitting there loaded. The word is RELOAD rather than RESTART because Enter
 // already restarts the RUN, and one screen may not spell two things alike.
 //
-// The state it renders comes from `lib/pwa-update.ts`; only the look, the
-// arming and the words are ours.
+// The state it renders comes from the framework's update watch
+// (`pwaUpdateWatch`, an external store read through `usePwaUpdate` below);
+// only the look, the arming and the words are ours.
 
+import { createHudPress, pressHandlers } from "@niclaslindstedt/oss-game-framework/input/hud-press";
+import {
+  pwaUpdateWatch,
+  type PwaUpdate,
+  type PwaUpdateConfig,
+} from "@niclaslindstedt/oss-game-framework/pwa/pwa-update";
+import { useSyncExternalStore } from "preact/compat";
 import { useEffect, useMemo, useState } from "preact/hooks";
 
 import { cacheIdForBase } from "../app-pwa.ts";
-import { usePwaUpdate } from "../lib/pwa-update.ts";
 import { shellHost } from "../shell-host.ts";
-import { createHudPress, pressHandlers } from "./hud-press.ts";
 import { STRINGS } from "./strings.ts";
+
+/** The update watch as a hook. The watch lives at MODULE scope in the
+ * framework and the first call fixes its configuration, so a remount never
+ * re-registers the worker or loses the fact that a build is waiting. */
+function usePwaUpdate(config: PwaUpdateConfig): PwaUpdate {
+  const watch = pwaUpdateWatch(config);
+  const state = useSyncExternalStore(watch.subscribe, watch.getSnapshot);
+  return { ...state, reload: watch.reload };
+}
 
 /** How long an armed button waits for its second press before going quiet, ms. */
 const ARM_MS = 4000;
@@ -89,7 +104,7 @@ export function UpdateButton() {
   // This mark stands INSIDE the lever's glass on purpose, which makes it the
   // one press on this screen most likely to be reached for with the other
   // thumb still down — and a non-primary finger is handed no `click` at all
-  // (`hud-press.ts`). Both halves of the arming need the pointer events.
+  // (the framework's `input/hud-press`). Both halves of the arming need the pointer events.
   const press = useMemo(createHudPress, []);
 
   useEffect(() => {

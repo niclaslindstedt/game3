@@ -98,7 +98,7 @@ import {
 } from "@engine";
 
 import { PALETTE } from "../identity.ts";
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { BuoyLamp } from "./buoys.ts";
 import type { WellCut } from "./craft-body.ts";
 import {

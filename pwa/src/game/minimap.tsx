@@ -16,7 +16,7 @@
 
 import { useMemo, useRef } from "preact/hooks";
 
-import { createHudPress, pressHandlers } from "./hud-press.ts";
+import { createHudPress, pressHandlers } from "@niclaslindstedt/oss-game-framework/input/hud-press";
 import { VIEW } from "./minimap-scene.ts";
 import type { GateMark, HudMinimap } from "./minimap-view.ts";
 import { STRINGS } from "./strings.ts";
@@ -217,7 +217,7 @@ export function Minimap({ map, onOpen }: { map: HudMinimap; onOpen: () => void }
   drawn.current = scene.cut;
   // The way to the pause card on a phone, and a phone reaches for it with the
   // other thumb still on the bar — so it is pressed through the pointer
-  // events like the two buttons under it (`hud-press.ts`).
+  // events like the two buttons under it (the framework's `input/hud-press`).
   const press = useMemo(createHudPress, []);
   return (
     // THE MAP IS THE WAY INTO THE PAUSE CARD, which is what makes the card

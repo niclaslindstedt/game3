@@ -17,7 +17,7 @@
 // bubble has a beginning and an end — and nothing is booked more than a
 // second ahead.
 
-import type { Synth, ToneOptions } from "../../lib/voice.ts";
+import type { Synth, ToneOptions } from "@niclaslindstedt/oss-game-framework/audio/voice";
 
 /** Minnaert's constant: the resonance of an air bubble in water is this
  * many hertz-metres over its radius. */

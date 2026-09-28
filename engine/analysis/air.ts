@@ -16,7 +16,7 @@
 // opinion, which is what makes a catalog change that puts a ring out of
 // reach fail the generator instead of the player.
 
-import { angleDiff } from "../lib/math.ts";
+import { angleDiff } from "@niclaslindstedt/oss-game-framework/core/math";
 import { CRAFT } from "../game/defs/craft.ts";
 import { TUNING } from "../game/defs/tuning.ts";
 import { topSpeedOf } from "../game/limits.ts";

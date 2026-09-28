@@ -28,8 +28,11 @@
 // Deterministic and stateless: functions of a bed and a frequency, with no
 // clock and no randomness.
 
-import { createHeightfield, type Heightfield } from "../lib/heightfield.ts";
-import { clamp } from "../lib/math.ts";
+import {
+  createHeightfield,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { TUNING } from "./defs/tuning.ts";
 
 const S = TUNING.sea;

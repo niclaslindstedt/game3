@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
 // THE MENU SYSTEM'S DOM-FREE HALVES — everything the shell decides before a
-// browser is involved: when the attract card may take a press, where the
-// cursor goes next, what a seven-second hold means, what the craft card
+// browser is involved: when the attract card may take a press, what a
+// seven-second hold means, what the craft card
 // bills a hull at, which surface is up and what follows from it, how a load
 // is sequenced into phases, and what survives a stored settings blob.
 //
@@ -40,7 +40,6 @@ import {
   keyLabel,
   type KeyAction,
 } from "../pwa/src/game/settings-input.ts";
-import { pickNeighbour, type NavRect } from "../pwa/src/game/menu-cursor.ts";
 import { createRunSurfaces, type RunSurfaceWorld } from "../pwa/src/game/run-surfaces.ts";
 import {
   PAUSE_STATS,
@@ -278,44 +277,6 @@ describe("the flourish that says the hold landed (menu-hold.ts)", () => {
     // flourish has to be an order of magnitude past that or nobody sees it.
     const steady = (2 * Math.PI) / 18;
     expect(flourishRate(FLOURISH_SECONDS / 2)).toBeGreaterThan(steady * 10);
-  });
-});
-
-describe("where the cursor goes (menu-cursor.ts)", () => {
-  /** A card of three full-width rows, top to bottom. */
-  const rows: NavRect[] = [
-    { x: 0, y: 0, w: 100, h: 20 },
-    { x: 0, y: 30, w: 100, h: 20 },
-    { x: 0, y: 60, w: 100, h: 20 },
-  ];
-
-  it("walks a column of rows the way a thumb reads it", () => {
-    expect(pickNeighbour(rows, 0, "down")).toBe(1);
-    expect(pickNeighbour(rows, 1, "up")).toBe(0);
-  });
-
-  it("wraps rather than stopping dead at either end", () => {
-    expect(pickNeighbour(rows, 2, "down")).toBe(0);
-    expect(pickNeighbour(rows, 0, "up")).toBe(2);
-  });
-
-  it("prefers the row underneath to a nearer button off to one side", () => {
-    // A full-width row, then a pair side by side under it. DOWN off the row
-    // must land on the pair, not walk sideways.
-    const card: NavRect[] = [
-      { x: 0, y: 0, w: 100, h: 20 },
-      { x: 0, y: 30, w: 48, h: 20 },
-      { x: 52, y: 30, w: 48, h: 20 },
-    ];
-    expect(pickNeighbour(card, 0, "down")).toBe(1);
-    // ...and RIGHT off the left of the pair means the one beside it, even
-    // though the full-width row above has its centre to the right as well.
-    expect(pickNeighbour(card, 1, "right")).toBe(2);
-  });
-
-  it("lands somewhere sensible when the cursor is nowhere", () => {
-    expect(pickNeighbour(rows, -1, "down")).toBe(0);
-    expect(pickNeighbour([], 0, "down")).toBeNull();
   });
 });
 

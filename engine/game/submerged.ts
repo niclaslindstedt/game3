@@ -54,8 +54,14 @@
 // `riderAuthority`, which is why the stand-up (1.5) rides out of a dive
 // the touring hull (0.85) drowns in, with no knob of its own.
 
-import { clamp } from "../lib/math.ts";
-import { fromEuler, toEuler, unrotate, type Quat, type Vec3 } from "../lib/quat.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import {
+  fromEuler,
+  toEuler,
+  unrotate,
+  type Quat,
+  type Vec3,
+} from "@niclaslindstedt/oss-game-framework/core/quat";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import type { AeroResult } from "./flight.ts";

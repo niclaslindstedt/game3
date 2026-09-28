@@ -398,12 +398,12 @@ changelog:
 	@test -n "$(VERSION)" || { \
 		echo "usage: make changelog VERSION=X.Y.Z"; exit 2; \
 	}
-	node scripts/release/collate-changelog.mjs $(VERSION)
+	node node_modules/@niclaslindstedt/oss-game-framework/tooling/release/collate-changelog.mjs $(VERSION)
 
 # Print the semver bump (patch/minor/major) the release workflow will
 # auto-derive from the current .changes/unreleased/ fragments. Read-only.
 bump:
-	@node scripts/release/compute-bump.mjs
+	@node node_modules/@niclaslindstedt/oss-game-framework/tooling/release/compute-bump.mjs
 
 # ---------------------------------------------------------------------------
 # SHIPPING TO THE STORE (native/store/)

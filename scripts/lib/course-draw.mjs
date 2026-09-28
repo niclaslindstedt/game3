@@ -16,7 +16,7 @@ import {
   polylineDistance,
   rulesAtPace,
 } from "../../engine/index.ts";
-import { createDrawing, textWidth } from "./draw.mjs";
+import { createDrawing, textWidth } from "@niclaslindstedt/oss-game-framework/tooling/draw";
 
 const PAPER = [247, 245, 239];
 const INK = [26, 28, 34];

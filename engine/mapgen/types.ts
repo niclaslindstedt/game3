@@ -14,8 +14,8 @@
 // (x, z) plan. Metres, seconds, radians, kilograms.
 
 import type { FaunaId } from "../game/defs/fauna.ts";
-import type { Heightfield } from "../lib/heightfield.ts";
-import type { Season } from "../lib/solar.ts";
+import type { Heightfield } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import type { Season } from "./seasons.ts";
 import type { GeneratorVersion } from "./versions.ts";
 
 /** The BIOMES a shore can belong to. Four are built — the taiga, the coast

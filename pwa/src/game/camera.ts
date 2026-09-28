@@ -67,7 +67,7 @@
 import { angleDiff, rotate, type GameState } from "@engine";
 
 import { createSprung } from "../lib/sprung.ts";
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { createViewChange } from "./camera-change.ts";
 import { MAX_VFOV, REF_ASPECT, verticalFovFor } from "./camera-lens.ts";
 import { MENU_CAM, createMenuCamera, type MenuFrame } from "./camera-menu.ts";

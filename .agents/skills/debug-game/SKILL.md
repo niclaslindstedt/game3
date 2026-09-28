@@ -14,7 +14,7 @@ browser. The URL carries `seed`, `craft`, `scene` and `t`, so a bug report's
 address bar is the repro's first ingredient.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs debug-game --list`, then the ones this task
+`npx ogf-skill-lessons debug-game --list`, then the ones this task
 touches (`--scope=…`, `--concepts=…`). Reading them here and reflecting on them
 before the commit is the **`skill-reflection`** skill's job — load it at both
 ends of the session.
@@ -28,7 +28,7 @@ ends of the session.
 | Determinism check | The `digest` in `RunReport` — two runs of the same seed/craft must hash identically; a digest drift IS the bug report for nondeterminism |
 | The sea at a point | `surfaceAt(sea, level, x, z, t)` called directly — a wave that misbehaves is reproduced with four numbers, no craft needed; `make waves SEED=` draws the whole transect |
 | The hull over time | `make ride SCENARIO=` — a strip of the craft crossing the water, with speed, pitch, wetted share, rpm and air time per cell; the first thing to run on any "the craft does X" report |
-| Engine log | `engine/output.ts` — the semantic output module (`status/info/warn/error/debug`) with a pluggable sink; in the browser it feeds `pwa/src/output-bridge.ts`. Engine code prints through it, never bare `console.*` |
+| Engine log | the framework's `core/output` — the semantic output module (`status/info/warn/error/debug`) with a pluggable sink; in the browser it feeds `pwa/src/output-bridge.ts`. Engine code prints through it, never bare `console.*` |
 | Level geometry | `make level SEED=` — the plan with every gate, ramp and solid labelled; LOOK at where the bug happened |
 | The real renderer | `make screenshots SCENE=` (the `playtest` skill), or `npm run dev` headed — for anything only pixels can show |
 
@@ -90,5 +90,5 @@ worth a fragment here is the diagnosed root-cause _class_ (a layer-classifying
 tell, a repro technique), never the one-off bug.
 
 ```sh
-node scripts/skill-lessons.mjs debug-game --list
+npx ogf-skill-lessons debug-game --list
 ```

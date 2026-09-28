@@ -16,7 +16,7 @@ for the whole field. The next level opens behind a podium (a MEDAL on a
 tricks level), the next shore behind the table. `campaign.ts`'s header says
 why each of those is the shape it is.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 campaign --list`. Load **`skill-reflection`** at both ends, **`write-code`**
 beside this one for any code change, **`level-rating`** whenever a level is
 being chosen or judged, **`mapgen-improvement`** when a generator change is

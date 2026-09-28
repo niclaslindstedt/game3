@@ -50,7 +50,7 @@ export type SkyTurn = {
 
 /** Where in the year each season's nights are, as a fraction of the way
  * round the sun — the same mid-season dates `DECLINATION` is written for
- * (`engine/lib/solar.ts`). It is what makes the sky at midnight a different
+ * (`engine/mapgen/seasons.ts`). It is what makes the sky at midnight a different
  * sky in June and December, and the offset is a whole turn a year, so a
  * quarter of the year is a quarter of the sky. */
 const SIDEREAL: Record<Season, number> = {

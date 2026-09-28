@@ -108,7 +108,7 @@
 
 import { angleDiff, bedAt, sampleField, type GameState, type Level } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { frameTangents } from "./camera-lens.ts";
 import type { CameraPose } from "./camera.ts";
 

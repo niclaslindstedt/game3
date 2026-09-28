@@ -14,7 +14,7 @@ from the lab looking untouched:
   HOLDING…" label changes nothing in any `--surface menu` picture; the way to
   see it is to DRIVE the page. A scratch playwright file at the repo ROOT
   (`playwright-core` resolves from `node_modules`, not from a scratchpad),
-  `serveDir` from `scripts/lib/serve-dist.mjs`, `?menu=root`, then
+  `serveDir` from the framework's `tooling/serve-dist`, `?menu=root`, then
   `mouse.down()` and read the label and the class list at 3 s and at 8 s.
   Assert the whole rule while you are in there, not just the pixels: that the
   release does NOT start a run, and that the very next press DOES.

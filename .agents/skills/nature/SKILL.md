@@ -13,7 +13,7 @@ swims off it and what grows above the waterline. The water itself is
 is `mapgen-improvement`'s.
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs nature --list`, then the ones the task
+`npx ogf-skill-lessons nature --list`, then the ones the task
 touches. Load **`skill-reflection`** at both ends of the session, and
 **`write-code`** beside this one for any code change.
 
@@ -23,7 +23,7 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 | --- | --- |
 | `engine/mapgen/biomes.ts` | Biomes AS DATA, engine side: one row per `BiomeId` — the relief and how steeply the land climbs to it (`climb`, never over 1), the RIVER (`river`: the mouth's opening, the head, the taper, the size of the loops, the discharge and the bars of a delta — every one a multiple of `R.river`, so the taiga's row is all ones), the rock densities, the boulder field, how much of the waterline is beach (`shore.sand`), the water's density and temperature band, the latitude, how big a sea the wind grows and how much swell arrives (`sea`), the skies it offers, what swims in it. `taiga` (a cold skerry coast), `mangrove` (a warm flat one), `arctic` (a wall of ice over water at the freezing point, whose winter sea is a sheet with an icebreaker's channel through it — R37) and `karst` (a high steep limestone coast on the clearest, bluest water, thick with islets and reefs, with a gorge for a river and a wind sea off the land) are built; `archipelago`, `fjord`, `atoll`, `delta` are reserved ids with no row yet. A row also dates its own year (`declination`) and says whether its sea freezes (`freezes`). A biome is a kind of coast, never a place |
 | `engine/mapgen/compile.ts`'s `materialAt` | The surface classifier behind `level.materialAt(x, z) → Surface` (`bedrock`, `rock`, `sand`, `bank`, `water`) — the vocabulary every painter reads. The BANK is the river's own shore (R16, R26), read off the bank share the basin bakes beside `offshore` (`Basin.bank`), and it comes before the coast's quilt: a river's banks are soil and grass whatever the coast either side of the mouth |
-| `engine/mapgen/geology.ts` | The ground's SHAPE: the sea bed's slope, the land's low rise and its plateau, the noise (`engine/lib/noise.ts`) that makes bedrock read as slabs rather than a ramp |
+| `engine/mapgen/geology.ts` | The ground's SHAPE: the sea bed's slope, the land's low rise and its plateau, the noise (the framework's `core/noise`) that makes bedrock read as slabs rather than a ramp |
 | `engine/mapgen/compile.ts` | Bakes the ground heightfield and the solids — where every skerry, boulder and reef STANDS, because the craft can hit them (the `collision` skill owns the contact) |
 | `pwa/src/game/terrain.ts` | The terrain mesh from `level.ground`, coloured by `level.materialAt`: granite grey bedrock, darker boulders, ochre sand, with the palette from `identity.ts` |
 | `pwa/src/game/rocks.ts` | The low-poly solids drawn where `level.solids` put them — a skerry, a boulder, a reef awash |
@@ -47,7 +47,7 @@ touches. Load **`skill-reflection`** at both ends of the session, and
 Biome → material ids are strings on purpose: `biomes.ts` imports nothing from
 the renderer, and the terrain painter throws on an unknown `Surface`, so a new
 material fails loudly on the first level build. Shared value noise lives in
-`engine/lib/noise.ts` (and `pwa/src/lib/noise.ts` for paint-only detail) —
+the framework's `core/noise` (and `pwa/src/lib/noise.ts` for paint-only detail) —
 the shore's shaping and the terrain's paint must keep drawing from the same
 helpers or their patches stop lining up.
 

@@ -1,7 +1,7 @@
 ---
 title: A clipboard write can be started for a picture that does not exist yet — ClipboardItem takes a PROMISE, and that is the only way the shutter can copy
 date: 2026-09-12
-scope: pwa/src/lib/share-image.ts, pwa/src/App.tsx, pwa/src/game/screenshots.ts
+scope: pwa/src/App.tsx, pwa/src/game/screenshots.ts
 concepts: [screenshots, gallery, clipboard, input]
 ---
 
@@ -12,7 +12,7 @@ the capture and then writing is refused — the activation is gone by the first
 `await`.
 
 The way through is in the spec: a `ClipboardItem` value may be a
-`Promise<Blob>`. `copyWhenReady()` (share-image.ts) is called synchronously
+`Promise<Blob>`. `copyWhenReady()` (the framework's shots/share-image) is called synchronously
 from the press with a deferred promise, and the frame loop settles it with the
 blob when the capture lands. Chromium and WebKit both want this shape; WebKit
 accepts nothing else.

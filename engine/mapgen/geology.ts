@@ -42,9 +42,9 @@
 //   finds no legal spot in its tries is simply not placed: the coast is a
 //   little emptier there, which is what a coast is allowed to be.
 
-import { clamp, lerp } from "../lib/math.ts";
-import { smooth, valueNoise } from "../lib/noise.ts";
-import type { Rng } from "../lib/prng.ts";
+import { clamp, lerp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { smooth, valueNoise } from "@niclaslindstedt/oss-game-framework/core/noise";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import type { Basin } from "./basin.ts";
 import type { Biome } from "./biomes.ts";
 import { LEVEL_RULES as R, inBand, solidRule, withinBand } from "./rules.ts";

@@ -33,7 +33,7 @@
 // the settings the menu is standing on — so a link still decides what RIDE
 // rides, without deciding that it has already been pressed.
 //
-// THE LOOP: `requestAnimationFrame` hands the clock (run-loop.ts) the wall
+// THE LOOP: `requestAnimationFrame` hands the clock (the framework's loop/run-clock) the wall
 // time; the clock says how many fixed steps to take; each step samples the
 // input (once per step) and calls `step`. The renderer draws the state
 // once per frame; the HUD is refreshed from a snapshot at ~12 Hz. A hidden
@@ -61,7 +61,7 @@
 // PNG on the clipboard — and a clipboard write has to be started from the
 // press itself, while the browser still counts the gesture as live. So the
 // press claims the write with the picture still undrawn and the frame loop
-// settles it (`lib/share-image.ts`), which is why the receipt says COPIED
+// settles it (the framework's `shots/share-image`), which is why the receipt says COPIED
 // rather than SAVED only once the write has actually come back.
 //
 // AND THE MOTOR FOLLOWS THE HANDS. The rumble (`game/haptics.ts`) is fed
@@ -107,11 +107,11 @@ import { createRunActions } from "./game/run-actions.ts";
 import { createRunSurfaces, type RunSurfaces } from "./game/run-surfaces.ts";
 import { createReplayRun } from "./game/replay-run.ts";
 import { ReplayBar, type ReplayBarProps } from "./game/hud-replay.tsx";
-import { createRunClock } from "./game/run-loop.ts";
+import { createRunClock } from "@niclaslindstedt/oss-game-framework/loop/run-clock";
 import { createSettler } from "./game/run-settle.ts";
 import type { LoadPhase } from "./game/run-loader.ts";
 import { stageScenario, type Scenario, type ScenarioName } from "./game/scenarios.ts";
-import { readHudLayer } from "./game/shot-hud.ts";
+import { readHudLayer } from "@niclaslindstedt/oss-game-framework/shots/shot-hud";
 import { createShotRequest } from "./game/shot-request.ts";
 import { loadSettings, saveSettings, type Settings } from "./game/settings.ts";
 import { FRAME_RATE_CAP } from "./game/settings-video.ts";
@@ -121,7 +121,7 @@ import { createVideoProbe, promoteVideo } from "./game/video-probe.ts";
 import { SplashScreen } from "./game/splash-screen.tsx";
 import { splashSkipped } from "./game/splash.ts";
 import { takeSnapshot, type HudSnapshot } from "./game/snapshot.ts";
-import { clamp } from "./lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 
 /** How often the HUD's readouts are refreshed, s. Twelve a second reads
  * as live on a clock and a speedo; the canvas is the sixty-frame surface. */
@@ -415,7 +415,7 @@ export function App() {
       canvas: () => canvasRef.current,
       answers: () => hudOver(shellRef.current),
       label: () => shotLabel(state),
-      hud: readHudLayer,
+      hud: () => readHudLayer({ hud: ".hud", exclude: "canvas" }), // a card over it too
       say,
     });
 

@@ -13,7 +13,7 @@ is the physics' hull. Designing a craft means editing a style and LOOKING,
 never guessing from numbers.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs craft-design --list`, then what the task
+`npx ogf-skill-lessons craft-design --list`, then what the task
 touches. Load `skill-reflection` at both ends, and `write-code` beside this
 skill for any code change.
 

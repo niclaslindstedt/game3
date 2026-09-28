@@ -57,8 +57,8 @@
 // Nothing here is random and nothing reads a clock: a run replays to the
 // same rotation.
 
-import { clamp } from "../lib/math.ts";
-import type { Vec3 } from "../lib/quat.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import type { Vec3 } from "@niclaslindstedt/oss-game-framework/core/quat";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import type { CraftInput, CraftState } from "./state.ts";

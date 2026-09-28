@@ -13,8 +13,8 @@
 // random is drawn, so a placed moment reproduces from its description
 // exactly as a ridden one reproduces from its seed.
 
-import { fromEuler } from "../lib/quat.ts";
-import { clamp } from "../lib/math.ts";
+import { fromEuler } from "@niclaslindstedt/oss-game-framework/core/quat";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { standCraft } from "./course.ts";
 import { restY } from "./hull.ts";
 import { TUNING } from "./defs/tuning.ts";
@@ -111,7 +111,7 @@ export function placeRun(state: GameState, moment: RunMoment): void {
   c.vz = Math.cos(moment.heading) * speed;
   c.vy = moment.vy ?? 0;
   // Body rates are right-handed: nose-up is −wx and right-side-down is −wz
-  // (`quat.ts` owns the flip).
+  // (the framework's `core/quat` owns the flip).
   c.wx = -(moment.pitchRate ?? 0);
   c.wz = -(moment.rollRate ?? 0);
   c.stand = clamp(moment.stand ?? 0, 0, 1);

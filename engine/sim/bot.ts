@@ -7,11 +7,11 @@
 // internals: everything it knows it reads off the state and `limits.ts`.
 // Used by the simulation harness, the balance CLI and the tests.
 
-import { angleDiff, clamp } from "../lib/math.ts";
-import { rotate } from "../lib/quat.ts";
+import { angleDiff, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { rotate } from "@niclaslindstedt/oss-game-framework/core/quat";
 import { onRampDeck, solidNear } from "../game/collision.ts";
 import { gatePassPoint } from "../game/course.ts";
-import { fieldGradient, sampleField } from "../lib/heightfield.ts";
+import { fieldGradient, sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { TUNING } from "../game/defs/tuning.ts";
 import { iceAt } from "../game/ice.ts";
 import { topSpeedOf } from "../game/limits.ts";

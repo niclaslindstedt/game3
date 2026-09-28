@@ -20,7 +20,7 @@ Nothing downstream learned a moon exists.
 **The season is the declination, and nothing else about the sun.** What a
 NIGHT is at 62°N is a fact about the date (astronomical dark is impossible
 from late April to mid-August), so "make the night realistic" was one
-table (`DECLINATION`, `engine/lib/solar.ts`) dated to the meteorological
+table (`DECLINATION`, `engine/mapgen/seasons.ts`) dated to the meteorological
 seasons' middle days ON THIS COAST, with winter dated to November because
 the sea is ice from December to May. Everything the season does to the AIR
 (`TAIGA_SEASONS`) is a cast shown in proportion to `daytime`, so midnight

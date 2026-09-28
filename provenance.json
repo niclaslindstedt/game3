@@ -44,7 +44,7 @@
       "path": "pwa/src/game/audio/",
       "source": "authored",
       "licence": "PolyForm-Noncommercial-1.0.0",
-      "note": "Every sound, bed and bird cry, as authored synthesis parameters. No audio file ships."
+      "note": "Every sound, bed and bird cry, as authored synthesis parameters, played on the shared framework's synthesized instrument (@niclaslindstedt/oss-game-framework, same licence). No audio file ships."
     },
     {
       "path": "pwa/src/game/",

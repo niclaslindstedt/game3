@@ -36,9 +36,9 @@
 // refuse.
 
 import { ANALYSIS } from "../analysis/budgets.ts";
-import { angleDiff, TAU } from "../lib/math.ts";
-import type { Rng } from "../lib/prng.ts";
-import { polylineDistance } from "../lib/polyline.ts";
+import { angleDiff, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
+import { polylineDistance } from "@niclaslindstedt/oss-game-framework/core/polyline";
 import { LEVEL_RULES as R, inBand, solidBerth, withinBand } from "./rules.ts";
 import type { Mark, Route } from "./route.ts";
 import type { Vec2 } from "./types.ts";

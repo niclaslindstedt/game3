@@ -21,7 +21,7 @@
 // bow stations (where the keel crosses the surface), continuous in the
 // hull's pose, so that the trim equilibrium settles rather than hunts.
 
-import { clamp, lerp } from "../lib/math.ts";
+import { clamp, lerp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 

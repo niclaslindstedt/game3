@@ -1,7 +1,7 @@
 ---
 title: A button over a RUN cannot be wired on `onClick` — `click` is the primary pointer's alone, and a ridden craft has that finger spoken for
 date: 2026-09-17
-scope: pwa/src/game/hud-press.ts, pwa/src/game/hud-actions.tsx, pwa/src/game/minimap.tsx, pwa/src/game/update-button.tsx
+scope: pwa/src/game/hud-actions.tsx, pwa/src/game/minimap.tsx, pwa/src/game/update-button.tsx
 concepts: [touch, pointer-events, hit-testing, buttons, multi-touch, hud]
 ---
 
@@ -29,7 +29,7 @@ tap" — so probe for BOTH: `elementFromPoint` down the centreline answers the
 first, and a listener tally under a HELD finger answers this one. The tally
 is the cheap one and nobody had run it.
 
-The fix is `hud-press.ts`: fire on `pointerup` inside the button's own box,
+The fix is the framework's `input/hud-press`: fire on `pointerup` inside the button's own box,
 and swallow the `click` that may follow within 700 ms. The swallow is
 load-bearing rather than defensive — measured, a LONE tap delivers
 `pointerdown`, `pointerup` AND `click(non-primary)`, so without it every

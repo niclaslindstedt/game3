@@ -35,8 +35,8 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-import { parseArgs } from "./lib/cli.mjs";
-import { aliasEngine } from "./lib/engine-alias.mjs";
+import { parseArgs } from "@niclaslindstedt/oss-game-framework/tooling/cli";
+import { aliasEngine } from "@niclaslindstedt/oss-game-framework/tooling/alias";
 import { MARGIN, TITLE_H, arrow, label, renderLevelMap } from "./lib/level-draw.mjs";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");

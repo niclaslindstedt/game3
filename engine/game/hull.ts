@@ -23,8 +23,13 @@
 // Savitsky's 0.75·λ·B; the tests hold the trim it settles to. Numbers live
 // in `defs/`, not here.
 
-import { rotate, unrotate, type Quat, type Vec3 } from "../lib/quat.ts";
-import { clamp } from "../lib/math.ts";
+import {
+  rotate,
+  unrotate,
+  type Quat,
+  type Vec3,
+} from "@niclaslindstedt/oss-game-framework/core/quat";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { planingLift, wettedLength } from "./hydro.ts";

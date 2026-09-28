@@ -113,9 +113,9 @@ describe("determinism", () => {
     walk(join(process.cwd(), "engine"), files);
     expect(files.length).toBeGreaterThan(10);
     for (const file of files) {
-      // The one clock seam: whatever times itself is HANDED a clock from
-      // here (the analyzer's `ms`), so nothing else in the engine reads one.
-      if (file.endsWith("/lib/clock.ts")) continue;
+      // No file of the engine is the clock seam: that is the framework's
+      // `core/clock`, and whatever times itself (the analyzer's `ms`) is
+      // HANDED a clock from it (`tests/imports_test.ts` holds the seam).
       // The prose may name the thing it forbids; the code may not.
       const text = readFileSync(file, "utf8")
         .split("\n")
@@ -137,8 +137,9 @@ describe("determinism", () => {
   it("nothing in the engine prints to the console", () => {
     const files: string[] = [];
     walk(join(process.cwd(), "engine"), files);
+    // The engine prints through the framework's `core/output`, the one
+    // module with a console in it (`tests/imports_test.ts` holds it there).
     for (const file of files) {
-      if (file.endsWith("/output.ts")) continue;
       expect(readFileSync(file, "utf8"), file).not.toMatch(/console\./);
     }
   });

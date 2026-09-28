@@ -39,7 +39,7 @@
 
 import { WASH_GROUP } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 
 function smoothstep(a: number, b: number, x: number): number {
   const s = clamp((x - a) / (b - a), 0, 1);

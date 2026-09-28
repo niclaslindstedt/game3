@@ -8,7 +8,7 @@
 
 import { craftById, type CraftId, type GameMode, type TrickKind, type TrickPart } from "@engine";
 
-import { formatScore, formatTime, ordinal } from "../lib/util.ts";
+import { formatScore, formatTime, ordinal } from "@niclaslindstedt/oss-game-framework/hud/format";
 import type { SeaStateId } from "./settings.ts";
 
 /** The class ladder's words, by the multiple each rung is. Novice is the
@@ -962,7 +962,7 @@ export const STRINGS = {
   galleryReading: "Reading the roll…",
   galleryEmpty: "Nothing here yet. Press ENTER during a run and the picture lands here.",
   /** The three ways a picture leaves the game, offered only where the
-   * browser will actually do them (lib/share-image.ts), and the two-step
+   * browser will actually do them (the framework's `shots/share-image`), and the two-step
    * delete beside them — a stray press must not destroy a picture that
    * cannot be taken again, because the shore it was taken on has long since
    * been rebuilt. */
