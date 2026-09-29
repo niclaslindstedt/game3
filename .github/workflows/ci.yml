@@ -36,12 +36,18 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 # THE MODEL SWITCHES every build step reads (`pwa/src/game/model-switch.ts`):
-# the modelled crafts and rider unless a repository secret of the same name
-# switches one back — `make ci-models MODELS=off` sets both, no commit.
+# the modelled crafts, rider, trees and undergrowth unless a repository secret
+# of the same name switches one back — `make ci-models MODELS=off` sets them
+# all, no commit.
 env:
   VITE_MODEL_CRAFTS: ${{ secrets.VITE_MODEL_CRAFTS }}
   VITE_MODEL_RIDERS: ${{ secrets.VITE_MODEL_RIDERS }}
   VITE_MODEL_TREES: ${{ secrets.VITE_MODEL_TREES }}
+  VITE_MODEL_UNDERGROWTH: ${{ secrets.VITE_MODEL_UNDERGROWTH }}
+  VITE_MODEL_ROCKS: ${{ secrets.VITE_MODEL_ROCKS }}
+  VITE_MODEL_MARKS: ${{ secrets.VITE_MODEL_MARKS }}
+  VITE_MODEL_BIRDS: ${{ secrets.VITE_MODEL_BIRDS }}
+  VITE_MODEL_FAUNA: ${{ secrets.VITE_MODEL_FAUNA }}
 
 jobs:
   # The suite is the long pole, so it is the one thing that gets its own

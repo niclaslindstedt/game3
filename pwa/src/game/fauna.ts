@@ -79,39 +79,18 @@ import {
   type SurfaceSample,
 } from "@engine";
 
+import { BODY, girthAt } from "./fauna-body.ts";
+import { faunaModel } from "./fauna-models.ts";
 import { STYLES, type FaunaStyle } from "./fauna-styles.ts";
 import { seaMirror, type Preset } from "./sky.ts";
 import { waterOpticsOf } from "./water-optics.ts";
 
-/** The body's half-width at `s` along it (0 tail tip, 1 nose), as a share
- * of the widest. A fish and a whale are the same curve at different
- * proportions: thin at the tail, widest a third back from the nose, and
- * rounded off to a point at the snout. */
-const GIRTH: readonly (readonly [number, number])[] = [
-  [0, 0.06],
-  [0.1, 0.13],
-  [0.25, 0.34],
-  [0.42, 0.66],
-  [0.58, 0.9],
-  [0.7, 1],
-  [0.82, 0.92],
-  [0.92, 0.66],
-  [1, 0.08],
-];
-
-/** Stations along the body and facets round it. Eight and six: enough that
- * a metre of animal seen through two metres of water has a shape, and few
- * enough that a school of thirty is a rounding error in the frame. */
-const STATIONS = 9;
-const SIDES = 6;
-
-/** How much of the pectoral's outer half a flipper band whitens. */
-const BAND_FROM = 0.45;
-
-/** WHERE THE BACK ENDS AND THE BELLY BEGINS, as the exponent the two are
- * mixed on: how far up the body the pale side reaches. An animal is
- * painted TWICE and the shader slides between the two by how deep it is,
- * because the honest answer changes with the water over it:
+/** The body's numbers are `fauna-body.ts`'s — the model is built to them
+ * too. Stations along the body and facets round it; how much of the
+ * pectoral's outer half a flipper band whitens; WHERE THE BACK ENDS AND THE
+ * BELLY BEGINS, as the exponent the two are mixed on — an animal is painted
+ * TWICE and the shader slides between the two by how deep it is, because
+ * the honest answer changes with the water over it:
  *
  *   WET is the animal as it really is — dark down past the lateral line,
  *   pale beneath — and it is the right paint the moment the back is out
@@ -126,9 +105,12 @@ const BAND_FROM = 0.45;
  * `LIFT_DEPTH` is how much water it takes to go all the way from one to
  * the other — about a body's depth of it, so an animal rolling through
  * the surface changes over the same moment it breaks it. */
-const SHADE_WET = 0.7;
-const SHADE_DEEP = 2.4;
-const LIFT_DEPTH = 1.2;
+const STATIONS = BODY.stations;
+const SIDES = BODY.sides;
+const BAND_FROM = BODY.pectoral.bandFrom;
+const SHADE_WET = BODY.shadeWet;
+const SHADE_DEEP = BODY.shadeDeep;
+const LIFT_DEPTH = BODY.liftDepth;
 
 /** How deep an animal has to be before the water between it and the eye has
  * taken it entirely is the COAST's `clarity` (`water-optics.ts`) — the same
@@ -156,18 +138,6 @@ const HAZE_SKY = 0.35;
  * two-metre fin is still a shape rather than a pixel, and it is the range a
  * breach has to survive to be a sighting at all. */
 const PROUD_REACH = 380;
-
-function table(knots: readonly (readonly [number, number])[], x: number): number {
-  if (x <= knots[0][0]) return knots[0][1];
-  for (let i = 1; i < knots.length; i++) {
-    if (x <= knots[i][0]) {
-      const [x0, y0] = knots[i - 1];
-      const [x1, y1] = knots[i];
-      return y0 + ((y1 - y0) * (x - x0)) / (x1 - x0);
-    }
-  }
-  return knots[knots.length - 1][1];
-}
 
 type P = [number, number, number];
 
@@ -197,8 +167,9 @@ class Body {
 
 /** The colour of the hide at a station and an angle round the body: the
  * back above, the belly below, and whatever marking the style puts on top
- * of that. `up` is +1 at the spine and −1 at the keel. */
-function hide(style: FaunaStyle, s: number, up: number, shade: number): number {
+ * of that. `up` is +1 at the spine and −1 at the keel. The model's hide is
+ * dressed by this too (`fauna-models.ts`). */
+export function hide(style: FaunaStyle, s: number, up: number, shade: number): number {
   const t = Math.max(0, Math.min(1, up * 0.5 + 0.5));
   const mix = t ** shade;
   const back = new THREE.Color(style.back);
@@ -220,13 +191,13 @@ function hide(style: FaunaStyle, s: number, up: number, shade: number): number {
 
 /** One unit-length body: the hull, the dorsal, two pectorals and the tail.
  * z runs −0.5 (tail) to +0.5 (nose); x is the animal's right, y up. */
-function buildBody(spec: FaunaSpec, style: FaunaStyle, shade: number): THREE.BufferGeometry {
+export function buildBody(spec: FaunaSpec, style: FaunaStyle, shade: number): THREE.BufferGeometry {
   const body = new Body();
   const halfW = spec.beam / 2;
   const halfH = style.height / 2;
   const at = (s: number, k: number): P => {
     const a = (k / SIDES) * Math.PI * 2;
-    const g = table(GIRTH, s);
+    const g = girthAt(s);
     return [Math.cos(a) * halfW * g, Math.sin(a) * halfH * g, s - 0.5];
   };
   for (let i = 0; i + 1 < STATIONS; i++) {
@@ -249,12 +220,13 @@ function buildBody(spec: FaunaSpec, style: FaunaStyle, shade: number): THREE.Buf
   }
   const finColour = style.fin ?? style.back;
   // THE DORSAL, raked back off the shoulder.
-  const dz = 0.02;
-  const dTop = table(GIRTH, 0.52) * halfH;
+  const D = BODY.dorsal;
+  const dz = D.at;
+  const dTop = girthAt(D.station) * halfH;
   body.tri(
-    [0, dTop, dz + 0.08],
-    [0, dTop, dz - 0.08],
-    [0, dTop + style.dorsal, dz - 0.06],
+    [0, dTop, dz + D.chord],
+    [0, dTop, dz - D.chord],
+    [0, dTop + style.dorsal, dz - D.rake],
     finColour,
   );
   // THE PECTORALS, one each side: a broad root on the shoulder swept back
@@ -262,9 +234,9 @@ function buildBody(spec: FaunaSpec, style: FaunaStyle, shade: number): THREE.Buf
   // because from overhead they are the pair of strokes that make a shape
   // read as an ANIMAL rather than as a floating log, and a spike reads as
   // neither. Split across the span so a flipper band has an edge to sit on.
-  const pz = 0.2;
-  const pw = table(GIRTH, 0.7) * halfW;
-  const chord = 0.07;
+  const pz = BODY.pectoral.at;
+  const pw = girthAt(BODY.pectoral.station) * halfW;
+  const chord = BODY.pectoral.chord;
   const band = style.flipperBand ? style.belly : finColour;
   for (const side of [1, -1]) {
     const span = (f: number, drop: number, sweep: number): P => [
@@ -285,9 +257,10 @@ function buildBody(spec: FaunaSpec, style: FaunaStyle, shade: number): THREE.Buf
   // crescent either way, laid in the plane its owner beats in.
   const span = style.tail / 2;
   const flat = spec.kind === "cetacean";
+  const T = BODY.tail;
   const fin = (u: number, v: number): P => (flat ? [u, 0, v] : [0, u, v]);
-  body.tri(fin(0, -0.4), fin(span, -0.58), fin(0, -0.47), finColour);
-  body.tri(fin(0, -0.4), fin(0, -0.47), fin(-span, -0.58), finColour);
+  body.tri(fin(0, T.root), fin(span, T.tip), fin(0, T.notch), finColour);
+  body.tri(fin(0, T.root), fin(0, T.notch), fin(-span, T.tip), finColour);
 
   const geometry = new THREE.BufferGeometry();
   geometry.setAttribute("position", new THREE.Float32BufferAttribute(body.pos, 3));
@@ -306,10 +279,12 @@ function buildMaterial(
   style: FaunaStyle,
   haze: { value: THREE.Color },
   clarity: number,
+  smooth = false,
 ): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial({
     vertexColors: true,
-    flatShading: true,
+    // The code's body is facets; a model carries its own smooth normals.
+    flatShading: !smooth,
     // The fins are single triangles and the animal is seen from any side.
     side: THREE.DoubleSide,
   });
@@ -347,7 +322,7 @@ ${shader.vertexShader}`
   // Three's default key is the graft's source text, which is the same for
   // every species; the key has to say whose bend and whose axis were baked
   // in, or the second species compiled swims with the first one's tail.
-  material.customProgramCacheKey = () => `fauna:${spec.id}`;
+  material.customProgramCacheKey = () => `fauna:${spec.id}:${smooth ? "smooth" : "flat"}`;
   return material;
 }
 
@@ -402,13 +377,18 @@ export function createFauna(level: Level): Fauna {
   for (const [id, cap] of capacity) {
     const spec = faunaById(id);
     const style = STYLES[id];
-    const geometry = buildBody(spec, style, SHADE_WET);
-    // The same body painted for deep water, kept as a second colour the
-    // shader slides toward; the geometry it came on is thrown away.
-    const lifted = buildBody(spec, style, SHADE_DEEP);
-    const deep = (lifted.getAttribute("color") as THREE.BufferAttribute).array as Float32Array;
-    geometry.setAttribute("aDeep", new THREE.Float32BufferAttribute(deep.slice(), 3));
-    lifted.dispose();
+    // The species' MODEL (`fauna-models.ts`), its hide dressed by the same
+    // `hide` at both shades — or the code's body, painted twice: once as it
+    // is, once for deep water, kept as a second colour the shader slides
+    // toward; the geometry the second came on is thrown away.
+    const model = faunaModel(id, style, hide);
+    const geometry = model ?? buildBody(spec, style, SHADE_WET);
+    if (!model) {
+      const lifted = buildBody(spec, style, SHADE_DEEP);
+      const deep = (lifted.getAttribute("color") as THREE.BufferAttribute).array as Float32Array;
+      geometry.setAttribute("aDeep", new THREE.Float32BufferAttribute(deep.slice(), 3));
+      lifted.dispose();
+    }
     const beats = new THREE.InstancedBufferAttribute(new Float32Array(cap), 1);
     beats.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aBeat", beats);
@@ -417,7 +397,7 @@ export function createFauna(level: Level): Fauna {
     geometry.setAttribute("aWater", waters);
     const mesh = new THREE.InstancedMesh(
       geometry,
-      buildMaterial(spec, style, haze, optics.clarity),
+      buildMaterial(spec, style, haze, optics.clarity, !!model),
       cap,
     );
     mesh.count = 0;

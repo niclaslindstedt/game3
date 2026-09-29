@@ -39,14 +39,11 @@
 # as a mass rather than as a pile of lumps.
 
 import json, math, os, random, sys
-# WINDING: Blender's frame is z up, so a ring laid round anticlockwise seen
-# from above, walked bottom ring to top ring, faces OUT. The game culls the
-# back of every face (the Cycles still does not), so a face wound the other
-# way is a hole in the game and not in the still — judge in the game's lab.
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import lib
 from lib import *
+from foliage import *
 
 argv = sys.argv[sys.argv.index("--") + 1:]
 DATA = json.load(open(argv[0]))
@@ -61,239 +58,9 @@ PAINT = DATA.get("paint")
 # A pale bark with dark marks (a birch's), drawn in the `mark` role.
 PAINT_MARKS = 0.3 if LOOK.get("marks") else 0.0
 
-ROLES = ("leaf", "bark", "twig", "mark")
-
-# ---------------------------------------------------------------- materials
-# The stills are painted with the kind's own colours through the same
-# arithmetic the game dresses a model with; the glTF gets neutral
-# materials, as the game reads only their names.
-def role_mat(name, first, second, rough=0.9):
-    m = mat(name, tuple(first) if not GAME else (0.5, 0.5, 0.5), rough=rough)
-    if GAME:
-        return m
-    nt = m.node_tree
-    p = nt.nodes.get("Principled BSDF")
-    attr = nt.nodes.new("ShaderNodeAttribute")
-    attr.attribute_name = "tone"
-    sep = nt.nodes.new("ShaderNodeSeparateColor")
-    nt.links.new(attr.outputs["Color"], sep.inputs[0])
-    mix = nt.nodes.new("ShaderNodeMix")
-    mix.data_type = "RGBA"
-    mix.inputs[6].default_value = (*first, 1)
-    mix.inputs[7].default_value = (*second, 1)
-    nt.links.new(sep.outputs[1], mix.inputs[0])
-    shade = nt.nodes.new("ShaderNodeMix")
-    shade.data_type = "RGBA"
-    shade.blend_type = "MULTIPLY"
-    shade.inputs[0].default_value = 1.0
-    nt.links.new(mix.outputs[2], shade.inputs[6])
-    nt.links.new(sep.outputs[0], shade.inputs[7])
-    nt.links.new(shade.outputs[2], p.inputs["Base Color"])
-    return m
-
-GREY = (0.5, 0.5, 0.5)
-P_ = PAINT or {}
-MATS = [
-    role_mat("leaf", P_.get("leafLit", GREY), P_.get("leafDark", GREY), rough=0.8),
-    role_mat("bark", P_.get("stem", GREY), P_.get("stemHigh", GREY)),
-    role_mat("twig", P_.get("stem", GREY), P_.get("leafDark", GREY)),
-    role_mat("mark", P_.get("stemMark", GREY), P_.get("stemMark", GREY)),
-]
-
-# ---------------------------------------------------------------- the MESH being built
-def norm(v):
-    l = math.sqrt(v[0] * v[0] + v[1] * v[1] + v[2] * v[2]) or 1.0
-    return (v[0] / l, v[1] / l, v[2] / l)
-
-class Tree:
-    """A mesh under construction: every vertex with its tone (shade, blend)
-    and — for foliage — its own normal; every face its role. The variant's
-    LEAN shears every point over by its height, to +x."""
-
-    def __init__(self, lean):
-        self.lean = math.tan(lean)
-        self.co, self.tone, self.nrm, self.faces, self.roles = [], [], [], [], []
-
-    def v(self, p, shade=1.0, blend=0.0, n=None):
-        x, y, z = p
-        self.co.append((x + max(0.0, z) * self.lean, y, z))
-        self.tone.append((max(0.0, min(1.0, shade)), max(0.0, min(1.0, blend)), 0.0))
-        self.nrm.append(n)
-        return len(self.co) - 1
-
-    def f(self, idx, role):
-        self.faces.append(tuple(idx))
-        self.roles.append(ROLES.index(role))
-
-    def object(self, name):
-        me = bpy.data.meshes.new(name)
-        me.from_pydata(self.co, [], self.faces)
-        me.validate(clean_customdata=False)
-        for m in MATS:
-            me.materials.append(m)
-        me.polygons.foreach_set("material_index", self.roles)
-        me.polygons.foreach_set("use_smooth", [True] * len(me.polygons))
-        tone = me.color_attributes.new("tone", "FLOAT_COLOR", "POINT")
-        for i, (r, g, b) in enumerate(self.tone):
-            tone.data[i].color = (r, g, b, 1.0)
-        me.color_attributes.active_color = tone
-        me.color_attributes.render_color_index = 0
-        me.update()
-        # A vertex with no normal of its own takes the surface's.
-        smooth = [tuple(v.normal) for v in me.vertices]
-        me.normals_split_custom_set_from_vertices(
-            [n if n is not None else smooth[i] for i, n in enumerate(self.nrm)])
-        ob = bpy.data.objects.new(name, me)
-        COL.objects.link(ob)
-        return ob
-
-def frame(d):
-    """Two unit vectors across a direction `d`."""
-    d = Vector(d).normalized()
-    a = Vector((0, 0, 1)) if abs(d.z) < 0.9 else Vector((1, 0, 0))
-    u = d.cross(a).normalized()
-    return u, d.cross(u).normalized()
-
-def tube(t, pts, radii, sides, role, tone=lambda k: (1.0, 0.0), cap=False, mark=None, shade_ring=None):
-    """A tapering tube through `pts` (Vectors), `radii` at each; `tone(k)`
-    the shade and blend of ring k; `mark(k, j)` true for a face in the
-    `mark` role (a birch's dark bark)."""
-    rings = []
-    prev_u = None
-    for k, p in enumerate(pts):
-        d = (pts[min(k + 1, len(pts) - 1)] - pts[max(k - 1, 0)])
-        u, w = frame(d)
-        if prev_u is not None:
-            # Parallel transport: keep the seam from twisting.
-            u = (prev_u - d.normalized() * prev_u.dot(d.normalized())).normalized()
-            w = d.normalized().cross(u)
-        prev_u = u
-        s, b = tone(k)
-        ring = []
-        for j in range(sides):
-            a = 2 * math.pi * j / sides
-            off = u * math.cos(a) + w * math.sin(a)
-            ring.append(t.v(p + off * radii[k], s, b))
-        rings.append(ring)
-    for k in range(len(rings) - 1):
-        for j in range(sides):
-            j1 = (j + 1) % sides
-            r = "mark" if mark and mark(k, j) else role
-            t.f((rings[k][j], rings[k][j1], rings[k + 1][j1], rings[k + 1][j]), r)
-    if cap:
-        s, b = tone(len(pts) - 1)
-        c = t.v(pts[-1] + (pts[-1] - pts[-2]).normalized() * radii[-1] * 0.5, s, b)
-        for j in range(sides):
-            t.f((rings[-1][j], rings[-1][(j + 1) % sides], c), role)
-
-def sheet(t, strip_a, strip_b, role, up_bias=0.8):
-    """A two-faced strip between two rows of points (each a list of
-    (point, shade, blend)): its own vertices a face, so it reads from either
-    side. The face that looks UP is lit out along the strip and up; the one
-    that looks down only out, a little up — never down, or a crown seen from
-    under it goes black."""
-    for side in (0, 1):
-        ra, rb = [], []
-        for (pa, sa, ba), (pb, sb, bb) in zip(strip_a, strip_b):
-            ra.append((pa, sa, ba))
-            rb.append((pb, sb, bb))
-        for k in range(len(ra) - 1):
-            q = [ra[k], rb[k], rb[k + 1], ra[k + 1]]
-            if side == 1:
-                q.reverse()
-            g = (q[1][0] - q[0][0]).cross(q[2][0] - q[0][0])
-            if g.length < 1e-9:
-                g = (q[2][0] - q[0][0]).cross(q[3][0] - q[0][0])
-            flat = Vector((sum(p[0].x for p in q), sum(p[0].y for p in q), 0))
-            out = flat.normalized() if flat.length > 1e-6 else Vector((0, 0, 0))
-            up = g.z >= 0
-            n = norm((out.x * 0.6, out.y * 0.6, up_bias if up else 0.2))
-            dim = 1.0 if up else 0.85
-            ix = [t.v(p, sh * dim, bl, n) for p, sh, bl in q]
-            t.f(ix, role)
-
-def blob(t, at, r, role, shade=0.8, blend=0.5):
-    """A little octahedron: a nut, a bud."""
-    at = Vector(at)
-    ps = [at + Vector(o) * r for o in ((1, 0, 0), (-1, 0, 0), (0, 1, 0), (0, -1, 0), (0, 0, 1), (0, 0, -1))]
-    ix = [t.v(p, shade + 0.2 * (p.z > at.z), blend, norm(tuple(p - at))) for p in ps]
-    for a, b in ((0, 2), (2, 1), (1, 3), (3, 0)):
-        t.f((ix[a], ix[b], ix[4]), role)
-        t.f((ix[b], ix[a], ix[5]), role)
-
-def smoothstep(a, b, x):
-    u = max(0.0, min(1.0, (x - a) / (b - a)))
-    return u * u * (3 - 2 * u)
-
-def flare(r, z):
-    """A stem's radius at height z: a root flare at its foot."""
-    return r * (1 + 0.45 * math.exp(-max(0.0, z) / 0.35))
-
-def profile_at(v, f):
-    """The code's silhouette at a share `f` of the height (`crownAt`), m."""
-    p = v["profile"]
-    x = max(0.0, min(1.0, f)) * (len(p) - 1)
-    i = min(len(p) - 2, int(x))
-    return (p[i] + (p[i + 1] - p[i]) * (x - i)) * H
-
-def envelope(v, f):
-    """The outline over the silhouette: the widest it reaches at or above `f`
-    — a stack of tiers read as the spire they make."""
-    p = v["profile"]
-    i = max(0, min(len(p) - 1, int(round(f * (len(p) - 1)))))
-    return max(p[i:]) * H if i < len(p) else 0.0
-
-def widest(v):
-    return max(v["profile"]) * H
-
-# ---------------------------------------------------------------- FOLIAGE
-def cluster(t, c, rx, rz, centre, rng, sides=6, rings=2, dark=0.0, droop=0.0):
-    """A CLUSTER OF LEAVES: a lobed, flattened ellipsoid round `c`, `rx`
-    across and `rz` tall, its vertices' normals leaning out of the crown's
-    `centre` as much as out of its own — so a crown of them is lit as ONE
-    mass. Its underside is shaded toward the kind's dark, and `dark` more
-    for one deep inside the crown."""
-    c = Vector(c)
-    lat = [(-0.62 + 1.24 * (k + 0.5) / rings) for k in range(rings)]
-    out_c = c - Vector(centre)
-    out_c = Vector((out_c.x, out_c.y, out_c.z * 0.6))
-    oc = out_c.normalized() if out_c.length > 1e-6 else Vector((0, 0, 1))
-
-    turn = Matrix.Rotation(rng.random() * 2 * math.pi, 3, "Z") @ Matrix.Rotation((rng.random() - 0.5) * 0.7, 3, "X")
-
-    def vert(dx, dy, dz):
-        dx, dy, dz = turn @ Vector((dx, dy, dz))
-        local = Vector((dx, dy, dz)).normalized()
-        n = (local * 0.4 + oc * 0.45 + Vector((0, 0, 0.35))).normalized()
-        lit = 0.5 + 0.5 * max(0.0, local.z * 0.6 + local.dot(oc) * 0.4)
-        shade = (0.62 + 0.38 * lit) * (1 - 0.35 * dark)
-        blend = 0.95 - 0.8 * lit + 0.3 * dark
-        # A weeping cluster hangs its outer rim.
-        sag = droop * max(0.0, Vector((dx, dy, 0)).length / max(rx, 1e-6)) * rz * 0.6
-        return t.v(c + Vector((dx, dy, dz - sag)), shade, blend, tuple(n))
-
-    ringsv = []
-    for k, l in enumerate(lat):
-        ring = []
-        cz, sz = math.cos(l * math.pi / 2), math.sin(l * math.pi / 2)
-        for j in range(sides):
-            a = 2 * math.pi * (j + 0.5 * k) / sides
-            w = 0.78 + 0.44 * rng.random()
-            ring.append(vert(math.cos(a) * rx * cz * w, math.sin(a) * rx * cz * w, sz * rz * (0.9 + 0.2 * rng.random())))
-        ringsv.append(ring)
-    bottom = vert(0, 0, -rz)
-    top = vert(0, 0, rz * (0.95 + 0.2 * rng.random()))
-    for k in range(len(ringsv) - 1):
-        lo, hi = ringsv[k], ringsv[k + 1]
-        for j in range(sides):
-            j1 = (j + 1) % sides
-            # The upper ring is turned half a step: a lobe sits in the gap.
-            t.f((lo[j], lo[j1], hi[j]), "leaf")
-            t.f((lo[j1], hi[j1], hi[j]), "leaf")
-    for j in range(sides):
-        j1 = (j + 1) % sides
-        t.f((bottom, ringsv[0][j1], ringsv[0][j]), "leaf")
-        t.f((top, ringsv[-1][j], ringsv[-1][j1]), "leaf")
+# The four role materials, painted for the stills in the kind's own colours
+# (`foliage.py`); the glTF gets neutral ones, as the game reads only names.
+role_mats(PAINT)
 
 # ---------------------------------------------------------------- a SPIRE (the spruce, the cypress)
 # The most boughs a spire's whorls share (about 16 triangles each).
@@ -309,12 +76,12 @@ def tiers_of(count, base, top):
     return out
 
 def spire(v, f, far, rng):
-    t = Tree(v["lean"])
+    t = Plant(v["lean"])
     base, top = v["bare"] * H, v["top"] * H
     count = 3 if far else f["tiers"]
     tiers = tiers_of(count, v["bare"], v["top"])
     for tr in tiers:
-        tr["radius"] = max(0.05, envelope(v, tr["bottom"]))
+        tr["radius"] = max(0.05, envelope(v, tr["bottom"], H))
         tr["bottom"] *= H
         tr["top"] *= H
     widest_r = max(tr["radius"] for tr in tiers) or 1.0
@@ -401,7 +168,7 @@ def spire(v, f, far, rng):
         z0 = base + (top - base) * 0.72
         off = 0.25 * widest_r
         for tr in tiers_of(3, z0 / H, v["top"] * 0.95):
-            rr = max(0.12, envelope(v, tr["bottom"]) * 0.45)
+            rr = max(0.12, envelope(v, tr["bottom"], H) * 0.45)
             for k in range(4):
                 a = 2 * math.pi * k / 4 + rng.random()
                 bough(t, a, rr, tr["top"] * H, tr["bottom"] * H, math.pi * rr / 4 * 1.3, f, rng,
@@ -466,10 +233,10 @@ def bough(t, a, L, z0, z1, hw, f, rng, root=0.06, at=0.0):
 
 # ---------------------------------------------------------------- a PINE
 def pine(v, f, far, rng):
-    t = Tree(v["lean"])
+    t = Plant(v["lean"])
     seed = v["index"] * 3 + 1
     stems = 2 if f["splay"] > 0 else 1
-    C = widest(v)
+    C = widest(v, H)
     bare = v["bare"]
     top = v["top"]
 
@@ -505,7 +272,7 @@ def pine(v, f, far, rng):
         a = i * 2.39996 + seed
         top_pad = i == pads - 1
         j = rng.random()
-        room = profile_at(v, y) / max(C, 1e-6)
+        room = profile_at(v, y, H) / max(C, 1e-6)
         reach = 0.05 if top_pad else f["reach"] * (0.35 + 0.65 * j) * max(0.35, room) * (1 - f["young"] * u * 0.8)
         if f["layers"] > 0 and not top_pad:
             per = max(1, math.ceil((pads - 1) / f["layers"]))
@@ -555,11 +322,11 @@ def pad(t, cx, cy, z, r, th, n, rng):
 def broadleaf(v, f, far, rng, dome_only=False):
     """Stems out of one stool, limbs off them, and the crown as clusters of
     leaves over a shaded core, all inside the code's silhouette."""
-    t = Tree(v["lean"])
+    t = Plant(v["lean"])
     seed = v["index"] * 3 + 1
     stems = min(2, v["stems"]) if far else v["stems"]
     bare, top = v["bare"], v["top"]
-    C = widest(v)
+    C = widest(v, H)
     zmid = (bare + top) / 2 * H
     rise = (top - bare) / 2 * H
     # A mangrove's canopy stands on its own short trunk, not a broadleaf's.
@@ -605,7 +372,7 @@ def broadleaf(v, f, far, rng, dome_only=False):
         tipv = tips[i % len(tips)]
         a = i * 2.39996 + seed
         fz = bare + (top - bare) * (0.25 + 0.5 * (i + 0.5) / max(1, limbs))
-        reach = profile_at(v, fz) * (0.55 + 0.2 * rng.random())
+        reach = profile_at(v, fz, H) * (0.55 + 0.2 * rng.random())
         root = Vector((tipv.x * 0.8, tipv.y * 0.8, min(tipv.z, fz * H) - 0.2 * rise))
         end = Vector((math.cos(a) * reach, math.sin(a) * reach, fz * H))
         mid = root.lerp(end, 0.5) + Vector((0, 0, 0.12 * rise * (1 - f["weep"])))
@@ -620,7 +387,7 @@ def broadleaf(v, f, far, rng, dome_only=False):
         u = (i + 0.5) / n
         fz = bare + (top - bare) * (0.08 + 0.86 * (0.5 - 0.5 * math.cos(math.pi * u)))
         a = i * 2.39996 + seed + rng.random() * 0.4
-        room = profile_at(v, fz)
+        room = profile_at(v, fz, H)
         size = C * ((0.2 + 0.16 * rng.random()) if not far else 0.5) * (1 - 0.25 * f["open"])
         radial = max(0.0, room - size * (0.55 + 0.35 * rng.random())) if not far else room * 0.5
         cx, cy = math.cos(a) * radial, math.sin(a) * radial
@@ -638,7 +405,7 @@ def broadleaf(v, f, far, rng, dome_only=False):
 
 # ---------------------------------------------------------------- a PALM
 def palm(v, f, far, rng):
-    t = Tree(v["lean"])
+    t = Plant(v["lean"])
     seed = v["index"] * 3 + 1
     s = LOOK["spread"] * v["spread"]
     crown_z = v["bare"] * v["top"] * H
@@ -840,55 +607,4 @@ if GAME:
                               export_materials="EXPORT")
 
 # ---------------------------------------------------------------- the STUDIO: the six in a row, on the shore
-only = [x for x in os.environ.get("VIEWS", "").split(",") if x]
-views = [x for x in ("row", "far", "close") if (not only or x in only)] if (not GAME or only) else []
-if only == ["none"]:
-    views = []
-if views:
-    GAP = max(2.2 * max(widest(v) for v in DATA["variants"]), 0.35 * H)
-    for ob in made:
-        i = int(ob.name[1:].split("_")[0])
-        ob.location = (i * GAP, 0, 0)
-    ground = mat("ground", (0.32, 0.3, 0.24), rough=0.9)
-    bpy.ops.mesh.primitive_plane_add(size=600, location=(2.5 * GAP, 0, -0.02))
-    bpy.context.active_object.data.materials.append(ground)
-    world = bpy.data.worlds.new("sky")
-    scene.world = world
-    try:
-        world.use_nodes = True
-    except Exception:
-        pass
-    bg = world.node_tree.nodes.get("Background")
-    bg.inputs[0].default_value = (0.5, 0.68, 0.86, 1)
-    bg.inputs[1].default_value = 1.0
-    sun = bpy.data.lights.new("sun", "SUN")
-    sun.energy = 4.5
-    sun.angle = math.radians(1.2)
-    sun.color = (1.0, 0.96, 0.9)
-    so = bpy.data.objects.new("sun", sun)
-    COL.objects.link(so)
-    so.rotation_euler = (math.radians(50), math.radians(8), math.radians(-35))
-    lib._cycles(SAMPLES)
-    scene.view_settings.exposure = 0.3
-    tag = "game" if GAME else "render"
-    for view in views:
-        cd = bpy.data.cameras.new(view)
-        cam = bpy.data.objects.new(view, cd)
-        COL.objects.link(cam)
-        if view == "close":
-            # Variant 0 as a rider on the water sees it, 18 m off.
-            scene.render.resolution_x, scene.render.resolution_y = 900, 1200
-            cd.lens = 24
-            cam.location = (0, -1.8 * H, 1.3)
-            cam.rotation_euler = (math.radians(90 + 16), 0, 0)
-        else:
-            scene.render.resolution_x, scene.render.resolution_y = 1800, 520
-            cd.type = "ORTHO"
-            cd.ortho_scale = max(6.2 * GAP, H * 1.2 * 1800 / 520)
-            cam.location = (2.5 * GAP, -80, H * 0.56)
-            cam.rotation_euler = (math.radians(90), 0, 0)
-        for ob in made:
-            ob.hide_render = ob.name.endswith("_far") != (view == "far")
-        scene.camera = cam
-        scene.render.filepath = os.path.join(OUT, f"{KIND}-{tag}-{view}.png")
-        bpy.ops.render.render(write_still=True)
+row_studio(made, KIND, OUT, SAMPLES, H, max(2.2 * max(widest(v, H) for v in DATA["variants"]), 0.35 * H))

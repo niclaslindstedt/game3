@@ -9,7 +9,7 @@ import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
 
-import { MODELS_DIR, modelFiles } from "../pwa/models-plugin.ts";
+import { ALL_MODELS, MODELS_DIR, modelFiles } from "../pwa/models-plugin.ts";
 import {
   MODEL_REGISTRY,
   registryTableIn,
@@ -33,7 +33,7 @@ describe("the model registry", () => {
 
   it("lists as Blender models exactly the files the build ships", () => {
     const listed = MODEL_REGISTRY.flatMap((r) => r.blender?.files ?? []);
-    const shipped = modelFiles({ crafts: true, riders: true, trees: true });
+    const shipped = modelFiles(ALL_MODELS);
     expect([...listed].sort()).toEqual([...shipped].sort());
     for (const f of listed) {
       expect(existsSync(join(root, MODELS_DIR, f)), `${MODELS_DIR}/${f}`).toBe(true);
@@ -49,7 +49,16 @@ describe("the model registry", () => {
   });
 
   it("names only switches the game reads", () => {
-    const readers = read("pwa/src/game/craft-models.ts") + read("pwa/src/game/tree-models.ts");
+    const readers = [
+      "craft-models",
+      "tree-models",
+      "rock-models",
+      "mark-models",
+      "bird-models",
+      "fauna-models",
+    ]
+      .map((f) => read(`pwa/src/game/${f}.ts`))
+      .join("\n");
     for (const r of MODEL_REGISTRY) {
       if (r.blender) expect(readers, r.asset).toContain(`ENV.${r.blender.switch}`);
     }

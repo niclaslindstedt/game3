@@ -31,24 +31,12 @@ import * as THREE from "three";
 
 import { Builder, type P } from "../lib/lowpoly.ts";
 import type { BirdId, BirdSpec } from "./bird-defs.ts";
+import { WING, wingEdges, type BirdStyle } from "./bird-wing.ts";
 
-/** How a species is PAINTED — every colour a bird has. */
-export type BirdStyle = {
-  /** The mantle: the back and the top of the wing. */
-  readonly back: number;
-  /** The underside: the belly and the underwing. */
-  readonly belly: number;
-  /** The wingtip — the outer hand, both faces. */
-  readonly tip: number;
-  readonly head: number;
-  readonly bill: number;
-  /** The tail, when it is not the mantle's colour (an eagle's white). */
-  readonly tail?: number;
-  /** Legs trailing in flight, for the one bird whose legs are the
-   * silhouette. */
-  readonly legs?: number;
-};
+export type { BirdStyle };
 
+/** How a species is PAINTED — every colour a bird has (`bird-wing.ts`
+ * states the type beside the roles the model is dressed by). */
 export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
   // Grey mantle, white below, black wingtips, a yellow bill.
   gull: { back: 0x8a939b, belly: 0xf2f4f5, tip: 0x1b1e22, head: 0xf2f4f5, bill: 0xe0b23a },
@@ -226,35 +214,13 @@ export const BIRD_STYLES: Readonly<Record<BirdId, BirdStyle>> = {
   },
 };
 
-/** How far back the ARM sweeps at the shoulder and the HAND at the wrist
- * when a wing is fully folded, rad. Together they lay the hand along the
- * flank pointing at the tail, which is what a folded wing is. */
-const ARM_FOLD = 1.2;
-const HAND_FOLD = 0.95;
-
-/** How thick a wing is drawn, m, as the gap between its two faces — enough
- * that they never fight for the same pixels, and nothing a bird's size
- * would ever show. */
-const WING_SKIN = 0.006;
-
-/** Where along the half-span the wing's vertex columns stand, as shares;
- * the wrist is added between them, so the fold has a column to hinge on. */
-const STATIONS = [0.03, 0.3, 0.62, 0.84, 1];
-
-/** Where the wingtip's dark begins, as a share of the half-span. */
-const TIP_FROM = 0.78;
-
-/** The wing's plan: the leading and trailing edge z at a share `s` of the
- * half-span, off the row's chord, taper and sweep. The leading edge is
- * carried a little ahead of the shoulder and swept back toward the tip;
- * the chord tapers to the row's own tip. */
-function wingEdges(spec: BirdSpec, s: number): { lead: number; trail: number } {
-  const half = spec.span / 2;
-  const c0 = spec.span * spec.wing.chord;
-  const chord = c0 * (1 - (1 - spec.wing.taper) * s);
-  const lead = c0 * 0.45 - spec.wing.sweep * half * Math.pow(s, 1.5);
-  return { lead, trail: lead - chord };
-}
+/** The wing's numbers are `bird-wing.ts`'s — the model is built to them
+ * too, and the shader's hinges are baked from them below. */
+const ARM_FOLD = WING.armFold;
+const HAND_FOLD = WING.handFold;
+const WING_SKIN = WING.skin;
+const STATIONS = WING.stations;
+const TIP_FROM = WING.tipFrom;
 
 /** One wing's two faces, right side (x > 0); the caller mirrors it. */
 function wing(b: Builder, spec: BirdSpec, style: BirdStyle, wingOf: number[]): void {
@@ -437,10 +403,11 @@ export function buildBird(spec: BirdSpec, style: BirdStyle): THREE.BufferGeometr
  * scene's two lights and taking the fog like everything on the shore, so a
  * bird goes dark at night and pale into the haze on its own.
  */
-export function birdMaterial(spec: BirdSpec): THREE.MeshLambertMaterial {
+export function birdMaterial(spec: BirdSpec, smooth = false): THREE.MeshLambertMaterial {
   const material = new THREE.MeshLambertMaterial({
     vertexColors: true,
-    flatShading: true,
+    // The code's bird is facets; a model carries its own smooth normals.
+    flatShading: !smooth,
     // The tail and the wings are sheets, and a folded wing turns its
     // faces every way; a face that is never culled is a face that is
     // never a hole.
@@ -483,6 +450,6 @@ ${shader.vertexShader}`.replace(
   };
   // Three's default key is the graft's source text, which is the same for
   // every species; the key has to say whose wrist was baked in.
-  material.customProgramCacheKey = () => `bird:${spec.id}`;
+  material.customProgramCacheKey = () => `bird:${spec.id}:${smooth ? "smooth" : "flat"}`;
   return material;
 }

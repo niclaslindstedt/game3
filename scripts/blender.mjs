@@ -22,6 +22,11 @@
 //   node scripts/blender.mjs --kind=rider --quality=render --views=three,side --samples=24
 //   node scripts/blender.mjs --kind=tree --id=birch --quality=render --views=row --samples=16
 //   node scripts/blender.mjs --kind=tree --id=all --quality=game --views=none   every tree kind
+//   node scripts/blender.mjs --kind=undergrowth --id=heather --quality=render --views=row
+//   node scripts/blender.mjs --kind=rock --id=all --quality=game --views=none
+//   node scripts/blender.mjs --kind=mark --id=buoy --quality=render --views=three,chase
+//   node scripts/blender.mjs --kind=bird --id=gull --quality=render --views=three,detail
+//   node scripts/blender.mjs --kind=fauna --id=orca --quality=render --views=three,side
 //
 // Blender is looked for at `BLENDER`, then the macOS app, then `blender` on
 // the PATH. It is run with `--python-use-system-env` and
@@ -73,10 +78,64 @@ const KINDS = {
     ids: async () => (await data()).MODELLED_TREES,
     data: async (id) => {
       const d = await data();
-      return { ...d.treeModelData(id), paint: d.treeStillPaint(id) };
+      return { ...d.treeModelData(id), paint: d.plantStillPaint(id) };
     },
     builder: "tree.py",
     fallback: "pine",
+  },
+  // A KIND of undergrowth — every bush, tuft, reed and stone row of the
+  // roster: its four variants (`undergrowth-variants.ts`), the proportions
+  // the code's builder draws its form with, the same reference height as a
+  // tree's, and its colours for the stills alone.
+  undergrowth: {
+    ids: async () => (await data()).MODELLED_UNDERGROWTH,
+    data: async (id) => {
+      const d = await data();
+      return { ...d.undergrowthModelData(id), paint: d.plantStillPaint(id) };
+    },
+    builder: "undergrowth.py",
+    fallback: "heather",
+  },
+  // A KIND of instanced rock — the boulder, the erratic, the reef: the
+  // code's proportions and four variants (`rock-variants.ts`), a unit lump
+  // each; no colour, as the coast tints every instance.
+  rock: {
+    ids: async () => (await data()).MODELLED_ROCKS,
+    data: async (id) => (await data()).rockModelData(id),
+    builder: "rock.py",
+    fallback: "boulder",
+  },
+  // A MARK of the course — the gate mark or the rounding buoy: the
+  // profiles and dimensions the code lathes it from (`mark-shapes.ts`).
+  mark: {
+    ids: async () => (await data()).MODELLED_MARKS,
+    data: async (id) => (await data()).markModelData(id),
+    builder: "mark.py",
+    fallback: "gatemark",
+  },
+  // A SPECIES of bird: its row's proportions and the wing's numbers
+  // (`bird-wing.ts`), in the frame the shader flaps; its colours for the
+  // stills alone.
+  bird: {
+    ids: async () => (await data()).MODELLED_BIRDS,
+    data: async (id) => {
+      const d = await data();
+      return { ...d.birdModelData(id), paint: d.birdStillPaint(id) };
+    },
+    builder: "bird.py",
+    fallback: "gull",
+  },
+  // A SPECIES of sea life: its catalog row, its style's proportions and
+  // the body the code lofts (`fauna-body.ts`); its colours for the stills
+  // alone.
+  fauna: {
+    ids: async () => (await data()).MODELLED_FAUNA,
+    data: async (id) => {
+      const d = await data();
+      return { ...d.faunaModelData(id), paint: d.faunaStillPaint(id) };
+    },
+    builder: "fauna.py",
+    fallback: "porpoise",
   },
 };
 
@@ -91,7 +150,7 @@ const args = parseArgs(
     id: {
       kind: "string",
       default: "",
-      help: "which one (a craft's id, a tree kind's), or all; the kind's default (skiff, pine) when left out",
+      help: "which one (a craft's id, a tree's, an undergrowth's, a rock's or a mark's kind, a bird's or an animal's id), or all; the kind's default (skiff, pine, heather, boulder, gatemark, gull, porpoise) when left out",
     },
     quality: {
       kind: "string",
@@ -101,7 +160,7 @@ const args = parseArgs(
     views: {
       kind: "string",
       default: "",
-      help: "only these cameras (side,three,rear3,chase,detail; a tree's row,far,close), or none; every one when left out",
+      help: "only these cameras (side,three,rear3,chase,detail; a plant's row,far,close), or none; every one when left out",
     },
     samples: { kind: "number", default: 64, help: "Cycles samples a still" },
     out: { kind: "string", default: "previews/blender", help: "where everything is written" },

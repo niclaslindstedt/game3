@@ -18,10 +18,15 @@
 //   cannot carry the one feature that says "this rock stands in the sea" —
 //   the undercut at the waterline — because every rock's root is a
 //   different share of its height.
-//   INSTANCED, one shape a kind. The boulders, the reefs and the erratics
-//   are small, numerous, and met at arm's length or not at all; one lump
-//   spun about y and tinted per instance is the right answer and costs one
-//   draw call for twenty of them.
+//   INSTANCED, one shape a kind — or FOUR, the kind's MODELS. The boulders,
+//   the reefs and the erratics are small, numerous, and met at arm's length
+//   or not at all; a lump spun about y and tinted per instance is the right
+//   answer and costs one draw call for twenty of them. The lumps are
+//   modelled in Blender (`rock-models.ts`, `rock-variants.ts`: a whaleback,
+//   a cracked one, a ridged one, a pair; a block, a slab, a split block; a
+//   platform, a ledge) and each kind is drawn in its four variants, which
+//   one a rock is being a hash of its place — unless the build is switched
+//   back to the code's sphere and die (`VITE_MODEL_ROCKS=0`).
 //
 // An erratic is the one kind placed against the GROUND rather than the sea:
 // its `top` is a height above the water like every other solid's, but it
@@ -46,7 +51,9 @@ import * as THREE from "three";
 import { TAU, hash2, sampleField, type Level, type Solid } from "@engine";
 
 import { Builder } from "../lib/lowpoly.ts";
+import { hasRockModel, rockModel } from "./rock-models.ts";
 import { ROCK_FORMS, carveRock, rockFoot } from "./rock-shapes.ts";
+import { ROCK_LUMP, ROCK_VARIANTS, type RockKind } from "./rock-variants.ts";
 import { shorePaintOf } from "./shore-paint.ts";
 
 const m = new THREE.Matrix4();
@@ -60,19 +67,24 @@ const color = new THREE.Color();
 function instanced(
   geometry: THREE.BufferGeometry,
   solids: Solid[],
-  place: (s: Solid) => void,
+  place: (s: Solid, apex: number) => void,
   tint: THREE.Color,
   seed: number,
   tilt = 0,
 ): THREE.InstancedMesh {
+  // A model's vertices carry their own shade, which multiplies the tint.
   const mesh = new THREE.InstancedMesh(
     geometry,
-    new THREE.MeshLambertMaterial({ flatShading: true }),
+    new THREE.MeshLambertMaterial({
+      flatShading: true,
+      vertexColors: geometry.hasAttribute("color"),
+    }),
     Math.max(1, solids.length),
   );
   mesh.count = solids.length;
+  const apex = apexOf(geometry);
   solids.forEach((s, i) => {
-    place(s);
+    place(s, apex);
     // EVERY DRAW OFF A ROCK'S PLACE GOES THROUGH `hash2`. The obvious
     // `(s.x * k) % n` is not a hash on this coast: JavaScript's remainder
     // keeps the sign of its dividend, so every solid west or south of the
@@ -148,6 +160,16 @@ function apexOf(geometry: THREE.BufferGeometry): number {
   return geometry.boundingBox?.max.y ?? 1;
 }
 
+/** Which of a kind's variants stands at a solid's place — a hash of it, the
+ * way the cover's `variantAt` is, and a different one from the spin and the
+ * tint so a variant is never tied to a heading. */
+export function rockVariantAt(s: Solid, seed: number): number {
+  return Math.min(
+    ROCK_VARIANTS - 1,
+    Math.floor(hash2(Math.round(s.z), Math.round(s.x), seed + 7) * ROCK_VARIANTS),
+  );
+}
+
 export function createRocks(level: Level): THREE.Group {
   const group = new THREE.Group();
   const paint = shorePaintOf(level.biome);
@@ -160,60 +182,72 @@ export function createRocks(level: Level): THREE.Group {
     const mesh = sculpted(level, kind);
     if (mesh) group.add(mesh);
   }
-  // A boulder: a squashed low-poly sphere, its crown on the solid's `top`.
+  // A kind's shapes: its four models, each drawn for the solids that hash
+  // onto it — or the code's one lump for all of them.
+  const shapes = (
+    kind: RockKind,
+    code: THREE.BufferGeometry,
+    place: (s: Solid, apex: number) => void,
+    tint: THREE.Color,
+    tilt = 0,
+  ): void => {
+    const solids = by(kind);
+    if (hasRockModel(kind)) {
+      for (let v = 0; v < ROCK_VARIANTS; v++) {
+        const mine = solids.filter((s) => rockVariantAt(s, level.seed) === v);
+        const model = rockModel(kind, v);
+        if (mine.length === 0 || !model) continue;
+        group.add(instanced(model, mine, place, tint, level.seed, tilt));
+      }
+      return;
+    }
+    group.add(instanced(code, solids, place, tint, level.seed, tilt));
+  };
+  // A boulder: a squashed lump, its crown on the solid's `top`.
   const lump = new THREE.SphereGeometry(1, 6, 4);
-  const lumpApex = apexOf(lump);
-  group.add(
-    instanced(
-      lump,
-      by("boulder"),
-      (s) => {
-        const half = s.r * 0.8;
-        pos.y = s.top - half * lumpApex;
-        scale.set(s.r, half, s.r * 0.9);
-      },
-      BOULDER,
-      level.seed,
-    ),
+  const B = ROCK_LUMP.boulder;
+  shapes(
+    "boulder",
+    lump,
+    (s, apex) => {
+      const half = s.r * B.half;
+      pos.y = s.top - half * apex;
+      scale.set(s.r * B.wide, half, s.r * B.deep);
+    },
+    BOULDER,
   );
   // An erratic: an angular block, faceted rather than rounded, rooted in
   // the ground it was dropped on rather than hung off sea level.
-  const block = new THREE.IcosahedronGeometry(1, 0);
-  const blockApex = apexOf(block);
-  group.add(
-    instanced(
-      block,
-      by("erratic"),
-      (s) => {
-        // Buried a third of its radius, so it sits IN the beach rather than
-        // balancing on it, and the ground never shows under its rim — and
-        // spanning exactly foot to `top`, so the block stands as tall as
-        // the solid says whatever the beach under it is doing.
-        const foot = sampleField(level.ground, s.x, s.z) - s.r * 0.35;
-        const h = Math.max(0.4, s.top - foot);
-        pos.y = s.top - h / 2;
-        scale.set(s.r, h / 2 / blockApex, s.r * 0.88);
-      },
-      ERRATIC,
-      level.seed,
-      0.22,
-    ),
+  const E = ROCK_LUMP.erratic;
+  shapes(
+    "erratic",
+    new THREE.IcosahedronGeometry(1, 0),
+    (s, apex) => {
+      // Buried a third of its radius, so it sits IN the beach rather than
+      // balancing on it, and the ground never shows under its rim — and
+      // spanning exactly foot to `top`, so the block stands as tall as
+      // the solid says whatever the beach under it is doing.
+      const foot = sampleField(level.ground, s.x, s.z) - s.r * E.bury;
+      const h = Math.max(E.least, s.top - foot);
+      pos.y = s.top - h / 2;
+      scale.set(s.r * E.wide, h / 2 / apex, s.r * E.deep);
+    },
+    ERRATIC,
+    E.tilt,
   );
   // A reef: flatter still, and under the surface — where the water's own
   // shallow tint is the only thing that gives it away, so how deep its
   // crown is drawn IS how the rider reads it.
-  group.add(
-    instanced(
-      lump,
-      by("reef"),
-      (s) => {
-        const half = s.r * 0.55;
-        pos.y = s.top - half * lumpApex;
-        scale.set(s.r * 1.1, half, s.r);
-      },
-      REEF,
-      level.seed,
-    ),
+  const R = ROCK_LUMP.reef;
+  shapes(
+    "reef",
+    lump,
+    (s, apex) => {
+      const half = s.r * R.half;
+      pos.y = s.top - half * apex;
+      scale.set(s.r * R.wide, half, s.r * R.deep);
+    },
+    REEF,
   );
   return group;
 }

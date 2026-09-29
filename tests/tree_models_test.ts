@@ -41,11 +41,12 @@ import {
 
 const root = join(import.meta.dirname, "..");
 
-/** The roles `tree.py` paints with, read off its text. */
-function builderRoles(): string[] {
-  const src = readFileSync(join(root, "scripts", "blender", "tree.py"), "utf8");
+/** The roles the foliage shelf paints with (`foliage.py`, which `tree.py`
+ * and `undergrowth.py` both build on), read off its text. */
+export function builderRoles(): string[] {
+  const src = readFileSync(join(root, "scripts", "blender", "foliage.py"), "utf8");
   const m = /^ROLES = \(([^)]*)\)/m.exec(src);
-  if (!m) throw new Error("tree.py states no ROLES");
+  if (!m) throw new Error("foliage.py states no ROLES");
   return [...m[1].matchAll(/"(\w+)"/g)].map((x) => x[1]);
 }
 
@@ -70,7 +71,7 @@ describe("the tree kinds", () => {
         (TREE_FORMS as readonly string[]).includes(s.look.form),
       );
     }
-    // The bushes, tufts, reeds and stones stay the code's.
+    // The bushes, tufts, reeds and stones are the undergrowth's kinds.
     for (const id of ["juniper", "willow", "heather", "reed", "stone", "myrtle", "posidonia"]) {
       expect(TREE_KINDS, id).not.toContain(id);
     }

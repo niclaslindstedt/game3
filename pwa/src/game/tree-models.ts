@@ -1,35 +1,53 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE MODELLED TREES the shore draws: every tree-form row of the cover
-// roster (`tree-variants.ts`'s `TREE_KINDS`) in six variants, MODELLED in
-// Blender off the very rows the code's builder reads (`make blender
-// KIND=tree`, `scripts/blender/tree.py`), committed as one glTF a kind in
-// `pwa/models/trees/` by `make models` and packed by every build — unless a
-// build is switched back to the code-built trees (`VITE_MODEL_TREES=0`;
+// THE MODELLED TREES AND UNDERGROWTH the shore draws: every tree-form row
+// of the cover roster (`tree-variants.ts`'s `TREE_KINDS`) in six variants,
+// and every bush, tuft, reed and stone row (`undergrowth-variants.ts`'s
+// `UNDER_KINDS`) in four, MODELLED in Blender off the very rows the code's
+// builder reads (`make blender KIND=tree` / `KIND=undergrowth`,
+// `scripts/blender/tree.py` and `undergrowth.py`), committed as one glTF a
+// kind in `pwa/models/trees/` and `pwa/models/undergrowth/` by `make
+// models` and packed by every build — unless a build is switched back to
+// the code-built ones (`VITE_MODEL_TREES=0`, `VITE_MODEL_UNDERGROWTH=0`;
 // `model-switch.ts`). A kind whose file did not load is drawn by
-// `flora-shapes.ts`, as every tree is under the switch.
+// `flora-shapes.ts`, as every plant is under its switch.
 //
 // A MODEL CARRIES NO COLOUR: every face is a ROLE (its material's name) and
 // every vertex a SHADE and a BLEND from the role's first colour to its
-// second (`tree.py`'s header). `treeModel` dresses it here in its own row's
-// colours (`flora-defs.ts` — the foliage lit and dark, the bark and its upper
-// reach, a birch's marks), which are the code builder's colours too, and
-// divides the reference height (`TREE_REFERENCE`) back out into the unit
-// frame the code's builder draws in and the placer scales from — a metre
-// tall, its foot on the ground.
+// second (`foliage.py`'s header). `treeModel` dresses it here in its own
+// row's colours (`flora-defs.ts` — the foliage lit and dark, the bark and
+// its upper reach, a birch's marks; a stone's two greys), which are the code
+// builder's colours too, and divides the reference height
+// (`TREE_REFERENCE`) back out into the unit frame the code's builder draws
+// in and the placer scales from — a metre tall, its foot on the ground.
 
 import * as THREE from "three";
 import { GLTFLoader, type GLTF } from "three/examples/jsm/loaders/GLTFLoader.js";
 import { MeshoptDecoder } from "three/examples/jsm/libs/meshopt_decoder.module.js";
 
-import type { Look } from "./flora-defs.ts";
+import { FLORA, type Look } from "./flora-defs.ts";
 import { modelSwitch } from "./model-switch.ts";
-import { TREE_KINDS, TREE_REFERENCE, treeSpec } from "./tree-variants.ts";
+import { TREE_KINDS, TREE_REFERENCE } from "./tree-variants.ts";
+import { UNDER_KINDS } from "./undergrowth-variants.ts";
 
 /** The build's environment — Vite's in the app; none in the suite. */
 const ENV = (import.meta as { env?: Record<string, string | boolean | undefined> }).env ?? {};
 
-/** Whether this build draws the modelled trees (ON unless turned off). */
+/** Whether this build draws the modelled trees, and the modelled
+ * undergrowth (each ON unless turned off). */
 export const TREE_MODELS = modelSwitch(ENV.VITE_MODEL_TREES);
+export const UNDERGROWTH_MODELS = modelSwitch(ENV.VITE_MODEL_UNDERGROWTH);
+
+/** The switch a kind of plant answers to. */
+function switchedOn(kind: string): boolean {
+  return UNDER_KINDS.includes(kind) ? UNDERGROWTH_MODELS : TREE_MODELS;
+}
+
+/** A modelled kind's row of the roster. */
+function lookOf(kind: string): Look {
+  const spec = FLORA.find((s) => s.id === kind);
+  if (!spec) throw new Error(`no plant kind "${kind}"`);
+  return spec.look;
+}
 
 /** What a face of a model is, by its material's name. */
 export type TreeRole = "leaf" | "bark" | "twig" | "mark";
@@ -67,12 +85,16 @@ export type TreePart = {
 const loaded = new Map<string, Map<string, TreePart[]>>();
 let loading: Promise<void> | null = null;
 
-/** The parts of a loaded glTF scene, by variant mesh. */
-export function partsOf(gltf: Pick<GLTF, "scene">): Map<string, TreePart[]> {
+/** The parts of a loaded glTF scene, by mesh — the meshes whose names
+ * match `named` (a tree's variants, `v3` and `v3_far`, unless said). */
+export function partsOf(
+  gltf: Pick<GLTF, "scene">,
+  named: RegExp = /^v\d+(_far)?$/,
+): Map<string, TreePart[]> {
   const out = new Map<string, TreePart[]>();
   gltf.scene.updateMatrixWorld(true);
   gltf.scene.traverse((o) => {
-    if (!/^v\d+(_far)?$/.test(o.name)) return;
+    if (!named.test(o.name)) return;
     const meshes: THREE.Mesh[] = [];
     if (o instanceof THREE.Mesh) meshes.push(o);
     else o.traverse((c) => c instanceof THREE.Mesh && meshes.push(c));
@@ -116,19 +138,27 @@ export function partsOf(gltf: Pick<GLTF, "scene">): Map<string, TreePart[]> {
 }
 
 /** Fetch every kind's model, once (`base` where the site's `models/` is —
- * the build's base URL unless a lab page says otherwise); resolves when all
- * are in or given up on. */
+ * the build's base URL unless a lab page says otherwise) — the trees' and
+ * the undergrowth's, each set behind its own switch; resolves when all are
+ * in or given up on. */
 export function loadTreeModels(base = String(ENV.BASE_URL ?? "/")): Promise<void> {
   if (loading) return loading;
-  if (!TREE_MODELS) return (loading = Promise.resolve());
   // The committed models are meshopt-packed (`scripts/lib/glb-pack.mjs`).
   const loader = new GLTFLoader().setMeshoptDecoder(MeshoptDecoder);
+  const sets: [boolean, string, readonly string[]][] = [
+    [TREE_MODELS, "trees", TREE_KINDS],
+    [UNDERGROWTH_MODELS, "undergrowth", UNDER_KINDS],
+  ];
   loading = Promise.all(
-    TREE_KINDS.map((kind) =>
-      loader.loadAsync(`${base}models/trees/${kind}.glb`).then(
-        (g) => void loaded.set(kind, partsOf(g)),
-        () => undefined,
-      ),
+    sets.flatMap(([on, dir, kinds]) =>
+      on
+        ? kinds.map((kind) =>
+            loader.loadAsync(`${base}models/${dir}/${kind}.glb`).then(
+              (g) => void loaded.set(kind, partsOf(g)),
+              () => undefined,
+            ),
+          )
+        : [],
     ),
   ).then(() => undefined);
   return loading;
@@ -139,9 +169,10 @@ export function setTreeModel(kind: string, parts: Map<string, TreePart[]>): void
   loaded.set(kind, parts);
 }
 
-/** Whether a kind is drawn off its model on this build. */
+/** Whether a kind — a tree's or the undergrowth's — is drawn off its model
+ * on this build. */
 export function hasTreeModel(kind: string): boolean {
-  return TREE_MODELS && (loaded.get(kind)?.size ?? 0) > 0;
+  return switchedOn(kind) && (loaded.get(kind)?.size ?? 0) > 0;
 }
 
 /**
@@ -153,7 +184,7 @@ export function hasTreeModel(kind: string): boolean {
 export function treeModel(kind: string, index: number, far = false): THREE.BufferGeometry | null {
   const parts = loaded.get(kind)?.get(`v${index}${far ? "_far" : ""}`);
   if (!parts || parts.length === 0) return null;
-  const look = treeSpec(kind).look;
+  const look = lookOf(kind);
   const pos: number[] = [];
   const nrm: number[] = [];
   const col: number[] = [];
@@ -194,4 +225,11 @@ export function treeModel(kind: string, index: number, far = false): THREE.Buffe
  * builder made two-faced has a face each way. */
 export function treeMaterial(): THREE.MeshLambertMaterial {
   return new THREE.MeshLambertMaterial({ vertexColors: true });
+}
+
+/** …and the one every piece of modelled undergrowth shares: the same
+ * light, drawn TWO-SIDED, because a blade of grass, a reed's leaf and a
+ * plume are one face each (`undergrowth.py`) and have no inside. */
+export function undergrowthMaterial(): THREE.MeshLambertMaterial {
+  return new THREE.MeshLambertMaterial({ vertexColors: true, side: THREE.DoubleSide });
 }

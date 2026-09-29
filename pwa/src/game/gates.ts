@@ -19,7 +19,10 @@
 // moulded-plastic navigation float an exposed coast is actually marked
 // with — a wide float collar riding the waterline, a ribbed cone over it
 // and a lantern on the top of that — at half the height, since a gate is a
-// line to cross rather than a corner to find from a kilometre out. It
+// line to cross rather than a corner to find from a kilometre out. It is
+// MODELLED (`mark-models.ts`, off the very profile lathed below) and drawn
+// off the model's primitives, one instanced mesh a material; the lathes
+// stand in on a build switched back (`VITE_MODEL_MARKS=0`). It
 // stands 2 m out of the water where a rounding buoy stands four, on a
 // 1.3 m collar whose widest point is AT the waterline: a float drawn to
 // the surface reads as a cone stuck in the sea, and what says something is
@@ -66,6 +69,8 @@ import { gateBuoys, surfaceAt, type GameState, type Level, type Ramp } from "@en
 import { PALETTE } from "../identity.ts";
 import type { BuoyLamp } from "./buoys.ts";
 import { glowTexture } from "./fx-textures.ts";
+import { markMeshes } from "./mark-models.ts";
+import { MARK } from "./mark-shapes.ts";
 
 /** The mark's paint. A gate mark is the yellow-amber of the rounding buoys
  * so the two read as the same furniture at two sizes; the NEXT gate is
@@ -100,8 +105,9 @@ const FLOAT = new THREE.Color(0xd9dde0);
 
 /** How far up the lantern's light sits, m above the mark's own waterline —
  * where the lens is centred, where the glare is drawn, and the height the
- * pool on the sea is thrown from. */
-const LANTERN_Y = 1.735;
+ * pool on the sea is thrown from (`mark-shapes.ts`, which the mark's model
+ * is built to as well). */
+const LANTERN_Y = MARK.lanternY;
 
 /** The next gate's slow breath: how deep it dips and how fast, rad/s. A
  * lantern that moves is the one the eye goes to first, and at this depth it
@@ -225,7 +231,10 @@ const color = new THREE.Color();
 /** A solid of revolution from an (r, y) profile in metres, built about the
  * mark's own waterline so the whole thing is simply lifted onto the wave
  * under it every frame. */
-function lathe(profile: readonly [number, number][], segments: number): THREE.LatheGeometry {
+function lathe(
+  profile: readonly (readonly [number, number])[],
+  segments: number,
+): THREE.LatheGeometry {
   return new THREE.LatheGeometry(
     profile.map(([r, y]) => new THREE.Vector2(r, y)),
     segments,
@@ -238,44 +247,25 @@ function lathe(profile: readonly [number, number][], segments: number): THREE.La
  * cone's foot, the ribbed cone over that, and the flange the lantern bolts
  * to. The rim is nearly horizontal on purpose: run the collar smoothly into
  * the cone and the whole mark reads as one taper, which is the cone this
- * replaces. */
-const BODY = lathe(
-  [
-    [0.0, -0.62],
-    [0.24, -0.6],
-    [0.46, -0.5],
-    [0.6, -0.34],
-    [0.65, -0.16],
-    [0.65, 0.3],
-    [0.63, 0.38],
-    [0.5, 0.4],
-    [0.47, 0.46],
-    [0.22, 1.3],
-    [0.195, 1.38],
-    [0.25, 1.4],
-    [0.25, 1.46],
-    [0.16, 1.48],
-    [0.0, 1.48],
-  ],
-  16,
-);
+ * replaces. Every number is `mark-shapes.ts`'s. */
+const BODY = lathe(MARK.body, MARK.bodySegments);
 
 /** The moulded ribs up the cone, standing proud of the flank. Three of
  * them, because the cone is otherwise one unbroken sweep of one colour and
  * reads flat at every range where it matters. */
-const RIBS = 3;
-const RIB_FLANK = { r0: 0.47, y0: 0.46, r1: 0.22, y1: 1.3 };
+const RIBS = MARK.ribs.count;
+const RIB_FLANK = MARK.ribs;
 const RIB = new THREE.BoxGeometry(
-  0.09,
+  MARK.ribs.across,
   Math.hypot(RIB_FLANK.r1 - RIB_FLANK.r0, RIB_FLANK.y1 - RIB_FLANK.y0),
-  0.07,
+  MARK.ribs.deep,
 );
 /** Where each rib stands on one mark, in the mark's own frame. */
 const RIB_AT: THREE.Matrix4[] = [];
 for (let i = 0; i < RIBS; i++) {
   const a = (i / RIBS) * Math.PI * 2;
   const lean = Math.atan2(RIB_FLANK.r0 - RIB_FLANK.r1, RIB_FLANK.y1 - RIB_FLANK.y0);
-  const r = (RIB_FLANK.r0 + RIB_FLANK.r1) / 2 + 0.03;
+  const r = (RIB_FLANK.r0 + RIB_FLANK.r1) / 2 + MARK.ribs.proud;
   RIB_AT.push(
     new THREE.Matrix4()
       .makeRotationY(a)
@@ -288,39 +278,12 @@ for (let i = 0; i < RIBS; i++) {
  * over, and the cap over the top — one piece, because a real one is one
  * casting and because a post inside the glass is what stops a lit lens
  * reading as a hollow tube. */
-const FRAME = lathe(
-  [
-    [0.0, 1.48],
-    [0.15, 1.49],
-    [0.165, 1.55],
-    [0.15, 1.59],
-    [0.065, 1.61],
-    [0.065, 1.82],
-    [0.19, 1.87],
-    [0.18, 1.94],
-    [0.08, 1.98],
-    [0.0, 1.99],
-  ],
-  10,
-);
+const FRAME = lathe(MARK.frame, MARK.frameSegments);
 
 /** The lens: an open sleeve of ridged glass round the post. The ridges are
  * the prisms every real lantern is moulded with, and they are what catches
  * the sun by day — a smooth cylinder at this size is a grey pip. */
-const GLASS_LENS = lathe(
-  [
-    [0.14, 1.6],
-    [0.163, 1.635],
-    [0.14, 1.67],
-    [0.163, 1.705],
-    [0.14, 1.74],
-    [0.163, 1.775],
-    [0.14, 1.81],
-    [0.155, 1.845],
-    [0.14, 1.87],
-  ],
-  10,
-);
+const GLASS_LENS = lathe(MARK.lens, MARK.lensSegments);
 
 function flat(c: THREE.Color): THREE.MeshLambertMaterial {
   return new THREE.MeshLambertMaterial({ color: c, flatShading: true });
@@ -394,14 +357,26 @@ export function createGates(level: Level): Gates {
     group.add(mesh);
     return mesh;
   };
-  const paint = new THREE.MeshLambertMaterial({ flatShading: true });
-  const bodies = part(BODY, paint);
-  const ribs = part(RIB, paint, RIBS);
-  const frames = part(FRAME, flat(FITTING));
+  // THE MARK'S PARTS: the model's primitives, one instanced mesh a material
+  // (`mark-models.ts`: the float and its strakes as `hull`, the lantern's
+  // ironmongery as `fitting`, the glass as `lens`, each carrying its own
+  // shade in its vertices) — or the code's lathes, with the ribs instanced
+  // three to a mark, when the build draws no model.
+  const model = markMeshes("gatemark")?.get("mark");
+  const paint = new THREE.MeshLambertMaterial({ flatShading: !model, vertexColors: !!model });
+  const bodies = part(model?.get("hull") ?? BODY, paint);
+  const ribs = model ? null : part(RIB, paint, RIBS);
+  const frames = part(
+    model?.get("fitting") ?? FRAME,
+    new THREE.MeshLambertMaterial({ color: FITTING, flatShading: !model, vertexColors: !!model }),
+  );
   // The lens is unlit by the scene: what it is worth is the LAMP, and a
   // lantern that dims with the sun going down is a lantern nobody would
   // fit. Its instance colour carries the whole of it.
-  const lenses = part(GLASS_LENS, new THREE.MeshBasicMaterial({ toneMapped: false }));
+  const lenses = part(
+    model?.get("lens") ?? GLASS_LENS,
+    new THREE.MeshBasicMaterial({ toneMapped: false }),
+  );
 
   // The glare, as one cloud of points rather than a sprite per mark: a
   // lamp is read as a fixed ANGLE of glare on the eye, which is exactly
@@ -507,8 +482,10 @@ export function createGates(level: Level): Gates {
       bodies.setMatrixAt(i, m);
       frames.setMatrixAt(i, m);
       lenses.setMatrixAt(i, m);
-      for (let k = 0; k < RIBS; k++)
-        ribs.setMatrixAt(i * RIBS + k, local.multiplyMatrices(m, RIB_AT[k]));
+      if (ribs) {
+        for (let k = 0; k < RIBS; k++)
+          ribs.setMatrixAt(i * RIBS + k, local.multiplyMatrices(m, RIB_AT[k]));
+      }
 
       // THE LAMP: what this mark's gate is worth this frame, and the three
       // things that spend it — the glass, the glare, and the pool the water
@@ -537,7 +514,7 @@ export function createGates(level: Level): Gates {
       glareColour[i * 3 + 2] = beam.b * seen;
     }
     bodies.instanceMatrix.needsUpdate = true;
-    ribs.instanceMatrix.needsUpdate = true;
+    if (ribs) ribs.instanceMatrix.needsUpdate = true;
     frames.instanceMatrix.needsUpdate = true;
     lenses.instanceMatrix.needsUpdate = true;
     if (lenses.instanceColor) lenses.instanceColor.needsUpdate = true;
@@ -550,10 +527,10 @@ export function createGates(level: Level): Gates {
         const g = markAt[i].gate;
         color.copy(g === warn ? HULL_MISSED : g === next ? HULL_NEXT : g < next ? HULL_DONE : HULL);
         bodies.setColorAt(i, color);
-        for (let k = 0; k < RIBS; k++) ribs.setColorAt(i * RIBS + k, color);
+        if (ribs) for (let k = 0; k < RIBS; k++) ribs.setColorAt(i * RIBS + k, color);
       }
       if (bodies.instanceColor) bodies.instanceColor.needsUpdate = true;
-      if (ribs.instanceColor) ribs.instanceColor.needsUpdate = true;
+      if (ribs?.instanceColor) ribs.instanceColor.needsUpdate = true;
       for (const r of rings) {
         r.material.color.copy(
           r.gate === warn
@@ -583,7 +560,8 @@ export function createGates(level: Level): Gates {
     },
     setCourse: (on) => {
       courseOn = on;
-      for (const mesh of [bodies, ribs, frames, lenses, glare]) mesh.visible = on;
+      for (const mesh of [bodies, frames, lenses, glare]) mesh.visible = on;
+      if (ribs) ribs.visible = on;
       for (const r of rings) r.mesh.visible = on;
       // Re-lit on the next update, whichever way it went.
       litFor = -2;

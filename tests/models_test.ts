@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-// THE MODELLED CRAFTS AND RIDER the game ships (`pwa/models/`, made by
-// `make models`, packed by `pwa/models-plugin.ts`, drawn by
-// `craft-models.ts`): every one committed, none older than what it is made
+// THE MODELS the game ships (`pwa/models/`, made by `make models`, packed
+// by `pwa/models-plugin.ts`, drawn by `craft-models.ts` and
+// `tree-models.ts`): every one committed, none older than what it is made
 // from, each within its budget; the switches on unless a build turns one
 // back; and every material the Blender builders name dressed as the code's
 // own craft, or the code's own rider, would be painted. The names are
@@ -13,16 +13,20 @@ import { existsSync, readFileSync, statSync } from "node:fs";
 import { join } from "node:path";
 
 import { describe, expect, it } from "vitest";
-import { CRAFT_IDS } from "@engine";
+import { CRAFT_IDS, FAUNA_IDS } from "@engine";
 
-import { MODELS_DIR, modelFiles } from "../pwa/models-plugin.ts";
-import { modelStamp, treeStamp } from "../pwa/models-stamp.ts";
+import { ALL_MODELS, MODELS_DIR, modelFiles } from "../pwa/models-plugin.ts";
+import { MODEL_STAMPS } from "../pwa/models-stamp.ts";
 import { dressOf } from "../pwa/src/game/craft-models.ts";
 import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import { FINISH } from "../pwa/src/game/craft-surface.ts";
 import { modelSwitch } from "../pwa/src/game/model-switch.ts";
 import { PAINT, RIDER_FINISH } from "../pwa/src/game/rider.ts";
+import { BIRD_IDS } from "../pwa/src/game/bird-defs.ts";
+import { MARK_KINDS } from "../pwa/src/game/mark-shapes.ts";
+import { ROCK_KINDS } from "../pwa/src/game/rock-variants.ts";
 import { TREE_KINDS } from "../pwa/src/game/tree-variants.ts";
+import { UNDER_KINDS } from "../pwa/src/game/undergrowth-variants.ts";
 
 const root = join(import.meta.dirname, "..");
 const builder = (file: string): string =>
@@ -38,48 +42,62 @@ const kitNames = (): string[] => {
 const kit = { paint: PAINT, finish: RIDER_FINISH };
 
 describe("the models the game ships", () => {
-  const all = modelFiles({ crafts: true, riders: true, trees: true });
+  const all = modelFiles(ALL_MODELS);
+  const off = {
+    crafts: false,
+    riders: false,
+    trees: false,
+    undergrowth: false,
+    rocks: false,
+    marks: false,
+    birds: false,
+    fauna: false,
+  };
 
-  it("are every craft under its id, one rider and every kind of tree", () => {
+  it("are every craft under its id, one rider, and every kind of every static set", () => {
     expect([...all].sort()).toEqual(
       [
         ...CRAFT_IDS.map((id) => `${id}.glb`),
         "rider.glb",
         ...TREE_KINDS.map((k) => `trees/${k}.glb`),
+        ...UNDER_KINDS.map((k) => `undergrowth/${k}.glb`),
+        ...ROCK_KINDS.map((k) => `rocks/${k}.glb`),
+        ...MARK_KINDS.map((k) => `marks/${k}.glb`),
+        ...BIRD_IDS.map((id) => `birds/${id}.glb`),
+        ...FAUNA_IDS.map((id) => `fauna/${id}.glb`),
       ].sort(),
     );
-    expect(modelFiles({ crafts: false, riders: true, trees: false })).toEqual(["rider.glb"]);
-    expect(modelFiles({ crafts: false, riders: false, trees: true })).toEqual(
-      TREE_KINDS.map((k) => `trees/${k}.glb`),
+    expect(modelFiles({ ...off, rocks: true })).toEqual(ROCK_KINDS.map((k) => `rocks/${k}.glb`));
+    expect(modelFiles({ ...off, riders: true })).toEqual(["rider.glb"]);
+    expect(modelFiles({ ...off, trees: true })).toEqual(TREE_KINDS.map((k) => `trees/${k}.glb`));
+    expect(modelFiles({ ...off, undergrowth: true })).toEqual(
+      UNDER_KINDS.map((k) => `undergrowth/${k}.glb`),
     );
-    expect(modelFiles({ crafts: false, riders: false, trees: false })).toEqual([]);
+    expect(modelFiles(off)).toEqual([]);
   });
 
   it("are all committed, each within its budget", () => {
     for (const f of all) {
       const at = join(root, MODELS_DIR, f);
       expect(existsSync(at), `${MODELS_DIR}/${f} — run \`make models\``).toBe(true);
-      // A craft's LOD0 is ~0.6 MB, the rider's ~0.5 MB, a kind of tree's
-      // (packed) under 0.1 MB: a model grown past this is a builder that lost
-      // its game budget.
-      const budget = f.startsWith("trees/") ? 250_000 : f === "rider.glb" ? 900_000 : 1_600_000;
+      // A craft's LOD0 is ~0.6 MB, the rider's ~0.5 MB, a kind of tree's or
+      // undergrowth's (packed) under 0.1 MB: a model grown past this is a
+      // builder that lost its game budget.
+      const budget = f.includes("/") ? 250_000 : f === "rider.glb" ? 900_000 : 1_600_000;
       expect(statSync(at).size, f).toBeLessThan(budget);
     }
   });
 
   it("are no older than what they are made from", () => {
-    const stamp = JSON.parse(readFileSync(join(root, MODELS_DIR, "sources.json"), "utf8")) as {
-      sources: string;
-      trees: string;
-    };
-    expect(
-      stamp.sources,
-      "a builder, or the game's data a model is made of, moved since the models were made — run `make models` and commit pwa/models/",
-    ).toBe(modelStamp(root));
-    expect(
-      stamp.trees,
-      "the tree builder, or a tree kind's rows, moved since the trees were made — run `make models SET=trees` and commit pwa/models/",
-    ).toBe(treeStamp(root));
+    const stamp = JSON.parse(
+      readFileSync(join(root, MODELS_DIR, "sources.json"), "utf8"),
+    ) as Record<string, string>;
+    for (const [key, fn] of Object.entries(MODEL_STAMPS)) {
+      expect(
+        stamp[key],
+        `the "${key}" set's builders, or the game's data its models are made of, moved since they were made — run \`make models\` (SET=${key === "sources" ? "machines" : key}) and commit pwa/models/`,
+      ).toBe(fn(root));
+    }
   });
 });
 
