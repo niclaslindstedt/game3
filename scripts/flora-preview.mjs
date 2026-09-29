@@ -21,12 +21,13 @@
 //   node scripts/flora-preview.mjs
 //   node scripts/flora-preview.mjs --rows=reed,sedge,alder
 //   node scripts/flora-preview.mjs --skip-build      # reuse the last bundle
-//   node scripts/flora-preview.mjs --models          # the trees drawn off their MODELS (pwa/models/trees/)
+//   node scripts/flora-preview.mjs --models          # the trees and the undergrowth drawn off their MODELS (pwa/models/)
 //   node scripts/flora-preview.mjs --models --from=previews/blender --compare --biome=taiga
-//                                  # a lab run's models: each tree kind a row — the code's
-//                                  # tree, then every variant, then two sketches, triangles under each
+//                                  # a lab run's models: each modelled kind a row — the code's
+//                                  # plant, then every variant, then a tree's two sketches,
+//                                  # triangles under each
 
-import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
@@ -48,15 +49,18 @@ const args = parseArgs(
       default: "",
       help: "only one coast's roster (taiga, mangrove, arctic, karst)",
     },
-    models: { kind: "flag", help: "draw the trees off their MODELS (every <kind>.glb in --from)" },
+    models: {
+      kind: "flag",
+      help: "draw the trees and the undergrowth off their MODELS (every <kind>.glb in --from)",
+    },
     from: {
       kind: "string",
-      default: "pwa/models/trees",
-      help: "where --models finds them (previews/blender: a make blender run's)",
+      default: "pwa/models",
+      help: "where --models finds them (the committed trees/ and undergrowth/ under it; previews/blender: a make blender run's, flat)",
     },
     compare: {
       kind: "flag",
-      help: "with --models: the trees alone, each a row — the code's tree, its variants, two sketches",
+      help: "with --models: the modelled kinds alone, each a row — the code's plant, its variants, a tree's two sketches",
     },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
@@ -83,13 +87,27 @@ if (!args["skip-build"] || !existsSync(join(buildDir, "flora-preview.html"))) {
   });
 }
 
-// The models go beside the page, where the harness fetches them from.
+// The models go beside the page, where the harness fetches them from —
+// each kind into the set directory the game loads it from (`tree-models.ts`),
+// whether --from is the committed tree (already in sets) or a lab run's flat
+// previews/blender/.
 const models = args.models ? args.from : "";
 if (models) {
-  const into = join(buildDir, "models", "trees");
-  mkdirSync(into, { recursive: true });
-  for (const f of readdirSync(join(root, models))) {
-    if (/^[a-z]+\.glb$/.test(f)) copyFileSync(join(root, models, f), join(into, f));
+  const { TREE_KINDS } = await import("../pwa/src/game/tree-variants.ts");
+  const { UNDER_KINDS } = await import("../pwa/src/game/undergrowth-variants.ts");
+  const sets = [
+    ["trees", TREE_KINDS],
+    ["undergrowth", UNDER_KINDS],
+  ];
+  for (const [dir, kinds] of sets) {
+    const into = join(buildDir, "models", dir);
+    mkdirSync(into, { recursive: true });
+    for (const kind of kinds) {
+      const at = [join(root, models, dir, `${kind}.glb`), join(root, models, `${kind}.glb`)].find(
+        (f) => existsSync(f),
+      );
+      if (at) copyFileSync(at, join(into, `${kind}.glb`));
+    }
   }
 }
 const out =

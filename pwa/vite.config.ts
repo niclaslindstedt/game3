@@ -8,7 +8,7 @@ import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
 import { defineConfig, loadEnv } from "vite";
 
-import { craftModels } from "./models-plugin.ts";
+import { MODEL_SETS, craftModels, type ModelSwitches } from "./models-plugin.ts";
 import { appPwa } from "./pwa-plugin.ts";
 import { modelSwitch } from "./src/game/model-switch.ts";
 import { REPO_URL } from "./src/identity.ts";
@@ -67,11 +67,9 @@ export default defineConfig(({ mode }) => {
   // unless the environment or the root `.env` switches one back
   // (`src/game/model-switch.ts`).
   const env = { ...loadEnv(mode, envDir, "VITE_"), ...process.env };
-  const models = {
-    crafts: modelSwitch(env.VITE_MODEL_CRAFTS),
-    riders: modelSwitch(env.VITE_MODEL_RIDERS),
-    trees: modelSwitch(env.VITE_MODEL_TREES),
-  };
+  const models = Object.fromEntries(
+    MODEL_SETS.map((s) => [s.key, modelSwitch(env[s.switch])]),
+  ) as ModelSwitches;
   return {
     base,
     envDir,

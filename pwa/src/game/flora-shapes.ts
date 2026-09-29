@@ -23,6 +23,7 @@ import * as THREE from "three";
 import { Builder, type P } from "../lib/lowpoly.ts";
 import type { Look } from "./flora-defs.ts";
 import { TREE_SHAPE } from "./tree-variants.ts";
+import { UNDER_SHAPE } from "./undergrowth-variants.ts";
 
 /** HOW MANY FACETS A ROW IS WORTH. A plant that is never more than a metre
  * and a half tall is a handful of pixels from the saddle and a smudge at
@@ -32,9 +33,8 @@ import { TREE_SHAPE } from "./tree-variants.ts";
  * row's own height rather than stated per row: a species that is retuned
  * taller earns its facets on the same edit. */
 function facets(look: Look): { sides: number; stacks: number; masses: number } {
-  return look.height.max < 1.5
-    ? { sides: 5, stacks: 2, masses: 3 }
-    : { sides: 6, stacks: 3, masses: 4 };
+  const B = UNDER_SHAPE.bush;
+  return B.facets[look.height.max < B.small ? 0 : 1];
 }
 
 /** A cheap repeatable 0..1 off two integers — the shapes' own wobble, so a
@@ -256,18 +256,22 @@ function frond(
  * reed is a TUFT rather than a stem, which is what lets a few thousand
  * instances read as a meadow. */
 function clump(b: Builder, look: Look, straight: boolean, seed: number): void {
+  // The numbers are `UNDER_SHAPE`'s, which the modelled undergrowth is
+  // built from too. A reed bed stands level along its top and a tussock
+  // does not, so the stems of the one vary far less in length than the
+  // blades of the other — and the reed's stem stops short so that its
+  // plume, three tenths of the stem again, tops out at the unit height the
+  // placer scales by.
+  const T = UNDER_SHAPE.tuft;
+  const R = UNDER_SHAPE.reed;
+  const S = straight ? R : T;
   const r = look.spread * 0.5;
   for (let i = 0; i < look.stems; i++) {
     const a = wob(seed, i) * Math.PI * 2;
-    const d = Math.sqrt(wob(seed + 1, i)) * r * 0.92;
-    // A reed bed stands level along its top and a tussock does not, so the
-    // stems of the one vary far less in length than the blades of the
-    // other.
-    // …and the reed's stem stops at 0.77 so that its plume, three tenths of
-    // the stem again, tops out at the unit height the placer scales by.
-    const h = straight ? 0.54 + wob(seed + 2, i) * 0.23 : 0.5 + wob(seed + 2, i) * 0.5;
-    const yaw = a + (wob(seed + 3, i) - 0.5) * 1.2;
-    const bend = straight ? 0.04 + wob(seed + 4, i) * 0.06 : 0.16 + wob(seed + 4, i) * 0.42;
+    const d = Math.sqrt(wob(seed + 1, i)) * r * S.disc;
+    const h = S.height[0] + wob(seed + 2, i) * S.height[1];
+    const yaw = a + (wob(seed + 3, i) - 0.5) * S.yaw;
+    const bend = S.bend[0] + wob(seed + 4, i) * S.bend[1];
     const x0 = Math.sin(a) * d;
     const z0 = Math.cos(a) * d;
     blade(
@@ -277,11 +281,11 @@ function clump(b: Builder, look: Look, straight: boolean, seed: number): void {
       0,
       yaw,
       h,
-      look.spread * (straight ? 0.042 : 0.062),
+      look.spread * S.half,
       bend,
       look.leafDark,
-      straight ? look.leafLit : mix(look.leafDark, look.leafLit, 0.85),
-      straight ? 0.7 : 0.99,
+      straight ? look.leafLit : mix(look.leafDark, look.leafLit, T.lit),
+      S.tipFrom,
     );
     if (!straight) continue;
     // THE PLUME, stood on that stem's own tip: a reed bed's whole upper
@@ -292,12 +296,12 @@ function clump(b: Builder, look: Look, straight: boolean, seed: number): void {
       z0 + Math.cos(yaw) * bend * h,
       h,
       yaw,
-      h * 0.3,
-      look.spread * 0.038,
-      bend * 1.6,
+      h * R.plume.tall,
+      look.spread * R.plume.half,
+      bend * R.plume.bend,
       look.stemHigh ?? look.leafDark,
       look.stemHigh ?? look.leafDark,
-      0.99,
+      T.tipFrom,
     );
   }
 }
@@ -421,8 +425,21 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       break;
     }
     case "bush": {
-      if (look.bare > 0.02) {
-        stem(b, 0, 0, 0, 0, 0, look.bare * 1.6, 0.022, 0.014, look.stem, look.stem);
+      const B = UNDER_SHAPE.bush;
+      if (look.bare > B.stem.gate) {
+        stem(
+          b,
+          0,
+          0,
+          0,
+          0,
+          0,
+          look.bare * B.stem.tall,
+          B.stem.r[0],
+          B.stem.r[1],
+          look.stem,
+          look.stem,
+        );
       }
       // Three masses on a small disc: with a narrow spread they stack into
       // a juniper's column, with a wide one they spread into a willow's
@@ -431,17 +448,17 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       for (let i = 0; i < masses; i++) {
         const t = i / (masses - 1);
         const a = wob(seed, i) * Math.PI * 2;
-        const d = wob(seed + 2, i) * s * 0.3;
-        const y = 0.26 + t * 0.54 + (wob(seed + 4, i) - 0.5) * 0.12;
-        const r = s * 0.34 * (0.78 + wob(seed + 6, i) * 0.44) * (1 - t * 0.3);
+        const d = wob(seed + 2, i) * s * B.drift;
+        const y = B.low + t * B.span + (wob(seed + 4, i) - 0.5) * B.jog;
+        const r = s * B.radius * (B.vary[0] + wob(seed + 6, i) * B.vary[1]) * (1 - t * B.narrow);
         blob(
           b,
           Math.sin(a) * d,
           y,
           Math.cos(a) * d,
           r,
-          Math.min(r * 1.4, 0.3),
-          r * 0.94,
+          Math.min(r * B.tall, B.cap),
+          r * B.depth,
           look.leafLit,
           look.leafDark,
           seed + i * 29,
@@ -594,10 +611,25 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
     case "reed":
       clump(b, look, true, seed);
       break;
-    case "stone":
+    case "stone": {
       // A cobble: one squashed lump, buried to its waist by the placer.
-      blob(b, 0, 0.5, 0, s * 0.5, 0.5, s * 0.44, look.leafLit, look.leafDark, seed, 5, 3);
+      const S = UNDER_SHAPE.stone;
+      blob(
+        b,
+        0,
+        S.at,
+        0,
+        s * S.rx,
+        S.ry,
+        s * S.rz,
+        look.leafLit,
+        look.leafDark,
+        seed,
+        S.sides,
+        S.stacks,
+      );
       break;
+    }
   }
   return b.geometry();
 }

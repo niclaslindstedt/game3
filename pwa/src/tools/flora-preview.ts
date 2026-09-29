@@ -18,7 +18,7 @@
 // a clear sky, because a canopy painted lit-over-dark is only honest under
 // a light that comes from above.
 //
-// `?models=1` draws every tree-form row off its MODEL (`tree-models.ts`, the
+// `?models=1` draws every modelled row off its MODEL (`tree-models.ts`, the
 // glTFs the lab copied beside the page) as the shore does — its first two
 // variants for the pair — and `?models=compare` draws the TREES alone, a row
 // a kind: the code's tree, then each of its variants whole, then two of the
@@ -34,8 +34,14 @@ import { isBiomeId } from "@engine";
 
 import { FLORA, floraOf, type FloraSpec } from "../game/flora-defs.ts";
 import { buildFlora, floraMaterial } from "../game/flora-shapes.ts";
-import { loadTreeModels, treeMaterial, treeModel } from "../game/tree-models.ts";
+import {
+  loadTreeModels,
+  treeMaterial,
+  treeModel,
+  undergrowthMaterial,
+} from "../game/tree-models.ts";
 import { TREE_VARIANTS, VARIANTS, isTreeForm } from "../game/tree-variants.ts";
+import { UNDER_ROWS, UNDER_VARIANTS, isUnderForm } from "../game/undergrowth-variants.ts";
 import { PALETTE } from "../identity.ts";
 
 /** One cell, px. Tall, because so is a spruce. */
@@ -89,11 +95,11 @@ const MODELS = new URLSearchParams(location.search).get("models");
 /** How many sketches the compare sheet shows a kind. */
 const SKETCHES = 2;
 
-/** The compare sheet: a row a tree kind — the code's tree, its variants
- * whole, two sketches — each at the top of the kind's height band, seen from
- * a rider's eye on the water. */
+/** The compare sheet: a row a modelled kind — the code's plant, its variants
+ * whole, a tree's two sketches — each at the top of the kind's height band,
+ * seen from a rider's eye on the water. */
 function compare(roster: readonly FloraSpec[]): void {
-  const kinds = roster.filter((s) => isTreeForm(s.look.form));
+  const kinds = roster.filter((s) => isTreeForm(s.look.form) || isUnderForm(s.look.form));
   const cols = 1 + VARIANTS + SKETCHES;
   const sheetCanvas = document.getElementById("stage") as HTMLCanvasElement;
   sheetCanvas.width = CELL_W * cols;
@@ -114,12 +120,19 @@ function compare(roster: readonly FloraSpec[]): void {
   };
   const code = floraMaterial();
   const modelled = treeMaterial();
+  const scrub = undergrowthMaterial();
   kinds.forEach((spec, row) => {
     const s = FLORA.indexOf(spec);
     const h = spec.look.height.max;
+    const tree = isTreeForm(spec.look.form);
+    const variants = tree ? VARIANTS : UNDER_VARIANTS;
+    const names = tree ? TREE_VARIANTS[spec.id] : UNDER_ROWS[spec.id];
     for (let col = 0; col < cols; col++) {
       const variant = col === 0 ? -1 : col <= VARIANTS ? col - 1 : col - 1 - VARIANTS;
       const far = col > VARIANTS;
+      // The undergrowth has four variants and no sketch: the rest of its row
+      // stays empty.
+      if (col > 0 && (variant >= variants || (far && !tree))) continue;
       const geometry =
         col === 0 ? buildFlora(spec.look, s * 7919 + 13) : treeModel(spec.id, variant, far);
       const scene = new THREE.Scene();
@@ -129,8 +142,9 @@ function compare(roster: readonly FloraSpec[]): void {
       scene.add(key);
       scene.add(groundPlane(Math.max(h * 40, 120)));
       if (geometry) {
-        const mesh = new THREE.Mesh(geometry, col === 0 ? code : modelled);
+        const mesh = new THREE.Mesh(geometry, col === 0 ? code : tree ? modelled : scrub);
         mesh.scale.setScalar(h);
+        mesh.position.y = spec.look.form === "stone" ? -h * 0.42 : 0;
         mesh.rotation.y = 0.5;
         scene.add(mesh);
       }
@@ -145,8 +159,7 @@ function compare(roster: readonly FloraSpec[]): void {
       const tris = geometry
         ? (geometry.index?.count ?? geometry.getAttribute("position").count) / 3
         : 0;
-      const name =
-        col === 0 ? "code" : `${TREE_VARIANTS[spec.id][variant].name}${far ? " · sketch" : ""}`;
+      const name = col === 0 ? "code" : `${names[variant].name}${far ? " · sketch" : ""}`;
       addLabel(
         col === 0 ? spec.name : `${spec.id} ${variant}${geometry ? "" : " · NO MODEL"}`,
         col,
@@ -192,6 +205,7 @@ async function main(): Promise<void> {
 
   const material = floraMaterial();
   const modelMaterial = treeMaterial();
+  const scrubMaterial = undergrowthMaterial();
   roster.forEach((spec, i) => {
     const col = i % COLS;
     const row = Math.floor(i / COLS);
@@ -204,9 +218,10 @@ async function main(): Promise<void> {
     scene.add(key);
 
     const tree = MODELS === "1" && isTreeForm(spec.look.form);
+    const under = MODELS === "1" && isUnderForm(spec.look.form);
     const code = buildFlora(spec.look, i * 7919 + 13);
-    const geometry = (tree && treeModel(spec.id, 0)) || code;
-    const second = (tree && treeModel(spec.id, 1)) || geometry;
+    const geometry = ((tree || under) && treeModel(spec.id, 0)) || code;
+    const second = ((tree || under) && treeModel(spec.id, 1)) || geometry;
     // The pair stand either side of centre, far enough apart that the wide
     // ones do not grow into each other, with the rule outboard of the tall
     // one.
@@ -215,7 +230,7 @@ async function main(): Promise<void> {
     for (const [k, h] of [min, max].entries()) {
       const mesh = new THREE.Mesh(
         k === 0 ? geometry : second,
-        geometry === code ? material : modelMaterial,
+        geometry === code ? material : under ? scrubMaterial : modelMaterial,
       );
       mesh.scale.setScalar(h);
       mesh.position.set((k * 2 - 1) * gap, spec.look.form === "stone" ? -h * 0.42 : 0, 0);

@@ -222,25 +222,44 @@ crafts:
 # its hull is lofted on; the rider's body, pose, bones and clips) — studio
 # renders, the game-budget glTF with two LODs and the .blend files, in the
 # gitignored previews/blender/. `make crafts ARGS=--asset=previews/blender/skiff-lod0.glb`
+# `make blender KIND=undergrowth ID=heather ARGS="--quality=render --views=row"`
+# `make blender KIND=rock ID=all ARGS="--quality=game --views=none"`
+# `make blender KIND=mark ID=buoy ARGS="--quality=render --views=three,chase"`
+# `make blender KIND=bird ID=gull ARGS="--quality=render --views=three,chase"`
+# `make blender KIND=fauna ID=orca ARGS="--quality=render --views=three,side"`
 # sets a model below the builder's craft. Needs Blender (BLENDER= its
 # executable). KIND=rider, ID=dart (or all); ARGS="--quality=game --views=three".
 blender:
 	npm run blender -- $(if $(KIND),--kind $(KIND),) $(if $(ID),--id $(ID),) $(ARGS)
 
-# The models the game ships: every craft, the rider and every kind of tree
-# at game quality (no stills), made by Blender and published into the
-# COMMITTED pwa/models/ (the trees packed with meshopt) with a stamp of what
-# they were made from — tests/models_test.ts fails when a model is older
-# than its builders or the game's data it reads. Needs Blender.
-# SET=machines (the crafts and the rider) or SET=trees makes one half only.
-# A build draws them unless switched back (VITE_MODEL_CRAFTS=0,
-# VITE_MODEL_RIDERS=0, VITE_MODEL_TREES=0).
+# The models the game ships: every craft, the rider, every kind of tree,
+# undergrowth and instanced rock, the course's two marks, every bird and
+# every animal, at game quality (no stills), made by Blender and published
+# into the COMMITTED pwa/models/ (the static sets packed with meshopt) with
+# a stamp of what they were made from — tests/models_test.ts fails when a
+# model is older than its builders or the game's data it reads. Needs
+# Blender. SET=machines (the crafts and the rider), SET=trees,
+# SET=undergrowth, SET=rocks, SET=marks, SET=birds or SET=fauna makes one
+# set only. A build draws them unless switched back (VITE_MODEL_CRAFTS=0,
+# VITE_MODEL_RIDERS=0, VITE_MODEL_TREES=0, VITE_MODEL_UNDERGROWTH=0,
+# VITE_MODEL_ROCKS=0, VITE_MODEL_MARKS=0, VITE_MODEL_BIRDS=0,
+# VITE_MODEL_FAUNA=0).
 models:
-	@if [ "$(SET)" != "trees" ]; then \
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "machines" ]; then \
 	  npm run blender -- --id all --quality=game --views=none && \
 	  npm run blender -- --kind rider --quality=game --views=none; fi
-	@if [ "$(SET)" != "machines" ]; then \
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "trees" ]; then \
 	  npm run blender -- --kind tree --id all --quality=game --views=none; fi
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "undergrowth" ]; then \
+	  npm run blender -- --kind undergrowth --id all --quality=game --views=none; fi
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "rocks" ]; then \
+	  npm run blender -- --kind rock --id all --quality=game --views=none; fi
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "marks" ]; then \
+	  npm run blender -- --kind mark --id all --quality=game --views=none; fi
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "birds" ]; then \
+	  npm run blender -- --kind bird --id all --quality=game --views=none; fi
+	@if [ -z "$(SET)" ] || [ "$(SET)" = "fauna" ]; then \
+	  npm run blender -- --kind fauna --id all --quality=game --views=none; fi
 	node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/models.mjs $(if $(SET),--set $(SET),)
 
 # THE MODEL REGISTRY: which assets are Blender models and which the code
@@ -252,12 +271,13 @@ model-registry:
 # Switch the models off or on for every CI build — the repository SECRETS
 # the workflows hand the build (this repository keeps no Actions variables;
 # needs gh, and the right to set them): `make ci-models MODELS=off` draws the
-# code-built crafts, rider and trees on the next deploy with no commit;
-# MODELS=on puts the models back.
+# code-built crafts, rider, trees and undergrowth on the next deploy with no
+# commit; MODELS=on puts the models back. MODEL_SWITCHES is the one list.
+MODEL_SWITCHES = VITE_MODEL_CRAFTS VITE_MODEL_RIDERS VITE_MODEL_TREES VITE_MODEL_UNDERGROWTH VITE_MODEL_ROCKS VITE_MODEL_MARKS VITE_MODEL_BIRDS VITE_MODEL_FAUNA
 ci-models:
 	@case "$(MODELS)" in \
-	  off) gh secret set VITE_MODEL_CRAFTS --body 0 && gh secret set VITE_MODEL_RIDERS --body 0 && gh secret set VITE_MODEL_TREES --body 0 ;; \
-	  on) gh secret set VITE_MODEL_CRAFTS --body 1 && gh secret set VITE_MODEL_RIDERS --body 1 && gh secret set VITE_MODEL_TREES --body 1 ;; \
+	  off) for s in $(MODEL_SWITCHES); do gh secret set $$s --body 0 || exit 1; done ;; \
+	  on) for s in $(MODEL_SWITCHES); do gh secret set $$s --body 1 || exit 1; done ;; \
 	  *) echo "usage: make ci-models MODELS=on|off" >&2; exit 2 ;; \
 	esac
 	@gh secret list | grep VITE_MODEL || true

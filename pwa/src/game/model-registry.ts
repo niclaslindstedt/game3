@@ -19,8 +19,10 @@
 import { CRAFT_IDS, FAUNA_IDS } from "@engine";
 
 import { BIRD_IDS } from "./bird-defs.ts";
-import { FLORA } from "./flora-defs.ts";
+import { MARK_KINDS } from "./mark-shapes.ts";
+import { ROCK_KINDS } from "./rock-variants.ts";
 import { TREE_KINDS } from "./tree-variants.ts";
+import { UNDER_KINDS } from "./undergrowth-variants.ts";
 
 export type ModelSource = "blender" | "code";
 
@@ -89,38 +91,89 @@ export const MODEL_REGISTRY: readonly ModelRow[] = [
   },
   {
     asset: "Undergrowth: bushes, tufts, reeds and loose stone",
-    ids: FLORA.map((s) => s.id).filter((id) => !TREE_KINDS.includes(id)),
-    source: "code",
+    ids: UNDER_KINDS,
+    source: "blender",
     code: ["pwa/src/game/flora-shapes.ts"],
     drawnBy: "pwa/src/game/flora.ts",
+    blender: {
+      builder: "scripts/blender/undergrowth.py",
+      files: UNDER_KINDS.map((k) => `undergrowth/${k}.glb`),
+      pattern: "undergrowth/<kind>.glb",
+      switch: "VITE_MODEL_UNDERGROWTH",
+    },
+    note: "every other roster row, four variants a kind, dressed in its row's colours",
   },
   {
     asset: "Birds",
     ids: BIRD_IDS,
-    source: "code",
+    source: "blender",
     code: ["pwa/src/game/bird-shapes.ts"],
     drawnBy: "pwa/src/game/birds.ts",
+    blender: {
+      builder: "scripts/blender/bird.py",
+      files: BIRD_IDS.map((id) => `birds/${id}.glb`),
+      pattern: "birds/<id>.glb",
+      switch: "VITE_MODEL_BIRDS",
+    },
+    note: "one model a species, dressed in its style, flapped by the same shader",
   },
   {
     asset: "Sea life",
     ids: FAUNA_IDS,
-    source: "code",
-    code: ["pwa/src/game/fauna-styles.ts"],
+    source: "blender",
+    code: ["pwa/src/game/fauna.ts", "pwa/src/game/fauna-styles.ts"],
     drawnBy: "pwa/src/game/fauna.ts",
+    blender: {
+      builder: "scripts/blender/fauna.py",
+      files: FAUNA_IDS.map((id) => `fauna/${id}.glb`),
+      pattern: "fauna/<id>.glb",
+      switch: "VITE_MODEL_FAUNA",
+    },
+    note: "one model a species, its hide painted by the code's own rule, bent by the same shader",
   },
   {
-    asset: "Rocks, stacks and skerries",
-    ids: ["skerry", "stack", "mark", "boulder", "erratic", "reef"],
-    source: "code",
+    asset: "Boulders, erratics and reefs",
+    ids: ROCK_KINDS,
+    source: "blender",
     code: ["pwa/src/game/rocks.ts"],
     drawnBy: "pwa/src/game/rocks.ts",
+    blender: {
+      builder: "scripts/blender/rock.py",
+      files: ROCK_KINDS.map((k) => `rocks/${k}.glb`),
+      pattern: "rocks/<kind>.glb",
+      switch: "VITE_MODEL_ROCKS",
+    },
+    note: "four variants a kind, tinted the coast's stone per instance",
   },
   {
-    asset: "The course: gate marks, rings, ramps and rounding buoys",
-    ids: ["gate-mark", "ring", "ramp", "rounding-buoy"],
+    asset: "Stacks, skerries and the mark",
+    ids: ["skerry", "stack", "mark"],
     source: "code",
+    code: ["pwa/src/game/rock-shapes.ts"],
+    drawnBy: "pwa/src/game/rocks.ts",
+    note: "carved for itself at its own waterline, which no shared model can carry",
+  },
+  {
+    asset: "The course's marks: the gate mark and the rounding buoy",
+    ids: MARK_KINDS,
+    source: "blender",
     code: ["pwa/src/game/gates.ts", "pwa/src/game/buoys.ts"],
     drawnBy: "pwa/src/game/renderer.ts",
+    blender: {
+      builder: "scripts/blender/mark.py",
+      files: MARK_KINDS.map((k) => `marks/${k}.glb`),
+      pattern: "marks/<kind>.glb",
+      switch: "VITE_MODEL_MARKS",
+    },
+    note: "dressed a primitive a material; the buoy scaled to its solid",
+  },
+  {
+    asset: "The course's geometry: rings and ramps",
+    ids: ["ring", "ramp"],
+    source: "code",
+    code: ["pwa/src/game/gates.ts"],
+    drawnBy: "pwa/src/game/renderer.ts",
+    note: "sized per gate and per level, so no one model fits",
   },
   {
     asset: "The edge net",
@@ -128,6 +181,7 @@ export const MODEL_REGISTRY: readonly ModelRow[] = [
     source: "code",
     code: ["pwa/src/game/edge-net.ts"],
     drawnBy: "pwa/src/game/edge-net.ts",
+    note: "a lattice cut to each level's own tornado edge, not an object with a shape of its own",
   },
 ];
 

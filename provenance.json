@@ -1,5 +1,5 @@
 {
-  "about": "Every asset Sea Haven ships, where it comes from and under what licence. The game ships no audio file, no font file and no texture file: every sound is synthesized, every wave and shore is geometry built by code at run time, and the crafts, the rider and the trees are glTF MODELS made in Blender off the game's own data by `make models` (the code-built ones stay one build switch away). Nothing here is third-party. A new kind of asset, or a new generator, changes this file in the same commit.",
+  "about": "Every asset Sea Haven ships, where it comes from and under what licence. The game ships no audio file, no font file and no texture file: every sound is synthesized, every wave and shore is geometry built by code at run time, and the crafts, the rider, the trees, the undergrowth, the instanced rocks, the course's marks, the birds and the sea life are glTF MODELS made in Blender off the game's own data by `make models` (the code-built ones stay one build switch away). Nothing here is third-party. A new kind of asset, or a new generator, changes this file in the same commit.",
   "assets": [
     {
       "path": "pwa/public/icons/icon.svg",
@@ -55,11 +55,46 @@
       "note": "Every tree-form row of the cover roster in six variants, whole and sketched, modelled in Blender off the game's own rows (pwa/src/game/tree-variants.ts) and packed (quantized, meshopt). Committed; tests/models_test.ts holds them to the trees' stamp in pwa/models/sources.json, tests/tree_models_test.ts decodes every one."
     },
     {
+      "path": "pwa/models/undergrowth/*.glb",
+      "source": "generated",
+      "generator": "make models (scripts/blender.mjs over scripts/blender/undergrowth.py, then scripts/models.mjs, which packs each through scripts/lib/glb-pack.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "Every bush, tuft, reed and stone row of the cover roster in four variants, modelled in Blender off the game's own rows (pwa/src/game/undergrowth-variants.ts) and packed (quantized, meshopt). Committed; tests/models_test.ts holds them to the undergrowth's stamp in pwa/models/sources.json, tests/undergrowth_models_test.ts decodes every one."
+    },
+    {
+      "path": "pwa/models/rocks/*.glb",
+      "source": "generated",
+      "generator": "make models (scripts/blender.mjs over scripts/blender/rock.py, then scripts/models.mjs, which packs each through scripts/lib/glb-pack.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The boulder, the erratic and the reef in four variants each, modelled in Blender off the code's own proportions (pwa/src/game/rock-variants.ts) and packed (quantized, meshopt). Committed; tests/models_test.ts holds them to the rocks' stamp in pwa/models/sources.json, tests/rock_models_test.ts decodes every one."
+    },
+    {
+      "path": "pwa/models/marks/*.glb",
+      "source": "generated",
+      "generator": "make models (scripts/blender.mjs over scripts/blender/mark.py, then scripts/models.mjs, which packs each through scripts/lib/glb-pack.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "The gate mark and the rounding buoy, modelled in Blender off the code's own profiles (pwa/src/game/mark-shapes.ts) and packed (quantized, meshopt). Committed; tests/models_test.ts holds them to the marks' stamp in pwa/models/sources.json, tests/mark_models_test.ts decodes both."
+    },
+    {
+      "path": "pwa/models/birds/*.glb",
+      "source": "generated",
+      "generator": "make models (scripts/blender.mjs over scripts/blender/bird.py, then scripts/models.mjs, which packs each through scripts/lib/glb-pack.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "Every species of the bird roster, modelled in Blender off its own row (pwa/src/game/bird-defs.ts, bird-wing.ts) and packed (quantized, meshopt). Committed; tests/models_test.ts holds them to the birds' stamp in pwa/models/sources.json, tests/bird_models_test.ts decodes every one."
+    },
+    {
+      "path": "pwa/models/fauna/*.glb",
+      "source": "generated",
+      "generator": "make models (scripts/blender.mjs over scripts/blender/fauna.py, then scripts/models.mjs, which packs each through scripts/lib/glb-pack.mjs)",
+      "licence": "PolyForm-Noncommercial-1.0.0",
+      "note": "Every species of the sea life catalog, modelled in Blender off its own row (engine/game/defs/fauna.ts, pwa/src/game/fauna-styles.ts, fauna-body.ts) and packed (quantized, meshopt). Committed; tests/models_test.ts holds them to the sea life's stamp in pwa/models/sources.json, tests/fauna_models_test.ts decodes every one."
+    },
+    {
       "path": "pwa/models/sources.json",
       "source": "generated",
       "generator": "make models (scripts/models.mjs)",
       "licence": "PolyForm-Noncommercial-1.0.0",
-      "note": "The stamps of what the models were made from (pwa/models-stamp.ts): the crafts' and rider's, and the trees' apart."
+      "note": "The stamps of what the models were made from (pwa/models-stamp.ts): the crafts' and rider's, the trees', the undergrowth's, the rocks', the marks', the birds' and the sea life's, each apart."
     },
     {
       "path": "pwa/src/game/audio/",

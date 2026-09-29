@@ -32,6 +32,11 @@
 // one on the HUD; what the saddle needs out of the dark is the next corner
 // and nothing beside it.
 //
+// THE CAN IS MODELLED (`mark-models.ts`, off the very numbers below): a
+// rolled rim, a welded seam, lifting lugs, the lattice tower with its braces
+// and platform, the lantern in its cage — and the code's cylinders stand in
+// on a build switched back (`VITE_MODEL_MARKS=0`).
+//
 // AND IT IS THE DARK'S ALONE. Both readings are scaled by the sky's own
 // lamp switch (`Preset.lamps`): the lamps come up at dusk, blaze through
 // the night and into the dawn, and in daylight there is nothing — a lit can
@@ -43,21 +48,22 @@ import * as THREE from "three";
 import { buoyLightAt, surfaceAt, type Gate, type GameState, type Level, type Solid } from "@engine";
 
 import { glowTexture } from "./fx-textures.ts";
+import { markMeshes, type MarkMesh } from "./mark-models.ts";
+import { BUOY, BUOY_REFERENCE } from "./mark-shapes.ts";
 import { BUOY_LAMPS } from "./water-shader.ts";
 
 /** The can: how far it stands out of the water and how far under, m. A can
  * drawn to the waterline reads as a disc painted on the sea, and the draft
- * is what the eye reads as something MOORED when a wave lifts past it. */
-const CAN = { over: 1.15, under: 0.95 };
-/** The black band round its waist, m of height and where it sits. Every
- * lateral mark on a real coast carries one, and it is what stops a yellow
- * cylinder reading as a floating drum. */
-const BAND = { height: 0.36, at: 0.34 };
-/** The lattice tower: how far in the four legs lean by the top, and how
- * thick they are, m. */
-const CAGE = { waist: 0.42, leg: 0.11 };
-/** The lantern at the top, m. */
-const LAMP = { radius: 0.26, height: 0.44 };
+ * is what the eye reads as something MOORED when a wave lifts past it. The
+ * black band round its waist, m of height and where it sits: every lateral
+ * mark on a real coast carries one, and it is what stops a yellow cylinder
+ * reading as a floating drum. The lattice tower: how far in the four legs
+ * lean by the top, and how thick they are, m. The lantern at the top, m.
+ * Every number is `mark-shapes.ts`'s, which the buoy's model is built to. */
+const CAN = BUOY.can;
+const BAND = BUOY.band;
+const CAGE = BUOY.cage;
+const LAMP = BUOY.lamp;
 
 /** IJSBA GEN.4.4: red marks a left-hand rounding, yellow a right-hand one.
  * The generator carries the side because paint is course information, not
@@ -153,16 +159,18 @@ function build(solid: Solid): Lit {
   const r = solid.r;
 
   const side = solid.rounding ?? "right";
+  const model = markMeshes("buoy");
+  if (model) return hangModel(solid, group, model, side);
   const paint = flat(HULL[side]);
   const can = new THREE.Mesh(
-    new THREE.CylinderGeometry(r * 0.94, r, CAN.over + CAN.under, 12, 1),
+    new THREE.CylinderGeometry(r * CAN.taper, r, CAN.over + CAN.under, 12, 1),
     paint,
   );
   can.position.y = (CAN.over - CAN.under) / 2;
   group.add(can);
 
   const band = new THREE.Mesh(
-    new THREE.CylinderGeometry(r * 1.03, r * 1.03, BAND.height, 12, 1),
+    new THREE.CylinderGeometry(r * BAND.proud, r * BAND.proud, BAND.height, 12, 1),
     flat(STRIPE),
   );
   band.position.y = BAND.at;
@@ -170,23 +178,23 @@ function build(solid: Solid): Lit {
 
   // The shoulder the tower stands on.
   const shoulder = new THREE.Mesh(
-    new THREE.CylinderGeometry(r * 0.6, r * 0.94, 0.34, 12, 1),
+    new THREE.CylinderGeometry(r * BUOY.shoulder.r, r * CAN.taper, BUOY.shoulder.height, 12, 1),
     paint,
   );
-  shoulder.position.y = CAN.over + 0.17;
+  shoulder.position.y = CAN.over + BUOY.shoulder.height / 2;
   group.add(shoulder);
 
   // The tower: four legs leaning in to the lantern's platform, and a hoop
   // round their waist. Drawn as boxes rather than cylinders because a
   // lattice is angle iron and because four thin cylinders at this range are
   // four times the triangles for the same silhouette.
-  const foot = CAN.over + 0.3;
-  const head = solid.top - LAMP.height / 2 - 0.12;
-  const legLength = Math.hypot(head - foot, r * 0.55 - CAGE.waist * 0.5);
+  const foot = CAN.over + CAGE.standOff;
+  const head = solid.top - LAMP.height / 2 - LAMP.under;
+  const legLength = Math.hypot(head - foot, r * CAGE.foot - CAGE.waist * 0.5);
   for (let i = 0; i < 4; i++) {
     const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
     const leg = new THREE.Mesh(new THREE.BoxGeometry(CAGE.leg, legLength, CAGE.leg), flat(TOWER));
-    const outFoot = r * 0.55;
+    const outFoot = r * CAGE.foot;
     const outHead = CAGE.waist * 0.5;
     leg.position.set(
       (Math.cos(a) * (outFoot + outHead)) / 2,
@@ -200,7 +208,7 @@ function build(solid: Solid): Lit {
     group.add(leg);
   }
   const hoop = new THREE.Mesh(
-    new THREE.TorusGeometry((r * 0.55 + CAGE.waist * 0.5) / 2, 0.05, 4, 12),
+    new THREE.TorusGeometry((r * CAGE.foot + CAGE.waist * 0.5) / 2, CAGE.hoop, 4, 12),
     flat(TOWER),
   );
   hoop.rotation.x = Math.PI / 2;
@@ -215,8 +223,11 @@ function build(solid: Solid): Lit {
   );
   lamp.position.y = solid.top;
   group.add(lamp);
-  const cap = new THREE.Mesh(new THREE.ConeGeometry(LAMP.radius * 1.25, 0.3, 10), flat(TOWER));
-  cap.position.y = solid.top + LAMP.height / 2 + 0.15;
+  const cap = new THREE.Mesh(
+    new THREE.ConeGeometry(LAMP.radius * LAMP.capOver, LAMP.capHeight, 10),
+    flat(TOWER),
+  );
+  cap.position.y = solid.top + LAMP.height / 2 + LAMP.capGap;
   group.add(cap);
 
   // The bloom: additive, depth-tested but not depth-written, so it lies
@@ -233,6 +244,68 @@ function build(solid: Solid): Lit {
   bloom.position.y = solid.top;
   group.add(bloom);
 
+  return {
+    solid,
+    group,
+    paint,
+    paintGlow: GLOW[side],
+    lens,
+    glow,
+    bloom,
+    lamp: new THREE.Vector3(solid.x, solid.top, solid.z),
+    water: { x: solid.x, y: solid.top, z: solid.z, lit: 0 },
+  };
+}
+
+/** THE BUOY OFF ITS MODEL (`mark-models.ts`): the `can` mesh's primitives
+ * scaled across by the solid's radius (its heights are absolute), the
+ * `tower`'s stood on the shoulder and stretched to the solid's own lantern
+ * height — the model was built for `BUOY_REFERENCE` — each primitive in
+ * the material its name asks for: the paint of its side, the band, the
+ * ironmongery, the lens the lamp lights. */
+function hangModel(
+  solid: Solid,
+  group: THREE.Group,
+  model: Map<string, MarkMesh>,
+  side: "left" | "right",
+): Lit {
+  const r = solid.r;
+  const paint = new THREE.MeshLambertMaterial({ color: HULL[side], vertexColors: true });
+  const lens = new THREE.MeshBasicMaterial({ color: GLASS });
+  const dressed = (name: string): THREE.Material =>
+    name === "hull"
+      ? paint
+      : name === "lens"
+        ? lens
+        : new THREE.MeshLambertMaterial({
+            color: name === "band" ? STRIPE : TOWER,
+            vertexColors: true,
+          });
+  const foot = CAN.over + CAGE.standOff;
+  const stretch = (solid.top - foot) / (BUOY_REFERENCE.top - foot);
+  for (const [node, parts] of model) {
+    for (const [name, geometry] of parts) {
+      const mesh = new THREE.Mesh(geometry, dressed(name));
+      if (node === "can") {
+        mesh.scale.set(r, 1, r);
+      } else {
+        mesh.position.y = foot;
+        mesh.scale.set(r / BUOY_REFERENCE.r, stretch, r / BUOY_REFERENCE.r);
+      }
+      group.add(mesh);
+    }
+  }
+  const glow = new THREE.SpriteMaterial({
+    map: glowTexture(),
+    color: LENS,
+    transparent: true,
+    opacity: 0,
+    blending: THREE.AdditiveBlending,
+    depthWrite: false,
+  });
+  const bloom = new THREE.Sprite(glow);
+  bloom.position.y = solid.top;
+  group.add(bloom);
   return {
     solid,
     group,

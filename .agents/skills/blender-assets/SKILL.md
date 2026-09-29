@@ -5,10 +5,13 @@ description: "Use when a game asset is to be MODELLED IN BLENDER off the game's 
 
 # Blender assets
 
-The game draws its **crafts, its rider and its trees from the models made
-here** — committed in `pwa/models/` by `make models` — and builds everything
-else (and, one switch away, the crafts, the rider and the trees too) in code
-(§ "The models in the game"). The code's builders (`craft-body.ts`,
+The game draws its **crafts, its rider, its trees, its undergrowth, its
+instanced rocks, its course marks, its birds and its sea life from the
+models made here** — committed in `pwa/models/` by `make models` — and
+builds the rest (the sculpted rocks, the rings and ramps, the edge net,
+and, one switch away, every modelled kind too) in code (§ "The models in
+the game"). `pwa/src/game/model-registry.ts` is the one list of which is
+which. The code's builders (`craft-body.ts`,
 `rider.ts`, `flora-shapes.ts`) stay the ground truth: every model is made off
 the SAME numbers they draw from, so a model cannot drift from the physics or
 from the roster, and the code-built thing is what a model is judged against.
@@ -56,21 +59,33 @@ rider, `nature` for a tree) — its judging rules apply to a model too.
 
 | Piece | Role |
 | --- | --- |
-| `scripts/blender.mjs` | THE DRIVER (`make blender`): `KINDS` (per kind: its ids and its data, both off `model-data.ts`; its builder; its default), finds Blender, runs each QUALITY, echoes what matters (`BONES`, `CLIPS`, `TRIANGLES`, what was saved, any traceback) and fails on a Python error |
-| `pwa/src/game/model-data.ts` | WHAT BLENDER IS HANDED: `craftModelData(id)`, `riderModelData()`, `treeModelData(kind)` (no colour — the stamp is taken over it) and `treeStillPaint(kind)` (the row's colours in linear light, for the stills only) — the game's own numbers, read by the driver and by the stamps |
+| `scripts/blender.mjs` | THE DRIVER (`make blender`): `KINDS` (per kind — `craft`, `rider`, `tree`, `undergrowth`, `rock`, `mark`, `bird`, `fauna`: its ids and its data, both off `model-data.ts`; its builder; its default), finds Blender, runs each QUALITY, echoes what matters (`BONES`, `CLIPS`, `TRIANGLES`, what was saved, any traceback) and fails on a Python error |
+| `pwa/src/game/model-data.ts` | WHAT BLENDER IS HANDED: `craftModelData(id)`, `riderModelData()`, `treeModelData(kind)`, `undergrowthModelData(kind)` (no colour — the stamp is taken over it) and `plantStillPaint(kind)` (the row's colours in linear light, for the stills only) — the game's own numbers, read by the driver and by the stamps |
 | `scripts/blender/lib.py` | THE SHELF every builder imports: the scene, `mat`, the geometry (`loft`, `superellipse`, `tube`, `cyl`, `box`, `ellipsoid`, `coil`, `catmull`, `resample`, boolean cutters), THE RIG (`rides`, `bone`, `marker`, `clip` — a `lift`/`turn`, `turns` about axes, or a whole `matrix` — `weights`, `morph`), and `finish()` — the rig built and skinned, the clips baked, the studio on the water, the Cycles stills, the join into one skinned mesh, LOD0 and the decimated LODs as glTF. The sibling's shelf, plus `turns`, CPU-unless-macOS Cycles and the sea studio |
 | `scripts/blender/craft.py` | THE CRAFT BUILDER: the shell (keel, strakes, chine, topside, sheer) and the deck (coaming, footwells, pedestal, hood, crown) as two creased subdivided cages through the code's own stations, the rubber rail, the saddle, the grab handle, the platform, the sponsons, the pump, the ride plate, the nozzle and the reverse gate, the pod, the column, the bars and grips, the mirrors |
 | `scripts/blender/rider.py` | THE RIDER BUILDER: one SKIN that bends (the ANSUR II survey's mean man at the game's `RIDER_SCALE`, in a runabout racer's kit, lofted a piece a bone, remeshed, coloured along planes, weighted across each joint) and rigid parts on one bone each — the helmet lofted through the code's own shell rings, the chin bar and the peak, the vest's straps, the knee pads, the boots, the gloves |
+| `scripts/blender/foliage.py` | THE FOLIAGE SHELF both plant builders build on: the mesh with a tone and a role on every vertex and face (`Plant`), `tube`, the two-faced `sheet`, `blob`, `cluster`, the role materials the stills are painted with (`role_mats`) and the row studio |
 | `scripts/blender/tree.py` | THE TREE BUILDER (`KIND=tree`, `ID=<kind>` or `all`): a kind's six variants off their own rows, each a whole tree and a far sketch, one glTF a kind; no rig — the shore instances it (§ "The trees") |
+| `scripts/blender/undergrowth.py` | THE UNDERGROWTH BUILDER (`KIND=undergrowth`, `ID=<kind>` or `all`): a bush, tuft, reed or stone kind's four variants off `undergrowth-variants.ts`, one mesh each, no sketch (§ "The undergrowth") |
+| `scripts/blender/mark.py` | THE MARK BUILDER (`KIND=mark`, `ID=gatemark`, `buoy` or `all`): the gate mark as one mesh (`mark`) and the rounding buoy as two (`can`, `tower`), off `mark-shapes.ts`, every primitive named for what the game dresses it as (§ "The marks") |
+| `scripts/blender/bird.py` | THE BIRD BUILDER (`KIND=bird`, `ID=<id>` or `all`): one species off its row and `bird-wing.ts`, in the frame the shader flaps, every wing vertex flagged in its tone's B (§ "The birds") |
+| `scripts/blender/fauna.py` | THE SEA LIFE BUILDER (`KIND=fauna`, `ID=<id>` or `all`): one species off its catalog row, its style's proportions and `fauna-body.ts`, a unit body in the frame the shader bends, every hide vertex saying where on the body it is (§ "The sea life") |
+| `scripts/blender/rock.py` | THE ROCK BUILDER (`KIND=rock`, `ID=boulder`, `erratic`, `reef` or `all`): a kind's four variants as UNIT lumps off `rock-variants.ts` — inside the collider's plan, foot at −1, crown at or under +1, a shade a vertex and no colour (§ "The rocks") |
 | `pwa/src/game/tree-variants.ts` | THE TREES AS DATA (three-free): `TREE_KINDS` (every tree-form row), `TREE_SHAPE` (the code's form proportions, which `flora-shapes.ts` reads), `TREE_VARIANTS`, `crownAt`, `variantAt`, `TREE_REFERENCE` |
-| `pwa/src/game/tree-models.ts`, `scripts/lib/glb-pack.mjs` | THE TREES IN THE GAME: a kind's model read into the unit frame and dressed in its row's colours (`treeModel`, `roleColours`), and the packer every published tree goes through (quantized, meshopt) |
+| `pwa/src/game/undergrowth-variants.ts` | THE UNDERGROWTH AS DATA (three-free): `UNDER_KINDS` (every bush, tuft, reed and stone row), `UNDER_SHAPE` (the code's proportions, which `flora-shapes.ts` reads), `UNDER_ROWS` — four variants a kind, the departures the FORM's rather than the kind's |
+| `pwa/src/game/bird-wing.ts`, `bird-models.ts` | THE BIRDS AS DATA and IN THE GAME: `WING` (the wing's numbers `bird-shapes.ts` builds with), `wingEdges`, `BIRD_ROLES` / `roleColour`; the loader and `birdModel(id)` — dressed in the species' style, carrying `aWing`, which `birds.ts` instances under the same `birdMaterial` (smooth) |
+| `pwa/src/game/fauna-body.ts`, `fauna-models.ts` | THE SEA LIFE AS DATA and IN THE GAME: `GIRTH` / `girthAt`, `BODY` (the stations, the fins' places, the two shades — which `fauna.ts` builds with), `FAUNA_ROLES`; the loader and `faunaModel(id, style, hide)` — the hide painted TWICE by the code's own `hide` (`color` and `aDeep`), which `fauna.ts` instances under the same bending shader (smooth) |
+| `pwa/src/game/mark-shapes.ts`, `mark-models.ts` | THE MARKS AS DATA and IN THE GAME: `MARK` (the gate mark's profiles, which `gates.ts` lathes), `BUOY` (the can's, band's, cage's and lamp's numbers `buoys.ts` reads), `BUOY_REFERENCE`; the loader and `markMeshes(kind)` — a mesh's primitives by material name, in the code's frame |
+| `pwa/src/game/rock-variants.ts`, `rock-models.ts` | THE ROCKS AS DATA and IN THE GAME: `ROCK_KINDS`, `ROCK_LUMP` (the code's proportions, which `rocks.ts` reads), `ROCK_ROWS`; the loader and `rockModel(kind, i)` — a unit lump `rocks.ts` scales and hangs off its apex exactly as the code's sphere, one instanced mesh a variant, the variant a hash of the solid's place (`rockVariantAt`) |
+| `pwa/models-plugin.ts`'s `MODEL_SETS` | THE ONE LIST OF SETS: each set's directory, kinds, whether it is packed, its switch and its stamp. `models.mjs`, `vite.config.ts` and the suite read it; adding a set is a row here, a stamp in `MODEL_STAMPS` (`models-stamp.ts`), a loader in `load-models.ts`, a kind in `blender.mjs`, a row in the registry |
+| `pwa/src/game/tree-models.ts`, `scripts/lib/glb-pack.mjs` | THE PLANTS IN THE GAME: a kind's model — a tree's or the undergrowth's — read into the unit frame and dressed in its row's colours (`treeModel`, `roleColours`), the undergrowth's two-sided material (`undergrowthMaterial`), and the packer every published plant goes through (quantized, meshopt) |
 | `pwa/src/game/craft-rig.ts` | THE CRAFT'S CONTRACT: `BAR_TURN` / `BUCKET_SWING` (handed to Blender, so the clips run the same travel), `barTurn(craft)`, `turnGrips`, `rigCraft` (the `bars`, `nozzle` and `bucket` drivers posed off `CraftState`, each about the axis the builder wrote into the bone's extras, in the BODY frame) |
 | `pwa/src/game/rider-rig.ts` | THE RIDER'S CONTRACT: `riderBones(pose)` (every bone's frame off a `RiderPose`, each limb ROLLED TO ITS BEND), `RIDING` (the pose he is bound in), `riderClips()` (every clip SAMPLED off `poseRider`), `rigRider` |
 | `pwa/src/game/craft-models.ts` | THE CRAFTS AND THE RIDER IN THE GAME: `MODELS` (the switches), `loadModels`, `dressOf`, `hangCraft` / `cloneCraft` / `poseCraft`, `onTheBars`, `hangRider`, and `adoptModels` (the lab's way in) |
 | `pwa/models-plugin.ts`, `pwa/models-stamp.ts`, `scripts/models.mjs` | THE PACKING AND THE STAMPS: which files a build emits (and the error naming `make models` when one is missing), the hash of the builders and of every model's data — the crafts' and rider's (`modelStamp`) and the trees' apart (`treeStamp`) — and the publisher (`--set=machines|trees`) |
 | `scripts/craft-preview.mjs` | THE ASSET SHEET (`make crafts ARGS="--asset=a.glb,b.glb --rider=r.glb --steer=0.8"`): the builder's craft in the first row, each model below it, every one ridden by the code's rider (or the modelled one) → `previews/crafts-asset-<id>.png` |
-| `scripts/flora-preview.mjs` + `pwa/src/tools/flora-preview.ts` | THE TREE SHEETS: `make flora ARGS=--models` (the roster with every tree drawn off its model), `ARGS="--models --from=previews/blender --compare"` (a row a kind: the code's tree, six variants, two sketches, triangles under each) → `previews/flora-compare-<biome>.png` |
-| `previews/blender/` | Everything made: `<id>.json` (what Blender was handed), `<id>-render-<view>.png`, `<id>-game-*.png`, `<id>-lod{0,1,2}.glb` (a tree: `<kind>.glb`), `<id>-{render,game}.blend` |
+| `scripts/flora-preview.mjs` + `pwa/src/tools/flora-preview.ts` | THE PLANT SHEETS: `make flora ARGS=--models` (the roster with every modelled kind drawn off its model), `ARGS="--models --from=previews/blender --compare"` (a row a kind: the code's plant, its variants, a tree's two sketches, triangles under each) → `previews/flora-compare-<biome>.png` |
+| `previews/blender/` | Everything made: `<id>.json` (what Blender was handed), `<id>-render-<view>.png`, `<id>-game-*.png`, `<id>-lod{0,1,2}.glb` (a plant: `<kind>.glb`), `<id>-{render,game}.blend` |
 
 ## The loop
 
@@ -146,7 +161,10 @@ the rider (the 6 mm remesh). Game quality: a runabout **LOD0 ≈ 14.4k**
 5.0k**, **LOD2 ≈ 1.4k**; the stand-up 13.4k / 4.7k / 1.3k; the rider **LOD0 ≈
 9.3k**, LOD1 3.3k, LOD2 0.9k. Files: a craft ~0.67 MB, the rider ~0.53 MB.
 The lower LODs are a blind decimation — fine at range, torn up close — and
-are packed by nothing yet. The trees' budget is theirs (§ "The trees").
+are packed by nothing yet. The static sets' budgets are their own sections'
+(the trees, the undergrowth, the rocks, the marks, the birds, the sea
+life); packed, the whole of `pwa/models/` is ~5.6 MB, the machines 2.6 MB
+of it.
 
 ## The rig and the clips
 
@@ -265,6 +283,178 @@ crown of separate pieces). ~1 s a kind at game quality.
   SET=trees`) over `tree.py`, the packer and every kind's SHAPE data (no
   colour: a retinted row moves no model) — but `blender.mjs` and `lib.py`
   are in both stamps, so touching them remakes the crafts too.
+
+## The undergrowth
+
+`KIND=undergrowth`, `ID=<kind>` (or `all`): ONE glTF a kind, FOUR variants
+(`v<i>`), no far sketch of its own — past `UNDER_FULL` (35 m) the shore
+draws THE CODE'S OWN SHAPE, which is the sketch already paid for. ~3 s a
+kind at game quality; the roster's thirty-four in two minutes.
+
+- **Which rows.** Every row of the cover roster that is not a tree: the
+  forms `bush`, `tuft`, `reed` and `stone` (`UNDER_FORMS`). A row is exactly
+  one of a tree's kind and one of these (`tests/undergrowth_models_test.ts`).
+- **The numbers are the code's.** `UNDER_SHAPE` is every proportion
+  `flora-shapes.ts` draws a bush, a tuft, a reed or a stone with, lifted out
+  of it — the code reads it from there, byte for byte the geometry it drew
+  before (hash every row's `buildFlora` before and after touching it). The
+  variants' DEPARTURES are the FORM's, not the kind's (`ROWS` in
+  `undergrowth-variants.ts`): a bush is a bush whether it is a sallow or a
+  sage, so one table of four serves every row of the form.
+- **Better than the code's, not a copy of it — that is the whole reason.**
+  A bush is a stool of woody shoots (`twig`) under a shell of lobed leaf
+  clusters over a shaded core — laid on a SPIRAL over the mound, even by
+  surface area; laid in rings by height they read as a stack of hedges —
+  and a mat (`dome` > 0.3) puts half its clusters over its crown; a column
+  (`dome` < −0.3) is mostly core with small tufts shagged over it. A tuft's
+  blade is CREASED (its two halves fall away from the midrib, each half's
+  normal leaning its own way, so a light catches one side), arching over,
+  narrower than the code's flat blade (a crease reads as width), with a
+  stiff seed stalk over some (`heads`, in the `bark` role blended to the
+  row's `stemHigh` — a cotton grass's white). A reed is a three-sided CANE
+  a tenth the code's blade across, one leaf, and a plume of two feathered
+  sprays. A stone is a faceted lump with per-face vertices (flat), its top
+  lit and its underside dark, every face its own mottle.
+- **Two-sided.** Every blade, leaf and spray is ONE face; the game draws the
+  undergrowth with `undergrowthMaterial` (`DoubleSide`), where a tree's
+  faces are culled. A cluster is still a closed shell.
+- **Budget** (triangles a variant, measured): a big bush 630–900, a small
+  one 220–340; a tuft 190–450; a reed 500–700; a stone 20–110. The code's
+  are 20–220. The suite caps each form (`BUDGET` in
+  `tests/undergrowth_models_test.ts`). The reach is the saving: a metre
+  plant is drawn to ~100 m and a heather mat to 40, so the thousands a coast
+  plants are mostly off-screen.
+- **In the game** (`flora.ts`): all four variants drawn whole to
+  `UNDER_FULL`, the code's shape beyond — a mesh a variant and one for the
+  far band, so +4 draws a kind a pass over the code. Drawn whole to the
+  reach instead, the karst's cruise frame went from 0.89M triangles to
+  1.95M: a coast plants thousands of these and most stand past 35 m (45 m still left the karst +45 %, 35 m +30 %). The
+  game dresses a stone's greys from its row's `leafLit` / `leafDark`
+  through the `leaf` role, as every other row.
+- **Stamped apart** (`undergrowthStamp`, `sources.json`'s `undergrowth`;
+  `make models SET=undergrowth`) over `undergrowth.py`, `foliage.py`, the
+  packer and every kind's SHAPE data — and `foliage.py` is in the trees'
+  stamp too, so touching the shelf remakes both sets.
+
+## The rocks
+
+`KIND=rock`, `ID=<kind>` (or `all`): the three kinds `rocks.ts` INSTANCES —
+the boulder, the erratic and the reef — four variants each, ONE glTF a kind.
+The sculpted kinds (the stacks, the skerries, the mark) stay the code's, and
+the reason is in `rock-variants.ts`'s header: each is carved in world space
+with its undercut at ITS OWN waterline, which is a different share of its
+height for every rock, and a shared model cannot carry it.
+
+- **The unit frame is the collider.** A lump within ±1 across, foot at −1,
+  crown at or under +1; `rocks.ts` scales it by the solid's radius across
+  and its half-height up (`ROCK_LUMP`, the code's numbers) and hangs it off
+  the model's own apex (`apexOf`), as it hung the code's sphere. The builder
+  pulls every vertex back inside the unit plan whatever the hashes did,
+  because the engine knows a solid as a cylinder of that radius
+  (`rock_models_test.ts` holds it).
+- **Rock, not a die.** Rings cut in by their own hash, going round and going
+  up; an angular row's rings TWISTED a little against each other and its
+  corners jogged in height, or a block is a hexagonal prism; a ridge along
+  a crown, a cleft pinched down the top, a pair out of one foot. Every face
+  its own vertices (flat), its shade off how much it faces up, mottled.
+- **No colour.** The vertex shade multiplies the coast's stone tint the
+  instance is painted with (`shore-paint.ts`), so one model serves granite
+  and limestone; `rock-models.ts` reads the tone's R alone.
+- **Budget**: 24–110 triangles a variant (the code's sphere is 40, the die
+  20). +3 draws a kind — a level has a few dozen of each.
+
+## The marks
+
+`KIND=mark`, `ID=gatemark` or `buoy` (or `all`): the two pieces of course
+furniture that have ONE shape — the rings and the ramps stay the code's,
+sized per gate and per level. Built to the very profiles the code lathes
+(`mark-shapes.ts`, which `gates.ts` and `buoys.ts` now read, lifted out of
+them), in the code's own frame: metres about the waterline, y up.
+
+- **Dressed a primitive a material.** The gate mark is one mesh (`mark`)
+  whose primitives are `hull` (the float and its strakes: the paint the
+  game colours per gate), `fitting` (the ironmongery) and `lens` (the glass
+  the lamp lights); `gates.ts` instances each exactly as it instanced its
+  own lathes, one instanced mesh a material, the code's separate rib
+  instances gone. The buoy is TWO meshes: `can` (`hull`, `band`, `fitting`),
+  which `buoys.ts` scales across by the solid's radius, and `tower`
+  (`tower`, `fitting`, `lens`), built with its foot at 0 for
+  `BUOY_REFERENCE` and stood on the shoulder, stretched to the solid's own
+  lantern height — `R.solids.buoy` deals a can 1.1–1.7 m and a lantern
+  3.2–4.6 m up, and one model at the middle of both bands stretched ±20 %
+  is a lattice nobody can tell from a built one.
+- **Better than the lathe.** A rolled bead round the float's shoulder, the
+  ribs as strakes sunk INTO the flank (a strake laid on the surface floats a
+  hair off it), a grab bar and a mooring eye, a cage of bars round every
+  lens; the can with a rolled rim and a welded seam, lifting lugs, the
+  tower's braces and platform, the lantern under a cap. Smooth-shaded
+  lathes (their rings share vertices), flat ironmongery (its own vertices a
+  face). A vertex's tone carries a SHADE alone: the dark under a collar.
+- **Budget**: ~1,000 triangles a mark at game quality (the code's mark is
+  ~600 with its ribs, the buoy ~900); the lens is a separate primitive so
+  the lamp still colours it per instance.
+
+## The birds
+
+`KIND=bird`, `ID=<id>` (or `all`): every species of the roster, ONE glTF
+each, ~330 triangles (the code's is ~140). Built off the row alone — its
+span, length, neck and wing — plus `bird-wing.ts`'s numbers, which
+`bird-shapes.ts` now reads (lifted out of it; hash every species'
+`buildBird` before and after touching it).
+
+- **The frame is the shader's.** `birds.ts` flaps and folds every wing
+  vertex per instance about lines in the CODE's frame — the shoulders at
+  the origin, the bill +z, the wings level along ±x, the wrist at `wrist` of
+  the half-span — so the model is stated in that frame exactly (Blender's z
+  up with the game's +z along −y, so the y-up export gives it back
+  untouched), its wings LEVEL, and `bird_models_test.ts` holds every flagged
+  vertex to y = 0. The WING FLAG rides in the tone's B (the packer takes no
+  attribute but position, normal and colour); `bird-models.ts` reads it
+  back out as `aWing`.
+- **Better than the dart.** A chest deep under the shoulders (a keel),
+  tapering to the tail root; the neck a curved tube; the head an ellipsoid
+  with a brow, the bill a cone to a point; the wing with a third vertex row
+  behind the leading edge and a little CAMBER over the arm, notched into
+  four primaries where the plan is broad (`taper` > 0.45); the tail fanned
+  into five feathers; legs as a thigh, a shank and a foot where the row has
+  them. Smooth-shaded: `birdMaterial(spec, true)`.
+- **Winding follows the normal.** A wing face laid lead→trail (−z) then
+  outboard (+x) winds DOWN; three's `DoubleSide` flips the normal on a back
+  face, so a top face wound the wrong way is lit from below — the first
+  render came back with black wings. The top face is the reversed one.
+- **Dressed by role** (`back`, `belly`, `tip`, `head`, `bill`, `tail`,
+  `legs` — `BIRD_ROLES`, read off `bird.py` by the suite) in the species'
+  own `BIRD_STYLES`, shaded by the tone's R.
+
+## The sea life
+
+`KIND=fauna`, `ID=<id>` (or `all`): every species of the catalog, ONE glTF
+each, ~320–400 triangles (the code's is ~100). Built off the catalog row
+(its kind, length and beam), the style's proportions (`height`, `dorsal`,
+`pectoral`, `tail`, the markings) and `fauna-body.ts` — the girth and the
+fins' places `fauna.ts` now reads (lifted out of it; hash every species'
+`buildBody` at both shades before and after touching it).
+
+- **The frame is the shader's.** One UNIT-LENGTH body, z −0.5 at the tail
+  to +0.5 at the nose, x the animal's right, y up: `fauna.ts` scales it by
+  the catalog's length and bends every vertex off z (`sTail = 0.5 − z`),
+  so a model stated anywhere else beats its tail about the wrong point.
+- **Painted by the game, twice.** The code paints an animal at two shades
+  and the shader slides between them by the water over it. A model cannot
+  carry two paints and a builder must not restate `hide`, so every hide
+  vertex carries WHERE IT IS instead — its station along the body in the
+  tone's R (0 tail, 1 nose) and how far up it in G (0 keel, 1 spine) — and
+  `faunaModel` calls the very `hide` the code paints its own body with, at
+  both shades, for `color` and `aDeep`. The fins carry roles alone (`fin`,
+  and `band` for a flipper's outer half).
+- **Better than the tube.** Fifteen stations by ten facets through the
+  code's own girth, with a lateral keel and a fuller belly; a snout to a
+  point; an eye each side; the dorsal a curved sail; the pectorals rounded
+  blades in three stations, banded past `bandFrom`; a fish's second dorsal
+  and anal fin, a shark's small second dorsal and its taller upper tail
+  lobe; flukes notched at the middle; a ray (`beam` > 0.9) a flat wing with
+  its body down the middle and a whip for a tail. Smooth-shaded
+  (`buildMaterial(…, true)`).
 
 ## Blender, headless
 

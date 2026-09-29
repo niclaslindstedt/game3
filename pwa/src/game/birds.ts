@@ -32,6 +32,7 @@ import {
   residentCount,
   type BirdPlan,
 } from "./bird-plan.ts";
+import { birdModel } from "./bird-models.ts";
 import { BIRD_STYLES, birdMaterial, buildBird } from "./bird-shapes.ts";
 
 /** How far from the LENS a flock is drawn at all, m, and how far a
@@ -74,14 +75,18 @@ export function createBirds(level: Level): Birds {
   for (const spec of BIRDS) {
     const capacity = residentCount(plan, spec.id) + crossingCapacity(plan, spec.id);
     if (capacity === 0) continue;
-    const geometry = buildBird(spec, BIRD_STYLES[spec.id]);
+    // The species' MODEL (`bird-models.ts`), dressed in its style, or the
+    // code's bird when the build draws none: the same frame, the same
+    // `aWing`, the same shader hinging both.
+    const model = birdModel(spec.id);
+    const geometry = model ?? buildBird(spec, BIRD_STYLES[spec.id]);
     const flaps = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
     flaps.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aFlap", flaps);
     const folds = new THREE.InstancedBufferAttribute(new Float32Array(capacity), 1);
     folds.setUsage(THREE.DynamicDrawUsage);
     geometry.setAttribute("aFold", folds);
-    const mesh = new THREE.InstancedMesh(geometry, birdMaterial(spec), capacity);
+    const mesh = new THREE.InstancedMesh(geometry, birdMaterial(spec, !!model), capacity);
     mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
     mesh.count = 0;
     // The instances move every frame and the mesh has no fixed extent, so

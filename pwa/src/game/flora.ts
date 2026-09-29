@@ -70,9 +70,15 @@
 // tile at a time off the same distance the reach is, so a tile is drawn in
 // one band or the other and never both, and its tiles are cut finer
 // (`TREE_TILE`) so the line between the two bands is not a hundred metres
-// wide. A row with no model — every bush, tuft, reed and stone, and every
-// tree on a build switched back — is ONE shape and ONE run a tile, exactly
-// the stand it always was.
+// wide. AND SO IS THE UNDERGROWTH — every bush, tuft, reed and stone row in
+// its four variants (`undergrowth-variants.ts`), all of them drawn to
+// `UNDER_FULL` metres, and past it THE CODE'S OWN SHAPE as the far band: a
+// bush's model is several times the code's triangles and a coast plants
+// thousands of them, so the models are spent where a rider can tell one
+// from the code's lump and nowhere else — measured, the karst's frame
+// doubled with the undergrowth drawn whole to its reach. A row with no model
+// — any plant on a build switched back — is ONE shape and ONE run a tile,
+// exactly the stand it always was.
 
 import * as THREE from "three";
 import { type Level } from "@engine";
@@ -81,14 +87,22 @@ import { FLORA } from "./flora-defs.ts";
 import { planFlora, type FloraSpot } from "./flora-plan.ts";
 import { buildFlora, floraMaterial } from "./flora-shapes.ts";
 import { coverReach, FLORA_SCALE } from "./settings-video.ts";
-import { hasTreeModel, treeMaterial, treeModel } from "./tree-models.ts";
+import { hasTreeModel, treeMaterial, treeModel, undergrowthMaterial } from "./tree-models.ts";
 import { isTreeForm, variantIndex } from "./tree-variants.ts";
+import { UNDER_VARIANTS, isUnderForm } from "./undergrowth-variants.ts";
 
 /** How far a modelled tree is drawn WHOLE, m; past it, its sketch. At this
  * range a ten-metre tree stands some forty pixels tall at the reference
  * frame (`coverReach`'s), where the sketch's handful of pads and clusters is
  * all the eye can still resolve of it. */
 export const TREE_FULL = 90;
+
+/** …and a piece of modelled undergrowth, m; past it, the code's own shape.
+ * A metre plant is under the pixel line by ~100 m, and at a third of that
+ * its model's clusters are the same handful of pixels the code's lumps are
+ * (measured: 45 m left the karst's cruise frame +45 % of triangles over the
+ * code's, 35 m +30 %). */
+export const UNDER_FULL = 35;
 
 /** How many of a kind's variants the whole band draws, and how many of their
  * sketches the far band does (variant `k` far is sketch `k` mod this): a
@@ -238,6 +252,7 @@ export function createFlora(level: Level): Flora {
   const spots = planFlora(level, FLORA_SCALE.lush);
   const material = floraMaterial();
   const modelled = treeMaterial();
+  const scrub = undergrowthMaterial();
   const stands: Stand[] = [];
   const shared: THREE.BufferGeometry[] = [];
   let dirty = true;
@@ -267,24 +282,29 @@ export function createFlora(level: Level): Flora {
   FLORA.forEach((spec, s) => {
     // A row the coast does not grow gets no mesh at all, not an empty one.
     if (!spec.biomes.includes(level.biome)) return;
-    // A tree with its model loaded is its variants in two bands; anything
-    // else is the code's one shape, seeded off the species' PLACE in the
-    // roster, so a row's shape does not change because another row was added
-    // above it.
-    const model = isTreeForm(spec.look.form) && hasTreeModel(spec.id);
+    // A tree with its model loaded is its variants in two bands, a piece of
+    // undergrowth with its model its variants in one; anything else is the
+    // code's one shape, seeded off the species' PLACE in the roster, so a
+    // row's shape does not change because another row was added above it.
+    const tree = isTreeForm(spec.look.form) && hasTreeModel(spec.id);
+    const under = isUnderForm(spec.look.form) && hasTreeModel(spec.id);
+    const shapes = tree ? TREE_SHAPES : under ? UNDER_VARIANTS : 1;
     const fulls: THREE.BufferGeometry[] = [];
     const sketches: THREE.BufferGeometry[] = [];
-    if (model) {
-      for (let v = 0; v < TREE_SHAPES; v++) {
+    if (tree || under) {
+      for (let v = 0; v < shapes; v++) {
         const whole = treeModel(spec.id, v);
-        const sketch = v < TREE_SKETCHES ? treeModel(spec.id, v, true) : null;
-        if (!whole || (v < TREE_SKETCHES && !sketch)) break;
+        const sketch = tree && v < TREE_SKETCHES ? treeModel(spec.id, v, true) : null;
+        if (!whole || (tree && v < TREE_SKETCHES && !sketch)) break;
         fulls.push(whole);
         if (sketch) sketches.push(sketch);
       }
     }
-    const variants = model && fulls.length === TREE_SHAPES ? TREE_SHAPES : 1;
-    const geometries = variants > 1 ? fulls : [buildFlora(spec.look, s * 7919 + 13)];
+    const variants = fulls.length === shapes ? shapes : 1;
+    const code = buildFlora(spec.look, s * 7919 + 13);
+    const geometries = variants > 1 ? fulls : [code];
+    // The undergrowth's far band is the code's one shape.
+    if (variants > 1 && under) sketches.push(code);
     shared.push(...geometries, ...(variants > 1 ? sketches : []));
     // The geometry stands at unit height and is scaled by each plant's own,
     // so how far it reaches from its foot scales with it: the sphere's own
@@ -302,15 +322,17 @@ export function createFlora(level: Level): Flora {
     const roster = spots[s];
     const total = roster.length;
     const place = new Map(roster.map((p, i) => [p, i]));
-    const shapeAt = (p: FloraSpot): number =>
-      variants > 1 ? variantIndex(p.x, p.z, TREE_SHAPES) : 0;
+    const shapeAt = (p: FloraSpot): number => (variants > 1 ? variantIndex(p.x, p.z, variants) : 0);
     const counts = new Array<number>(variants).fill(0);
     for (const p of roster) counts[shapeAt(p)]++;
     const matrices = new Float32Array(Math.max(1, total) * 16);
     const tints = new Float32Array(Math.max(1, total) * 3);
     const tiles: Tile[] = [];
     let at = 0;
-    for (const list of tileSpots(roster, variants > 1 ? TREE_TILE : floraTile(reach))) {
+    for (const list of tileSpots(
+      roster,
+      sketches.length ? Math.min(TREE_TILE, floraTile(reach)) : floraTile(reach),
+    )) {
       let cx = 0;
       let cy = 0;
       let cz = 0;
@@ -360,16 +382,18 @@ export function createFlora(level: Level): Flora {
         far: false,
       });
     }
-    const mat = variants > 1 ? modelled : material;
+    const mat = variants > 1 ? (tree ? modelled : scrub) : material;
     const near = geometries.map((g, k) => shapeOf(g, mat, counts[k]));
-    // A sketch stands in for every variant that maps onto it.
+    // A sketch stands in for every variant that maps onto it — a tree's two
+    // in the model's material, the undergrowth's one code shape in the
+    // code's.
     const far =
-      variants > 1
+      sketches.length > 0
         ? sketches.map((g, j) =>
             shapeOf(
               g,
-              mat,
-              counts.reduce((sum, c, k) => sum + (k % TREE_SKETCHES === j ? c : 0), 0),
+              tree ? mat : material,
+              counts.reduce((sum, c, k) => sum + (k % sketches.length === j ? c : 0), 0),
             ),
           )
         : null;
@@ -382,7 +406,7 @@ export function createFlora(level: Level): Flora {
       tiles,
       total,
       reach,
-      full: far ? TREE_FULL : Infinity,
+      full: far ? (tree ? TREE_FULL : UNDER_FULL) : Infinity,
     });
   });
 
@@ -492,6 +516,7 @@ export function createFlora(level: Level): Flora {
       for (const g of shared) g.dispose();
       material.dispose();
       modelled.dispose();
+      scrub.dispose();
     },
   };
 }
