@@ -308,6 +308,10 @@ crown of separate pieces). ~1 s a kind at game quality.
    into the game's frame in the lab, not the model. Update this skill's
    table and the README's `make blender` row.
 
+## The registry
+
+`pwa/src/game/model-registry.ts` is the one list of every kind of object the game draws and whether what the player sees is a Blender model or code — its ids, its code builder (always one: the switch's other side), its Blender builder, committed files and switch when modelled. `docs/models.md` is its table (`make model-registry`), and `tests/model_registry_test.ts` holds the Blender rows to exactly what `modelFiles` packs. **Modelling a kind is a row flipped from `code` to `blender` in the same change that ships its models**; the suite fails until the row, the files and the page agree.
+
 ## The models in the game
 
 Every build draws them — local, CI, the site's slots, a release, the

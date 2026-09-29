@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts blender models ci-models audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata check-licenses
+.PHONY: model-registry build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts blender models ci-models audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata check-licenses
 
 build:
 	npm run build
@@ -242,6 +242,12 @@ models:
 	@if [ "$(SET)" != "machines" ]; then \
 	  npm run blender -- --kind tree --id all --quality=game --views=none; fi
 	node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/models.mjs $(if $(SET),--set $(SET),)
+
+# THE MODEL REGISTRY: which assets are Blender models and which the code
+# generates, written into docs/models.md from pwa/src/game/model-registry.ts.
+# `make model-registry` · `make model-registry ARGS=--check`
+model-registry:
+	npm run model-registry -- $(ARGS)
 
 # Switch the models off or on for every CI build — the repository SECRETS
 # the workflows hand the build (this repository keeps no Actions variables;

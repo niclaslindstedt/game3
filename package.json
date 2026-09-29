@@ -52,6 +52,7 @@
     "rate": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/rate-level.mjs",
     "difficulty": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/difficulty-preview.mjs",
     "routes": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/shore-routes.mjs",
+    "model-registry": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/model-registry.mjs",
     "coasts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coast-preview.mjs"
   },
   "dependencies": {
