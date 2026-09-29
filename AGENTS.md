@@ -19,6 +19,7 @@ make test         # vitest over the engine (SHARD=i/N slices it; CI runs four)
 make lint         # eslint + typecheck, zero warnings
 make fmt          # prettier in place; fmt-check is what CI runs
 make hooks        # install pre-commit + commit-msg hooks
+make licences     # every dependency's licence against the fleet's allow-list (CI gate)
 make icons        # regenerate icons/favicon from the app mark
 make previews     # the cards' pictures: the layouts (routes) and the coast banners (coasts)
 make tauri-test   # the desktop shell's decision layer (Rust; needs no GUI libraries)
@@ -135,7 +136,7 @@ What IS generated is generated, and **a generated artifact is never hand-edited*
 
 ## The framework
 
-The parts this game shares with its sibling games — `game2` (rally) and `game4` (snowmobiles) — are one package, [`@niclaslindstedt/oss-game-framework`](https://github.com/niclaslindstedt/oss-game-framework), a git dependency on a release TAG in the root `package.json` (`github:niclaslindstedt/oss-game-framework#vX.Y.Z`, `dist/` committed there, so an install runs no build). It is this game's own code, lifted out so a fix lands once, under this repository's licence (`scripts/check-licenses.mjs` allows the family's scope on exactly that licence). What comes from it:
+The parts this game shares with its sibling games — `game2` (rally) and `game4` (snowmobiles) — are one package, [`@niclaslindstedt/oss-game-framework`](https://github.com/niclaslindstedt/oss-game-framework), a git dependency on a release TAG in the root `package.json` (`github:niclaslindstedt/oss-game-framework#vX.Y.Z`, `dist/` committed there, so an install runs no build). It is this game's own code, lifted out so a fix lands once, under this repository's licence (`scripts/check-licences.mjs` allows the family's scope on exactly that licence). What comes from it:
 
 - **`core/*`** — the seeded PRNG, the math pool (with a `hypot` that is `Math.hypot` bit for bit), value noise, the heightfield, the polyline distances, the quaternion, the sun's astronomy (`solar` — WHEN in the year this game's seasons fall is ours, `engine/mapgen/seasons.ts`), the one clock and the output module. **`racing/*`** — the control tape's codec (`ghost.ts` names the axes), the record book's policy (`records.ts` names the rows), the field's standings (`rivals.ts` reduces each run to a standing).
 - **For the app**: the synthesized instrument (`audio/*`; `pwa/src/game/audio/bus.ts` builds the one synth and its fader), the screenshot roll, its store, the thumbnails, sharing, the stamp and the HUD raster (`shots/*`), the update watch (`pwa/pwa-update`), the canvas and visible-window sizing (`display/*`), the thumb guard, the in-run press and the menu cursor (`input/*`), the race clock's formatting and the counting figure (`hud/*`), and the fixed-step run clock (`loop/run-clock`).
