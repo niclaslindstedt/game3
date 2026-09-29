@@ -18,6 +18,13 @@
 // a clear sky, because a canopy painted lit-over-dark is only honest under
 // a light that comes from above.
 //
+// `?models=1` draws every tree-form row off its MODEL (`tree-models.ts`, the
+// glTFs the lab copied beside the page) as the shore does — its first two
+// variants for the pair — and `?models=compare` draws the TREES alone, a row
+// a kind: the code's tree, then each of its variants whole, then two of the
+// sketches the far band draws, all at the top of the kind's band and seen
+// from a rider's eye on the water, triangles under each.
+//
 // Sets `window.__done` when the sheet is on screen, which is what the
 // driving script waits for.
 
@@ -25,8 +32,10 @@ import * as THREE from "three";
 
 import { isBiomeId } from "@engine";
 
-import { FLORA, floraOf } from "../game/flora-defs.ts";
+import { FLORA, floraOf, type FloraSpec } from "../game/flora-defs.ts";
 import { buildFlora, floraMaterial } from "../game/flora-shapes.ts";
+import { loadTreeModels, treeMaterial, treeModel } from "../game/tree-models.ts";
+import { TREE_VARIANTS, VARIANTS, isTreeForm } from "../game/tree-variants.ts";
 import { PALETTE } from "../identity.ts";
 
 /** One cell, px. Tall, because so is a spruce. */
@@ -75,8 +84,88 @@ function rule(height: number): THREE.Group {
   return group;
 }
 
-function main(): void {
+const MODELS = new URLSearchParams(location.search).get("models");
+
+/** How many sketches the compare sheet shows a kind. */
+const SKETCHES = 2;
+
+/** The compare sheet: a row a tree kind — the code's tree, its variants
+ * whole, two sketches — each at the top of the kind's height band, seen from
+ * a rider's eye on the water. */
+function compare(roster: readonly FloraSpec[]): void {
+  const kinds = roster.filter((s) => isTreeForm(s.look.form));
+  const cols = 1 + VARIANTS + SKETCHES;
+  const sheetCanvas = document.getElementById("stage") as HTMLCanvasElement;
+  sheetCanvas.width = CELL_W * cols;
+  sheetCanvas.height = CELL_H * kinds.length;
+  const sheet = sheetCanvas.getContext("2d") as CanvasRenderingContext2D;
+  const cell = document.createElement("canvas");
+  const renderer = new THREE.WebGLRenderer({ canvas: cell, antialias: true });
+  renderer.setSize(CELL_W, CELL_H, false);
+  renderer.setClearColor(0x9fb9cc);
+  const labels = document.getElementById("labels") as HTMLDivElement;
+  const addLabel = (text: string, col: number, row: number, dy: number, cls = ""): void => {
+    const div = document.createElement("div");
+    div.className = `label ${cls}`.trim();
+    div.textContent = text;
+    div.style.left = `${col * CELL_W}px`;
+    div.style.top = `${row * CELL_H + dy}px`;
+    labels.appendChild(div);
+  };
+  const code = floraMaterial();
+  const modelled = treeMaterial();
+  kinds.forEach((spec, row) => {
+    const s = FLORA.indexOf(spec);
+    const h = spec.look.height.max;
+    for (let col = 0; col < cols; col++) {
+      const variant = col === 0 ? -1 : col <= VARIANTS ? col - 1 : col - 1 - VARIANTS;
+      const far = col > VARIANTS;
+      const geometry =
+        col === 0 ? buildFlora(spec.look, s * 7919 + 13) : treeModel(spec.id, variant, far);
+      const scene = new THREE.Scene();
+      scene.add(new THREE.HemisphereLight(0xdfeef6, 0x6b6f66, 1.5));
+      const key = new THREE.DirectionalLight(0xfff2dc, 1.9);
+      key.position.set(-0.55, 0.72, 0.42);
+      scene.add(key);
+      scene.add(groundPlane(Math.max(h * 40, 120)));
+      if (geometry) {
+        const mesh = new THREE.Mesh(geometry, col === 0 ? code : modelled);
+        mesh.scale.setScalar(h);
+        mesh.rotation.y = 0.5;
+        scene.add(mesh);
+      }
+      // A rider's eye: a metre and a half over the water, far enough off that
+      // the whole tree and its crown's spread fit the lens.
+      const camera = new THREE.PerspectiveCamera(38, CELL_W / CELL_H, 0.5, h * 30);
+      const dist = h * 1.75 + 4;
+      camera.position.set(dist * 0.35, 1.5, dist);
+      camera.lookAt(0, h * 0.5, 0);
+      renderer.render(scene, camera);
+      sheet.drawImage(cell, col * CELL_W, row * CELL_H);
+      const tris = geometry
+        ? (geometry.index?.count ?? geometry.getAttribute("position").count) / 3
+        : 0;
+      const name =
+        col === 0 ? "code" : `${TREE_VARIANTS[spec.id][variant].name}${far ? " · sketch" : ""}`;
+      addLabel(
+        col === 0 ? spec.name : `${spec.id} ${variant}${geometry ? "" : " · NO MODEL"}`,
+        col,
+        row,
+        6,
+      );
+      addLabel(`${name} · ${tris} tris`, col, row, CELL_H - 26, "foot");
+      if (col === 0) geometry?.dispose();
+    }
+  });
+  renderer.dispose();
+  cell.remove();
+  (window as unknown as { __done: boolean }).__done = true;
+}
+
+async function main(): Promise<void> {
   const roster = chosen();
+  if (MODELS) await loadTreeModels("./");
+  if (MODELS === "compare") return compare(roster);
   const rows = Math.ceil(roster.length / COLS);
   const sheetCanvas = document.getElementById("stage") as HTMLCanvasElement;
   sheetCanvas.width = CELL_W * Math.min(COLS, roster.length);
@@ -102,6 +191,7 @@ function main(): void {
   };
 
   const material = floraMaterial();
+  const modelMaterial = treeMaterial();
   roster.forEach((spec, i) => {
     const col = i % COLS;
     const row = Math.floor(i / COLS);
@@ -113,14 +203,20 @@ function main(): void {
     key.position.set(-0.55, 0.72, 0.42);
     scene.add(key);
 
-    const geometry = buildFlora(spec.look, i * 7919 + 13);
+    const tree = MODELS === "1" && isTreeForm(spec.look.form);
+    const code = buildFlora(spec.look, i * 7919 + 13);
+    const geometry = (tree && treeModel(spec.id, 0)) || code;
+    const second = (tree && treeModel(spec.id, 1)) || geometry;
     // The pair stand either side of centre, far enough apart that the wide
     // ones do not grow into each other, with the rule outboard of the tall
     // one.
     const half = max * spec.look.spread * 0.5;
     const gap = half + Math.max(half * 0.35, max * 0.1);
     for (const [k, h] of [min, max].entries()) {
-      const mesh = new THREE.Mesh(geometry, material);
+      const mesh = new THREE.Mesh(
+        k === 0 ? geometry : second,
+        geometry === code ? material : modelMaterial,
+      );
       mesh.scale.setScalar(h);
       mesh.position.set((k * 2 - 1) * gap, spec.look.form === "stone" ? -h * 0.42 : 0, 0);
       mesh.rotation.y = k * 1.1;
@@ -168,7 +264,7 @@ function main(): void {
       CELL_H - 26,
       "foot",
     );
-    geometry.dispose();
+    code.dispose();
   });
 
   renderer.dispose();
@@ -176,7 +272,7 @@ function main(): void {
   (window as unknown as { __done: boolean }).__done = true;
 }
 
-main();
+void main();
 
 // Keeps the three import from being tree-shaken, and leaves the version where
 // a harness or a devtools session can read it when a cell comes back black.

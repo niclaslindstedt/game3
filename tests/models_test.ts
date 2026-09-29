@@ -16,12 +16,13 @@ import { describe, expect, it } from "vitest";
 import { CRAFT_IDS } from "@engine";
 
 import { MODELS_DIR, modelFiles } from "../pwa/models-plugin.ts";
-import { modelStamp } from "../pwa/models-stamp.ts";
+import { modelStamp, treeStamp } from "../pwa/models-stamp.ts";
 import { dressOf } from "../pwa/src/game/craft-models.ts";
 import { CRAFT_STYLES } from "../pwa/src/game/craft-styles.ts";
 import { FINISH } from "../pwa/src/game/craft-surface.ts";
 import { modelSwitch } from "../pwa/src/game/model-switch.ts";
 import { PAINT, RIDER_FINISH } from "../pwa/src/game/rider.ts";
+import { TREE_KINDS } from "../pwa/src/game/tree-variants.ts";
 
 const root = join(import.meta.dirname, "..");
 const builder = (file: string): string =>
@@ -37,21 +38,31 @@ const kitNames = (): string[] => {
 const kit = { paint: PAINT, finish: RIDER_FINISH };
 
 describe("the models the game ships", () => {
-  const all = modelFiles({ crafts: true, riders: true });
+  const all = modelFiles({ crafts: true, riders: true, trees: true });
 
-  it("are every craft under its id and one rider", () => {
-    expect([...all].sort()).toEqual([...CRAFT_IDS.map((id) => `${id}.glb`), "rider.glb"].sort());
-    expect(modelFiles({ crafts: false, riders: true })).toEqual(["rider.glb"]);
-    expect(modelFiles({ crafts: false, riders: false })).toEqual([]);
+  it("are every craft under its id, one rider and every kind of tree", () => {
+    expect([...all].sort()).toEqual(
+      [
+        ...CRAFT_IDS.map((id) => `${id}.glb`),
+        "rider.glb",
+        ...TREE_KINDS.map((k) => `trees/${k}.glb`),
+      ].sort(),
+    );
+    expect(modelFiles({ crafts: false, riders: true, trees: false })).toEqual(["rider.glb"]);
+    expect(modelFiles({ crafts: false, riders: false, trees: true })).toEqual(
+      TREE_KINDS.map((k) => `trees/${k}.glb`),
+    );
+    expect(modelFiles({ crafts: false, riders: false, trees: false })).toEqual([]);
   });
 
   it("are all committed, each within its budget", () => {
     for (const f of all) {
       const at = join(root, MODELS_DIR, f);
       expect(existsSync(at), `${MODELS_DIR}/${f} — run \`make models\``).toBe(true);
-      // A craft's LOD0 is ~0.6 MB, the rider's ~0.5 MB: a model grown past
-      // this is a builder that lost its game budget.
-      const budget = f === "rider.glb" ? 900_000 : 1_600_000;
+      // A craft's LOD0 is ~0.6 MB, the rider's ~0.5 MB, a kind of tree's
+      // (packed) under 0.1 MB: a model grown past this is a builder that lost
+      // its game budget.
+      const budget = f.startsWith("trees/") ? 250_000 : f === "rider.glb" ? 900_000 : 1_600_000;
       expect(statSync(at).size, f).toBeLessThan(budget);
     }
   });
@@ -59,11 +70,16 @@ describe("the models the game ships", () => {
   it("are no older than what they are made from", () => {
     const stamp = JSON.parse(readFileSync(join(root, MODELS_DIR, "sources.json"), "utf8")) as {
       sources: string;
+      trees: string;
     };
     expect(
       stamp.sources,
       "a builder, or the game's data a model is made of, moved since the models were made — run `make models` and commit pwa/models/",
     ).toBe(modelStamp(root));
+    expect(
+      stamp.trees,
+      "the tree builder, or a tree kind's rows, moved since the trees were made — run `make models SET=trees` and commit pwa/models/",
+    ).toBe(treeStamp(root));
   });
 });
 

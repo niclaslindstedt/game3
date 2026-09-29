@@ -41,6 +41,7 @@ concurrency:
 env:
   VITE_MODEL_CRAFTS: ${{ secrets.VITE_MODEL_CRAFTS }}
   VITE_MODEL_RIDERS: ${{ secrets.VITE_MODEL_RIDERS }}
+  VITE_MODEL_TREES: ${{ secrets.VITE_MODEL_TREES }}
 
 jobs:
   # The suite is the long pole, so it is the one thing that gets its own

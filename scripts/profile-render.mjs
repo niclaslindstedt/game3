@@ -53,6 +53,10 @@ const args = parseArgs(
     scene: { kind: "string", help: `only this scene (${SCENES.join(", ")})` },
     seed: { kind: "number", default: 38, help: "level seed" },
     craft: { kind: "string", default: "skiff", help: "craft id" },
+    biome: {
+      kind: "string",
+      help: "the coast (taiga, mangrove, arctic, karst); the seed's own when left out",
+    },
     window: { kind: "number", default: 6, help: "seconds metered per scene" },
     // THE PICTURE ROWS (pwa/src/game/settings-video.ts). The whole point of a
     // picture ladder is what it costs, and this is where that is read: the
@@ -165,6 +169,7 @@ for (const scene of scenes) {
     scene,
     shot: "0",
   });
+  if (args.biome) params.set("biome", args.biome);
   for (const row of ["water", "res", "detail", "distance", "see", "mirror", "fps"]) {
     if (args[row] !== undefined) params.set(row, String(args[row]));
   }

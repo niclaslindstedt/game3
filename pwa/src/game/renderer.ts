@@ -100,8 +100,8 @@ function nameWater(mesh: WaterMesh): void {
  * imported from here would drag three.js into a suite that runs on plain
  * Node. Re-exported so nothing outside has to know that. */
 export type { FrameCost, SceneShare };
-/** The modelled crafts and rider, fetched before the first hull is built. */
-export { loadModels } from "./craft-models.ts";
+/** The modelled crafts, rider and trees, fetched before the first build. */
+export { loadModels } from "./load-models.ts";
 
 export type GameRenderer = {
   /** Draw the state. `dt` is the frame's wall time, s, for the camera's

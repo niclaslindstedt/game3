@@ -10,6 +10,12 @@
 // committed with it, and a change to nothing a model reads (a sea-state
 // number in `TUNING`, say) moves nothing.
 //
+// THE TREES ARE STAMPED APART (`treeStamp`): their builder, the shelf and
+// the driver, the packer every published tree goes through, and every
+// kind's SHAPE data (`treeModelData` — no colour, which the game dresses a
+// model in), so a tree remade never asks for the crafts to be, nor the other
+// way round; `blender.mjs` and `lib.py` are in both lists.
+//
 // The numbers are hashed at a hundredth of a millimetre: a figure that
 // differs in its last bits between two machines' maths is not a model that
 // moved.
@@ -18,7 +24,13 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-import { MODELLED_CRAFTS, craftModelData, riderModelData } from "./src/game/model-data.ts";
+import {
+  MODELLED_CRAFTS,
+  MODELLED_TREES,
+  craftModelData,
+  riderModelData,
+  treeModelData,
+} from "./src/game/model-data.ts";
 
 /** The builders and the driver, from the repository's root. */
 export const MODEL_BUILDERS = [
@@ -26,6 +38,14 @@ export const MODEL_BUILDERS = [
   "scripts/blender/lib.py",
   "scripts/blender/craft.py",
   "scripts/blender/rider.py",
+];
+
+/** …and the trees'. */
+export const TREE_BUILDERS = [
+  "scripts/blender.mjs",
+  "scripts/blender/lib.py",
+  "scripts/blender/tree.py",
+  "scripts/lib/glb-pack.mjs",
 ];
 
 const rounded = (_key: string, v: unknown): unknown =>
@@ -36,11 +56,23 @@ const rounded = (_key: string, v: unknown): unknown =>
  * nothing). */
 export function modelStamp(root: string): string {
   const h = createHash("sha256");
-  for (const f of MODEL_BUILDERS) {
-    h.update(`${f}\n`);
-    h.update(readFileSync(join(root, f), "utf8").replaceAll("\r", ""));
-  }
+  texts(h, root, MODEL_BUILDERS);
   for (const id of MODELLED_CRAFTS) h.update(JSON.stringify(craftModelData(id), rounded));
   h.update(JSON.stringify(riderModelData(), rounded));
   return h.digest("hex");
+}
+
+/** The hash every committed TREE is stamped with, from `root`. */
+export function treeStamp(root: string): string {
+  const h = createHash("sha256");
+  texts(h, root, TREE_BUILDERS);
+  for (const kind of MODELLED_TREES) h.update(JSON.stringify(treeModelData(kind), rounded));
+  return h.digest("hex");
+}
+
+function texts(h: ReturnType<typeof createHash>, root: string, files: readonly string[]): void {
+  for (const f of files) {
+    h.update(`${f}\n`);
+    h.update(readFileSync(join(root, f), "utf8").replaceAll("\r", ""));
+  }
 }

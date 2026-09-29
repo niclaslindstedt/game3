@@ -2,9 +2,15 @@
 # THE BLENDER SHELF: what every modelled asset is built from — the scene, the
 # materials, the lofts and tubes and boxes a part is made of, the studio it is
 # photographed in, and the export to the game's budget with its LODs. One
-# builder per KIND of asset (`craft.py`, `rider.py`) imports it;
+# builder per KIND of asset (`craft.py`, `rider.py`, `tree.py`) imports it;
 # `scripts/blender.mjs` is how any of them is run, and the `blender-assets`
-# skill owns the loop.
+# skill owns the loop. The sibling snowmobile game's shelf is the pattern,
+# with three additions of this game's: a clip keyed as `turns` about axes,
+# Cycles on the CPU except on macOS (Metal), and a studio on the water.
+#
+# A kind with no rig (a tree: the shore instances it) builds its own meshes
+# and exports them itself, and takes from here only the scene, `mat`, the
+# selection and the Cycles setup.
 #
 # Every builder states its asset in the frame the game's own data is in and
 # leaves the turn onto the game's frame to whoever loads the glTF.

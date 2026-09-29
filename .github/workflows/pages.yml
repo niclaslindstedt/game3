@@ -72,6 +72,7 @@ env:
   # (`make ci-models MODELS=off`).
   VITE_MODEL_CRAFTS: ${{ secrets.VITE_MODEL_CRAFTS }}
   VITE_MODEL_RIDERS: ${{ secrets.VITE_MODEL_RIDERS }}
+  VITE_MODEL_TREES: ${{ secrets.VITE_MODEL_TREES }}
 
 jobs:
   # ---- Which ref each slot is built from -----------------------------------

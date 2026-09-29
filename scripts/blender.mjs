@@ -20,6 +20,8 @@
 //   node scripts/blender.mjs --id=dart --quality=game
 //   node scripts/blender.mjs --id=all --quality=game   every craft, one after another
 //   node scripts/blender.mjs --kind=rider --quality=render --views=three,side --samples=24
+//   node scripts/blender.mjs --kind=tree --id=birch --quality=render --views=row --samples=16
+//   node scripts/blender.mjs --kind=tree --id=all --quality=game --views=none   every tree kind
 //
 // Blender is looked for at `BLENDER`, then the macOS app, then `blender` on
 // the PATH. It is run with `--python-use-system-env` and
@@ -61,6 +63,21 @@ const KINDS = {
     builder: "rider.py",
     fallback: "rider",
   },
+  // A KIND of tree — every tree-form row of the cover roster: its six
+  // variants (`tree-variants.ts`) with each one's silhouette sampled off
+  // `crownAt`, the proportions the code's builder draws its form with, the
+  // height a model is made at — and, for the stills alone, its own colours
+  // in linear light. The game dresses a model by its materials' names, so
+  // the glTF carries none.
+  tree: {
+    ids: async () => (await data()).MODELLED_TREES,
+    data: async (id) => {
+      const d = await data();
+      return { ...d.treeModelData(id), paint: d.treeStillPaint(id) };
+    },
+    builder: "tree.py",
+    fallback: "pine",
+  },
 };
 
 const args = parseArgs(
@@ -74,7 +91,7 @@ const args = parseArgs(
     id: {
       kind: "string",
       default: "",
-      help: "which one (a craft's id), or all; the kind's default (skiff) when left out",
+      help: "which one (a craft's id, a tree kind's), or all; the kind's default (skiff, pine) when left out",
     },
     quality: {
       kind: "string",
@@ -84,7 +101,7 @@ const args = parseArgs(
     views: {
       kind: "string",
       default: "",
-      help: "only these cameras (side,three,rear3,chase,detail), or none; every one when left out",
+      help: "only these cameras (side,three,rear3,chase,detail; a tree's row,far,close), or none; every one when left out",
     },
     samples: { kind: "number", default: 64, help: "Cycles samples a still" },
     out: { kind: "string", default: "previews/blender", help: "where everything is written" },

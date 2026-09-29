@@ -62,13 +62,15 @@ const version = process.env.GITHUB_SHA ? buildLabel : `${buildLabel}+${new Date(
 const envDir = here("..");
 
 export default defineConfig(({ mode }) => {
-  // The MODEL switches (`models-plugin.ts`, `src/game/craft-models.ts`): on
+  // The MODEL switches (`models-plugin.ts`, `src/game/craft-models.ts`,
+  // `src/game/tree-models.ts`): on
   // unless the environment or the root `.env` switches one back
   // (`src/game/model-switch.ts`).
   const env = { ...loadEnv(mode, envDir, "VITE_"), ...process.env };
   const models = {
     crafts: modelSwitch(env.VITE_MODEL_CRAFTS),
     riders: modelSwitch(env.VITE_MODEL_RIDERS),
+    trees: modelSwitch(env.VITE_MODEL_TREES),
   };
   return {
     base,
