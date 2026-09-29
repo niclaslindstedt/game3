@@ -135,7 +135,7 @@ More in [docs/troubleshooting.md](docs/troubleshooting.md).
 
 ## Architecture
 
-Three layers, one direction of dependency: `engine/` is the whole game as a framework-free, renderer-free TypeScript module (the water, the wind, the craft, the course, the level generator, the bot and the analyzer — fixed 120 Hz steps, deterministic per seed); `pwa/` is the browser shell (Preact, three.js, the HUD, the PWA plumbing) that reads the engine's state and never steps it; `tests/` and `scripts/` sit beside them. [docs/architecture.md](docs/architecture.md) is the map; [AGENTS.md](AGENTS.md) is where new code goes.
+Three layers, one direction of dependency: `engine/` is the whole game as a UI-framework-free, renderer-free TypeScript module (the water, the wind, the craft, the course, the level generator, the bot and the analyzer — fixed 120 Hz steps, deterministic per seed); `pwa/` is the browser shell (Preact, three.js, the HUD, the PWA plumbing) that reads the engine's state and never steps it; `tests/` and `scripts/` sit beside them. What this game shares with its sibling games — the deterministic core (the PRNG, the math pool, the sun), the control tape, the synthesized instrument, the screenshot roll, the lab shelf and the release plumbing — comes from one package, [`@niclaslindstedt/oss-game-framework`](https://github.com/niclaslindstedt/oss-game-framework), on a release tag. [docs/architecture.md](docs/architecture.md) is the map; [AGENTS.md](AGENTS.md) is where new code goes.
 
 ## Documentation
 

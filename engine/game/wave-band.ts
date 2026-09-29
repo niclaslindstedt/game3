@@ -32,9 +32,9 @@
 // and `water.ts` samples what comes out. What the bed then does to each
 // component is `wave-bed.ts`.
 
-import { clamp, TAU } from "../lib/math.ts";
-import type { Rng } from "../lib/prng.ts";
-import { type Heightfield } from "../lib/heightfield.ts";
+import { clamp, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
+import { type Heightfield } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { TUNING } from "./defs/tuning.ts";
 import { buildPhaseField, buildTable } from "./wave-bed.ts";
 import type { WaveBand, WaveComponent } from "./water.ts";

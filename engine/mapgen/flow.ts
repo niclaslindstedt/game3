@@ -39,7 +39,11 @@
 // the flow is nothing over nine tenths of a level and a field of zeroes is
 // a megabyte spent saying so.
 
-import { createHeightfield, sampleField, type Heightfield } from "../lib/heightfield.ts";
+import {
+  createHeightfield,
+  sampleField,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import type { River } from "./river.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { Flow } from "./types.ts";

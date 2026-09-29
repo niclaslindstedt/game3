@@ -1,7 +1,7 @@
 ---
 title: A probe that opens the app's IndexedDB first destroys what it measures, and a receipt cannot tell two presses apart
 date: 2026-09-11
-scope: previews/, pwa/src/lib/shot-store.ts
+scope: previews/, pwa/src/game/screenshots.ts
 concepts: [screenshots, playwright, probe, indexeddb, storage]
 ---
 

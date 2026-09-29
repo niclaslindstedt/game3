@@ -31,7 +31,7 @@
 // their LEVEL on a period rather than their pitch. A sea that ticks is a
 // sea from a different game.
 
-import type { LayerSpec, LayerTarget } from "../../lib/voice.ts";
+import type { LayerSpec, LayerTarget } from "@niclaslindstedt/oss-game-framework/audio/voice";
 
 /** The speed at which a hull stops pushing water and starts riding over it,
  * m/s — the hump. Below it the wash is the sound; above it the spray is. */

@@ -22,7 +22,7 @@
 // beside the rider's own settings.
 //
 // THE PICTURES ARE THE EXCEPTION IT FOLLOWS RATHER THAN BREAKS: the shot roll
-// is in IndexedDB because a PNG is hundreds of kilobytes (`shot-store.ts`).
+// is in IndexedDB because a PNG is hundreds of kilobytes (the framework's `shots/shot-store`).
 // A run is a few tens of kilobytes of numbers, which is what localStorage is
 // for, and losing the history to a full store is a comparison somebody has to
 // take again rather than a picture that is gone.

@@ -22,8 +22,6 @@ import {
 import {
   GHOST_FORMAT,
   createGhostRecorder,
-  decodeStream,
-  encodeStream,
   forgetStrayGhosts,
   ghostMatches,
   ghostStage,
@@ -85,25 +83,19 @@ describe("an axis on the tape's grid", () => {
   });
 });
 
-describe("the stream", () => {
-  it("round-trips whatever is in it, held still or never still", () => {
-    const held = new Array(1000).fill(7) as number[];
-    expect([...decodeStream(encodeStream(held), held.length)]).toEqual(held);
-    const churning = Array.from({ length: 1000 }, (_v, i) => (i * 37) % 256);
-    expect([...decodeStream(encodeStream(churning), churning.length)]).toEqual(churning);
-  });
-
-  it("carries a run longer than one byte can count", () => {
-    const long = new Array(900).fill(3) as number[];
-    expect([...decodeStream(encodeStream(long), long.length)]).toEqual(long);
-  });
-
-  it("leaves the tail of a short or damaged tape at rest rather than throwing", () => {
-    const short = encodeStream([1, 1, 1]);
-    expect([...decodeStream(short, 8)]).toEqual([1, 1, 1, 0, 0, 0, 0, 0]);
-    // …and one `atob` refuses outright comes back at rest rather than
-    // throwing on the first frame of a run somebody is about to ride.
-    expect([...decodeStream("\u00a3\u00a3\u00a3\u00a3", 4)]).toEqual([0, 0, 0, 0]);
+describe("the stored tape", () => {
+  // The codec is the framework's (`racing/tape`, tested there); what is this
+  // game's is the LAYOUT — which axes, in which order, under which names —
+  // and a tape already sitting in somebody's store has to read back after
+  // the codec moved house. Pinned to the bytes this build's predecessor
+  // wrote for the same five steps.
+  it("is written in the very bytes a stored ghost was", () => {
+    const recorder = createGhostRecorder();
+    for (let i = 0; i < 5; i++) recorder.record(scripted(i * 50));
+    expect(JSON.stringify(recorder.seal())).toBe(
+      '{"steps":5,"steer":"AX8B7wGwASUBJw==","lean":"Af4BNwFSAfoBIA==",' +
+        '"throttle":"AYABAgGpAe8BMQ==","reverse":"AcwBAAHMAgA=","crouch":"AZkEAA==","flags":"BQA="}',
+    );
   });
 });
 

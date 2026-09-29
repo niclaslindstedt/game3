@@ -45,10 +45,10 @@
 //   different weather. Nothing is drawn from the stream for it: the field
 //   is a pure function of place, the clock and the level's seed.
 
-import { sampleField } from "../lib/heightfield.ts";
-import { angleDiff, clamp, TAU } from "../lib/math.ts";
-import { valueNoise } from "../lib/noise.ts";
-import type { Rng } from "../lib/prng.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { angleDiff, clamp, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import { valueNoise } from "@niclaslindstedt/oss-game-framework/core/noise";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { createShelter, type Shelter } from "./fetch.ts";

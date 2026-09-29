@@ -1,7 +1,7 @@
 ---
 title: A setting that applies live goes to the renderer as a WHOLE blob, and a pixel-ratio change needs the cached viewport cleared or `resize` short-circuits it
 date: 2026-09-10
-scope: pwa/src/game/renderer.ts, pwa/src/lib/viewport.ts, pwa/src/App.tsx
+scope: pwa/src/game/renderer.ts, pwa/src/App.tsx
 concepts: [options, settings, renderer, viewports]
 ---
 

@@ -1,7 +1,7 @@
 ---
 title: A driven SQUARE under a lowpass is how a sub-audible fundamental stays audible — the odd harmonics carry it, and the cutoff decides hum or buzz
 date: 2026-09-16
-scope: pwa/src/game/audio/engine-voice.ts, pwa/src/lib/voice.ts
+scope: pwa/src/game/audio/engine-voice.ts
 concepts: [engine, beds, layers, mixing, pitch]
 ---
 

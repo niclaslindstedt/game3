@@ -11,7 +11,7 @@ that into a short-lived drawn thing or a pulse in the hands. An effect never
 changes what happens, only how it reads. The renderer reads `GameState` and
 the events `step()` returns; it never mutates state and never steps physics.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 visual-effects --list`, then the ones the task touches. Load
 **`skill-reflection`** at both ends of the session and **`write-code`** beside
 this one. For the water the spray falls back onto, `water-look`; for the

@@ -15,7 +15,7 @@
 import * as THREE from "three";
 import { heightAt, surfaceAt, type CraftId, type GameState, type Level } from "@engine";
 
-import { sameViewport, viewportOf, type Viewport } from "../lib/viewport.ts";
+import * as viewports from "@niclaslindstedt/oss-game-framework/display/viewport";
 import type { FrameCost, SceneShare } from "./benchmark-report.ts";
 import { tallyScene } from "./scene-tally.ts";
 import { createCameraRig, verticalFovFor, type CameraMode, type CameraRig } from "./camera.ts";
@@ -379,7 +379,7 @@ export function createRenderer(
   const frustum = new THREE.Frustum();
   const viewProjection = new THREE.Matrix4();
   let fovWas = 0;
-  let viewport: Viewport | null = null;
+  let viewport: viewports.Viewport | null = null;
 
   const load = (state: GameState): void => {
     if (state.level !== level) {
@@ -535,13 +535,13 @@ export function createRenderer(
   // box that has not (a browser zoom, a window dragged to another display),
   // and a stale ratio is the same stretch as a stale box.
   const resize = (): void => {
-    const next = viewportOf(
+    const next = viewports.viewportOf(
       canvas.clientWidth || window.innerWidth,
       canvas.clientHeight || window.innerHeight,
       window.devicePixelRatio,
       RESOLUTION_SCALE[video.resolution],
     );
-    if (sameViewport(viewport, next)) return;
+    if (viewports.sameViewport(viewport, next)) return;
     viewport = next;
     renderer.setPixelRatio(next.dpr);
     renderer.setSize(next.w, next.h, false);

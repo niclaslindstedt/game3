@@ -32,4 +32,4 @@ then `page.addStyleTag` the rule body and re-measure `#root` / `canvas` /
 A scratch Playwright probe must live in the REPO ROOT and import
 `playwright-core` — `playwright` is not a dependency, and a script under the
 scratchpad cannot resolve either. `serveDir` from
-`scripts/lib/serve-dist.mjs` serves `pwa/dist` the way the lab does.
+the framework's `tooling/serve-dist` serves `pwa/dist` the way the lab does.

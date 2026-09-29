@@ -22,7 +22,7 @@ the pre-commit hook blocks it.
 | changes something a player would notice | add a fragment (below) |
 | changes nothing a player would notice | label the PR **`no-changelog`** |
 
-CI's `changeset` job (`scripts/release/check-changeset.mjs`) fails a PR that
+CI's `changeset` job (`ogf-check-changeset`, the framework's) fails a PR that
 does neither. It re-runs on `labeled`/`unlabeled`, so applying the label
 clears a red check without a push.
 
@@ -53,7 +53,7 @@ One sentence a player can read.
   commit order.
 - Front matter is plain `key: value` lines. A malformed line, an unknown
   `type`, or an empty body fails the release loudly
-  (`scripts/release/fragments.mjs`).
+  (the framework's `tooling/release/fragments.mjs`).
 - The bullet renders as `- **<title>** — <body>`. With no `title:` the body is
   the whole bullet.
 
@@ -120,8 +120,8 @@ never a fragment invented for a change no player can see.
 ## Verify before you push
 
 ```sh
-node scripts/release/compute-bump.mjs            # the bump these fragments derive — read-only
-node scripts/release/collate-changelog.mjs X.Y.Z # preview the section — DESTRUCTIVE
+make bump                                        # the bump these fragments derive — read-only
+make changelog VERSION=X.Y.Z                     # preview the section — DESTRUCTIVE
 git checkout -- CHANGELOG.md .changes/           # …so always revert it
 ```
 
@@ -141,5 +141,5 @@ tag is served at `/`.
 
 Record traps and drift signals as lesson fragments under
 `.agents/skills/changelog/.lessons/` via the **`skill-reflection`** skill
-(`node scripts/skill-lessons.mjs changelog --list`); it owns pruning, merging,
+(`npx ogf-skill-lessons changelog --list`); it owns pruning, merging,
 and promoting them into this file.

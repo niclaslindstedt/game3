@@ -33,9 +33,9 @@
 // - THE BOUNDS push softly back inside: an acceleration growing with the
 //   overshoot, so the edge of the world is a slope and never a wall.
 
-import { fieldGradient, sampleField } from "../lib/heightfield.ts";
-import { rotate, unrotate } from "../lib/quat.ts";
-import { clamp } from "../lib/math.ts";
+import { fieldGradient, sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { rotate, unrotate } from "@niclaslindstedt/oss-game-framework/core/quat";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { Level, Ramp, Solid } from "../mapgen/types.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";

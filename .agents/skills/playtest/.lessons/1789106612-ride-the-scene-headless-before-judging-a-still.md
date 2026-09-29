@@ -7,7 +7,7 @@ concepts: [screenshots, scenarios, pre-roll, bot, events]
 
 Two rounds of dive shots showed the hull riding on at 78 km/h with a road
 behind it, and the effect under review was blamed. A thirty-line probe —
-`aliasEngine(root)` from `scripts/lib/engine-alias.mjs`, `stageScenario`,
+`aliasEngine(root)` from the framework's `tooling/alias`, `stageScenario`,
 step the script for three seconds and print `state.events` — showed the
 scene DOES dive at 0.68 s on that seed. The difference was the app: `stand()`
 pre-rolls `?t=` before the shell has settled, and `inputFor` handed a

@@ -20,7 +20,7 @@
 
 import type { GameState, Level } from "@engine";
 
-import type { Synth } from "../../lib/voice.ts";
+import type { Synth } from "@niclaslindstedt/oss-game-framework/audio/voice";
 import {
   activityAt,
   birdPlanFor,
@@ -44,7 +44,7 @@ import {
   type BirdCall,
 } from "./bird-voice.ts";
 import { listenerFor, type Listener } from "./listener.ts";
-import { playSound } from "./play.ts";
+import { playSound } from "@niclaslindstedt/oss-game-framework/audio/play";
 
 /** The longest gap a frame is allowed to owe cries for, s. A tab that was
  * away for a minute does not come back to a minute of gulls at once. */

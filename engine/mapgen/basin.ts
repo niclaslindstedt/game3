@@ -37,10 +37,13 @@
 // two hundred segments against three hundred thousand cells — and this is
 // one pass over each.
 
-import { createHeightfield, type Heightfield } from "../lib/heightfield.ts";
-import { clamp } from "../lib/math.ts";
-import { valueNoise } from "../lib/noise.ts";
-import type { Rng } from "../lib/prng.ts";
+import {
+  createHeightfield,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { valueNoise } from "@niclaslindstedt/oss-game-framework/core/noise";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import { riverDistance, type River } from "./river.ts";
 import type { CoastRoute, Route } from "./route.ts";
 import { LEVEL_RULES as R, inBand } from "./rules.ts";

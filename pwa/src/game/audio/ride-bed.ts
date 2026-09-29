@@ -33,7 +33,7 @@ import {
   type GameState,
 } from "@engine";
 
-import type { Synth } from "../../lib/voice.ts";
+import type { Synth } from "@niclaslindstedt/oss-game-framework/audio/voice";
 import { SCREEN_TO_ENGINE } from "../input-model.ts";
 
 import { RUN_BANK } from "./bank.ts";
@@ -47,8 +47,8 @@ import {
   type EngineLayer,
 } from "./engine-voice.ts";
 import { listenerFor, type Listener } from "./listener.ts";
-import { playSound } from "./play.ts";
-import { createRack, type Rack } from "./rack.ts";
+import { playSound } from "@niclaslindstedt/oss-game-framework/audio/play";
+import { createRack, type Rack } from "@niclaslindstedt/oss-game-framework/audio/rack";
 import { WATER_GLIDE, WATER_LAYERS, waterTargets, type WaterLayer } from "./water-voice.ts";
 
 /** How quickly the smoothed signals follow, as time constants in seconds.

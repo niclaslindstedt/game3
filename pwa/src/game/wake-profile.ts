@@ -51,7 +51,7 @@
 
 import { TUNING, WASH_GROUP } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 
 /** Kelvin's angle — the half-angle of the V a hull's diverging waves make,
  * whatever the hull and whatever its speed — as its tangent (19.47°). */

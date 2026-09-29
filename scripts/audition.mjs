@@ -45,7 +45,7 @@ import process from "node:process";
 import { execFileSync } from "node:child_process";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
-import { parseArgs } from "./lib/cli.mjs";
+import { parseArgs } from "@niclaslindstedt/oss-game-framework/tooling/cli";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -69,6 +69,11 @@ const args = parseArgs(
 );
 const out = join(root, args.out);
 
+// The instrument is the shared framework's, which ships its SOURCE beside
+// its build for exactly this: the page concatenates source, so the first
+// four modules are read out of the installed package.
+const FRAMEWORK_AUDIO = "node_modules/@niclaslindstedt/oss-game-framework/src/audio";
+
 // The modules the page needs at RUNTIME, in dependency order — and the order
 // is load-bearing: concatenation is all the linking there is, so a module has
 // to be listed BEFORE the ones that call into it.
@@ -80,10 +85,10 @@ const out = join(root, args.out);
 // `ride-bed.ts` is NOT here: it reads a `GameState`, and the page has none —
 // the sliders stand in for it, which is the point of the page.
 const RUNTIME = [
-  "pwa/src/lib/voice.ts",
-  "pwa/src/lib/synth.ts",
-  "pwa/src/game/audio/play.ts",
-  "pwa/src/game/audio/rack.ts",
+  `${FRAMEWORK_AUDIO}/voice.ts`,
+  `${FRAMEWORK_AUDIO}/synth.ts`,
+  `${FRAMEWORK_AUDIO}/play.ts`,
+  `${FRAMEWORK_AUDIO}/rack.ts`,
   "pwa/src/game/audio/listener.ts",
   "pwa/src/game/audio/engine-voice.ts",
   "pwa/src/game/audio/water-voice.ts",

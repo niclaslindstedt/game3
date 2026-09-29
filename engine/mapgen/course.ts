@@ -38,19 +38,25 @@
 
 import { CRAFT } from "../game/defs/craft.ts";
 import { TUNING } from "../game/defs/tuning.ts";
-import { angleDiff, clamp } from "../lib/math.ts";
-import { polylineDistance, segmentDistance } from "../lib/polyline.ts";
-import type { Rng } from "../lib/prng.ts";
+import { angleDiff, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import {
+  polylineDistance,
+  segmentDistance,
+} from "@niclaslindstedt/oss-game-framework/core/polyline";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import { lapTurn, roundingAbout } from "./circuit.ts";
 import { LEVEL_RULES as R, inBand, solidBerth, withinBand } from "./rules.ts";
 import { rulesAtPace } from "./pace.ts";
 import type { CoastRoute, Route } from "./route.ts";
 import type { Gate, Ramp, Vec2, Wind } from "./types.ts";
 
-// The two polyline distances live in the generic pool (`lib/polyline.ts`)
+// The two polyline distances live in the generic pool (the framework's `core/polyline`)
 // because the circuit's own drawer needs them too; they are spelled here so
 // that everything reading a course still asks the course for them.
-export { polylineDistance, segmentDistance } from "../lib/polyline.ts";
+export {
+  polylineDistance,
+  segmentDistance,
+} from "@niclaslindstedt/oss-game-framework/core/polyline";
 
 export type CoursePlan = {
   readonly gates: Gate[];

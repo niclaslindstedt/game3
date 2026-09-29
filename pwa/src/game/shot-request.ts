@@ -6,9 +6,9 @@
 // why this module exists:
 //
 //   AT THE PRESS the label is read off the run as it stands, the HUD is
-//   rasterized as it stands (`shot-hud.ts`), and THE CLIPBOARD IS CLAIMED —
+//   rasterized as it stands (the framework's `shots/shot-hud`), and THE CLIPBOARD IS CLAIMED —
 //   the write wants the press's own user activation and there is none left by
-//   the time a buffer can be read (`lib/share-image.ts`). What comes back is
+//   the time a buffer can be read (the framework's `shots/share-image`). What comes back is
 //   a promise the picture is handed to when it exists.
 //
 //   AT THE FRAME the pixels are lifted, and only there: the context keeps no
@@ -22,8 +22,11 @@
 // A FACTORY over the app's own closures, the `run-settle.ts` shape.
 
 import { captureFrame } from "./screenshots.ts";
-import type { HudLayer } from "./shot-hud.ts";
-import { copyWhenReady, type PendingCopy } from "../lib/share-image.ts";
+import type { HudLayer } from "@niclaslindstedt/oss-game-framework/shots/shot-hud";
+import {
+  copyWhenReady,
+  type PendingCopy,
+} from "@niclaslindstedt/oss-game-framework/shots/share-image";
 import { STRINGS } from "./strings.ts";
 
 export type ShotRequestWorld = {
@@ -34,7 +37,7 @@ export type ShotRequestWorld = {
    * receipt has nowhere to go; the pause card counts, because a held frame is
    * a frame and the card over it is part of what was on the screen. */
   answers: () => boolean;
-  /** The one line of context the picture carries (`shot-plan.ts`). */
+  /** The one line of context the picture carries (the framework's `shots/shot-plan`). */
   label: () => string;
   /** The HUD as it stood at the press, rasterized. */
   hud: () => HudLayer | null;

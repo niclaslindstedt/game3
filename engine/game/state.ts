@@ -5,10 +5,10 @@
 // from above (positive steer turns the nose clockwise in map view); pitch
 // is nose-up positive; roll is right-side-down positive; body-frame angular
 // velocities are right-handed about the craft's right, up and forward axes
-// (`lib/quat.ts` owns the sign flip between the two readings).
+// (the framework's `core/quat` owns the sign flip between the two readings).
 
-import type { Rng } from "../lib/prng.ts";
-import type { Quat } from "../lib/quat.ts";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
+import type { Quat } from "@niclaslindstedt/oss-game-framework/core/quat";
 import type { Level } from "../mapgen/types.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import type { RunRules } from "./defs/modes.ts";

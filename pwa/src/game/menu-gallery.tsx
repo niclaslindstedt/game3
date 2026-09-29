@@ -19,7 +19,7 @@
 // has walked OPTIONS has already learned this page.
 //
 // SENDING ONE ON is the other half, and what that MEANS is the platform's
-// answer rather than ours (../lib/share-image.ts). Every button is offered
+// answer rather than ours (the framework's `shots/share-image`). Every button is offered
 // only where it will actually do something: SHARE raises the phone's own
 // sheet (and the desktop's, where there is one), COPY is the desktop answer
 // where there is not, and SAVE is the floor every browser can manage.
@@ -28,7 +28,7 @@
 // pressed, and the pictures arrive after it: the roll is read off disk behind
 // the card, and each strip tile asks for its thumbnail only once it has come
 // near the visible part of the strip, one shrink at a time and never at full
-// size (../lib/shot-thumbs.ts). A strip that instead handed forty
+// size (the framework's `shots/shot-thumbs`). A strip that instead handed forty
 // two-megapixel PNGs to forty `<img>` elements in one render is forty full
 // decodes on the frame the player pressed — on the same thread the sea
 // behind this card is being stepped on.
@@ -43,7 +43,7 @@ import {
   pngFile,
   saveImage,
   shareImage,
-} from "../lib/share-image.ts";
+} from "@niclaslindstedt/oss-game-framework/shots/share-image";
 import {
   deleteShot,
   loadShots,
@@ -51,8 +51,8 @@ import {
   shotsRead,
   subscribeShots,
   type ShotMeta,
-} from "../lib/shot-store.ts";
-import { releaseThumbs, thumbUrl } from "../lib/shot-thumbs.ts";
+} from "@niclaslindstedt/oss-game-framework/shots/shot-store";
+import { releaseThumbs, thumbUrl } from "@niclaslindstedt/oss-game-framework/shots/shot-thumbs";
 import { MenuHead } from "./menu.tsx";
 import { MAX_SHOTS, armScreenshots, shotFileName } from "./screenshots.ts";
 import { STRINGS } from "./strings.ts";

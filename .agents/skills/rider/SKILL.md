@@ -12,7 +12,7 @@ joint from the craft's cockpit and a `RiderRead`, and `rider.ts` re-emits
 the figure from those joints every frame into one vertex-coloured mesh.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs rider --list`. Load `skill-reflection` at
+`npx ogf-skill-lessons rider --list`. Load `skill-reflection` at
 both ends, `write-code` beside this for any code change, and
 `craft-design` when the deck he sits on is what moves.
 

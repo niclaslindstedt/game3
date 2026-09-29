@@ -3,12 +3,12 @@ import { render } from "preact";
 
 import "./styles.css";
 import { App } from "./App.tsx";
-import { watchVisibleViewport } from "./lib/visible-viewport.ts";
+import { watchVisibleViewport } from "@niclaslindstedt/oss-game-framework/display/visible-viewport";
 
 // In dev no worker registers (`usePwaUpdate` runs disabled), but a worker
 // installed by a previous `vite preview` on this origin would keep serving
 // stale bytes — unregister any so the dev server always wins. The production
-// registration is owned by `lib/pwa-update.ts`, against the worker
+// registration is owned by the framework's `pwa/pwa-update`, against the worker
 // `pwa-plugin.ts` emits.
 if (import.meta.env.DEV && "serviceWorker" in navigator) {
   void navigator.serviceWorker

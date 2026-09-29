@@ -12,7 +12,7 @@ mirrors, the colour of the water body and how far into it the eye gets. The
 one rule under all of it: **nothing here moves the surface.** A vertex is the
 engine's own `surfaceAt`, and everything this skill does happens to the LIGHT.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 water-look --list`, then the ones the task touches. Load **`skill-reflection`**
 at both ends of the session and **`write-code`** beside this one.
 
@@ -63,7 +63,7 @@ Three habits, each of which found a fault five rounds of screenshots missed:
   shot under `--weather clear` said so in a minute.
 - **Zoom.** A 3× device-scale capture clipped to the stern or to a crest
   shows what a 1280 px frame hides (a road with no texture, a ripple tile in
-  corduroy streaks). A scratch page over `scripts/lib/serve-dist.mjs` and
+  corduroy streaks). A scratch page over the framework's `tooling/serve-dist` and
   `playwright-core` with `deviceScaleFactor: 3` and a `clip` is ten lines
   (`lab-tooling`).
 - **Paint the raw channels.** When a map effect (the wake, the reflection)

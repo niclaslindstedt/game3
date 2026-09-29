@@ -78,9 +78,9 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-import { parseArgs } from "./lib/cli.mjs";
-import { aliasEngine } from "./lib/engine-alias.mjs";
-import { serveDir } from "./lib/serve-dist.mjs";
+import { parseArgs } from "@niclaslindstedt/oss-game-framework/tooling/cli";
+import { aliasEngine } from "@niclaslindstedt/oss-game-framework/tooling/alias";
+import { serveDir } from "@niclaslindstedt/oss-game-framework/tooling/serve-dist";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const dist = join(root, "pwa", "dist");

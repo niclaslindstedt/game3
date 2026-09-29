@@ -34,9 +34,9 @@ import { fileURLToPath } from "node:url";
 import { performance } from "node:perf_hooks";
 import process from "node:process";
 
-import { parseArgs } from "./lib/cli.mjs";
-import { createDrawing } from "./lib/draw.mjs";
-import { aliasEngine } from "./lib/engine-alias.mjs";
+import { parseArgs } from "@niclaslindstedt/oss-game-framework/tooling/cli";
+import { createDrawing } from "@niclaslindstedt/oss-game-framework/tooling/draw";
+import { aliasEngine } from "@niclaslindstedt/oss-game-framework/tooling/alias";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 aliasEngine(root);

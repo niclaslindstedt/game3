@@ -8,7 +8,7 @@ name: release
 # What it does, in order: derive the semver bump from the changeset
 # fragments in .changes/unreleased/ (their front-matter carries the
 # Added/Changed/Fixed/... type and an optional `breaking: true` — see
-# scripts/release/compute-bump.mjs), consume those fragments into a new
+# the framework's ogf-compute-bump), consume those fragments into a new
 # CHANGELOG section, update every shipped version string via
 # scripts/update-versions.sh, commit `chore(release): vX.Y.Z` to main, tag
 # it, create the GitHub Release, then chain into pages.yml so the new tag is
@@ -96,7 +96,7 @@ jobs:
           REQUESTED: ${{ inputs.bump }}
         run: |
           if [ "$REQUESTED" = "auto" ] || [ -z "$REQUESTED" ]; then
-            BUMP=$(node scripts/release/compute-bump.mjs)
+            BUMP=$(npx --no-install ogf-compute-bump)
             echo "Auto-derived bump from fragments: $BUMP"
           else
             BUMP="$REQUESTED"
@@ -134,7 +134,7 @@ jobs:
           echo "Bumped from ${LATEST_TAG:-nothing} to v${VERSION}"
 
       - name: Collate changelog
-        run: node scripts/release/collate-changelog.mjs "${{ steps.bump.outputs.version }}"
+        run: npx --no-install ogf-collate-changelog "${{ steps.bump.outputs.version }}"
 
       # The macOS paragraph depends on whether this repository is configured
       # to notarize, which is the same condition the `desktop` job's signing
@@ -143,7 +143,7 @@ jobs:
         env:
           NOTARIZED: ${{ secrets.MAC_CSC_LINK != '' && secrets.APPLE_ID != '' }}
         run: |
-          node scripts/release/extract-section.mjs "${{ steps.bump.outputs.version }}" > .release-notes.md
+          npx --no-install ogf-extract-section "${{ steps.bump.outputs.version }}" > .release-notes.md
           cat >> .release-notes.md <<'NOTES'
 
           ---

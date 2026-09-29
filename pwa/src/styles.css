@@ -72,7 +72,7 @@
      and stays a UNIT — only a unit can reach past the layout viewport to the
      physical bottom of an iOS screen (the block below). The other two are how
      far the visible window has been pushed off the viewport's top and bottom
-     edges, which no unit can say: `lib/visible-viewport.ts` measures them and
+     edges, which no unit can say: the framework's `display/visible-viewport` measures them and
      writes them here in px. Both are 0 whenever the browser is showing the
      whole page, which is nearly always — so `--shell-visible` is then the
      viewport's own height and every box below is laid out exactly as it would
@@ -432,7 +432,7 @@ canvas {
   text-shadow: none;
   /* The same as the map's plate above these two: no double-tap wait on a
      press a rider makes mid-run, and the browser never claims the touch for
-     a gesture of its own halfway through one (`hud-press.ts`). */
+     a gesture of its own halfway through one (the framework's `input/hud-press`). */
   touch-action: manipulation;
   /* A button that squashes turns its glyph into a smear. */
   flex: none;
@@ -5058,7 +5058,7 @@ button.knob-read:focus-visible {
 }
 
 /* The bar TRAVELS to its new length, over the same 420 ms and the same cubic
-   ease-out the figures count over (`lib/count.ts`): press an arrow and the
+   ease-out the figures count over (the framework's `hud/count`): press an arrow and the
    whole sheet moves as one thing, instead of two numbers rolling while four
    bars jump. */
 .craft-bar-fill {

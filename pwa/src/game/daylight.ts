@@ -2,7 +2,7 @@
 // WHERE THE SUN IS, READ AS A KIND OF LIGHT. A level is not ridden at
 // "dusk"; it is ridden at 20:40 in September at 62°N, and dusk is what
 // that turns out to be. The astronomy itself is the engine's
-// (`engine/lib/solar.ts`) because the LEVEL GENERATOR needs the same
+// (the framework's `core/solar`, the seasons' dates `mapgen/seasons.ts`) because the LEVEL GENERATOR needs the same
 // arithmetic to pick an hour at all (R13); what lives here is what the app
 // makes of the answer.
 //

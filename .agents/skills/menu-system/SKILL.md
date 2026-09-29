@@ -25,7 +25,7 @@ quantizes to a single value and never moves, so a live loop reads as a dead
 one. Take two screenshots of the same patch of sea half a second apart and
 compare the bytes.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 menu-system --list`. Load **`skill-reflection`** at both ends, **`write-code`**
 beside this one, **`hud-and-menus`** for anything drawn over a RUN, and
 **`ui-review`** for the fit-and-finish sweep at the reference viewports.
@@ -57,7 +57,7 @@ the door comes up over the shore the player was just on.
 | THE ROW every setting on every surface is: `StepRow` (a named ladder, with its dealt mark), `FadeRow`, `NumberRow`, `KnobGroup`, `Caption` | `pwa/src/game/menu-knobs.tsx` |
 | The craft on a turntable, and what the card bills it at | `pwa/src/game/craft-picker.tsx` + `craft-turntable.ts` (three.js, a dynamic chunk) over `craft-stats.ts` (DOM-free) |
 | The seven-second hold on the craft card's turntable, and the flourish that answers it | `pwa/src/game/menu-hold.ts` (the rule and the curve) + `craft-picker.tsx` (the pointer, the clock) + `craft-turntable.ts` (the hull turned by it) |
-| Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over `menu-cursor.ts` (the geometry) |
+| Walking a card on the keys | `pwa/src/game/menu-nav.ts` (the DOM half) over the framework's `input/menu-cursor` (the geometry) |
 | Sequencing a load into phases | `pwa/src/game/run-loader.ts` — DOM-free; the STEPS are closures built in `App.tsx` |
 | Which surface is up, and what follows from it | `pwa/src/game/shell.ts` — DOM-free; `playerRides`, `simulates`, `hudOver`, `canPause` |
 | The run held mid-ride: RESUME, OPTIONS, WATCH REPLAY, MAIN MENU — and the OPTIONS panel behind the second | `pwa/src/game/menu-pause.tsx`, reached from `minimap.tsx` and Escape |
@@ -72,7 +72,7 @@ the door comes up over the shore the player was just on.
 - **The DOM-free payload split, exactly as `hud-and-menus` states it.** The
   decision is a pure module the root suite reads without a browser
   (`tests/menu_system_test.ts`); the `.tsx` only renders it. `splash.ts`,
-  `menu-hold.ts`, `menu-cursor.ts`, `run-loader.ts`, `shell.ts` and
+  `menu-hold.ts`, the framework's `input/menu-cursor`, `run-loader.ts`, `shell.ts` and
   `settings.ts`'s `mergeSettings` are all on the testable side of that line,
   and a rule moved
   out of one of them into its component is a rule that stops being checked.

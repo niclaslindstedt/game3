@@ -74,7 +74,7 @@
 //   axis. Aimed UP, the reaction is downward at the transom, and a
 //   downward force behind the centre of gravity lifts the bow.
 
-import { approach, clamp } from "../lib/math.ts";
+import { approach, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 import { maxNozzle, maxRpm, maxTrim } from "./limits.ts";

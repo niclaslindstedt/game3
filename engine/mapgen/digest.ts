@@ -19,7 +19,7 @@
 // digits so it reads as one word in a level's row.
 
 import type { Level } from "./types.ts";
-import { sampleField } from "../lib/heightfield.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 
 /** The digest of what a level puts in a rider's way — see the header. */
 export function levelDigest(level: Level): string {

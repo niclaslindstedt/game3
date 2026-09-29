@@ -26,8 +26,13 @@
 // an airborne hull alone when the rider is deliberately flying it, and a
 // wet hull when he leans forward to put the bow under on purpose.
 
-import { integrate, rotate, unrotate, type Quat } from "../lib/quat.ts";
-import { angleDiff, clamp } from "../lib/math.ts";
+import {
+  integrate,
+  rotate,
+  unrotate,
+  type Quat,
+} from "@niclaslindstedt/oss-game-framework/core/quat";
+import { angleDiff, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { Ramp } from "../mapgen/types.ts";
 import { onRampDeck } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";

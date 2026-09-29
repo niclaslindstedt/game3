@@ -163,4 +163,4 @@ The desktop Help menu and About panel send a player to the app's page on apps.ag
 
 ## Losing focus
 
-A hidden tab, a minimised window or a phone call **pauses the run** — the run clock included — and coming back lands on the very frame it left. This is a single-player game, so there is nobody the world has to keep moving for. The decision lives in `pwa/src/game/run-loop.ts`, which also clamps a long frame to a tenth of a second and drops the time beyond it rather than simulating a stall.
+A hidden tab, a minimised window or a phone call **pauses the run** — the run clock included — and coming back lands on the very frame it left. This is a single-player game, so there is nobody the world has to keep moving for. The decision lives in the shared framework's `loop/run-clock` (driven by `App.tsx`), which also clamps a long frame to a tenth of a second and drops the time beyond it rather than simulating a stall.

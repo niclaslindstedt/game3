@@ -50,7 +50,7 @@ import {
   shotFlock,
   surfaceCycle,
 } from "./scenario-wildlife.ts";
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { type ScenarioName } from "./scenario-names.ts";
 
 export { isScenarioName, SCENARIO_NAMES, type ScenarioName } from "./scenario-names.ts";

@@ -30,7 +30,7 @@
 // figure, so it comes off the same window as the rest and costs no new
 // astronomy.
 
-import { daylightWindow } from "../lib/solar.ts";
+import { daylightWindow } from "@niclaslindstedt/oss-game-framework/core/solar";
 import { biomeOf } from "./biomes.ts";
 import { LEVEL_RULES as R } from "./rules.ts";
 import type { Level } from "./types.ts";

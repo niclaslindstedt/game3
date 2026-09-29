@@ -8,11 +8,11 @@
 // Which bird makes which of these, how often and how far off it is heard is
 // `bird-voice.ts`'s table; this is only what each one IS. The same rules as
 // the rest of the bank: every voice is the synth's own vocabulary
-// (`lib/voice.ts`), a def without a description fails the test, and every
+// (the framework's `audio/voice`), a def without a description fails the test, and every
 // bird is quieter than the water's smallest splash — the sky is heard
 // BETWEEN things.
 
-import type { SoundBank } from "./types.ts";
+import type { SoundBank } from "@niclaslindstedt/oss-game-framework/audio/types";
 
 export const BIRD_BANK: SoundBank = {
   gull_cry: {

@@ -11,7 +11,7 @@
 // than baked into the ground: the ground is the summer's on every coast, and
 // the ice lies on it or does not.
 
-import { sampleField } from "../lib/heightfield.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { ICE } from "../mapgen/pace.ts";
 import type { Level } from "../mapgen/types.ts";
 

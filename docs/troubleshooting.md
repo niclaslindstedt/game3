@@ -49,17 +49,20 @@ Intended — the file is machine-written. Put your note in a `.changes/unrelease
 
 The suite holds the repository's shape as well as its physics. When one of these goes red, the message names the file; this is what each one means.
 
-**`tests/imports_test.ts` — "imports the package … the engine is framework-free".**
-Something under `engine/` imported `three`, `preact`, a `node:` module or anything else external. The engine imports nothing but itself, so it can run in the browser, in the sim CLI and in the test runner unchanged. Move the code to `pwa/` or `scripts/`, or do without the package.
+_*`tests/imports_test.ts` — "imports the package … the engine may import the framework's core/* and racing/_ file subpaths and nothing else".**
+Something under `engine/` imported `three`, `preact`, a `node:` module, a framework BARREL (`…/oss-game-framework/core` rather than `…/core/prng`) or one of the framework's app halves (`audio`, `shots`, …). The engine imports nothing but itself and the shared framework's engine-safe files, so it can run in the browser, in the sim CLI and in the test runner unchanged. Import the file subpath, move the code to `pwa/` or `scripts/`, or do without the package.
+
+**`tests/imports_test.ts` — a failure under "the framework's engine-safe halves".**
+The installed framework's `core/` or `racing/` drew a random source, read a clock outside `core/clock`, printed outside `core/output` or imported a package. That is a bug in the framework, not here: fix it there, release, and move the tag (AGENTS.md § The framework). The same file failing with "is installed" means `node_modules/@niclaslindstedt/oss-game-framework` is missing — `npm install`.
 
 **`tests/imports_test.ts` — "reaches into the engine at …; use @engine".**
 An app module or a test imported `engine/game/…` directly. `engine/index.ts` is the one public surface; if the symbol is not exported there, export it there — that is a review-visible change to the engine's API, which is the point.
 
 **`tests/imports_test.ts` — "imports … from scripts/".**
-Nothing imports tooling. A helper two files want to share goes in `engine/lib/` (if it is generic) or `pwa/src/lib/`, never in `scripts/lib/`.
+Nothing imports tooling. A helper two files want to share goes in the engine or `pwa/src/lib/` (or, if every sibling game wants it, the shared framework), never in `scripts/lib/`.
 
 **`tests/imports_test.ts` — "a wall clock" / "Math.random" / "console".**
-A run has to replay from its seed, so nothing in `engine/` reads the clock or a global random source; draw from `state.rng`, and print through `engine/output.ts`. The analyzer's report timer is the one recorded exception.
+A run has to replay from its seed, so nothing in `engine/` reads the clock or a global random source; draw from `state.rng`, and print through the framework's `core/output` (re-exported by `@engine`). The analyzer's report timer is the one recorded exception.
 
 **`tests/file_size_test.ts` — "is N lines".**
 A source file passed a thousand physical lines. Split it by concern; if it is genuinely dense (a rule catalogue, a lookup table), put `guidelines:allow-large-file: <reason>` in a comment in its first twenty lines — with a real reason, and only while it is actually over the cap; a marked file is split the next time it is touched.
@@ -85,10 +88,10 @@ A fragment's `type:` is outside `Added | Changed | Fixed | Removed | Security | 
 Every sub-seed the search tried produced a coast that could not carry a legal course, or one the analysis rejected — the message ends with the last rejection's rule codes. `make analyze SEED=N` prints the findings; `make level SEED=N` draws what it was trying to build. A rules change that makes many seeds fail is a rules change that moved a band past what the coast can give (`mapgen-improvement` owns the loop).
 
 **A lab exits 2 with "unknown flag".**
-Every tool in `scripts/` parses its flags through `scripts/lib/cli.mjs` and refuses one it does not know — a measurement tool that ignored a typo would report a confident wrong number. `--help` prints the flags with their defaults.
+Every tool in `scripts/` parses its flags through the framework's `tooling/cli` and refuses one it does not know — a measurement tool that ignored a typo would report a confident wrong number. `--help` prints the flags with their defaults.
 
 **`ERR_INVALID_MODULE_SPECIFIER: Invalid module "@engine"` from a Node script.**
-Plain Node knows nothing of the `@engine` alias the app and the tests use. A script that imports an app module (`pwa/src/game/scenarios.ts`, a style table) registers `aliasEngine(root)` from `scripts/lib/engine-alias.mjs` BEFORE the dynamic `import()` that needs it. The engine itself needs nothing — import `engine/index.ts` by path.
+Plain Node knows nothing of the `@engine` alias the app and the tests use. A script that imports an app module (`pwa/src/game/scenarios.ts`, a style table) registers `aliasEngine(root)` from `@niclaslindstedt/oss-game-framework/tooling/alias` BEFORE the dynamic `import()` that needs it. The engine itself needs nothing — import `engine/index.ts` by path.
 
 **`make sim` exits 1 with "finished no seed at all".**
 A craft could not get round any of the default seeds inside the cap. That is CI's `simulate` job failing on purpose: read the table's `rst`, `miss` and `dive` columns to see whether the hull, the bot or the level is at fault ([simulation.md](simulation.md) says which movement means what), and `make ride SCENARIO=` to look at it.

@@ -25,7 +25,7 @@ import { dirname, join, relative } from "node:path";
 import process from "node:process";
 import { fileURLToPath } from "node:url";
 
-import { parseArgs } from "./lib/cli.mjs";
+import { parseArgs } from "@niclaslindstedt/oss-game-framework/tooling/cli";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 
@@ -49,6 +49,21 @@ const ALLOWED = new Set([
 ]);
 
 const LOCKFILES = ["package-lock.json", "native/package-lock.json", "tauri/package-lock.json"];
+
+/** THE FAMILY'S OWN PACKAGES. The shared game framework
+ * (`@niclaslindstedt/oss-game-framework`) is this game's own code, lifted out
+ * so the sibling games share one copy — and it carries THIS repository's
+ * licence, which is not a permissive one and so is not on the list above.
+ * A package under this scope is allowed exactly when its licence is the
+ * licence this repository is published under; anything else it carries
+ * fails like any other dependency. */
+const FAMILY_SCOPE = "@niclaslindstedt/";
+const OWN_LICENCE = JSON.parse(readFileSync(join(root, "package.json"), "utf8")).license;
+
+/** Whether a package is one of the family's, under the family's licence. */
+function family(name, licence) {
+  return name.startsWith(FAMILY_SCOPE) && licence === OWN_LICENCE;
+}
 
 const { verbose } = parseArgs(
   process.argv.slice(2),
@@ -109,10 +124,10 @@ for (const lockfile of LOCKFILES) {
     packages++;
     const licence = entry.license;
     seen.set(String(licence), (seen.get(String(licence)) ?? 0) + 1);
+    const name = key.replace(/^.*node_modules\//, "");
+    if (family(name, licence)) continue;
     if (typeof licence !== "string" || !allowed(licence)) {
-      failures.push(
-        `${relative(root, path)}: ${key.replace(/^.*node_modules\//, "")} — ${licence ?? "no licence"}`,
-      );
+      failures.push(`${relative(root, path)}: ${name} — ${licence ?? "no licence"}`);
     }
   }
 }

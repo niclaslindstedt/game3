@@ -26,10 +26,10 @@
 // `rules.ts`. `ok` is "no errors": a warn is a smell the loop reads and
 // nobody has to fix.
 
-import { sampleField } from "../lib/heightfield.ts";
-import { wallClock, type Clock } from "../lib/clock.ts";
-import { angleDiff } from "../lib/math.ts";
-import { daylightWindow } from "../lib/solar.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { wallClock, type Clock } from "@niclaslindstedt/oss-game-framework/core/clock";
+import { angleDiff } from "@niclaslindstedt/oss-game-framework/core/math";
+import { daylightWindow } from "@niclaslindstedt/oss-game-framework/core/solar";
 import { faunaById } from "../game/defs/fauna.ts";
 import { createShelter } from "../game/fetch.ts";
 import { gatePassPoint } from "../game/course.ts";

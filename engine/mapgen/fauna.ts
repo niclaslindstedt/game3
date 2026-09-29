@@ -21,8 +21,8 @@
 // the step function entirely: nothing about it is simulated, so nothing
 // about it can drift between a run and its replay.
 
-import { TAU } from "../lib/math.ts";
-import type { Rng } from "../lib/prng.ts";
+import { TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import { faunaById, type FaunaSpec } from "../game/defs/fauna.ts";
 import { POD_LAYER } from "../game/fauna.ts";
 import type { Biome } from "./biomes.ts";

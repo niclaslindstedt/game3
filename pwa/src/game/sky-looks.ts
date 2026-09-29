@@ -235,7 +235,7 @@ export type SeasonLook = {
 };
 
 /** The taiga's seasons, each on the day `DECLINATION` puts it
- * (`engine/lib/solar.ts`). What the year does to the AIR is stated here;
+ * (`engine/mapgen/seasons.ts`). What the year does to the AIR is stated here;
  * what it does to the sun is already in the elevation. */
 const TAIGA_SEASONS: Record<Season, SeasonLook> = {
   // May: the air scrubbed clean by the winter and the light hard and pale,

@@ -14,7 +14,7 @@ several thousand.
 Which is why the centre of this skill is not the rules. It is the LOOP.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs mapgen-improvement --list`, then the ones this
+`npx ogf-skill-lessons mapgen-improvement --list`, then the ones this
 task touches (`--scope=…`, `--concepts=…`). Load **`skill-reflection`** at
 both ends of the session, and **`write-code`** beside this one.
 
@@ -48,8 +48,8 @@ and prints a table saying what each gate is: kind, offshore distance, depth
 under it, spacing from the last, and for an air gate the ramp's angle and
 the run-up it has. A claim about "the second air gate on seed 7" is a claim
 about a row in that table. Engine only: no build, no browser, a couple of
-seconds. Both halves are Node; the PNG comes out of `scripts/lib/png.mjs` and
-`draw.mjs`.
+seconds. Both halves are Node; the PNG comes out of the framework's `tooling/png` and
+the framework's `tooling/draw`.
 
 **Step 5 is the one that is easy to skip and the one that makes the rest worth
 doing.** An analyzer is only as honest as its checks, and the fastest route to
@@ -240,7 +240,7 @@ undoes it without knowing it was ever a rule.
 ## Invariants — load-bearing, and easy to undo by accident
 
 - **`generateLevel(seed)` is a pure function of the seed.** Every draw comes
-  from a PRNG derived from it (`engine/lib/prng.ts`). Shareable seeds, the
+  from a PRNG derived from it (the framework's `core/prng`). Shareable seeds, the
   sim digests and the test corpus all hang off it. So does the analyzer: a
   report that differs between two runs of the same seed means something is
   reading a clock or a global.

@@ -49,7 +49,7 @@
 
 import { angleDiff, bedAt, type GameState, type Level } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CameraPose } from "./camera.ts";
 import type { ReplayShot } from "./replay-shots.ts";
 

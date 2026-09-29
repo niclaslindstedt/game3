@@ -316,7 +316,7 @@
 // The numbers. Every one carries its unit; the R-number beside a group is
 // the rule it realizes.
 
-import { TAU } from "../lib/math.ts";
+import { TAU } from "@niclaslindstedt/oss-game-framework/core/math";
 import { type SolidRule } from "./bands.ts";
 import { CIRCUIT_RULES } from "./rules-circuit.ts";
 import { FLOW_RULES, RIVER_RULES } from "./rules-river.ts";

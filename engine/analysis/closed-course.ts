@@ -11,7 +11,7 @@
 // `R*` for Sea Haven's measurable safety translation into metres and
 // radians. A project score is not an IJSBA homologation.
 
-import { angleDiff, TAU } from "../lib/math.ts";
+import { angleDiff, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
 import { GATE_CORNER, rulesAtPace } from "../mapgen/pace.ts";
 import { LEVEL_RULES as BASE_RULES, withinBand } from "../mapgen/rules.ts";
 import type { Gate, Level } from "../mapgen/types.ts";

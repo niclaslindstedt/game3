@@ -1,7 +1,7 @@
 ---
 title: Every baked grid LIES at its edge — a clamped sampler repeats the rim forever, and a coarsened one can read zero there
 date: 2026-09-11
-scope: engine/game/water.ts, engine/game/fetch.ts, engine/game/ocean.ts, engine/lib/heightfield.ts
+scope: engine/game/water.ts, engine/game/fetch.ts, engine/game/ocean.ts
 concepts: [heightfield, phase, fetch, shelter, offshore, renderer]
 ---
 

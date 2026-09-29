@@ -27,14 +27,18 @@
 // the sky and the compile are one path, drawn in one order, because none
 // of them has an opinion about which kind of race is being laid.
 
-import { createRng, type Rng } from "../lib/prng.ts";
-import { TAU } from "../lib/math.ts";
-import { SEASONS, daylightWindow } from "../lib/solar.ts";
+import { createRng, type Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
+import { TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import { daylightWindow } from "@niclaslindstedt/oss-game-framework/core/solar";
+import { SEASONS } from "./seasons.ts";
 import { analyzeLevel } from "../analysis/index.ts";
-import { warn } from "../output.ts";
+import { warn } from "@niclaslindstedt/oss-game-framework/core/output";
 import { biomeOf } from "./biomes.ts";
 import { generatorTraits } from "./versions.ts";
-import { sampleField, type Heightfield } from "../lib/heightfield.ts";
+import {
+  sampleField,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { bakeGround, compileLevel } from "./compile.ts";
 import {
   circuitBounds,

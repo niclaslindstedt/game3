@@ -7,9 +7,11 @@
 // in, and held to the four rules:
 //
 //   1. the core (engine/) imports nothing from any shell or any tool — and
-//      nothing from any package at all: it is framework-free, so a `three`
-//      or a `preact` or a `node:` under it is the browser bundle or the
-//      headless sim losing a host;
+//      from packages only the shared game framework's ENGINE-SAFE halves,
+//      `@niclaslindstedt/oss-game-framework/core/*` and `…/racing/*`, one
+//      file subpath at a time: a `three` or a `preact` or a `node:` under it
+//      is the browser bundle or the headless sim losing a host, and the
+//      framework's app halves (audio, shots, the DOM plumbing) are no safer;
 //   2. a shell (pwa/) imports the core through its ONE entry surface,
 //      `@engine`, never a deep path, and never another shell or a tool;
 //   3. tooling (scripts/) may import anything; nothing imports it;
@@ -18,9 +20,13 @@
 //
 // Beside the graph, the hygiene the same walk can check for free: no wall
 // clock, no global random source and no console in the engine's code. The
-// clock seam (`engine/lib/clock.ts`) is the one place a clock is read —
-// whatever times itself, like the analyzer's report, is handed a clock from
-// it — and it is named here rather than waved through.
+// clock seam is the framework's `core/clock` — whatever times itself, like
+// the analyzer's report, is handed a clock from it — so NO file of the
+// engine reads one; and because the engine now runs framework code as its
+// own, the files it may import are held to the same hygiene: no random
+// source anywhere under `core/` and `racing/`, a clock only in `core/clock`,
+// a console only in `core/output` (the one module the engine prints
+// through).
 // `tests/determinism_test.ts` proves a run replays; this file is why it
 // keeps doing so after the next merge.
 import { readdirSync, readFileSync, statSync } from "node:fs";
@@ -29,6 +35,14 @@ import { dirname, join, relative, resolve, sep } from "node:path";
 import { describe, expect, it } from "vitest";
 
 const ROOT = process.cwd();
+
+/** The framework, and the two halves of it the engine may import. */
+const FRAMEWORK = "@niclaslindstedt/oss-game-framework";
+const ENGINE_SAFE = new RegExp(`^${FRAMEWORK}/(core|racing)/[a-z][a-z-]*$`);
+/** Where the installed framework's SOURCE is — shipped beside its build for
+ * the tools that read source, and read here to hold the engine-safe halves
+ * to the engine's own hygiene. */
+const FRAMEWORK_SRC = join(ROOT, "node_modules", ...FRAMEWORK.split("/"), "src");
 
 type Role = "engine" | "pwa" | "scripts" | "tests" | "shell" | "other";
 
@@ -156,13 +170,16 @@ describe("the dependency direction", () => {
     expect(SCRIPTS.length).toBeGreaterThan(5);
   });
 
-  it("the core imports nothing from a shell, a tool, the suite, or any package", () => {
+  it("the core imports nothing from a shell, a tool, the suite, or any package but the framework's core and racing", () => {
     for (const file of ENGINE) {
       for (const e of edgesOf(file)) {
-        expect(
-          e.bare,
-          `${e.from} imports the package "${e.spec}" — the engine is framework-free`,
-        ).toBe(false);
+        if (e.bare) {
+          expect(
+            e.spec,
+            `${e.from} imports the package "${e.spec}" — the engine may import the framework's core/* and racing/* file subpaths and nothing else`,
+          ).toMatch(ENGINE_SAFE);
+          continue;
+        }
         const role = roleOf(e.to ?? "");
         expect(role, `${e.from} imports ${e.spec}, which is ${role}`).toBe("engine");
       }
@@ -236,34 +253,80 @@ describe("the dependency direction", () => {
     }
   });
 
-  it("engine/index.ts is the one surface, and it re-exports only its own modules", () => {
+  it("engine/index.ts is the one surface, and it re-exports only its own modules and the framework's core", () => {
     const edges = edgesOf(join(ROOT, "engine", "index.ts"));
     expect(edges.length).toBeGreaterThan(10);
-    for (const e of edges) expect(e.to, e.spec).toMatch(/^engine\//);
+    for (const e of edges) {
+      if (e.bare) expect(e.spec).toMatch(ENGINE_SAFE);
+      else expect(e.to, e.spec).toMatch(/^engine\//);
+    }
+  });
+
+  it("every framework file the engine imports is one the framework ships", () => {
+    const named = new Set(
+      ENGINE.flatMap((file) =>
+        edgesOf(file)
+          .filter((e) => e.bare)
+          .map((e) => e.spec),
+      ),
+    );
+    expect(named.size).toBeGreaterThan(3);
+    for (const spec of named) {
+      const rel = spec.slice(FRAMEWORK.length + 1);
+      expect(statSync(join(FRAMEWORK_SRC, `${rel}.ts`)).isFile(), spec).toBe(true);
+    }
   });
 });
 
 describe("the engine's hygiene", () => {
-  /** The one file that may read the wall clock: the clock seam, which every
-   * self-timing report (the analyzer's `ms`) is HANDED a clock from. The
-   * timing never feeds a decision and never reaches a run. Anything else
-   * reading a clock lands here by name. */
-  const CLOCK_ALLOWED = new Set(["engine/lib/clock.ts"]);
-
+  // No file of the engine reads the wall clock: the one seam is the
+  // framework's `core/clock` (held below), which every self-timing report
+  // (the analyzer's `ms`) is HANDED a clock from.
   for (const file of ENGINE) {
     const rel = relative(ROOT, file).split(sep).join("/");
     const src = code(readFileSync(file, "utf8"));
     it(`${rel} draws no global randomness, reads no clock, prints nothing`, () => {
       expect(src, "Math.random").not.toMatch(/Math\.random/);
-      if (!CLOCK_ALLOWED.has(rel)) {
-        expect(src, "a wall clock").not.toMatch(/Date\.now|new Date\(|performance\.now/);
-      }
+      expect(src, "a wall clock").not.toMatch(/Date\.now|new Date\(|performance\.now/);
       expect(src, "console").not.toMatch(/\bconsole\./);
       // Member access on the DOM's globals, not the bare words: `window` is
       // a perfectly good name for a search window in the shore's code.
       expect(src, "a DOM global").not.toMatch(
         /\b(window|document|navigator|localStorage)\.|\brequestAnimationFrame\(/,
       );
+    });
+  }
+});
+
+describe("the framework's engine-safe halves, held to the engine's hygiene", () => {
+  /** The framework's own seams: the clock is the one place a clock is read,
+   * the output module the one place anything prints. */
+  const CLOCK_SEAM = "core/clock.ts";
+  const OUTPUT_SEAM = "core/output.ts";
+  const files = filesUnder(
+    relative(ROOT, join(FRAMEWORK_SRC, "core")),
+    relative(ROOT, join(FRAMEWORK_SRC, "racing")),
+  );
+
+  it("is installed, with its source beside its build", () => {
+    expect(files.length).toBeGreaterThan(8);
+  });
+
+  for (const file of files) {
+    const rel = relative(FRAMEWORK_SRC, file).split(sep).join("/");
+    const src = code(readFileSync(file, "utf8"));
+    it(`${rel} draws no global randomness, reads a clock and prints only at its seam, and imports no package`, () => {
+      expect(src, "Math.random").not.toMatch(/Math\.random/);
+      if (rel !== CLOCK_SEAM) {
+        expect(src, "a wall clock").not.toMatch(/Date\.now|new Date\(|performance\.now/);
+      }
+      if (rel !== OUTPUT_SEAM) expect(src, "console").not.toMatch(/\bconsole\./);
+      expect(src, "a DOM global").not.toMatch(
+        /\b(window|document|navigator|localStorage)\.|\brequestAnimationFrame\(/,
+      );
+      for (const spec of specifiers(readFileSync(file, "utf8"))) {
+        expect(spec, `${rel} imports ${spec}`).toMatch(/^\.\.?\//);
+      }
     });
   }
 });

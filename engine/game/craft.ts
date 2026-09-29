@@ -21,8 +21,14 @@
 // whose bow went in first. Each is read off the same forces every other
 // step is made of, and the events say so after the fact.
 
-import { clamp } from "../lib/math.ts";
-import { fromEuler, integrate, rotate, toEuler, unrotate } from "../lib/quat.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import {
+  fromEuler,
+  integrate,
+  rotate,
+  toEuler,
+  unrotate,
+} from "@niclaslindstedt/oss-game-framework/core/quat";
 import { followingSeaAssist, landingAssist, rampAssist } from "./assist.ts";
 import { boundsPush, clipSolids, contactForces, type ContactResult } from "./collision.ts";
 import { TUNING } from "./defs/tuning.ts";

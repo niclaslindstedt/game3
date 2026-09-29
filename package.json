@@ -53,6 +53,9 @@
     "routes": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/shore-routes.mjs",
     "coasts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coast-preview.mjs"
   },
+  "dependencies": {
+    "@niclaslindstedt/oss-game-framework": "github:niclaslindstedt/oss-game-framework#v0.1.0"
+  },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
     "@types/node": "^24.19.0",
