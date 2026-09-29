@@ -141,4 +141,4 @@ field that does not exist, a level override the builders can't express),
 grow `place.ts` / `tests/support/levels.ts` plus their tests, then document
 the option here. Recurring stagings and gotchas are lesson fragments — load
 the **`skill-reflection`** skill at both ends of the session
-(`node scripts/skill-lessons.mjs test-scenario --list`).
+(`npx ogf-skill-lessons test-scenario --list`).

@@ -68,8 +68,8 @@
 //
 // Nothing here draws, nothing here is random, nothing here reads a clock.
 
-import { rotate, unrotate, type Vec3 } from "../lib/quat.ts";
-import { angleDiff, clamp } from "../lib/math.ts";
+import { rotate, unrotate, type Vec3 } from "@niclaslindstedt/oss-game-framework/core/quat";
+import { angleDiff, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CraftSpec } from "./defs/craft.ts";
 import { RACE } from "./defs/modes.ts";
 import { TUNING } from "./defs/tuning.ts";

@@ -40,8 +40,8 @@
 // hand on the rider's shoulder is `assist.ts`, which models nothing and
 // says so.
 
-import { rotate, unrotate, type Quat } from "../lib/quat.ts";
-import { clamp } from "../lib/math.ts";
+import { rotate, unrotate, type Quat } from "@niclaslindstedt/oss-game-framework/core/quat";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { CraftSpec } from "./defs/craft.ts";
 import { TUNING } from "./defs/tuning.ts";
 

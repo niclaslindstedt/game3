@@ -35,7 +35,13 @@
 // and a rival's own events stay on its own run — the player's list carries
 // only the contacts that were his (`bump`).
 
-import { sampleField } from "../lib/heightfield.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import {
+  fieldOrder as orderField,
+  legProgress,
+  placeAmong,
+  type Standing,
+} from "@niclaslindstedt/oss-game-framework/racing/standings";
 import { botInput } from "../sim/bot.ts";
 import type { Level } from "../mapgen/types.ts";
 import { solidNear } from "./collision.ts";
@@ -237,23 +243,19 @@ export function courseProgress(run: GameState): number {
   if (p.nextGate >= gates.length) return done;
   const next = gates[p.nextGate];
   const from = p.nextGate === 0 ? run.level.start : gates[p.nextGate - 1];
-  const leg = Math.hypot(next.x - from.x, next.z - from.z) || 1;
-  const left = Math.hypot(next.x - run.craft.x, next.z - run.craft.z);
-  return done + Math.min(0.999, 1 - left / leg);
+  return legProgress(done, from, next, run.craft.x, run.craft.z);
 }
 
-/** Whether run `a` stands AHEAD of run `b`: home first, by the clock; then
- * further down the course. On a run where the course does NOT count (a
- * tricks run with a field on it), the standings are the SCORE'S: the
- * higher banked total is ahead, and the buzzer that ends it ends it for
- * everybody at once, so there is no "home first" to read. */
-function ahead(a: GameState, b: GameState): boolean {
-  if (!a.rules.course) return a.tricks.score > b.tricks.score;
-  if (a.progress.finished || b.progress.finished) {
-    if (a.progress.finished && b.progress.finished) return a.progress.time < b.progress.time;
-    return a.progress.finished;
-  }
-  return courseProgress(a) > courseProgress(b);
+/** Where run `a` STANDS, as the framework's standings read it
+ * (`racing/standings`: home first, by the clock; then further round). On a
+ * run where the course does NOT count (a tricks run with a field on it), the
+ * standings are the SCORE'S: the banked total is the progress, and the
+ * buzzer that ends it ends it for everybody at once, so nobody is home
+ * first. */
+function standingOf(run: GameState): Standing {
+  if (!run.rules.course) return { finished: false, time: 0, progress: run.tricks.score };
+  const p = run.progress;
+  return { finished: p.finished, time: p.time, progress: p.finished ? 0 : courseProgress(run) };
 }
 
 /** THE WHOLE FIELD IN ORDER, best first: every rival's id, and `null`
@@ -268,8 +270,7 @@ export function fieldOrder(state: GameState): (number | null)[] {
     { id: null, run: state },
     ...state.rivals.map((r) => ({ id: r.id, run: r.run })),
   ];
-  runs.sort((a, b) => (ahead(a.run, b.run) ? -1 : ahead(b.run, a.run) ? 1 : 0));
-  return runs.map((r) => r.id);
+  return orderField(runs, (r) => standingOf(r.run)).map((r) => r.id);
 }
 
 /** THE PLAYER'S PLACE in the field, 1-based: one more than the rivals ahead
@@ -277,7 +278,8 @@ export function fieldOrder(state: GameState): (number | null)[] {
  * and by the finish (`course.ts`'s `placeOf` is the same reading with the
  * player already home). */
 export function racePlace(state: GameState): number {
-  let place = 1;
-  for (const r of state.rivals) if (ahead(r.run, state)) place += 1;
-  return place;
+  return placeAmong(
+    standingOf(state),
+    state.rivals.map((r) => standingOf(r.run)),
+  );
 }

@@ -16,7 +16,7 @@
 // EVERYTHING IS SYNTHESIZED FROM AUTHORED PARAMETERS. The game ships no
 // audio file, no sample, no MIDI: a sound is a list of numbers in `bank.ts`
 // or a layer steered by a pure function of the state, and the only module
-// that touches WebAudio is `lib/synth.ts`. `docs/audio.md` says why.
+// that touches WebAudio is the framework's `audio/synth`. `docs/audio.md` says why.
 
 import type { GameEvent, GameState } from "@engine";
 
@@ -25,7 +25,7 @@ import { createBirdBed, type BirdBed } from "./bird-bed.ts";
 import { bubbleBurst } from "./bubbles.ts";
 import { sfx } from "./bus.ts";
 import { listenerFor, type Listener } from "./listener.ts";
-import { playSound } from "./play.ts";
+import { playSound } from "@niclaslindstedt/oss-game-framework/audio/play";
 import { createRideBed, type RideBed } from "./ride-bed.ts";
 import { bubblesForEvent, heardFrom, recordForEvent, soundForEvent } from "./route.ts";
 

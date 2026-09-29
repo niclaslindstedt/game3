@@ -109,7 +109,7 @@ export type CraftFact = {
   key: string;
   label: string;
   /** The figure ITSELF, not a rendered string: the card counts to it when
-   * the craft under it changes (`lib/count.ts`), and a counter cannot
+   * the craft under it changes (the framework's `hud/count`), and a counter cannot
    * interpolate "108 KM/H". */
   value: number;
   /** How many decimals it is read to. */

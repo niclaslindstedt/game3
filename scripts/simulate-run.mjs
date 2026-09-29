@@ -23,7 +23,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import process from "node:process";
 
-import { parseArgs, craftList } from "./lib/cli.mjs";
+import { parseArgs, pickList } from "@niclaslindstedt/oss-game-framework/tooling/cli";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const { simulateStage, SIM_SECONDS, CRAFT_IDS, engineVersion, TUNING, BIOME_IDS, isBiomeId } =
@@ -71,7 +71,7 @@ if (seeds.some((s) => !Number.isInteger(s))) {
   console.error(`--seeds wants integers, got ${args.seeds.join(",")}`);
   process.exit(2);
 }
-const crafts = craftList(args.craft, CRAFT_IDS);
+const crafts = pickList(args.craft, CRAFT_IDS, "craft");
 
 const pad = (v, n) => String(v).padStart(n);
 const kmh = (ms) => (ms * 3.6).toFixed(0);

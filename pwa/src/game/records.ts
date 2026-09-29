@@ -23,7 +23,18 @@
 //
 // A TIE IS NOT A RECORD. The row stands until it is beaten outright, so a
 // rider who matches it to the hundredth is told they matched it.
+//
+// That policy — outright or nothing, a figure that is not a figure beats
+// nothing, a stored book read and checked one row at a time — is the
+// sibling games' too, and is stated once in the framework
+// (`racing/records`). What names a row, which modes keep a book and which
+// way a mode's figure improves are this file's.
 
+import {
+  beats as beatsIn,
+  noteRecord as noteIn,
+  readBook,
+} from "@niclaslindstedt/oss-game-framework/racing/records";
 import { type BiomeId, type CraftId, type GameMode, type TrackKind, isCraftId } from "@engine";
 
 /** What names a row: the level, the mode, and a tricks run's length. */
@@ -73,9 +84,7 @@ export function scoresHigher(mode: GameMode): boolean {
  * stands where there is none. A figure that is not a figure beats nothing. */
 export function beats(mode: GameMode, value: number, standing: RunRecord | null): boolean {
   if (!keepsRecords(mode)) return false;
-  if (!Number.isFinite(value) || value <= 0) return false;
-  if (standing === null) return true;
-  return scoresHigher(mode) ? value > standing.value : value < standing.value;
+  return beatsIn(value, standing, scoresHigher(mode) ? "higher" : "lower");
 }
 
 export function bestFor(book: RecordBook, key: RecordKey): RunRecord | null {
@@ -89,9 +98,8 @@ export function noteRecord(
   key: RecordKey,
   run: RunRecord,
 ): { book: RecordBook; record: boolean } {
-  const standing = bestFor(book, key);
-  if (!beats(key.mode, run.value, standing)) return { book, record: false };
-  return { book: { ...book, [recordId(key)]: { ...run } }, record: true };
+  if (!keepsRecords(key.mode)) return { book, record: false };
+  return noteIn(book, recordId(key), run, scoresHigher(key.mode) ? "higher" : "lower");
 }
 
 /** A stored blob as a book, one row at a time — every row checked, and any
@@ -99,17 +107,11 @@ export function noteRecord(
  * positive and finite, a hull the catalog no longer has, an id that is not a
  * string. The same rule `mergeSettings` applies, for the same reason. */
 export function mergeRecords(parsed: unknown): RecordBook {
-  const book: Record<string, RunRecord> = {};
-  if (!parsed || typeof parsed !== "object") return book;
-  for (const [id, row] of Object.entries(parsed as Record<string, unknown>)) {
-    if (!row || typeof row !== "object") continue;
-    const r = row as Partial<Record<keyof RunRecord, unknown>>;
-    if (typeof r.value !== "number" || !Number.isFinite(r.value) || r.value <= 0) continue;
-    if (typeof r.craft !== "string" || !isCraftId(r.craft)) continue;
-    const at = typeof r.at === "number" && Number.isFinite(r.at) ? r.at : 0;
-    book[id] = { value: r.value, craft: r.craft, at };
-  }
-  return book;
+  return readBook<RunRecord>(parsed, (raw, row) =>
+    typeof raw.craft === "string" && isCraftId(raw.craft)
+      ? { value: row.value, craft: raw.craft, at: row.at }
+      : null,
+  );
 }
 
 const RECORDS_KEY = "sea-haven-records";

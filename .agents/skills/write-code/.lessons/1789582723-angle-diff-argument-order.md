@@ -1,11 +1,11 @@
 ---
 title: `angleDiff(a, b)` is `b - a` — the reference angle goes FIRST, and getting it backwards is a clean sign flip no symmetric test catches
 date: 2026-09-16
-scope: engine/lib/math.ts
+scope: engine/
 concepts: [maths, conventions, tests]
 ---
 
-`engine/lib/math.ts`'s `angleDiff(a, b)` returns the signed shortest `b - a` in
+the framework's `core/math`'s `angleDiff(a, b)` returns the signed shortest `b - a` in
 (-π, π]. Reading it as "the difference between a and b" and writing
 `angleDiff(heading, reference)` gives the NEGATIVE of what you meant.
 

@@ -14,7 +14,7 @@ rings, do they stay off the rocks, how much sea did they meet — not tuning an
 economy: there is no XP, no loot here. The regression surface is the table.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs simulate-run --list`, then the ones this task
+`npx ogf-skill-lessons simulate-run --list`, then the ones this task
 touches. Reading them here and reflecting on them before the commit is the
 **`skill-reflection`** skill's job — load it at both ends of the session.
 

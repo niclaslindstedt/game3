@@ -47,8 +47,12 @@
 // Deterministic: no randomness, and no clock. A level and a wind give one
 // field.
 
-import { createHeightfield, sampleField, type Heightfield } from "../lib/heightfield.ts";
-import { clamp } from "../lib/math.ts";
+import {
+  createHeightfield,
+  sampleField,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import type { Level, Wind } from "../mapgen/types.ts";
 import { TUNING } from "./defs/tuning.ts";
 

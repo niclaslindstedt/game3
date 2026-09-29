@@ -12,7 +12,7 @@ far the coast reads — and because the sea is a mirror, every one of those
 decisions is made twice in the frame. A change here moves every screenshot
 in the game.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 atmosphere --list`, then the ones the task touches. Load **`skill-reflection`**
 at both ends of the session and **`write-code`** beside this one for any code
 change. For the sea that reflects this sky, `water-look`; for the shore and
@@ -29,7 +29,7 @@ the engine has an opinion about colour:
 | Which of the coast's five skies a seed is ridden under, and HOW HEAVY it is — read off the wind the level already has, so the darkest skies stand over the biggest seas (R19) | `engine/mapgen/weather.ts`, `biomes.ts`'s `weathers`; `skyCover(wind.speed)` is the one measure of heaviness |
 | The three hours a level offers, worked out from the coast's own daylight (R13) | `engine/mapgen/daytime.ts` |
 | The hour the run has REACHED — an hour of sun a minute of riding | `sunHourAt(level, state.t)` in `engine/game/sun-clock.ts` |
-| The astronomy itself: declination by season, the sun's elevation and bearing at a latitude | `engine/lib/solar.ts` — the generator needs it to pick an hour at all |
+| The astronomy itself: the sun's elevation and bearing at a latitude | the framework's `core/solar` — the generator needs it to pick an hour at all; the declination each SEASON is dated to is this game's, `engine/mapgen/seasons.ts` |
 
 Which sky, which season and which hour are the ONLY inputs. A row on the
 start card that overrides one of them overrides exactly that one (SEASON

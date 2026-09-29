@@ -9,7 +9,7 @@
 
 import { TUNING, craftById, type GameEvent, type GameState } from "@engine";
 
-import { formatTime } from "../lib/util.ts";
+import { formatTime } from "@niclaslindstedt/oss-game-framework/hud/format";
 import {
   PODIUM,
   findLevel,

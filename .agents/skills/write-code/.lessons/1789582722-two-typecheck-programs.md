@@ -21,6 +21,6 @@ tests and the handful of DOM-free app modules the suite happens to read.
 
 The flip side is worth knowing when placing a module: if you want the root
 suite to be able to read an app module, every import in its graph must stay
-`.tsx`-free — which is why the payload modules (`shot-plan.ts`,
+`.tsx`-free — which is why the payload modules (the framework's `shots/shot-plan`,
 `picture-rows.ts`, `records.ts`, `rumble.ts`) are split out the way they are.
 A type imported from a `.tsx` is enough to put a file out of reach.

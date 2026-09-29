@@ -12,7 +12,7 @@ rider, and what does it ask FOR — the sea, the corners, the air, the rocks,
 the distance, the wind, the dark, the sky. `engine/rating/index.ts`'s
 header is the model; this is how it is used.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 level-rating --list`. Load **`skill-reflection`** at both ends,
 **`write-code`** beside this one for any code change, **`campaign`** when a
 level is about to be pinned, **`mapgen-improvement`** when the answer turns

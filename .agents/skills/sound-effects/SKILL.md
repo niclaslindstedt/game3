@@ -1,6 +1,6 @@
 ---
 name: sound-effects
-description: "Use when adding or tuning a SOUND — the engine's note and the pump's whine, the spray, the wind, the sea and the surf (the continuous BEDS), a one-shot: a slap, a landing, a dive, a hull on a rock, a buoy's chime — or a BIRD's cry and how often and how far off it is heard. Every sound is synthesized at runtime from authored parameters under pwa/src/game/audio/; the game ships no audio file. Owns the vocabulary (`lib/voice.ts`), the instrument (`lib/synth.ts`), the bank, the route, the beds and the listener, the mixing budget, and the audition page — `make audition`, and `--meter` for the levels — which is the only honest way to judge any of it. NOT for music: a score is a different craft with a different review loop, reserved as `soundtrack`."
+description: "Use when adding or tuning a SOUND — the engine's note and the pump's whine, the spray, the wind, the sea and the surf (the continuous BEDS), a one-shot: a slap, a landing, a dive, a hull on a rock, a buoy's chime — or a BIRD's cry and how often and how far off it is heard. Every sound is synthesized at runtime from authored parameters under pwa/src/game/audio/; the game ships no audio file. Owns the vocabulary (the framework's `audio/voice`), the instrument (the framework's `audio/synth`), the bank, the route, the beds and the listener, the mixing budget, and the audition page — `make audition`, and `--meter` for the levels — which is the only honest way to judge any of it. NOT for music: a score is a different craft with a different review loop, reserved as `soundtrack`."
 ---
 
 # Designing sound effects
@@ -29,7 +29,7 @@ and arrives as a second VIEW of the one synth with its own fader, never a
 second synth (`bus.ts`).
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs sound-effects --list`, then the ones this task
+`npx ogf-skill-lessons sound-effects --list`, then the ones this task
 touches. Reflecting them back at the end is the **`skill-reflection`** skill's
 job; load it at both ends of the session. Load **`write-code`** too, and
 **`game-feel`** whenever the acceptance test is "does it sound like riding".
@@ -38,8 +38,8 @@ job; load it at both ends of the session. Load **`write-code`** too, and
 
 | File | Role |
 | --- | --- |
-| `pwa/src/lib/voice.ts` | **The vocabulary.** Every parameter a sound may be written in, the `Synth` interface, and the `LayerSpec` / `LayerTarget` / `Layer` a bed is made of — plus the arithmetic worth testing without a browser (`envelopeShape`, `safeCutoff`, the shaper). DOM-free on purpose. |
-| `pwa/src/lib/synth.ts` | The instrument: `tone()` and `noise()` for one-shots, `layer()` for the beds, the shared echo bus (the SHORE's answer — short, damped), the master limiter, and the whole audio-context lifecycle (unlock, iOS interruption, zombie-context recovery, the route re-seat). The only module that touches WebAudio. |
+| the framework's `audio/voice` | **The vocabulary.** Every parameter a sound may be written in, the `Synth` interface, and the `LayerSpec` / `LayerTarget` / `Layer` a bed is made of — plus the arithmetic worth testing without a browser (`envelopeShape`, `safeCutoff`, the shaper). DOM-free on purpose. |
+| the framework's `audio/synth` | The instrument: `tone()` and `noise()` for one-shots, `layer()` for the beds, the shared echo bus (the SHORE's answer — short, damped), the master limiter, and the whole audio-context lifecycle (unlock, iOS interruption, zombie-context recovery, the route re-seat). The only module that touches WebAudio. |
 | `pwa/src/game/audio/bank.ts` | **THE RUN'S SOUND DESIGN.** Every discrete sound, as data: a description and a list of voices. This is where most one-shot work happens. |
 | `pwa/src/game/audio/route.ts` | **WHICH sound an event makes**, how big (`PlayShape`), and which bubbles it leaves — pure functions from `GameEvent`. |
 | `pwa/src/game/audio/bubbles.ts` | The one liquid sound with a physics: Minnaert's bubble, a sine chirping up. The tail every splash gets. |
@@ -49,8 +49,8 @@ job; load it at both ends of the session. Load **`write-code`** too, and
 | `pwa/src/game/audio/ride-bed.ts` | The scheduler: reads `GameState` once a frame, turns it into every layer's target, and raises the one cue the engine never reports — the SLAP, off the hull's own `slam`. |
 | `pwa/src/game/audio/bird-voice.ts` | **WHAT THE BIRDS SAY**, plan-free: `BIRD_CALLS` — which bank id each species cries, how often on the wing and on the rock, the reference distance and the reach — and the arithmetic: `criesIn` (a hashed draw per quarter-second slot off the flock's own scatter, so a seed cries the same twice), `heardAt` (the inverse square past the reference, faded to nothing at the reach), `callRate`, `cryPan`, `cryPitch`. A new bird's voice is a row here and a def in the bank; the cormorant and the eagle are `null` on purpose. |
 | `pwa/src/game/audio/bird-bed.ts` | The birds' scheduler: asks `birdPlanFor(level)` — the SAME plan the renderer draws, kept against the level — and per frame asks which flocks are in earshot, how much of each is up (`flightShare`), and deals the cries owed since the last frame; keeps its own flush memory off `flushAt` and books the flush's shouts on the ENGINE's clock. The window is capped at a second and `silence()` forgets it. |
-| `pwa/src/game/audio/rack.ts` | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it on its glide. |
-| `pwa/src/game/audio/play.ts`, `types.ts` | Firing one def through a shape; what a def and a shape ARE. |
+| the framework's `audio/rack` | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it on its glide. |
+| the framework's `audio/play`, `audio/types` | Firing one def through a shape; what a def and a shape ARE. |
 | `pwa/src/game/audio/bus.ts` | One synth, the volume-scaled view the fader moves, and the unlock. |
 | `pwa/src/game/audio/index.ts` | The front door: events in, the bed fed per frame, the seat, `silence()`, `reset()`. `App.tsx` is its one caller. |
 | `pwa/src/game/settings.ts` | The fader the player keeps (`audio.sfx`, twentieths, 0 is OFF). |
@@ -118,7 +118,7 @@ cutoff, grit, pan) and a glide, and the layer moves there with
    `RunAudio.silence()`. Adding a path that skips `frame()` without hushing
    is how the engine ends up playing under the pause card.
 7. **A silent layer costs nothing to keep.** Set its level to 0 and leave it
-   built; `rack.ts` rebuilds a layer only when its context has died.
+   built; the framework's `audio/rack` rebuilds a layer only when its context has died.
 
 ## What the water taught the vocabulary
 
@@ -247,7 +247,7 @@ fixing anything here that turned out WRONG, deleting what went stale, and
 promoting anything true in every run into the vocabulary above.
 
 ```sh
-node scripts/skill-lessons.mjs sound-effects --list
+npx ogf-skill-lessons sound-effects --list
 ```
 
 The lessons here are a **palette of parameter recipes that worked** — read

@@ -21,6 +21,6 @@ and under a digest that no longer describes it, and nothing would say so —
 `generator_version_test` only rebuilds a level the way the campaign rides it.
 
 Check this with a throwaway probe rather than by reading the generator: alias
-`@engine` with `scripts/lib/engine-alias.mjs` (it takes the repo ROOT as an
+`@engine` with the framework's `tooling/alias` (it takes the repo ROOT as an
 argument — `aliasEngine("/path/to/repo")`, not a bare call), then build the
 seed both ways and compare `levelDigest`, `course.gates.length` and `ramps`.

@@ -18,7 +18,7 @@
 import type { CraftInput } from "@engine";
 
 import { snapInput } from "./ghost.ts";
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 
 export const SCREEN_TO_ENGINE = -1;
 

@@ -15,7 +15,7 @@
 //
 // - It must LET GO. A control that trusts only its own pointerup is one
 //   that eventually sticks, with the axis it wrote outliving the run.
-//   `thumb-guard.ts` is every way a grip has to be able to end, and no zone
+//   the framework's `input/thumb-guard` is every way a grip has to be able to end, and no zone
 //   may hold a finger without one.
 // - It must answer at POINTER rate. The bar's rotation and the lever's
 //   position are written onto the DOM directly; nothing in here re-renders
@@ -37,7 +37,7 @@ import {
   leverThrottle,
 } from "./input-model.ts";
 import type { InputManager } from "./input.ts";
-import { createThumbGuard } from "./thumb-guard.ts";
+import { createThumbGuard } from "@niclaslindstedt/oss-game-framework/input/thumb-guard";
 
 /** Capture the pointer so a drag that leaves the zone keeps steering; a
  * pointer that cannot be captured (synthetic, already released) is fine —

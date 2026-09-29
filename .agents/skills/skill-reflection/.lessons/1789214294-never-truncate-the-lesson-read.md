@@ -4,7 +4,7 @@ date: 2026-09-12
 concepts: [tooling, measurement]
 ---
 
-`node scripts/skill-lessons.mjs <skill>` prints the whole set oldest first,
+`npx ogf-skill-lessons <skill>` prints the whole set oldest first,
 and on a skill carrying fifteen-plus fragments that is thousands of words. The
 tempting shape is `| head -120`, which reads the OLDEST third and silently
 drops the newest — and the newest fragments are the ones most likely to be

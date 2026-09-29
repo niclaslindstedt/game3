@@ -25,7 +25,7 @@
 //        are checked too: an unlit rounding buoy is a mark nobody can find
 //        at night, which is most of what a buoy is for.
 
-import { sampleField } from "../lib/heightfield.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { buoyLightName } from "../game/buoy.ts";
 import { lapTurn, roundingAbout } from "../mapgen/circuit.ts";
 import { cumulative, distanceAlong, walkPolyline } from "../mapgen/course.ts";

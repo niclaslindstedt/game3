@@ -15,7 +15,7 @@
 
 import type { GameEvent } from "@engine";
 
-import type { PlayShape } from "./types.ts";
+import type { PlayShape } from "@niclaslindstedt/oss-game-framework/audio/types";
 
 /** How hard the hull arrives for a landing to be as loud as it gets, m/s of
  * descent, and the share of that the gentlest touchdown is still worth. A

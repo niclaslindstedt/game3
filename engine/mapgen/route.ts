@@ -47,9 +47,9 @@
 // line whatever heading it left the coast on, which is what lets the
 // course know before it is laid how much of itself the leg will take.
 
-import { angleDiff, clamp, TAU } from "../lib/math.ts";
-import { valueNoise } from "../lib/noise.ts";
-import type { Rng } from "../lib/prng.ts";
+import { angleDiff, clamp, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import { valueNoise } from "@niclaslindstedt/oss-game-framework/core/noise";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import { LEVEL_RULES as R, inBand } from "./rules.ts";
 import { rulesAtPace } from "./pace.ts";
 import type { BuoyLight, Vec2 } from "./types.ts";

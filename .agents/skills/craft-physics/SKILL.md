@@ -32,7 +32,7 @@ Three modules answer it, and the split matters:
   angle, max lean), stated once, read by `craft.ts` AND `sim/bot.ts`.
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs craft-physics --list`.
+`npx ogf-skill-lessons craft-physics --list`.
 
 | Load beside this one | For |
 | --- | --- |
@@ -116,7 +116,7 @@ is made on flat water or not at all.
 - **A plain-Node bench CAN use the synthetic level.** `tests/support/synthetic.ts`
   imports `vitest` and spells the engine `@engine`, but both resolve in a
   scratch script: `aliasEngine('<repo root>')` from
-  `scripts/lib/engine-alias.mjs` before the dynamic `import()` handles the
+  the framework's `tooling/alias` before the dynamic `import()` handles the
   alias, and vitest is a devDependency so its `beforeAll`/`afterAll` import
   resolves like any other. So import `syntheticLevel` directly and get a flat
   bed, a straight shore and a ramp — do not build a generated-level staging
@@ -240,7 +240,7 @@ is made on flat water or not at all.
   RENORMALISED EVERY STEP.** `heading`, `pitch`, `roll` are DERIVED from `q`
   each step for the HUD, the camera and the bot — never integrated on their
   own, or a backflip's pitch wraps and the roll flips sign at the top.
-  The quaternion helpers are `engine/lib/quat.ts`.
+  The quaternion helpers are the framework's `core/quat`.
 - **THE ROLL INTO A TURN COMES FROM BELOW THE CoG.** The keel's lateral
   force acts at the probes' height, under the mass, so a hard turn rolls
   the hull INTO the turn; the rider's `leanIn` adds to it. A lateral force

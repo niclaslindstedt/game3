@@ -15,11 +15,11 @@ overlap, illegibility over bright water) only show up in pixels.
 The UI surface today is small — `pwa/src/game/hud.tsx` (the readouts),
 `hud-dial.tsx` (the bars), `hud-touch.tsx` (the thumb zones, which are the
 phone's only controls), `pwa/src/styles.css`, and the update toast
-(`update-button.tsx` over `lib/pwa-update.ts`) — which is exactly why a sweep
+(`update-button.tsx` over the framework's `pwa/pwa-update`) — which is exactly why a sweep
 is cheap enough to run on every UI change.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs ui-review --list`, then the ones this task
+`npx ogf-skill-lessons ui-review --list`, then the ones this task
 touches. Load **`skill-reflection`** at both ends of the session.
 
 ## Tooling

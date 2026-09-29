@@ -18,7 +18,7 @@ Load **`write-code`** beside all of them and **`skill-reflection`** at
 both ends.
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs add-biome --list` — and `nature`'s under
+`npx ogf-skill-lessons add-biome --list` — and `nature`'s under
 `--concepts=biome`, which is where the coasts before this one left their
 numbers.
 

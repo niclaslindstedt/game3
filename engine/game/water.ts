@@ -105,9 +105,13 @@
 // Deterministic: the seed fixes the phases and the directional draws, and
 // t is the only clock.
 
-import { sampleField, sampleFieldGradient, type Heightfield } from "../lib/heightfield.ts";
-import { clamp, TAU } from "../lib/math.ts";
-import { createRng } from "../lib/prng.ts";
+import {
+  sampleField,
+  sampleFieldGradient,
+  type Heightfield,
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { clamp, TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import { createRng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import { biomeOf } from "../mapgen/biomes.ts";
 import { flowAt } from "../mapgen/flow.ts";
 import type { Bounds, Level, Wind } from "../mapgen/types.ts";

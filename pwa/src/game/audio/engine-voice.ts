@@ -60,7 +60,7 @@
 // crossfade: the run's ordinary state is the quiet one, and coming out of
 // the water is what makes the engine an event.
 
-import type { LayerSpec, LayerTarget } from "../../lib/voice.ts";
+import type { LayerSpec, LayerTarget } from "@niclaslindstedt/oss-game-framework/audio/voice";
 
 /**
  * FIRINGS PER REVOLUTION — how the crank becomes a pitch.

@@ -49,7 +49,7 @@ import {
   type EngineVoice,
 } from "../pwa/src/game/audio/engine-voice.ts";
 import { LISTENERS, listenerFor } from "../pwa/src/game/audio/listener.ts";
-import { DEFAULT_VOLUME, playDef } from "../pwa/src/game/audio/play.ts";
+import { DEFAULT_VOLUME, playDef } from "@niclaslindstedt/oss-game-framework/audio/play";
 import { createRideBed } from "../pwa/src/game/audio/ride-bed.ts";
 import {
   bubblesForEvent,
@@ -57,7 +57,7 @@ import {
   recordForEvent,
   soundForEvent,
 } from "../pwa/src/game/audio/route.ts";
-import type { SoundBank } from "../pwa/src/game/audio/types.ts";
+import type { SoundBank } from "@niclaslindstedt/oss-game-framework/audio/types";
 import {
   SURF_REACH,
   WATER_LAYERS,
@@ -84,7 +84,7 @@ import {
   type NoiseOptions,
   type Synth,
   type ToneOptions,
-} from "../pwa/src/lib/voice.ts";
+} from "@niclaslindstedt/oss-game-framework/audio/voice";
 import { syntheticLevel } from "./support/synthetic.ts";
 
 /** One layer the recorder built: what it was made of, every target it was
@@ -114,6 +114,7 @@ function recorder(): Synth & {
     locked: false,
     generation: 0,
     unlock: () => {},
+    autostart: () => {},
     resume: () => {},
     now: () => (rec.locked ? null : rec.clock),
     tone: (o: ToneOptions) => void rec.tones.push(o),
@@ -216,7 +217,7 @@ const EVERY_EVENT: GameEvent[] = Object.values(EVERY_EVENT_BY_KIND).filter(
 
 const STRIP = syntheticLevel({ windSpeed: 8, noSolids: true, seaward: 1200 });
 
-describe("the instrument's arithmetic (lib/voice.ts)", () => {
+describe("the instrument's arithmetic (the framework's `audio/voice`)", () => {
   it("holds every cutoff under Nyquist at every rate a context comes back at", () => {
     for (const rate of SAMPLE_RATES) {
       expect(safeCutoff(20000, rate)).toBeLessThanOrEqual(rate * MAX_CUTOFF_RATIO);
@@ -477,7 +478,7 @@ describe("the route (audio/route.ts)", () => {
   });
 });
 
-describe("playing a def through a shape (audio/play.ts)", () => {
+describe("playing a def through a shape (the framework's `audio/play`)", () => {
   it("scales the pitch, the filters and the length together, and a glide-less voice stays put", () => {
     const rec = recorder();
     playDef(rec, RUN_BANK.gate, { pitch: 2, gain: 0.5, stretch: 1.5 });

@@ -8,8 +8,8 @@
 // knows a gate exists. They take the same `Report` and are called in rule
 // order from `analyzeLevel`, so the split is invisible in the findings.
 
-import { sampleField } from "../lib/heightfield.ts";
-import { fieldGradient } from "../lib/heightfield.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { fieldGradient } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { LEVEL_RULES as R, solidRule, withinBand } from "../mapgen/rules.ts";
 import type { Bounds, Level, Solid } from "../mapgen/types.ts";
 import { ANALYSIS as A } from "./budgets.ts";

@@ -52,7 +52,7 @@ import * as THREE from "three";
 import { TUNING, heightAt, rotate, type GameState } from "@engine";
 
 import { PALETTE } from "../identity.ts";
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { spriteTexture } from "./fx-textures.ts";
 import { fanHalf } from "./wake-profile.ts";
 

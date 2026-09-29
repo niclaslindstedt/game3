@@ -1,7 +1,7 @@
 ---
 title: The shell's box has TWO failure modes that look identical on a phone, and only measuring a bug shot against a lab shot tells them apart
 date: 2026-09-21
-scope: pwa/src/styles.css, pwa/src/lib/visible-viewport.ts, pwa/src/lib/viewport.ts
+scope: pwa/src/styles.css, pwa/src/main.tsx
 concepts: [layout, viewports, ios, shell, screenshots, debugging]
 ---
 

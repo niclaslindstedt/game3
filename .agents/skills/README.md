@@ -15,7 +15,7 @@ symlinks here. `AGENTS.md` is the router that says which one to load.
 | `commit` | Gates by cost, the commit, the push and the PR as one step, the sim-table obligation |
 | `changelog` | The fragment-or-`no-changelog` call every PR owes |
 | `conflict` | Moving a branch onto another: the backup branch, always fetch, resolve honestly |
-| `skill-reflection` | Read each loaded skill's lessons first; record, prune, merge, promote at the end; the size bars; `scripts/skill-lessons.mjs` |
+| `skill-reflection` | Read each loaded skill's lessons first; record, prune, merge, promote at the end; the size bars; `ogf-skill-lessons` (the framework's bin) |
 
 ## Maintenance
 

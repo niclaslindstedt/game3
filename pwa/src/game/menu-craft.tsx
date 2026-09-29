@@ -31,7 +31,7 @@
 import { useEffect, useRef, useState } from "preact/hooks";
 import { CLASS_BAND, craftAtClass, craftById, type CraftId } from "@engine";
 
-import { COUNT_SECONDS, countAt } from "../lib/count.ts";
+import { COUNT_SECONDS, countAt } from "@niclaslindstedt/oss-game-framework/hud/count";
 import { CraftPicker } from "./craft-picker.tsx";
 import { craftBars, craftFacts, type CraftFact } from "./craft-stats.ts";
 import { MenuHead } from "./menu.tsx";
@@ -50,7 +50,7 @@ import { STRINGS } from "./strings.ts";
  * not the card: a rerender of the page walks the whole picker, and this one
  * runs sixty times in the half-second after every press.
  *
- * The maths is `lib/count.ts`; the clock is here, because the clock is the
+ * The maths is the framework's `hud/count`; the clock is here, because the clock is the
  * only part of it that needs a browser. */
 function Figure({ fact }: { fact: CraftFact }) {
   // The value on screen, and the run currently carrying it somewhere. Refs,

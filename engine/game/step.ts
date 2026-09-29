@@ -5,12 +5,12 @@
 // app's render loop and the headless simulator drive this same function —
 // there is no other way to advance a run.
 
-import { clamp } from "../lib/math.ts";
-import { createRng } from "../lib/prng.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { createRng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import { generateLevel, hourOfDay, type TimeOfDay } from "../mapgen/index.ts";
 import type { BiomeId, Level, TrackKind, Weather, Wind } from "../mapgen/types.ts";
-import type { Season } from "../lib/solar.ts";
-import { status } from "../output.ts";
+import type { Season } from "../mapgen/seasons.ts";
+import { status } from "@niclaslindstedt/oss-game-framework/core/output";
 import { freshProgress, standCraft } from "./course.ts";
 import { CRAFT_IDS, craftAtClass, craftById, type CraftId, type CraftSpec } from "./defs/craft.ts";
 import {
@@ -21,7 +21,7 @@ import {
   type RunRules,
 } from "./defs/modes.ts";
 import { TUNING } from "./defs/tuning.ts";
-import { identity } from "../lib/quat.ts";
+import { identity } from "@niclaslindstedt/oss-game-framework/core/quat";
 import { NEUTRAL_INPUT, type CraftInput, type CraftState, type GameState } from "./state.ts";
 import { createShelter } from "./fetch.ts";
 import { clipRiders, createRivals, stepRivals } from "./rivals.ts";

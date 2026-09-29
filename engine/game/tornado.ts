@@ -58,9 +58,9 @@
 // functions of the level's bounds, its start line and a plan point, with no
 // clock and no randomness.
 
-import { sampleField } from "../lib/heightfield.ts";
-import { clamp } from "../lib/math.ts";
-import { smooth } from "../lib/noise.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { smooth } from "@niclaslindstedt/oss-game-framework/core/noise";
 import type { Bounds, Level } from "../mapgen/types.ts";
 import type { CraftSpec } from "./defs/craft.ts";
 import { CRAFT } from "./defs/craft.ts";

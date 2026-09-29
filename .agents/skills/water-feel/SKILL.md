@@ -21,7 +21,7 @@ what lets the renderer and the engine agree exactly, and what this skill
 protects above all else.
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs water-feel --list`.
+`npx ogf-skill-lessons water-feel --list`.
 
 | Load beside this one | For |
 | --- | --- |
@@ -269,7 +269,7 @@ lands in.
   steps; the water it draws is at the FRAME's `t`, not the last step's, or
   the hull (at the step's `t`) sits a few centimetres off the drawn surface
   at every frame boundary and shimmers. The accumulator's alpha decides
-  the frame's `t`; `run-loop.ts` owns it.
+  the frame's `t`; the framework's `loop/run-clock` owns it.
 - **Reading the surface outside the level.** The heightfield's sampler
   clamps to its edge; a probe or a mesh vertex beyond the bounds reads the
   edge cell's depth, which is usually the deep bound — fine — but a

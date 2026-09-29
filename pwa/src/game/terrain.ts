@@ -38,7 +38,7 @@
 import * as THREE from "three";
 import { fieldGradient, hash2, sampleField, type Level, type Surface } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+import { clamp } from "@niclaslindstedt/oss-game-framework/core/math";
 import { shorePaintOf, type ShorePaint } from "./shore-paint.ts";
 import { seaHaze, seaTones, waterOpticsOf, type WaterOptics } from "./water-optics.ts";
 

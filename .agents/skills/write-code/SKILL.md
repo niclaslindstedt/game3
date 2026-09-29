@@ -11,7 +11,7 @@ that owns the subject (`engine-system`, `water-feel`, `craft-physics`,
 building; this one knows how code is written here.
 
 **Read this skill's lessons first** —
-`node scripts/skill-lessons.mjs write-code --list`, then the ones your task
+`npx ogf-skill-lessons write-code --list`, then the ones your task
 touches (`--scope=…`, `--concepts=…`). Reflecting them back before the commit
 is the `skill-reflection` skill's job; load it at both ends of the session.
 
@@ -88,7 +88,7 @@ Three gates before anything leaves a comment and becomes a fragment:
    _different_ file would need and would not find.
 3. **Does something already say it?** Check `AGENTS.md`, the doc named in its
    sync table, and the owning skill's `SKILL.md` and lessons
-   (`node scripts/skill-lessons.mjs --scope=<path>`). A rule in two places
+   (`npx ogf-skill-lessons --scope=<path>`). A rule in two places
    drifts, and then neither is trustworthy.
 
 Then write it where it belongs — the doc if `AGENTS.md`'s sync table names one,
@@ -253,14 +253,19 @@ Make targets are the definition of green CI enforces).
 ## The generic pools, and the aliases
 
 - **Keep generic game code separate.** Anything not specific to THIS game
-  (math, PRNG, value noise, the heightfield engine-side; general UI utilities
-  app-side) goes in `engine/lib/` or `pwa/src/lib/` — never tangled into a
-  game-specific module. Those pools are what a sequel keeps as-is. A Gerstner
+  goes in a pool, never tangled into a game-specific module. What EVERY
+  sibling game shares (math, PRNG, value noise, the heightfield, the
+  quaternion, the sun, the clock engine-side; the synth, the screenshot roll,
+  the touch plumbing app-side; the lab shelf) is the shared framework's,
+  `@niclaslindstedt/oss-game-framework` — the engine imports only its
+  `core/*` and `racing/*` file subpaths, and a change to it is a framework
+  PR and a moved tag, never a local copy (AGENTS.md § The framework). What
+  is generic but only this game's goes in `pwa/src/lib/`. A Gerstner
   sum is THIS game's (`engine/game/water.ts`); the noise under the sea bed is
-  not (`engine/lib/noise.ts`).
+  not (the framework's `core/noise`).
 - **The engine never reads the wall clock; it is HANDED one.** Code in
   `engine/` that times itself or stamps a record — the analyzer's `ms` —
-  takes a `Clock` from `engine/lib/clock.ts` (a trailing
+  takes a `Clock` from the framework's `core/clock` (a trailing
   `clock: Clock = wallClock` parameter) and calls `clock.now()`; it never
   calls `Date.now`, `performance.now` or `new Date()`. A test hands in
   `fixedClock()` and compares the whole report. `tests/imports_test.ts` and
@@ -285,7 +290,7 @@ Make targets are the definition of green CI enforces).
   change. Declare the field and assign it in the constructor body; use a
   union of string literals instead of an enum. A script that needs an app
   module (`scenarios.ts`, `craft-styles.ts`) goes through `aliasEngine` in
-  `scripts/lib/engine-alias.mjs` before the `import()` — never a Vite build
+  the framework's `tooling/alias` before the `import()` — never a Vite build
   to read a table.
 - **Every dependency comes from the public npm registry.** The repo commits
   no `.npmrc` and `npm install` needs no token.

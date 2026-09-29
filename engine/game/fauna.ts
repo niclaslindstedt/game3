@@ -62,9 +62,9 @@
 // The engine's sign conventions hold: heading 0 is +z and grows clockwise
 // from above, pitch is NOSE-UP positive.
 
-import { TAU } from "../lib/math.ts";
-import { hash2 } from "../lib/noise.ts";
-import { fromEuler, type Quat } from "../lib/quat.ts";
+import { TAU } from "@niclaslindstedt/oss-game-framework/core/math";
+import { hash2 } from "@niclaslindstedt/oss-game-framework/core/noise";
+import { fromEuler, type Quat } from "@niclaslindstedt/oss-game-framework/core/quat";
 import type { Pod } from "../mapgen/types.ts";
 import { faunaById, type FaunaSpec } from "./defs/fauna.ts";
 
@@ -82,7 +82,7 @@ export type FaunaPose = {
   /** Bank, rad, right side down positive — a turning animal leans into it. */
   roll: number;
   /** The same three angles as an orientation, so a host can put the body
-   * down without knowing the sign conventions `lib/quat.ts` owns. */
+   * down without knowing the sign conventions the framework's `core/quat` owns. */
   q: Quat;
   /** 0 at the holding depth, 1 at the top of an ordinary rise, and past 1
    * in a breach, where the animal is clear of the water altogether. A

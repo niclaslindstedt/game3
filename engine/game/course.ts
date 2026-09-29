@@ -33,8 +33,8 @@
 // so every gate charged since it is owed again and can be threaded this
 // time round.
 
-import { angleDiff } from "../lib/math.ts";
-import { fromEuler, unrotate } from "../lib/quat.ts";
+import { angleDiff } from "@niclaslindstedt/oss-game-framework/core/math";
+import { fromEuler, unrotate } from "@niclaslindstedt/oss-game-framework/core/quat";
 import type { Gate, Level, Ramp } from "../mapgen/types.ts";
 import { rampsOf } from "./collision.ts";
 import { TRICK_RESET_BACK } from "./defs/modes.ts";

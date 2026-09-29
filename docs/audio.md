@@ -25,7 +25,7 @@ curve.
 ## The shape of it
 
 ```
-                       pwa/src/lib/synth.ts        ← the only WebAudio code
+          the framework's audio/synth        ← the only WebAudio code
                                 ▲
                         audio/bus.ts  (one context, the fader's view)
                                 │
@@ -43,16 +43,16 @@ curve.
 
 | Module                               | What it owns                                                                                                                                                                                                                        |
 | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `pwa/src/lib/voice.ts`               | The vocabulary: every parameter a sound may be written in, the `Synth` interface, the `Layer` a bed is made of, and the arithmetic worth testing (`envelopeShape`, `safeCutoff`, the shaper). **DOM-free.**                         |
-| `pwa/src/lib/synth.ts`               | The instrument. `tone()` and `noise()` for one-shots, `layer()` for the beds, one shared echo bus, a master limiter, and the whole audio-context lifecycle.                                                                         |
-| `pwa/src/game/audio/bus.ts`          | One synth, one volume-scaled view for the effects fader. A score, when it comes, is a second view — never a second synth.                                                                                                           |
+| framework `audio/voice`              | The vocabulary: every parameter a sound may be written in, the `Synth` interface, the `Layer` a bed is made of, and the arithmetic worth testing (`envelopeShape`, `safeCutoff`, the shaper). **DOM-free.**                         |
+| framework `audio/synth`              | The instrument. `tone()` and `noise()` for one-shots, `layer()` for the beds, one shared echo bus, a master limiter, and the whole audio-context lifecycle.                                                                         |
+| `pwa/src/game/audio/bus.ts`          | One synth, one volume-scaled view (the framework's `audio/view`) for the effects fader. A score, when it comes, is a second view — never a second synth.                                                                            |
 | `pwa/src/game/audio/bank.ts`         | Every discrete sound the run makes, as data: the slap, two landings, the dive, a hull on a rock, the keel on the bottom, the capsize, the launch, the buoy's chime, the ring, the miss, the reset, the line — and the birds' cries. |
 | `pwa/src/game/audio/bubbles.ts`      | The tail every splash gets: Minnaert's bubble, a sine chirping up, in a burst the router sizes.                                                                                                                                     |
 | `pwa/src/game/audio/route.ts`        | Which sound a `GameEvent` makes, how big, which bubbles it leaves, and how it is heard from the seat it is watched from.                                                                                                            |
 | `pwa/src/game/audio/listener.ts`     | What each rung of the camera ladder does to the mix — one row per `CameraMode`.                                                                                                                                                     |
 | `pwa/src/game/audio/engine-voice.ts` | The engine and the pump, as nine layers: where each should be for a set of revs, a throttle, a load, a wet intake, the jet's slip and how far the exhaust has cleared the water.                                                    |
 | `pwa/src/game/audio/water-voice.ts`  | The hull in the water, the wind and the sea, as seven layers: the wash, the spray, the chop, the wind, the swell, the surf and its foam.                                                                                            |
-| `pwa/src/game/audio/rack.ts`         | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it.                                                                                                                                             |
+| framework `audio/rack`               | The plumbing every bed shares: build a layer, rebuild one whose context died, steer it.                                                                                                                                             |
 | `pwa/src/game/audio/ride-bed.ts`     | The scheduler: the state, once a frame, into every layer's target — and the one cue nothing reports, the slap.                                                                                                                      |
 | `pwa/src/game/audio/bird-voice.ts`   | What the birds say: which cry each species makes, how often on the wing and on the rock, how far off it is heard, and the hashed draw that deals a flock's cries per quarter second. **DOM-free, plan-free.**                       |
 | `pwa/src/game/audio/bird-bed.ts`     | The birds' scheduler: the one plan the renderer draws from, asked for by level; once a frame, which flocks are in earshot, how much of each is up, and the cries owed since the last frame — and the flush.                         |
@@ -163,7 +163,7 @@ A biquad's coefficients come from its cutoff divided by half the sample rate;
 at or past 1 that is not a bright filter, it is undefined, and WebKit answers
 with a harsh burst. The rate is not a constant: iOS picks it from the live
 audio ROUTE, and a Bluetooth headset in hands-free mode drops the whole
-session to 16 kHz. `safeCutoff()` in `voice.ts` clamps every cutoff,
+session to 16 kHz. `safeCutoff()` in the framework's `audio/voice` clamps every cutoff,
 authored or steered, and `tests/audio_test.ts` walks every authored filter
 against every rate a context comes back at and sweeps the beds' computed
 cutoffs across their whole range. Every authored cutoff sits under 7 kHz for

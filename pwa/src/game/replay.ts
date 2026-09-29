@@ -51,7 +51,7 @@
 // make a replay the largest thing this game writes to a browser profile. The
 // run's worth to the player is already written down in the record book and
 // the campaign's board; what a replay is for is watching the run you have
-// just ridden. The day that stops being true, `shot-roll.ts` / `shot-store.ts`
+// just ridden. The day that stops being true, the framework's `shots/shot-roll` / the framework's `shots/shot-store`
 // is the shape to copy — a storage-free policy with the store under it.
 //
 // And the ENGINE-SIDE tape (`engine/sim/tape.ts`, still a placeholder), which

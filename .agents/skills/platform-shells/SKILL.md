@@ -20,7 +20,7 @@ feature the desktop or store app needs is a feature the website needs first;
 a shell-only behaviour is a decision in the shell's own tree with a test
 beside it.
 
-**Read this skill's lessons first** — `node scripts/skill-lessons.mjs
+**Read this skill's lessons first** — `npx ogf-skill-lessons
 platform-shells --list`. Load **`skill-reflection`** at both ends and
 **`write-code`** beside this one. What is FELT (the vibration table) is
 `visual-effects`'; the options row that switches it is `menu-system`'s.

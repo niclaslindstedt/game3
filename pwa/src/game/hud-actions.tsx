@@ -32,7 +32,7 @@
 
 import { useMemo } from "preact/hooks";
 
-import { createHudPress, pressHandlers } from "./hud-press.ts";
+import { createHudPress, pressHandlers } from "@niclaslindstedt/oss-game-framework/input/hud-press";
 import { STRINGS } from "./strings.ts";
 
 /** The reset mark: an arrow curling back on itself, which is what this does
@@ -82,7 +82,7 @@ function CameraGlyph() {
  * what stops a press on RESET being repeated by every picture the rider takes
  * afterwards.
  *
- * BOTH ARE PRESSED THROUGH THE POINTER EVENTS (`hud-press.ts`), because these
+ * BOTH ARE PRESSED THROUGH THE POINTER EVENTS (the framework's `input/hud-press`), because these
  * are the two presses made WHILE THE CRAFT IS MOVING and a moving craft is a
  * craft with a thumb already on the glass. A second finger is a non-primary
  * pointer and the browser synthesises no `click` for one: on `onClick` alone

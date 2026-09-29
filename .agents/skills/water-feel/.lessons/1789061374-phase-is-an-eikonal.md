@@ -1,7 +1,7 @@
 ---
 title: A phase integrated along one heading carries every shoal's delay downwind forever — solve the eikonal, feed it the deep plane wave at the rim, and measure |∇φ|/k over the corpus
 date: 2026-09-10
-scope: engine/game/water.ts, engine/lib/heightfield.ts
+scope: engine/game/water.ts, engine/mapgen/compile.ts
 concepts: [phase, refraction, diffraction, eikonal, river, renderer]
 ---
 

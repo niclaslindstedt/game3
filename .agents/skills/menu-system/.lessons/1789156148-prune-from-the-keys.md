@@ -1,7 +1,7 @@
 ---
 title: Prune a kept-picture store from its stored KEYS, never from the roll in hand — in hand is one visit's, the store is every visit's
 date: 2026-09-11
-scope: pwa/src/lib/shot-store.ts, pwa/src/lib/shot-roll.ts
+scope: pwa/src/game/screenshots.ts, pwa/src/game/menu-gallery.tsx
 concepts: [screenshots, gallery, indexeddb, storage, persistence]
 ---
 

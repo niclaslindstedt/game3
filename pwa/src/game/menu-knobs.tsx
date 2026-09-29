@@ -353,7 +353,7 @@ export function NumberRow({
   // typed field in the game and it lives on a card that goes away the moment
   // the rider presses on — taking a focused input off the page with it. A
   // browser asked to close a keyboard that way can put the keys away and
-  // leave the page still slid up under where they were (`visible-viewport.ts`
+  // leave the page still slid up under where they were (the framework's `display/visible-viewport`
   // says what that costs), and `focusout` never fires to say so. Blurring it
   // first makes the exit an ordinary one.
   useEffect(() => {

@@ -13,7 +13,7 @@
 // R1 check is still free to fail — which is exactly the pair of faults
 // R25 exists to tell apart.
 
-import { sampleField } from "../lib/heightfield.ts";
+import { sampleField } from "@niclaslindstedt/oss-game-framework/core/heightfield";
 import { biomeOf } from "../mapgen/biomes.ts";
 import { cumulative, polylineDistance, walkPolyline } from "../mapgen/course.ts";
 import { bendRadius } from "../mapgen/river.ts";

@@ -39,19 +39,35 @@
 // that cannot be kept is simply not kept — the record it was set on still
 // stands, and a ghost is never load-bearing.
 
+import {
+  createTapeRecorder,
+  isControlTape,
+  readTape,
+  snapAxis,
+  type ControlTape as Tape,
+  type TapeSchema,
+} from "@niclaslindstedt/oss-game-framework/racing/tape";
 import { NEUTRAL_INPUT, isCraftId, type CraftId, type CraftInput, type GameMode } from "@engine";
 
-import { clamp } from "../lib/util.ts";
+/** THE TAPE'S LAYOUT: one stream per axis of a `CraftInput`, in the order
+ * they are written into a stored tape — the keys ARE the stored field
+ * names, so renaming or reordering one is a format change (`GHOST_FORMAT`).
+ * Steering and lean are SIGNED (127 positions each side of centre); the
+ * throttle, the brake and the tuck are LEVERS (255 positions: keys ask for 0
+ * or 1 through a ramp and a thumb asks for anything in between, so the finer
+ * grid is the one that costs nothing — a byte either way); the reset's edge
+ * is a FLAG. The framework's tape (`racing/tape`) owns the grid, the byte
+ * and the run-length codec; which axes this game has is this table. */
+const SCHEMA = {
+  steer: "signed",
+  lean: "signed",
+  throttle: "lever",
+  reverse: "lever",
+  crouch: "lever",
+  flags: "flags",
+} as const satisfies TapeSchema<string>;
 
-/** Steering and lean positions each side of centre. Both axes are snapped
- * onto this grid where they are produced, which is what makes a step of the
- * tape one byte and a replay exact rather than merely close. */
-const STEER_STEPS = 127;
-
-/** The lever positions: the throttle, the brake and the tuck. Keys ask for
- * 0 or 1 through a ramp and a thumb asks for anything in between, so the
- * finer grid is the one that costs nothing — a byte either way. */
-const LEVER_STEPS = 255;
+type Stream = keyof typeof SCHEMA;
 
 /** Bump when the tape's LAYOUT changes, or when what the engine DOES with
  * one changes: the same controls under a different hull, a different sea or
@@ -70,14 +86,6 @@ export const GHOST_FORMAT = 2;
  * written down, and the next, tidier run on that water leaves a ghost. */
 export const GHOST_CAP = 400_000;
 
-/** Snap an axis onto a recorded grid. Centre comes back as a POSITIVE
- * zero: rounding a hair below it yields -0, which the tape cannot write
- * down and which the physics would then carry a sign through. */
-function snap(v: number, steps: number): number {
-  const index = Math.round(v * steps);
-  return index === 0 ? 0 : index / steps;
-}
-
 /** ONE STEP'S CONTROLS, ON THE GRID THE TAPE WRITES. Applied where the
  * player's input is produced AND again at the one place the engine is handed
  * an input at all (`App.tsx`'s `stepOnce`), so the engine and the recording
@@ -88,11 +96,11 @@ function snap(v: number, steps: number): number {
  * on the grid snaps to itself — and the grid is finer than any decision any
  * of the three makes, so nothing about the riding moves. */
 export function snapInput(input: CraftInput): CraftInput {
-  input.steer = snap(clamp(input.steer, -1, 1), STEER_STEPS);
-  input.lean = snap(clamp(input.lean, -1, 1), STEER_STEPS);
-  input.throttle = snap(clamp(input.throttle, 0, 1), LEVER_STEPS);
-  input.reverse = snap(clamp(input.reverse, 0, 1), LEVER_STEPS);
-  input.crouch = snap(clamp(input.crouch, 0, 1), LEVER_STEPS);
+  input.steer = snapAxis(input.steer, SCHEMA.steer);
+  input.lean = snapAxis(input.lean, SCHEMA.lean);
+  input.throttle = snapAxis(input.throttle, SCHEMA.throttle);
+  input.reverse = snapAxis(input.reverse, SCHEMA.reverse);
+  input.crouch = snapAxis(input.crouch, SCHEMA.crouch);
   return input;
 }
 
@@ -103,17 +111,7 @@ export function snapInput(input: CraftInput): CraftInput {
  * rather than the record it beat. One codec, two readers; a second copy of
  * the encoding would be a ghost and a replay that drift apart on the day an
  * axis is added. */
-export type ControlTape = {
-  /** Steps on the tape: the whole run from the engine's first step, the
-   * lights included, so two runs advance together. */
-  steps: number;
-  steer: string;
-  lean: string;
-  throttle: string;
-  reverse: string;
-  crouch: string;
-  flags: string;
-};
+export type ControlTape = Tape<Stream>;
 
 /** WHAT NAMES THE WATER a tape was cut on — see this file's header. */
 export type GhostStage = {
@@ -170,65 +168,8 @@ export type GhostRun = GhostStage &
     value: number;
   };
 
+/** The reset's edge, bit 0 of the `flags` stream. */
 const FLAG_RESET = 1;
-
-/** `String.fromCharCode` takes its bytes as arguments, and a whole run's
- * worth at once overflows the call stack. */
-const BASE64_CHUNK = 0x8000;
-
-function toBase64(bytes: number[]): string {
-  let raw = "";
-  for (let i = 0; i < bytes.length; i += BASE64_CHUNK) {
-    raw += String.fromCharCode(...bytes.slice(i, i + BASE64_CHUNK));
-  }
-  return btoa(raw);
-}
-
-function fromBase64(text: string): Uint8Array {
-  const raw = atob(text);
-  const bytes = new Uint8Array(raw.length);
-  for (let i = 0; i < raw.length; i++) bytes[i] = raw.charCodeAt(i);
-  return bytes;
-}
-
-/** Run-length encode a byte per step, then base64 it. A control held still
- * is what makes a tape small — a throttle buried down a straight is two
- * bytes for 255 steps, and the reset flag is two bytes for a whole run. A
- * run of one value caps at 255 steps and simply continues in the next pair,
- * so the worst case is two bytes a step rather than a failure. */
-export function encodeStream(values: readonly number[]): string {
-  const out: number[] = [];
-  let i = 0;
-  while (i < values.length) {
-    const value = values[i];
-    let run = 1;
-    while (run < 255 && i + run < values.length && values[i + run] === value) run++;
-    out.push(run, value);
-    i += run;
-  }
-  return toBase64(out);
-}
-
-/** Decode `steps` bytes back out. A short or damaged tape leaves its tail
- * at zero rather than throwing — including one `atob` refuses outright: a
- * ghost is a picture, and half a picture beats a crash on the first frame of
- * a run somebody is about to ride. */
-export function decodeStream(text: string, steps: number): Uint8Array {
-  const out = new Uint8Array(steps);
-  let bytes: Uint8Array;
-  try {
-    bytes = fromBase64(text);
-  } catch {
-    return out;
-  }
-  let at = 0;
-  for (let i = 0; i + 1 < bytes.length && at < steps; i += 2) {
-    const run = Math.min(bytes[i], steps - at);
-    out.fill(bytes[i + 1], at, at + run);
-    at += run;
-  }
-  return out;
-}
 
 export type ControlRecorder = {
   /** Write down the controls a step was ridden on. Called with the input
@@ -242,31 +183,19 @@ export type ControlRecorder = {
 };
 
 export function createControlRecorder(): ControlRecorder {
-  const steer: number[] = [];
-  const lean: number[] = [];
-  const throttle: number[] = [];
-  const reverse: number[] = [];
-  const crouch: number[] = [];
-  const flags: number[] = [];
+  const tape = createTapeRecorder(SCHEMA);
   return {
-    record: (input) => {
-      steer.push(Math.round(clamp(input.steer, -1, 1) * STEER_STEPS) + STEER_STEPS);
-      lean.push(Math.round(clamp(input.lean, -1, 1) * STEER_STEPS) + STEER_STEPS);
-      throttle.push(Math.round(clamp(input.throttle, 0, 1) * LEVER_STEPS));
-      reverse.push(Math.round(clamp(input.reverse, 0, 1) * LEVER_STEPS));
-      crouch.push(Math.round(clamp(input.crouch, 0, 1) * LEVER_STEPS));
-      flags.push(input.reset ? FLAG_RESET : 0);
-    },
-    steps: () => steer.length,
-    seal: () => ({
-      steps: steer.length,
-      steer: encodeStream(steer),
-      lean: encodeStream(lean),
-      throttle: encodeStream(throttle),
-      reverse: encodeStream(reverse),
-      crouch: encodeStream(crouch),
-      flags: encodeStream(flags),
-    }),
+    record: (input) =>
+      tape.record({
+        steer: input.steer,
+        lean: input.lean,
+        throttle: input.throttle,
+        reverse: input.reverse,
+        crouch: input.crouch,
+        flags: input.reset ? FLAG_RESET : 0,
+      }),
+    steps: tape.steps,
+    seal: tape.seal,
   };
 }
 
@@ -301,24 +230,26 @@ export type GhostTape = {
 /** Put a tape back on the water. Reads a `ControlTape`, so a ghost and a
  * replay are driven by the very same reader. */
 export function readControls(tape: ControlTape): GhostTape {
-  const steps = tape.steps;
-  const steer = decodeStream(tape.steer, steps);
-  const lean = decodeStream(tape.lean, steps);
-  const throttle = decodeStream(tape.throttle, steps);
-  const reverse = decodeStream(tape.reverse, steps);
-  const crouch = decodeStream(tape.crouch, steps);
-  const flags = decodeStream(tape.flags, steps);
+  const reader = readTape(tape, SCHEMA);
+  const axes: Record<Stream, number> = {
+    steer: 0,
+    lean: 0,
+    throttle: 0,
+    reverse: 0,
+    crouch: 0,
+    flags: 0,
+  };
   const input: CraftInput = { ...NEUTRAL_INPUT };
   return {
-    steps,
+    steps: reader.steps,
     at: (step) => {
-      if (step < 0 || step >= steps) return Object.assign(input, NEUTRAL_INPUT);
-      input.steer = (steer[step] - STEER_STEPS) / STEER_STEPS;
-      input.lean = (lean[step] - STEER_STEPS) / STEER_STEPS;
-      input.throttle = throttle[step] / LEVER_STEPS;
-      input.reverse = reverse[step] / LEVER_STEPS;
-      input.crouch = crouch[step] / LEVER_STEPS;
-      input.reset = (flags[step] & FLAG_RESET) !== 0;
+      if (!reader.at(step, axes)) return Object.assign(input, NEUTRAL_INPUT);
+      input.steer = axes.steer;
+      input.lean = axes.lean;
+      input.throttle = axes.throttle;
+      input.reverse = axes.reverse;
+      input.crouch = axes.crouch;
+      input.reset = (axes.flags & FLAG_RESET) !== 0;
       return input;
     },
   };
@@ -345,10 +276,7 @@ export function readsAsGhost(parsed: unknown): parsed is GhostRun {
   if (typeof run.craft !== "string" || !isCraftId(run.craft)) return false;
   if (typeof run.limit !== "number" || !Number.isFinite(run.limit)) return false;
   if (typeof run.value !== "number" || !Number.isFinite(run.value)) return false;
-  if (!Number.isInteger(run.steps) || (run.steps as number) <= 0) return false;
-  return (["steer", "lean", "throttle", "reverse", "crouch", "flags"] as const).every(
-    (key) => typeof run[key] === "string",
-  );
+  return isControlTape(parsed, SCHEMA);
 }
 
 /* ── STORAGE ──────────────────────────────────────────────────────────── */

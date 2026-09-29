@@ -50,9 +50,9 @@
 // most of what a rider sees of the country past the race, and two coasts
 // with the same river are one coast with two paint jobs.
 
-import { angleDiff, clamp } from "../lib/math.ts";
-import { valueNoise } from "../lib/noise.ts";
-import type { Rng } from "../lib/prng.ts";
+import { angleDiff, clamp } from "@niclaslindstedt/oss-game-framework/core/math";
+import { valueNoise } from "@niclaslindstedt/oss-game-framework/core/noise";
+import type { Rng } from "@niclaslindstedt/oss-game-framework/core/prng";
 import type { Island } from "./basin.ts";
 import type { RiverShape } from "./biomes.ts";
 import type { Route } from "./route.ts";

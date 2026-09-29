@@ -11,7 +11,7 @@ the engine never knows a renderer exists. This is what makes every game rule
 unit-testable in plain Node, and every run reproducible from a seed.
 
 **Before starting, read this skill's lessons** —
-`node scripts/skill-lessons.mjs engine-system --list`, then the ones this task
+`npx ogf-skill-lessons engine-system --list`, then the ones this task
 touches (`--scope=…`, `--concepts=…`). Reading them here and reflecting on them
 before the commit is the **`skill-reflection`** skill's job — load it at both
 ends of the session. Load **`write-code`** beside this one on every system
@@ -34,7 +34,7 @@ change — it owns the craft rules (comments, file caps, the edit loop).
 | What a craft CAN do | `engine/game/limits.ts` — read by `craft.ts` AND `sim/bot.ts`; never restate a ceiling |
 | Level generation rules / vocabulary | `engine/mapgen/rules.ts` + `generate.ts` + `compile.ts` — the `mapgen-improvement` skill |
 | Bot behavior | `engine/sim/bot.ts` — the `bot-improvement` skill |
-| Generic helpers (any game could use) | `engine/lib/` — the pool a later game keeps as-is |
+| Generic helpers (any game could use) | the shared framework's `core/*` / `racing/*` — a framework PR and a moved tag (AGENTS.md § The framework) |
 | Public surface | `engine/index.ts` — export new types/constants the app or tests need |
 | Tests | `tests/<topic>_test.ts` (vitest, `@engine` alias, synthetic levels — see the `test-scenario` skill) |
 | Anything drawn | `pwa/src/game/` (`renderer.ts`, `water-mesh.ts`, `terrain.ts`, `rocks.ts`, `gates.ts`, `craft-body.ts`, `camera.ts`) |
@@ -110,7 +110,7 @@ stated side.
 
 - `step()` must stay deterministic for (seed, input sequence) — no wall clock,
   no `Math.random`, no DOM. Everything random draws from the seeded RNG in the
-  state (`engine/lib/prng.ts`). The sim digests (`tests/simulation_test.ts`,
+  state (the framework's `core/prng`). The sim digests (`tests/simulation_test.ts`,
   `determinism_test.ts`) enforce this: break determinism and they fail.
 - **The water is a pure function of `(x, z, t)`**, built once per level. A
   system that wants the sea to REMEMBER something (a wake, a splash) keeps
@@ -120,7 +120,7 @@ stated side.
   the app imports `@engine` and nothing deeper. `tests/imports_test.ts` holds
   the direction.
 - The timestep is fixed (`TUNING.physicsHz`, 120). The app's loop
-  (`run-loop.ts`) accumulates real time into fixed steps, clamped — never make
+  (the framework's `loop/run-clock`) accumulates real time into fixed steps, clamped — never make
   a rule depend on frame rate.
 - Docs move with the code per `AGENTS.md`'s sync table: craft changes update
   `docs/riding.md`, water changes `docs/water.md`, generator changes

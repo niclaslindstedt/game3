@@ -14,10 +14,10 @@ import {
   fieldGradient,
   sampleField,
   type Heightfield,
-} from "../lib/heightfield.ts";
-import { lerp } from "../lib/math.ts";
-import type { Season } from "../lib/solar.ts";
-import { valueNoise } from "../lib/noise.ts";
+} from "@niclaslindstedt/oss-game-framework/core/heightfield";
+import { lerp } from "@niclaslindstedt/oss-game-framework/core/math";
+import type { Season } from "./seasons.ts";
+import { valueNoise } from "@niclaslindstedt/oss-game-framework/core/noise";
 import type { Biome } from "./biomes.ts";
 import { traceCoast } from "./basin.ts";
 import { type CoursePlan } from "./course.ts";

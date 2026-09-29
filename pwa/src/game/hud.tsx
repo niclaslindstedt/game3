@@ -38,7 +38,7 @@
 // different job from drawing a readout. Every word here comes from
 // strings.ts.
 
-import { formatTime } from "../lib/util.ts";
+import { formatTime } from "@niclaslindstedt/oss-game-framework/hud/format";
 import type { HudFlash } from "./run-news.ts";
 import { hourLabel } from "./daylight.ts";
 import { HudActions } from "./hud-actions.tsx";
