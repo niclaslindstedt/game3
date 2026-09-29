@@ -72,15 +72,18 @@ Every dependency resolves from the public npm registry, so `npm install` needs n
 
 ## Build-time environment
 
-| Variable                           | Meaning                                                                                                                                                        |
-| ---------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `VITE_BASE`                        | Deploy base path: `/` (default), `/preview/`, `/branch/`. Drives the SW scope, the manifest identity, and every emitted URL.                                   |
-| `VITE_PWA_IGNORE_PATHS`            | Comma-separated absolute paths the built service worker must NOT claim. Only the root slot sets it (`/preview/,/branch/`) so nested slots own their own pages. |
-| `GITHUB_SHA` / `GITHUB_RUN_NUMBER` | Provided by CI; baked into the build label the HUD corner shows.                                                                                               |
-| `VITE_SHELL_BUILD`                 | `on` in the phone and desktop bundles (their `bundle-web.mjs` set it). The build links nothing back to the source or the website — see _The packaged apps_.    |
-| `CHROMIUM_PATH`                    | The browser the screenshot and profile tools drive. Claude web sessions have one at `/opt/pw-browsers/chromium`.                                               |
+| Variable                           | Meaning                                                                                                                                                                                                                                                   |
+| ---------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `VITE_BASE`                        | Deploy base path: `/` (default), `/preview/`, `/branch/`. Drives the SW scope, the manifest identity, and every emitted URL.                                                                                                                              |
+| `VITE_PWA_IGNORE_PATHS`            | Comma-separated absolute paths the built service worker must NOT claim. Only the root slot sets it (`/preview/,/branch/`) so nested slots own their own pages.                                                                                            |
+| `GITHUB_SHA` / `GITHUB_RUN_NUMBER` | Provided by CI; baked into the build label the HUD corner shows.                                                                                                                                                                                          |
+| `VITE_SHELL_BUILD`                 | `on` in the phone and desktop bundles (their `bundle-web.mjs` set it). The build links nothing back to the source or the website — see _The packaged apps_.                                                                                               |
+| `VITE_MODEL_CRAFTS`                | `0` (or `off`, `false`, `no`) draws the code-built crafts instead of the models made in Blender (`pwa/models/`, `make models`); unset or anything else is on. The build then packs none of the crafts' files.                                             |
+| `VITE_MODEL_RIDERS`                | The same switch for the rider. Every workflow hands its build the repository SECRETS of all three names, so `make ci-models MODELS=off` switches every CI build back with no commit.                                                                      |
+| `VITE_MODEL_TREES`                 | The same switch for the trees: `0` draws every tree of the shore from the code's own builder (`flora-shapes.ts`), exactly as before the models; on, every tree-form row is drawn off its model (`pwa/models/trees/`), whole to 90 m and sketched past it. |
+| `CHROMIUM_PATH`                    | The browser the screenshot and profile tools drive. Claude web sessions have one at `/opt/pw-browsers/chromium`.                                                                                                                                          |
 
-`.env.example` at the root documents the same set; copy it to `.env` (gitignored) to override locally.
+`.env.example` at the root documents the same set; copy it to `.env` (gitignored) to override locally — the build reads the ROOT `.env` (`envDir` in `pwa/vite.config.ts`).
 
 ## The desktop shell's environment
 

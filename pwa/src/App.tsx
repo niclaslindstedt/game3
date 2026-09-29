@@ -321,7 +321,8 @@ export function App() {
   const [renderKit, setRenderKit] = useState<typeof import("./game/renderer.ts") | null>(null);
   useEffect(() => {
     let live = true;
-    void import("./game/renderer.ts").then((mod) => {
+    void import("./game/renderer.ts").then(async (mod) => {
+      await mod.loadModels();
       if (live) setRenderKit(mod);
     });
     return () => {

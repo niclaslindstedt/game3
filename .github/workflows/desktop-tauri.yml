@@ -57,6 +57,14 @@ concurrency:
 permissions:
   contents: read
 
+# THE MODEL SWITCHES every build step reads (`pwa/src/game/model-switch.ts`):
+# the modelled crafts and rider unless a repository secret of the same name
+# switches one back — `make ci-models MODELS=off` sets both, no commit.
+env:
+  VITE_MODEL_CRAFTS: ${{ secrets.VITE_MODEL_CRAFTS }}
+  VITE_MODEL_RIDERS: ${{ secrets.VITE_MODEL_RIDERS }}
+  VITE_MODEL_TREES: ${{ secrets.VITE_MODEL_TREES }}
+
 jobs:
   check:
     name: decision layer

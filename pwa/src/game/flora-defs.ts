@@ -201,6 +201,9 @@ export type Look = {
    * ends in a purple-brown plume. */
   readonly stem: number;
   readonly stemHigh?: number;
+  /** The dark marks on a pale bark — a birch's — where the MODELLED tree
+   * draws them (`tree-models.ts`); the code's builder paints its bark plain. */
+  readonly stemMark?: number;
   /** The foliage, lit and shaded — one mixes into the other up the
    * canopy. */
   readonly leafLit: number;
@@ -446,6 +449,7 @@ export const FLORA: readonly FloraSpec[] = [
       // The white trunk. Against the pines behind it this is the single
       // most legible thing on the shore at any distance.
       stem: 0xe6e2d8,
+      stemMark: 0x3b3631,
       leafLit: 0x8ab355,
       leafDark: 0x4e7534,
     },
@@ -469,6 +473,7 @@ export const FLORA: readonly FloraSpec[] = [
       stems: 1,
       bare: 0.4,
       stem: 0xb5baa4,
+      stemMark: 0x5d6154,
       leafLit: 0x97bb60,
       leafDark: 0x577a3c,
     },

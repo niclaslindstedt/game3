@@ -60,6 +60,19 @@
 // lays the tiles the mirror wants first and the rest after, and `drawFor`
 // moves `count` between the two totals: the mirror pass draws the near half,
 // the picture draws the lot, and nothing is uploaded in between.
+//
+// THE TREES ARE MODELS (`tree-models.ts`), unless the build says otherwise:
+// a tree-form row with its model loaded is drawn in `TREE_SHAPES` of its six
+// VARIANTS (which one stands where is `variantAt`, a hash of the trunk's
+// place) and in TWO BANDS — the whole model out to `TREE_FULL` metres and a
+// hand-built sketch beyond it — so a species is a mesh a variant a band
+// rather than one mesh, and a tile carries one RUN of plants a variant. The band is decided a
+// tile at a time off the same distance the reach is, so a tile is drawn in
+// one band or the other and never both, and its tiles are cut finer
+// (`TREE_TILE`) so the line between the two bands is not a hundred metres
+// wide. A row with no model — every bush, tuft, reed and stone, and every
+// tree on a build switched back — is ONE shape and ONE run a tile, exactly
+// the stand it always was.
 
 import * as THREE from "three";
 import { type Level } from "@engine";
@@ -68,6 +81,27 @@ import { FLORA } from "./flora-defs.ts";
 import { planFlora, type FloraSpot } from "./flora-plan.ts";
 import { buildFlora, floraMaterial } from "./flora-shapes.ts";
 import { coverReach, FLORA_SCALE } from "./settings-video.ts";
+import { hasTreeModel, treeMaterial, treeModel } from "./tree-models.ts";
+import { isTreeForm, variantIndex } from "./tree-variants.ts";
+
+/** How far a modelled tree is drawn WHOLE, m; past it, its sketch. At this
+ * range a ten-metre tree stands some forty pixels tall at the reference
+ * frame (`coverReach`'s), where the sketch's handful of pads and clusters is
+ * all the eye can still resolve of it. */
+export const TREE_FULL = 90;
+
+/** How many of a kind's variants the whole band draws, and how many of their
+ * sketches the far band does (variant `k` far is sketch `k` mod this): a
+ * mesh a shape a band is a draw call a pass, and the mirror is a second
+ * pass. Four whole trees is enough spread that a stand does not read as one
+ * tree stamped; at a hundred metres two sketches are. */
+export const TREE_SHAPES = 4;
+export const TREE_SKETCHES = 2;
+
+/** The square a modelled tree is bucketed into, m — fine enough that the
+ * band a tile is drawn in is decided within a few tens of metres of
+ * `TREE_FULL`. */
+export const TREE_TILE = 48;
 
 /** The COARSEST tile edge, m, and what anything the row draws to the fog is
  * bucketed at. Big enough that a coast is a manageable number of them, small
@@ -110,27 +144,51 @@ export function tileSpots(spots: readonly FloraSpot[], tile: number): FloraSpot[
   return [...buckets.values()];
 }
 
-/** One square of one species: where its run starts in the species' laid-out
- * buffers, how many stand in it, the sphere that holds them all with their
- * crowns, and each plant's place on the species' whole roster. */
-type Tile = {
+/** The plants of one SHAPE (a variant, or the code's one shape) in one tile:
+ * where the run starts in the species' laid-out buffers, how many stand in
+ * it, and each plant's place on the species' whole roster. */
+type Run = {
+  shape: number;
   start: number;
   planted: number;
   /** How many of the run are drawn under the DETAIL row's line. */
   kept: number;
-  /** Ascending — `tileSpots` keeps the roster's order, so the plants under
-   * the line are the first `kept` of the run. */
+  /** Ascending — `tileSpots` keeps the roster's order and a tile's runs keep
+   * it within each shape, so the plants under the line are the first `kept`
+   * of the run. */
   order: number[];
+};
+
+/** One square of one species: its runs, the sphere that holds them all with
+ * their crowns, and which band and passes it is drawn in. */
+type Tile = {
+  runs: Run[];
   sphere: THREE.Sphere;
   visible: boolean;
   /** …and close enough to be worth drawing into the water as well. Always
    * false when it is not visible at all. */
   mirrored: boolean;
+  /** Past the whole band: drawn in the sketches. */
+  far: boolean;
+};
+
+/** One instanced mesh: a shape in a band. */
+type Shape = {
+  mesh: THREE.InstancedMesh;
+  /** How many of the laid-out instances the mirror pass draws — the prefix
+   * `relay` put the reflected tiles in — and how many the picture draws. */
+  inWater: number;
+  drawn: number;
 };
 
 type Stand = {
-  mesh: THREE.InstancedMesh;
-  /** Every plant's matrix and tint, tile by tile. */
+  /** One mesh a shape in the whole band, and — a modelled tree's — one a
+   * shape in the far band; null when the species has one band. */
+  near: Shape[];
+  far: Shape[] | null;
+  /** Both, as one list. */
+  all: Shape[];
+  /** Every plant's matrix and tint, tile by tile, run by run. */
   matrices: Float32Array;
   tints: Float32Array;
   tiles: Tile[];
@@ -138,10 +196,8 @@ type Stand = {
   /** Where this species falls under the pixel line, m — the DISTANCE row's
    * `cover` caps it, it never extends it. */
   reach: number;
-  /** How many of the laid-out instances the mirror pass draws — the prefix
-   * `relay` put the reflected tiles in — and how many the picture draws. */
-  inWater: number;
-  drawn: number;
+  /** Where the whole band ends, m (`Infinity`: one band). */
+  full: number;
 };
 
 /** The water's mirror, as the cull sees it: where the mirrored lens looks,
@@ -181,21 +237,64 @@ export function createFlora(level: Level): Flora {
   const group = new THREE.Group();
   const spots = planFlora(level, FLORA_SCALE.lush);
   const material = floraMaterial();
+  const modelled = treeMaterial();
   const stands: Stand[] = [];
+  const shared: THREE.BufferGeometry[] = [];
   let dirty = true;
+
+  /** An instanced mesh of `capacity` plants, drawn nowhere until laid. */
+  const shapeOf = (
+    geometry: THREE.BufferGeometry,
+    mat: THREE.Material,
+    capacity: number,
+  ): Shape => {
+    const mesh = new THREE.InstancedMesh(geometry, mat, Math.max(1, capacity));
+    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
+    mesh.instanceColor = new THREE.InstancedBufferAttribute(
+      new Float32Array(Math.max(1, capacity) * 3),
+      3,
+    ).setUsage(THREE.DynamicDrawUsage);
+    mesh.count = 0;
+    mesh.visible = false;
+    // The cull is this module's own, tile by tile; a sphere round the whole
+    // coast would refuse nothing.
+    mesh.frustumCulled = false;
+    mesh.matrixAutoUpdate = false;
+    group.add(mesh);
+    return { mesh, inWater: 0, drawn: 0 };
+  };
 
   FLORA.forEach((spec, s) => {
     // A row the coast does not grow gets no mesh at all, not an empty one.
     if (!spec.biomes.includes(level.biome)) return;
-    // Seeded off the species' PLACE in the roster, so a row's shape does
-    // not change because another row was added above it.
-    const geometry = buildFlora(spec.look, s * 7919 + 13);
-    geometry.computeBoundingSphere();
+    // A tree with its model loaded is its variants in two bands; anything
+    // else is the code's one shape, seeded off the species' PLACE in the
+    // roster, so a row's shape does not change because another row was added
+    // above it.
+    const model = isTreeForm(spec.look.form) && hasTreeModel(spec.id);
+    const fulls: THREE.BufferGeometry[] = [];
+    const sketches: THREE.BufferGeometry[] = [];
+    if (model) {
+      for (let v = 0; v < TREE_SHAPES; v++) {
+        const whole = treeModel(spec.id, v);
+        const sketch = v < TREE_SKETCHES ? treeModel(spec.id, v, true) : null;
+        if (!whole || (v < TREE_SKETCHES && !sketch)) break;
+        fulls.push(whole);
+        if (sketch) sketches.push(sketch);
+      }
+    }
+    const variants = model && fulls.length === TREE_SHAPES ? TREE_SHAPES : 1;
+    const geometries = variants > 1 ? fulls : [buildFlora(spec.look, s * 7919 + 13)];
+    shared.push(...geometries, ...(variants > 1 ? sketches : []));
     // The geometry stands at unit height and is scaled by each plant's own,
     // so how far it reaches from its foot scales with it: the sphere's own
     // radius plus its centre's offset, which for a tree is most of a crown.
-    const sphere = geometry.boundingSphere;
-    const crown = sphere ? sphere.center.length() + sphere.radius : 1;
+    let crown = 0;
+    for (const g of geometries) {
+      g.computeBoundingSphere();
+      const sphere = g.boundingSphere;
+      crown = Math.max(crown, sphere ? sphere.center.length() + sphere.radius : 1);
+    }
     // How far this species is worth drawing, and the square it is bucketed
     // into to deliver that — both off the tallest plant the builder can make
     // of it, so a stand is never culled on the average of its own band.
@@ -203,30 +302,47 @@ export function createFlora(level: Level): Flora {
     const roster = spots[s];
     const total = roster.length;
     const place = new Map(roster.map((p, i) => [p, i]));
+    const shapeAt = (p: FloraSpot): number =>
+      variants > 1 ? variantIndex(p.x, p.z, TREE_SHAPES) : 0;
+    const counts = new Array<number>(variants).fill(0);
+    for (const p of roster) counts[shapeAt(p)]++;
     const matrices = new Float32Array(Math.max(1, total) * 16);
     const tints = new Float32Array(Math.max(1, total) * 3);
     const tiles: Tile[] = [];
     let at = 0;
-    for (const list of tileSpots(roster, floraTile(reach))) {
+    for (const list of tileSpots(roster, variants > 1 ? TREE_TILE : floraTile(reach))) {
       let cx = 0;
       let cy = 0;
       let cz = 0;
-      list.forEach((p, i) => {
-        quat.setFromAxisAngle(up, p.yaw);
-        // A stone is buried to its waist so it sits IN the shore rather than
-        // balancing on it; everything else stands on the ground it grew from.
-        const foot = spec.look.form === "stone" ? p.y - p.h * 0.42 : p.y;
-        m.compose(pos.set(p.x, foot, p.z), quat, scale.set(p.h, p.h, p.h));
-        m.toArray(matrices, (at + i) * 16);
-        // A little light and dark between one plant and the next, so a stand
-        // is a stand rather than one plant stamped a thousand times. The
-        // instance colour MULTIPLIES the geometry's own, so it is a grey
-        // either side of one rather than a colour of its own.
-        tints.fill(1 + p.tint * 0.24, (at + i) * 3, (at + i) * 3 + 3);
-        cx += p.x;
-        cy += foot;
-        cz += p.z;
-      });
+      const runs: Run[] = [];
+      for (let k = 0; k < variants; k++) {
+        const mine = variants > 1 ? list.filter((p) => shapeAt(p) === k) : list;
+        if (mine.length === 0) continue;
+        mine.forEach((p, i) => {
+          quat.setFromAxisAngle(up, p.yaw);
+          // A stone is buried to its waist so it sits IN the shore rather than
+          // balancing on it; everything else stands on the ground it grew from.
+          const foot = spec.look.form === "stone" ? p.y - p.h * 0.42 : p.y;
+          m.compose(pos.set(p.x, foot, p.z), quat, scale.set(p.h, p.h, p.h));
+          m.toArray(matrices, (at + i) * 16);
+          // A little light and dark between one plant and the next, so a stand
+          // is a stand rather than one plant stamped a thousand times. The
+          // instance colour MULTIPLIES the geometry's own, so it is a grey
+          // either side of one rather than a colour of its own.
+          tints.fill(1 + p.tint * 0.24, (at + i) * 3, (at + i) * 3 + 3);
+          cx += p.x;
+          cy += foot;
+          cz += p.z;
+        });
+        runs.push({
+          shape: k,
+          start: at,
+          planted: mine.length,
+          kept: mine.length,
+          order: mine.map((p) => place.get(p) ?? 0),
+        });
+        at += mine.length;
+      }
       cx /= list.length;
       cy /= list.length;
       cz /= list.length;
@@ -237,59 +353,84 @@ export function createFlora(level: Level): Flora {
         radius = Math.max(radius, Math.hypot(p.x - cx, p.y - cy, p.z - cz) + p.h * crown);
       }
       tiles.push({
-        start: at,
-        planted: list.length,
-        kept: list.length,
-        order: list.map((p) => place.get(p) ?? 0),
+        runs,
         sphere: new THREE.Sphere(new THREE.Vector3(cx, cy, cz), radius),
         visible: false,
         mirrored: false,
+        far: false,
       });
-      at += list.length;
     }
-    const mesh = new THREE.InstancedMesh(geometry, material, Math.max(1, total));
-    mesh.instanceMatrix.setUsage(THREE.DynamicDrawUsage);
-    mesh.instanceColor = new THREE.InstancedBufferAttribute(
-      new Float32Array(Math.max(1, total) * 3),
-      3,
-    ).setUsage(THREE.DynamicDrawUsage);
-    mesh.count = 0;
-    // The cull is this module's own, tile by tile; a sphere round the whole
-    // coast would refuse nothing.
-    mesh.frustumCulled = false;
-    mesh.matrixAutoUpdate = false;
-    group.add(mesh);
-    stands.push({ mesh, matrices, tints, tiles, total, reach, inWater: 0, drawn: 0 });
+    const mat = variants > 1 ? modelled : material;
+    const near = geometries.map((g, k) => shapeOf(g, mat, counts[k]));
+    // A sketch stands in for every variant that maps onto it.
+    const far =
+      variants > 1
+        ? sketches.map((g, j) =>
+            shapeOf(
+              g,
+              mat,
+              counts.reduce((sum, c, k) => sum + (k % TREE_SKETCHES === j ? c : 0), 0),
+            ),
+          )
+        : null;
+    stands.push({
+      near,
+      far,
+      all: far ? [...near, ...far] : near,
+      matrices,
+      tints,
+      tiles,
+      total,
+      reach,
+      full: far ? TREE_FULL : Infinity,
+    });
   });
 
-  /** Lay the visible tiles' plants at the front of each species' buffers,
+  /** Lay the visible tiles' plants at the front of each shape's buffers,
    * the ones the water mirrors first, and record where the two totals fall. */
   const relay = (): void => {
     for (const stand of stands) {
-      const matrix = stand.mesh.instanceMatrix;
-      const colour = stand.mesh.instanceColor as THREE.InstancedBufferAttribute;
-      let n = 0;
+      const shapes = stand.all;
+      const laid = new Map<Shape, number>(shapes.map((sh) => [sh, 0]));
       // Two sweeps rather than a sort: the mirror's tiles are a subset of the
       // visible ones, so laying that subset down and then the remainder puts
-      // the reflection's share in one run at the front.
+      // the reflection's share in one run at the front of every shape.
       for (const pass of [true, false]) {
         for (const t of stand.tiles) {
-          if (!t.visible || t.kept === 0 || t.mirrored !== pass) continue;
-          matrix.array.set(stand.matrices.subarray(t.start * 16, (t.start + t.kept) * 16), n * 16);
-          colour.array.set(stand.tints.subarray(t.start * 3, (t.start + t.kept) * 3), n * 3);
-          n += t.kept;
+          if (!t.visible || t.mirrored !== pass) continue;
+          const far = t.far && stand.far;
+          for (const r of t.runs) {
+            if (r.kept === 0) continue;
+            const sh = far ? far[r.shape % far.length] : stand.near[r.shape];
+            const n = laid.get(sh) ?? 0;
+            sh.mesh.instanceMatrix.array.set(
+              stand.matrices.subarray(r.start * 16, (r.start + r.kept) * 16),
+              n * 16,
+            );
+            (sh.mesh.instanceColor as THREE.InstancedBufferAttribute).array.set(
+              stand.tints.subarray(r.start * 3, (r.start + r.kept) * 3),
+              n * 3,
+            );
+            laid.set(sh, n + r.kept);
+          }
         }
-        if (pass) stand.inWater = n;
+        if (pass) for (const sh of shapes) sh.inWater = laid.get(sh) ?? 0;
       }
-      stand.drawn = n;
-      stand.mesh.count = n;
-      // Only the prefix in use goes to the GPU, not the whole coast's worth.
-      matrix.clearUpdateRanges();
-      matrix.addUpdateRange(0, n * 16);
-      matrix.needsUpdate = true;
-      colour.clearUpdateRanges();
-      colour.addUpdateRange(0, n * 3);
-      colour.needsUpdate = true;
+      for (const sh of shapes) {
+        const n = laid.get(sh) ?? 0;
+        sh.drawn = n;
+        sh.mesh.count = n;
+        sh.mesh.visible = n > 0;
+        // Only the prefix in use goes to the GPU, not the whole coast's worth.
+        const matrix = sh.mesh.instanceMatrix;
+        matrix.clearUpdateRanges();
+        matrix.addUpdateRange(0, n * 16);
+        matrix.needsUpdate = true;
+        const colour = sh.mesh.instanceColor as THREE.InstancedBufferAttribute;
+        colour.clearUpdateRanges();
+        colour.addUpdateRange(0, n * 3);
+        colour.needsUpdate = true;
+      }
     }
     dirty = false;
   };
@@ -304,9 +445,11 @@ export function createFlora(level: Level): Flora {
       for (const stand of stands) {
         const line = Math.round(stand.total * of);
         for (const t of stand.tiles) {
-          let n = 0;
-          while (n < t.order.length && t.order[n] < line) n++;
-          t.kept = n;
+          for (const r of t.runs) {
+            let n = 0;
+            while (n < r.order.length && r.order[n] < line) n++;
+            r.kept = n;
+          }
         }
       }
       dirty = true;
@@ -325,9 +468,11 @@ export function createFlora(level: Level): Flora {
           const inWater =
             mirror !== undefined && near <= mirrored && mirror.frustum.intersectsSphere(t.sphere);
           const visible = inWater || (near <= reach && frustum.intersectsSphere(t.sphere));
-          if (visible !== t.visible || inWater !== t.mirrored) {
+          const far = near > stand.full;
+          if (visible !== t.visible || inWater !== t.mirrored || far !== t.far) {
             t.visible = visible;
             t.mirrored = inWater;
+            t.far = far;
             dirty = true;
           }
         }
@@ -336,12 +481,17 @@ export function createFlora(level: Level): Flora {
     },
     drawFor: (surface) => {
       for (const stand of stands) {
-        stand.mesh.count = surface === "mirror" ? stand.inWater : stand.drawn;
+        for (const sh of stand.all) {
+          const n = surface === "mirror" ? sh.inWater : sh.drawn;
+          sh.mesh.count = n;
+          sh.mesh.visible = n > 0;
+        }
       }
     },
     dispose: () => {
-      for (const stand of stands) stand.mesh.geometry.dispose();
+      for (const g of shared) g.dispose();
       material.dispose();
+      modelled.dispose();
     },
   };
 }

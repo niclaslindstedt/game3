@@ -29,6 +29,7 @@
     "waves": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/waves-lab.mjs",
     "ride": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/ride-lab.mjs",
     "crafts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/craft-preview.mjs",
+    "blender": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/blender.mjs",
     "audition": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/audition.mjs",
     "screenshots": "node scripts/screenshot.mjs",
     "profile": "node scripts/profile-render.mjs",
@@ -51,6 +52,7 @@
     "rate": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/rate-level.mjs",
     "difficulty": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/difficulty-preview.mjs",
     "routes": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/shore-routes.mjs",
+    "model-registry": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/model-registry.mjs",
     "coasts": "node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/coast-preview.mjs"
   },
   "dependencies": {
@@ -64,6 +66,7 @@
     "eslint": "^10.11.0",
     "eslint-plugin-react-hooks": "^7.1.1",
     "globals": "^17.12.0",
+    "meshoptimizer": "^1.3.0",
     "prettier": "^3.9.9",
     "typescript": "^6.0.3",
     "vitest": "^4.1.11"

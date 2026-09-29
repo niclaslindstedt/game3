@@ -41,6 +41,7 @@ import { createFootprints } from "./footprints.ts";
 import { createReflection } from "./reflection.ts";
 import { aimCamera } from "./camera-aim.ts";
 import { createRider, type Rider } from "./rider.ts";
+import { cloneCraft, hangCraft, poseCraft } from "./craft-models.ts";
 import { worthPosing } from "./rider-pose.ts";
 import { createRocks } from "./rocks.ts";
 import {
@@ -64,14 +65,10 @@ import { createTerrain, disposeTerrain } from "./terrain.ts";
 import { waterRings } from "./water-grid.ts";
 import { createWaterMesh, type WaterMesh } from "./water-mesh.ts";
 
-/** Nothing lit, for a level with no marks of one kind on it — a coast
- * sprint has no rounding buoys at all. Stated once so the pick is handed a
- * list rather than a null and allocates nothing to say "none". */
-/** What a pass that did not run cost — the mirror's, on a frame it was not
- * due. A frozen object rather than a literal per frame, since the frame's
- * bill reads it either way. */
+/** What a pass that did not run cost (the mirror's, on a frame it was not
+ * due), and nothing lit (a coast sprint has no rounding buoys): stated once,
+ * so the bill and the lamp pick allocate nothing to say "none". */
 const NO_PASS: { calls: number; triangles: number } = { calls: 0, triangles: 0 };
-
 const NO_LAMPS: readonly BuoyLamp[] = [];
 
 /** HOW SEE-THROUGH A GHOST IS (`ghost-run.ts`). Enough of the hull is left
@@ -81,22 +78,16 @@ const NO_LAMPS: readonly BuoyLamp[] = [];
  * spray behind it are never punched out by a hull that is not really there. */
 const GHOST_ALPHA = 0.42;
 
-/** Near and far planes, m. The far is past the sky's outermost shell — the
- * weather's ceiling at 2400 m — so nothing in the sky is ever clipped; the
- * near is under the nose camera's own deck. The fog's own range belongs to
- * the sky (`Preset.fogNear` / `fogFar`), because how far a rider can see is
- * a fact about the weather — and the DISTANCE row scales that range rather
- * than this plane, because the horizon disc stands out to 4 km and a far
- * plane inside it would cut the sea off from the sky. */
+/** Near and far planes, m: the far past the sky's outermost shell (the
+ * weather's ceiling at 2400 m) and the 4 km horizon disc, the near under the
+ * nose camera's own deck. The fog's range is the sky's (`Preset.fogNear` /
+ * `fogFar`), and the DISTANCE row scales that rather than this plane. */
 const NEAR = 0.2;
 const FAR = 4200;
 
-/** THE SEA, NAMED for the benchmark's scene breakdown — the near grid and the
- * far one under one heading, because a report saying the water is half the
- * frame's triangles is the useful reading and "near grid" against "far grid"
- * is a detail that belongs in `water-grid.ts`. Called wherever a mesh is
- * built, which is twice: once here and again whenever WATER or DISTANCE moves
- * and the grids are laid afresh. */
+/** THE SEA, NAMED for the benchmark's scene breakdown — both grids under one
+ * heading, wherever a mesh is built (here, and whenever WATER or DISTANCE
+ * lays the grids afresh). */
 function nameWater(mesh: WaterMesh): void {
   mesh.mesh.name = "water";
   mesh.far.name = "water";
@@ -109,6 +100,8 @@ function nameWater(mesh: WaterMesh): void {
  * imported from here would drag three.js into a suite that runs on plain
  * Node. Re-exported so nothing outside has to know that. */
 export type { FrameCost, SceneShare };
+/** The modelled crafts, rider and trees, fetched before the first build. */
+export { loadModels } from "./load-models.ts";
 
 export type GameRenderer = {
   /** Draw the state. `dt` is the frame's wall time, s, for the camera's
@@ -477,6 +470,7 @@ export function createRenderer(
       if (craft) scene.remove(craft);
       craftId = id;
       craft = buildCraft(state.craft.spec, CRAFT_STYLES[id], surface);
+      hangCraft(craft, state.craft.spec, surface);
       // The rider is a child of the craft: the hull's pose is his.
       rider?.dispose();
       rider = createRider(cockpitOf(state.craft.spec, CRAFT_STYLES[id]), surface);
@@ -509,9 +503,10 @@ export function createRenderer(
         let body = bodies.get(spec.id);
         if (!body) {
           body = buildCraft(spec, CRAFT_STYLES[spec.id], surface);
+          hangCraft(body, spec, surface);
           bodies.set(spec.id, body);
         }
-        const group = body.clone();
+        const group = cloneCraft(body, spec, surface);
         const own = createRider(cockpitOf(spec, CRAFT_STYLES[spec.id]), surface);
         group.add(own.mesh);
         // Every rival under one name: the report wants what THE FIELD costs,
@@ -648,6 +643,7 @@ export function createRenderer(
     const spec = next.craft.spec;
     const style = CRAFT_STYLES[spec.id];
     const group = buildCraft(spec, style, ghostSurface);
+    hangCraft(group, spec, ghostSurface);
     const own = createRider(cockpitOf(spec, style), ghostSurface);
     group.add(own.mesh);
     // One name for the pair: the benchmark's breakdown wants what the ghost
@@ -695,6 +691,7 @@ export function createRenderer(
     if (craft) {
       craft.position.set(c.x, c.y, c.z);
       craft.quaternion.set(c.q.x, c.q.y, c.q.z, c.q.w);
+      poseCraft(craft, c);
       // The rider and the lamps are children of the hull, so one flag takes
       // the whole machine out of the frame.
       craft.visible = playerShown;
@@ -704,6 +701,7 @@ export function createRenderer(
       const rc = f.run.craft;
       f.group.position.set(rc.x, rc.y, rc.z);
       f.group.quaternion.set(rc.q.x, rc.q.y, rc.q.z, rc.q.w);
+      poseCraft(f.group, rc);
       // REBUILT ONLY IF IT CAN BE READ — `worthPosing` (rider-pose.ts) owns
       // the rule and says why; the springs are stepped for every rival
       // regardless, in `observe`.
@@ -713,6 +711,7 @@ export function createRenderer(
       const gc = ghost.state.craft;
       ghost.group.position.set(gc.x, gc.y, gc.z);
       ghost.group.quaternion.set(gc.q.x, gc.q.y, gc.q.z, gc.q.w);
+      poseCraft(ghost.group, gc);
       if (posesRider(gc)) ghost.rider.update(ghost.state);
     }
 

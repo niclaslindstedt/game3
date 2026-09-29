@@ -6,9 +6,11 @@ import { fileURLToPath } from "node:url";
 
 import preact from "@preact/preset-vite";
 import tailwindcss from "@tailwindcss/vite";
-import { defineConfig } from "vite";
+import { defineConfig, loadEnv } from "vite";
 
+import { craftModels } from "./models-plugin.ts";
 import { appPwa } from "./pwa-plugin.ts";
+import { modelSwitch } from "./src/game/model-switch.ts";
 import { REPO_URL } from "./src/identity.ts";
 
 const here = (p: string) => fileURLToPath(new URL(p, import.meta.url));
@@ -55,26 +57,51 @@ const buildLabel =
 // label is unique per deploy; a local build appends a timestamp instead.
 const version = process.env.GITHUB_SHA ? buildLabel : `${buildLabel}+${new Date().toISOString()}`;
 
-export default defineConfig({
-  base,
-  // No size budgets, by owner decision; this only keeps Vite's own warning quiet.
-  build: { chunkSizeWarningLimit: 100_000 },
-  resolve: {
-    alias: {
-      "@engine": here("../engine/index.ts"),
+// The environment files are the repository's root `.env` (`.env.example`
+// documents it), read for the client's `import.meta.env` and here alike.
+const envDir = here("..");
+
+export default defineConfig(({ mode }) => {
+  // The MODEL switches (`models-plugin.ts`, `src/game/craft-models.ts`,
+  // `src/game/tree-models.ts`): on
+  // unless the environment or the root `.env` switches one back
+  // (`src/game/model-switch.ts`).
+  const env = { ...loadEnv(mode, envDir, "VITE_"), ...process.env };
+  const models = {
+    crafts: modelSwitch(env.VITE_MODEL_CRAFTS),
+    riders: modelSwitch(env.VITE_MODEL_RIDERS),
+    trees: modelSwitch(env.VITE_MODEL_TREES),
+  };
+  return {
+    base,
+    envDir,
+    // No size budgets, by owner decision; this only keeps Vite's own warning quiet.
+    build: { chunkSizeWarningLimit: 100_000 },
+    resolve: {
+      alias: {
+        "@engine": here("../engine/index.ts"),
+      },
     },
-  },
-  define: {
-    __APP_VERSION__: JSON.stringify(appVersion),
-    __BUILD_LABEL__: JSON.stringify(buildLabel),
-    __COMMIT_SHA__: JSON.stringify(commit),
-    __SOURCE_URL__: JSON.stringify(shellBuild ? "" : REPO_URL),
-  },
-  // `appPwa` only applies on build, so dev keeps registering no worker (the
-  // app passes `enabled: !import.meta.env.DEV` to `usePwaUpdate`).
-  //
-  // The runtime is Preact: `@preact/preset-vite` compiles JSX against
-  // `preact/jsx-runtime` and aliases `react` / `react-dom` onto
-  // `preact/compat`, so the pre-built framework chunks resolve to Preact.
-  plugins: [preact(), tailwindcss(), appPwa({ base, version, ignorePaths, shellBuild })],
+    define: {
+      __APP_VERSION__: JSON.stringify(appVersion),
+      __BUILD_LABEL__: JSON.stringify(buildLabel),
+      __COMMIT_SHA__: JSON.stringify(commit),
+      __SOURCE_URL__: JSON.stringify(shellBuild ? "" : REPO_URL),
+    },
+    // `appPwa` only applies on build, so dev keeps registering no worker (the
+    // app passes `enabled: !import.meta.env.DEV` to `usePwaUpdate`).
+    //
+    // The runtime is Preact: `@preact/preset-vite` compiles JSX against
+    // `preact/jsx-runtime` and aliases `react` / `react-dom` onto
+    // `preact/compat`, so the pre-built framework chunks resolve to Preact.
+    //
+    // `craftModels` comes before `appPwa`, so the models it emits are in the
+    // bundle the worker's precache list is read off.
+    plugins: [
+      preact(),
+      tailwindcss(),
+      craftModels(models, here("..")),
+      appPwa({ base, version, ignorePaths, shellBuild }),
+    ],
+  };
 });

@@ -22,6 +22,7 @@ import * as THREE from "three";
 
 import { Builder, type P } from "../lib/lowpoly.ts";
 import type { Look } from "./flora-defs.ts";
+import { TREE_SHAPE } from "./tree-variants.ts";
 
 /** HOW MANY FACETS A ROW IS WORTH. A plant that is never more than a metre
  * and a half tall is a handful of pixels from the saddle and a smudge at
@@ -307,24 +308,37 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
   const s = look.spread;
   switch (look.form) {
     case "pine": {
+      const P = TREE_SHAPE.pine;
       // The bare trunk, and the copper reach above the shade.
-      stem(b, 0, 0, 0, 0, 0, look.bare, 0.018, 0.012, look.stem, look.stem);
-      stem(b, 0, 0, look.bare, 0, 0, 0.96, 0.012, 0.005, look.stem, look.stemHigh ?? look.stem);
+      stem(b, 0, 0, 0, 0, 0, look.bare, P.stem[0], P.stem[1], look.stem, look.stem);
+      stem(
+        b,
+        0,
+        0,
+        look.bare,
+        0,
+        0,
+        P.leader,
+        P.upper[0],
+        P.upper[1],
+        look.stem,
+        look.stemHigh ?? look.stem,
+      );
       // A broad, flat, high crown in three lopsided plates: a mature Scots
       // pine is an umbrella, not a cone, and that silhouette against the
       // sky is what it is recognised by.
-      for (let i = 0; i < 3; i++) {
-        const t = i / 2;
-        const y = look.bare + (0.98 - look.bare) * (0.3 + t * 0.56);
-        const r = s * 0.56 * (1 - t * 0.34);
+      for (let i = 0; i < P.plates; i++) {
+        const t = i / (P.plates - 1);
+        const y = look.bare + (P.ceiling - look.bare) * (P.low + t * P.span);
+        const r = s * P.radius * (1 - t * P.narrow);
         blob(
           b,
-          (wob(seed, i) - 0.5) * s * 0.28,
+          (wob(seed, i) - 0.5) * s * P.drift,
           y,
-          (wob(seed + 5, i) - 0.5) * s * 0.28,
+          (wob(seed + 5, i) - 0.5) * s * P.drift,
           r,
-          r * 0.5,
-          r * 0.92,
+          r * P.squash,
+          r * P.depth,
           look.leafLit,
           look.leafDark,
           seed + i * 13,
@@ -333,18 +347,19 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       break;
     }
     case "spire": {
-      stem(b, 0, 0, 0, 0, 0, 0.28, 0.018, 0.011, look.stem, look.stem);
+      const P = TREE_SHAPE.spire;
+      stem(b, 0, 0, 0, 0, 0, P.trunk, P.stem[0], P.stem[1], look.stem, look.stem);
       // Four tiers, each starting inside the one below it so the boughs
       // overlap the way a spruce's do, running to a leader at the top.
-      for (let i = 0; i < 4; i++) {
-        const t = i / 3;
+      for (let i = 0; i < P.tiers; i++) {
+        const t = i / (P.tiers - 1);
         cone(
           b,
           0,
-          look.bare + (0.86 - look.bare) * t,
+          look.bare + (P.ceiling - look.bare) * t,
           0,
-          s * 0.5 * (1 - t * 0.72),
-          (0.34 - t * 0.06) * (1 - t * 0.3),
+          s * P.radius * (1 - t * P.narrow),
+          (P.rise - t * P.shorten) * (1 - t * P.squat),
           look.leafLit,
           look.leafDark,
           seed + i * 17,
@@ -356,13 +371,14 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       // The canopy fills everything above `bare` — that is what the field
       // means — so its centre and its half-height come straight off it and
       // a tree is never a blob hovering over a stick.
+      const P = TREE_SHAPE.broadleaf;
       const mid = (look.bare + 1) / 2;
       const rise = (1 - look.bare) / 2;
-      const thin = Math.pow(look.stems, 0.3);
+      const thin = Math.pow(look.stems, P.thin);
       for (let i = 0; i < look.stems; i++) {
         // Multi-stemmed species lean their trunks apart out of one stool.
         const a = (i / look.stems) * Math.PI * 2 + seed;
-        const out = look.stems > 1 ? s * 0.2 : 0;
+        const out = look.stems > 1 ? s * P.splay : 0;
         stem(
           b,
           0,
@@ -371,8 +387,8 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
           Math.sin(a) * out,
           Math.cos(a) * out,
           mid,
-          0.026 / thin,
-          0.015 / thin,
+          P.stem[0] / thin,
+          P.stem[1] / thin,
           look.stem,
           look.stemHigh ?? look.stem,
         );
@@ -382,20 +398,20 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       // whatever it is scaled to; four overlapping masses at different
       // heights read as a crown with an outline. They span everything
       // above `bare`, which is what the field promises.
-      const lumps = 4;
+      const lumps = P.lumps;
       for (let i = 0; i < lumps; i++) {
         const first = i === 0;
         const a = (i / lumps) * Math.PI * 2 + seed * 1.7;
-        const d = first ? 0 : s * (0.2 + wob(seed + 11, i) * 0.14);
+        const d = first ? 0 : s * (P.reach + wob(seed + 11, i) * P.reachVary);
         const y = mid + (first ? -rise * 0.12 : (wob(seed + 13, i) - 0.35) * rise * 1.1);
-        const r = s * (first ? 0.34 : 0.24 + wob(seed + 17, i) * 0.1);
+        const r = s * (first ? P.core : P.lump + wob(seed + 17, i) * P.lumpVary);
         blob(
           b,
           Math.sin(a) * d,
           y,
           Math.cos(a) * d,
           r / thin,
-          (first ? rise * 0.94 : rise * 0.6) / Math.pow(look.stems, 0.16),
+          (first ? rise * P.coreRise : rise * P.lumpRise) / Math.pow(look.stems, P.stack),
           (r * 0.94) / thin,
           look.leafLit,
           look.leafDark,
@@ -438,10 +454,23 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
     case "palm": {
       // THE TRUNK leans a little off plumb — every palm on a beach does —
       // and thins toward the crown; two stems so the lean is a curve.
-      const leanX = (wob(seed, 1) - 0.5) * s * 0.4;
-      const leanZ = (wob(seed, 2) - 0.5) * s * 0.4;
-      const knee = look.bare * 0.55;
-      stem(b, 0, 0, 0, leanX * 0.45, leanZ * 0.45, knee, 0.026, 0.02, look.stem, look.stem);
+      const P = TREE_SHAPE.palm;
+      const leanX = (wob(seed, 1) - 0.5) * s * P.lean;
+      const leanZ = (wob(seed, 2) - 0.5) * s * P.lean;
+      const knee = look.bare * P.knee;
+      stem(
+        b,
+        0,
+        0,
+        0,
+        leanX * 0.45,
+        leanZ * 0.45,
+        knee,
+        P.stem[0],
+        P.stem[1],
+        look.stem,
+        look.stem,
+      );
       stem(
         b,
         leanX * 0.45,
@@ -450,8 +479,8 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
         leanX,
         leanZ,
         look.bare,
-        0.02,
-        0.016,
+        P.stem[1],
+        P.stem[2],
         look.stem,
         look.stemHigh ?? look.stem,
       );
@@ -461,9 +490,9 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
         leanX,
         look.bare + 0.03,
         leanZ,
-        0.05,
-        0.05,
-        0.05,
+        P.bud,
+        P.bud,
+        P.bud,
         look.leafDark,
         look.leafDark,
         seed,
@@ -475,8 +504,8 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       // shorter is a fan palm's round head, fewer and longer a coconut's.
       for (let i = 0; i < look.stems; i++) {
         const a = (i / look.stems) * Math.PI * 2 + (wob(seed + 3, i) - 0.5) * 0.5;
-        const reach = s * 0.55 * (0.8 + wob(seed + 5, i) * 0.4);
-        const droop = reach * (0.35 + wob(seed + 4, i) * 0.45);
+        const reach = s * P.reach * (P.reachVary[0] + wob(seed + 5, i) * P.reachVary[1]);
+        const droop = reach * (P.droop[0] + wob(seed + 4, i) * P.droop[1]);
         frond(
           b,
           leanX,
@@ -485,7 +514,7 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
           a,
           reach,
           droop,
-          s * 0.06,
+          s * P.width,
           look.leafDark,
           look.leafLit,
         );
@@ -496,36 +525,62 @@ export function buildFlora(look: Look, seed: number): THREE.BufferGeometry {
       // THE PROP ROOTS: `stems` arches from a ring on the ground, up and in
       // to the trunk's foot at `bare`, each in two straight legs so the arch
       // reads. The tangle of them is the whole waterline silhouette.
-      const ring = s * 0.45;
+      const P = TREE_SHAPE.mangrove;
+      const ring = s * P.ring;
       for (let i = 0; i < look.stems; i++) {
         const a = (i / look.stems) * Math.PI * 2 + (wob(seed, i) - 0.5) * 0.5;
-        const d = ring * (0.7 + wob(seed + 1, i) * 0.5);
+        const d = ring * (P.spread[0] + wob(seed + 1, i) * P.spread[1]);
         const x0 = Math.sin(a) * d;
         const z0 = Math.cos(a) * d;
-        const mx = x0 * 0.6;
-        const mz = z0 * 0.6;
-        const my = look.bare * (0.45 + wob(seed + 2, i) * 0.2);
-        stem(b, x0, z0, 0, mx, mz, my, 0.011, 0.01, look.stem, look.stem, 4);
-        stem(b, mx, mz, my, x0 * 0.15, z0 * 0.15, look.bare, 0.01, 0.012, look.stem, look.stem, 4);
+        const mx = x0 * P.inset[0];
+        const mz = z0 * P.inset[0];
+        const my = look.bare * (P.knee[0] + wob(seed + 2, i) * P.knee[1]);
+        stem(b, x0, z0, 0, mx, mz, my, P.root[0], P.root[1], look.stem, look.stem, 4);
+        stem(
+          b,
+          mx,
+          mz,
+          my,
+          x0 * P.inset[1],
+          z0 * P.inset[1],
+          look.bare,
+          P.root[1],
+          P.root[2],
+          look.stem,
+          look.stem,
+          4,
+        );
       }
       // A short trunk into the canopy's underside.
-      stem(b, 0, 0, look.bare * 0.85, 0, 0, look.bare + 0.18, 0.03, 0.02, look.stem, look.stem);
+      stem(
+        b,
+        0,
+        0,
+        look.bare * P.trunk.from,
+        0,
+        0,
+        look.bare + P.trunk.over,
+        P.trunk.r[0],
+        P.trunk.r[1],
+        look.stem,
+        look.stem,
+      );
       // THE DOME, spanning everything above `bare`: one mass and two
       // shoulders, so a stand of them reads as a hedge with a lumpy top.
       const mid = (look.bare + 1) / 2;
       const rise = (1 - look.bare) / 2;
-      blob(b, 0, mid, 0, s * 0.48, rise, s * 0.48, look.leafLit, look.leafDark, seed);
-      for (let i = 0; i < 2; i++) {
+      blob(b, 0, mid, 0, s * P.dome, rise, s * P.dome, look.leafLit, look.leafDark, seed);
+      for (let i = 0; i < P.shoulders; i++) {
         const a = wob(seed + 13, i) * Math.PI * 2;
-        const d = s * 0.22;
+        const d = s * P.shoulderAt;
         blob(
           b,
           Math.sin(a) * d,
           mid - rise * 0.15,
           Math.cos(a) * d,
-          s * 0.32,
-          rise * 0.68,
-          s * 0.32,
+          s * P.shoulder,
+          rise * P.shoulderRise,
+          s * P.shoulder,
           look.leafLit,
           look.leafDark,
           seed + 17 + i * 5,

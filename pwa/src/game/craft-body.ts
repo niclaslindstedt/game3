@@ -438,6 +438,260 @@ export function lampOf(
   };
 }
 
+/** ONE STATION'S CROSS-SECTION, as the loft lays it — the keel, the chine,
+ * the sheer, the rail's top, the coaming, the footwell's floor between its
+ * outer wall and the pedestal, the pedestal's top and the crown — stated
+ * once, for the builder's rings and for the modelled hull `craftLines`
+ * hands Blender, so the two stand on the same lines. */
+export type Section = {
+  s: number;
+  z: number;
+  /** How far the deck's points stand forward of the keel's, m. */
+  rake: number;
+  half: number;
+  keelY: number;
+  chineX: number;
+  chineY: number;
+  sheer: number;
+  railTop: number;
+  coamY: number;
+  footOuter: number;
+  wellY: number;
+  pedHalf: number;
+  pedY: number;
+  crown: number;
+  /** How open the footwells are here, 0 (the hood closed over them) to 1. */
+  open: number;
+};
+
+function sectionOf(l: Layout, s: number): Section {
+  const half = (l.B / 2) * l.taper(s);
+  const keelY = l.keelY + l.rise(s) * l.H;
+  const sheer = l.sheerAt(s);
+  const chineX = TUNING.hull.chineOut * half;
+  const railTop = sheer + l.railH;
+  const coamY = railTop + l.coamH;
+  const footOuter = 0.84 * half;
+  const { ped, open, crown } = l.deckAt(s);
+  return {
+    s,
+    z: l.zTransom + s * l.L,
+    rake: l.rakeAt(s),
+    half,
+    keelY,
+    chineX,
+    chineY: Math.min(keelY + chineX * l.dead, sheer - 0.2 * l.H),
+    sheer,
+    railTop,
+    coamY,
+    footOuter,
+    wellY: s < PLATFORM ? railTop - 0.01 : lerp(coamY, l.wellFloorAt(s), open),
+    pedHalf: s < PLATFORM ? 0 : lerp(footOuter, l.pedHalf, open),
+    pedY: sheer + ped,
+    crown,
+    open,
+  };
+}
+
+/** A box as its two corners, and a tube as its two ends and radius. */
+type Box = [number, number, number, number, number, number];
+type Tube = { a: P; b: P; r: number };
+
+/** EVERYTHING BOLTED ON: the parts the builder draws off the layout, as
+ * boxes and tubes, stated once — the builder draws them and `craftLines`
+ * hands them to Blender to model. */
+function fittingsOf(l: Layout, style: CraftStyle) {
+  const { shape } = style;
+  const { L, B, H, dead, zTransom, keelY, railY, railH, sheerAt, deckAt, taper, rakeAt } = l;
+  const { seatZ0, seatH, seatBase, zPod, podBase, podH, colTop, hoodTop } = l;
+  const hull = TUNING.hull;
+  const runabout = shape.seatLength > 0.2;
+  const handle = runabout
+    ? (() => {
+        const hy = seatBase + seatH - 0.02;
+        const hz = seatZ0 + 0.04;
+        const hx = 0.12 * B;
+        return {
+          posts: [-hx, hx].map((x): Tube => ({ a: [x, hy, hz], b: [x, hy + 0.08, hz], r: 0.014 })),
+          bar: { a: [-hx, hy + 0.08, hz], b: [hx, hy + 0.08, hz], r: 0.016 } as Tube,
+        };
+      })()
+    : null;
+  const chineY = keelY + hull.chineOut * (B / 2) * dead;
+  const sponsons = [-1, 1].map((side): Box => {
+    const inner = side * 0.78 * (B / 2);
+    const outer = side * (B / 2 + shape.sponson);
+    return [
+      Math.min(inner, outer),
+      chineY - 0.02,
+      zTransom + 0.04 * L,
+      Math.max(inner, outer),
+      chineY + 0.07,
+      zTransom + 0.36 * L,
+    ];
+  });
+  const pumpY = keelY + 0.18 * H;
+  const bars = ([-1, 1] as const).map((side) => {
+    const { end } = barOf(l, side);
+    const gripIn: P = [
+      side * (l.barW / 2 - 0.13),
+      lerp(colTop[1], end[1], 0.7),
+      lerp(colTop[2], end[2], 0.7),
+    ];
+    return { bar: { a: colTop, b: end, r: 0.019 } as Tube, grip: { a: gripIn, b: end, r: 0.03 } };
+  });
+  const mirrors = runabout
+    ? (() => {
+        const sMirror = hoodTop + 0.02;
+        const flank = 0.84 * (B / 2) * taper(sMirror);
+        const my = sheerAt(sMirror) + deckAt(sMirror).ped - 0.03 * H;
+        const mz = zTransom + sMirror * L + rakeAt(sMirror);
+        return [-1, 1].map((side) => {
+          const head: P = [side * (flank + 0.07), my + 0.06, mz];
+          return {
+            stalk: { a: [side * (flank - 0.02), my, mz], b: head, r: 0.012 } as Tube,
+            head: [
+              head[0] - 0.045,
+              head[1] - 0.03,
+              head[2] - 0.045,
+              head[0] + 0.045,
+              head[1] + 0.03,
+              head[2] + 0.045,
+            ] as Box,
+          };
+        });
+      })()
+    : [];
+  return {
+    handle,
+    bumper: [
+      -0.34 * B,
+      railY - 0.06,
+      zTransom - 0.035,
+      0.34 * B,
+      railY + railH,
+      zTransom + 0.02,
+    ] as Box,
+    sponsons,
+    pump: [
+      -0.12 * B,
+      keelY + 0.03 * H,
+      zTransom - 0.05,
+      0.12 * B,
+      keelY + 0.36 * H,
+      zTransom + 0.12 * L,
+    ] as Box,
+    step: [
+      -0.2 * B,
+      keelY + 0.5 * H,
+      zTransom - 0.035,
+      0.2 * B,
+      keelY + 0.58 * H,
+      zTransom + 0.01,
+    ] as Box,
+    nozzle: { a: [0, pumpY, zTransom - 0.04], b: [0, pumpY, zTransom - 0.17], r: 0.055 } as Tube,
+    grate: [
+      -0.1 * B,
+      keelY - 0.015,
+      zTransom + 0.05 * L,
+      0.1 * B,
+      keelY + 0.01,
+      zTransom + 0.28 * L,
+    ] as Box,
+    pod: [-0.14 * B, podBase, zPod - 0.06 * L, 0.14 * B, podBase + podH, zPod + 0.05 * L] as Box,
+    column: { a: [0, podBase + podH - 0.02, zPod], b: colTop, r: 0.036 } as Tube,
+    bars,
+    pad: [
+      -0.06,
+      colTop[1] - 0.03,
+      colTop[2] - 0.04,
+      0.06,
+      colTop[1] + 0.03,
+      colTop[2] + 0.04,
+    ] as Box,
+    mirrors,
+  };
+}
+
+/** The saddle's rings, tail to nose, as the builder lofts them. */
+function seatRingsOf(l: Layout): P[][] {
+  const { seatZ0, seatLen, seatH, seatBase, seatW } = l;
+  return [0, 0.06, 0.2, 0.36, 0.55, 0.72, 0.86, 0.95, 1].map((t): P[] => {
+    const z = seatZ0 + t * seatLen;
+    const h = seatH * table(SEAT_PROFILE, t);
+    const w =
+      (seatW / 2) *
+      (t < 0.08 ? lerp(0.9, 1, t / 0.08) : t > 0.86 ? lerp(1, 0.7, (t - 0.86) / 0.14) : 1);
+    return mirror(
+      [
+        [w, seatBase, z],
+        [w * 0.92, seatBase + h * 0.72, z],
+        [w * 0.62, seatBase + h, z],
+        [0, seatBase + h * 1.04, z],
+      ],
+      false,
+    );
+  });
+}
+
+/** THE CRAFT'S LINES AS DATA — what `make blender` hands the modelled hull
+ * (`scripts/blender/craft.py`), off the very layout the builder draws: the
+ * cross-section at `count` stations transom to bow (and at the builder's
+ * own, where the pedestal's back wall steps), the saddle and its profile,
+ * every fitting, the lamp's mount, the cockpit the rider is stood on and
+ * the opening the sea is cut out of. Plain numbers, so a JSON file carries
+ * them and a model stands on the physics' lines to the millimetre. */
+export function craftLines(spec: CraftSpec, style: CraftStyle, count = 48) {
+  const l = layout(spec, style);
+  const at = new Set<number>(STATIONS);
+  for (let i = 0; i <= count; i++) at.add(i / count);
+  const stations = [...at].sort((a, b) => a - b);
+  const cockpit = cockpitOf(spec, style);
+  const { floorAt, ...wells } = cockpit.wells;
+  const floor = Array.from({ length: 17 }, (_, i) => {
+    const z = lerp(wells.z0, wells.z1, i / 16);
+    return [z, floorAt(z)];
+  });
+  return {
+    dims: {
+      L: l.L,
+      B: l.B,
+      H: l.H,
+      deadrise: spec.deadrise,
+      zTransom: l.zTransom,
+      keelY: l.keelY,
+      railY: l.railY,
+      railH: l.railH,
+      coamH: l.coamH,
+      platform: PLATFORM,
+      hoodStart: l.hoodStart,
+      hoodTop: l.hoodTop,
+    },
+    sections: stations.map((s) => sectionOf(l, s)),
+    seat: {
+      rings: seatRingsOf(l),
+      z0: l.seatZ0,
+      length: l.seatLen,
+      height: l.seatH,
+      base: l.seatBase,
+      width: l.seatW,
+      profile: SEAT_PROFILE,
+    },
+    fittings: fittingsOf(l, style),
+    lamp: lampOf(spec, style),
+    cockpit: { ...cockpit, wells: { ...wells, floor } },
+    wellCut: wellCutOf(spec, style),
+    pump: {
+      nozzleDiameter: spec.nozzleDiameter,
+      nozzleAngle: spec.nozzleAngle,
+      trimRange: spec.trimRange,
+      bucket: spec.bucket.reverse > 0,
+    },
+  };
+}
+
+export type CraftLines = ReturnType<typeof craftLines>;
+
 /** The whole craft, at the origin, ready for a quaternion. `surface` is the
  * material it is drawn with — the renderer hands in the one it shares with
  * the rider, on the sky's own uniforms; anything with no sky to reflect
@@ -447,42 +701,28 @@ export function buildCraft(
   style: CraftStyle,
   surface: THREE.Material = craftSurface(),
 ): THREE.Group {
-  const { shape } = style;
   const l = layout(spec, style);
-  const { L, B, H, dead, zTransom, keelY, railY, rise, taper, sheerAt, rakeAt } = l;
-  const { railH, coamH, hoodTop, deckAt } = l;
-  const hull = TUNING.hull;
+  const f = fittingsOf(l, style);
 
   // ONE CROSS-SECTION: keel, chine, the rail's two edges, the coaming's
   // top, down into the footwell, across its floor to the pedestal, up its
   // wall and over its top to the crown — starboard, then mirrored.
   const ring = (s: number): P[] => {
-    const z = zTransom + s * L;
-    const rake = rakeAt(s);
-    const half = (B / 2) * taper(s);
-    const ky = keelY + rise(s) * H;
-    const sheer = sheerAt(s);
-    const chineX = hull.chineOut * half;
-    const chineY = Math.min(ky + chineX * dead, sheer - 0.2 * H);
-    const railTop = sheer + railH;
-    const coamY = railTop + coamH;
-    const footOuter = 0.84 * half;
-    const { ped, open, crown } = deckAt(s);
-    const pedY = sheer + ped;
-    const wellY = s < PLATFORM ? railTop - 0.01 : lerp(coamY, l.wellFloorAt(s), open);
-    const pedHalf = s < PLATFORM ? 0 : lerp(footOuter, l.pedHalf, open);
+    const c = sectionOf(l, s);
+    const z = c.z;
+    const rake = c.rake;
     return mirror(
       [
-        [0, ky, z],
-        [chineX, chineY, z + rake * 0.5],
-        [half, sheer, z + rake],
-        [half * 1.04, railTop, z + rake],
-        [half * 0.92, coamY, z + rake],
-        [footOuter, wellY, z + rake],
-        [pedHalf, wellY, z + rake],
-        [pedHalf * 0.92, pedY, z + rake],
-        [pedHalf * 0.5, pedY + crown * 0.75, z + rake],
-        [0, pedY + crown, z + rake],
+        [0, c.keelY, z],
+        [c.chineX, c.chineY, z + rake * 0.5],
+        [c.half, c.sheer, z + rake],
+        [c.half * 1.04, c.railTop, z + rake],
+        [c.half * 0.92, c.coamY, z + rake],
+        [c.footOuter, c.wellY, z + rake],
+        [c.pedHalf, c.wellY, z + rake],
+        [c.pedHalf * 0.92, c.pedY, z + rake],
+        [c.pedHalf * 0.5, c.pedY + c.crown * 0.75, z + rake],
+        [0, c.pedY + c.crown, z + rake],
       ],
       true,
     );
@@ -522,157 +762,60 @@ export function buildCraft(
 
   // THE SADDLE on the pedestal, lofted along SEAT_PROFILE. A stand-up's
   // short pad is the same loft, low.
-  const { seatZ0, seatLen, seatH, seatBase, seatW } = l;
-  const seatRings = [0, 0.06, 0.2, 0.36, 0.55, 0.72, 0.86, 0.95, 1].map((t): P[] => {
-    const z = seatZ0 + t * seatLen;
-    const h = seatH * table(SEAT_PROFILE, t);
-    const w =
-      (seatW / 2) *
-      (t < 0.08 ? lerp(0.9, 1, t / 0.08) : t > 0.86 ? lerp(1, 0.7, (t - 0.86) / 0.14) : 1);
-    return mirror(
-      [
-        [w, seatBase, z],
-        [w * 0.92, seatBase + h * 0.72, z],
-        [w * 0.62, seatBase + h, z],
-        [0, seatBase + h * 1.04, z],
-      ],
-      false,
-    );
-  });
+  const seatRings = seatRingsOf(l);
   b.finish = FINISH.vinyl;
   b.loft(seatRings, mirrorPaint([style.seat, style.seat, style.seatTop]), false);
   b.cap(seatRings[0], style.seat, true);
   b.cap(seatRings[seatRings.length - 1], style.seat, false);
+  const tube = (t: Tube, colour: number, sides?: number) => b.tube(t.a, t.b, t.r, colour, sides);
+  const box = (x: Box, colour: number) => b.box(...x, colour);
   // The grab handle at the tail of the saddle.
-  if (shape.seatLength > 0.2) {
-    const hy = seatBase + seatH - 0.02;
-    const hz = seatZ0 + 0.04;
-    const hx = 0.12 * B;
+  if (f.handle) {
     b.finish = FINISH.chrome;
-    b.tube([-hx, hy, hz], [-hx, hy + 0.08, hz], 0.014, style.bar);
-    b.tube([hx, hy, hz], [hx, hy + 0.08, hz], 0.014, style.bar);
+    for (const post of f.handle.posts) tube(post, style.bar);
     b.finish = FINISH.rubber;
-    b.tube([-hx, hy + 0.08, hz], [hx, hy + 0.08, hz], 0.016, style.grip);
+    tube(f.handle.bar, style.grip);
   }
 
   // THE BOARDING PLATFORM's rubber bumper along the transom's top edge.
   b.finish = FINISH.rubber;
-  b.box(
-    -0.34 * B,
-    railY - 0.06,
-    zTransom - 0.035,
-    0.34 * B,
-    railY + railH,
-    zTransom + 0.02,
-    style.rail,
-  );
+  box(f.bumper, style.rail);
 
   // THE SPONSONS: a blade either side at the aft chine, standing out from
   // the topside — what the hull banks against in a turn.
   b.finish = FINISH.moulding;
-  {
-    const chineY = keelY + hull.chineOut * (B / 2) * dead;
-    for (const side of [-1, 1]) {
-      const inner = side * 0.78 * (B / 2);
-      const outer = side * (B / 2 + shape.sponson);
-      b.box(
-        Math.min(inner, outer),
-        chineY - 0.02,
-        zTransom + 0.04 * L,
-        Math.max(inner, outer),
-        chineY + 0.07,
-        zTransom + 0.36 * L,
-        style.rail,
-      );
-    }
-  }
+  for (const s of f.sponsons) box(s, style.rail);
 
   // THE PUMP: the housing under the platform out of the transom, the
   // nozzle out of it, and the intake grate under the stern.
-  const pumpY = keelY + 0.18 * H;
-  b.box(
-    -0.12 * B,
-    keelY + 0.03 * H,
-    zTransom - 0.05,
-    0.12 * B,
-    keelY + 0.36 * H,
-    zTransom + 0.12 * L,
-    style.grip,
-  );
+  box(f.pump, style.grip);
   // The reboarding step folded up against the transom.
   b.finish = FINISH.rubber;
-  b.box(
-    -0.2 * B,
-    keelY + 0.5 * H,
-    zTransom - 0.035,
-    0.2 * B,
-    keelY + 0.58 * H,
-    zTransom + 0.01,
-    style.rail,
-  );
+  box(f.step, style.rail);
   b.finish = FINISH.moulding;
-  b.tube([0, pumpY, zTransom - 0.04], [0, pumpY, zTransom - 0.17], 0.055, style.rail, 8);
+  tube(f.nozzle, style.rail, 8);
   b.finish = FINISH.mat;
-  b.box(
-    -0.1 * B,
-    keelY - 0.015,
-    zTransom + 0.05 * L,
-    0.1 * B,
-    keelY + 0.01,
-    zTransom + 0.28 * L,
-    style.tray,
-  );
+  box(f.grate, style.tray);
 
   // THE STEERING: a pod on the hood's peak, the column raked back out of
   // it, the bars swept back a little with a grip at each end and a pad
   // over the centre, and a mirror on each flank of the hood.
-  const { zPod, podBase, podH, colTop } = l;
   b.finish = FINISH.paint;
-  b.box(-0.14 * B, podBase, zPod - 0.06 * L, 0.14 * B, podBase + podH, zPod + 0.05 * L, style.deck);
+  box(f.pod, style.deck);
   b.finish = FINISH.moulding;
-  b.tube([0, podBase + podH - 0.02, zPod], colTop, 0.036, style.grip);
-  for (const side of [-1, 1] as const) {
-    const { end } = barOf(l, side);
+  tube(f.column, style.grip);
+  for (const bar of f.bars) {
     b.finish = FINISH.chrome;
-    b.tube(colTop, end, 0.019, style.bar);
-    const gripIn: P = [
-      side * (l.barW / 2 - 0.13),
-      lerp(colTop[1], end[1], 0.7),
-      lerp(colTop[2], end[2], 0.7),
-    ];
+    tube(bar.bar, style.bar);
     b.finish = FINISH.rubber;
-    b.tube(gripIn, end, 0.03, style.grip);
+    tube(bar.grip, style.grip);
   }
-  b.box(
-    -0.06,
-    colTop[1] - 0.03,
-    colTop[2] - 0.04,
-    0.06,
-    colTop[1] + 0.03,
-    colTop[2] + 0.04,
-    style.grip,
-  );
-  if (shape.seatLength > 0.2) {
-    const sMirror = hoodTop + 0.02;
-    const flank = 0.84 * (B / 2) * taper(sMirror);
-    const my = sheerAt(sMirror) + deckAt(sMirror).ped - 0.03 * H;
-    const mz = zTransom + sMirror * L + rakeAt(sMirror);
-    for (const side of [-1, 1]) {
-      const root: P = [side * (flank - 0.02), my, mz];
-      const head: P = [side * (flank + 0.07), my + 0.06, mz];
-      b.finish = FINISH.chrome;
-      b.tube(root, head, 0.012, style.bar);
-      b.finish = FINISH.moulding;
-      b.box(
-        head[0] - 0.045,
-        head[1] - 0.03,
-        head[2] - 0.045,
-        head[0] + 0.045,
-        head[1] + 0.03,
-        head[2] + 0.045,
-        style.deck,
-      );
-    }
+  box(f.pad, style.grip);
+  for (const m of f.mirrors) {
+    b.finish = FINISH.chrome;
+    tube(m.stalk, style.bar);
+    b.finish = FINISH.moulding;
+    box(m.head, style.deck);
   }
 
   const group = new THREE.Group();

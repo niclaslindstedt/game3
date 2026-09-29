@@ -60,7 +60,8 @@ export function CraftPicker({
     const canvas = canvasRef.current;
     if (!canvas) return;
     let disposed = false;
-    void import("./craft-turntable.ts").then(({ createCraftTurntable }) => {
+    void import("./craft-turntable.ts").then(async ({ createCraftTurntable, loadModels }) => {
+      await loadModels();
       if (disposed) return;
       standRef.current = createCraftTurntable(canvas);
       standRef.current.setCraft(craftById(canvas.dataset.craft ?? CRAFT[0].id));

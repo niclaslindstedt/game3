@@ -27,6 +27,7 @@ import * as THREE from "three";
 import { biomeOf, restY, type CraftSpec } from "@engine";
 
 import { buildCraft, cockpitOf } from "./craft-body.ts";
+import { hangCraft } from "./craft-models.ts";
 import { CRAFT_STYLES } from "./craft-styles.ts";
 import { FLOURISH_SECONDS, flourishRate } from "./menu-hold.ts";
 import { createRider, type Rider } from "./rider.ts";
@@ -56,6 +57,8 @@ const SPIN_PERIOD = 18;
  * density `make crafts` draws its waterline against, so the card and the
  * contact sheet sit the craft at the same depth. */
 const DENSITY = biomeOf("taiga").water.density;
+
+export { loadModels } from "./craft-models.ts";
 
 export type CraftTurntable = {
   /** Swap the craft on the water; the spin carries on from where it was.
@@ -121,7 +124,8 @@ export function createCraftTurntable(canvas: HTMLCanvasElement): CraftTurntable 
     if (!hull) return;
     pivot.remove(hull);
     hull.traverse((obj) => {
-      if (!(obj instanceof THREE.Mesh)) return;
+      // A model's geometry is every craft's that draws it, and stays.
+      if (!(obj instanceof THREE.Mesh) || obj.userData.shared) return;
       obj.geometry.dispose();
       const mats = Array.isArray(obj.material) ? obj.material : [obj.material];
       for (const mat of mats) mat.dispose();
@@ -158,6 +162,8 @@ export function createCraftTurntable(canvas: HTMLCanvasElement): CraftTurntable 
     clearCraft();
     const style = CRAFT_STYLES[spec.id];
     hull = buildCraft(spec, style);
+    // …and its model, where this build draws one (`craft-models.ts`).
+    hangCraft(hull, spec, (hull.children[0] as THREE.Mesh).material as THREE.Material);
     rider = createRider(cockpitOf(spec, style));
     hull.add(rider.mesh);
     // The ORIGIN IS THE CENTRE OF GRAVITY (craft-body.ts), and `restY` is

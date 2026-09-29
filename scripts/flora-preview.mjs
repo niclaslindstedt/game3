@@ -21,8 +21,12 @@
 //   node scripts/flora-preview.mjs
 //   node scripts/flora-preview.mjs --rows=reed,sedge,alder
 //   node scripts/flora-preview.mjs --skip-build      # reuse the last bundle
+//   node scripts/flora-preview.mjs --models          # the trees drawn off their MODELS (pwa/models/trees/)
+//   node scripts/flora-preview.mjs --models --from=previews/blender --compare --biome=taiga
+//                                  # a lab run's models: each tree kind a row — the code's
+//                                  # tree, then every variant, then two sketches, triangles under each
 
-import { existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, readdirSync } from "node:fs";
 import { createServer } from "node:http";
 import { readFile } from "node:fs/promises";
 import { dirname, extname, join } from "node:path";
@@ -44,11 +48,21 @@ const args = parseArgs(
       default: "",
       help: "only one coast's roster (taiga, mangrove, arctic, karst)",
     },
+    models: { kind: "flag", help: "draw the trees off their MODELS (every <kind>.glb in --from)" },
+    from: {
+      kind: "string",
+      default: "pwa/models/trees",
+      help: "where --models finds them (previews/blender: a make blender run's)",
+    },
+    compare: {
+      kind: "flag",
+      help: "with --models: the trees alone, each a row — the code's tree, its variants, two sketches",
+    },
     "skip-build": { kind: "flag", help: "reuse the bundle from the last run" },
     timeout: { kind: "number", default: 600, help: "how long the sheet may take to draw, s" },
-    out: { kind: "string", default: join(outDir, "flora.png"), help: "where the sheet is written" },
+    out: { kind: "string", default: "", help: "where the sheet is written" },
   },
-  "usage: node scripts/flora-preview.mjs [--rows=…] [--biome=…] [--skip-build]",
+  "usage: node scripts/flora-preview.mjs [--rows=…] [--biome=…] [--models] [--from=dir] [--compare] [--skip-build]",
 );
 
 mkdirSync(outDir, { recursive: true });
@@ -69,11 +83,30 @@ if (!args["skip-build"] || !existsSync(join(buildDir, "flora-preview.html"))) {
   });
 }
 
+// The models go beside the page, where the harness fetches them from.
+const models = args.models ? args.from : "";
+if (models) {
+  const into = join(buildDir, "models", "trees");
+  mkdirSync(into, { recursive: true });
+  for (const f of readdirSync(join(root, models))) {
+    if (/^[a-z]+\.glb$/.test(f)) copyFileSync(join(root, models, f), join(into, f));
+  }
+}
+const out =
+  args.out ||
+  join(
+    outDir,
+    models
+      ? `flora-${args.compare ? "compare" : "models"}${args.biome ? `-${args.biome}` : ""}.png`
+      : "flora.png",
+  );
+
 const MIME = {
   ".html": "text/html",
   ".js": "text/javascript",
   ".css": "text/css",
   ".json": "application/json",
+  ".glb": "model/gltf-binary",
 };
 
 const server = createServer(async (req, res) => {
@@ -121,7 +154,11 @@ page.on("console", (msg) => {
 });
 
 const query = new URLSearchParams(
-  Object.entries({ rows: args.rows, biome: args.biome }).filter(([, v]) => v),
+  Object.entries({
+    rows: args.rows,
+    biome: args.biome,
+    models: models ? (args.compare ? "compare" : "1") : "",
+  }).filter(([, v]) => v),
 ).toString();
 const url = `http://127.0.0.1:${port}/flora-preview.html${query ? `?${query}` : ""}`;
 console.log(
@@ -145,8 +182,8 @@ await Promise.race([
 const stage = await page.$("canvas#stage");
 const box = await stage.boundingBox();
 await page.setViewportSize({ width: Math.ceil(box.width), height: Math.ceil(box.height) });
-await page.screenshot({ path: args.out, fullPage: true });
-console.log(args.out.replace(`${root}/`, ""));
+await page.screenshot({ path: out, fullPage: true });
+console.log(out.replace(`${root}/`, ""));
 
 await browser.close();
 server.close();

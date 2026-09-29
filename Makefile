@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: PolyForm-Noncommercial-1.0.0
-.PHONY: build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata licences
+.PHONY: model-registry build test lint fmt fmt-check release clean install icons sim level analyze previews routes coasts score course waves surf wash ride crafts blender models ci-models audition screenshots sky flora birds wake glyphs profile hooks shellcheck actionlint changelog bump docs tauri tauri-test tauri-lint tauri-fmt desktop native-install native-bundle native-typecheck native-ios native-iphone native-android store-preflight store-metadata licences
 
 build:
 	npm run build
@@ -216,6 +216,51 @@ ride:
 # `make crafts` · `make crafts CRAFT=marlin` · `make crafts ARGS="--scale 120"`
 crafts:
 	npm run crafts -- $(if $(CRAFT),--craft $(CRAFT),) $(ARGS)
+
+# THE BLENDER LAB: a craft or the rider MODELLED in Blender off the game's
+# own data (`pwa/src/game/model-data.ts`: a craft's spec, style and the lines
+# its hull is lofted on; the rider's body, pose, bones and clips) — studio
+# renders, the game-budget glTF with two LODs and the .blend files, in the
+# gitignored previews/blender/. `make crafts ARGS=--asset=previews/blender/skiff-lod0.glb`
+# sets a model below the builder's craft. Needs Blender (BLENDER= its
+# executable). KIND=rider, ID=dart (or all); ARGS="--quality=game --views=three".
+blender:
+	npm run blender -- $(if $(KIND),--kind $(KIND),) $(if $(ID),--id $(ID),) $(ARGS)
+
+# The models the game ships: every craft, the rider and every kind of tree
+# at game quality (no stills), made by Blender and published into the
+# COMMITTED pwa/models/ (the trees packed with meshopt) with a stamp of what
+# they were made from — tests/models_test.ts fails when a model is older
+# than its builders or the game's data it reads. Needs Blender.
+# SET=machines (the crafts and the rider) or SET=trees makes one half only.
+# A build draws them unless switched back (VITE_MODEL_CRAFTS=0,
+# VITE_MODEL_RIDERS=0, VITE_MODEL_TREES=0).
+models:
+	@if [ "$(SET)" != "trees" ]; then \
+	  npm run blender -- --id all --quality=game --views=none && \
+	  npm run blender -- --kind rider --quality=game --views=none; fi
+	@if [ "$(SET)" != "machines" ]; then \
+	  npm run blender -- --kind tree --id all --quality=game --views=none; fi
+	node --experimental-strip-types --disable-warning=ExperimentalWarning scripts/models.mjs $(if $(SET),--set $(SET),)
+
+# THE MODEL REGISTRY: which assets are Blender models and which the code
+# generates, written into docs/models.md from pwa/src/game/model-registry.ts.
+# `make model-registry` · `make model-registry ARGS=--check`
+model-registry:
+	npm run model-registry -- $(ARGS)
+
+# Switch the models off or on for every CI build — the repository SECRETS
+# the workflows hand the build (this repository keeps no Actions variables;
+# needs gh, and the right to set them): `make ci-models MODELS=off` draws the
+# code-built crafts, rider and trees on the next deploy with no commit;
+# MODELS=on puts the models back.
+ci-models:
+	@case "$(MODELS)" in \
+	  off) gh secret set VITE_MODEL_CRAFTS --body 0 && gh secret set VITE_MODEL_RIDERS --body 0 && gh secret set VITE_MODEL_TREES --body 0 ;; \
+	  on) gh secret set VITE_MODEL_CRAFTS --body 1 && gh secret set VITE_MODEL_RIDERS --body 1 && gh secret set VITE_MODEL_TREES --body 1 ;; \
+	  *) echo "usage: make ci-models MODELS=on|off" >&2; exit 2 ;; \
+	esac
+	@gh secret list | grep VITE_MODEL || true
 
 # THE EAR: the audio review page, previews/audition.html — every sound in
 # the bank on a button beside the sentence it was written against, and the

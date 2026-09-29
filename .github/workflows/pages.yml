@@ -67,6 +67,12 @@ env:
   # branch_ref; every run rehydrates the branch slot from here so regular
   # deploys preserve it.
   BRANCH_DEPLOY_REF: branch-deploy
+  # The model switches (`pwa/src/game/model-switch.ts`): the modelled crafts
+  # and rider unless a repository secret of the same name switches one back
+  # (`make ci-models MODELS=off`).
+  VITE_MODEL_CRAFTS: ${{ secrets.VITE_MODEL_CRAFTS }}
+  VITE_MODEL_RIDERS: ${{ secrets.VITE_MODEL_RIDERS }}
+  VITE_MODEL_TREES: ${{ secrets.VITE_MODEL_TREES }}
 
 jobs:
   # ---- Which ref each slot is built from -----------------------------------
